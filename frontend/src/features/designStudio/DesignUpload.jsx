@@ -247,14 +247,28 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           : 'Pick a garment below to file photographs by part.'}
         aside={(
           <>
-            <Field label="Selected Part" style={{ minWidth: '200px' }}>
-              <select className="form-control" value={activePart} onChange={(e) => setSelectedPart(e.target.value)}>
-                {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-              </select>
-            </Field>
-            {/* The header keeps only the part: both ways of adding a photograph
-                -- the gallery and the camera -- live in the drop zone below,
-                where the eye goes to add one. This input serves Add More. */}
+            {/* Garment first, then its part: the part list is the garment's
+                own, so the two read left to right as one choice. A definite
+                460px block keeps the pair tidy beside the heading and lets it
+                drop whole onto its own line rather than squeezing the heading
+                beside it; on a phone it is the screen less the modal's own
+                padding, and the two fields stack inside it. */}
+            <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', width: 'min(460px, calc(100vw - 100px))' }}>
+              <Field label="Garment" icon={Shirt} style={{ flex: '1 1 200px', minWidth: 0 }}>
+                <select className="form-control" value={form.template_key} onChange={changeGarment}>
+                  <option value="">Uncategorised</option>
+                  {templates.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Selected Part" icon={ImageIcon} style={{ flex: '1 1 200px', minWidth: 0 }}>
+                <select className="form-control" value={activePart} onChange={(e) => setSelectedPart(e.target.value)}>
+                  {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+                </select>
+              </Field>
+            </div>
+            {/* Both ways of adding a photograph -- the gallery and the camera
+                -- live in the drop zone below, where the eye goes to add one.
+                This input serves Add More. */}
             <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={pickFiles(activePart)} />
           </>
         )}
@@ -287,12 +301,8 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
             <input className="form-control" value={form.title} onChange={set('title')}
                    placeholder="e.g. Hand-embroidered bridal lehenga" />
           </Field>
-          <Field label="Garment" icon={Shirt}>
-            <select className="form-control" value={form.template_key} onChange={changeGarment}>
-              <option value="">Uncategorised</option>
-              {templates.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
-            </select>
-          </Field>
+          {/* Garment moved up beside Selected Part: it decides which parts
+              the photographs can be filed under, so it belongs with them. */}
           <DesignCataloguePicker
             garmentKey={form.template_key}
             value={catalogue}
