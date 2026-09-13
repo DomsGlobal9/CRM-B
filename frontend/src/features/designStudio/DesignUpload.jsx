@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BarChart3, Camera, Clock, FileText, Image as ImageIcon, IndianRupee, Layers, Link as LinkIcon,
+  BarChart3, Clock, FileText, Image as ImageIcon, IndianRupee, Layers, Link as LinkIcon,
   PlayCircle, Plus, Save, Shirt, Sparkles, Type, User,
 } from 'lucide-react';
 
@@ -42,7 +42,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   // Which part of the garment the next photographs are filed under.
   const [selectedPart, setSelectedPart] = useState('overall');
   const fileRef = useRef(null);
-  const camRef = useRef(null);
   const [addingCollection, setAddingCollection] = useState(false);
   const inFlight = useRef(false);
 
@@ -253,23 +252,20 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
                 {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
               </select>
             </Field>
-            <button type="button" className="btn-secondary" style={{ alignSelf: 'flex-end' }} onClick={() => camRef.current?.click()}>
-              <Camera size={16} /> Take Photo
-            </button>
-            <button type="button" className="btn-primary" style={{ alignSelf: 'flex-end' }} onClick={() => fileRef.current?.click()}>
-              <Plus size={16} /> Add Photos
-            </button>
+            {/* The header keeps only the part: both ways of adding a photograph
+                -- the gallery and the camera -- live in the drop zone below,
+                where the eye goes to add one. This input serves Add More. */}
             <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={pickFiles(activePart)} />
-            <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={pickFiles(activePart)} />
           </>
         )}
       >
         <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'stretch' }}>
-          <div style={{ flex: '1 1 220px', maxWidth: '320px', display: 'flex' }}>
+          <div style={{ flex: '1 1 260px', maxWidth: '360px', display: 'flex' }}>
             <div style={{ flex: 1 }}>
               <Dropzone
-                compact multiple
-                title="Drag & drop photos here" subtitle="or click to browse" chooseLabel="Choose Photos"
+                compact multiple camera
+                title="Drag & drop photos here" subtitle="or add from your device"
+                chooseLabel="Choose Photos" cameraLabel="Take Photo"
                 onFiles={(files) => pickFiles(activePart)({ target: { files, value: '' } })}
               />
             </div>
