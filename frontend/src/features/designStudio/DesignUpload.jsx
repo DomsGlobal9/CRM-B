@@ -7,6 +7,7 @@ import {
 import { api } from '../../services/api';
 import TemplateForm from '../catalog/TemplateForm';
 import DesignCataloguePicker from './DesignCataloguePicker';
+import { describePath, useDesignCatalogue } from './designCatalogue';
 import { getSection, pruneHidden } from '../../services/templates';
 import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
 
@@ -49,11 +50,17 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   const [catalogue, setCatalogue] = useState(initialCatalogue || {});
   // The position to send: set by the picker only once the path is complete.
   const [cataloguePayload, setCataloguePayload] = useState(null);
+  // Whether the owner has typed a name. Until they do, choosing a catalogue
+  // option fills the name in for them ("Ruffle Saree"); once they have, the
+  // form never overwrites what they wrote.
+  const [titleTouched, setTitleTouched] = useState(false);
   const [form, setForm] = useState({
     title: '', template_key: initialGarmentKey || '', designer_ref: '', collection: '',
     description: '', estimated_price: '', difficulty: '', stitch_hours: '',
     video_url: '', source_url: '',
   });
+  // The garment's catalogue tree, for the name suggestion.
+  const catalogueTree = useDesignCatalogue(form.template_key);
 
   useEffect(() => {
     api.getGarmentTemplates().then(d => setTemplates(d.results || d)).catch(() => setTemplates([]));
@@ -236,6 +243,40 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
         </>
       )}
     >
+      {/* What it is, before where its photographs go: the garment decides the
+          parts and the catalogue, the catalogue position usually is the name.
+          So the three are asked in that order, and the name is suggested from
+          the option chosen until the owner types one of their own. */}
+      <FormSection icon={Shirt} tone="green" title="About this design"
+                   subtitle="Which garment, where it is filed, and what to call it.">
+        <div className="at-form-grid at-form-grid--3">
+          <Field label="Garment" icon={Shirt}>
+            <select className="form-control" value={form.template_key} onChange={changeGarment}>
+              <option value="">Uncategorised</option>
+              {templates.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
+            </select>
+          </Field>
+          <DesignCataloguePicker
+            garmentKey={form.template_key}
+            value={catalogue}
+            onChange={(value, payload) => {
+              setCatalogue(value);
+              setCataloguePayload(payload);
+              if (payload && !titleTouched) {
+                const label = describePath(catalogueTree, value).split(' › ').pop();
+                if (label) setForm((f) => ({ ...f, title: label }));
+              }
+            }}
+          />
+          <Field label="Design Name" required icon={Type}
+                 hint={!titleTouched && cataloguePayload ? 'Suggested from the catalogue — edit it as you like.' : undefined}>
+            <input className="form-control" value={form.title}
+                   onChange={(e) => { setTitleTouched(true); set('title')(e); }}
+                   placeholder="e.g. Hand-embroidered bridal lehenga" />
+          </Field>
+        </div>
+      </FormSection>
+
       {/* Photographs are filed by part of the garment -- a saree has a pallu,
           a border and a body -- so the boutique can show a customer the part
           they asked about. The vocabulary is the chosen garment's own. */}
@@ -243,29 +284,13 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
         icon={ImageIcon} tone="green" title="Design Photographs"
         subtitle={template
           ? `${totalFiles} across ${designParts.length} part${designParts.length === 1 ? '' : 's'} of the ${template.name.toLowerCase()}.`
-          : 'Pick a garment below to file photographs by part.'}
+          : 'Pick a garment above to file photographs by part.'}
         aside={(
-          <>
-            {/* Garment first, then its part: the part list is the garment's
-                own, so the two read left to right as one choice. A definite
-                460px block keeps the pair tidy beside the heading and lets it
-                drop whole onto its own line rather than squeezing the heading
-                beside it; on a phone it is the screen less the modal's own
-                padding, and the two fields stack inside it. */}
-            <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', width: 'min(460px, calc(100vw - 100px))' }}>
-              <Field label="Garment" icon={Shirt} style={{ flex: '1 1 200px', minWidth: 0 }}>
-                <select className="form-control" value={form.template_key} onChange={changeGarment}>
-                  <option value="">Uncategorised</option>
-                  {templates.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
-                </select>
-              </Field>
-              <Field label="Selected Part" icon={ImageIcon} style={{ flex: '1 1 200px', minWidth: 0 }}>
-                <select className="form-control" value={activePart} onChange={(e) => setSelectedPart(e.target.value)}>
-                  {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-                </select>
-              </Field>
-            </div>
-          </>
+          <Field label="Selected Part" icon={ImageIcon} style={{ width: 'min(240px, calc(100vw - 100px))' }}>
+            <select className="form-control" value={activePart} onChange={(e) => setSelectedPart(e.target.value)}>
+              {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </select>
+          </Field>
         )}
       >
         <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'stretch' }}>
@@ -290,19 +315,8 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
         </div>
       </FormSection>
 
-      <FormSection icon={FileText} tone="green" title="Design Details" subtitle="Tell us more about this design.">
+      <FormSection icon={FileText} tone="green" title="Design Details" subtitle="Who made it, and what it costs to make.">
         <div className="at-form-grid at-form-grid--3">
-          <Field label="Design Name" required icon={Type}>
-            <input className="form-control" value={form.title} onChange={set('title')}
-                   placeholder="e.g. Hand-embroidered bridal lehenga" />
-          </Field>
-          {/* Garment moved up beside Selected Part: it decides which parts
-              the photographs can be filed under, so it belongs with them. */}
-          <DesignCataloguePicker
-            garmentKey={form.template_key}
-            value={catalogue}
-            onChange={(value, payload) => { setCatalogue(value); setCataloguePayload(payload); }}
-          />
           <Field label="Designer" icon={User}>
             {select('designer_ref', designers.map(d => [d.id, d.name]), 'Unattributed')}
           </Field>
