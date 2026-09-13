@@ -42,10 +42,6 @@ ALLOWED_FIELDS = {
         'id', 'name', 'garment_type', 'neckline_style', 'sleeve_style',
         'image_url', 'is_boutique', 'description', 'price',
     ),
-    'crm_api.boutiquefabric': (
-        'id', 'name', 'material', 'color', 'price_per_meter',
-        'image_url', 'is_available',
-    ),
     'crm_api.boutiquesettings': (
         'id', 'name', 'address', 'phone', 'email', 'logo',
         'workflow_config', 'design_approval_required',

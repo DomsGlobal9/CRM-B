@@ -82,7 +82,9 @@ def _tracked_steps(tenant):
     designers = Designer.objects.count()
     collections = Collection.objects.count()
     boards = DesignBoard.objects.count()
-    items = InventoryItem.objects.count()
+    # The demo fabrics the signup seeder writes are stock rows since the
+    # fabric catalogue merged into inventory; they are not the boutique's work.
+    items = InventoryItem.objects.exclude(item_code__startswith='FAB-DEMO-').count()
     suppliers = Supplier.objects.count()
     purchase_orders = PurchaseOrder.objects.count()
     customers = Customer.objects.aggregate(n=Count('id'), first=Min('created_at'))
@@ -169,7 +171,8 @@ def _tracked_steps(tenant):
               if (items or suppliers or purchase_orders) else
               'No stock items, suppliers or purchase orders. Deliberately not '
               'counting CatalogItem, StockLocation or GarmentTemplate: all three '
-              'are seeded by migrations and every boutique has hundreds.',
+              'are seeded by migrations and every boutique has hundreds. The '
+              "signup seeder's demo fabrics (FAB-DEMO-*) are skipped too.",
               module='inventory'),
     ]
 
