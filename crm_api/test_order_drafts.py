@@ -298,6 +298,35 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         self.assertEqual(job.materials.get().quantity, Decimal('2.000'))
         self.assertEqual(job.measurements['chest'], '36')
 
+    def test_the_designs_and_fabrics_chosen_stay_on_the_garment(self):
+        from apps.inventory.models import InventoryItem
+        silk = InventoryItem.objects.create(
+            item_code='FAB-T-001', name='Kanchipuram Silk', category='FABRIC', unit='METER',
+            material_type='Silk', color='Maroon', selling_price=Decimal('1200'))
+        draft_id = self.a_draft(garments=[{
+            'template': str(self.template.id),
+            'spec': {'blouse_type': 'princess'},
+            'measurements': {'chest': '36'},
+            'design': {'parts': {'front': {
+                'id': 7, 'image_url': '/media/front.jpg',
+                'design_title': 'Pattu Blouse', 'part_label': 'Front design'}}},
+            'fabrics': {'MAIN_FABRIC': [str(silk.id)], 'BORDER': [str(silk.id)]},
+            'fabric_qty': {f'MAIN_FABRIC:{silk.id}': 6, f'BORDER:{silk.id}': 1.5},
+        }])
+
+        response = self.api.post(reverse('order-draft-confirm', args=[draft_id]))
+
+        self.assertEqual(response.status_code, 201, response.data)
+        kept = Order.objects.get().garment_jobs.get().selections
+        self.assertEqual(kept['design']['parts']['front']['design_title'], 'Pattu Blouse')
+        self.assertEqual(kept['fabrics'], {'MAIN_FABRIC': [str(silk.id)], 'BORDER': [str(silk.id)]})
+        self.assertEqual([f['name'] for f in kept['fabric_items']], ['Kanchipuram Silk'])
+        self.assertEqual(kept['fabric_qty'][f'MAIN_FABRIC:{silk.id}'], 6)
+        self.assertEqual(kept['slot_labels']['MAIN_FABRIC'], 'Main Fabric / Body')
+        # The stage panel reads the order, not the draft, and never /api/fabrics/.
+        panel = response.data['garment_jobs'][0]['selections']
+        self.assertEqual(panel['fabric_items'][0]['color'], 'Maroon')
+
     def test_the_material_lifecycle_only_begins_after_confirmation(self):
         draft_id = self.a_draft()
         self.brocade.refresh_from_db()

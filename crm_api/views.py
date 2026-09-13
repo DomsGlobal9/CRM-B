@@ -30,13 +30,13 @@ MONEY = DecimalField(max_digits=12, decimal_places=2)
 
 from .models import (
     Customer, CustomerMessage, GarmentImage, Measurement, DesignPreference,
-    FabricSelection, Tailor, Order, BoutiqueFabric, BoutiqueDesign,
+    FabricSelection, Tailor, Order, BoutiqueDesign,
     Notification, OrderStageHistory, BoutiqueSettings, MeasurementHistory,
     OrderStage, OrderActivity
 )
 from .serializers import (
     CustomerSerializer, MeasurementSerializer, DesignPreferenceSerializer,
-    FabricSelectionSerializer, TailorSerializer, OrderSerializer, BoutiqueFabricSerializer,
+    FabricSelectionSerializer, TailorSerializer, OrderSerializer,
     BoutiqueDesignSerializer, NotificationSerializer, OrderStageHistorySerializer, BoutiqueSettingsSerializer,
     MeasurementHistorySerializer, CustomerSummarySerializer, OrderSummarySerializer,
     OrderStageSerializer, CustomerMessageSerializer, GarmentImageSerializer
@@ -388,78 +388,6 @@ class TailorViewSet(viewsets.ModelViewSet):
             candidate = f"{base}{counter}"
             counter += 1
         return candidate
-
-class BoutiqueFabricViewSet(viewsets.ModelViewSet):
-    queryset = BoutiqueFabric.objects.prefetch_related('placements').all()
-    serializer_class = BoutiqueFabricSerializer
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        params = self.request.query_params
-
-        if kind := params.get('kind'):
-            queryset = queryset.filter(kind=kind)
-        if variant := params.get('variant'):
-            queryset = queryset.filter(variant=variant)
-
-        placement = {f'placements__{f}': params[f]
-                     for f in ('garment', 'section', 'slot') if params.get(f)}
-        if placement:
-            queryset = queryset.filter(**placement)
-
-        if params.get('accessory') in ('1', 'true', 'True'):
-            from crm_api.fabric_taxonomy import ACCESSORY_KINDS
-            queryset = queryset.filter(kind__in=ACCESSORY_KINDS)
-        if params.get('uncategorised') in ('1', 'true', 'True'):
-            queryset = queryset.filter(kind='', placements__isnull=True)
-
-        return queryset.distinct()
-
-    def get_serializer(self, *args, **kwargs):
-        # A saree is catalogued a part at a time -- body, border, tassel -- and
-        # each part is its own purchase with its own price. Posting the list
-        # validates every row before any is written, so the counter never ends
-        # up with three of five saved.
-        if isinstance(kwargs.get('data'), list):
-            kwargs['many'] = True
-        return super().get_serializer(*args, **kwargs)
-
-    def create(self, request, *args, **kwargs):
-        if isinstance(request.data, list):
-            with transaction.atomic():
-                return super().create(request, *args, **kwargs)
-        return super().create(request, *args, **kwargs)
-
-    @action(detail=False, methods=['GET'], url_path='taxonomy')
-    def taxonomy(self, request):
-        from crm_api.fabric_taxonomy import tree
-        return Response(tree())
-
-    # A fabric that does not exist yet has no id to hang an upload on, so the
-    # shots go up first and the form saves the URLs it gets back. Same storage
-    # path shape and same absolute-URL build as every other upload here.
-    @action(detail=False, methods=['post'], url_path='upload-images')
-    def upload_images(self, request):
-        files = request.FILES.getlist('images')
-        if not files:
-            return Response({'error': 'No images were sent.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        if len(files) > 10:
-            return Response({'error': 'Up to 10 images at a time.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        urls = []
-        for f in files:
-            # A phone camera roll is not a trusted source: take images only.
-            if not (f.content_type or '').startswith('image/'):
-                return Response({'error': f"{f.name} is not an image."},
-                                status=status.HTTP_400_BAD_REQUEST)
-            if f.size > 10 * 1024 * 1024:
-                return Response({'error': f"{f.name} is larger than 10MB."},
-                                status=status.HTTP_400_BAD_REQUEST)
-            path = f"fabrics/{uuid.uuid4()}_{f.name}"
-            saved = default_storage.save(path, ContentFile(f.read()))
-            urls.append(request.build_absolute_uri(default_storage.url(saved)))
-        return Response({'image_urls': urls}, status=status.HTTP_201_CREATED)
 
 class BoutiqueDesignViewSet(viewsets.ModelViewSet):
     queryset = DesignAsset.objects.filter(
@@ -1445,6 +1373,59 @@ def _part_items_from_draft(design):
     return items
 
 
+def _selections_from_draft(garment, template):
+    """What the wizard chose for this garment, kept on the job as it was chosen.
+
+    The review step reads `design.parts`, `design.part_refs` and the `fabrics`
+    slot map straight off the draft. Confirm wrote the designs to the board and
+    dropped the fabrics on the floor, so the stage panel could never show a
+    tailor which roll goes on which part. Both maps are kept verbatim, and the
+    stock rows and slot labels are resolved here: the floor roles have no
+    inventory module, so the panel has to read without asking /api/inventory/.
+    """
+    from apps.inventory.models import InventoryItem
+    from crm_api.fabric_taxonomy import GARMENTS, SLOTS
+
+    fabrics = garment.get('fabrics')
+    if not isinstance(fabrics, dict):
+        fabrics = {}
+    ids = {
+        str(i)
+        for chosen in fabrics.values()
+        for i in (chosen if isinstance(chosen, list) else [chosen])
+    }
+    keys = []
+    for value in ids:
+        try:
+            keys.append(uuid.UUID(value))
+        except ValueError:
+            continue
+    items = list(InventoryItem.objects.filter(pk__in=keys).values(
+        'id', 'name', 'material_type', 'color', 'color_hex', 'image_url', 'kind', 'variant', 'unit'))
+    for item in items:
+        item['id'] = str(item['id'])
+
+    # Mirrors GarmentSelectionsReview.slotLabels in the browser: the section is
+    # named only where the garment has more than one.
+    spec = GARMENTS.get(template.key) or {}
+    sections = spec.get('sections') or {}
+    labels = {}
+    for section, slots in sections.items():
+        prefix = ((spec.get('section_labels') or {}).get(section, section.title()) + ' · '
+                  if section and len(sections) > 1 else '')
+        for slot in slots:
+            labels[slot] = prefix + SLOTS.get(slot, slot)
+
+    quantities = garment.get('fabric_qty')
+    return {
+        'design': garment.get('design') or {},
+        'fabrics': fabrics,
+        'fabric_qty': quantities if isinstance(quantities, dict) else {},
+        'fabric_items': items,
+        'slot_labels': labels,
+    }
+
+
 class OrderDraftViewSet(viewsets.ViewSet):
 
     def _serialise(self, draft):
@@ -1600,6 +1581,8 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 })
                 serializer.is_valid(raise_exception=True)
                 job = serializer.save()
+                job.selections = _selections_from_draft(garment, template)
+                job.save(update_fields=['selections'])
                 _collect_customer_materials(brought, template, job)
 
                 design = garment.get('design') or {}
