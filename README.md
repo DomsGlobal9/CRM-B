@@ -200,6 +200,11 @@ afterwards does not undo.
     point local runs (and `manage.py test`, which enables the local path
     implicitly) at production. Unset, `LOCAL_DB_USER` is the OS account this
     process runs as.
+  * `DESIGN_DISCOVERY_API_KEY` switches on "Search the web" on the order
+    wizard's design step: photographs from the open web for one garment
+    part, via the Design Discovery search. `DESIGN_DISCOVERY_URL` overrides
+    the endpoint. Unset, the button does not appear. Each search costs the
+    provider credits and is capped at 20 a minute per boutique.
   * `SUPABASE_URL` and `SUPABASE_KEY` are used by the Supabase client, separately
     from the database connection above.
   * `EMAIL_HOST` (plus `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, optionally

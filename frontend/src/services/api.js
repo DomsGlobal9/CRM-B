@@ -1156,6 +1156,30 @@ export const api = {
   // A reference photograph the customer brought for one part. Stored on the
   // spot and returned as a URL, because the wizard holds its work in a JSON
   // draft until Confirm and a file cannot ride in one.
+  // Design Discovery: photographs from the open web for one garment part.
+  // The search returns links; `keepWebDesign` copies a chosen one into our
+  // storage, because the vendor's links expire.
+  async webDesignSearchAvailable() {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/web-search/`, { headers: getHeaders() });
+    if (!res.ok) return false;
+    return !!(await res.json()).available;
+  },
+  async searchWebDesigns(payload) {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/web-search/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data) || 'The design search failed.');
+    return data;
+  },
+  async keepWebDesign(imageUrl, title) {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/web-keep/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify({ image_url: imageUrl, title }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data) || 'Could not keep that picture.');
+    return data;
+  },
   async uploadReferenceImage(file) {
     const body = new FormData();
     body.append('image', file);

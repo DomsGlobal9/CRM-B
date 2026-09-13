@@ -578,6 +578,76 @@ class ReferenceUploadView(views.APIView):
             status=status.HTTP_201_CREATED)
 
 
+class WebDesignSearchView(views.APIView):
+    """Garment photographs from the open web, for a part the catalogue cannot fill.
+
+    GET says whether the search is set up at all, so the wizard shows the box
+    only where it works. POST runs one search for one garment part: the
+    vendor is told our garment and design area, plus whatever words the owner
+    typed. Results are links; nothing is stored by searching. The rate-limit
+    bucket is the boutique, not the person -- the vendor asks for a stable
+    clientId and the tenant schema is exactly that.
+    """
+
+    permission_classes = [DesignStudioPermission]
+
+    def get(self, request):
+        from . import web_search
+        return Response({'available': web_search.configured()})
+
+    def post(self, request):
+        from django.db import connection
+        from . import web_search
+
+        data = request.data or {}
+        keywords = data.get('keywords') or []
+        if isinstance(keywords, str):
+            keywords = [w for w in keywords.replace(',', ' ').split() if w]
+        try:
+            found = web_search.search(
+                client_id=connection.schema_name,
+                garment_key=str(data.get('garment_key') or ''),
+                part_key=str(data.get('part_key') or ''),
+                part_label=str(data.get('part_label') or ''),
+                keywords=[str(w) for w in keywords][:12],
+                instruction=str(data.get('instruction') or ''),
+                colour=str(data.get('colour') or ''),
+                fabric=str(data.get('fabric') or ''),
+                occasion=str(data.get('occasion') or ''),
+                limit=data.get('limit') or None,
+                page=data.get('page') or 1,
+            )
+        except web_search.DiscoveryError as exc:
+            return Response({'error': str(exc)}, status=exc.status)
+        except (TypeError, ValueError):
+            return Response({'error': 'Bad search request.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(found)
+
+
+class WebDesignKeepView(views.APIView):
+    """Copy one chosen web photograph into our storage.
+
+    The search hands back URLs that expire; the reference on an order has to
+    outlive them. Called the moment a picture is picked, and it answers with
+    the same shape ReferenceUploadView does, so the part slot, the draft and
+    Confirm take a web pick exactly as they take an uploaded one.
+    """
+
+    permission_classes = [DesignStudioPermission]
+
+    def post(self, request):
+        from . import web_search
+        data = request.data or {}
+        try:
+            saved = web_search.keep(str(data.get('image_url') or ''),
+                                    title=str(data.get('title') or ''))
+        except web_search.DiscoveryError as exc:
+            return Response({'error': str(exc)}, status=exc.status)
+        return Response(
+            {'image_url': request.build_absolute_uri(default_storage.url(saved))},
+            status=status.HTTP_201_CREATED)
+
+
 class DesignCatalogueView(views.APIView):
     """The design catalogue tree for one garment, or for every garment that has one.
 
