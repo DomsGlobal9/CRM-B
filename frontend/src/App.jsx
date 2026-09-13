@@ -1081,7 +1081,8 @@ const NAV_MODULE = {
   orders: null,
   alterations: null,
   customers: null,
-  assignments: null,
+  pendingTasks: null,
+  closedTasks: null,
   invoices: null,
   analytics: null,
   account: null,
@@ -1150,13 +1151,8 @@ const navSectionsFor = (user, t) => {
       ] },
     ] : role === 'Master' ? [
       { key: 'master', items: [
-        { tab: 'assignments', icon: Scissors, label: t('nav.myAssignments'), phone: true },
-        { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
-        { tab: 'customers', icon: Users, label: t('nav.customers'), phone: true },
-        // A Master supervises the floor, so they get the team roster. The
-        // screen hides every management control for them and the API strips
-        // colleagues' pay from the response -- see StaffSelfOrOwner.
-        { tab: 'staff', icon: Landmark, label: t('nav.staffManagement') },
+        { tab: 'pendingTasks', icon: ClipboardList, label: t('nav.pendingTasks', 'Pending Tasks'), phone: true },
+        { tab: 'closedTasks', icon: CheckCircle2, label: t('nav.closedTasks', 'Closed Tasks'), phone: true },
         { tab: 'designWork', icon: PenTool, label: t('nav.designWork') },
       ] },
     ] : role === 'Designer' ? [
@@ -1166,7 +1162,8 @@ const navSectionsFor = (user, t) => {
       ] },
     ] : [
       { key: 'production', items: [
-        { tab: 'assignments', icon: Scissors, label: t('nav.myAssignments'), phone: true },
+        { tab: 'pendingTasks', icon: ClipboardList, label: t('nav.pendingTasks', 'Pending Tasks'), phone: true },
+        { tab: 'closedTasks', icon: CheckCircle2, label: t('nav.closedTasks', 'Closed Tasks'), phone: true },
         // Production staff record their own hours here. Labelled for what it
         // is to them -- the screen opens on Attendance and shows only their
         // own record. Without this entry a tailor cannot check in at all.
@@ -1867,6 +1864,7 @@ function App() {
   const [expandedCustomerOrderId, setExpandedCustomerOrderId] = useState(null);
   // Manage Orders table: the row whose full card is open under it.
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
+  const [openTaskRowId, setOpenTaskRowId] = useState(null);
   // Alterations sit in the same register as orders, told apart by a Type column.
   const [alterationsList, setAlterationsList] = useState([]);
   const [approvingDesignId, setApprovingDesignId] = useState(null);
@@ -2101,7 +2099,7 @@ function App() {
           return;
         }
         if (isProductionStaff(user.role)) {
-          setDashboardTab('assignments');
+          setDashboardTab('pendingTasks');
         } else {
           setDashboardTab('overview');
         }
@@ -2397,7 +2395,7 @@ function App() {
         return;
       }
       if (isProductionStaff(res.user.role)) {
-        setDashboardTab('assignments');
+        setDashboardTab('pendingTasks');
       } else {
         setDashboardTab('overview');
       }
@@ -2985,6 +2983,40 @@ function App() {
     if (currentUser?.role === 'Owner' || currentUser?.role === 'Master') return false;
     const live = liveStage(order);
     return !!live && (live.roles || []).includes(currentUser?.role);
+  };
+
+  // A task is closed for this person once the order is over, or once every
+  // stage that was theirs -- handed to them by name, or one their role
+  // performs -- is settled. A Master supervises every stage, so for them the
+  // task is the whole order.
+  const isClosedForMe = (order) => {
+    if (['Delivered', 'Cancelled'].includes(order.order_status) || !liveStage(order)) return true;
+    const config = boutiqueSettings?.workflow_config || [];
+    const rolesFor = (key) => (config.find(s => s.key === key)?.roles) || [];
+    const me = currentUser?.tailor_id;
+    const mine = (order.stages || []).filter(s =>
+      s.assigned_to === me
+      || (currentUser?.role !== 'Master' && rolesFor(s.stage_key).includes(currentUser?.role)));
+    return mine.length > 0 && mine.every(s => ['COMPLETED', 'SKIPPED'].includes(s.status));
+  };
+  const closedTasksView = dashboardTab === 'closedTasks';
+  const taskOrders = ordersList.filter(o => isMyAssignment(o) && isClosedForMe(o) === closedTasksView);
+  // One line per task, read the way the owner's order registry reads: where
+  // the order stands, and which stage it is standing on.
+  const taskRowStatus = (order) => {
+    const stages = order.stages || [];
+    if (order.order_status === 'Delivered') return { tone: 'success', label: 'Delivered', stage: '' };
+    if (order.order_status === 'Cancelled') return { tone: 'neutral', label: 'Cancelled', stage: '' };
+    const verifying = stages.some(st => st.status === 'PENDING_VERIFICATION');
+    const current = stages.find(st => st.status === 'PENDING_VERIFICATION')
+      || stages.find(st => st.status === 'IN_PROGRESS')
+      || stages.find(st => st.status !== 'COMPLETED');
+    const done = stages.filter(st => st.status === 'COMPLETED').length;
+    return {
+      tone: verifying ? 'info' : 'warning',
+      label: verifying ? 'Pending verification' : 'Pending',
+      stage: current ? `${current.stage_name} (${done}/${stages.length})` : '',
+    };
   };
 
   // Opens the stage review panel for a given order and stage.
@@ -3723,16 +3755,16 @@ function App() {
 
           {/* Main Content Area */}
           <main className="portal-main">
-            {dashboardTab === 'assignments' && (
+            {(dashboardTab === 'pendingTasks' || dashboardTab === 'closedTasks') && (
               <>
                 <header className="portal-header">
                   <div className="portal-header-left">
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                       <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400 }}>
-                        My Assignments Dashboard
+                        {closedTasksView ? 'Closed Tasks' : 'Pending Tasks'}
                       </h1>
                       <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        Logged in as {currentUserName} ({currentUser.role}). View and manage your active orders.
+                        Logged in as {currentUserName} ({currentUser.role}). {closedTasksView ? 'Work you have finished.' : 'View and manage your active orders.'}
                       </p>
                     </div>
                   </div>
@@ -3754,24 +3786,64 @@ function App() {
                     padding: '24px'
                   }}>
                     <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-                      Active Assigned Orders
+                      {closedTasksView ? 'Closed Tasks' : 'Pending Tasks'}
                     </h3>
                     
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      {ordersList.filter(o => 
-                        isMyAssignment(o)
-                      ).length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center', fontSize: '13px' }}>
-                          No active orders are assigned to you at the moment.
-                        </p>
-                      ) : (
-                        ordersList.filter(o => 
-                          isMyAssignment(o)
-                        ).map(order => (
-                          <div key={order.id} style={{
-                            background: 'rgba(0,0,0,0.01)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '12px',
+                    {taskOrders.length === 0 ? (
+                      <p style={{ color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center', fontSize: '13px' }}>
+                        {closedTasksView ? 'Nothing you worked on is closed yet.' : 'No active orders are assigned to you at the moment.'}
+                      </p>
+                    ) : (
+                    <div className="at-table-wrap">
+                    <table className="at-table">
+                      <thead>
+                        <tr>
+                          <th>Order ID</th>
+                          <th>Type</th>
+                          <th>Customer Name</th>
+                          <th>Est. Delivery Date</th>
+                          <th>Status</th>
+                          <th style={{ textAlign: 'right' }}>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {taskOrders.map(order => {
+                          const isOpen = openTaskRowId === order.id;
+                          const row = taskRowStatus(order);
+                          return (
+                          <React.Fragment key={order.id}>
+                          <tr>
+                            <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
+                            <td>{orderGarmentLabel(order) || 'Stitching'}</td>
+                            <td>{order.customer_name}</td>
+                            <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
+                            <td>
+                              <span className={`ui-badge ui-badge--${row.tone}`}>{row.label}</span>
+                              {row.stage && (
+                                <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                                  {row.stage}
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <button type="button" className="btn-secondary at-btn-sm"
+                                        onClick={() => setOpenTaskRowId(isOpen ? null : order.id)}>
+                                  <Eye size={12} /> {isOpen ? 'Hide' : 'View'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isOpen && (
+                          <tr>
+                          <td colSpan={6} style={{ padding: 0, background: 'var(--surface-2)' }}>
+                          {/* width:0 + min-width:100%: the card takes the table's
+                              width instead of setting it, so the stage strip
+                              scrolls inside itself, not the table. */}
+                          <div style={{ width: 0, minWidth: '100%' }}>
+                          <div style={{
+                            background: 'var(--surface-color)',
+                            borderTop: '1px solid var(--border-color)',
                             padding: '20px',
                             display: 'flex',
                             flexDirection: 'column',
@@ -4098,9 +4170,17 @@ function App() {
                               </div>
                             )}
                           </div>
-                        ))
-                      )}
+                          </div>
+                          </td>
+                          </tr>
+                          )}
+                          </React.Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                     </div>
+                    )}
                   </div>
                 </div>
 

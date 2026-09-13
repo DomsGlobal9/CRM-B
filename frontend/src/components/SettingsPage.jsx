@@ -34,14 +34,17 @@ export const SettingsPage = ({
 }) => {
   const { t } = useLanguage();
   const [resetting, setResetting] = useState(false);
+  // The linked WhatsApp line is the boutique's own: only the owner sees it,
+  // and only the owner's screen polls for it.
+  const isOwner = !currentUser?.role || currentUser?.role === 'Owner';
 
   React.useEffect(() => {
-    if (fetchWhatsAppStatus) {
+    if (isOwner && fetchWhatsAppStatus) {
       fetchWhatsAppStatus();
       const interval = setInterval(fetchWhatsAppStatus, 3000);
       return () => clearInterval(interval);
     }
-  }, [fetchWhatsAppStatus]);
+  }, [fetchWhatsAppStatus, isOwner]);
 
   const handleReset = async () => {
     setResetting(true);
@@ -143,6 +146,7 @@ export const SettingsPage = ({
         </div>
 
         {/* WhatsApp Integration & QR Code Card */}
+        {isOwner && (
         <div 
           className="settings-card" 
           style={{ 
@@ -250,6 +254,7 @@ export const SettingsPage = ({
             )}
           </div>
         </div>
+        )}
 
         {/* Invoice Template Selection Card (Right side of WhatsApp Link card) */}
         <InvoiceTemplateSelector currentUser={currentUser} />
