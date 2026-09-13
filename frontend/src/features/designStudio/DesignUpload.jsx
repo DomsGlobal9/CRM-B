@@ -8,7 +8,7 @@ import { api } from '../../services/api';
 import TemplateForm from '../catalog/TemplateForm';
 import DesignCataloguePicker from './DesignCataloguePicker';
 import { getSection, pruneHidden } from '../../services/templates';
-import { AddMoreTile, Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
+import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
 
 /**
  * Uploading a design into the library.
@@ -41,7 +41,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   const [newCollection, setNewCollection] = useState('');
   // Which part of the garment the next photographs are filed under.
   const [selectedPart, setSelectedPart] = useState('overall');
-  const fileRef = useRef(null);
   const [addingCollection, setAddingCollection] = useState(false);
   const inFlight = useRef(false);
 
@@ -266,10 +265,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
                 </select>
               </Field>
             </div>
-            {/* Both ways of adding a photograph -- the gallery and the camera
-                -- live in the drop zone below, where the eye goes to add one.
-                This input serves Add More. */}
-            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={pickFiles(activePart)} />
           </>
         )}
       >
@@ -280,6 +275,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
                 compact multiple camera
                 title="Drag & drop photos here" subtitle="or add from your device"
                 chooseLabel="Choose Photos" cameraLabel="Take Photo"
+                hint="JPG, PNG (Max 5MB each)"
                 onFiles={(files) => pickFiles(activePart)({ target: { files, value: '' } })}
               />
             </div>
@@ -291,7 +287,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
               onRemove={() => removeFile(shot.key, shot.i)}
             />
           ))}
-          <AddMoreTile onClick={() => fileRef.current?.click()} hint="JPG, PNG (Max 5MB each)" size={110} />
         </div>
       </FormSection>
 
