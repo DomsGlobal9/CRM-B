@@ -2240,6 +2240,18 @@ function App() {
     }
   }, [view, dashboardTab, currentUser, fetchWhatsAppStatus]);
 
+  // The Today card (staff on the floor, today's appointments) reads from
+  // /api/dashboard/, which was fetched once at sign-in. A check-in on the
+  // Staff tab or a booking made elsewhere never reached it until a full
+  // reload, so the card sat on 0 / "No appointments". Re-read just the
+  // dashboard payload whenever the overview tab comes back into view.
+  useEffect(() => {
+    if (view === 'dashboard' && dashboardTab === 'overview' && dashboardData) {
+      api.getDashboard().then(setDashboardData).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dashboardTab]);
+
   // The browser's Back button. Every screen here is state, not a URL, so the
   // only history entry was the sign-in page (or whatever tab the app was
   // opened from) and Back left the app entirely -- which read as a logout.
@@ -2345,6 +2357,8 @@ function App() {
         await api.createAppointment(payload);
       }
       await reloadAppointments();
+      // The dashboard's Today card lists today's bookings from its own payload.
+      fetchDashboardAndConfig();
       closeAppointmentModal();
     } catch (err) {
       alert((editingAppointment ? "Could not save the appointment: "
@@ -2363,6 +2377,7 @@ function App() {
     try {
       await api.updateAppointment(editingAppointment.id, { status: 'CANCELLED' });
       await reloadAppointments();
+      fetchDashboardAndConfig();
       closeAppointmentModal();
     } catch (err) {
       alert("Could not cancel the appointment: " + err.message);
