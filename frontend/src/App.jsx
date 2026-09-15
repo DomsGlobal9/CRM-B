@@ -2240,6 +2240,49 @@ function App() {
     }
   }, [view, dashboardTab, currentUser, fetchWhatsAppStatus]);
 
+  // The browser's Back button. Every screen here is state, not a URL, so the
+  // only history entry was the sign-in page (or whatever tab the app was
+  // opened from) and Back left the app entirely -- which read as a logout.
+  // Each signed-in screen now puts an entry in history, so Back walks the
+  // screens the person actually visited; from the first one it stays put
+  // rather than leaving. The session is untouched either way.
+  useEffect(() => {
+    if (view === 'login' || view === 'signup' || view === 'forgot' || view === 'reset') return;
+    // After Back, history.state already is the screen being shown, so the
+    // check below keeps a pop from pushing a fresh entry of its own.
+    const here = { atelier: true, view, tab: dashboardTab };
+    const current = window.history.state;
+    if (current?.atelier && current.view === view && current.tab === dashboardTab) return;
+    if (current?.atelier) {
+      window.history.pushState(here, '');
+    } else {
+      // The first signed-in screen claims the entry the app was opened on
+      // AND adds one more: Back from the first screen then lands on the
+      // app's own duplicate (where popstate can hold it) instead of on
+      // whatever page came before the app.
+      window.history.replaceState(here, '');
+      window.history.pushState(here, '');
+    }
+  }, [view, dashboardTab]);
+  useEffect(() => {
+    const onPop = (event) => {
+      const state = event.state;
+      if (state?.atelier) {
+        if (state.view === view && state.tab === dashboardTab) {
+          // Popped onto the duplicate of the screen already showing -- the
+          // first screen's guard. Put the guard back so the next Back holds
+          // too, and stay where we are.
+          window.history.pushState(state, '');
+          return;
+        }
+        setView(state.view);
+        setDashboardTab(state.tab);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [view, dashboardTab]);
+
   const handleMarkMessageSent = async (orderId, messageId) => {
     await api.markMessageSent(orderId, messageId);
     // The queue holds only what is still waiting, so a sent one leaves it.
