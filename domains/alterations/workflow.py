@@ -55,9 +55,17 @@ ALLOWED_TRANSITIONS = {
         AlterationStatus.CANCELLED,
     },
     AlterationStatus.QC: {
-        AlterationStatus.READY_FOR_PICKUP,
+        # Passed QC: the customer is shown the work before it is called
+        # ready. Their approval is the last check on a big job too.
+        AlterationStatus.CUSTOMER_REVIEW,
         # QC failure. Returning to IN_PROGRESS *is* the rework state; there is
         # deliberately no separate "start rework" step to get wrong.
+        AlterationStatus.IN_PROGRESS,
+        AlterationStatus.CANCELLED,
+    },
+    AlterationStatus.CUSTOMER_REVIEW: {
+        AlterationStatus.READY_FOR_PICKUP,
+        # Not satisfied: back to the bench, same as a failed QC.
         AlterationStatus.IN_PROGRESS,
         AlterationStatus.CANCELLED,
     },
@@ -115,6 +123,13 @@ SMALL_ISSUE_TRANSITIONS = {
 def transitions_for(scale):
     """The table an alteration of this issue size moves through."""
     return SMALL_ISSUE_TRANSITIONS if scale == IssueScale.SMALL else ALLOWED_TRANSITIONS
+
+
+def customer_approved_target(scale):
+    """Where the customer's yes sends it: pressing on a small job, ready for
+    pickup on a big one."""
+    return (AlterationStatus.PRESSING if scale == IssueScale.SMALL
+            else AlterationStatus.READY_FOR_PICKUP)
 
 
 #: Every production role, i.e. everyone who can hold a garment and work on it.
@@ -238,30 +253,44 @@ def available_actions(alteration, role, tailor_id=None):
     if not role or role == DESIGNER:
         return actions
 
-    candidates = [
-        ('start-inspection', AlterationStatus.INSPECTION),
-        ('submit-for-approval', AlterationStatus.PENDING_APPROVAL),
-        ('approve', AlterationStatus.APPROVED),
-        ('assign', AlterationStatus.ASSIGNED),
-        ('start-work', AlterationStatus.IN_PROGRESS),
-        ('send-to-qc', AlterationStatus.QC),
-        ('pass-qc', AlterationStatus.READY_FOR_PICKUP),
-        # Small-issue stops; unreachable from the big table, so never offered
-        # on a big issue -- and the big-only ones are never offered on a small.
-        ('work-complete', AlterationStatus.CUSTOMER_REVIEW),
-        ('customer-approved', AlterationStatus.PRESSING),
-        ('pressed', AlterationStatus.PACKAGING),
-        ('complete', AlterationStatus.COMPLETED),
-        ('cancel', AlterationStatus.CANCELLED),
-    ]
     scale = getattr(alteration, 'issue_scale', '')
-    for key, target in candidates:
+    # (key, target, only-from). CUSTOMER_REVIEW is reached two ways -- the
+    # bench finishing a small job, QC passing a big one -- and left two ways
+    # -- to pressing on a small job, to ready-for-pickup on a big one -- so
+    # those keys pin the status they are offered from, and the table (which
+    # differs by issue size) decides the rest.
+    candidates = [
+        ('start-inspection', AlterationStatus.INSPECTION, None),
+        ('submit-for-approval', AlterationStatus.PENDING_APPROVAL, None),
+        ('approve', AlterationStatus.APPROVED, None),
+        ('assign', AlterationStatus.ASSIGNED, None),
+        ('start-work', AlterationStatus.IN_PROGRESS, None),
+        ('send-to-qc', AlterationStatus.QC, None),
+        ('work-complete', AlterationStatus.CUSTOMER_REVIEW, AlterationStatus.IN_PROGRESS),
+        ('customer-approved', customer_approved_target(scale), AlterationStatus.CUSTOMER_REVIEW),
+        ('pressed', AlterationStatus.PACKAGING, None),
+        ('complete', AlterationStatus.COMPLETED, None),
+        ('cancel', AlterationStatus.CANCELLED, None),
+    ]
+    for key, target, only_from in candidates:
+        if only_from is not None and alteration.status != only_from:
+            continue
         try:
             validate_transition(alteration.status, target, scale)
             check_permission(target, role=role, alteration=alteration, tailor_id=tailor_id)
         except (TransitionError, PermissionError):
             continue
         actions.append(key)
+
+    # pass-qc lands on CUSTOMER_REVIEW but is a QC sign-off, not bench work:
+    # offered only from QC, and gated on QC_ROLES like fail-qc below.
+    if alteration.status == AlterationStatus.QC:
+        try:
+            validate_transition(alteration.status, AlterationStatus.CUSTOMER_REVIEW, scale)
+            check_role(role, QC_ROLES, what='passing a quality check')
+            actions.append('pass-qc')
+        except (TransitionError, PermissionError):
+            pass
 
     # fail-qc also lands on IN_PROGRESS but is only offered from QC.
     if alteration.status == AlterationStatus.QC:

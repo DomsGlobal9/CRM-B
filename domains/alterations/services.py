@@ -50,6 +50,7 @@ from domains.alterations.workflow import (
     TransitionError,
     check_permission,
     check_role,
+    customer_approved_target,
     validate_transition,
 )
 
@@ -557,15 +558,18 @@ def send_to_qc(alteration_request_id, *, task_id=None, performed_by=None, role=N
 
 @transaction.atomic
 def pass_quality_check(alteration_request_id, *, performed_by=None, role=None, notes=None):
+    """QC is happy; now the customer is shown the work. A QC sign-off, so
+    gated on QC_ROLES rather than on the assigned tailor, and only from QC."""
     alteration = _transition(
-        alteration_request_id, AlterationStatus.READY_FOR_PICKUP,
+        alteration_request_id, AlterationStatus.CUSTOMER_REVIEW,
         event_type='QC_PASSED', performed_by=performed_by, role=role,
+        permission=lambda r: check_role(r, QC_ROLES, what='passing a quality check'),
+        require_status=AlterationStatus.QC,
         metadata={'notes': notes or ''},
     )
     alteration.tasks.exclude(status=AlterationTaskStatus.CANCELLED).update(
         status=AlterationTaskStatus.COMPLETED, completed_at=timezone.now(),
     )
-    _safe_notify(notifications.ready_for_pickup, alteration)
     return alteration
 
 
@@ -599,11 +603,14 @@ def fail_quality_check(alteration_request_id, *, reason, performed_by=None, role
 @transaction.atomic
 def complete_work(alteration_request_id, *, task_id=None, performed_by=None, role=None,
                   tailor_id=None, notes=None):
-    """The bench is done: the garment goes to the customer to look at."""
+    """The bench is done: the garment goes to the customer to look at.
+    Only from In progress -- on a big job QC stands between, and passing it
+    is the QC's call, not the bench's."""
     alteration = _transition(
         alteration_request_id, AlterationStatus.CUSTOMER_REVIEW,
         event_type='WORK_COMPLETED', performed_by=performed_by, role=role,
-        tailor_id=tailor_id, metadata={'notes': notes or ''},
+        tailor_id=tailor_id, require_status=AlterationStatus.IN_PROGRESS,
+        metadata={'notes': notes or ''},
     )
     tasks = alteration.tasks.all()
     task = (tasks.filter(pk=task_id).first() if task_id else tasks.first())
@@ -616,12 +623,19 @@ def complete_work(alteration_request_id, *, task_id=None, performed_by=None, rol
 
 @transaction.atomic
 def customer_approved(alteration_request_id, *, performed_by=None, role=None, notes=None):
-    """The customer is satisfied: on to pressing."""
-    return _transition(
-        alteration_request_id, AlterationStatus.PRESSING,
+    """The customer is satisfied: on to pressing (small) or ready for pickup (big)."""
+    scale = (AlterationRequest.objects.filter(pk=alteration_request_id)
+             .values_list('issue_scale', flat=True).first()) or ''
+    target = customer_approved_target(scale)
+    alteration = _transition(
+        alteration_request_id, target,
         event_type='CUSTOMER_APPROVED', performed_by=performed_by, role=role,
+        require_status=AlterationStatus.CUSTOMER_REVIEW,
         metadata={'notes': notes or ''},
     )
+    if target == AlterationStatus.READY_FOR_PICKUP:
+        _safe_notify(notifications.ready_for_pickup, alteration)
+    return alteration
 
 
 @transaction.atomic

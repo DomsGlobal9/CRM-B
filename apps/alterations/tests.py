@@ -119,8 +119,10 @@ class WorkflowTests(AlterationTestCase):
             (AlterationStatus.IN_PROGRESS,
              lambda: self.owner_call(services.start_alteration_work)),
             (AlterationStatus.QC, lambda: self.owner_call(services.send_to_qc)),
-            (AlterationStatus.READY_FOR_PICKUP,
+            (AlterationStatus.CUSTOMER_REVIEW,
              lambda: self.owner_call(services.pass_quality_check)),
+            (AlterationStatus.READY_FOR_PICKUP,
+             lambda: self.owner_call(services.customer_approved)),
         ]
         for reached, step in steps:
             if reached == target:
@@ -151,7 +153,7 @@ class WorkflowTests(AlterationTestCase):
             self.owner_call(services.start_alteration_work)
 
     def test_qc_failure_returns_to_in_progress_and_needs_a_reason(self):
-        self.advance_to(AlterationStatus.READY_FOR_PICKUP)
+        self.advance_to(AlterationStatus.CUSTOMER_REVIEW)
         self.alteration.refresh_from_db()
         self.assertEqual(self.alteration.status, AlterationStatus.QC)
 
@@ -168,6 +170,8 @@ class WorkflowTests(AlterationTestCase):
         # And round again.
         self.owner_call(services.send_to_qc)
         alteration = self.owner_call(services.pass_quality_check)
+        self.assertEqual(alteration.status, AlterationStatus.CUSTOMER_REVIEW)
+        alteration = self.owner_call(services.customer_approved)
         self.assertEqual(alteration.status, AlterationStatus.READY_FOR_PICKUP)
 
     def test_qc_failure_only_from_qc(self):
@@ -273,7 +277,8 @@ class WorkflowTests(AlterationTestCase):
         self.assertEqual(events, {
             'ALTERATION_CREATED', 'INSPECTION_STARTED', 'SUBMITTED_FOR_APPROVAL',
             'ALTERATION_APPROVED', 'ALTERATION_ASSIGNED', 'WORK_STARTED',
-            'SENT_TO_QC', 'QC_PASSED', 'PAYMENT_RECEIVED', 'ALTERATION_COMPLETED',
+            'SENT_TO_QC', 'QC_PASSED', 'CUSTOMER_APPROVED', 'PAYMENT_RECEIVED',
+            'ALTERATION_COMPLETED',
         })
 
     def test_available_actions_track_the_state_machine(self):

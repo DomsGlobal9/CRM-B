@@ -37,7 +37,7 @@ const STATUS_TONE = {
 
 const STATUS_ORDER = [
   'RECEIVED', 'INSPECTION', 'PENDING_APPROVAL', 'APPROVED', 'ASSIGNED',
-  'IN_PROGRESS', 'QC', 'READY_FOR_PICKUP', 'COMPLETED',
+  'IN_PROGRESS', 'QC', 'CUSTOMER_REVIEW', 'READY_FOR_PICKUP', 'COMPLETED',
 ];
 
 // A small issue walks a shorter road: verified, assigned, worked, shown to
@@ -80,10 +80,10 @@ const ACTION_LABELS = {
   assign: 'Assign to a tailor',
   'start-work': 'Start work',
   'send-to-qc': 'Send to quality check',
-  'pass-qc': 'Pass quality check',
+  'pass-qc': 'Pass quality check — show the customer',
   'fail-qc': 'Fail quality check',
   'work-complete': 'Work complete — show the customer',
-  'customer-approved': 'Customer satisfied — send to pressing',
+  'customer-approved': 'Customer approved — ready for pickup',
   'customer-rejected': 'Customer not satisfied — rework',
   pressed: 'Pressed — send to packaging',
   complete: 'Complete & hand back',
@@ -93,6 +93,7 @@ const ACTION_LABELS = {
 // What the shared steps are called on a small issue.
 const SMALL_ACTION_LABELS = {
   'start-inspection': 'Verify the issue',
+  'customer-approved': 'Customer satisfied — send to pressing',
   complete: 'Packed — deliver to customer',
 };
 

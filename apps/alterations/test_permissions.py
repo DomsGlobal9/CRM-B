@@ -139,7 +139,7 @@ class RolePermissionTests(AlterationTestCase):
         self.as_owner(services.send_to_qc)
         alteration = services.pass_quality_check(
             self.alteration.id, performed_by=self.qc.user, role='QC Master')
-        self.assertEqual(alteration.status, AlterationStatus.READY_FOR_PICKUP)
+        self.assertEqual(alteration.status, AlterationStatus.CUSTOMER_REVIEW)
 
     def test_a_bench_tailor_cannot_sign_off_their_own_quality_check(self):
         self.advance_to_assigned()

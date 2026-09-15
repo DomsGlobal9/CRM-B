@@ -67,6 +67,7 @@ class OriginalOrderIsUntouchedTests(AlterationTestCase):
         step(services.fail_quality_check, reason='Seam puckered.')
         step(services.send_to_qc)
         step(services.pass_quality_check)
+        step(services.customer_approved)
 
         services.record_alteration_payment(
             alteration.id, amount=Decimal('600.00'), received_by=self.owner,

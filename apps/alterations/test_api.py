@@ -171,7 +171,9 @@ class AlterationAPITests(AlterationTestCase):
 
         self.post(alteration_id, 'send-to-qc')
         passed = self.post(alteration_id, 'pass-qc')
-        self.assertEqual(passed['status'], AlterationStatus.READY_FOR_PICKUP)
+        self.assertEqual(passed['status'], AlterationStatus.CUSTOMER_REVIEW)
+        approved = self.post(alteration_id, 'customer-approved')
+        self.assertEqual(approved['status'], AlterationStatus.READY_FOR_PICKUP)
 
         self.post(alteration_id, 'payments', {'amount': '750.00'},
                   expect=status.HTTP_201_CREATED)
@@ -272,7 +274,8 @@ class AlterationAPITests(AlterationTestCase):
                            ('submit-for-approval', {'charge_amount': '750.00'}),
                            ('approve', {}),
                            ('assign', {'tailor_id': self.tailor.id}),
-                           ('start-work', {}), ('send-to-qc', {}), ('pass-qc', {})):
+                           ('start-work', {}), ('send-to-qc', {}), ('pass-qc', {}),
+                           ('customer-approved', {})):
             self.post(alteration_id, path, body)
 
         res = self.client.post(f'{BASE}{alteration_id}/complete/', {}, format='json')

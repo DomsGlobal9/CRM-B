@@ -129,7 +129,29 @@ class SmallIssueFlowTests(AlterationTestCase):
                 self.post(self.tailor_api, aid, 'work-complete', {}, expect=status.HTTP_400_BAD_REQUEST)
                 self.post(self.tailor_api, aid, 'send-to-qc')
                 data = self.post(self.owner_api, aid, 'pass-qc')
+                # QC passed: the customer is shown the work before pickup.
+                self.assertEqual(data['status'], 'CUSTOMER_REVIEW')
+                self.assertEqual([a for a in data['available_actions'] if a.startswith('customer')],
+                                 ['customer-approved', 'customer-rejected'])
+                data = self.post(self.owner_api, aid, 'customer-approved')
                 self.assertEqual(data['status'], 'READY_FOR_PICKUP')
                 self.post(self.owner_api, aid, 'pressed', {}, expect=status.HTTP_400_BAD_REQUEST)
                 data = self.post(self.owner_api, aid, 'complete')
                 self.assertEqual(data['status'], 'COMPLETED')
+
+    def test_big_issue_customer_not_satisfied_goes_back_to_the_bench(self):
+        aid = self.create(issue_scale='BIG')['id']
+        for path, body, client in (('start-inspection', {}, self.owner_api), ('submit-for-approval', {}, self.owner_api),
+                                   ('approve', {}, self.owner_api), ('assign', {'tailor_id': self.tailor.id}, self.owner_api),
+                                   ('start-work', {}, self.tailor_api), ('send-to-qc', {}, self.tailor_api),
+                                   ('pass-qc', {}, self.owner_api)):
+            self.post(client, aid, path, body)
+        # From QC the bench cannot skip the check by calling work-complete.
+        self.post(self.tailor_api, aid, 'work-complete', {}, expect=status.HTTP_400_BAD_REQUEST)
+        data = self.post(self.owner_api, aid, 'customer-rejected', {'reason': 'Waist still tight.'})
+        self.assertEqual(data['status'], 'IN_PROGRESS')
+        # Round two goes through QC again, then the customer, then pickup.
+        self.post(self.tailor_api, aid, 'send-to-qc')
+        self.post(self.owner_api, aid, 'pass-qc')
+        data = self.post(self.owner_api, aid, 'customer-approved')
+        self.assertEqual(data['status'], 'READY_FOR_PICKUP')
