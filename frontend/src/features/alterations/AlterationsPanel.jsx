@@ -7,6 +7,7 @@ import { api } from '../../services/api';
 import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMoney } from '../../services/format';
 import { formatAdjustments, parseAdjustments } from './adjustments';
 import OutsideGarmentIntake from './OutsideGarmentIntake';
+import AdjustmentsTable from './AdjustmentsTable';
 
 /**
  * The alterations register and one alteration's whole file.
@@ -574,8 +575,11 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
             <textarea className="form-control" rows={3} value={form.inspection_notes} onChange={set('inspection_notes')} />
           </div>
           <div style={field}>
-            <label style={label}>Measurement / specification changes — one per line, e.g. “waist: +1 inch”</label>
-            <textarea className="form-control" rows={3} value={form.inspection_adjustments} onChange={set('inspection_adjustments')} />
+            <label style={label}>Measurement / specification changes</label>
+            {/* A table in place of the free-text lines; it hands up the same
+                "waist: +1 inch" text, so saving is unchanged. */}
+            <AdjustmentsTable value={form.inspection_adjustments}
+                              onChange={(text) => setForm((prev) => ({ ...prev, inspection_adjustments: text }))} />
           </div>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px' }}>
             Stored on the alteration. The garment’s original specification is
