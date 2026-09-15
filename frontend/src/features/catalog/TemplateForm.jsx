@@ -317,6 +317,9 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
 
 export default function TemplateForm({
   template, section, values, errors = {}, onChange,
+  // Which of the section's fields to draw; the wizard asks the required ones
+  // first and folds the rest away. Visibility rules still apply on top.
+  only = null,
   // How much of each selected material this garment needs, keyed by field key.
   // Kept beside `values` rather than inside it because `spec` is validated
   // against the template's own field list, and a quantity is not one of its
@@ -356,6 +359,7 @@ export default function TemplateForm({
   // table. Until it exists, offering the input is the bug.
   const fields = (definition?.fields || [])
     .filter((f) => f.field_type !== 'file')
+    .filter((f) => (only ? only(f) : true))
     .filter((f) => isVisible(f, values));
 
   const inventoryCategories = fields
@@ -382,6 +386,9 @@ export default function TemplateForm({
 
   if (!definition) return null;
   if (!fields.length) {
+    // A filtered instance is one of several on the screen; only the whole
+    // section has nothing to say.
+    if (only) return null;
     return (
       <div style={{ fontSize: '13px', color: 'var(--text-secondary)', padding: '8px 0' }}>
         Nothing to record here for a {template.name.toLowerCase()}.

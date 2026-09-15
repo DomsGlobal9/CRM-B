@@ -43,6 +43,7 @@ from crm_api.models import Customer, Order, Tailor
 from domains.alterations import notifications
 from domains.alterations.workflow import (
     COUNTER_ROLES,
+    INTAKE_ROLES,
     MATERIAL_ROLES,
     PAYMENT_ROLES,
     QC_ROLES,
@@ -173,7 +174,7 @@ def create_alteration_request(*, customer_id, order_id, garment_job_id,
     Every one of these checks is repeated server-side on purpose: the browser
     decides which buttons to draw, it does not decide what is legal.
     """
-    check_role(role, COUNTER_ROLES, what='creating an alteration')
+    check_role(role, INTAKE_ROLES, what='creating an alteration')
 
     customer = Customer.objects.filter(pk=customer_id).first()
     if customer is None:

@@ -71,10 +71,13 @@ export function pruneHidden(template, values) {
 }
 
 /** Returns {field_key: message}; empty when the spec is good. */
-export function validateSpec(template, values, { partial = false } = {}) {
+export function validateSpec(template, values, { partial = false, sections = null } = {}) {
   const errors = {};
 
   (template?.sections || []).forEach((section) => {
+    // The wizard asks a section at its own step; a field it has not asked yet
+    // cannot be required of the step before it.
+    if (sections && !sections.includes(section.key)) return;
     section.fields.forEach((field) => {
       if (!isVisible(field, values)) return;
 

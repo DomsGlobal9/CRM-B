@@ -464,22 +464,29 @@ class CustomerMessage(models.Model):
         return f"{self.order.order_id} - {self.template_key} ({self.status})"
 
 def get_default_workflow():
+    """The workroom's steps, named for the task done at each one.
+
+    A step is a task, and its status says how far along it is (not started, in
+    progress, completed). Names that were statuses themselves -- "Stitching
+    Completed", "Trial Scheduled" -- read absurdly next to a status, so each is
+    the thing being done. Keys are the workflow's identity and never change.
+    """
     return [
-        {"key": "created", "name": "Created", "sla_hours": 12, "roles": ["Owner", "Master"]},
-        {"key": "measurements_completed", "name": "Measurements Completed", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "fabric_confirmed", "name": "Fabric Confirmed", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "pattern_cutting", "name": "Pattern Cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"]},
-        {"key": "maggam_work", "name": "Maggam Work", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar"], "optional": True},
-        {"key": "assigned_to_tailor", "name": "Assigned to Tailor", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},
-        {"key": "stitching_in_progress", "name": "Stitching In Progress", "sla_hours": 72, "roles": ["Owner", "Tailor"]},
-        {"key": "stitching_completed", "name": "Stitching Completed", "sla_hours": 12, "roles": ["Owner", "Tailor"]},
-        {"key": "finishing", "name": "Hemming & Finishing", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "pressing", "name": "Pressing & Packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"]},
-        {"key": "master_quality_check", "name": "Master Quality Check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"]},
-        {"key": "trial_scheduled", "name": "Trial Scheduled", "sla_hours": 48, "roles": ["Owner", "Master"]},
-        {"key": "trial_completed", "name": "Trial Completed", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "ready_for_delivery", "name": "Ready for Delivery", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "delivered", "name": "Delivered", "sla_hours": 12, "roles": ["Owner", "Master"]}
+        {"key": "created", "name": "Order taken", "sla_hours": 12, "roles": ["Owner", "Master"]},
+        {"key": "measurements_completed", "name": "Measurements", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        {"key": "fabric_confirmed", "name": "Fabric", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        {"key": "pattern_cutting", "name": "Pattern cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"]},
+        {"key": "maggam_work", "name": "Maggam work", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar"], "optional": True},
+        {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},
+        {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Tailor"]},
+        {"key": "stitching_completed", "name": "Stitching check", "sla_hours": 12, "roles": ["Owner", "Tailor"]},
+        {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"]},
+        {"key": "master_quality_check", "name": "Master quality check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"]},
+        {"key": "trial_scheduled", "name": "Trial booking", "sla_hours": 48, "roles": ["Owner", "Master"]},
+        {"key": "trial_completed", "name": "Trial", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        {"key": "ready_for_delivery", "name": "Delivery prep", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        {"key": "delivered", "name": "Delivery", "sla_hours": 12, "roles": ["Owner", "Master"]}
     ]
 
 class BoutiqueSettings(models.Model):

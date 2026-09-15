@@ -3,7 +3,7 @@ import os
 import secrets
 import uuid
 from decimal import Decimal
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.utils import timezone
 from django.contrib.auth.models import User
@@ -1213,6 +1213,39 @@ class BoutiqueSettingsViewSet(viewsets.ViewSet):
         })
 
 
+def _iso_date(value):
+    try:
+        return date.fromisoformat(value) if value else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _assign_designer_from_draft(request, job, design_request, due_date):
+    """Hand the garment to the designer the wizard picked, if any."""
+    from apps.design_studio.models import DesignAssignment, Designer
+    from apps.design_studio.views import _log
+
+    design_request = design_request or {}
+    designer_id = design_request.get('designer') or design_request.get('designer_id')
+    if not designer_id:
+        return None
+    designer = Designer.objects.filter(pk=designer_id, is_active=True).first()
+    if designer is None:
+        raise ValueError('That designer is no longer on the team.')
+    user = request.user if request.user.is_authenticated else None
+    assignment = DesignAssignment.objects.create(
+        garment_job=job, designer=designer,
+        brief=design_request.get('brief') or '',
+        due_date=due_date, assigned_by=user)
+    _log(request, assignment, "DESIGN_ASSIGNED",
+         f"Design work assigned: {job.template.name}",
+         f"{job.template.name} on {job.order.reference} assigned to {designer.name}.",
+         {"garment_job": str(job.id), "designer": designer.name,
+          "due_date": str(assignment.due_date or '')},
+         entity_type="DesignAssignment")
+    return assignment
+
+
 def _board_item_from_draft(order, customer, job, item, position, user):
     from apps.design_studio.models import DesignBoard, DesignBoardItem
 
@@ -1522,8 +1555,12 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 }
             else:
                 component_totals = {key: money(prices.get(key)) for key in component_keys}
+            advance = money(payment.get('advance'))
+            # Older drafts carry option 'full' and no amount; treat that as
+            # paying whatever the order comes to.
             full_payment = payment.get('option') == 'full'
 
+            ready_by = _iso_date(payload.get('ready_by'))
             due = sorted(
                 d for d in ((g.get('values') or {}).get('delivery_date')
                             for g in (payload.get('garments') or []))
@@ -1539,11 +1576,11 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 'tailoring_charges': component_totals['tailoring'],
                 'packaging_handling': money(prices.get('packaging')),
                 'discount': money(prices.get('discount')),
-                'payment_status': 'Paid' if full_payment else 'Partially Paid',
-                'advance_paid': 0 if full_payment else money(payment.get('advance')),
+                # Neutral: apply_advance decides once the total is final.
+                'payment_status': 'Pending',
                 'custom_requirements': payload.get('special_instructions')
                                        or payload.get('custom_requirements') or '',
-                'estimated_delivery': due[0] if due else None,
+                'estimated_delivery': ready_by or (due[0] if due else None),
                 'delivery_method': delivery.get('method') or 'Direct Pickup',
                 'courier_service': delivery.get('courier'),
                 'tracking_number': delivery.get('tracking'),
@@ -1593,12 +1630,16 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 for position, item in enumerate(draft_items):
                     _board_item_from_draft(order, customer, job, item, position,
                                            request.user)
+                _assign_designer_from_draft(request, job, design.get('request'),
+                                            ready_by)
 
             _receive_customer_materials(order, brought, request.user)
 
             if has_job_pricing:
                 from domains.orders.pricing import recompute_order_totals
                 recompute_order_totals(order)
+            from domains.orders.services import apply_advance
+            apply_advance(order, order.total_amount if full_payment else advance)
 
             # Now that the dresses are attached, the workflow can tell whether
             # any of them asks for a measurement. A saree with no petticoat

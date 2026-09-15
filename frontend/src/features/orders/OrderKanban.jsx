@@ -21,13 +21,15 @@ import { IconTile } from '../../components/ui/Atelier';
 const SETTLED = new Set(['COMPLETED', 'SKIPPED']);
 const DUE_SOON_DAYS = 7; // the dashboard's own "due soon" window
 
+// Not started, in progress, completed: a step shows nothing else. A pause or
+// a pending confirmation is how a step is in progress; skipped is settled.
 const STATUS_LABEL = {
   NOT_STARTED: 'Not started',
   IN_PROGRESS: 'In progress',
-  PAUSED: 'Paused',
-  PENDING_VERIFICATION: 'Pending verification',
+  PAUSED: 'In progress',
+  PENDING_VERIFICATION: 'In progress',
   COMPLETED: 'Completed',
-  SKIPPED: 'Skipped',
+  SKIPPED: 'Completed',
 };
 
 // How each default stage is drawn: an icon, a tint and a one-line gloss on
@@ -209,9 +211,8 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
                 const handler = stage?.assigned_to_name || order.tailor_name || order.master_name;
                 const busy = busyOrder === order.id;
                 const inert = busy || stage?.legacy;
-                const statusTone = stage?.status === 'IN_PROGRESS' ? 'info'
-                  : (stage?.status === 'PAUSED' || stage?.status === 'PENDING_VERIFICATION') ? 'warning'
-                  : stage?.status === 'COMPLETED' ? 'success' : 'neutral';
+                const statusTone = ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(stage?.status) ? 'info'
+                  : SETTLED.has(stage?.status) ? 'success' : 'neutral';
                 return (
                   <article
                     key={order.id}

@@ -16,7 +16,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Check,
-  Plus, Clock, Wallet, TrendingUp, Users, FileText, Trash2, Phone, Calendar, Briefcase, UserCheck,
+  Plus, Clock, Wallet, TrendingUp, Users, FileText, ClipboardList, Trash2, Phone, Calendar, Briefcase, UserCheck,
   User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil,
 } from 'lucide-react';
 
@@ -28,6 +28,7 @@ import { ASSIGNABLE_ROLES, DOCUMENT_KINDS } from '../../constants/roles';
 import Attendance from './Attendance';
 import Payroll from './Payroll';
 import Performance from './Performance';
+import TeamTasks from './TeamTasks';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -1187,6 +1188,7 @@ function Roster({ isOwner, canSeeTeam }) {
 
 const TABS = [
   { key: 'roster', label: 'Team', icon: Users },
+  { key: 'tasks', label: 'Tasks', icon: ClipboardList },
   { key: 'attendance', label: 'Attendance', icon: Clock },
   { key: 'payroll', label: 'Payroll', icon: Wallet },
   { key: 'performance', label: 'Performance', icon: TrendingUp },
@@ -1224,7 +1226,7 @@ export default function StaffPanel({ currentUser }) {
             ? TABS
             : canSeeTeam
               ? TABS.filter((t) => t.key !== 'payroll')
-              : TABS.filter((t) => ['attendance', 'roster', 'performance'].includes(t.key)))
+              : TABS.filter((t) => ['attendance', 'roster', 'tasks', 'performance'].includes(t.key)))
           .map(({ key, label, icon: Icon }) => {
           const active = tab === key;
           return (
@@ -1249,6 +1251,7 @@ export default function StaffPanel({ currentUser }) {
       </div>
 
       {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} />}
+      {tab === 'tasks' && <TeamTasks currentUser={currentUser} canSeeTeam={canSeeTeam} />}
       {tab === 'attendance' && (
         <Attendance isOwner={isOwner} canSeeTeam={canSeeTeam} />
       )}

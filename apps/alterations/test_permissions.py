@@ -95,12 +95,37 @@ class RolePermissionTests(AlterationTestCase):
             self.alteration.id, performed_by=self.master.user, role='Master')
         self.assertEqual(alteration.status, AlterationStatus.INSPECTION)
 
-    def test_a_bench_tailor_cannot_create_an_alteration(self):
+    def test_a_bench_tailor_may_take_a_garment_in(self):
+        alteration = services.create_alteration_request(
+            customer_id=self.customer.id, order_id=self.order.order_id,
+            garment_job_id=self.lehenga.id,
+            performed_by=self.tailor.user, role='Tailor')
+        self.assertEqual(alteration.status, AlterationStatus.RECEIVED)
+
+    def test_every_role_on_the_roster_may_take_a_garment_in(self):
+        from crm_api.models import Tailor
+        for role, _label in Tailor.ROLE_CHOICES:
+            alteration = services.create_alteration_request(
+                customer_id=self.customer.id, order_id=self.order.order_id,
+                garment_job_id=self.lehenga.id,
+                performed_by=self.tailor.user, role=role)
+            self.assertEqual(alteration.status, AlterationStatus.RECEIVED, role)
+
+    def test_a_designer_cannot_take_a_garment_in(self):
         with self.assertRaises(PermissionError):
             services.create_alteration_request(
                 customer_id=self.customer.id, order_id=self.order.order_id,
                 garment_job_id=self.lehenga.id,
-                performed_by=self.tailor.user, role='Tailor')
+                performed_by=self.rogue, role='Designer')
+
+    def test_intake_does_not_open_the_rest_of_the_counter_to_a_tailor(self):
+        with self.assertRaises(PermissionError):
+            services.start_inspection(
+                self.alteration.id, performed_by=self.tailor.user, role='Tailor')
+        with self.assertRaises(PermissionError):
+            services.record_alteration_payment(
+                self.alteration.id, amount=Decimal('100.00'),
+                received_by=self.tailor.user, role='Tailor')
 
     # -- bench work --------------------------------------------------------
 

@@ -1,7 +1,7 @@
 
 from django.db import transaction
 
-from crm_api.models import Customer, OrderDraft
+from crm_api.models import Customer, OrderDraft, whatsapp_number
 
 
 class DraftConflict(ValueError):
@@ -60,8 +60,21 @@ def confirm(user, draft_id, *, create_order):
 
 
 def customer_for(draft, payload):
-    if draft.customer_id:
+    # Customer.save stores the canonical form when the number parses and the
+    # raw string when it does not, so the lookup asks for the same value.
+    raw = (payload.get('mobile_number') or '').strip()
+    mobile = whatsapp_number(raw) or raw
+    # The draft names the customer it was started for; the wizard's "Not them"
+    # then types a different number without clearing that id, so the id only
+    # counts while the number on the draft is still theirs.
+    if draft.customer_id and (not mobile or draft.customer.mobile_number == mobile):
         return draft.customer
+    # A returning client typed afresh into the wizard is still the same client;
+    # matching on the canonical number is what Customer.save would have
+    # tripped the unique index on anyway.
+    known = Customer.objects.filter(mobile_number=mobile).first() if mobile else None
+    if known is not None:
+        return known
     fields = {k: payload.get(k, '') for k in (
         'first_name', 'last_name', 'mobile_number', 'email_address', 'address',
         'city_region', 'source', 'customer_type', 'gender', 'garment_type', 'occasion',

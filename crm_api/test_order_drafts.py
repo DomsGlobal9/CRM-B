@@ -1,4 +1,5 @@
 
+from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth.models import User
@@ -245,6 +246,40 @@ class ConfirmTests(DraftTestBase):
         self.assertEqual(resolved.pk, customer.pk)
         self.assertEqual(Customer.objects.count(), 1)
 
+    def test_a_known_mobile_typed_afresh_finds_the_same_client(self):
+        customer = Customer.objects.create(
+            first_name='Lakshmi', last_name='Iyer', mobile_number='919845012345')
+        draft = drafts.save_draft(
+            self.owner, {**self.WIZARD, 'mobile_number': '9845012345'})
+
+        resolved = drafts.customer_for(draft, draft.payload)
+
+        self.assertEqual(resolved.pk, customer.pk)
+        self.assertEqual(Customer.objects.count(), 1)
+
+    def test_not_them_outranks_the_customer_the_draft_was_started_for(self):
+        # Picked A, pressed "Not them", typed B: the draft still carries A's id.
+        first = Customer.objects.create(
+            first_name='Lakshmi', last_name='Iyer', mobile_number='919845012345')
+        draft = drafts.save_draft(
+            self.owner, {**self.WIZARD, 'first_name': 'Meera', 'last_name': 'Nair',
+                         'mobile_number': '9876500000'},
+            customer=first)
+
+        resolved = drafts.customer_for(draft, draft.payload)
+
+        self.assertNotEqual(resolved.pk, first.pk)
+        self.assertEqual(resolved.mobile_number, '919876500000')
+        self.assertEqual(Customer.objects.count(), 2)
+
+    def test_the_customer_the_draft_names_is_kept_while_the_number_is_theirs(self):
+        first = Customer.objects.create(
+            first_name='Lakshmi', last_name='Iyer', mobile_number='919845012345')
+        draft = drafts.save_draft(
+            self.owner, {**self.WIZARD, 'mobile_number': '9845012345'}, customer=first)
+
+        self.assertEqual(drafts.customer_for(draft, draft.payload).pk, first.pk)
+
 
 class AtomicConfirmOverHttpTests(DraftTestBase):
 
@@ -392,6 +427,80 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(Customer.objects.count(), 1)
         self.assertEqual(Order.objects.get().customer_id, customer.id)
+
+    def confirm_with_payment(self, **payment):
+        draft_id = self.a_draft(payment=payment)
+        response = self.api.post(reverse('order-draft-confirm', args=[draft_id]))
+        self.assertEqual(response.status_code, 201, response.data)
+        return Order.objects.get()
+
+    def test_no_advance_leaves_the_order_pending(self):
+        order = self.confirm_with_payment(advance=0)
+        self.assertEqual(order.payment_status, 'Pending')
+        self.assertEqual(order.advance_paid, Decimal('0.00'))
+        self.assertEqual(order.amount_paid, Decimal('0.00'))
+
+    def test_an_advance_equal_to_the_total_is_paid(self):
+        from domains.orders.pricing import to_money, totals_from_amounts
+        _, _, total = totals_from_amounts(
+            {'base_price': to_money(5000)}, to_money(0), to_money(0))
+        order = self.confirm_with_payment(advance=float(total))
+        self.assertEqual(order.payment_status, 'Paid')
+        self.assertEqual(order.advance_paid, order.total_amount)
+        self.assertEqual(order.amount_paid, order.total_amount)
+
+    def test_an_advance_below_the_total_is_partially_paid(self):
+        order = self.confirm_with_payment(advance=1000)
+        self.assertEqual(order.payment_status, 'Partially Paid')
+        self.assertEqual(order.advance_paid, Decimal('1000.00'))
+        self.assertEqual(order.amount_paid, Decimal('1000.00'))
+
+    def test_the_old_full_option_still_means_paid(self):
+        order = self.confirm_with_payment(option='full')
+        self.assertEqual(order.payment_status, 'Paid')
+        self.assertEqual(order.advance_paid, order.total_amount)
+
+    def test_ready_by_sets_the_delivery_date(self):
+        draft_id = self.a_draft(ready_by='2026-10-10')
+        response = self.api.post(reverse('order-draft-confirm', args=[draft_id]))
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Order.objects.get().estimated_delivery, date(2026, 10, 10))
+
+    def a_design_draft(self, designer_id):
+        return self.a_draft(ready_by='2026-10-10', garments=[{
+            'template': str(self.template.id),
+            'spec': {'blouse_type': 'princess'},
+            'measurements': {'chest': '36'},
+            'design': {'request': {'designer': designer_id,
+                                   'brief': 'Peplum with a scalloped hem'}},
+        }])
+
+    def test_a_design_request_hands_the_garment_to_the_designer(self):
+        from apps.design_studio.models import DesignAssignment, Designer
+        designer = Designer.objects.create(name='Meera')
+        draft_id = self.a_design_draft(str(designer.id))
+
+        response = self.api.post(reverse('order-draft-confirm', args=[draft_id]))
+
+        self.assertEqual(response.status_code, 201, response.data)
+        job = Order.objects.get().garment_jobs.get()
+        assignment = DesignAssignment.objects.get(garment_job=job)
+        self.assertEqual(assignment.designer_id, designer.id)
+        self.assertEqual(assignment.brief, 'Peplum with a scalloped hem')
+        self.assertEqual(assignment.due_date, date(2026, 10, 10))
+        self.assertEqual(assignment.status, DesignAssignment.Status.ASSIGNED)
+
+    def test_a_designer_who_left_blocks_the_confirm(self):
+        from apps.design_studio.models import Designer
+        gone = Designer.objects.create(name='Gone', is_active=False)
+        draft_id = self.a_design_draft(str(gone.id))
+
+        response = self.api.post(reverse('order-draft-confirm', args=[draft_id]))
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('no longer on the team', response.data['error'])
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(OrderDraft.objects.count(), 1)
 
 
 class TwoGarmentConfirmTests(DraftTestBase):

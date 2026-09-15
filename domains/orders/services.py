@@ -113,6 +113,26 @@ def settle_measurement_stage(order):
     return bool(updated)
 
 
+def apply_advance(order, advance):
+    """Set the payment fields from what was actually collected.
+
+    Runs after the total is final (garment pricing can rewrite it), which is
+    why create_order_for_customer is handed a neutral status by callers that
+    price per garment.
+    """
+    total = float(order.total_amount or 0)
+    paid = min(max(float(advance or 0), 0.0), total)
+    if paid <= 0:
+        order.payment_status = 'Pending'
+    elif paid >= total:
+        order.payment_status = 'Paid'
+    else:
+        order.payment_status = 'Partially Paid'
+    order.advance_paid = order.amount_paid = paid
+    order.save(update_fields=['payment_status', 'advance_paid', 'amount_paid'])
+    return order
+
+
 def customer_has_measurements(customer):
     columns = getattr(customer, 'measurements', None)
     if columns and (columns.bust or columns.waist or columns.hips):

@@ -19,6 +19,13 @@ const getBoutiqueLogoUrl = (boutiqueSettings) => {
 /**
  * Normalizes order & boutique data for invoice rendering.
  */
+// Printed on every invoice in place of the checkbox the wizard used to ask
+// for. One place to change the wording.
+export const INVOICE_TERMS =
+  'Terms: the advance is adjusted against the final bill and the balance is due at delivery. '
+  + 'Please check the garment at pickup; alterations after 7 days may be charged. '
+  + 'Garments not collected within 30 days of the ready date may attract a storage charge.';
+
 export const normalizeInvoiceData = (order, boutiqueSettings, currentUser) => {
   const getOwnerName = () => {
     if (boutiqueSettings?.owner_name) return boutiqueSettings.owner_name;
@@ -284,6 +291,7 @@ export const ClassicInvoiceTemplate = ({ data }) => {
           {data.boutiqueEmail && <span style={{ display: 'block' }}>✉️ {data.boutiqueEmail}</span>}
         </div>
       </div>
+      <p style={{ fontSize: '10px', color: '#52525b', lineHeight: 1.5, margin: '16px 0 0' }}>{INVOICE_TERMS}</p>
     </div>
   );
 };
@@ -417,6 +425,7 @@ export const ModernInvoiceTemplate = ({ data }) => {
         </div>
       </div>
 
+<p style={{ fontSize: '10px', color: '#52525b', lineHeight: 1.5, margin: '16px 0 0' }}>{INVOICE_TERMS}</p>
       {/* Bottom Soft Rose Banner Decor */}
       <div style={{ backgroundColor: '#fecdd3', height: '24px', borderRadius: '12px', marginTop: '20px' }}></div>
     </div>
@@ -610,6 +619,7 @@ export const ElegantInvoiceTemplate = ({ data }) => {
           Thank you
         </h2>
       </div>
+      <p style={{ fontSize: '10px', color: '#52525b', lineHeight: 1.5, margin: '16px 0 0' }}>{INVOICE_TERMS}</p>
     </div>
   );
 };

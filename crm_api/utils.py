@@ -225,18 +225,18 @@ def seed_tenant_defaults(demo=True):
         ]
 
         stages_config = [
-            {"key": "created", "name": "Created", "sla": 24},
-            {"key": "measurements_completed", "name": "Measurements Completed", "sla": 24},
-            {"key": "fabric_confirmed", "name": "Fabric Confirmed", "sla": 48},
-            {"key": "pattern_cutting", "name": "Pattern Cutting", "sla": 48},
-            {"key": "assigned_to_tailor", "name": "Assigned to Tailor", "sla": 24},
-            {"key": "stitching_in_progress", "name": "Stitching In Progress", "sla": 72},
-            {"key": "stitching_completed", "name": "Stitching Completed", "sla": 24},
-            {"key": "master_quality_check", "name": "Master Quality Check", "sla": 24},
-            {"key": "trial_scheduled", "name": "Trial Scheduled", "sla": 48},
-            {"key": "trial_completed", "name": "Trial Completed", "sla": 24},
-            {"key": "ready_for_delivery", "name": "Ready for Delivery", "sla": 24},
-            {"key": "delivered", "name": "Delivered", "sla": 24},
+            {"key": "created", "name": "Order taken", "sla": 24},
+            {"key": "measurements_completed", "name": "Measurements", "sla": 24},
+            {"key": "fabric_confirmed", "name": "Fabric", "sla": 48},
+            {"key": "pattern_cutting", "name": "Pattern cutting", "sla": 48},
+            {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla": 24},
+            {"key": "stitching_in_progress", "name": "Stitching", "sla": 72},
+            {"key": "stitching_completed", "name": "Stitching check", "sla": 24},
+            {"key": "master_quality_check", "name": "Master quality check", "sla": 24},
+            {"key": "trial_scheduled", "name": "Trial booking", "sla": 48},
+            {"key": "trial_completed", "name": "Trial", "sla": 24},
+            {"key": "ready_for_delivery", "name": "Delivery prep", "sla": 24},
+            {"key": "delivered", "name": "Delivery", "sla": 24},
         ]
 
         for o_data in orders_data:
