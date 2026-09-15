@@ -29,6 +29,7 @@ const de = {
     subtitle: "Untertitel",
     refresh: "Aktualisieren",
     takePhoto: "Foto aufnehmen",
+    addPhoto: "Foto hinzufügen",
     chooseFromGallery: "Aus Galerie wählen",
     remove: "Entfernen",
     uploading: "Wird hochgeladen…",

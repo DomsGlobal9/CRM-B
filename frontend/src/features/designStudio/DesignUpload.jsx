@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  BarChart3, Camera, Clock, FileText, Image as ImageIcon, IndianRupee, Layers, Link as LinkIcon,
+  BarChart3, Clock, FileText, Image as ImageIcon, IndianRupee, Layers, Link as LinkIcon,
   PlayCircle, Plus, Save, Shirt, Sparkles, Type, User,
 } from 'lucide-react';
 
@@ -8,7 +8,7 @@ import { api } from '../../services/api';
 import TemplateForm from '../catalog/TemplateForm';
 import DesignCataloguePicker from './DesignCataloguePicker';
 import { getSection, pruneHidden } from '../../services/templates';
-import { AddMoreTile, Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
+import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
 
 /**
  * Uploading a design into the library.
@@ -41,8 +41,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   const [newCollection, setNewCollection] = useState('');
   // Which part of the garment the next photographs are filed under.
   const [selectedPart, setSelectedPart] = useState('overall');
-  const fileRef = useRef(null);
-  const camRef = useRef(null);
   const [addingCollection, setAddingCollection] = useState(false);
   const inFlight = useRef(false);
 
@@ -253,14 +251,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
                 {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
               </select>
             </Field>
-            <button type="button" className="btn-secondary" style={{ alignSelf: 'flex-end' }} onClick={() => camRef.current?.click()}>
-              <Camera size={16} /> Take Photo
-            </button>
-            <button type="button" className="btn-primary" style={{ alignSelf: 'flex-end' }} onClick={() => fileRef.current?.click()}>
-              <Plus size={16} /> Add Photos
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={pickFiles(activePart)} />
-            <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={pickFiles(activePart)} />
           </>
         )}
       >
@@ -269,7 +259,8 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
             <div style={{ flex: 1 }}>
               <Dropzone
                 compact multiple
-                title="Drag & drop photos here" subtitle="or click to browse" chooseLabel="Choose Photos"
+                title="Drag & drop photos here" subtitle="or choose from your device" chooseLabel="Add photos"
+                hint="JPG, PNG (Max 5MB each)"
                 onFiles={(files) => pickFiles(activePart)({ target: { files, value: '' } })}
               />
             </div>
@@ -281,7 +272,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
               onRemove={() => removeFile(shot.key, shot.i)}
             />
           ))}
-          <AddMoreTile onClick={() => fileRef.current?.click()} hint="JPG, PNG (Max 5MB each)" size={110} />
         </div>
       </FormSection>
 

@@ -21,6 +21,7 @@ const mr = {
     retry: "पुन्हा प्रयत्न करा",
     refresh: "रिफ्रेश",
     takePhoto: "फोटो काढा",
+    addPhoto: "फोटो जोडा",
     chooseFromGallery: "गॅलरीमधून निवडा",
     remove: "काढून टाका",
     uploading: "अपलोड होत आहे…",

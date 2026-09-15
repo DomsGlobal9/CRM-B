@@ -27,6 +27,7 @@ const kn = {
     subtitle: "ಉಪಶೀರ್ಷಿಕೆ",
     refresh: "ರಿಫ್ರೆಶ್",
     takePhoto: "ಫೋಟೋ ತೆಗೆಯಿರಿ",
+    addPhoto: "ಫೋಟೋ ಸೇರಿಸಿ",
     chooseFromGallery: "ಗ್ಯಾಲರಿಯಿಂದ ಆಯ್ಕೆಮಾಡಿ",
     remove: "ತೆಗೆದುಹಾಕಿ",
     uploading: "ಅಪ್‌ಲೋಡ್ ಆಗುತ್ತಿದೆ…",

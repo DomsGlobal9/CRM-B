@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Upload, X } from 'lucide-react';
+import { AddPhotoButton } from '../../components/ui/Atelier';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
@@ -789,7 +790,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   const [addingLink, setAddingLink] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
-  const ownFileRef = useRef(null);
   // "Search the web": photographs the catalogue does not have, found through
   // Design Discovery. Shown only where the server says it is set up. A pick
   // is copied into our storage before it joins the part's references, because
@@ -1132,16 +1132,14 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
             )}
 
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
-              <button type="button" className="btn-secondary" disabled={uploading}
-                      style={{ padding: '5px 11px', fontSize: '11.5px' }}
-                      onClick={() => ownFileRef.current?.click()}>
-                <Upload size={12} /> {uploading ? 'Uploading…' : `Upload ${partFabricLabel} photos`}
-              </button>
-              <button type="button" className="btn-secondary" disabled={uploading}
-                      style={{ padding: '5px 11px', fontSize: '11.5px' }}
-                      onClick={openCamera}>
-                <Camera size={12} /> Take photo
-              </button>
+              {/* One control; it asks live camera or device, because this screen
+                  has its own camera (openCamera) and a laptop can use it too. Several
+                  files at once, because a customer describing one part sends several
+                  pictures of it; each becomes its own reference for this part. */}
+              <AddPhotoButton multiple className="btn-secondary" style={{ padding: '5px 11px', fontSize: '11.5px' }}
+                              icon={Upload} iconSize={12} disabled={uploading}
+                              label={uploading ? 'Uploading…' : `Add ${partFabricLabel} photos`}
+                              onCamera={openCamera} onFiles={uploadFiles} />
               {!isFabric && (
                 <button type="button" className="btn-secondary"
                         style={{ padding: '5px 11px', fontSize: '11.5px' }}
@@ -1157,13 +1155,8 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
                   <Globe size={12} /> Search the web
                 </button>
               )}
-              {/* multiple, because a customer describing one part sends several
-                  pictures of it. Each becomes its own reference for this part. */}
-              <input ref={ownFileRef} type="file" accept="image/*" multiple hidden
-                     onChange={uploadReference} />
-              {/* capture, so a phone opens the camera rather than the gallery. One
-                  shot at a time, which is what a camera gives; both land in the
-                  same list for this part through the same handler. */}
+              {/* Only the fallback for openCamera when getUserMedia is refused: a
+                  phone still gets its native camera through it. */}
               <input ref={ownCamRef} type="file" accept="image/*" capture="environment" hidden
                      onChange={uploadReference} />
 

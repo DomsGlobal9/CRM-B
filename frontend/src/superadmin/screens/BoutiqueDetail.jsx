@@ -190,7 +190,7 @@ function DataBrowser({ schema }) {
 }
 
 const DESIGN_SYSTEMS = [
-  { value: 'scaleezy', label: 'Scaleezy — Viva Magenta on Cloud Dancer' },
+  { value: 'scaleezy', label: 'Scaleezy — lime on Cloud Dancer' },
   { value: 'atelier', label: 'Atelier — warm paper, forest green' },
 ];
 const COLOR_MODES = [

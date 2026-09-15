@@ -19,6 +19,7 @@ const hi = {
     retry: "पुनः प्रयास करें",
     refresh: "रीफ़्रेश",
     takePhoto: "फ़ोटो लें",
+    addPhoto: "फोटो जोड़ें",
     chooseFromGallery: "गैलरी से चुनें",
     remove: "हटाएं",
     uploading: "अपलोड हो रहा है…",

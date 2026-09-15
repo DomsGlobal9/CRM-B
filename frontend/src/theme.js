@@ -8,13 +8,16 @@
  * renders so the first paint is already in the right theme.
  */
 export const DESIGN_SYSTEMS = [
-  { key: 'scaleezy', label: 'Scaleezy', hint: 'Viva Magenta on Cloud Dancer, with a near-black shell.' },
+  { key: 'scaleezy', label: 'Scaleezy', hint: 'Lime on Cloud Dancer, with a deep-olive shell.' },
   { key: 'atelier', label: 'Atelier', hint: 'Warm paper, forest green and brass.' },
 ];
 export const COLOR_MODES = ['light', 'dark', 'system'];
 
 const KEY_SYSTEM = 'design_system';
 const KEY_MODE = 'color_mode';
+// The person's own pick on this device (Settings → Appearance); wins over the
+// boutique default the platform set.
+const KEY_CHOICE = 'color_mode_choice';
 
 const read = (key, allowed, fallback) => {
   try {
@@ -27,8 +30,22 @@ const read = (key, allowed, fallback) => {
 
 export const getThemePrefs = () => ({
   system: read(KEY_SYSTEM, DESIGN_SYSTEMS.map((d) => d.key), 'scaleezy'),
-  mode: read(KEY_MODE, COLOR_MODES, 'light'),
+  mode: read(KEY_CHOICE, COLOR_MODES, null) || read(KEY_MODE, COLOR_MODES, 'light'),
 });
+
+/** Light, dark or 'system' (follow the device): the mode in force right now. */
+export const getColorMode = () => getThemePrefs().mode;
+
+/** Called from the product's Settings page; the choice stays on this device. */
+export function setColorMode(mode) {
+  if (!COLOR_MODES.includes(mode)) return applyTheme();
+  try {
+    localStorage.setItem(KEY_CHOICE, mode);
+  } catch {
+    // Private mode: the choice lasts for this page only.
+  }
+  return applyTheme();
+}
 
 const darkMedia = () =>
   (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null);

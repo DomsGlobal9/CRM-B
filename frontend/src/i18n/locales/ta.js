@@ -26,6 +26,7 @@ const ta = {
     subtitle: "துணைத்தலைப்பு",
     refresh: "புதுப்பி",
     takePhoto: "புகைப்படம் எடு",
+    addPhoto: "புகைப்படம் சேர்",
     chooseFromGallery: "கேலரியிலிருந்து தேர்ந்தெடு",
     remove: "அகற்று",
     uploading: "பதிவேற்றுகிறது…",

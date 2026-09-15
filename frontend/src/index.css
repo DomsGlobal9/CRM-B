@@ -2,12 +2,12 @@
 @import './themes.css';
 
 :root {
-  /* ---- Scaleezy: Viva Magenta on Cloud Dancer, a deep-wine shell --------
-     The shell sits two steps below the CTA so the magenta actions stay the
-     brightest thing on screen.
-     The magenta scale, darkest to lightest, all derived from #BB2649:
-     900 #5E1224 · 800 #7A1730 · 700 #9A1F3D · 600 #BB2649 · 500 #C94A66
-     400 #D9748A · 300 #E8A3B2 · 200 #F2CAD3 · 100 #F9E4E9 · 50 #FCF2F4      */
+  /* ---- Scaleezy: lime on Cloud Dancer, a deep-olive shell ---------------
+     The lime scale, darkest to lightest, all derived from #B9D53C:
+     950 #232B08 · 900 #333D0C · 800 #5C6C13 · 700 #7E9033 · 600 #A2BC2A
+     500 #B9D53C · 400 #C3DB55 · 300 #CDE272 · 200 #DCEB9E · 100 #E6F1C8 · 50 #F7FAE6
+     The shell sits deep in the scale so the lime actions stay the brightest
+     thing on screen.                                                        */
   --bg-color: #F0EEE9;          /* Cloud Dancer: the page ground            */
   --surface-color: #FFFFFF;     /* cards, surfaces                          */
   --surface-2: #F7F5F1;         /* raised / alternating rows                */
@@ -19,22 +19,22 @@
   --text-muted: #5A5459;
   --text-on-dark: #F0EEE9;
 
-  /* ---- Brand: magenta for the primary action, active state and focus --- */
-  --primary-color: #BB2649;     /* Viva Magenta, white text on it (6:1)     */
-  --primary-foreground: #FFFFFF;
-  --primary-hover: #9A1F3D;     /* one step deeper                          */
+  /* ---- Brand: lime for the primary action, active state and focus ------ */
+  --primary-color: #B9D53C;     /* near-black text on it (11:1)             */
+  --primary-foreground: #020202;
+  --primary-hover: #A2BC2A;     /* one step deeper                          */
   --brand-dark: #131114;
   --brand-dark-foreground: #F0EEE9;
-  --brand-link: #9A1F3D;        /* inline links on light surfaces           */
-  --accent-text: #9A1F3D;
-  --accent-color: #FCF2F4;      /* the soft magenta fill                    */
-  --accent-border: rgba(187, 38, 73, 0.35);
-  --ring: #BB2649;
+  --brand-link: #5C6C13;        /* inline links on light surfaces; raw lime */
+  --accent-text: #5C6C13;       /* on white is never readable               */
+  --accent-color: #E6F1C8;      /* the soft lime fill                       */
+  --accent-border: rgba(185, 213, 60, 0.45);
+  --ring: #B9D53C;
 
   /* ---- Borders, from Cloud Dancer ------------------------------------ */
   --border-color: #DDD9D1;
   --border-strong: #CBC6BC;     /* inputs, unchecked switch                 */
-  --border-focus: #BB2649;
+  --border-focus: #141214;      /* ink border, lime ring                    */
 
   /* ---- Semantic: status chips only, never accents -------------------- */
   --success-color: #2E7D4F;  --success-bg: #E8F2EC;
@@ -75,16 +75,18 @@
   --shadow-lg: 0 10px 15px -3px rgba(20, 18, 20, 0.12), 0 4px 6px -4px rgba(20, 18, 20, 0.10);
 
   /* ---- Theme-facing tokens the recipes read; each pack overrides these -- */
-  --shell-bg: #5E1224;          /* magenta-900: sidebar, top bars, entry    */
-  --shell-fg: #F0EEE9;          /* Cloud Dancer on the shell (11:1)         */
-  --shell-logo: #F0EEE9;
-  --shell-active-fg: #FFFFFF;   /* the active item goes pure white          */
-  --shell-muted: #E8A3B2;       /* group labels: magenta-300 on the shell   */
+  --shell-bg: #333D0C;          /* lime-900: sidebar, top bars, entry       */
+  --shell-fg: #F0EEE9;          /* Cloud Dancer on the shell                */
+  --shell-logo: #B9D53C;        /* the wordmark in lime                     */
+  --shell-active-bg: #F0EEE9;   /* the current page: a Cloud Dancer pill    */
+  --shell-active-fg: #141214;   /*   with ink text, like the active tab     */
+  --shell-accent: #B9D53C;      /* the bar beside it, and phone nav accents */
+  --shell-muted: #CDE272;       /* group labels: lime-300 on the shell      */
   --selected-bg: #141214;       /* the current step: ink, never the CTA     */
   --selected-fg: #FFFFFF;
-  --secondary-hover-bg: #FCF2F4;      /* outline button on hover: soft fill */
-  --secondary-hover-fg: #9A1F3D;
-  --secondary-hover-border: #BB2649;
+  --secondary-hover-bg: #E6F1C8;      /* outline button on hover: soft fill */
+  --secondary-hover-fg: #5C6C13;
+  --secondary-hover-border: #B9D53C;
   --overlay: rgba(20, 18, 20, 0.7);
 
   /* DM Sans for everything, display included. */
@@ -4570,10 +4572,6 @@ table.data-table tbody tr:hover {
 .at-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .at-photo-remove { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; border: none; background: rgba(255,255,255,.95); color: var(--text-primary); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: var(--shadow-sm); }
 .at-photo-label { position: absolute; left: 6px; right: 6px; bottom: 6px; background: rgba(255,255,255,.92); color: var(--text-primary); font-size: var(--text-2xs); font-weight: 600; text-align: center; padding: 3px 6px; border-radius: 999px; }
-.at-photo--add { border-style: dashed; border-color: var(--border-strong); background: var(--surface-2); display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; cursor: pointer; font: inherit; color: var(--text-primary); }
-.at-photo-plus { width: 40px; height: 40px; border-radius: 50%; background: var(--surface-inset); display: inline-flex; align-items: center; justify-content: center; }
-.at-photo-add-text { font-size: var(--text-sm); font-weight: 600; }
-.at-photo-add-hint { font-size: 10px; color: var(--text-muted); padding: 0 8px; line-height: 1.3; }
 
 .at-note { display: flex; gap: var(--space-3); align-items: flex-start; border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); border: 1px solid; }
 .at-note--amber { background: var(--tone-amber-bg); border-color: var(--tone-amber-line); }
@@ -4723,8 +4721,8 @@ table.data-table tbody tr:hover {
 /* =====================================================================
    The component recipes. Tokens only: every colour here is a variable or a
    color-mix of one, so a token pack (themes.css) restyles the whole product.
-   The default pack is Scaleezy light: Viva Magenta on Cloud Dancer with a
-   near-black shell. The primary colour is used for exactly three things
+   The default pack is Scaleezy light: lime on Cloud Dancer with a
+   deep-olive shell. The primary colour is used for exactly three things
    (the primary action, the active state, focus); everything else is ink,
    white and the warm greys.
    ===================================================================== */
@@ -4853,7 +4851,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .at-stat-value { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-primary); }
 .at-stat--green .at-stat-value, .at-stat--amber .at-stat-value, .at-stat--rose .at-stat-value { color: var(--text-primary); }
 .at-tile { border-radius: var(--radius-lg); }
-.at-tile svg, .portal-menu-item svg { stroke-width: 1.75; }
+.at-tile svg { stroke-width: 1.75; }
+.portal-menu-item svg { stroke-width: 2; width: 20px; height: 20px; flex-shrink: 0; }
 .at-progress { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--primary-color) 20%, transparent); }
 .at-progress-fill, .at-progress-fill--green, .at-progress-fill--amber, .at-progress-fill--blue, .at-progress-fill--violet, .at-progress-fill--rose { background: var(--primary-color); border-radius: 999px; }
 .at-tip, .at-note--green { background: var(--accent-color); border-color: var(--accent-border); }
@@ -4872,26 +4871,27 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 @media (min-width: 1025px) { .portal-layout { grid-template-columns: 236px 1fr; } }
 .portal-sidebar { background: var(--shell-bg); border-right: 1px solid color-mix(in srgb, var(--shell-fg) 12%, transparent); color: var(--shell-fg); padding: 20px 16px 24px; }
 .portal-sidebar-logo { color: var(--shell-logo); font-weight: 800; letter-spacing: 0.04em; padding: 0 12px; }
-.portal-sidebar-logo-sub { color: var(--shell-muted); letter-spacing: 0.18em; padding: 2px 12px 24px; }
+.portal-sidebar-logo-sub { color: var(--shell-muted); letter-spacing: 0.18em; padding: 2px 12px 24px; opacity: .9; }
 .portal-sidebar-mark { color: var(--shell-logo); }
-.portal-nav-toggle { background: color-mix(in srgb, var(--shell-fg) 6%, transparent); border-color: color-mix(in srgb, var(--shell-fg) 15%, transparent); color: color-mix(in srgb, var(--shell-fg) 65%, transparent); }
+.portal-nav-toggle { background: color-mix(in srgb, var(--shell-fg) 8%, transparent); border-color: color-mix(in srgb, var(--shell-fg) 25%, transparent); color: color-mix(in srgb, var(--shell-fg) 90%, transparent); }
 .portal-nav-toggle:hover { color: var(--shell-fg); border-color: color-mix(in srgb, var(--shell-fg) 35%, transparent); }
 .portal-menu-group { color: var(--shell-muted); opacity: 1; font-size: 10px; letter-spacing: 0.14em; padding: 16px 12px 6px; }
 .portal-menu-divider { background: color-mix(in srgb, var(--shell-fg) 12%, transparent); margin: 20px 12px 8px; }
-.portal-menu-item { position: relative; min-height: 44px; padding: 10px 12px; border-radius: var(--radius-lg); font-size: 14px; font-weight: 500; color: color-mix(in srgb, var(--shell-fg) 65%, transparent); transition: color .15s ease, background-color .15s ease; }
-.portal-menu-item:hover { background: color-mix(in srgb, var(--shell-fg) 8%, transparent); color: var(--shell-fg); }
-.portal-menu-item.active { background: color-mix(in srgb, var(--shell-fg) 6%, transparent); color: var(--shell-active-fg); font-weight: 600; }
-.portal-menu-item.active::before { content: ''; position: absolute; left: -16px; top: 50%; transform: translateY(-50%); width: 4px; height: 32px; border-radius: 0 999px 999px 0; background: var(--shell-active-fg); }
+/* Nav text near full strength: at 65% it disappeared into the shell. */
+.portal-menu-item { position: relative; min-height: 44px; padding: 10px 12px; border-radius: var(--radius-lg); font-size: 14px; font-weight: 500; color: color-mix(in srgb, var(--shell-fg) 92%, transparent); transition: color .15s ease, background-color .15s ease; }
+.portal-menu-item:hover { background: color-mix(in srgb, var(--shell-fg) 12%, transparent); color: var(--shell-fg); }
+.portal-menu-item.active { background: var(--shell-active-bg); color: var(--shell-active-fg); font-weight: 600; box-shadow: var(--shadow-card); }
+.portal-menu-item.active::before { content: ''; position: absolute; left: -16px; top: 50%; transform: translateY(-50%); width: 4px; height: 32px; border-radius: 0 999px 999px 0; background: var(--shell-accent); }
 .portal-flyout { background: var(--shell-bg); color: var(--shell-fg); border: 1px solid color-mix(in srgb, var(--shell-fg) 15%, transparent); border-radius: var(--radius-md); }
 .portal-flyout::before { border-right-color: var(--shell-bg); }
 .mobile-portal-header, .mobile-app-header, .mobile-header-bar { background: var(--shell-bg); color: var(--shell-fg); border-bottom: 1px solid color-mix(in srgb, var(--shell-fg) 10%, transparent); }
 .mobile-portal-header h1, .mobile-portal-header h2, .mobile-portal-header button, .mobile-portal-header svg,
 .mobile-header-title, .mobile-header-bar .icon-btn-touch, .mobile-header-bar svg { color: var(--shell-fg); }
 .mobile-portal-header .mobile-hamburger-btn { background: transparent; border-color: color-mix(in srgb, var(--shell-fg) 15%, transparent); }
-.mobile-header-avatar, .mobile-header-avatar > * { background: color-mix(in srgb, var(--shell-active-fg) 20%, transparent) !important; color: var(--shell-active-fg) !important; border-color: transparent !important; }
+.mobile-header-avatar, .mobile-header-avatar > * { background: color-mix(in srgb, var(--shell-accent) 20%, transparent) !important; color: var(--shell-accent) !important; border-color: transparent !important; }
 .mobile-bottom-nav { background: var(--shell-bg); border-top: 1px solid color-mix(in srgb, var(--shell-fg) 12%, transparent); box-shadow: none; }
-.mobile-bottom-nav-item { color: color-mix(in srgb, var(--shell-fg) 65%, transparent); }
-.mobile-bottom-nav-item.active { color: var(--shell-active-fg); font-weight: 600; }
+.mobile-bottom-nav-item { color: color-mix(in srgb, var(--shell-fg) 92%, transparent); }
+.mobile-bottom-nav-item.active { color: var(--shell-accent); font-weight: 600; }
 .auth-page { background: var(--shell-bg); }
 .auth-page > button { color: color-mix(in srgb, var(--shell-fg) 75%, transparent) !important; border-color: color-mix(in srgb, var(--shell-fg) 15%, transparent) !important; background: color-mix(in srgb, var(--shell-fg) 5%, transparent) !important; }
 .auth-page .auth-logo { color: var(--shell-logo) !important; }
@@ -4901,4 +4901,138 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 /* Motion: 150ms colour transitions, nothing when reduced motion is asked for. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+}
+
+@media (max-width: 1024px) {
+  /* The generic mobile rule turns every <table> into a nowrap scrolling block;
+     .at-table already has its own scrolling wrapper. */
+  .at-table { display: table !important; overflow: visible !important; white-space: normal !important; }
+}
+
+/* The camera-or-device menu under an AddPhotoButton that has its own live camera. */
+.at-menu-anchor { position: relative; display: inline-block; }
+.at-menu { position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; min-width: 190px; display: flex; flex-direction: column; gap: 2px; padding: 4px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-md); }
+.at-menu button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--text-primary); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.at-menu button:hover, .at-menu button:focus-visible { background: var(--surface-2); outline: none; }
+
+/* ---------------------------------------------------------------------------
+   Order page (an order opened from the order book). Tokens only, so it holds in
+   every pack, light or dark. Sections are .at-section cards; the shared pieces
+   are .od-section-head (tile, title, sub, actions on the right) and .od-hint.
+   --------------------------------------------------------------------------- */
+.od-page { display: flex; flex-direction: column; gap: var(--space-5); }
+.od-back { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.od-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+.od-head-left { min-width: 0; }
+.od-title-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.od-title { margin: 0; font-family: var(--font-serif); font-size: 36px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; color: var(--text-primary); }
+.od-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 10px; font-size: 14px; color: var(--text-secondary); }
+.od-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.od-meta strong { color: var(--text-primary); font-weight: 600; }
+.od-meta-sep { color: var(--border-strong); }
+.od-quote { margin: 0; max-width: 34ch; font-family: var(--font-serif); font-style: italic; font-size: 17px; line-height: 1.45; color: var(--text-secondary); text-align: right; }
+/* The status pill: a select dressed as the badge it changes. */
+.od-status { position: relative; display: inline-flex; align-items: center; height: 34px; border-radius: 999px; background: var(--accent-color); color: var(--brand-link); border: 1px solid transparent; }
+.od-status--success { background: var(--success-bg); color: var(--success-color); }
+.od-status--neutral { background: var(--surface-inset); color: var(--text-secondary); }
+.od-status--info { background: var(--info-bg); color: var(--info-color); }
+.od-status select { appearance: none; -webkit-appearance: none; border: 0; background: none; margin: 0; padding: 0 30px 0 32px; height: 100%; font: inherit; font-size: 13px; font-weight: 600; color: inherit; cursor: pointer; }
+.od-status select:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; border-radius: 999px; }
+.od-status select:disabled { cursor: progress; opacity: .7; }
+.od-status-icon, .od-status-chevron { position: absolute; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.od-status-icon { left: 12px; }
+.od-status-chevron { right: 11px; opacity: .8; }
+/* Facts */
+.od-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.od-fact { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 16px 18px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.od-fact-label { font-size: 13px; color: var(--text-secondary); }
+.od-fact-value { font-size: 17px; font-weight: 600; color: var(--text-primary); margin-top: 2px; overflow-wrap: anywhere; }
+.od-fact-value--empty { color: var(--text-secondary); font-weight: 500; }
+/* Section heads */
+.od-section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.od-section-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; flex: 1 1 0; }
+.od-section-title--stack { flex-direction: column; align-items: flex-start; gap: 2px; }
+.od-section-title h3 { margin: 0; font-family: var(--font-serif); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-primary); }
+.od-section-sub { font-size: 13px; color: var(--text-secondary); }
+.od-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; flex: 0 0 auto; }
+.od-chip { display: inline-flex; align-items: center; height: 28px; padding: 0 12px; border-radius: 999px; background: var(--surface-inset); color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.od-select { width: auto; min-width: 150px; min-height: 36px !important; padding: 4px 12px !important; font-size: 13px; margin: 0; }
+.od-hint { font-size: 12px; color: var(--text-secondary); }
+.od-error { font-size: 12px; color: var(--danger-color); margin-bottom: 8px; }
+.od-empty { font-size: 13px; color: var(--text-secondary); text-align: center; padding: 8px 0; }
+/* Columns */
+.od-columns { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+.od-main, .od-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.od-extra { display: flex; flex-direction: column; gap: 16px; }
+.od-extra:empty { display: none; }
+/* Garment photos */
+.od-photos { display: flex; gap: 12px; flex-wrap: wrap; }
+.od-photos-empty { display: flex; align-items: center; gap: 10px; padding: 18px; border: 1.5px dashed var(--border-strong); border-radius: var(--radius-md); background: var(--surface-2); color: var(--text-secondary); font-size: 13px; }
+.od-gallery-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+/* Garment preview */
+.od-preview-img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: var(--radius-md); border: 1px solid var(--border-color); display: block; }
+.od-preview-empty { width: 100%; aspect-ratio: 4 / 5; border-radius: var(--radius-md); background: var(--surface-inset); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
+.od-preview-name { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-top: 14px; }
+.od-preview-status { margin-top: 8px; }
+.od-preview-text { font-size: 13px; color: var(--text-secondary); margin: 12px 0 14px; line-height: 1.5; }
+/* Notes */
+.od-notes-input { resize: vertical; min-height: 96px; font-size: 13px; line-height: 1.5; }
+.od-notes-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.od-notes-text { margin: 0; font-size: 13px; line-height: 1.55; color: var(--text-primary); white-space: pre-wrap; }
+/* The stage strip: done in the success colour, the live step ringed in the brand colour. */
+.od-timeline { display: flex; align-items: flex-start; overflow-x: auto; padding: 8px 4px 12px; scrollbar-width: thin; contain: inline-size; }
+.od-stage { display: flex; flex-direction: column; align-items: center; flex: 1 0 120px; min-width: 120px; cursor: pointer; border-radius: var(--radius-md); padding: 4px 4px 8px; text-align: center; }
+.od-stage:hover, .od-stage:focus-visible { background: var(--surface-2); outline: none; }
+.od-stage-row { display: flex; align-items: center; width: 100%; height: 44px; }
+.od-stage-row::before, .od-stage-row::after { content: ''; flex: 1; height: 2px; background: var(--border-color); }
+.od-stage--first .od-stage-row::before, .od-stage--last .od-stage-row::after { visibility: hidden; }
+.od-stage--done .od-stage-row::before, .od-stage--done .od-stage-row::after, .od-stage--live .od-stage-row::before, .od-stage--held .od-stage-row::before { background: var(--success-color); }
+.od-node { position: relative; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1.5px solid var(--border-strong); background: var(--surface-color); color: var(--text-secondary); }
+.od-stage--done .od-node { background: var(--success-bg); border-color: var(--success-color); color: var(--success-color); }
+.od-node-check { position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 50%; background: var(--success-color); color: #fff; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--surface-color); }
+.od-stage--live .od-node { width: 46px; height: 46px; border: 2px solid var(--primary-color); background: var(--primary-color); color: var(--primary-foreground); box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary-color) 22%, transparent); }
+.od-stage--held .od-node { border-color: var(--warning-color); color: var(--warning-color); background: var(--warning-bg); }
+.od-stage--skipped .od-node { border-style: dashed; }
+.od-stage-name { font-size: 12.5px; font-weight: 500; color: var(--text-secondary); margin-top: 10px; line-height: 1.25; overflow-wrap: anywhere; }
+.od-stage--done .od-stage-name, .od-stage--live .od-stage-name, .od-stage--held .od-stage-name { color: var(--text-primary); font-weight: 600; }
+.od-stage-note { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+.od-stage-note--live { color: var(--brand-link); font-weight: 600; }
+.od-stage-note--held { color: var(--warning-color); font-weight: 600; }
+/* Customer updates: a dated feed, quiet once sent. */
+.od-feed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.od-feed-item { display: grid; grid-template-columns: 12px 92px minmax(0, 1fr) auto; gap: 8px 16px; padding: 14px 0; border-top: 1px solid var(--border-color); align-items: start; }
+.od-feed-item:first-child { border-top: 0; padding-top: 4px; }
+.od-feed-item--sent { opacity: .65; }
+.od-feed-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; }
+.od-feed-dot--queued { background: var(--warning-color); }
+.od-feed-dot--sent { background: var(--success-color); }
+.od-feed-when { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.od-feed-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.od-feed-text { margin: 0; font-size: 13px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; color: var(--text-primary); }
+.od-feed-actions { display: flex; flex-direction: column; gap: 6px; }
+/* Materials: the "Show materials" step sits on the head's right until opened. */
+.od-materials { display: flex; flex-wrap: wrap; align-items: center; }
+.od-materials .od-section-head { flex: 1 1 320px; margin-bottom: 0; }
+.od-materials > .btn-secondary { margin-left: auto; background: var(--accent-color); border-color: transparent; color: var(--brand-link); }
+.od-materials > div { flex-basis: 100%; margin-top: 12px; }
+@media (max-width: 1100px) {
+  .od-quote { display: none; }
+}
+@media (max-width: 1024px) {
+  .od-columns { grid-template-columns: 1fr; }
+  /* One column: the cards interleave (photos, then the preview) instead of
+     the whole side column trailing the whole main column. */
+  .od-main, .od-side { display: contents; }
+  .od-gallery { order: 1; } .od-preview { order: 2; } .od-updates { order: 3; } .od-notes { order: 4; } .od-materials { order: 5; } .od-extra { order: 6; }
+}
+@media (max-width: 640px) {
+  .od-title { font-size: 28px; }
+  .od-head-actions { margin-left: 0; width: 100%; }
+  .od-head-actions .od-select { flex: 1 1 100%; }
+  /* Two-up facts, tile above the words, so the four fit one phone screen. */
+  .od-facts { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .od-fact { flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; }
+  .od-feed-item { grid-template-columns: 12px minmax(0, 1fr); }
+  .od-feed-when, .od-feed-body, .od-feed-actions { grid-column: 2; }
+  .od-feed-actions { flex-direction: row; flex-wrap: wrap; }
 }

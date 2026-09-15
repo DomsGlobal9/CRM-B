@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { AddMoreTile, Dropzone, PhotoTile } from '../../components/ui/Atelier';
+import { Dropzone, PhotoTile } from '../../components/ui/Atelier';
 import { resolveMediaUrl } from '../../services/media';
 import FabricPlacements from '../fabrics/FabricPlacements';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
@@ -193,19 +193,16 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.photos', 'Photos')}</label>
-          <Dropzone compact multiple camera title="Drag & drop photos here" subtitle="or choose an option"
-                    chooseLabel="Choose from gallery" cameraLabel="Take photo" onFiles={addPhotos} />
+          <Dropzone compact multiple title="Drag & drop photos here" subtitle="or choose from your device"
+                    chooseLabel="Add photos" onFiles={addPhotos} />
           {(form.image_urls || []).length > 0 && (
             <div className="at-photos" style={{ gap: '6px' }}>
               {form.image_urls.map((src, i) => (
                 <PhotoTile key={src} src={resolveMediaUrl(src)} size={64}
                            onRemove={() => set('image_urls', form.image_urls.filter((_, idx) => idx !== i))} />
               ))}
-              <AddMoreTile size={64} onClick={() => document.getElementById('inventory-item-photos').click()} />
             </div>
           )}
-          <input type="file" id="inventory-item-photos" accept="image/*" multiple style={{ display: 'none' }}
-                 onChange={(e) => { addPhotos(e.target.files); e.target.value = ''; }} />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
