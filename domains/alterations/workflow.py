@@ -11,7 +11,7 @@ front-desk role in this product; counter work is the Owner's and the Master's,
 so those two are the roles that take a garment in and hand it back.
 """
 
-from apps.alterations.models import AlterationStatus, AlterationType
+from apps.alterations.models import AlterationStatus, AlterationType, IssueScale
 from core.roles import DESIGNER, OWNER
 
 
@@ -69,6 +69,53 @@ ALLOWED_TRANSITIONS = {
     AlterationStatus.CANCELLED: set(),
 }
 
+#: The small-issue flow. A small issue is a small process: it is verified at
+#: the counter (Inspection), handed to a tailor, worked, shown to the
+#: customer, then pressed, packed and delivered -- no estimate, no approval,
+#: no separate quality check. The customer's own review is the check: if
+#: they are not satisfied it goes back to the bench (IN_PROGRESS is the
+#: rework state here too). A big issue, or one whose size was never decided,
+#: walks ALLOWED_TRANSITIONS above exactly as before.
+SMALL_ISSUE_TRANSITIONS = {
+    AlterationStatus.RECEIVED: {
+        AlterationStatus.INSPECTION,
+        AlterationStatus.CANCELLED,
+    },
+    AlterationStatus.INSPECTION: {
+        AlterationStatus.ASSIGNED,
+        AlterationStatus.CANCELLED,
+    },
+    AlterationStatus.ASSIGNED: {
+        AlterationStatus.ASSIGNED,
+        AlterationStatus.IN_PROGRESS,
+        AlterationStatus.CANCELLED,
+    },
+    AlterationStatus.IN_PROGRESS: {
+        AlterationStatus.CUSTOMER_REVIEW,
+        AlterationStatus.CANCELLED,
+    },
+    AlterationStatus.CUSTOMER_REVIEW: {
+        AlterationStatus.PRESSING,
+        AlterationStatus.IN_PROGRESS,
+        AlterationStatus.CANCELLED,
+    },
+    AlterationStatus.PRESSING: {
+        AlterationStatus.PACKAGING,
+        AlterationStatus.CANCELLED,
+    },
+    AlterationStatus.PACKAGING: {
+        AlterationStatus.COMPLETED,
+        AlterationStatus.CANCELLED,
+    },
+    AlterationStatus.COMPLETED: set(),
+    AlterationStatus.CANCELLED: set(),
+}
+
+
+def transitions_for(scale):
+    """The table an alteration of this issue size moves through."""
+    return SMALL_ISSUE_TRANSITIONS if scale == IssueScale.SMALL else ALLOWED_TRANSITIONS
+
 
 #: Every production role, i.e. everyone who can hold a garment and work on it.
 #: Mirrors Tailor.ROLE_CHOICES.
@@ -102,6 +149,11 @@ ALLOWED_ROLES_PER_STATUS = {
     AlterationStatus.ASSIGNED: COUNTER_ROLES,
     AlterationStatus.IN_PROGRESS: WORK_ROLES,
     AlterationStatus.QC: WORK_ROLES,
+    # Small-issue stops. The bench says the work is done; the counter records
+    # what the customer said; whoever pressed it sends it on to be packed.
+    AlterationStatus.CUSTOMER_REVIEW: WORK_ROLES,
+    AlterationStatus.PRESSING: COUNTER_ROLES,
+    AlterationStatus.PACKAGING: WORK_ROLES,
     AlterationStatus.READY_FOR_PICKUP: QC_ROLES,
     AlterationStatus.COMPLETED: COUNTER_ROLES,
     AlterationStatus.CANCELLED: COUNTER_ROLES,
@@ -117,12 +169,14 @@ PAYMENT_ROLES = COUNTER_ROLES
 MATERIAL_ROLES = frozenset({OWNER})
 
 
-def validate_transition(current_status, new_status):
-    """Raise TransitionError unless current_status -> new_status is legal."""
-    if current_status not in ALLOWED_TRANSITIONS:
+def validate_transition(current_status, new_status, scale=''):
+    """Raise TransitionError unless current_status -> new_status is legal
+    for an alteration of this issue size (the full flow when unsaid)."""
+    table = transitions_for(scale)
+    if current_status not in table:
         raise TransitionError(f"Unknown alteration status '{current_status}'.")
 
-    if new_status not in ALLOWED_TRANSITIONS[current_status]:
+    if new_status not in table[current_status]:
         raise TransitionError(
             f"Cannot move an alteration from '{current_status}' to '{new_status}'."
         )
@@ -161,7 +215,8 @@ def check_permission(target_status, *, role, alteration=None, tailor_id=None):
 
     if role in COUNTER_ROLES:
         return
-    if target_status in (AlterationStatus.IN_PROGRESS, AlterationStatus.QC):
+    if target_status in (AlterationStatus.IN_PROGRESS, AlterationStatus.QC,
+                         AlterationStatus.CUSTOMER_REVIEW):
         if alteration is None:
             return
         if tailor_id is None or tailor_id not in assigned_tailor_ids(alteration):
@@ -191,12 +246,18 @@ def available_actions(alteration, role, tailor_id=None):
         ('start-work', AlterationStatus.IN_PROGRESS),
         ('send-to-qc', AlterationStatus.QC),
         ('pass-qc', AlterationStatus.READY_FOR_PICKUP),
+        # Small-issue stops; unreachable from the big table, so never offered
+        # on a big issue -- and the big-only ones are never offered on a small.
+        ('work-complete', AlterationStatus.CUSTOMER_REVIEW),
+        ('customer-approved', AlterationStatus.PRESSING),
+        ('pressed', AlterationStatus.PACKAGING),
         ('complete', AlterationStatus.COMPLETED),
         ('cancel', AlterationStatus.CANCELLED),
     ]
+    scale = getattr(alteration, 'issue_scale', '')
     for key, target in candidates:
         try:
-            validate_transition(alteration.status, target)
+            validate_transition(alteration.status, target, scale)
             check_permission(target, role=role, alteration=alteration, tailor_id=tailor_id)
         except (TransitionError, PermissionError):
             continue
@@ -207,6 +268,15 @@ def available_actions(alteration, role, tailor_id=None):
         try:
             check_role(role, QC_ROLES, what='failing a quality check')
             actions.append('fail-qc')
+        except PermissionError:
+            pass
+
+    # The customer's "no" also lands on IN_PROGRESS, offered only from their
+    # review and only to the counter that heard it.
+    if alteration.status == AlterationStatus.CUSTOMER_REVIEW:
+        try:
+            check_role(role, COUNTER_ROLES, what="recording the customer's review")
+            actions.append('customer-rejected')
         except PermissionError:
             pass
 

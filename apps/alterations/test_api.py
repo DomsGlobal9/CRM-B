@@ -52,6 +52,21 @@ class AlterationAPITests(AlterationTestCase):
         self.assertEqual(data['outstanding_balance'], '750.00')
         self.assertIn('start-inspection', data['available_actions'])
 
+    def test_issue_scale_is_optional_and_kept(self):
+        # Asked at the counter; a request without it still goes through.
+        data = self.create()
+        self.assertEqual((data['issue_scale'], data['issue_scale_display']), ('', ''))
+        small = self.create(issue_scale='SMALL')
+        self.assertEqual((small['issue_scale'], small['issue_scale_display']), ('SMALL', 'Small'))
+        big = self.create(issue_scale='BIG')
+        self.assertEqual(big['issue_scale_display'], 'Big')
+        res = self.client.get(BASE)
+        rows = res.data['results'] if isinstance(res.data, dict) else res.data
+        self.assertEqual(sorted(r['issue_scale'] for r in rows), ['', 'BIG', 'SMALL'])
+        res = self.client.post(BASE, self.create_payload(issue_scale='HUGE'), format='json')
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('issue_scale', res.data)
+
     def test_create_against_a_live_order_is_a_400(self):
         res = self.client.post(BASE, self.create_payload(
             order_id=self.live_order.order_id,

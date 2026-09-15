@@ -13,6 +13,10 @@ below runs inside the caller's own boutique schema. There is no cross-tenant
 row to filter out, because there is no cross-tenant row in the table.
 """
 
+import uuid
+
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -31,6 +35,7 @@ from apps.alterations.serializers import (
     RecordMaterialSerializer,
     RecordPaymentSerializer,
     SubmitForApprovalSerializer,
+    OutsideAlterationCreateSerializer,
 )
 from core.permissions import AlterationPermission
 from core.roles import OWNER, resolve_user_role
@@ -124,6 +129,9 @@ class AlterationRequestViewSet(mixins.CreateModelMixin,
                 | Q(customer__mobile_number__icontains=search)
                 | Q(original_order__order_id__icontains=search)
                 | Q(issue_description__icontains=search)
+                # An outside garment has no order to find it by; its note is
+                # what the counter wrote about it.
+                | Q(garment_note__icontains=search)
             )
 
         return queryset
@@ -187,9 +195,40 @@ class AlterationRequestViewSet(mixins.CreateModelMixin,
                 garment_job_id=data['garment_job_id'],
                 alteration_type=data.get('alteration_type', AlterationType.PAID_CLIENT_REQUEST),
                 issue_description=data.get('issue_description', ''),
+                issue_scale=data.get('issue_scale', ''),
                 requested_adjustments=data.get('requested_adjustments') or {},
                 charge_amount=data.get('charge_amount'),
                 notes=data.get('notes', ''),
+                **self._actor(request),
+            )
+        except PermissionError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except (TransitionError, ValueError) as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return self._detail(alteration, status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['POST'], url_path='outside')
+    def create_outside(self, request):
+        """Take in a garment stitched elsewhere. Multipart or JSON; an
+        optional `intake_photo` file is stored the way every other upload is."""
+        data = self._payload(OutsideAlterationCreateSerializer, request)
+        photo_url = ''
+        photo = request.FILES.get('intake_photo')
+        if photo is not None:
+            path = f"alteration_intake/{uuid.uuid4()}_{photo.name}"
+            saved = default_storage.save(path, ContentFile(photo.read()))
+            photo_url = request.build_absolute_uri(default_storage.url(saved))
+        try:
+            alteration = services.create_outside_alteration_request(
+                customer_id=data['customer_id'],
+                garment_template_id=data.get('garment_template_id'),
+                garment_note=data.get('garment_note', ''),
+                issue_description=data.get('issue_description', ''),
+                issue_scale=data.get('issue_scale', ''),
+                requested_adjustments=data.get('requested_adjustments') or {},
+                charge_amount=data.get('charge_amount'),
+                notes=data.get('notes', ''),
+                intake_photo_url=photo_url,
                 **self._actor(request),
             )
         except PermissionError as exc:
@@ -261,6 +300,33 @@ class AlterationRequestViewSet(mixins.CreateModelMixin,
         data = self._payload(ReasonSerializer, request)
         return self._run(services.fail_quality_check,
                          reason=data['reason'], **self._actor(request))
+
+    # -- the small-issue flow --------------------------------------------
+
+    @action(detail=True, methods=['POST'], url_path='work-complete')
+    def work_complete(self, request, pk=None):
+        data = self._payload(NotesSerializer, request)
+        return self._run(services.complete_work,
+                         task_id=data.get('task_id'), notes=data.get('notes', ''),
+                         tailor_id=_tailor_id(request.user), **self._actor(request))
+
+    @action(detail=True, methods=['POST'], url_path='customer-approved')
+    def customer_approved(self, request, pk=None):
+        data = self._payload(NotesSerializer, request)
+        return self._run(services.customer_approved,
+                         notes=data.get('notes', ''), **self._actor(request))
+
+    @action(detail=True, methods=['POST'], url_path='customer-rejected')
+    def customer_rejected(self, request, pk=None):
+        data = self._payload(ReasonSerializer, request)
+        return self._run(services.customer_rejected,
+                         reason=data['reason'], **self._actor(request))
+
+    @action(detail=True, methods=['POST'], url_path='pressed')
+    def pressed(self, request, pk=None):
+        data = self._payload(NotesSerializer, request)
+        return self._run(services.mark_pressed,
+                         notes=data.get('notes', ''), **self._actor(request))
 
     @action(detail=True, methods=['POST'], url_path='complete')
     def complete(self, request, pk=None):

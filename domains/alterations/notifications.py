@@ -31,8 +31,14 @@ def _customer_name(alteration):
 
 
 def _garment(alteration):
-    template = getattr(alteration.garment_job, 'template', None)
+    template = getattr(alteration.garment_job, 'template', None) or alteration.garment_template
     return getattr(template, 'name', None) or 'your garment'
+
+
+def _origin(alteration):
+    """'from order T2B-…' for our own work; 'brought in' for an outside garment."""
+    order = alteration.original_order
+    return f"from order {order.order_id}" if order is not None else 'brought in'
 
 
 def _notify_staff(alteration, *, title, message, role, email=None):
@@ -52,6 +58,10 @@ def _notify_customer(alteration, *, title, body, template_key):
     )
 
     order = alteration.original_order
+    # WhatsApp and email ride on an order of ours; an outside garment has
+    # none, so the bell row above is the whole notification.
+    if order is None:
+        return
     try:
         from domains.orders.messaging import send_customer_message
         send_customer_message(
@@ -79,16 +89,14 @@ def alteration_received(alteration):
     _notify_staff(
         alteration,
         title=f"Alteration Received: {alteration.alteration_number}",
-        message=(f"{_garment(alteration)} from order "
-                 f"{alteration.original_order.order_id} has been taken in for "
+        message=(f"{_garment(alteration)} {_origin(alteration)} has been taken in for "
                  f"alteration for {_customer_name(alteration)}."),
         role='Owner',
     )
     _notify_customer(
         alteration,
         title=f"Alteration Received: {alteration.alteration_number}",
-        body=(f"we have received {_garment(alteration)} from order "
-              f"{alteration.original_order.order_id} for alteration "
+        body=(f"we have received {_garment(alteration)} {_origin(alteration)} for alteration "
               f"({alteration.alteration_number}). We will update you shortly."),
         template_key='alteration_received',
     )

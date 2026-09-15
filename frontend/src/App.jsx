@@ -41,6 +41,7 @@ const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboa
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const AlterationsPanel = lazy(() => import('./features/alterations/AlterationsPanel'));
+const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 import TemplateForm from './features/catalog/TemplateForm';
 import GarmentSummary from './features/catalog/GarmentSummary';
@@ -1854,6 +1855,8 @@ function App() {
   const [alterationOrder, setAlterationOrder] = useState(null);
   // Delivered order picked for alteration from the Manage Orders table.
   const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
+  // The "Outside garment" intake opened from the Manage Orders header.
+  const [takingInOutside, setTakingInOutside] = useState(false);
   const openAlteration = (id) => {
     setOpenAlterationId(id);
     setSelectedDirectoryCustomer(null);
@@ -4662,14 +4665,34 @@ function App() {
                     onCreated={(created) => { setOrdersAlterationOrder(null); openAlteration(created.id); }}
                   />
                 )}
+                {/* A garment we did not make, brought in for work: the same
+                    intake the Alterations tab offers, reachable from where
+                    the counter is standing. Opens on the new alteration. */}
+                {takingInOutside && (
+                  <Suspense fallback={<ScreenLoading />}>
+                    <OutsideGarmentIntake
+                      onClose={() => setTakingInOutside(false)}
+                      onCreated={(created) => { setTakingInOutside(false); openAlteration(created.id); }}
+                    />
+                  </Suspense>
+                )}
                 <PageHeader
                   title={t('ordersPage.title')}
                   subtitle={t('ordersPage.subtitle')}
                   aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
-                  actions={(!currentUser?.role || currentUser.role === 'Owner') && (
-                    <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                      <Plus size={16} /> {t('ordersPage.newOrder')}
-                    </button>
+                  actions={(
+                    <>
+                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                        <button className="btn-secondary" style={{ padding: '10px 18px' }} onClick={() => setTakingInOutside(true)}>
+                          <Scissors size={16} /> Outside garment alteration
+                        </button>
+                      )}
+                      {(!currentUser?.role || currentUser.role === 'Owner') && (
+                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                          <Plus size={16} /> {t('ordersPage.newOrder')}
+                        </button>
+                      )}
+                    </>
                   )}
                 />
 

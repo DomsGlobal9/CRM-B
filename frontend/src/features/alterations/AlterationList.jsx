@@ -19,7 +19,7 @@ import { formatDate as fmtDate, formatMoney } from '../../services/format';
 const STATUS_TONE = {
   RECEIVED: '#6b7280', INSPECTION: '#3b82f6', PENDING_APPROVAL: '#f59e0b',
   APPROVED: '#8b5cf6', ASSIGNED: '#0ea5e9', IN_PROGRESS: '#f59e0b',
-  QC: '#a855f7', READY_FOR_PICKUP: '#10b981', COMPLETED: '#10b981',
+  QC: '#a855f7', CUSTOMER_REVIEW: '#a855f7', PRESSING: '#0ea5e9', PACKAGING: '#8b5cf6', READY_FOR_PICKUP: '#10b981', COMPLETED: '#10b981',
   CANCELLED: '#ef4444',
 };
 
@@ -89,7 +89,8 @@ export default function AlterationList({ title, params, onOpenAlteration, refres
                 </span>
               </div>
               <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                {row.customer?.name} · {row.garment_job?.template_name} · from order {row.original_order?.order_id}
+                {row.customer?.name} · {row.garment_name || row.garment_job?.template_name || row.garment_note}
+                {row.original_order ? ` · from order ${row.original_order.order_id}` : ' · brought from outside'}
                 {row.assigned_to_name ? ` · ${row.assigned_to_name}` : ''}
               </div>
               {row.issue_description && (
