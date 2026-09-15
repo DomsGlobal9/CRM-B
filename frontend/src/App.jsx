@@ -1852,6 +1852,8 @@ function App() {
   const [openAlterationId, setOpenAlterationId] = useState(null);
   // Delivered order picked for alteration from the customer profile.
   const [alterationOrder, setAlterationOrder] = useState(null);
+  // Delivered order picked for alteration from the Manage Orders table.
+  const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
   const openAlteration = (id) => {
     setOpenAlterationId(id);
     setSelectedDirectoryCustomer(null);
@@ -4652,6 +4654,14 @@ function App() {
             {/* Manage Orders Tab */}
             {dashboardTab === 'orders' && (
               <>
+                {ordersAlterationOrder && (
+                  <RequestAlterationModal
+                    order={ordersAlterationOrder}
+                    customerId={ordersAlterationOrder.customer}
+                    onClose={() => setOrdersAlterationOrder(null)}
+                    onCreated={(created) => { setOrdersAlterationOrder(null); openAlteration(created.id); }}
+                  />
+                )}
                 <PageHeader
                   title={t('ordersPage.title')}
                   subtitle={t('ordersPage.subtitle')}
@@ -4786,7 +4796,18 @@ function App() {
                             )}
                           </td>
                           <td style={{ whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+                              {/* A delivered garment can come back: the same
+                                  request form the order card and the customer
+                                  profile open, one click from the row, for
+                                  the roles that run the counter. */}
+                              {isDelivered && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                                <button type="button" className="btn-secondary at-btn-sm"
+                                        style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--accent-color)' }}
+                                        onClick={() => setOrdersAlterationOrder(order)}>
+                                  <Scissors size={12} /> Alteration
+                                </button>
+                              )}
                               <button type="button" className="btn-secondary at-btn-sm"
                                       onClick={() => setOpenOrdersRowId(isOpen ? null : order.id)}>
                                 <Eye size={12} /> {isOpen ? 'Hide' : 'View'}
