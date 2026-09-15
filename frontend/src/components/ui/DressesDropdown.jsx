@@ -48,7 +48,7 @@ export default function DressesDropdown({
         >
           <Shirt size={16} style={{ color: 'var(--accent-text, #18181b)' }} />
           <span>{title}</span>
-          {isRequired && <span className="required" style={{ color: '#ef4444' }}>*</span>}
+          {isRequired && <span className="required" style={{ color: 'var(--danger-color)' }}>*</span>}
         </label>
         {subtitle && (
           <div style={{ fontSize: '12.5px', color: 'var(--text-secondary, #64748b)', marginTop: '4px' }}>
@@ -126,7 +126,7 @@ export default function DressesDropdown({
 
       {/* Error state if templates fail to load */}
       {garmentTemplates.length === 0 && garmentTemplatesError && (
-        <div style={{ fontSize: '12.5px', color: '#c0392b', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ fontSize: '12.5px', color: 'var(--danger-color)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span>The garment list could not be loaded — {garmentTemplatesError}</span>
           {loadGarmentTemplates && (
             <button

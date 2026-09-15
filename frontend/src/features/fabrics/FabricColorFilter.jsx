@@ -102,9 +102,9 @@ export default function FabricColorFilter({ fabrics = [], value = '', onChange }
           onClick={() => onChange('')}
           style={{ padding: '5px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
                    cursor: 'pointer',
-                   border: !active ? '1.5px solid #107c41' : '1.5px solid var(--border-color)',
-                   background: !active ? '#107c41' : 'var(--surface-color, #fff)',
-                   color: !active ? '#fff' : 'var(--text-primary)' }}
+                   border: !active ? '1.5px solid var(--chip-selected-border)' : '1.5px solid var(--border-color)',
+                   background: !active ? 'var(--chip-selected-bg)' : 'var(--surface-color, #fff)',
+                   color: !active ? 'var(--chip-selected-fg)' : 'var(--text-primary)' }}
         >
           All colours
         </button>
@@ -122,10 +122,10 @@ export default function FabricColorFilter({ fabrics = [], value = '', onChange }
               style={{ display: 'inline-flex', alignItems: 'center', gap: '7px',
                        padding: '4px 11px 4px 5px', borderRadius: '999px', cursor: 'pointer',
                        fontSize: '12px', fontWeight: 600,
-                       border: isActive ? '1.5px solid #107c41' : '1.5px solid var(--border-color)',
-                       background: isActive ? 'rgba(16,124,65,0.08)' : 'var(--surface-color, #fff)',
-                       color: isActive ? '#107c41' : 'var(--text-primary)',
-                       boxShadow: isActive ? '0 0 0 3px rgba(16,124,65,0.12)' : 'none',
+                       border: isActive ? '1.5px solid var(--chip-selected-border)' : '1.5px solid var(--border-color)',
+                       background: isActive ? 'var(--chip-selected-bg)' : 'var(--surface-color, #fff)',
+                       color: isActive ? 'var(--chip-selected-fg)' : 'var(--text-primary)',
+                       boxShadow: isActive ? '0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent)' : 'none',
                        transition: 'all 0.15s ease' }}
             >
               {/* The swatch: the exact shade where one is recorded, a plain CSS

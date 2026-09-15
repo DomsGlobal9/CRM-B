@@ -52,7 +52,7 @@ const panel = {
 };
 
 // One themed inline error, so every form and the load failure report the same
-// way instead of each hardcoding #ef4444 on a red tint.
+// way instead of each hardcoding var(--danger-color) on a red tint.
 const errorBox = {
   fontSize: 'var(--text-sm)',
   color: 'var(--danger-color)',

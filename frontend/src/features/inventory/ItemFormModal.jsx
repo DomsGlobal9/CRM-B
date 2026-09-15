@@ -30,7 +30,7 @@ export function Modal({ title, onClose, children, width = '520px' }) {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1200,
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1200,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
       }}
     >

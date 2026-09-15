@@ -58,7 +58,7 @@ const weekLabel = (start, end) => {
 
 function Banner({ text, tone = 'error', icon: Icon }) {
   const c = tone === 'error'
-    ? { bg: 'rgba(220,80,60,0.12)', bd: 'rgba(220,80,60,0.35)', fg: '#c0392b' }
+    ? { bg: 'rgba(220,80,60,0.12)', bd: 'rgba(220,80,60,0.35)', fg: 'var(--danger-color)' }
     : tone === 'warn'
       ? { bg: 'rgba(200,140,50,0.12)', bd: 'rgba(200,140,50,0.35)', fg: '#a0691f' }
       : { bg: 'rgba(46,180,120,0.12)', bd: 'rgba(46,180,120,0.35)', fg: '#1e8a5c' };
@@ -79,7 +79,7 @@ function Modal({ title, onClose, children, width = '520px' }) {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1200,
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1200,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
       }}
     >
@@ -745,7 +745,7 @@ export default function Payroll() {
                   )}
 
                   {r.blocks_approval && (
-                    <div style={{ fontSize: '12px', color: '#c0392b', marginTop: '10px',
+                    <div style={{ fontSize: '12px', color: 'var(--danger-color)', marginTop: '10px',
                                   display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <AlertTriangle size={13} />
                       {r.rate_missing ? 'No hourly rate set' : 'Overlapping attendance'}

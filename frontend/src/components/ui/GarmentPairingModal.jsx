@@ -308,7 +308,7 @@ export default function GarmentPairingModal({
               fontWeight: 600,
               borderRadius: '8px',
               border: '1px solid var(--border-color, #cbd5e1)',
-              background: '#ffffff',
+              background: 'var(--surface-color)',
               color: 'var(--text-primary, #334155)',
               cursor: 'pointer',
             }}

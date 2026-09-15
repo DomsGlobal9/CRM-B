@@ -219,7 +219,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
             </select>
           </div>
           {quantityError && (
-            <div style={{ fontSize: '12px', color: '#c0392b', marginTop: '4px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--danger-color)', marginTop: '4px' }}>
               {quantityError}
             </div>
           )}
@@ -265,7 +265,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
                 </span>
               </div>
               {quantityError && (
-                <div style={{ fontSize: '12px', color: '#c0392b', marginTop: '4px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--danger-color)', marginTop: '4px' }}>
                   {quantityError}
                 </div>
               )}
@@ -309,7 +309,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
         </div>
       )}
       {error && (
-        <div style={{ fontSize: '12px', color: '#c0392b', marginTop: '4px' }}>{error}</div>
+        <div style={{ fontSize: '12px', color: 'var(--danger-color)', marginTop: '4px' }}>{error}</div>
       )}
     </div>
   );

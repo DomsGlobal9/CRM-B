@@ -152,6 +152,8 @@ export const consoleApi = {
   modules: () => request('/modules/'),
   setModules: (schema, modules, reason = '') =>
     request(`/boutiques/${schema}/modules/`, { method: 'PATCH', body: { modules, reason } }),
+  setAppearance: (schema, body) =>
+    request(`/boutiques/${schema}/appearance/`, { method: 'PATCH', body }),
 
   flags: () => request('/flags/'),
   createFlag: (body) => request('/flags/', { method: 'POST', body }),

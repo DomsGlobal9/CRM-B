@@ -84,7 +84,7 @@ const periodBounds = (period) => {
 
 function Banner({ text, tone = 'error' }) {
   const colours = tone === 'error'
-    ? { bg: 'rgba(220,80,60,0.12)', border: 'rgba(220,80,60,0.35)', fg: '#c0392b' }
+    ? { bg: 'rgba(220,80,60,0.12)', border: 'rgba(220,80,60,0.35)', fg: 'var(--danger-color)' }
     : { bg: 'rgba(46,180,120,0.12)', border: 'rgba(46,180,120,0.35)', fg: '#1e8a5c' };
   return (
     <div style={{
@@ -101,7 +101,7 @@ function Modal({ title, onClose, children, width = '520px' }) {
     <div
       onClick={onClose}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1200,
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1200,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
       }}
     >
@@ -685,7 +685,7 @@ const STATUS_STYLE = {
   P: { bg: 'rgba(46,196,182,0.18)', fg: '#1e8a5c' },
   L: { bg: 'rgba(240,136,62,0.18)', fg: '#c0864b' },
   WO: { bg: 'rgba(120,120,140,0.18)', fg: 'var(--text-secondary)' },
-  A: { bg: 'rgba(220,80,60,0.12)', fg: '#c0392b' },
+  A: { bg: 'rgba(220,80,60,0.12)', fg: 'var(--danger-color)' },
   '': { bg: 'transparent', fg: 'var(--text-muted)' },
 };
 

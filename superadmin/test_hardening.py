@@ -471,3 +471,38 @@ class ConsoleLoginIsRateLimited(TransactionTestCase):
                                   'password': 'guess'}, format='json')
         self.assertEqual(spent.status_code, 429,
                          'the boutique login handed out a fresh budget')
+
+
+class AppearanceIsPlatformSet(TransactionTestCase):
+    """The look a boutique runs is the platform's call, and sign-in carries it."""
+
+    def setUp(self):
+        connection.set_schema_to_public()
+        cache.clear()
+        clear_tenant_cache()
+
+    def test_the_console_sets_the_look_and_sign_in_reports_it(self):
+        with temporary_tenant('hard_look', 'o@look.test', 'Looks') as tenant:
+            admin = platform_admin()
+            url = f'/api/superadmin/boutiques/{tenant.schema_name}/appearance/'
+
+            refused = admin.patch(url, {'design_system': 'neon'}, format='json')
+            self.assertEqual(refused.status_code, 400)
+            self.assertIn('atelier', refused.json()['design_systems'])
+
+            response = admin.patch(
+                url, {'design_system': 'atelier', 'color_mode': 'dark', 'reason': 'rollout'},
+                format='json')
+            self.assertEqual(response.status_code, 200, response.content)
+            tenant.refresh_from_db()
+            self.assertEqual((tenant.design_system, tenant.color_mode), ('atelier', 'dark'))
+
+            entry = AuditLog.objects.filter(
+                action='boutique.appearance', boutique=tenant.schema_name).first()
+            self.assertIsNotNone(entry, 'the change was not audited')
+            self.assertEqual(entry.after, {'design_system': 'atelier', 'color_mode': 'dark'})
+            self.assertEqual(entry.reason, 'rollout')
+
+            client = boutique_client('hard_look', 'u@look.test')
+            me = client.get('/api/auth/me/', HTTP_X_TENANT_ID='hard_look').json()
+            self.assertEqual((me['design_system'], me['color_mode']), ('atelier', 'dark'))

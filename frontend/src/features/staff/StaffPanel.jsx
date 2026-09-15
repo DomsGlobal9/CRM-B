@@ -38,7 +38,7 @@ const panel = {
 
 // One themed error banner, so every form and the roster report failures the
 // same way instead of each hardcoding its own red. Was rgba(220,80,60,...)
-// on #c0392b -- legible, but off-palette against the refreshed tokens.
+// on var(--danger-color) -- legible, but off-palette against the refreshed tokens.
 const errorBox = {
   background: 'var(--danger-bg)',
   border: '1px solid var(--danger-color)',

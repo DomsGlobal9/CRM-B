@@ -25,7 +25,7 @@ const ATTRIBUTE_LABELS = {
 };
 
 const scoreColour = (score) => {
-  if (score >= 80) return { bg: '#e2f5ec', fg: '#107c41' };
+  if (score >= 80) return { bg: '#e2f5ec', fg: 'var(--primary-color)' };
   if (score >= 55) return { bg: '#fdf6ed', fg: '#c08030' };
   return { bg: '#f3f4f6', fg: '#6b7280' };
 };
@@ -46,7 +46,7 @@ function NoPreview() {
   return (
     <div style={{
       height: '100%', display: 'grid', placeItems: 'center',
-      color: 'var(--text-secondary)', fontSize: '11px', backgroundColor: '#f9fafb'
+      color: 'var(--text-secondary)', fontSize: '11px', backgroundColor: 'var(--surface-2)'
     }}>
       No preview
     </div>
@@ -82,7 +82,7 @@ function DesignCard({ design, isShortlisted, shortlistingId, onShortlist, onInsp
         {design.match_reasons?.length > 0 && (
           <ul style={{ listStyle: 'none', padding: 0, margin: '6px 0 0' }}>
             {design.match_reasons.slice(0, 3).map((reason, i) => (
-              <li key={i} style={{ fontSize: '10px', color: '#107c41', display: 'flex', gap: '4px', alignItems: 'flex-start' }}>
+              <li key={i} style={{ fontSize: '10px', color: 'var(--brand-link)', display: 'flex', gap: '4px', alignItems: 'flex-start' }}>
                 <Check size={10} style={{ marginTop: '2px', flexShrink: 0 }} />
                 <span style={{ color: 'var(--text-secondary)' }}>{reason}</span>
               </li>
@@ -370,7 +370,7 @@ export default function DesignStudio({
             </span>
           ))}
           {keywords.map((word) => (
-            <span key={word} style={{ fontSize: '10px', backgroundColor: '#e2f5ec', color: '#107c41', padding: '4px 10px', borderRadius: '99px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <span key={word} style={{ fontSize: '10px', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', padding: '4px 10px', borderRadius: '99px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
               {word}
               <X size={10} style={{ cursor: 'pointer' }} onClick={() => {
                 const next = keywords.filter((k) => k !== word);
@@ -404,7 +404,7 @@ export default function DesignStudio({
                 style={{
                   fontSize: '10px', padding: '5px 10px', borderRadius: '99px', cursor: source.available ? 'pointer' : 'not-allowed',
                   border: `1px solid ${isOn && source.available ? 'var(--text-primary)' : 'var(--border-color)'}`,
-                  backgroundColor: source.available ? (isOn ? '#fafbfc' : '#fff') : '#f9fafb',
+                  backgroundColor: source.available ? (isOn ? '#fafbfc' : '#fff') : 'var(--surface-2)',
                   color: source.available ? 'var(--text-primary)' : 'var(--text-secondary)'
                 }}
               >
@@ -458,7 +458,7 @@ export default function DesignStudio({
           <div className="card-title" style={{ marginBottom: '12px' }}>
             <Check size={16} /> Design Board ({items.length})
             {board?.status === 'APPROVED' && (
-              <span style={{ fontSize: '10px', backgroundColor: '#e2f5ec', color: '#107c41', padding: '2px 8px', borderRadius: '99px', marginLeft: '8px' }}>
+              <span style={{ fontSize: '10px', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', padding: '2px 8px', borderRadius: '99px', marginLeft: '8px' }}>
                 Approved
               </span>
             )}

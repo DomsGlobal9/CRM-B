@@ -73,7 +73,7 @@ export default function DesignCatalogueFilter({ garmentKey, value = {}, onChange
       {active && (
         <>
           <span title={`${tree.label} › ${describePath(tree, value)}`}
-                style={{ fontSize: '11.5px', fontWeight: 600, color: '#107c41',
+                style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--brand-link)',
                          background: 'rgba(16,124,65,0.10)', padding: '5px 10px', borderRadius: '999px',
                          maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis',
                          whiteSpace: 'nowrap' }}>

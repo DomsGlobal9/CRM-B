@@ -24,8 +24,8 @@ import {
 
 import { consoleApi } from '../api';
 import {
-  Async, Empty, Pager, Pill, SearchBox, SectionHead, Stat,
-  count, day, money, useApi,
+  Async, Empty, Pager, Pill, SearchBox, SectionHead, Select, Stat,
+  count, day, money, useApi, useToast,
 } from '../ui';
 
 /** See core.modules.is_enabled -- absent and malformed both mean ON. */
@@ -189,7 +189,58 @@ function DataBrowser({ schema }) {
   );
 }
 
-/** Usage, onboarding and modules. Everything else links out. */
+const DESIGN_SYSTEMS = [
+  { value: 'scaleezy', label: 'Scaleezy — Viva Magenta on Cloud Dancer' },
+  { value: 'atelier', label: 'Atelier — warm paper, forest green' },
+];
+const COLOR_MODES = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'Match the device' },
+];
+
+/** The look this boutique's workspace runs. Platform-set: the boutique has no
+ *  control of its own, so this card is the only place it changes. */
+function AppearanceCard({ schema, boutique }) {
+  const toast = useToast();
+  const [saved, setSaved] = useState({ system: boutique.design_system || 'scaleezy', mode: boutique.color_mode || 'light' });
+  const [system, setSystem] = useState(saved.system);
+  const [mode, setMode] = useState(saved.mode);
+  const [saving, setSaving] = useState(false);
+  const dirty = system !== saved.system || mode !== saved.mode;
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const applied = await consoleApi.setAppearance(schema, { design_system: system, color_mode: mode });
+      setSaved({ system: applied.design_system, mode: applied.color_mode });
+      toast('Saved. The workspace picks it up at its next sign-in or refresh.');
+    } catch (e) {
+      toast(e.message, 'off');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="sa-card">
+      <h4>Appearance</h4>
+      <p style={{ marginBottom: 10 }}>
+        The design system and light/dark mode this boutique&apos;s workspace runs. Recorded in
+        the audit trail; the boutique itself cannot change it.
+      </p>
+      <div style={{ display: 'grid', gap: 8 }}>
+        <Select label="Design system" value={system} onChange={setSystem} options={DESIGN_SYSTEMS} />
+        <Select label="Light or dark" value={mode} onChange={setMode} options={COLOR_MODES} />
+      </div>
+      <button className="sa-btn" style={{ marginTop: 10 }} disabled={!dirty || saving} onClick={save}>
+        {saving ? 'Saving…' : 'Apply to this boutique'}
+      </button>
+    </div>
+  );
+}
+
+/** Usage, onboarding, modules and appearance. Everything else links out. */
 function Overview({ schema, route }) {
   const state = useApi(useCallback(() => consoleApi.support(schema), [schema]));
 
@@ -272,6 +323,8 @@ function Overview({ schema, route }) {
                   Change modules <ArrowUpRight size={13} />
                 </button>
               </div>
+
+              <AppearanceCard schema={schema} boutique={boutique} />
 
               <div className="sa-card">
                 <h4><Wrench size={14} /> Going further</h4>

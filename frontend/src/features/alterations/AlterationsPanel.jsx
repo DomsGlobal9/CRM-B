@@ -25,9 +25,9 @@ const STATUS_TONE = {
   ASSIGNED: '#0ea5e9',
   IN_PROGRESS: '#f59e0b',
   QC: '#a855f7',
-  READY_FOR_PICKUP: '#10b981',
-  COMPLETED: '#10b981',
-  CANCELLED: '#ef4444',
+  READY_FOR_PICKUP: 'var(--success-color)',
+  COMPLETED: 'var(--success-color)',
+  CANCELLED: 'var(--danger-color)',
 };
 
 const STATUS_ORDER = [
@@ -138,7 +138,7 @@ function ErrorNote({ error, onDismiss }) {
     <div style={{
       display: 'flex', gap: '8px', alignItems: 'flex-start', padding: '10px 12px',
       borderRadius: '8px', background: 'rgba(239,68,68,0.08)',
-      border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: '13px',
+      border: '1px solid rgba(239,68,68,0.3)', color: 'var(--danger-color)', fontSize: '13px',
       marginBottom: '12px', whiteSpace: 'pre-line',
     }}>
       <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: '1px' }} />
@@ -165,7 +165,7 @@ function StatusTrack({ status }) {
         return (
           <span key={step} style={{
             fontSize: '10px', fontWeight: 600, padding: '4px 8px', borderRadius: '6px',
-            color: here ? '#fff' : done ? '#10b981' : 'var(--text-muted)',
+            color: here ? '#fff' : done ? 'var(--success-color)' : 'var(--text-muted)',
             background: here ? (STATUS_TONE[step] || '#6b7280') : done ? 'rgba(16,185,129,0.12)' : 'transparent',
             border: `1px solid ${here ? 'transparent' : done ? 'rgba(16,185,129,0.3)' : 'var(--border-color)'}`,
           }}>
@@ -301,7 +301,7 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
         <span style={{
           fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '999px',
           background: isPaid ? 'rgba(245,158,11,0.14)' : 'rgba(16,185,129,0.14)',
-          color: isPaid ? '#f59e0b' : '#10b981',
+          color: isPaid ? '#f59e0b' : 'var(--success-color)',
         }}>
           {alteration.alteration_type_display}
         </span>
@@ -395,8 +395,8 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
           >
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
               <Stat label="Charge" value={money(alteration.charge_amount)} />
-              <Stat label="Paid" value={money(alteration.amount_paid)} tone="#10b981" />
-              <Stat label="Outstanding" value={money(outstanding)} tone={outstanding > 0 ? '#ef4444' : '#10b981'} />
+              <Stat label="Paid" value={money(alteration.amount_paid)} tone="var(--success-color)" />
+              <Stat label="Outstanding" value={money(outstanding)} tone={outstanding > 0 ? 'var(--danger-color)' : 'var(--success-color)'} />
             </div>
             {alteration.payments?.length ? (
               <table style={{ width: '100%', fontSize: '12.5px', borderCollapse: 'collapse' }}>
@@ -456,7 +456,7 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
                 {activity.from_status && activity.to_status && activity.from_status !== activity.to_status && (
                   <span style={{ color: 'var(--text-muted)' }}> · {activity.from_status.toLowerCase()} → {activity.to_status.toLowerCase()}</span>
                 )}
-                {activity.metadata?.reason && <div style={{ color: '#ef4444' }}>{activity.metadata.reason}</div>}
+                {activity.metadata?.reason && <div style={{ color: 'var(--danger-color)' }}>{activity.metadata.reason}</div>}
                 {activity.metadata?.notes && <div style={{ color: 'var(--text-muted)' }}>{activity.metadata.notes}</div>}
               </span>
               <span style={{ color: 'var(--text-muted)' }}>{activity.performed_by_name}</span>
@@ -790,7 +790,7 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
 
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <Stat label="In progress" value={totals.open} />
-        <Stat label="Ready for pickup" value={totals.awaitingPickup} tone="#10b981" />
+        <Stat label="Ready for pickup" value={totals.awaitingPickup} tone="var(--success-color)" />
         <Stat label="Outstanding" value={money(totals.owed)} tone={totals.owed > 0 ? '#f59e0b' : undefined} />
       </div>
 
@@ -852,13 +852,13 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
                   <td style={{ padding: '12px 14px' }}>{row.customer?.name}</td>
                   <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>{row.original_order?.order_id}</td>
                   <td style={{ padding: '12px 14px' }}>{row.garment_job?.template_name}</td>
-                  <td style={{ padding: '12px 14px', color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : '#10b981' }}>
+                  <td style={{ padding: '12px 14px', color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : 'var(--success-color)' }}>
                     {row.alteration_type === 'PAID_CLIENT_REQUEST' ? 'Paid' : 'Free'}
                   </td>
                   <td style={{ padding: '12px 14px' }}><Pill status={row.status} label={row.status_display} /></td>
                   <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>{row.assigned_to_name || '—'}</td>
                   <td style={{ padding: '12px 14px' }}>{money(row.charge_amount)}</td>
-                  <td style={{ padding: '12px 14px', color: Number(row.outstanding_balance) > 0 ? '#ef4444' : 'var(--text-muted)' }}>
+                  <td style={{ padding: '12px 14px', color: Number(row.outstanding_balance) > 0 ? 'var(--danger-color)' : 'var(--text-muted)' }}>
                     {money(row.outstanding_balance)}
                   </td>
                   <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>{fmtDate(row.received_at)}</td>

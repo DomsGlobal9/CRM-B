@@ -34,7 +34,7 @@ export function MobileHeader({ title, currentUser, notificationsCount, onOpenNot
 
             <div className="mobile-header-avatar">
               <img
-                src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUser?.first_name || 'User')}`}
+                src={`https://api.dicebear.com/7.x/initials/svg?backgroundColor=e6f1c8&textColor=1f2a06&seed=${encodeURIComponent(currentUser?.first_name || 'User')}`}
                 alt="Profile"
               />
             </div>

@@ -187,6 +187,44 @@ class BoutiqueModulesView(ConsoleView):
 
 
 
+class BoutiqueAppearanceView(ConsoleView):
+    """Which design system a boutique gets, and whether it runs light or dark.
+
+    Platform-set on purpose: the look is part of the product the boutique is
+    sold, not a preference its owner tunes, so the workspace's own Settings
+    screen has no control for it. The workspace reads the choice off
+    /auth/me/ and applies it at sign-in.
+    """
+
+    def patch(self, request, schema_name=None):
+        tenant = _tenant_or_404(schema_name)
+        if tenant is None:
+            return Response({'error': 'No such boutique.'}, status=status.HTTP_404_NOT_FOUND)
+
+        systems = [key for key, _ in BoutiqueTenant.DESIGN_SYSTEMS]
+        modes = [key for key, _ in BoutiqueTenant.COLOR_MODES]
+        system = request.data.get('design_system', tenant.design_system)
+        mode = request.data.get('color_mode', tenant.color_mode)
+        if system not in systems or mode not in modes:
+            return Response(
+                {'error': 'Send {"design_system": <system>, "color_mode": <mode>}.',
+                 'design_systems': systems, 'color_modes': modes},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        before = {'design_system': tenant.design_system, 'color_mode': tenant.color_mode}
+        after = {'design_system': system, 'color_mode': mode}
+        with transaction.atomic():
+            BoutiqueTenant.objects.filter(pk=tenant.pk).update(**after)
+
+        clear_tenant_cache()
+
+        audit.record(request, 'boutique.appearance', target=schema_name,
+                     boutique=schema_name, before=before, after=after,
+                     reason=(request.data.get('reason') or '').strip())
+
+        return Response({'schema_name': schema_name, **after})
+
+
 class FlagsView(ConsoleView):
     def get(self, request):
         with public_scope():
@@ -579,6 +617,8 @@ class SupportView(ConsoleView):
                 'owner_email': tenant.owner_email, 'created_on': tenant.created_on,
                 'is_active': tenant.is_active,
                 'enabled_modules': tenant.enabled_modules or {},
+                'design_system': tenant.design_system,
+                'color_mode': tenant.color_mode,
             },
             'usage': tenant_metrics(tenant),
             'operations': operational_metrics(tenant),

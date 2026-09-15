@@ -52,6 +52,7 @@ import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import OrderKanban from './features/orders/OrderKanban';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import useAutosave from './hooks/useAutosave';
+import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
 import {
   PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile,
@@ -86,7 +87,7 @@ const UserAvatar = ({ user, size }) => {
   }
   return (
     <div style={{ ...box, borderRadius: '50%', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', background: '#0f291e', color: '#fff',
+                  justifyContent: 'center', background: 'var(--selected-bg)', color: 'var(--selected-fg)',
                   fontWeight: 600, fontSize: size ? size * 0.42 : '1em' }}>
       {initial}
     </div>
@@ -337,7 +338,7 @@ const getColorCircleStyle = (colorName) => {
   if (name.includes('blue')) return '#4169e1';
   if (name.includes('green') || name.includes('olive')) return '#556b2f';
   if (name.includes('maroon') || name.includes('red')) return '#800000';
-  if (name.includes('white') || name.includes('cream')) return '#fafafa';
+  if (name.includes('white') || name.includes('cream')) return 'var(--surface-2)';
   return '#fbeedb';
 };
 
@@ -732,7 +733,7 @@ function StageTimeline({ stages, onSelectStage }) {
         const isPendingVerification = stage.status === 'PENDING_VERIFICATION';
 
         let statusColor = 'var(--border-color)';
-        if (isCompleted) statusColor = '#10b981';
+        if (isCompleted) statusColor = 'var(--success-color)';
         else if (isInProgress) statusColor = '#3b82f6';
         else if (isPaused || isPendingVerification) statusColor = '#f59e0b';
         else if (isSkipped) statusColor = '#9ca3af';
@@ -759,7 +760,7 @@ function StageTimeline({ stages, onSelectStage }) {
                 fontSize: '10px',
                 lineHeight: 1.25,
                 fontWeight: isInProgress ? 700 : 500,
-                color: isCompleted ? '#10b981' : isInProgress ? '#3b82f6' : 'var(--text-muted)',
+                color: isCompleted ? 'var(--success-color)' : isInProgress ? '#3b82f6' : 'var(--text-muted)',
                 // Was nowrap: a label wider than its slot overflowed both sides
                 // and printed on top of the neighbouring stage's label. The
                 // strip already scrolls horizontally, so wrapping inside a
@@ -772,7 +773,7 @@ function StageTimeline({ stages, onSelectStage }) {
             {idx < arr.length - 1 && (
               <div style={{
                 height: '2px', flex: 1,
-                backgroundColor: isCompleted ? '#10b981' : 'var(--border-color)',
+                backgroundColor: isCompleted ? 'var(--success-color)' : 'var(--border-color)',
                 minWidth: '10px', alignSelf: 'flex-start', marginTop: '9px'
               }} />
             )}
@@ -964,7 +965,7 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
 
   return (
     <div style={{ marginTop: '8px' }}>
-      <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: remaining ? '#b45309' : '#10b981' }}>
+      <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: remaining ? '#b45309' : 'var(--success-color)' }}>
         {remaining ? `⚠ ${remaining} of ${plan.lines.length} still to gather` : `✓ All ${plan.lines.length} materials gathered`}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1055,7 +1056,7 @@ function NetworkActivityBar() {
   if (!active) return null;
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '3px', zIndex: 3000, overflow: 'hidden', background: 'rgba(15, 41, 30, 0.12)' }}>
-      <div style={{ position: 'absolute', top: 0, bottom: 0, width: '38%', background: 'var(--text-primary, #0f291e)', borderRadius: '3px', animation: 'apiActivitySweep 1.1s ease-in-out infinite' }} />
+      <div style={{ position: 'absolute', top: 0, bottom: 0, width: '38%', background: 'var(--text-primary, var(--text-primary))', borderRadius: '3px', animation: 'apiActivitySweep 1.1s ease-in-out infinite' }} />
     </div>
   );
 }
@@ -1262,6 +1263,8 @@ function App() {
     return !c;
   });
   const [currentUser, setCurrentUser] = useState(null);
+  // The boutique's look is platform-set: apply whatever the account payload says.
+  useEffect(() => { applyTenantTheme(currentUser); }, [currentUser]);
   const { t, language } = useLanguage();
   const currentUserName = currentUser?.first_name || currentUser?.name || currentUser?.email?.split('@')[0] || 'User';
 
@@ -3209,7 +3212,7 @@ function App() {
         <pre style={{ whiteSpace: 'pre-wrap', fontSize: '14px', background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px' }}>
           {globalError}
         </pre>
-        <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="btn-secondary" style={{ marginTop: '16px', background: '#fff', color: '#7f1d1d', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}>
+        <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="btn-secondary" style={{ marginTop: '16px', background: 'var(--surface-color)', color: '#7f1d1d', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}>
           Clear Session & Reload
         </button>
       </div>
@@ -3218,7 +3221,7 @@ function App() {
 
   if (loading && !dashboardData && view === 'login') {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f291e', color: '#fff', fontSize: '18px', fontFamily: 'var(--font-sans, sans-serif)' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--selected-bg)', color: 'var(--selected-fg)', fontSize: '18px', fontFamily: 'var(--font-sans, sans-serif)' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ border: '4px solid rgba(255,255,255,0.1)', borderTop: '4px solid #d4af37', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 16px auto' }}></div>
           <span>Loading Atelier CRM...</span>
@@ -3256,7 +3259,7 @@ function App() {
       {/* 2. SIGN IN SCREEN (Image 2) */}
 
       {view === 'login' && (
-        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#faf9f6', padding: '88px 16px 40px' }}>
+        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
           
           {/* Back to Home Button */}
           <button 
@@ -3268,8 +3271,8 @@ function App() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              background: '#fff',
-              border: '1px solid #eaecef',
+              background: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
               padding: '10px 18px',
               borderRadius: '99px',
               cursor: 'pointer',
@@ -3280,17 +3283,17 @@ function App() {
               transition: 'all 0.2s ease'
             }}
             onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--accent-text, #b07c40)'; e.currentTarget.style.color = 'var(--accent-text, #b07c40)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#eaecef'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
           >
             <ArrowLeft size={16} />
             Back to Home
           </button>
 
-          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: '#0f291e', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
+          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: 'var(--shell-logo)', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
+          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
-          <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: '#fff', border: '1px solid #eaecef', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: '#0f291e', fontWeight: 600, margin: '0 0 8px 0' }}>Welcome back 👋</h2>
+          <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
+            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>Welcome back 👋</h2>
             <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 32px 0' }}>Login to continue your custom creation journey.</p>
             
             <form onSubmit={handleLoginSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -3303,7 +3306,7 @@ function App() {
                     placeholder="Enter your email"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    style={{ width: '100%', padding: '12px 14px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid #eaecef', outline: 'none' }}
+                    style={{ width: '100%', padding: '12px 14px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
                   />
                 </div>
@@ -3318,7 +3321,7 @@ function App() {
                     placeholder="Enter your password"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    style={{ width: '100%', padding: '12px 40px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid #eaecef', outline: 'none' }}
+                    style={{ width: '100%', padding: '12px 40px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
                   />
                   <button 
@@ -3354,7 +3357,7 @@ function App() {
               </button>
             </form>
 
-            <div className="auth-card-footer" style={{ borderTop: '1px solid #eaecef', marginTop: '32px', paddingTop: '20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+            <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '32px', paddingTop: '20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
               Don't have a boutique account?{' '}
               <a href="#" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }} onClick={() => { setSignupStep(1); setView('signup'); }}>
                 Signup
@@ -3370,8 +3373,8 @@ function App() {
       {/* Ask for a reset link. Reached from the login screen; leaves back to
           it. Nothing here reveals whether the address is one we know. */}
       {view === 'forgot' && (
-        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#faf9f6', padding: '88px 16px 40px' }}>
-          <div className="auth-card" style={{ background: '#fff', border: '1px solid #eaecef', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <div className="auth-card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
             <h2 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Reset your password</h2>
 
             {resetSent ? (
@@ -3397,7 +3400,7 @@ function App() {
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
                   placeholder="you@yourboutique.com"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #eaecef', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
                 />
                 {authError && (
                   <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px' }}>
@@ -3419,8 +3422,8 @@ function App() {
       {/* Choose the new password. Only reachable by following the emailed
           link, which is what put resetToken in state. */}
       {view === 'reset' && (
-        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#faf9f6', padding: '88px 16px 40px' }}>
-          <div className="auth-card" style={{ background: '#fff', border: '1px solid #eaecef', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <div className="auth-card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
             <h2 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Choose a new password</h2>
 
             {resetDone ? (
@@ -3441,14 +3444,14 @@ function App() {
                   value={resetPassword}
                   onChange={(e) => setResetPassword(e.target.value)}
                   placeholder="New password"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #eaecef', fontSize: '14px', marginBottom: '10px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '10px', boxSizing: 'border-box' }}
                 />
                 <input
                   type="password"
                   value={resetConfirm}
                   onChange={(e) => setResetConfirm(e.target.value)}
                   placeholder="Repeat new password"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #eaecef', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
                 />
                 {authError && (
                   <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
@@ -3468,7 +3471,7 @@ function App() {
       )}
 
       {view === 'signup' && (
-        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#faf9f6', padding: '88px 16px 40px' }}>
+        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
           
           {/* Back to Home Button */}
           <button 
@@ -3480,8 +3483,8 @@ function App() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              background: '#fff',
-              border: '1px solid #eaecef',
+              background: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
               padding: '10px 18px',
               borderRadius: '99px',
               cursor: 'pointer',
@@ -3492,14 +3495,14 @@ function App() {
               transition: 'all 0.2s ease'
             }}
             onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--accent-text, #b07c40)'; e.currentTarget.style.color = 'var(--accent-text, #b07c40)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#eaecef'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
           >
             <ArrowLeft size={16} />
             Back to Home
           </button>
 
-          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: '#0f291e', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
+          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: 'var(--shell-logo)', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
+          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
           {/* Auth Steps Tracker */}
           <div className="auth-steps-tracker">
@@ -3723,6 +3726,7 @@ function App() {
               dashboardTab === 'orders' ? 'nav.manageOrders' :
               dashboardTab === 'tailors' ? 'nav.manageTailors' :
               dashboardTab === 'designs' ? 'nav.manageDesigns' :
+              dashboardTab === 'staff' ? 'nav.staffManagement' :
               `nav.${dashboardTab}`,
               dashboardTab.charAt(0).toUpperCase() + dashboardTab.slice(1)
             )}
@@ -3841,7 +3845,7 @@ function App() {
                   <div className="portal-header-right">
                     <div className="user-profile-widget">
                       <div className="user-avatar-circle">
-                        <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUserName)}`} alt="Avatar" />
+                        <img src={`https://api.dicebear.com/7.x/initials/svg?backgroundColor=e6f1c8&textColor=1f2a06&seed=${encodeURIComponent(currentUserName)}`} alt="Avatar" />
                       </div>
                       <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
                     </div>
@@ -4205,7 +4209,7 @@ function App() {
                                     </label>
                                     {order.completed_garment_image && (
                                       <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '11px', color: '#107c41', fontWeight: 600 }}>✓ Picture Uploaded</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--brand-link)', fontWeight: 600 }}>✓ Picture Uploaded</span>
                                         <a href={order.completed_garment_image} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: 'var(--accent-text, #b07c40)', textDecoration: 'underline' }}>View Image</a>
                                       </div>
                                     )}
@@ -4368,7 +4372,7 @@ function App() {
                             width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                             border: step.done ? 'none' : '1.5px solid var(--border-color)',
-                            background: step.done ? '#10b981' : 'transparent', color: '#fff', fontSize: '12px',
+                            background: step.done ? 'var(--success-color)' : 'transparent', color: '#fff', fontSize: '12px',
                           }}>
                             {step.done ? <Check size={12} /> : i + 1}
                           </span>
@@ -6278,7 +6282,7 @@ function App() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'flex-end' }}>
                     {editingAppointment && appointmentForm.status !== 'CANCELLED' && (
                       <button type="button" className="btn-secondary" disabled={savingAppointment}
-                              style={{ marginRight: 'auto', color: '#c0392b', borderColor: 'rgba(192,57,43,0.3)' }}
+                              style={{ marginRight: 'auto', color: 'var(--danger-color)', borderColor: 'rgba(192,57,43,0.3)' }}
                               onClick={handleCancelAppointment}>
                         {t('dashboard.cancelAppointment', 'Cancel appointment')}
                       </button>
@@ -6788,13 +6792,13 @@ function App() {
       {view === 'wizard' && (
         <div className="wizard-outer-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', backgroundColor: '#fcfcfd' }}>
           {/* Brand header & stepper */}
-          <div className="wizard-header-container" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: '#fff', padding: '16px 24px' }}>
+          <div className="wizard-header-container" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--surface-color)', padding: '16px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', maxWidth: '1280px', margin: '0 auto 16px' }}>
               <div className="brand-logo" style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '1px', color: 'var(--text-primary)' }}>SCALEEZY</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <span style={{ fontSize: '12.5px',
                                color: draftSaveState === 'conflict' || draftSaveState === 'failed'
-                                      ? '#c0392b' : 'var(--text-secondary)' }}>
+                                      ? 'var(--danger-color)' : 'var(--text-secondary)' }}>
                   {draftSaveState === 'idle' && t('wizard.autosaveOn', 'Autosaves every minute')}
                   {draftSaveState === 'saving' && t('wizard.saving')}
                   {draftSaveState === 'saved' && <>{t('wizard.saved')} · {t('wizard.autosaveOn', 'Autosaves every minute')}</>}
@@ -6837,9 +6841,9 @@ function App() {
                         width: '28px',
                         height: '28px',
                         borderRadius: '50%',
-                        backgroundColor: isCompleted ? '#107c41' : (isActive ? '#0f291e' : '#f1f3f5'),
-                        color: isCompleted || isActive ? '#fff' : 'var(--text-secondary)',
-                        border: isActive ? '2px solid #107c41' : 'none',
+                        backgroundColor: isCompleted ? 'var(--primary-color)' : (isActive ? 'var(--selected-bg)' : 'var(--surface-inset)'),
+                        color: isCompleted ? 'var(--primary-foreground)' : isActive ? 'var(--selected-fg)' : 'var(--text-secondary)',
+                        border: isActive ? '2px solid var(--primary-color)' : 'none',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -6860,7 +6864,7 @@ function App() {
                       <div style={{
                         height: '2px',
                         flex: 1,
-                        backgroundColor: currentStep > stepNum ? '#107c41' : '#e0e0e0',
+                        backgroundColor: currentStep > stepNum ? 'var(--primary-color)' : 'var(--border-color)',
                         margin: '0 -20px',
                         transform: 'translateY(-20px)',
                         zIndex: 1
@@ -7575,7 +7579,7 @@ function App() {
                   <p className="page-subtitle">Designs, fabrics and accessories for every garment in this order. Edit any of them and come back — nothing chosen is lost.</p>
                 </div>
 
-                <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: '#107c41', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Check size={16} />
                   <span>Check each garment below, then Confirm &amp; Continue to add the customer's details.</span>
                 </div>
@@ -7637,7 +7641,7 @@ function App() {
                             }}
                           >
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                              <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(tailorItem.name)}`} alt={tailorItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={`https://api.dicebear.com/7.x/initials/svg?backgroundColor=e6f1c8&textColor=1f2a06&seed=${encodeURIComponent(tailorItem.name)}`} alt={tailorItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                             <div className="tailor-info" style={{ flex: 1 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -7690,7 +7694,7 @@ function App() {
                             }}
                           >
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                              <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(tailorItem.name)}`} alt={tailorItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={`https://api.dicebear.com/7.x/initials/svg?backgroundColor=e6f1c8&textColor=1f2a06&seed=${encodeURIComponent(tailorItem.name)}`} alt={tailorItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                             <div className="tailor-info" style={{ flex: 1 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -7802,7 +7806,7 @@ function App() {
                       <p className="page-subtitle">Review the selections and order details. Once confirmed, it goes to the tailor and the customer is kept updated at every step.</p>
                     </div>
 
-                    <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: '#107c41', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Check size={16} />
                       <span>All set — ready to create this order.</span>
                     </div>
@@ -7826,7 +7830,7 @@ function App() {
                           ) : designPreviews.length > 0 ? (
                             <img src={designPreviews[0]} alt="Garment" style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
                           ) : (
-                            <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={20} /></div>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={20} /></div>
                           )}
                           <div>
                             <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 600 }}>
@@ -7845,7 +7849,7 @@ function App() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           {fabricTab === 'boutique' && selectedFabric ? (
                             <>
-                              <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#f1f3f5', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                              <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--surface-inset)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                                 <img src={resolveMediaUrl(selectedFabric.image_url)} alt="Fabric" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               </div>
                               <div>
@@ -7865,7 +7869,7 @@ function App() {
                             </>
                           ) : (
                             <>
-                              <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}><Upload size={20} /></div>
+                              <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}><Upload size={20} /></div>
                               <div>
                                 <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 600 }}>FABRIC</span>
                                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Customer Fabric</span>
@@ -7885,7 +7889,7 @@ function App() {
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#0f291e', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                          <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
                             <Sparkles size={20} />
                           </div>
                           <div>
@@ -7980,14 +7984,14 @@ function App() {
                           <div style={{ flex: 1, minWidth: '150px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <span style={{ fontSize: '15px', fontWeight: 600 }}>{selectedTailor.name}</span>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#107c41', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px' }}><Check size={8} /></span>
+                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--primary-color)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px' }}><Check size={8} /></span>
                             </div>
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block' }}>{selectedTailor.specialty} • 12+ Years Experience</span>
                             <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                               {getTailorTags(selectedTailor.name).map((tag, idx) => (
-                                <span key={idx} style={{ fontSize: '9px', backgroundColor: '#f1f3f5', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>{tag}</span>
+                                <span key={idx} style={{ fontSize: '9px', backgroundColor: 'var(--surface-inset)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>{tag}</span>
                               ))}
-                              <span style={{ fontSize: '9px', backgroundColor: '#f1f3f5', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>+2</span>
+                              <span style={{ fontSize: '9px', backgroundColor: 'var(--surface-inset)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>+2</span>
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
@@ -8054,7 +8058,7 @@ function App() {
                         <div>
                           <span style={{ fontSize: '9px', color: 'var(--text-secondary)', display: 'block', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>COMMUNICATION</span>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <MessageSquare size={16} style={{ color: '#107c41', flexShrink: 0, marginTop: '2px' }} />
+                            <MessageSquare size={16} style={{ color: 'var(--brand-link)', flexShrink: 0, marginTop: '2px' }} />
                             <div>
                               <span style={{ fontSize: '12px', fontWeight: 600, display: 'block' }}>WhatsApp</span>
                               <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block' }}>{formatMobile(customerForm.mobile_number)}</span>
@@ -8105,7 +8109,7 @@ function App() {
                       <p className="page-subtitle">Record how the customer is paying: in full now, or part now and the rest after the design is completed.</p>
                     </div>
 
-                    <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: '#107c41', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <ShieldCheck size={16} />
                       <span>Order and payment details are stored securely with Scaleezy.</span>
                     </div>
@@ -8120,7 +8124,7 @@ function App() {
                           ) : designPreviews.length > 0 ? (
                             <img src={designPreviews[0]} alt="Garment" style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover' }} />
                           ) : (
-                            <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={20} /></div>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={20} /></div>
                           )}
                           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                             <div>
@@ -8175,7 +8179,7 @@ function App() {
                         <div 
                           onClick={() => setPaymentOption('full')}
                           style={{
-                            border: `2px solid ${paymentOption === 'full' ? '#0f291e' : 'var(--border-color)'}`,
+                            border: `2px solid ${paymentOption === 'full' ? 'var(--text-primary)' : 'var(--border-color)'}`,
                             borderRadius: '8px',
                             padding: '20px',
                             cursor: 'pointer',
@@ -8187,12 +8191,12 @@ function App() {
                             <div>
                               <span style={{ fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 Pay Now (Full Payment)
-                                <span style={{ fontSize: '9px', backgroundColor: '#e2f5ec', color: '#107c41', padding: '2px 6px', borderRadius: '4px' }}>Recommended</span>
+                                <span style={{ fontSize: '9px', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', padding: '2px 6px', borderRadius: '4px' }}>Recommended</span>
                               </span>
                               <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px' }}>Pay the full amount now and we'll start your design & creation immediately.</p>
                             </div>
-                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #0f291e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {paymentOption === 'full' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0f291e' }}></div>}
+                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {paymentOption === 'full' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--text-primary)' }}></div>}
                             </div>
                           </div>
                           
@@ -8202,15 +8206,15 @@ function App() {
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'var(--text-secondary)' }}>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: '#107c41', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
+                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
                               Priority design & production
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'var(--text-secondary)' }}>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: '#107c41', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
+                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
                               Faster delivery
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'var(--text-secondary)' }}>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: '#107c41', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
+                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
                               Full peace of mind
                             </div>
                           </div>
@@ -8220,7 +8224,7 @@ function App() {
                         <div 
                           onClick={() => setPaymentOption('partial')}
                           style={{
-                            border: `2px solid ${paymentOption === 'partial' ? '#0f291e' : 'var(--border-color)'}`,
+                            border: `2px solid ${paymentOption === 'partial' ? 'var(--text-primary)' : 'var(--border-color)'}`,
                             borderRadius: '8px',
                             padding: '20px',
                             cursor: 'pointer',
@@ -8234,7 +8238,7 @@ function App() {
                               <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px' }}>Take part payment now to confirm the order. The rest is due after the design is completed.</p>
                             </div>
                             <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {paymentOption === 'partial' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0f291e' }}></div>}
+                              {paymentOption === 'partial' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--text-primary)' }}></div>}
                             </div>
                           </div>
 
@@ -8252,7 +8256,7 @@ function App() {
                                   onClick={(e) => e.stopPropagation()}
                                 />
                               </div>
-                              <span style={{ fontSize: '8px', backgroundColor: '#f1f3f5', color: 'var(--text-secondary)', padding: '2px 4px', borderRadius: '2px' }}>Non-refundable</span>
+                              <span style={{ fontSize: '8px', backgroundColor: 'var(--surface-inset)', color: 'var(--text-secondary)', padding: '2px 4px', borderRadius: '2px' }}>Non-refundable</span>
                             </div>
                           </div>
 
@@ -8267,7 +8271,7 @@ function App() {
                                   the owner reads back to the customer. */}
                               <span style={{ fontSize: '16px', fontWeight: 700 }}>{formatMoney(Math.max(0, getTotalPrice() - (Number(advancePaymentAmount) || 0)))}</span>
                             </div>
-                            <span style={{ fontSize: '8px', backgroundColor: '#e2f5ec', color: '#107c41', padding: '2px 4px', borderRadius: '2px', fontWeight: 600 }}>DUE AT DELIVERY</span>
+                            <span style={{ fontSize: '8px', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', padding: '2px 4px', borderRadius: '2px', fontWeight: 600 }}>DUE AT DELIVERY</span>
                           </div>
                         </div>
                       </div>
@@ -8390,7 +8394,7 @@ function App() {
                       <span className="price-display">−{formatMoney(quotePrices.discount)}</span>
                     </div>
                   )}
-                  <div className="summary-item-row" style={{ borderTop: '1px solid #f1f3f5', paddingTop: '10px' }}>
+                  <div className="summary-item-row" style={{ borderTop: '1px solid var(--surface-inset)', paddingTop: '10px' }}>
                     <span>{t('wizard.subtotal', 'Subtotal')}</span>
                     <span className="price-display">{formatMoney(getSubtotal())}</span>
                   </div>
@@ -8501,7 +8505,7 @@ function App() {
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         Total Amount <HelpCircle size={12} style={{ color: 'var(--text-secondary)' }} />
                       </span>
-                      <span className="price-display total" style={{ color: '#107c41', fontSize: '20px', fontWeight: 700 }}>
+                      <span className="price-display total" style={{ color: 'var(--brand-link)', fontSize: '20px', fontWeight: 700 }}>
                         {formatMoney(getTotalPrice())}
                       </span>
                     </div>
@@ -8509,15 +8513,15 @@ function App() {
                 </div>
 
                 <div className="sidebar-card" style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#fcfdfd', borderColor: '#e2e8f0' }}>
-                  <ShieldCheck size={20} style={{ color: '#107c41', flexShrink: 0 }} />
+                  <ShieldCheck size={20} style={{ color: 'var(--brand-link)', flexShrink: 0 }} />
                   <div>
                     <h5 style={{ fontSize: '12px', fontWeight: 600 }}>Secure Payments</h5>
                     <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>Your payment details are safe with us.</p>
                     <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#1a1f36', backgroundColor: '#eaecef', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>VISA</span>
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#f79e1b', backgroundColor: '#eaecef', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>MC</span>
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#0070d2', backgroundColor: '#eaecef', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>AMEX</span>
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#003087', backgroundColor: '#eaecef', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>RUPAY</span>
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#1a1f36', backgroundColor: 'var(--border-color)', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>VISA</span>
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#f79e1b', backgroundColor: 'var(--border-color)', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>MC</span>
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#0070d2', backgroundColor: 'var(--border-color)', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>AMEX</span>
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#003087', backgroundColor: 'var(--border-color)', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>RUPAY</span>
                     </div>
                   </div>
                 </div>
@@ -8527,21 +8531,21 @@ function App() {
                     <h5 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '16px' }}>What happens next?</h5>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       <div style={{ display: 'flex', gap: '12px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Check size={12} /></div>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Check size={12} /></div>
                         <div>
                           <h6 style={{ fontSize: '11px', fontWeight: 600 }}>Order Confirmation</h6>
                           <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>You'll receive confirmation on WhatsApp & Email.</p>
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '12px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={12} /></div>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={12} /></div>
                         <div>
                           <h6 style={{ fontSize: '11px', fontWeight: 600 }}>Tailor Notified</h6>
                           <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>We'll share details with {selectedTailor?.name || 'Rohit Mehra'} to start the magic.</p>
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '12px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Scissors size={12} /></div>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Scissors size={12} /></div>
                         <div>
                           <h6 style={{ fontSize: '11px', fontWeight: 600 }}>Design & Creation</h6>
                           <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Your garment will be crafted with care and regular updates.</p>
@@ -8694,7 +8698,7 @@ function App() {
             <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => { setView('dashboard'); fetchDashboardAndConfig(); }}>
               Back to Dashboard
             </button>
-            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center', backgroundColor: '#0f291e' }} onClick={() => setShowInvoiceModal(true)}>
+            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center', backgroundColor: 'var(--text-primary)' }} onClick={() => setShowInvoiceModal(true)}>
               <FileText size={18} /> View & Print Invoice
             </button>
           </div>
@@ -8741,7 +8745,7 @@ function App() {
           padding: '20px'
         }}>
           <div className="invoice-modal-content" style={{
-            backgroundColor: '#fff',
+            backgroundColor: 'var(--surface-color)',
             borderRadius: '12px',
             width: '100%',
             maxWidth: '700px',
@@ -8816,7 +8820,7 @@ function App() {
               </button>
               <button 
                 className="btn-primary" 
-                style={{ backgroundColor: '#0f291e' }}
+                style={{ backgroundColor: 'var(--text-primary)' }}
                 onClick={() => window.print()}
               >
                 Print Invoice
@@ -9438,7 +9442,7 @@ function App() {
                   <button 
                     type="button" 
                     className="btn-primary" 
-                    style={{ padding: '8px 16px', fontSize: '12px', backgroundColor: '#107c41' }}
+                    style={{ padding: '8px 16px', fontSize: '12px', backgroundColor: 'var(--primary-color)' }}
                     onClick={() => {
                       setShowDrapingModal(false);
                     }}
