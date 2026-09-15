@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
-import { Image as ImageIcon, Layers, Scissors, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Eye, Image as ImageIcon, Layers, Scissors, Sparkles } from 'lucide-react';
 
 import { resolveMediaUrl } from '../../services/media';
-import { ACCESSORY_OPTIONS } from '../designStudio/GarmentPartPicker';
+import { ACCESSORY_OPTIONS, Lightbox } from '../designStudio/GarmentPartPicker';
 
 /**
  * Everything chosen for an order, dress by dress, before it is placed.
@@ -36,6 +36,49 @@ function Thumb({ src, alt, size = 56 }) {
          onError={(e) => { e.currentTarget.src = FALLBACK; }}
          style={{ width: size, height: size, borderRadius: '8px', objectFit: 'cover',
                   flexShrink: 0, border: '1px solid var(--border-color)', background: '#222' }} />
+  );
+}
+
+/** The chosen photographs, several to a row, each with a View button that
+ *  opens the same lightbox the Design Studio uses so the whole set can be
+ *  stepped through at full size. */
+function DesignGrid({ rows, onView }) {
+  return (
+    <div style={{ display: 'grid', gap: '10px', marginTop: '6px',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+      {rows.map((r, i) => (
+        <div key={r.key} style={{ border: '1px solid var(--border-color)', borderRadius: '10px',
+                                  overflow: 'hidden', background: 'var(--surface, #fff)' }}>
+          <div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#222', cursor: 'zoom-in' }}
+               onClick={() => onView(i)}>
+            <img src={resolveMediaUrl(r.image_url, FALLBACK)} alt={r.label} loading="lazy"
+                 onError={(e) => { e.currentTarget.src = FALLBACK; }}
+                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <button type="button" className="btn-secondary" title="View full size"
+                    onClick={(e) => { e.stopPropagation(); onView(i); }}
+                    style={{ position: 'absolute', right: '6px', bottom: '6px', padding: '3px 8px',
+                             fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Eye size={12} /> View
+            </button>
+          </div>
+          <div style={{ padding: '6px 8px' }}>
+            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase',
+                          letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>
+              {r.label}
+            </div>
+            <div title={r.value}
+                 style={{ fontSize: '12.5px', fontWeight: 600, overflow: 'hidden',
+                          textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {r.value}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden',
+                          textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {r.sub}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -92,6 +135,8 @@ export default function GarmentSelectionsReview({
 }) {
   const fabricById = useMemo(
     () => Object.fromEntries((fabrics || []).map((f) => [String(f.id), f])), [fabrics]);
+  // Which garment's designs are open in the lightbox, and which one is showing.
+  const [viewing, setViewing] = useState(null); // { rows, index }
 
   // Slot labels per garment, from the same taxonomy the fabric step reads.
   const slotLabels = useMemo(() => {
@@ -202,10 +247,10 @@ export default function GarmentSelectionsReview({
             </div>
 
             <Group icon={Sparkles} title="Designs" count={designRows.length}>
-              {designRows.length === 0 ? <Empty>No design selected</Empty> : designRows.map((r) => (
-                <Row key={r.key} label={r.label} value={r.value} sub={r.sub}
-                     thumb={<Thumb src={r.image_url} alt={r.label} />} />
-              ))}
+              {designRows.length === 0 ? <Empty>No design selected</Empty> : (
+                <DesignGrid rows={designRows}
+                            onView={(index) => setViewing({ rows: designRows, index })} />
+              )}
             </Group>
 
             <Group icon={Layers} title="Fabrics" count={fabricRows.length}>
@@ -236,6 +281,11 @@ export default function GarmentSelectionsReview({
           </div>
         );
       })}
+      {viewing && (
+        <Lightbox items={viewing.rows} index={viewing.index}
+                  onIndexChange={(index) => setViewing({ ...viewing, index })}
+                  onClose={() => setViewing(null)} />
+      )}
     </div>
   );
 }
