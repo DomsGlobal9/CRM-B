@@ -261,7 +261,8 @@ class DesignAssetViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        queryset = DesignAsset.objects.select_related('designer_ref', 'template')
+        queryset = (DesignAsset.objects.select_related('designer_ref', 'template')
+                    .prefetch_related('stocked_as'))
         params = self.request.query_params
 
         for name, field in self.DIRECT_FILTERS.items():

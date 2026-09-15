@@ -4686,3 +4686,9 @@ table.data-table tbody tr:hover {
   -moz-appearance: textfield;
 }
 
+
+/* Order wizard stepper: a stage the order has already reached is a link back to it. */
+.stepper-step--link:hover > span:first-of-type,
+.stepper-step--link:focus-visible > span:first-of-type { text-decoration: underline; }
+.stepper-step--link:hover > div:first-of-type { box-shadow: 0 0 0 4px rgba(16, 124, 65, 0.18); }
+.stepper-step--link:focus-visible { outline: none; }

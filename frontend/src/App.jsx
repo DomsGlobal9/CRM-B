@@ -51,6 +51,7 @@ import AlterationList from './features/alterations/AlterationList';
 import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import OrderKanban from './features/orders/OrderKanban';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
+import useAutosave from './hooks/useAutosave';
 import { MobileHeader } from './components/ui/MobileHeader';
 import {
   PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile,
@@ -1335,6 +1336,14 @@ function App() {
 
   // Customer/Order Wizard State
   const [currentStep, setCurrentStep] = useState(1);
+  // The furthest stage this order has reached. The stepper lets the user jump
+  // to any stage up to it, because those are the ones Next has already
+  // validated and saved; anything beyond still has to be earned through Next.
+  const [maxStepReached, setMaxStepReached] = useState(1);
+  const reachStep = useCallback((n) => {
+    setCurrentStep(n);
+    setMaxStepReached((m) => Math.max(m, n));
+  }, []);
   // Which garment tile is fetching its template right now: the load takes
   // seconds against the remote database, and a silent tile invites re-clicks.
   const [addingGarmentKey, setAddingGarmentKey] = useState(null);
@@ -1802,7 +1811,8 @@ function App() {
     if (payment.advance !== undefined) setAdvancePaymentAmount(payment.advance);
     setSpecialInstructions(payload.special_instructions || '');
     setSelectionReviewPhase(false);
-    setCurrentStep(draft.current_step || 1);
+    setMaxStepReached(draft.current_step || 1);
+    reachStep(draft.current_step || 1);
     setView('wizard');
   };
 
@@ -2493,7 +2503,8 @@ function App() {
     setGarmentJobs([]);
     setGarmentErrors({});
     setSelectionReviewPhase(false);
-    setCurrentStep(1);
+    setMaxStepReached(1);
+    reachStep(1);
     setView('wizard');
   };
 
@@ -2526,7 +2537,8 @@ function App() {
 
     // Start from the beginning (Step 1: Dress/Garment Type)
     setSelectionReviewPhase(false);
-    setCurrentStep(1);
+    setMaxStepReached(1);
+    reachStep(1);
     setView('wizard');
   };
 
@@ -2535,17 +2547,24 @@ function App() {
   };
 
   // Wizard Step actions
+  // Stepper click: a jump lands on the stage itself, never on a sub-phase of it.
+  const jumpToStep = useCallback((n) => {
+    if (n === currentStep || n > maxStepReached) return;
+    setSelectionReviewPhase(false);
+    setPaymentPhase(false);
+    reachStep(n);
+  }, [currentStep, maxStepReached, reachStep]);
   const handleBack = () => {
     if (currentStep === 6) {
       if (paymentPhase) {
         setPaymentPhase(false);
       } else {
-        setCurrentStep(5);
+        reachStep(5);
       }
     } else if (currentStep === 2 && selectionReviewPhase) {
       setSelectionReviewPhase(false);
     } else if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      reachStep(currentStep - 1);
     } else {
       setView('order-selector');
     }
@@ -2678,12 +2697,12 @@ function App() {
     try {
       if (currentStep === 1) {
         await saveStep1();
-        setCurrentStep(2);
+        reachStep(2);
       } else if (currentStep === 2) {
         if (selectionReviewPhase) {
           // Confirm & Continue: the review has been read, on to the details.
           setSelectionReviewPhase(false);
-          setCurrentStep(3);
+          reachStep(3);
           return;
         }
         // Fabric is chosen per garment part (see fabricSelection), not as one
@@ -2704,7 +2723,7 @@ function App() {
         setSelectionReviewPhase(true);
       } else if (currentStep === 3) {
         await saveStep3();
-        setCurrentStep(4);
+        reachStep(4);
       } else if (currentStep === 4) {
         if (garmentJobs.length === 0) {
           alert("Please choose at least one garment for this order.");
@@ -2715,13 +2734,13 @@ function App() {
           return;
         }
         await saveStep4();
-        setCurrentStep(5);
+        reachStep(5);
       } else if (currentStep === 5) {
         if (!selectedTailor) {
           alert("Please assign a tailor for the creation.");
           return;
         }
-        setCurrentStep(6);
+        reachStep(6);
       } else if (currentStep === 6) {
         if (!paymentPhase) {
           setPaymentPhase(true);
@@ -2763,6 +2782,57 @@ function App() {
 
   const handleNext = () => runOnce(performNext);
   const handleSaveDraft = () => runOnce(performSaveDraft);
+
+  // Autosave, once a minute and whenever the tab is hidden, for the three
+  // places people type for a while: the order draft, the production notes on
+  // a stage, and the boutique profile. Each saves only what changed since its
+  // last save, waits while a manual save is running, and shows when it last
+  // saved. Short modal forms keep their Save button: creating a half-typed
+  // record every minute is not a favour.
+  useAutosave({
+    getSnapshot: () => JSON.stringify(serialiseWizard()),
+    save: () => persistDraft(),
+    enabled: view === 'wizard' && draftSaveState !== 'conflict',
+    paused: ctaBusy,
+  });
+
+  const saveProductionNotesNow = async () => {
+    if (!stageDesignBrief) return;
+    await api.saveProductionNotes(stageDesignBrief.id, stageDesignBrief.design.id, productionNotesDraft);
+    setStageDesignBrief((b) => (b ? { ...b, design: { ...b.design, production_notes: productionNotesDraft } } : b));
+  };
+  const notesAutosave = useAutosave({
+    getSnapshot: () => (stageDesignBrief ? productionNotesDraft : null),
+    save: saveProductionNotesNow,
+    enabled: Boolean(stageDesignBrief),
+    paused: savingProductionNotes,
+  });
+
+  const boutiqueFormRef = useRef(null);
+  const saveBoutiqueForm = async (form) => {
+    const formData = new FormData();
+    formData.append('name', form.boutiqueName.value);
+    formData.append('address', form.boutiqueAddress.value);
+    formData.append('phone', form.boutiquePhone.value);
+    formData.append('email', form.boutiqueEmail.value);
+    if (logoFile) formData.append('logo', logoFile);
+    formData.append('design_approval_required', form.designApprovalRequired.checked);
+    const updated = await api.updateBoutiqueSettings(formData);
+    setBoutiqueSettings(updated);
+    setLogoFile(null);
+  };
+  const boutiqueAutosave = useAutosave({
+    // Read off the form itself, the way Save Changes does. A form with a
+    // required field still empty waits for the next tick rather than 400ing.
+    getSnapshot: () => {
+      const form = boutiqueFormRef.current;
+      if (!form || !form.checkValidity()) return null;
+      return JSON.stringify([[...new FormData(form).entries()].filter(([, v]) => typeof v === 'string'), logoFile?.name || null]);
+    },
+    save: () => saveBoutiqueForm(boutiqueFormRef.current),
+    enabled: view === 'dashboard' && dashboardTab === 'account',
+    paused: settingsSaving,
+  });
 
   // Image Upload Handlers
   const handleProfilePhotoChange = (e) => {
@@ -3169,10 +3239,10 @@ function App() {
   const onboardingSteps = [
     { key: 'boutique', label: 'Create your boutique', done: true },
     { key: 'customer', label: 'Add your first customer', done: customersList.length > 0, go: () => setView('order-selector') },
-    { key: 'order', label: 'Create your first order', done: ordersList.length > 0, go: () => setView('order-selector') },
-    { key: 'staff', label: 'Add your staff (tailors & designers)', done: tailors.length > 0, tab: 'staff', go: () => setDashboardTab('staff') },
-    { key: 'fabrics', label: 'Stock your first fabric', done: fabrics.length > 0, tab: 'inventory', go: () => setDashboardTab('inventory') },
-    { key: 'production', label: 'Move an order through production', done: ordersList.some(o => o.order_status && o.order_status !== 'Received'), tab: 'orders', go: () => setDashboardTab('orders') },
+    { key: 'order', label: 'Take your first order', done: ordersList.length > 0, go: () => setView('order-selector') },
+    { key: 'staff', label: 'Add your tailors, masters and designers', done: tailors.length > 0, tab: 'staff', go: () => setDashboardTab('staff') },
+    { key: 'fabrics', label: 'Put your first fabric on the shelf', done: fabrics.length > 0, tab: 'inventory', go: () => setDashboardTab('inventory') },
+    { key: 'production', label: 'Move an order through the workroom', done: ordersList.some(o => o.order_status && o.order_status !== 'Received'), tab: 'orders', go: () => setDashboardTab('orders') },
     // A step whose screen this boutique cannot open is not a step it can ever
     // finish: `done` stays false forever, so the checklist never completes and
     // never stops nagging, and the arrow does nothing when clicked -- the
@@ -4355,8 +4425,8 @@ function App() {
                     setDashboardTab('orders');
                   };
                   return (
-                    <SectionCard icon={Boxes} tone="green" title="Production Pipeline"
-                                 action={() => setDashboardTab('orders')} actionLabel="View All Orders"
+                    <SectionCard icon={Boxes} tone="green" title="In the workroom"
+                                 action={() => setDashboardTab('orders')} actionLabel="All orders"
                                  style={{ marginBottom: 'var(--space-5)' }}>
                       {entries.length === 0 ? (
                         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
@@ -4382,7 +4452,7 @@ function App() {
 
                 {/* Needs attention | Today */}
                 <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)' }}>
-                  <SectionCard icon={AlertCircle} tone="rose" title="Needs Attention"
+                  <SectionCard icon={AlertCircle} tone="rose" title="Needs your attention"
                                action={() => setDashboardTab('orders')} actionLabel="View All">
                     {(() => {
                       const att = dashboardData?.attention || {};
@@ -4467,7 +4537,7 @@ function App() {
                     reads as a ledger, and a ledger wants the row. The header's
                     New Order and the sidebar already carry every shortcut the
                     Quick Actions card duplicated. */}
-                <SectionCard icon={ShoppingBag} tone="blue" title="Recent Orders"
+                <SectionCard icon={ShoppingBag} tone="blue" title="Latest orders"
                              subtitle="The latest orders across the floor"
                              action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View all')}>
                   {!dashboardData?.recent_orders || dashboardData.recent_orders.length === 0 ? (
@@ -4615,6 +4685,7 @@ function App() {
                       <DesignLibrary
                         refreshToken={designLibraryToken}
                         canReview={!currentUser?.role || currentUser.role === 'Owner'}
+                        canStock={!currentUser?.role || currentUser.role === 'Owner'}
                         onUploaded={() => setDesignsView('library')}
                         onEditDesign={(design) => {
                           setEditingDesign({ id: design.id });
@@ -5257,7 +5328,7 @@ function App() {
                 if (c.design_preferences?.length > 0) {
                   setDesignNotes(c.design_preferences[0].notes || '');
                 }
-                setCurrentStep(3);
+                reachStep(3);
                 setView('wizard');
               };
               const reorder = (order) => {
@@ -5271,7 +5342,7 @@ function App() {
                 // re-added on step 3, so they re-quote there; only the
                 // order-level money carries over.
                 setQuotePrices({ packaging: order.packaging_handling, discount: order.discount || 0 });
-                setCurrentStep(3);
+                reachStep(3);
                 setView('wizard');
               };
               const statusTone = (st) => st === 'Delivered' ? 'success' : st === 'Cancelled' ? 'neutral' : 'warning';
@@ -6017,26 +6088,15 @@ function App() {
                     <SectionCard icon={Store} tone="green" title={t('accountPage.editProfile', 'Edit Boutique Profile')}
                                  subtitle="Keep your boutique information up to date. This will be visible across the platform.">
                       <form
+                        ref={boutiqueFormRef}
                         className="at-stack"
                         onReset={() => setLogoFile(null)}
                         onSubmit={async (e) => {
                           e.preventDefault();
                           if (settingsSaving) return;
-                          const form = e.target;
-                          const formData = new FormData();
-                          formData.append('name', form.boutiqueName.value);
-                          formData.append('address', form.boutiqueAddress.value);
-                          formData.append('phone', form.boutiquePhone.value);
-                          formData.append('email', form.boutiqueEmail.value);
-                          if (logoFile) {
-                            formData.append('logo', logoFile);
-                          }
-                          formData.append('design_approval_required', form.designApprovalRequired.checked);
                           setSettingsSaving(true);
                           try {
-                            const updated = await api.updateBoutiqueSettings(formData);
-                            setBoutiqueSettings(updated);
-                            setLogoFile(null);
+                            await saveBoutiqueForm(e.target);
                             alert("Boutique settings updated successfully!");
                           } catch (err) {
                             console.error(err);
@@ -6074,7 +6134,7 @@ function App() {
                                      style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: '8px', background: 'var(--surface-inset)', border: '1px solid var(--border-color)' }} />
                                 <div className="at-row-main">
                                   <div className="at-row-title">{logoFile ? logoFile.name : 'Current logo'}</div>
-                                  <div className="at-row-sub">{logoFile ? 'Saved when you press Save Changes.' : 'Choose a file to replace it.'}</div>
+                                  <div className="at-row-sub">{logoFile ? 'Saved with the next autosave or Save Changes.' : 'Choose a file to replace it.'}</div>
                                 </div>
                                 <button type="button" className="btn-secondary at-btn-sm" onClick={() => document.getElementById('boutique-logo-file').click()}>
                                   <Upload size={14} /> Choose file
@@ -6118,6 +6178,12 @@ function App() {
                           <button type="submit" className="btn-primary" disabled={settingsSaving}>
                             <Save size={16} /> {settingsSaving ? t('common.saving', 'Saving…') : t('accountPage.saveChanges', 'Save Changes')}
                           </button>
+                          <span style={{ fontSize: '12px', color: 'var(--text-muted)', alignSelf: 'center' }}>
+                            {boutiqueAutosave.saving ? t('common.saving', 'Saving…')
+                              : boutiqueAutosave.lastSavedAt
+                                ? `Autosaved ${boutiqueAutosave.lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                                : 'Autosaves every minute while you edit'}
+                          </span>
                         </div>
                       </form>
                     </SectionCard>
@@ -6726,16 +6792,15 @@ function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', maxWidth: '1280px', margin: '0 auto 16px' }}>
               <div className="brand-logo" style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '1px', color: 'var(--text-primary)' }}>SCALEEZY</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                {draftSaveState !== 'idle' && (
-                  <span style={{ fontSize: '12.5px',
-                                 color: draftSaveState === 'conflict' || draftSaveState === 'failed'
-                                        ? '#c0392b' : 'var(--text-secondary)' }}>
-                    {draftSaveState === 'saving' && t('wizard.saving')}
-                    {draftSaveState === 'saved' && t('wizard.saved')}
-                    {draftSaveState === 'failed' && t('wizard.couldNotSave')}
-                    {draftSaveState === 'conflict' && t('wizard.conflict')}
-                  </span>
-                )}
+                <span style={{ fontSize: '12.5px',
+                               color: draftSaveState === 'conflict' || draftSaveState === 'failed'
+                                      ? '#c0392b' : 'var(--text-secondary)' }}>
+                  {draftSaveState === 'idle' && t('wizard.autosaveOn', 'Autosaves every minute')}
+                  {draftSaveState === 'saving' && t('wizard.saving')}
+                  {draftSaveState === 'saved' && <>{t('wizard.saved')} · {t('wizard.autosaveOn', 'Autosaves every minute')}</>}
+                  {draftSaveState === 'failed' && t('wizard.couldNotSave')}
+                  {draftSaveState === 'conflict' && t('wizard.conflict')}
+                </span>
                 <span style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} onClick={() => setView('dashboard')}>
                   <X size={20} />
                 </span>
@@ -6745,20 +6810,29 @@ function App() {
             {/* Stepper progress bar */}
             <div className="stepper-progress-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1000px', margin: '0 auto', position: 'relative' }}>
               {[
-                { number: 1, label: t('wizard.aiDesignStudio'), sub: t('wizard.subDiscoverDesign', 'Discover & approve design') },
-                { number: 2, label: t('wizard.fabricSelection'), sub: t('wizard.subChooseFabrics', 'Choose fabrics') },
-                { number: 3, label: t('wizard.personalDetails'), sub: t('wizard.reviewAndConfirm', 'review & confirm') },
-                { number: 4, label: t('wizard.measurements'), sub: t('wizard.completed', 'Completed') },
-                { number: 5, label: t('wizard.tailorAssignment'), sub: t('wizard.subAssignTailor', 'Assign tailor') },
-                { number: 6, label: t('wizard.completeOrder'), sub: t('wizard.reviewAndConfirm', 'review & confirm') }
+                { number: 1, label: t('wizard.aiDesignStudio'), sub: t('wizard.subDiscoverDesign', 'Choose the look') },
+                { number: 2, label: t('wizard.fabricSelection'), sub: t('wizard.subChooseFabrics', 'Fabrics & trims') },
+                { number: 3, label: t('wizard.personalDetails'), sub: t('wizard.subCustomer', 'Who it is for') },
+                { number: 4, label: t('wizard.measurements'), sub: t('wizard.subMeasurements', 'Body measurements') },
+                { number: 5, label: t('wizard.tailorAssignment'), sub: t('wizard.subAssignTailor', 'Who stitches it') },
+                { number: 6, label: t('wizard.completeOrder'), sub: t('wizard.subConfirm', 'Price & confirm') }
               ].map((step, index) => {
 
                 const stepNum = index + 1;
                 const isCompleted = currentStep > stepNum;
                 const isActive = currentStep === stepNum;
+                const canJump = stepNum !== currentStep && stepNum <= maxStepReached;
                 return (
                   <React.Fragment key={step.number}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, position: 'relative', zIndex: 2 }}>
+                    <div className={canJump ? 'stepper-step stepper-step--link' : 'stepper-step'}
+                         role={canJump ? 'button' : undefined}
+                         tabIndex={canJump ? 0 : undefined}
+                         aria-current={isActive ? 'step' : undefined}
+                         title={canJump ? `Go to ${step.label}` : undefined}
+                         onClick={canJump ? () => jumpToStep(stepNum) : undefined}
+                         onKeyDown={canJump ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpToStep(stepNum); } } : undefined}
+                         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, position: 'relative', zIndex: 2,
+                                  cursor: canJump ? 'pointer' : 'default' }}>
                       <div style={{
                         width: '28px',
                         height: '28px',
@@ -6779,7 +6853,7 @@ function App() {
                         {step.label}
                       </span>
                       <span style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {isActive ? t('wizard.reviewAndConfirm', 'review & confirm') : (isCompleted ? t('wizard.completed', 'Completed') : step.sub)}
+                        {isCompleted ? t('wizard.completed', 'Done') : step.sub}
                       </span>
                     </div>
                     {index < 5 && (
@@ -7511,7 +7585,7 @@ function App() {
                     jobs={garmentJobs}
                     fabrics={fabrics}
                     taxonomy={fabricTaxonomy}
-                    onEditDesigns={() => { setSelectionReviewPhase(false); setCurrentStep(1); }}
+                    onEditDesigns={() => { setSelectionReviewPhase(false); reachStep(1); }}
                     onEditFabrics={() => setSelectionReviewPhase(false)}
                   />
                 </div>
@@ -7740,7 +7814,7 @@ function App() {
                           <FileText size={20} />
                           1. Order Summary
                         </div>
-                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setCurrentStep(3)}>
+                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => reachStep(3)}>
                           Edit
                         </button>
                       </div>
@@ -7878,12 +7952,12 @@ function App() {
                           <Scissors size={20} />
                           2. Garment Details
                         </div>
-                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setCurrentStep(2)}>
+                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => reachStep(2)}>
                           Edit
                         </button>
                       </div>
 
-                      <GarmentSummary jobs={garmentJobs} onEdit={() => setCurrentStep(2)} />
+                      <GarmentSummary jobs={garmentJobs} onEdit={() => reachStep(2)} />
                     </div>
 
                     {/* Section 3: Tailor Details */}
@@ -7893,7 +7967,7 @@ function App() {
                           <User size={20} />
                           3. Tailor Details
                         </div>
-                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setCurrentStep(5)}>
+                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => reachStep(5)}>
                           Edit
                         </button>
                       </div>
@@ -7945,7 +8019,7 @@ function App() {
                           <ShoppingBag size={20} />
                           4. Delivery Details
                         </div>
-                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => setCurrentStep(1)}>
+                        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={() => reachStep(1)}>
                           Edit
                         </button>
                       </div>
@@ -8777,7 +8851,7 @@ function App() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Bell size={20} style={{ color: 'var(--accent-text, #b07c40)' }} />
-              <h3 style={{ fontSize: '18px', fontWeight: 600, margin: 0, fontFamily: 'var(--font-serif)' }}>Atelier Alerts</h3>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, margin: 0, fontFamily: 'var(--font-serif)' }}>Boutique alerts</h3>
             </div>
             <button 
               className="btn-secondary" 
@@ -9101,6 +9175,11 @@ function App() {
                         }}>
                   {savingProductionNotes ? 'Saving…' : 'Save notes'}
                 </button>
+                <span style={{ marginLeft: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {notesAutosave.lastSavedAt
+                    ? `Autosaved ${notesAutosave.lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : 'Autosaves every minute'}
+                </span>
               </FormSection>
             )}
 

@@ -454,7 +454,7 @@ class CatalogItemViewSet(viewsets.ReadOnlyModelViewSet):
 
         payload = request.data or {}
         item = InventoryItem.objects.create(
-            item_code=payload.get('item_code') or _next_item_code(catalog_item),
+            item_code=payload.get('item_code') or catalog_item.next_item_code(),
             name=payload.get('name') or catalog_item.name,
             category=catalog_item.legacy_category,
             sub_category=catalog_item.section.full_name,
@@ -466,20 +466,6 @@ class CatalogItemViewSet(viewsets.ReadOnlyModelViewSet):
             minimum_stock=payload.get('minimum_stock') or 0,
         )
         return Response(InventoryItemSerializer(item).data, status=status.HTTP_201_CREATED)
-
-
-def _next_item_code(catalog_item):
-
-    import re
-
-    initials = ''.join(word[0] for word in re.findall(r'[A-Za-z]+', catalog_item.section.name))[:3].upper()
-    prefix = f"CAT-{initials or 'GEN'}"
-    taken = set(InventoryItem.objects.filter(item_code__startswith=prefix)
-                .values_list('item_code', flat=True))
-    n = 1
-    while f"{prefix}-{n:04d}" in taken:
-        n += 1
-    return f"{prefix}-{n:04d}"
 
 
 class StockLocationViewSet(viewsets.ModelViewSet):

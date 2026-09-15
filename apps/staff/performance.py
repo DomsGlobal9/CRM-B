@@ -189,6 +189,24 @@ def _stages_for(staff, start, end):
     return rows, open_stages
 
 
+def _garments_in(stages):
+    """Dresses touched, not stages: the garment jobs across the stages' orders.
+
+    An order placed before multi-garment orders existed carries no GarmentJob
+    rows and is one dress. Two stages on one order are more work on the same
+    dress, so the orders are deduplicated first.
+    """
+    order_ids = {s.order_id for s in stages}
+    if not order_ids:
+        return 0
+    from apps.catalog.models import GarmentJob
+    # ponytail: one query per staff member on the team dashboard; batch across
+    # the team if it ever shows up in the timings.
+    jobs = dict(GarmentJob.objects.filter(order_id__in=order_ids)
+                .values_list('order_id').annotate(n=Count('id')))
+    return sum(jobs.get(order_id, 1) for order_id in order_ids)
+
+
 def productivity_metrics(staff, start, end, stages=None):
     """Work touched in the period, and how much of it finished. Source: OrderStage.
 
@@ -203,6 +221,7 @@ def productivity_metrics(staff, start, end, stages=None):
     if not stages:
         return {
             'in_period': _metric(0),
+            'garments': _metric(0),
             'completed': _metric(0),
             'completion_rate': _unavailable('No work was worked on in this period.'),
             'performed_by_them': _metric(0),
@@ -216,6 +235,7 @@ def productivity_metrics(staff, start, end, stages=None):
     counted = [s for s in stages if s.status != 'SKIPPED']
     return {
         'in_period': _metric(len(stages)),
+        'garments': _metric(_garments_in(stages)),
         'completed': _metric(len(completed)),
         'completion_rate': _ratio(len(completed), len(counted)),
         # Assigned to them AND done by them. The gap between this and
@@ -388,7 +408,7 @@ def staff_metrics(staff, start, end, *, profile=None):
             'attendance': {'worked_hours': empty, 'days_attended': empty,
                            'average_hours_per_day': empty, 'worked_minutes': empty,
                            'open_sessions': empty},
-            'productivity': {'in_period': empty, 'completed': empty,
+            'productivity': {'in_period': empty, 'garments': empty, 'completed': empty,
                              'completion_rate': empty, 'performed_by_them': empty},
             'timeliness': {'measured': empty, 'on_time': empty, 'overdue': empty,
                            'on_time_rate': empty, 'average_delay_hours': empty},
@@ -426,30 +446,35 @@ def staff_metrics(staff, start, end, *, profile=None):
 #: something a Karigar's do not, and a set that fits everybody fits
 #: nobody. Roles absent here fall back to DEFAULT_KPIS.
 ROLE_KPIS = {
-    'Tailor': ('attendance.worked_hours', 'productivity.completed',
-               'productivity.completion_rate', 'timeliness.on_time_rate',
-               'quality.rework_rate'),
-    # A supervisor's five figures. `outstanding_assignments` is the one that
+    'Tailor': ('attendance.worked_hours', 'productivity.garments',
+               'productivity.completed', 'productivity.completion_rate',
+               'timeliness.on_time_rate', 'quality.rework_rate'),
+    # A supervisor's figures. `outstanding_assignments` is the one that
     # actually answers "who is sitting on work", and it is window-free for that
     # reason -- the windowed version reported 0 for the person holding the
     # oldest job in the boutique.
-    'Master': ('attendance.worked_hours', 'productivity.in_period',
-               'productivity.completion_rate', 'timeliness.on_time_rate',
-               'reliability.outstanding_assignments'),
-    'Maggam Master': ('attendance.worked_hours', 'productivity.completed',
-                      'productivity.completion_rate', 'quality.rework_rate'),
+    'Master': ('attendance.worked_hours', 'productivity.garments',
+               'productivity.in_period', 'productivity.completion_rate',
+               'timeliness.on_time_rate', 'reliability.outstanding_assignments'),
+    'Maggam Master': ('attendance.worked_hours', 'productivity.garments',
+                      'productivity.completed', 'productivity.completion_rate',
+                      'quality.rework_rate'),
     # Handwork, same shape as the Maggam Master above it: what matters is how
     # much came off the frame and how much of it came back.
-    'Karigar': ('attendance.worked_hours', 'productivity.completed',
-                'productivity.completion_rate', 'quality.rework_rate'),
-    'Packaging Staff': ('attendance.worked_hours', 'productivity.completed',
-                       'timeliness.on_time_rate'),
-    'QC Staff': ('attendance.worked_hours', 'quality.inspected',
-                 'quality.pass_rate', 'timeliness.on_time_rate'),
+    'Karigar': ('attendance.worked_hours', 'productivity.garments',
+                'productivity.completed', 'productivity.completion_rate',
+                'quality.rework_rate'),
+    'Packaging Staff': ('attendance.worked_hours', 'productivity.garments',
+                        'productivity.completed', 'timeliness.on_time_rate'),
+    'QC Staff': ('attendance.worked_hours', 'productivity.garments',
+                 'quality.inspected', 'quality.pass_rate', 'timeliness.on_time_rate'),
 }
 
-DEFAULT_KPIS = ('attendance.worked_hours', 'productivity.completed',
-                'productivity.completion_rate', 'timeliness.on_time_rate')
+# Hours and dresses first for everyone: the two figures an owner asks about
+# before any rate. The card shows the first four.
+DEFAULT_KPIS = ('attendance.worked_hours', 'productivity.garments',
+                'productivity.completed', 'productivity.completion_rate',
+                'timeliness.on_time_rate')
 
 
 def kpis_for_role(role):

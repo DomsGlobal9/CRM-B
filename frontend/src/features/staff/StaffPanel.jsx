@@ -17,7 +17,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Check,
   Plus, Clock, Wallet, TrendingUp, Users, FileText, Trash2, Phone, Calendar, Briefcase, UserCheck,
-  User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee,
+  User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil,
 } from 'lucide-react';
 
 import { api } from '../../services/api';
@@ -140,61 +140,26 @@ const cleaned = (form) => {
   return payload;
 };
 
-function TermsForm({ member, terms, onCancel, onSaved }) {
-  const [form, setForm] = useState(() =>
-    terms
-      ? {
-          ...EMPTY_FORM,
-          ...Object.fromEntries(
-            Object.keys(EMPTY_FORM).map((k) => [k, terms[k] ?? '']),
-          ),
-        }
-      : EMPTY_FORM,
-  );
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-
+/** The employment fields, shared by the add and edit form. `form` is EMPTY_FORM-shaped. */
+function TermsFields({ form, setForm, memberName }) {
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const payload = cleaned(form);
-      if (terms) {
-        await api.updateStaffProfile(terms.id, payload);
-      } else {
-        await api.createStaffProfile({ ...payload, staff: member.id });
-      }
-      onSaved();
-    } catch (err) {
-      // Inline, never alert() -- the house rule the newer screens follow.
-      setError(err.message || 'Could not save these employment details.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
-    <form onSubmit={submit} className="at-stack">
-      {error && <div style={errorBox}>{error}</div>}
-
+    <>
       <div className="at-form-grid">
-        <Field label="Employment type" required icon={Briefcase} htmlFor="sp-type">
+        <Field label="Employment type" icon={Briefcase} htmlFor="sp-type">
           <select id="sp-type" value={form.employment_type} onChange={set('employment_type')}>
             {EMPLOYMENT_TYPES.map(([value, text]) => (
               <option key={value} value={value}>{text}</option>
             ))}
           </select>
         </Field>
-        <Field label="Hourly rate (₹)" required icon={IndianRupee} htmlFor="sp-rate"
-               hint={`Set the hourly rate for ${member.name}.`}>
+        <Field label="Hourly rate (₹)" icon={IndianRupee} htmlFor="sp-rate"
+               hint={`Set the hourly rate for ${memberName}.`}>
           <input id="sp-rate" type="number" min="0" step="0.01"
                  value={form.hourly_rate} onChange={set('hourly_rate')} placeholder="0.00" />
         </Field>
 
-        <Field label="Joined on" required icon={Calendar} htmlFor="sp-joined">
+        <Field label="Joined on" icon={Calendar} htmlFor="sp-joined">
           <input id="sp-joined" type="date" value={form.joined_at} onChange={set('joined_at')} />
         </Field>
         <Field label="Left on" icon={Calendar} htmlFor="sp-exit" hint="Leave blank if currently active.">
@@ -205,11 +170,6 @@ function TermsForm({ member, terms, onCancel, onSaved }) {
           <input id="sp-hours" type="number" min="0" step="0.5"
                  value={form.weekly_hours} onChange={set('weekly_hours')} placeholder="48" />
         </Field>
-        <Field label="Phone" icon={Phone} htmlFor="sp-phone">
-          <input id="sp-phone" value={form.phone} inputMode="numeric" placeholder="Enter phone number"
-                 onChange={(e) => setForm((f) => ({ ...f, phone: tenDigits(e) }))} />
-        </Field>
-
         <Field label="Security deposit (₹)" icon={Shield} htmlFor="sp-dep-total">
           <input id="sp-dep-total" type="number" min="0" step="0.01"
                  value={form.deposit_total} onChange={set('deposit_total')} placeholder="0.00" />
@@ -235,15 +195,7 @@ function TermsForm({ member, terms, onCancel, onSaved }) {
         <strong>Note:</strong> The weekly deduction is recovered from payroll once that is switched on, and never
         takes more than the deposit still outstanding or that week's earnings.
       </InfoNote>
-
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: 'var(--space-3)',
-                    borderTop: '1px solid var(--border-color)' }}>
-        <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn-primary" disabled={saving}>
-          <UserPlus size={16} /> {saving ? 'Saving…' : terms ? 'Save changes' : 'Create profile'}
-        </button>
-      </div>
-    </form>
+    </>
   );
 }
 
@@ -314,14 +266,16 @@ function AdvanceForm({ member, onCancel, onSaved }) {
 }
 
 /**
- * Onboarding: one form for the roster row, the login and the mobile number.
+ * Onboarding: one form for the roster row, the login, the employment record
+ * and the documents.
  *
- * This used to be two screens. Manage Tailors created the person and minted
- * their login; Staff Management then set up their employment separately, and
- * its own empty state told the owner to go to the other screen first. Adding
- * somebody therefore meant knowing that the roster and the employment record
- * were different things, which is an implementation detail of this codebase
- * rather than a fact about hiring a tailor.
+ * This used to be two screens, then three buttons: Manage Tailors created the
+ * person and minted their login; Staff Management set up their employment
+ * separately and held their documents behind a third button. Adding somebody
+ * therefore meant knowing that the roster, the employment record and the
+ * document store were different things, which is an implementation detail of
+ * this codebase rather than a fact about hiring a tailor. Now one Save does
+ * all three, in order, and the card offers one Edit.
  *
  * POSTs to the roster endpoint, which is what mints the account: supply an
  * email and the server generates a password and returns it exactly once, in
@@ -329,7 +283,7 @@ function AdvanceForm({ member, onCancel, onSaved }) {
  * copy to read, so the modal stays open on the credential until it is
  * dismissed deliberately.
  */
-function AddStaffForm({ member, onCancel, onSaved, customRoles = [] }) {
+function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
   const editing = Boolean(member);
   const [form, setForm] = useState({
     name: member?.name || '',
@@ -346,6 +300,55 @@ function AddStaffForm({ member, onCancel, onSaved, customRoles = [] }) {
   // click that silently copies looks exactly like one that silently did not.
   const [copied, setCopied] = useState(null);
   const [photo, setPhoto] = useState(null);
+  // Employment, in the same shape TermsFields edits. Prefilled from the
+  // profile when there is one.
+  const [termsForm, setTermsForm] = useState(() =>
+    terms
+      ? { ...EMPTY_FORM, ...Object.fromEntries(Object.keys(EMPTY_FORM).map((k) => [k, terms[k] ?? ''])) }
+      : EMPTY_FORM);
+  // Documents already held (editing), and the ones queued in this form. New
+  // files only go up once the person exists, so they wait for Save.
+  const [docs, setDocs] = useState([]);
+  const [docsError, setDocsError] = useState(null);
+  const [pending, setPending] = useState([]);
+  const [docForm, setDocForm] = useState({ kind: 'AADHAAR', number: '', label: '' });
+  const [docFile, setDocFile] = useState(null);
+  // What Save has already achieved, so a failure part-way and a retry pick up
+  // where it stopped instead of creating the person or their profile twice.
+  const [savedMember, setSavedMember] = useState(null);
+  const [savedTerms, setSavedTerms] = useState(terms || null);
+  const [credential, setCredential] = useState(null);
+
+  const loadDocs = useCallback(async () => {
+    if (!member) return;
+    try {
+      const rows = await api.getStaffDocuments(member.isDesigner ? { designer: member.id } : { staff: member.id });
+      setDocs(Array.isArray(rows) ? rows : []);
+    } catch (err) {
+      setDocsError(err.message || 'Could not load documents.');
+    }
+  }, [member]);
+  useEffect(() => {
+    const t = setTimeout(loadDocs, 0);
+    return () => clearTimeout(t);
+  }, [loadDocs]);
+
+  const removeDoc = async (doc) => {
+    setDocsError(null);
+    try {
+      await api.deleteStaffDocument(doc.id);
+      await loadDocs();
+    } catch (err) {
+      setDocsError(err.message || 'Could not remove that document.');
+    }
+  };
+  const addDocument = () => {
+    if (!docFile) return;
+    setPending((p) => [...p, { ...docForm, number: docForm.number.trim(), label: docForm.label.trim(), file: docFile }]);
+    setDocForm({ kind: 'AADHAAR', number: '', label: '' });
+    setDocFile(null);
+  };
+  const kindLabel = (kind) => (DOCUMENT_KINDS.find(([v]) => v === kind) || [kind, kind])[1];
   // A custom role the owner types (janitor, cleaner...). The select holds the
   // sentinel '__custom__' while they type; the real value lives here.
   const knownValues = ASSIGNABLE_ROLES.map((r) => r.value);
@@ -356,6 +359,8 @@ function AddStaffForm({ member, onCancel, onSaved, customRoles = [] }) {
   const reusable = customRoles.filter((r) => !knownValues.includes(r));
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+
+  const isDesigner = form.role === 'Designer';
 
   const submit = async (e) => {
     e.preventDefault();
@@ -376,8 +381,9 @@ function AddStaffForm({ member, onCancel, onSaved, customRoles = [] }) {
         role: form.role,
         status: form.status,
       };
+      const existing = member || savedMember;
       let saved;
-      if (form.role === 'Designer') {
+      if (isDesigner) {
         // A designer is not a roster row, so this goes to its own endpoint --
         // and the login is a second call there rather than a side effect of
         // creating the record, which is how design_studio already works.
@@ -387,8 +393,8 @@ function AddStaffForm({ member, onCancel, onSaved, customRoles = [] }) {
           email: payload.email,
           specialisation: form.specialty.trim(),
         };
-        saved = editing
-          ? await api.updateDesigner(member.id, designerPayload)
+        saved = existing
+          ? await api.updateDesigner(existing.id, designerPayload)
           : await api.createDesigner(designerPayload);
         if (payload.email && !saved.has_login) {
           saved = await api.createDesignerLogin(saved.id, payload.email);
@@ -401,19 +407,55 @@ function AddStaffForm({ member, onCancel, onSaved, customRoles = [] }) {
           Object.entries(payload).forEach(([k, v]) => body.append(k, v));
           body.append('profile_photo', photo);
         }
-        saved = editing
-          ? await api.updateTailor(member.id, body)
+        saved = existing
+          ? await api.updateTailor(existing.id, body)
           : await api.createTailor(body);
       }
+      if (!existing) setSavedMember(saved);
       // An edit can mint an account too -- giving an address to somebody who
       // joined without one is how a person who never had a login gets one.
-      //
+      const cred = saved?.bootstrap_password ? saved : credential;
+      if (saved?.bootstrap_password) setCredential(saved);
+
+      // Employment: always saved for an existing profile; created only when
+      // something beyond the defaults was filled in, so adding a person
+      // without pay details stays as light as it was.
+      if (!isDesigner) {
+        const employment = cleaned({ ...termsForm, phone: termsForm.phone || payload.phone });
+        const filledIn = Object.keys(employment).some((k) => !['employment_type', 'phone'].includes(k));
+        // Creating the person with a mobile number already made their profile
+        // (it is where the number lives), so look before creating a second one.
+        let profile = savedTerms;
+        if (!profile && filledIn) {
+          const rows = await api.getStaffProfiles();
+          profile = (Array.isArray(rows) ? rows : []).find((r) => String(r.staff) === String(saved.id)) || null;
+        }
+        if (profile) {
+          await api.updateStaffProfile(profile.id, employment);
+          setSavedTerms(profile);
+        } else if (filledIn) {
+          setSavedTerms(await api.createStaffProfile({ ...employment, staff: saved.id }));
+        }
+      }
+
+      // Documents, one request each, dropped from the queue as they land.
+      for (const doc of pending) {
+        const body = new FormData();
+        body.append(isDesigner ? 'designer' : 'staff', saved.id);
+        body.append('kind', doc.kind);
+        body.append('number', doc.number);
+        body.append('label', doc.label);
+        body.append('file', doc.file);
+        await api.uploadStaffDocument(body);
+        setPending((p) => p.filter((d) => d !== doc));
+      }
+
       // The roster is refreshed only once the credential has been dismissed:
       // refresh() puts the panel into its loading state, which unmounts this
       // form, and a password set on an unmounted form is a password nobody
       // ever saw. So when there is one, it is shown first and the refresh
       // waits behind Done; without one, the refresh happens straight away.
-      if (saved?.bootstrap_password) setCreated(saved);
+      if (cred) setCreated(cred);
       else { onSaved(); onCancel(); }
     } catch (err) {
       setError(err.message || 'Could not save this person.');
@@ -485,9 +527,9 @@ function AddStaffForm({ member, onCancel, onSaved, customRoles = [] }) {
     <Modal
       icon={UserPlus}
       title={editing ? `Edit ${member.name}` : 'Add staff'}
-      subtitle={editing ? 'Update this team member’s details.' : 'Add a new team member to your atelier.'}
+      subtitle={editing ? 'Details, employment and documents for this team member.' : 'Details, employment and documents, all in one go.'}
       onClose={onCancel}
-      width="640px"
+      width="760px"
       footer={(
         <>
           <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
@@ -581,189 +623,97 @@ function AddStaffForm({ member, onCancel, onSaved, customRoles = [] }) {
             </select>
           </Field>
         )}
-      </form>
-    </Modal>
-  );
-}
 
-/**
- * Identity and employment documents for one person.
- *
- * Owner-only on the server for anyone else's row, so this is rendered behind
- * the same check. The number is stored in full at the boutique's instruction;
- * it is deliberately not shown in the roster card, only here, behind a
- * deliberate click on one person.
- */
-function DocumentsModal({ member, onClose }) {
-  const [docs, setDocs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [form, setForm] = useState({ kind: 'AADHAAR', number: '', label: '' });
-  const [file, setFile] = useState(null);
-  const [busy, setBusy] = useState(false);
+        {!isDesigner && (
+          <FormSection icon={Briefcase} tone="amber" title="Employment"
+                       subtitle={savedTerms ? 'Employment type, pay and dates.' : 'Optional: leave blank to set it up later from Edit.'}>
+            <TermsFields form={termsForm} setForm={setTermsForm} memberName={form.name.trim() || 'this person'} />
+          </FormSection>
+        )}
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
-    try {
-      const rows = await api.getStaffDocuments(
-        member.isDesigner ? { designer: member.id } : { staff: member.id });
-      setDocs(Array.isArray(rows) ? rows : []);
-    } catch (err) {
-      setError(err.message || 'Could not load documents.');
-    } finally {
-      setLoading(false);
-    }
-  }, [member.id, member.isDesigner]);
-
-  useEffect(() => {
-    const t = setTimeout(refresh, 0);
-    return () => clearTimeout(t);
-  }, [refresh]);
-
-  const upload = async (e) => {
-    e.preventDefault();
-    if (!file) { setError('Choose a file to upload.'); return; }
-    setBusy(true);
-    setError(null);
-    try {
-      // FormData rather than JSON: this request carries a file, and the
-      // staff helper posts it as multipart when it sees one.
-      const body = new FormData();
-      body.append(member.isDesigner ? 'designer' : 'staff', member.id);
-      body.append('kind', form.kind);
-      body.append('number', form.number.trim());
-      body.append('label', form.label.trim());
-      body.append('file', file);
-      await api.uploadStaffDocument(body);
-      setForm({ kind: 'AADHAAR', number: '', label: '' });
-      setFile(null);
-      await refresh();
-    } catch (err) {
-      setError(err.message || 'Could not upload that document.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (doc) => {
-    setError(null);
-    try {
-      await api.deleteStaffDocument(doc.id);
-      await refresh();
-    } catch (err) {
-      setError(err.message || 'Could not remove that document.');
-    }
-  };
-
-  return (
-    <Modal
-      icon={FileText}
-      title={`Documents — ${member.name}`}
-      subtitle="Manage identification, contracts, and other important documents."
-      onClose={onClose}
-      width="900px"
-      footer={(
-        <>
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="staff-document-form" className="btn-primary" disabled={busy}>
-            {busy ? 'Uploading…' : <><Plus size={16} /> Upload Document</>}
-          </button>
-        </>
-      )}
-    >
-      {error && (
-        <div style={errorBox}>{error}</div>
-      )}
-
-      {loading ? (
-        <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>Loading…</div>
-      ) : docs.length === 0 ? (
-        <div className="at-drop at-drop--compact" style={{ minHeight: '150px' }}>
-          <span className="at-modal-icon at-tile at-tile--neutral" style={{ width: 56, height: 56 }}><FileText size={22} /></span>
-          <div className="at-drop-title" style={{ marginTop: '6px' }}>No documents held for {member.name} yet.</div>
-          <div className="at-drop-sub">Add documents below to keep their records organized.</div>
-        </div>
-      ) : (
-        <div className="at-form-section" style={{ gap: 0, padding: 'var(--space-2) var(--space-4)' }}>
-          {docs.map((doc) => (
-            <div key={doc.id} className="at-row">
-              <IconTile icon={FileText} tone="green" size={38} iconSize={17} />
-              <div className="at-row-main">
-                <div className="at-row-title">
-                  {doc.kind_display}{doc.label ? ` · ${doc.label}` : ''}
+        <FormSection icon={FileText} tone="green" title="Documents"
+                     subtitle="Identity and employment documents. Files added here are uploaded when you save.">
+          {docsError && <div style={errorBox}>{docsError}</div>}
+          {(docs.length > 0 || pending.length > 0) && (
+            <div className="at-form-section" style={{ gap: 0, padding: 'var(--space-2) var(--space-4)' }}>
+              {docs.map((doc) => (
+                <div key={doc.id} className="at-row">
+                  <IconTile icon={FileText} tone="green" size={38} iconSize={17} />
+                  <div className="at-row-main">
+                    <div className="at-row-title">{doc.kind_display}{doc.label ? ` · ${doc.label}` : ''}</div>
+                    <div className="at-row-sub">{doc.number || 'No number recorded'}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    {doc.file_url && (
+                      <a className="btn-secondary at-btn-sm" href={doc.file_url}
+                         target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                        <Eye size={14} /> View
+                      </a>
+                    )}
+                    <button type="button" className="btn-secondary at-btn-sm at-btn-danger" onClick={() => removeDoc(doc)}
+                            aria-label={`Remove ${doc.kind_display}`}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-                <div className="at-row-sub">
-                  {doc.number || 'No number recorded'}
+              ))}
+              {pending.map((doc, i) => (
+                <div key={`${doc.file.name}-${i}`} className="at-row">
+                  <IconTile icon={FilePlus} tone="amber" size={38} iconSize={17} />
+                  <div className="at-row-main">
+                    <div className="at-row-title">{kindLabel(doc.kind)}{doc.label ? ` · ${doc.label}` : ''}</div>
+                    <div className="at-row-sub">{doc.file.name} · uploads on save</div>
+                  </div>
+                  <button type="button" className="btn-secondary at-btn-sm at-btn-danger" aria-label="Remove"
+                          onClick={() => setPending((p) => p.filter((d) => d !== doc))}>
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                {doc.file_url && (
-                  <a className="btn-secondary at-btn-sm" href={doc.file_url}
-                     target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
-                    <Eye size={14} /> View
-                  </a>
-                )}
-                <button type="button" className="btn-secondary at-btn-sm at-btn-danger" onClick={() => remove(doc)}
-                        aria-label={`Remove ${doc.kind_display}`}>
-                  <Trash2 size={14} />
-                </button>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
-
-      <FormSection icon={FilePlus} tone="green" title="Add a Document"
-                   subtitle={`Upload and categorize a document for ${member.name}.`}>
-        <form id="staff-document-form" onSubmit={upload} className="at-stack">
+          )}
           <div className="at-form-grid">
-            <Field label="Document Type" required icon={FileText}>
-              <select className="form-input" value={form.kind}
-                      onChange={(e) => setForm({ ...form, kind: e.target.value })}>
+            <Field label="Document type" icon={FileText}>
+              <select className="form-input" value={docForm.kind}
+                      onChange={(e) => setDocForm({ ...docForm, kind: e.target.value })}>
                 {DOCUMENT_KINDS.map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Document Number" optional icon={Hash}>
-              <input className="form-input" value={form.number}
-                     onChange={(e) => setForm({ ...form, number: e.target.value })}
+            <Field label="Document number" optional icon={Hash}>
+              <input className="form-input" value={docForm.number}
+                     onChange={(e) => setDocForm({ ...docForm, number: e.target.value })}
                      placeholder="Enter document number" />
             </Field>
           </div>
-          <Field label="Label / Description" optional icon={Tag}>
-            <input className="form-input" value={form.label}
-                   onChange={(e) => setForm({ ...form, label: e.target.value })}
+          <Field label="Label / description" optional icon={Tag}>
+            <input className="form-input" value={docForm.label}
+                   onChange={(e) => setDocForm({ ...docForm, label: e.target.value })}
                    placeholder="e.g. Aadhaar (front), 2026 contract…" />
           </Field>
-          <div className="at-field">
-            <span className="at-field-label">Upload File <span className="at-field-req">*</span></span>
-            <div className="at-side-by-side">
-              {file ? (
-                <div className="at-form-section" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)' }}>
-                  <IconTile icon={FileText} tone="green" size={40} iconSize={18} />
-                  <div className="at-row-main">
-                    <div className="at-row-title">{file.name}</div>
-                    <div className="at-row-sub">{Math.round(file.size / 1024)} KB</div>
-                  </div>
-                  <button type="button" className="btn-secondary at-btn-sm" onClick={() => setFile(null)}>Remove</button>
-                </div>
-              ) : (
-                <Dropzone
-                  accept="image/*,application/pdf"
-                  title="Drag & drop a file here" subtitle="or choose from your device"
-                  chooseLabel="Choose File" hint="Supported formats: JPG, PNG, PDF (Max 10MB)"
-                  onFiles={(files) => setFile(files[0] || null)}
-                />
-              )}
-              <InfoNote tone="green" icon={Shield} title="Keep records safe"
-                        items={['Government IDs (Aadhaar, PAN, etc.)', 'Contracts & agreements', 'Certificates & other documents']}>
-                Upload clear and legible documents to maintain accurate employee records.
-              </InfoNote>
+          {docFile ? (
+            <div className="at-form-section" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)' }}>
+              <IconTile icon={FileText} tone="green" size={40} iconSize={18} />
+              <div className="at-row-main">
+                <div className="at-row-title">{docFile.name}</div>
+                <div className="at-row-sub">{Math.round(docFile.size / 1024)} KB</div>
+              </div>
+              <button type="button" className="btn-secondary at-btn-sm" onClick={() => setDocFile(null)}>Remove</button>
             </div>
+          ) : (
+            <Dropzone compact accept="image/*,application/pdf"
+                      title="Drag & drop a file here" subtitle="or choose from your device"
+                      chooseLabel="Choose file" hint="JPG, PNG or PDF, up to 10MB"
+                      onFiles={(files) => setDocFile(files[0] || null)} />
+          )}
+          <div>
+            <button type="button" className="btn-secondary at-btn-sm" onClick={addDocument} disabled={!docFile}>
+              <Plus size={14} /> Add document
+            </button>
           </div>
-        </form>
-      </FormSection>
+        </FormSection>
+      </form>
     </Modal>
   );
 }
@@ -781,10 +731,8 @@ function Roster({ isOwner, canSeeTeam }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [search, setSearch] = useState('');
-  const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
   const [person, setPerson] = useState(null);
-  const [documentsFor, setDocumentsFor] = useState(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -988,7 +936,7 @@ function Roster({ isOwner, canSeeTeam }) {
           <SearchBox value={search} onChange={setSearch} placeholder="Search staff by name, role, or phone…" />
           {isOwner && (
             <button type="button" className="btn-primary" style={{ marginLeft: 'auto', padding: '10px 18px' }} onClick={() => setAdding(true)}>
-              <Plus size={16} /> Add Staff Member
+              <Plus size={16} /> Add a team member
             </button>
           )}
         </div>
@@ -997,7 +945,7 @@ function Roster({ isOwner, canSeeTeam }) {
       {rows.length === 0 ? (
         <div className="ui-card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-secondary)' }}>
           {canSeeTeam
-            ? 'No staff on the roster yet. Add someone with the button above -- their role, mobile number and login are all set up in one go.'
+            ? 'No staff on the roster yet. Add someone with the button above -- their role, login, employment and documents are all set up in one go.'
             : 'Your employment details have not been set up yet. Your boutique owner can add them.'}
         </div>
       ) : (
@@ -1015,7 +963,7 @@ function Roster({ isOwner, canSeeTeam }) {
                         <button
                           type="button"
                           onClick={() => setPerson(member)}
-                          title="Edit name, role and specialty"
+                          title="Edit details, employment and documents"
                           style={{
                             fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-md)',
                             background: 'none', border: 'none', padding: 0, cursor: 'pointer',
@@ -1060,23 +1008,16 @@ function Roster({ isOwner, canSeeTeam }) {
 
                 {isOwner && (
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {/* One door: details, employment and documents are all
+                        behind it. Primary until employment is set up. */}
                     <button
                       type="button"
-                      className="btn-secondary at-btn-sm"
-                      onClick={() => setDocumentsFor(member)}
-                      title="Identity and employment documents"
+                      className={`${t || member.isDesigner ? 'btn-secondary' : 'btn-primary'} at-btn-sm`}
+                      onClick={() => setPerson(member)}
+                      title="Edit details, employment and documents"
                     >
-                      <FileText size={14} /> Documents
+                      <Pencil size={14} /> Edit
                     </button>
-                    {!member.isDesigner && (
-                      <button
-                        type="button"
-                        className={`${t ? 'btn-secondary' : 'btn-primary'} at-btn-sm`}
-                        onClick={() => setEditing({ member, terms: t })}
-                      >
-                        {t ? 'Edit' : <><Plus size={14} /> Set up</>}
-                      </button>
-                    )}
                   </div>
                 )}
               </div>
@@ -1222,25 +1163,6 @@ function Roster({ isOwner, canSeeTeam }) {
         </Modal>
       )}
 
-      {editing && (
-        <Modal
-          title={editing.terms
-            ? `Employment details — ${editing.member.name}`
-            : `Set up ${editing.member.name}`}
-          icon={User}
-          subtitle={`Add employment and contact details for ${editing.member.name}.`}
-          width="720px"
-          onClose={() => setEditing(null)}
-        >
-          <TermsForm
-            member={editing.member}
-            terms={editing.terms}
-            onCancel={() => setEditing(null)}
-            onSaved={() => { setEditing(null); refresh(); }}
-          />
-        </Modal>
-      )}
-
       {adding && (
         <AddStaffForm
           onCancel={() => setAdding(false)}
@@ -1252,24 +1174,19 @@ function Roster({ isOwner, canSeeTeam }) {
       {person && (
         <AddStaffForm
           member={person}
+          terms={termsByStaff.get(String(person.id))}
           onCancel={() => setPerson(null)}
           onSaved={refresh}
           customRoles={rosterRoles}
         />
       )}
 
-      {documentsFor && (
-        <DocumentsModal
-          member={documentsFor}
-          onClose={() => setDocumentsFor(null)}
-        />
-      )}
     </>
   );
 }
 
 const TABS = [
-  { key: 'roster', label: 'Staff', icon: Users },
+  { key: 'roster', label: 'Team', icon: Users },
   { key: 'attendance', label: 'Attendance', icon: Clock },
   { key: 'payroll', label: 'Payroll', icon: Wallet },
   { key: 'performance', label: 'Performance', icon: TrendingUp },
@@ -1291,9 +1208,9 @@ export default function StaffPanel({ currentUser }) {
   return (
     <>
       <PageHeader
-        title={canSeeTeam ? 'Staff Management' : 'My Attendance'}
+        title={canSeeTeam ? 'Your team' : 'My attendance'}
         subtitle={canSeeTeam
-          ? 'Manage your team, track attendance, payroll and performance.'
+          ? 'Tailors, masters, karigars and designers: who is in, what they are paid, and how they are doing.'
           : 'Check in and out, and see the hours recorded for you.'}
       />
 

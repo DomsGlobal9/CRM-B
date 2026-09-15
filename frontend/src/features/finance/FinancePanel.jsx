@@ -217,8 +217,8 @@ export default function FinancePanel() {
   return (
     <>
       <PageHeader
-        title={<>Cost &amp; P&amp;L</>}
-        subtitle="What you earned, what you spent, and what is left — for the selected period."
+        title="Profit & costs"
+        subtitle="What the boutique earned, what it spent, and what is left, for the period you pick."
         actions={(
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--border-color)',

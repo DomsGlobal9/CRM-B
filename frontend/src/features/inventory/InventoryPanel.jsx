@@ -3,11 +3,10 @@ import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, His
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { AddMoreTile, Dropzone, PageHeader, PhotoTile, StatCard } from '../../components/ui/Atelier';
+import { PageHeader, StatCard } from '../../components/ui/Atelier';
 import { resolveMediaUrl } from '../../services/media';
-import FabricPlacements from '../fabrics/FabricPlacements';
-import { useFabricTaxonomy } from '../fabrics/taxonomy';
 import CatalogBrowser from './CatalogBrowser';
+import ItemFormModal, { Field, Modal } from './ItemFormModal';
 import LocationsTab from './LocationsTab';
 import RecipesTab from './RecipesTab';
 import ReportsTab from './ReportsTab';
@@ -63,33 +62,6 @@ const errorBox = {
   borderRadius: 'var(--radius-md)',
 };
 
-function Modal({ title, onClose, children, width = '520px' }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1200,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: 'var(--surface-color)', borderRadius: 'var(--radius-xl)', width: '100%',
-          maxWidth: width, maxHeight: '88vh', overflowY: 'auto', padding: 'var(--space-6)',
-          border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-lg)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
-          <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-xl)', fontWeight: 500, margin: 0, color: 'var(--text-primary)' }}>{title}</h3>
-          <button type="button" className="close-btn" onClick={onClose} aria-label="Close"><X size={18} /></button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
-
 export default function InventoryPanel({ currentUser }) {
   const { t } = useLanguage();
   const [tab, setTab] = useState('items');
@@ -110,10 +82,21 @@ export default function InventoryPanel({ currentUser }) {
   const [ledgerItem, setLedgerItem] = useState(null);
   const [ledger, setLedger] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
+  const [catalogVersion, setCatalogVersion] = useState(0);
   const [receivingPo, setReceivingPo] = useState(null);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
 
   const isOwner = currentUser?.role === 'Owner';
+
+  // "Stock this" on a catalogue row is the "New item" form with the row's
+  // details already in it; the row's id rides along so saving links the two.
+  const stockFromCatalog = (row) => setEditingItem({
+    name: row.name,
+    category: row.legacy_category,
+    unit: row.default_unit,
+    sub_category: row.section_full_name,
+    catalog_item: row.id,
+  });
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -182,9 +165,9 @@ export default function InventoryPanel({ currentUser }) {
           <StatCard icon={Package} tone="green" label={t('inventoryPage.stockValue')} value={money(summary.inventory_value)}
                     sub={`${summary.item_count} ${t('inventoryPage.itemsTracked', 'items tracked')}`} />
           <StatCard icon={AlertTriangle} tone="amber" label={t('inventoryPage.outOfStock')} value={summary.out_of_stock_count}
-                    sub="Items need restocking" onClick={() => { setTab('items'); setReorderOnly(true); }} />
+                    sub="Need buying again" onClick={() => { setTab('items'); setReorderOnly(true); }} />
           <StatCard icon={ArrowDownCircle} tone="blue" label={t('inventoryPage.reorderDue')} value={summary.needs_reorder_count}
-                    sub="Items to reorder" onClick={() => { setTab('items'); setReorderOnly(true); }} />
+                    sub="Below the reorder mark" onClick={() => { setTab('items'); setReorderOnly(true); }} />
           <StatCard icon={History} tone="rose" label={t('inventoryPage.deadStock')} value={summary.dead_stock_count}
                     sub={t('inventoryPage.noMovement90Days', 'No movement in 90 days')} onClick={() => setTab('reports')} />
         </div>
@@ -267,7 +250,7 @@ export default function InventoryPanel({ currentUser }) {
       )}
 
       {!loadError && tab === 'catalog' && (
-        <CatalogBrowser isOwner={isOwner} onStocked={refresh} />
+        <CatalogBrowser isOwner={isOwner} onStock={stockFromCatalog} version={catalogVersion} />
       )}
 
       {!loadError && tab === 'locations' && (
@@ -338,7 +321,7 @@ export default function InventoryPanel({ currentUser }) {
           options={options}
           suppliers={suppliers}
           onClose={() => setEditingItem(null)}
-          onSaved={() => { setEditingItem(null); refresh(); }}
+          onSaved={() => { setEditingItem(null); setCatalogVersion((v) => v + 1); refresh(); }}
         />
       )}
 
@@ -598,203 +581,6 @@ function MovementModal({ item, onClose, onDone }) {
         </div>
       </form>
     </Modal>
-  );
-}
-
-function ItemFormModal({ item, options, suppliers, onClose, onSaved }) {
-  const { t } = useLanguage();
-  const isNew = !item.id;
-  const [form, setForm] = useState({
-    item_code: item.item_code || '',
-    name: item.name || '',
-    category: item.category || 'FABRIC',
-    unit: item.unit || '',
-    color: item.color || '',
-    purchase_price: item.purchase_price || '',
-    selling_price: item.selling_price || '',
-    reorder_level: item.reorder_level || '',
-    minimum_stock: item.minimum_stock || '',
-    rack_location: item.rack_location || '',
-    supplier: item.supplier || '',
-    status: item.status || 'ACTIVE',
-    // What the fabric catalogue used to record: the roll's own photographs,
-    // its exact shade, what it is and where on which garment it goes.
-    material_type: item.material_type || '',
-    color_hex: item.color_hex || '',
-    image_urls: item.image_urls || [],
-    image_url: item.image_url || '',
-    kind: item.kind || '',
-    variant: item.variant || '',
-    placements: (item.placements || []).map(({ garment, section, slot }) => ({ garment, section, slot })),
-    // A roll that has just arrived is stocked in the same breath.
-    opening_stock: '',
-  });
-  const taxonomy = useFabricTaxonomy();
-  const [uploading, setUploading] = useState(false);
-  const addPhotos = async (files) => {
-    const picked = [...(files || [])];
-    if (!picked.length) return;
-    setUploading(true);
-    try {
-      const { image_urls: uploaded } = await api.uploadInventoryImages(picked);
-      setForm((f) => ({
-        ...f,
-        image_urls: [...(f.image_urls || []), ...uploaded],
-        image_url: f.image_url || uploaded[0] || '',
-      }));
-    } catch (err) {
-      alert('Could not upload those photos: ' + err.message);
-    } finally {
-      setUploading(false);
-    }
-  };
-  const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  // The unit follows the category until the user picks one themselves.
-  const unitForCategory = options.default_unit_by_category?.[form.category];
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setSaving(true);
-    try {
-      const { opening_stock: openingStock, ...payload } = { ...form, unit: form.unit || unitForCategory || 'UNIT' };
-      ['purchase_price', 'selling_price', 'reorder_level', 'minimum_stock'].forEach((k) => {
-        payload[k] = payload[k] === '' ? 0 : payload[k];
-      });
-      if (!payload.supplier) delete payload.supplier;
-      const saved = await api.saveInventoryItem(payload, item.id || null);
-      // Through the ledger, like every other quantity: the item is created
-      // empty and the opening figure arrives as a Stock In that names itself.
-      if (isNew && Number(openingStock) > 0) {
-        await api.moveStock(saved.id, 'stock-in', { quantity: openingStock, remarks: 'Opening stock' });
-      }
-      onSaved();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal title={isNew ? t('inventoryPage.newItemTitle', 'New inventory item') : `${t('inventoryPage.editTitle', 'Edit')} · ${item.name}`} onClose={onClose} width="760px">
-      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-          <Field label={t('inventoryPage.itemCode', 'Item code')} required value={form.item_code} onChange={(v) => set('item_code', v)} />
-          <Field label={t('inventoryPage.itemName', 'Name')} required value={form.name} onChange={(v) => set('name', v)} />
-          <SelectField label={t('inventoryPage.category', 'Category')} value={form.category} onChange={(v) => { set('category', v); set('unit', ''); }}
-            options={options.categories} />
-          <SelectField
-            label={t('inventoryPage.unit', 'Unit')}
-            value={form.unit || unitForCategory || ''}
-            onChange={(v) => set('unit', v)}
-            options={options.units}
-            hint={!form.unit && unitForCategory ? t('inventoryPage.defaultForCategory', 'Default for this category') : ''}
-          />
-          <Field label={t('inventoryPage.colour', 'Colour')} value={form.color} onChange={(v) => set('color', v)} />
-          <Field label={t('inventoryPage.materialType', 'Material')} value={form.material_type} onChange={(v) => set('material_type', v)} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.colourCode', 'Colour code')}</label>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input type="color" aria-label="Colour wheel" value={/^#[0-9a-fA-F]{6}$/.test(form.color_hex) ? form.color_hex : '#c8a97e'}
-                     onChange={(e) => set('color_hex', e.target.value)}
-                     style={{ width: '38px', height: '38px', padding: 0, border: '1px solid var(--border-color)', borderRadius: '8px', background: 'none' }} />
-              <input className="form-control" placeholder="#c8a97e" maxLength={7} value={form.color_hex} style={{ fontFamily: 'monospace' }}
-                     onChange={(e) => { const v = e.target.value.trim(); set('color_hex', v && !v.startsWith('#') ? `#${v}` : v); }} />
-            </div>
-          </div>
-          <Field label={t('inventoryPage.rackLocation', 'Rack location')} value={form.rack_location} onChange={(v) => set('rack_location', v)} />
-          <Field label={t('inventoryPage.purchasePrice', 'Purchase price')} type="number" value={form.purchase_price} onChange={(v) => set('purchase_price', v)} />
-          <Field label={t('inventoryPage.sellingPrice', 'Selling price')} type="number" value={form.selling_price} onChange={(v) => set('selling_price', v)} />
-          <Field label={t('inventoryPage.reorderLevel', 'Reorder level')} type="number" value={form.reorder_level} onChange={(v) => set('reorder_level', v)} />
-          <Field label={t('inventoryPage.minimumStock', 'Minimum stock')} type="number" value={form.minimum_stock} onChange={(v) => set('minimum_stock', v)} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.supplier', 'Supplier')}</label>
-            <select className="form-control" value={form.supplier || ''} onChange={(e) => set('supplier', e.target.value)}>
-              <option value="">—</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          {isNew && (
-            <Field label={t('inventoryPage.openingStock', 'Opening stock (quantity on the shelf now)')} type="number"
-                   value={form.opening_stock} onChange={(v) => set('opening_stock', v)} />
-          )}
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.photos', 'Photos')}</label>
-          <Dropzone compact multiple camera title="Drag & drop photos here" subtitle="or choose an option"
-                    chooseLabel="Choose from gallery" cameraLabel="Take photo" onFiles={addPhotos} />
-          {(form.image_urls || []).length > 0 && (
-            <div className="at-photos" style={{ gap: '6px' }}>
-              {form.image_urls.map((src, i) => (
-                <PhotoTile key={src} src={src} size={64}
-                           onRemove={() => set('image_urls', form.image_urls.filter((_, idx) => idx !== i))} />
-              ))}
-              <AddMoreTile size={64} onClick={() => document.getElementById('inventory-item-photos').click()} />
-            </div>
-          )}
-          <input type="file" id="inventory-item-photos" accept="image/*" multiple style={{ display: 'none' }}
-                 onChange={(e) => { addPhotos(e.target.files); e.target.value = ''; }} />
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.usedOn', 'Where is it used?')}</label>
-          <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: 0 }}>
-            {t('inventoryPage.usedOnHint', 'File it under the garment parts it suits, or as an accessory, and the order wizard offers it there.')}
-          </p>
-          <FabricPlacements
-            taxonomy={taxonomy}
-            value={{ kind: form.kind, variant: form.variant, placements: form.placements }}
-            onChange={(next) => setForm((f) => ({ ...f, kind: next.kind || '', variant: next.variant || '', placements: next.placements || [] }))}
-          />
-        </div>
-
-        {!isNew && (
-        <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', margin: 0 }}>
-          {t('inventoryPage.stockNotSetHereHint', 'Stock quantities are not set here — they only change through recorded movements.')}
-        </p>
-        )}
-
-        {error && (
-          <div style={errorBox}>{error}</div>
-        )}
-
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn-secondary" onClick={onClose}>{t('common.cancel', 'Cancel')}</button>
-          <button type="submit" className="btn-primary" disabled={saving || uploading}>
-            {uploading ? t('common.uploading', 'Uploading…') : saving ? t('common.saving', 'Saving…') : t('inventoryPage.saveItem', 'Save item')}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function Field({ label, value, onChange, type = 'text', required = false }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      <label style={{ fontSize: '12px', fontWeight: 600 }}>{label}{required && ' *'}</label>
-      <input
-        type={type} step={type === 'number' ? '0.01' : undefined} required={required}
-        className="form-control" value={value} onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
-  );
-}
-
-function SelectField({ label, value, onChange, options, hint }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      <label style={{ fontSize: '12px', fontWeight: 600 }}>{label}</label>
-      <select className="form-control" value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-      </select>
-      {hint && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{hint}</span>}
-    </div>
   );
 }
 

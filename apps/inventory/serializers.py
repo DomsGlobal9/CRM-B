@@ -7,7 +7,7 @@ from .models import (
     CustomerMaterial, CustomerMaterialMovement, DEFAULT_UNIT_BY_CATEGORY,
     InventoryItem, ItemPlacement, LocationStock, OrderMaterialLine, OrderMaterialPlan,
     PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement, Supplier,
-    Unit, UnitConversion,
+    Unit, UnitConversion, next_item_code,
 )
 
 
@@ -55,6 +55,10 @@ class InventoryItemSerializer(serializers.ModelSerializer):
         model = InventoryItem
         fields = '__all__'
         read_only_fields = ['current_stock', 'reserved_stock', 'created_at', 'updated_at']
+        # A row stocked from the catalogue or a design from the library gets
+        # its code here, the way "Stock this" always gave it one; anything
+        # else still has to bring its own.
+        extra_kwargs = {'item_code': {'required': False, 'allow_blank': True}}
 
     def get_kind_label(self, obj):
         from crm_api.fabric_taxonomy import kind_label
@@ -77,6 +81,28 @@ class InventoryItemSerializer(serializers.ModelSerializer):
         category = attrs.get('category') or getattr(self.instance, 'category', None)
         if category and not attrs.get('unit') and not self.instance:
             attrs['unit'] = DEFAULT_UNIT_BY_CATEGORY.get(category, Unit.UNIT)
+
+        catalog_item = attrs.get('catalog_item')
+        if catalog_item is not None and not self.instance:
+            if not catalog_item.is_stockable:
+                raise serializers.ValidationError({'catalog_item': (
+                    f"'{catalog_item.name}' is a "
+                    f"{catalog_item.get_item_type_display().lower()} and cannot hold stock.")})
+            if InventoryItem.objects.filter(catalog_item=catalog_item).exists():
+                raise serializers.ValidationError({'catalog_item': (
+                    f"'{catalog_item.name}' is already in your inventory.")})
+        design = attrs.get('design_asset')
+        if design is not None and not self.instance:
+            if InventoryItem.objects.filter(design_asset=design).exists():
+                raise serializers.ValidationError({'design_asset': (
+                    f"'{design.title}' is already in your inventory.")})
+        if not self.instance and not attrs.get('item_code'):
+            if catalog_item is not None:
+                attrs['item_code'] = catalog_item.next_item_code()
+            elif design is not None:
+                attrs['item_code'] = next_item_code('DSN')
+            else:
+                raise serializers.ValidationError({'item_code': 'This field is required.'})
 
         # The card and the picker read image_url; the gallery is the rest of
         # the shoot. The first photo is mirrored so neither has to know the

@@ -556,6 +556,64 @@ class CatalogApiTests(InventoryTestBase):
         response = self.client.get(f'/api/inventory/catalog/items/{zari.id}/')
         self.assertEqual(response.data['stocked_item_id'], created.data['id'])
 
+    def test_item_form_can_stock_a_catalog_row_without_typing_a_code(self):
+        # "Stock this" now opens the item form; the form posts the row's id and
+        # leaves the code to the server, exactly as the bare action did.
+        from .models import CatalogItem
+
+        dabka = CatalogItem.objects.filter(name='Dabka').first()
+        payload = {'catalog_item': str(dabka.id), 'name': 'Dabka', 'category': dabka.legacy_category,
+                   'unit': dabka.default_unit, 'purchase_price': '12.50'}
+        response = self.client.post('/api/inventory/items/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertTrue(response.data['item_code'].startswith('CAT-'), response.data['item_code'])
+        self.assertEqual(str(response.data['catalog_item']), str(dabka.id))
+        self.assertEqual(Decimal(response.data['purchase_price']), Decimal('12.50'))
+        self.assertEqual(
+            self.client.get(f'/api/inventory/catalog/items/{dabka.id}/').data['stocked_item_id'],
+            str(response.data['id']))
+
+        again = self.client.post('/api/inventory/items/', payload, format='json')
+        self.assertEqual(again.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('already in your inventory', str(again.data['catalog_item']))
+        self.assertEqual(InventoryItem.objects.filter(catalog_item=dabka).count(), 1)
+
+        gateway = CatalogItem.objects.filter(name='Payment Gateway').first()
+        refused = self.client.post('/api/inventory/items/', {**payload, 'catalog_item': str(gateway.id)}, format='json')
+        self.assertEqual(refused.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('cannot hold stock', str(refused.data['catalog_item']))
+
+        bare = self.client.post('/api/inventory/items/', {'name': 'Loose thread', 'category': dabka.legacy_category}, format='json')
+        self.assertEqual(bare.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('item_code', bare.data)
+
+    def test_a_library_design_can_be_filed_into_inventory(self):
+        # "Add to inventory" on a design card: the same form, the design's id
+        # riding along, a DSN- code from the server, and one item per design.
+        from apps.design_studio.models import DesignAsset
+        from apps.design_studio.serializers import DesignAssetSerializer
+
+        design = DesignAsset.objects.create(
+            title='Maroon Bridal Lehenga', garment_type='Lehenga',
+            image_url='https://example.test/lehenga.jpg', estimated_price=Decimal('35000'))
+        payload = {'design_asset': str(design.id), 'name': design.title, 'category': 'DESIGN',
+                   'selling_price': '35000'}
+        response = self.client.post('/api/inventory/items/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        self.assertEqual(response.data['item_code'], 'DSN-0001')
+        self.assertEqual(response.data['category'], 'DESIGN')
+        self.assertEqual(response.data['unit'], 'PIECE')
+        self.assertEqual(str(response.data['design_asset']), str(design.id))
+
+        listed = DesignAssetSerializer(
+            DesignAsset.objects.prefetch_related('stocked_as').get(id=design.id)).data
+        self.assertEqual(listed['inventory_item_id'], str(response.data['id']))
+
+        again = self.client.post('/api/inventory/items/', payload, format='json')
+        self.assertEqual(again.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('already in your inventory', str(again.data['design_asset']))
+        self.assertEqual(InventoryItem.objects.filter(design_asset=design).count(), 1)
+
 
 class StockLocationTests(InventoryTestBase):
 

@@ -14,9 +14,11 @@ import { IconTile } from '../../components/ui/Atelier';
  * someone actually looks for a material.
  *
  * Items are not stock. A boutique creates an InventoryItem from a row when it
- * decides to hold that material, which is what the "Stock this" button does;
- * everything else stays here rather than filling the stock screen with hundreds
- * of zero rows.
+ * decides to hold that material: "Stock this" opens the same item form as "New
+ * item", already filled in from the row, and saving links the two. Everything
+ * else stays here rather than filling the stock screen with hundreds of zero
+ * rows. `version` ticks whenever the inventory changes, so the open section
+ * re-reads which rows are now stocked.
  */
 
 const panel = {
@@ -31,7 +33,7 @@ const TYPE_LABEL = {
   ASSET: 'Asset', DOCUMENT: 'Document', SYSTEM: 'System', PRODUCT_CATEGORY: 'Garment type',
 };
 
-export default function CatalogBrowser({ isOwner, onStocked }) {
+export default function CatalogBrowser({ isOwner, onStock, version }) {
   const { t } = useLanguage();
   const [sections, setSections] = useState([]);
   const [openSection, setOpenSection] = useState(null);
@@ -39,7 +41,6 @@ export default function CatalogBrowser({ isOwner, onStocked }) {
   const [search, setSearch] = useState('');
   const [stockableOnly, setStockableOnly] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -66,27 +67,13 @@ export default function CatalogBrowser({ isOwner, onStocked }) {
     const term = search.trim();
     const timer = setTimeout(() => loadItems(openSection, term), term ? 250 : 0);
     return () => clearTimeout(timer);
-  }, [search, openSection, loadItems]);
+  }, [search, openSection, loadItems, version]);
 
   const byDoc = useMemo(() => {
     const groups = { MAGGAM: [], APPAREL: [] };
     sections.forEach((section) => (groups[section.doc] || groups.APPAREL).push(section));
     return groups;
   }, [sections]);
-
-  const stock = async (item) => {
-    setBusy(item.id);
-    setError(null);
-    try {
-      await api.stockCatalogItem(item.id, {});
-      loadItems(openSection, search.trim());
-      onStocked?.();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusy(null);
-    }
-  };
 
   const total = sections.reduce((sum, s) => sum + (s.item_count || 0), 0);
 
@@ -190,10 +177,9 @@ export default function CatalogBrowser({ isOwner, onStocked }) {
                 ) : isOwner ? (
                   <button type="button" className="btn-secondary"
                           style={{ fontSize: '11.5px', padding: '5px 11px' }}
-                          disabled={busy === item.id}
-                          onClick={() => stock(item)}>
+                          onClick={() => onStock(item)}>
                     <Plus size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                    {busy === item.id ? t('inventoryPage.adding', 'Adding…') : t('inventoryPage.stockThis', 'Stock this')}
+                    {t('inventoryPage.stockThis', 'Stock this')}
                   </button>
                 ) : null}
               </div>
