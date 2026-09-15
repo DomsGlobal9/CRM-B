@@ -78,6 +78,9 @@ class DesignAssetSerializer(serializers.ModelSerializer):
     # where there is one, the imported free text otherwise.
     designer_name = serializers.SerializerMethodField()
     collection_name = serializers.CharField(source='collection.name', read_only=True, default='')
+    # The inventory item this design has been filed as, if the owner has
+    # stocked it; the library shows "In your inventory" instead of the button.
+    inventory_item_id = serializers.SerializerMethodField()
 
     class Meta:
         model = DesignAsset
@@ -101,6 +104,10 @@ class DesignAssetSerializer(serializers.ModelSerializer):
         if asset.designer_ref_id:
             return asset.designer_ref.name
         return asset.designer or ''
+
+    def get_inventory_item_id(self, asset):
+        row = asset.stocked_as.all()[:1]
+        return str(row[0].id) if row else None
 
     def validate(self, attrs):
         # A catalogue path is only meaningful against the garment it belongs

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Plus, Search, ShoppingBag, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, Trash2, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
 import DesignUpload from './DesignUpload';
 import GarmentPartTabs from './GarmentPartTabs';
 import DesignCatalogueBrowser from './DesignCatalogueBrowser';
+import ItemFormModal from '../inventory/ItemFormModal';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
 
 /**
@@ -34,6 +35,20 @@ const STATUS_COLOURS = {
 // Only the boutique's own catalogue rows are editable through the catalogue
 // endpoints; an imported pin or a studio upload is not a catalogue entry.
 const EDITABLE_SOURCES = ['catalogue', 'suggestion'];
+
+// "Add to inventory": the boutique's own design is stock too. The inventory
+// form opens with what the design already knows; the id rides along so the
+// item links back and the card can say "In your inventory".
+const inventoryDraft = (design) => ({
+  name: design.title,
+  category: 'DESIGN',
+  unit: 'PIECE',
+  sub_category: design.garment_type || '',
+  selling_price: Number(design.estimated_price) > 0 ? design.estimated_price : '',
+  image_url: design.image_url || '',
+  image_urls: design.image_url ? [design.image_url] : [],
+  design_asset: design.id,
+});
 
 const formatDate = (iso) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
@@ -274,7 +289,8 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
   );
 }
 
-export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false }) {
+export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false, canStock = false }) {
+  const [stocking, setStocking] = useState(null);   // the design being filed into inventory
   const [categories, setCategories] = useState([]);
   const [total, setTotal] = useState(0);
   const [openCategory, setOpenCategory] = useState(null);   // null = section list
@@ -549,11 +565,31 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
                     </span>
                   )}
                 </div>
+                {design.inventory_item_id ? (
+                  <span style={{ fontSize: '11.5px', color: 'var(--success-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Check size={13} /> In your inventory
+                  </span>
+                ) : canStock ? (
+                  <button type="button" className="btn-secondary"
+                          style={{ fontSize: '11.5px', padding: '5px 11px', alignSelf: 'flex-start' }}
+                          onClick={(e) => { e.stopPropagation(); setStocking(design); }}>
+                    <Package size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                    Add to inventory
+                  </button>
+                ) : null}
               </div>
             </div>
           );
         })}
       </div>
+
+      {stocking && (
+        <ItemFormModal
+          item={inventoryDraft(stocking)}
+          onClose={() => setStocking(null)}
+          onSaved={() => { setStocking(null); setFilters({ ...filters }); }}   // refetch: the card flips
+        />
+      )}
 
       {uploading && (
         <DesignUpload

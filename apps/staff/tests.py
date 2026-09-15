@@ -1350,6 +1350,32 @@ class ProductivityKpiTests(PerformanceTestCase):
         self.assertFalse(m['completion_rate']['available'])
         self.assertIsNone(m['completion_rate']['value'])
         self.assertEqual(m['in_period']['value'], 0)
+        self.assertEqual(m['garments']['value'], 0)
+
+    def test_garments_count_dresses_not_stages(self):
+        from apps.catalog.models import GarmentJob, GarmentTemplate
+        from crm_api.models import OrderStage
+
+        self.profile_for(self.anita)
+        first = self.stage(self.anita, 2)
+        # A second stage on the same order is more work on the same dress.
+        OrderStage.objects.create(
+            order=first.order, stage_key='finishing', stage_name='Finishing',
+            status='COMPLETED', started_at=first.started_at, completed_at=first.completed_at,
+            assigned_to=self.anita, performed_by=self.anita)
+        self.stage(self.anita, 3)
+        m = self.metrics(self.anita)['productivity']
+        self.assertEqual(m['in_period']['value'], 3)
+        self.assertEqual(m['garments']['value'], 2)
+        self.assertIn('productivity.garments',
+                      [h['key'] for h in performance.headline_kpis(self.metrics(self.anita))])
+
+        template = GarmentTemplate.objects.first()
+        if template is not None:
+            # An order carrying two garment jobs is two dresses.
+            for _ in range(2):
+                GarmentJob.objects.create(order=first.order, template=template)
+            self.assertEqual(self.metrics(self.anita)['productivity']['garments']['value'], 3)
 
     def test_work_finished_by_somebody_else_is_visible_as_a_gap(self):
         self.profile_for(self.anita)

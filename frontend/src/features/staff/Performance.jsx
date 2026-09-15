@@ -43,8 +43,9 @@ const LABELS = {
   'attendance.worked_hours': 'Hours worked',
   'attendance.days_attended': 'Days attended',
   'attendance.average_hours_per_day': 'Avg hours/day',
-  'productivity.in_period': 'Worked on',
-  'productivity.completed': 'Work completed',
+  'productivity.in_period': 'Stages worked on',
+  'productivity.garments': 'Garments worked on',
+  'productivity.completed': 'Stages completed',
   'productivity.completion_rate': 'Completion',
   'productivity.performed_by_them': 'Done by them',
   'timeliness.on_time_rate': 'On time',
@@ -278,7 +279,7 @@ function StaffDetail({ member, reviews, isOwner, canReview, onBack, onChanged })
 
   const groups = [
     ['attendance', 'Attendance', ['worked_hours', 'days_attended', 'average_hours_per_day']],
-    ['productivity', 'Productivity', ['in_period', 'completed', 'completion_rate']],
+    ['productivity', 'Productivity', ['garments', 'in_period', 'completed', 'completion_rate']],
     ['timeliness', 'Timeliness', ['on_time', 'overdue', 'on_time_rate']],
     ['quality', 'Quality', ['inspected', 'checked', 'pass_rate', 'rework_rate']],
     ['reliability', 'Reliability', ['outstanding_assignments', 'overdue_open_assignments',

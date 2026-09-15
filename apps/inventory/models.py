@@ -31,6 +31,9 @@ class Category(models.TextChoices):
     STITCHING = 'STITCHING', 'Stitching Material'
     PACKAGING = 'PACKAGING', 'Packaging'
     MAGGAM = 'MAGGAM', 'Maggam / Embroidery'
+    # The boutique's own designs: not a material, but the owner's stock all
+    # the same, so the library can file one here and the ledger counts it.
+    DESIGN = 'DESIGN', 'Design'
     OTHER = 'OTHER', 'Other'
 
 
@@ -42,8 +45,19 @@ DEFAULT_UNIT_BY_CATEGORY = {
     Category.STITCHING: Unit.PIECE,
     Category.PACKAGING: Unit.PIECE,
     Category.MAGGAM: Unit.PIECE,
+    Category.DESIGN: Unit.PIECE,
     Category.OTHER: Unit.UNIT,
 }
+
+
+def next_item_code(prefix):
+    """<prefix>-0001, the first number nobody holds yet."""
+    taken = set(InventoryItem.objects.filter(item_code__startswith=prefix)
+                .values_list('item_code', flat=True))
+    n = 1
+    while f"{prefix}-{n:04d}" in taken:
+        n += 1
+    return f"{prefix}-{n:04d}"
 
 
 class ItemType(models.TextChoices):
@@ -117,6 +131,13 @@ class CatalogItem(models.Model):
     @property
     def is_stockable(self):
         return self.item_type in STOCKABLE_ITEM_TYPES
+
+    def next_item_code(self):
+        """CAT-<section initials>-0001."""
+        import re
+
+        initials = ''.join(word[0] for word in re.findall(r'[A-Za-z]+', self.section.name))[:3].upper()
+        return next_item_code(f"CAT-{initials or 'GEN'}")
 
     def __str__(self):
         return f"{self.name} ({self.section.full_name})"
@@ -248,6 +269,11 @@ class InventoryItem(models.Model):
     sub_category = models.CharField(max_length=100, blank=True, null=True)
     catalog_item = models.ForeignKey(
         CatalogItem, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='stocked_as')
+    # A design from the library, filed into stock: the owner's own work is
+    # inventory too. One item per design, like one item per catalogue row.
+    design_asset = models.ForeignKey(
+        'design_studio.DesignAsset', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='stocked_as')
     brand = models.CharField(max_length=100, blank=True, null=True)
     color = models.CharField(max_length=50, blank=True, null=True)
