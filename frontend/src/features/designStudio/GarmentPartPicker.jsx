@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Check, ChevronLeft, ChevronRight, Eye, ImageOff, Link as LinkIcon, Upload, X } from 'lucide-react';
+import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Upload, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
@@ -84,6 +84,56 @@ function PickCard({ src, alt, picked, onClick, onView, children, height = '110px
           <Eye size={11} /> View
         </button>
       )}
+    </div>
+  );
+}
+
+
+/** One picture found on the web: keep it on this part, or open where it came from. */
+function WebResultCard({ hit, kept, keeping, onKeep, sourceUrl, title }) {
+  return (
+    <div className={`web-result-card${kept ? ' is-kept' : ''}`}>
+      <button type="button" className="web-result-media" onClick={onKeep} disabled={keeping}
+              title={kept ? 'Kept on this part' : 'Keep this picture on this part'}
+              style={{ cursor: kept ? 'default' : 'pointer' }}>
+        <img src={hit.image_url} alt={title} loading="lazy"
+             onError={(e) => { e.currentTarget.src = FALLBACK; }} />
+        {(kept || keeping) && (
+          <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                         background: 'rgba(16,124,65,0.28)', color: '#fff', fontSize: '12px', fontWeight: 700,
+                         letterSpacing: '0.02em', textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}>
+            {keeping ? 'Keeping…' : <><Check size={14} style={{ marginRight: '4px' }} /> Kept</>}
+          </span>
+        )}
+        {!kept && !keeping && (
+          <span style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '22px 8px 9px',
+                         background: 'linear-gradient(to top, rgba(0,0,0,0.55), transparent)', color: '#fff',
+                         fontSize: '12px', fontWeight: 600, textAlign: 'center', pointerEvents: 'none' }}>
+            Click to keep
+          </span>
+        )}
+      </button>
+      <div className="web-result-body">
+        <div className="web-result-title" title={title}>{title}</div>
+        <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
+           style={{ fontSize: '11.5px', color: 'var(--text-secondary)', textDecoration: 'none',
+                    display: 'inline-flex', alignItems: 'center', gap: '4px', maxWidth: '100%' }}>
+          <Globe size={10} style={{ flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {hit.source_domain?.replace(/^www\./, '') || 'source'}
+          </span>
+        </a>
+        <div className="web-result-actions">
+          <button type="button" className="btn-secondary"
+                  onClick={(e) => { e.stopPropagation(); window.open(sourceUrl, '_blank', 'noopener'); }}>
+            <Eye size={13} /> View
+          </button>
+          <button type="button" className={kept ? 'btn-secondary' : 'btn-primary'} disabled={keeping || kept}
+                  onClick={onKeep}>
+            {kept ? <><Check size={13} /> Kept</> : keeping ? 'Keeping…' : 'Keep'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -740,6 +790,23 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const ownFileRef = useRef(null);
+  // "Search the web": photographs the catalogue does not have, found through
+  // Design Discovery. Shown only where the server says it is set up. A pick
+  // is copied into our storage before it joins the part's references, because
+  // the links the search returns expire.
+  const [webAvailable, setWebAvailable] = useState(false);
+  const [webOpen, setWebOpen] = useState(false);
+  const [webQuery, setWebQuery] = useState('');
+  const [webSearching, setWebSearching] = useState(false);
+  const [webResults, setWebResults] = useState(null);
+  const [webNote, setWebNote] = useState('');
+  const [webKeepingId, setWebKeepingId] = useState(null);
+  useEffect(() => {
+    if (!ownOnly || isFabric) return undefined;
+    let live = true;
+    api.webDesignSearchAvailable().then((ok) => { if (live) setWebAvailable(ok); }).catch(() => {});
+    return () => { live = false; };
+  }, [ownOnly, isFabric]);
   const ownCamRef = useRef(null);
   const videoRef = useRef(null);
   const [camStream, setCamStream] = useState(null);
@@ -781,14 +848,26 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 
   const addRefs = (added) => putRefs([...ownRefs, ...added]);
 
-  const removeRef = (id) => {
-    const left = ownRefs.filter(r => r.id !== id);
+  const removeRef = (id, part = openPart) => {
+    const left = (references[part] || []).filter(r => r.id !== id);
     // The part's key goes with its last reference rather than sitting there as
     // an empty list nobody put anything in.
     const next = { ...references };
-    if (left.length) next[openPart] = left; else delete next[openPart];
+    if (left.length) next[part] = left; else delete next[part];
     onReferencesChange?.(next);
   };
+
+  // Every reference on this garment, whichever part it was kept on, in the
+  // order the part tabs run. The strip under the picker shows all of them:
+  // a saree is a pallu and a border and a body together, and hiding the
+  // border's references while the pallu tab is open made the customer's
+  // choices look thinner than they were.
+  const allRefs = useMemo(() => {
+    const order = new Map(partOrder.map((key, i) => [key, i]));
+    return Object.entries(references)
+      .sort(([a], [b]) => (order.get(a) ?? 99) - (order.get(b) ?? 99))
+      .flatMap(([part, list]) => (list || []).map(ref => ({ ...ref, part })));
+  }, [references, partOrder]);
 
   const addReferenceLink = () => {
     const typed = linkDraft.trim();
@@ -805,6 +884,49 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     }]);
     setLinkDraft('');
     // The box stays open: a customer with one link usually has another.
+  };
+
+  const webRefTitle = (hit) => hit.title || hit.source_domain || 'Web design';
+  const webRefSource = (hit) => hit.source_url || hit.image_url;
+  const isKept = (hit) => ownRefs.some(
+    r => r.source_url === webRefSource(hit) && r.design_title === webRefTitle(hit));
+
+  const runWebSearch = async () => {
+    setWebSearching(true);
+    setWebNote('');
+    try {
+      const found = await api.searchWebDesigns({
+        garment_key: garmentKey, part_key: openPart, part_label: openPartLabel,
+        keywords: webQuery.trim(),
+      });
+      setWebResults(found.results || []);
+      const where = [found.interpreted?.garment, found.interpreted?.area].filter(Boolean).join(' · ');
+      setWebNote(found.results?.length
+        ? `${found.results.length} found${where ? ` for ${where}` : ''}${found.cached ? ' (cached)' : ''}`
+        : 'Nothing found. Try different words.');
+    } catch (err) {
+      setWebResults([]);
+      setWebNote(err.message);
+    } finally {
+      setWebSearching(false);
+    }
+  };
+
+  const keepWebResult = async (hit) => {
+    if (webKeepingId || isKept(hit)) return;
+    setWebKeepingId(hit.id);
+    try {
+      const { image_url } = await api.keepWebDesign(hit.image_url, hit.title);
+      addRefs([{
+        id: `web:${image_url}`, part: openPart, part_label: openPartLabel,
+        image_url, source: 'customer_link', source_url: webRefSource(hit),
+        design_title: webRefTitle(hit),
+      }]);
+    } catch (err) {
+      setWebNote(err.message);
+    } finally {
+      setWebKeepingId(null);
+    }
   };
 
   const uploadFiles = async (files) => {
@@ -1027,6 +1149,14 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
                   <LinkIcon size={12} /> Add reference link
                 </button>
               )}
+              {!isFabric && webAvailable && (
+                <button type="button" className="btn-secondary"
+                        style={{ padding: '5px 11px', fontSize: '11.5px',
+                                 borderColor: webOpen ? 'var(--text-primary)' : undefined }}
+                        onClick={() => setWebOpen(v => !v)}>
+                  <Globe size={12} /> Search the web
+                </button>
+              )}
               {/* multiple, because a customer describing one part sends several
                   pictures of it. Each becomes its own reference for this part. */}
               <input ref={ownFileRef} type="file" accept="image/*" multiple hidden
@@ -1058,18 +1188,62 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
                 </span>
               )}
             </div>
+
+            {!isFabric && webAvailable && webOpen && (
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: '12px',
+                            background: 'var(--surface-inset, #fafaf8)',
+                            padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ position: 'relative', flex: '1 1 auto', maxWidth: '520px' }}>
+                    <Globe size={14} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)',
+                                              color: 'var(--text-secondary)', pointerEvents: 'none' }} />
+                    <input className="form-control" value={webQuery} autoFocus
+                           onChange={(e) => setWebQuery(e.target.value)}
+                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); runWebSearch(); } }}
+                           placeholder={`Describe the ${openPartLabel.toLowerCase()} — e.g. gold zari temple border`}
+                           style={{ width: '100%', padding: '9px 12px 9px 32px', fontSize: '13px', borderRadius: '10px' }} />
+                  </div>
+                  <button type="button" className="btn-primary" disabled={webSearching}
+                          style={{ padding: '9px 18px', fontSize: '13px', borderRadius: '10px', whiteSpace: 'nowrap' }}
+                          onClick={runWebSearch}>
+                    {webSearching ? 'Searching…' : 'Search'}
+                  </button>
+                </div>
+                {webNote && (
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '-2px' }}>{webNote}</div>
+                )}
+                {!!webResults?.length && (
+                  <div className="web-result-grid">
+                    {webResults.map((hit) => (
+                      <WebResultCard key={hit.id} hit={hit}
+                                     kept={isKept(hit)} keeping={webKeepingId === hit.id}
+                                     onKeep={() => keepWebResult(hit)}
+                                     sourceUrl={webRefSource(hit)} title={webRefTitle(hit)} />
+                    ))}
+                  </div>
+                )}
+                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                  Pictures come from the open web. Click one to keep a copy on this order; the source link stays with it.
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
 
-      {!loading && ownOnly && openPart && ownRefs.length > 0 && (
+      {!loading && ownOnly && openPart && allRefs.length > 0 && (
+        <>
+        <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                      color: 'var(--text-secondary)', margin: '4px 0 10px' }}>
+          Kept on this {garmentName || 'garment'} · {allRefs.length} reference{allRefs.length === 1 ? '' : 's'}
+        </div>
         <div style={{ display: 'grid', gap: '14px', marginBottom: '16px',
                       gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
-          {ownRefs.map((ref) => (
-            <div key={ref.id} style={{ position: 'relative' }}>
+          {allRefs.map((ref) => (
+            <div key={`${ref.part}:${ref.id}`} style={{ position: 'relative' }}>
               <PickCard
                 src={ref.image_url}
-                alt={openPartLabel}
+                alt={partLabels[ref.part] || ref.part}
                 height="150px"
                 picked
                 // The card itself opens it; removing is the × in the corner, so
@@ -1087,10 +1261,16 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
                   </div>
                 </div>
               </PickCard>
+              {/* Which part it was kept on; the open tab's own are marked. */}
+              <span style={{ position: 'absolute', top: '6px', left: '6px', padding: '2px 8px', borderRadius: '999px',
+                             fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em',
+                             background: ref.part === openPart ? '#107c41' : 'rgba(0,0,0,0.62)', color: '#fff' }}>
+                {partLabels[ref.part] || ref.part.replace(/_/g, ' ')}
+              </span>
               <button
                 type="button"
                 title="Remove this reference"
-                onClick={() => removeRef(ref.id)}
+                onClick={() => removeRef(ref.id, ref.part)}
                 style={{ position: 'absolute', top: '6px', right: '6px', width: '20px',
                          height: '20px', borderRadius: '50%', border: 'none', cursor: 'pointer',
                          background: 'rgba(0,0,0,0.62)', color: '#fff', padding: 0,
@@ -1101,6 +1281,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
             </div>
           ))}
         </div>
+        </>
       )}
 
       {!loading && !ownOnly && openPart && partShots.length === 0 && designs.length > 0 && (

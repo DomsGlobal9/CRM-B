@@ -398,6 +398,13 @@ DESIGN_STUDIO_INTELLIGENCE = os.environ.get(
 )
 
 DESIGN_STUDIO_PINTEREST_TOKEN = os.environ.get('DESIGN_STUDIO_PINTEREST_TOKEN', '')
+# Design Discovery search (apps/design_studio/web_search.py). Both must be set
+# for the order wizard's "Search the web" to appear; the key never leaves the
+# server.
+DESIGN_DISCOVERY_URL = os.environ.get(
+    'DESIGN_DISCOVERY_URL',
+    'https://api-super-admin.onrender.com/api/gateway/cat/api/v1/discovery/search')
+DESIGN_DISCOVERY_API_KEY = os.environ.get('DESIGN_DISCOVERY_API_KEY', '')
 DESIGN_STUDIO_GOOGLE_API_KEY = os.environ.get('DESIGN_STUDIO_GOOGLE_API_KEY', '')
 
 UPSTASH_REDIS_REST_URL = os.environ.get(
