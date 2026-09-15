@@ -1861,6 +1861,19 @@ function App() {
     setOpenAlterationId(id);
     setSelectedDirectoryCustomer(null);
     setDashboardTab('alterations');
+    // Opened on one the register does not hold yet (raised from inside an
+    // order card, which hands up only the id): refresh the register, so it
+    // is there when the counter comes back to Manage Orders.
+    if (id && !alterationsList.some((a) => a.id === id)) {
+      api.getAlterations().then((d) => setAlterationsList(d || [])).catch(() => {});
+    }
+  };
+  // An alteration just taken in: into the register at the top, so it is
+  // there when the counter comes back to Manage Orders, rather than only
+  // after the next reload.
+  const rememberAlteration = (created) => {
+    if (!created?.id) return;
+    setAlterationsList((prev) => [created, ...(prev || []).filter((a) => a.id !== created.id)]);
   };
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   // Which order in the customer profile is expanded to show its production
@@ -4662,7 +4675,7 @@ function App() {
                     order={ordersAlterationOrder}
                     customerId={ordersAlterationOrder.customer}
                     onClose={() => setOrdersAlterationOrder(null)}
-                    onCreated={(created) => { setOrdersAlterationOrder(null); openAlteration(created.id); }}
+                    onCreated={(created) => { setOrdersAlterationOrder(null); rememberAlteration(created); openAlteration(created.id); }}
                   />
                 )}
                 {/* A garment we did not make, brought in for work: the same
@@ -4672,7 +4685,7 @@ function App() {
                   <Suspense fallback={<ScreenLoading />}>
                     <OutsideGarmentIntake
                       onClose={() => setTakingInOutside(false)}
-                      onCreated={(created) => { setTakingInOutside(false); openAlteration(created.id); }}
+                      onCreated={(created) => { setTakingInOutside(false); rememberAlteration(created); openAlteration(created.id); }}
                     />
                   </Suspense>
                 )}
@@ -4796,6 +4809,38 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
+                      {/* Alterations first, newest at the top -- the one just taken
+                          in is what the counter is looking for. View opens the
+                          alteration's own page rather than expanding. */}
+                      {filteredAlterations.map(alt => {
+                        const done = alt.status === 'COMPLETED';
+                        const cancelled = alt.status === 'CANCELLED';
+                        return (
+                        <tr key={alt.id}>
+                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{alt.alteration_number}</td>
+                          <td>Alteration</td>
+                          <td>{alt.customer?.name || [alt.customer?.first_name, alt.customer?.last_name].filter(Boolean).join(' ')}</td>
+                          <td>—</td>
+                          <td>
+                            <span className={`ui-badge ui-badge--${done ? 'success' : cancelled ? 'neutral' : 'warning'}`}>
+                              {done ? 'Delivered' : cancelled ? 'Cancelled' : 'Pending'}
+                            </span>
+                            {!done && !cancelled && (
+                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                                {alt.status_display || alt.status}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                              <button type="button" className="btn-secondary at-btn-sm" onClick={() => openAlteration(alt.id)}>
+                                <Eye size={12} /> View
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        );
+                      })}
                       {filtered.map(order => {
                         const isOpen = openOrdersRowId === order.id;
                         const isDelivered = order.order_status === 'Delivered';
@@ -5042,37 +5087,6 @@ function App() {
                         </tr>
                         )}
                         </React.Fragment>
-                        );
-                      })}
-                      {/* Alterations, after the stitching orders. View opens
-                          the alteration's own page rather than expanding. */}
-                      {filteredAlterations.map(alt => {
-                        const done = alt.status === 'COMPLETED';
-                        const cancelled = alt.status === 'CANCELLED';
-                        return (
-                        <tr key={alt.id}>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{alt.alteration_number}</td>
-                          <td>Alteration</td>
-                          <td>{alt.customer?.name || [alt.customer?.first_name, alt.customer?.last_name].filter(Boolean).join(' ')}</td>
-                          <td>—</td>
-                          <td>
-                            <span className={`ui-badge ui-badge--${done ? 'success' : cancelled ? 'neutral' : 'warning'}`}>
-                              {done ? 'Delivered' : cancelled ? 'Cancelled' : 'Pending'}
-                            </span>
-                            {!done && !cancelled && (
-                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {alt.status_display || alt.status}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <button type="button" className="btn-secondary at-btn-sm" onClick={() => openAlteration(alt.id)}>
-                                <Eye size={12} /> View
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
                         );
                       })}
                         </tbody>
@@ -5516,7 +5530,7 @@ function App() {
                         order={alterationOrder}
                         customerId={c.id}
                         onClose={() => setAlterationOrder(null)}
-                        onCreated={(created) => { setAlterationOrder(null); openAlteration(created.id); }}
+                        onCreated={(created) => { setAlterationOrder(null); rememberAlteration(created); openAlteration(created.id); }}
                       />
                     )}
                   </div>
