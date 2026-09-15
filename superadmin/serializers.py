@@ -21,6 +21,8 @@ class TenantSerializer(serializers.Serializer):
             'owner_email': tenant.owner_email,
             'created_on': tenant.created_on,
             'is_active': tenant.is_active,
+            'design_system': tenant.design_system,
+            'color_mode': tenant.color_mode,
             'staff': metrics['staff'],
             'customers': metrics['customers'],
             'orders': metrics['orders'],

@@ -21,6 +21,7 @@ const te = {
     subtitle: "ఉపశీర్షిక",
     refresh: "రిఫ్రెష్",
     takePhoto: "ఫోటో తీయండి",
+    addPhoto: "ఫోటో జోడించండి",
     chooseFromGallery: "గ్యాలరీ నుండి ఎంచుకోండి",
     remove: "తొలగించు",
     uploading: "అప్‌లోడ్ అవుతోంది…",

@@ -35,7 +35,7 @@ function Thumb({ src, alt, size = 56 }) {
     <img src={resolveMediaUrl(src, FALLBACK)} alt={alt} loading="lazy"
          onError={(e) => { e.currentTarget.src = FALLBACK; }}
          style={{ width: size, height: size, borderRadius: '8px', objectFit: 'cover',
-                  flexShrink: 0, border: '1px solid var(--border-color)', background: '#222' }} />
+                  flexShrink: 0, border: '1px solid var(--border-color)', background: 'var(--brand-dark)' }} />
   );
 }
 
@@ -49,7 +49,7 @@ function DesignGrid({ rows, onView }) {
       {rows.map((r, i) => (
         <div key={r.key} style={{ border: '1px solid var(--border-color)', borderRadius: '10px',
                                   overflow: 'hidden', background: 'var(--surface, #fff)' }}>
-          <div style={{ position: 'relative', aspectRatio: '1 / 1', background: '#222', cursor: 'zoom-in' }}
+          <div style={{ position: 'relative', aspectRatio: '1 / 1', background: 'var(--brand-dark)', cursor: 'zoom-in' }}
                onClick={() => onView(i)}>
             <img src={resolveMediaUrl(r.image_url, FALLBACK)} alt={r.label} loading="lazy"
                  onError={(e) => { e.currentTarget.src = FALLBACK; }}

@@ -25,8 +25,8 @@ function Chip({ active, onClick, children, title }) {
             // the page sideways on a phone.
             style={{ padding: '6px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
                      cursor: 'pointer', maxWidth: '100%', textAlign: 'left', lineHeight: 1.3,
-                     border: active ? '1.5px solid #107c41' : '1.5px solid var(--border-color)',
-                     background: active ? '#107c41' : 'var(--surface-color, #fff)',
+                     border: active ? '1.5px solid var(--primary-color)' : '1.5px solid var(--border-color)',
+                     background: active ? 'var(--primary-color)' : 'var(--surface-color, #fff)',
                      color: active ? '#fff' : 'var(--text-primary)',
                      boxShadow: active ? '0 2px 8px rgba(16,124,65,0.25)' : 'none',
                      transition: 'all 0.15s ease' }}>

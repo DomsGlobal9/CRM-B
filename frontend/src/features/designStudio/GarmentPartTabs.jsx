@@ -206,7 +206,7 @@ export default function GarmentPartTabs({
                      style={{ border: '1px solid var(--border-color)', borderRadius: '10px',
                               overflow: 'hidden', background: 'var(--surface-color)',
                               cursor: onOpenDesign ? 'pointer' : 'default' }}>
-                  <div style={{ height: '170px', background: '#222' }}>
+                  <div style={{ height: '170px', background: 'var(--brand-dark)' }}>
                     <img src={resolveMediaUrl(image.image_url, FALLBACK)}
                          alt={image.caption || activeLabel} loading="lazy"
                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />

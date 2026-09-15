@@ -70,7 +70,7 @@ function AccessoryMultiSelectDropdown({
           fontSize: '13px',
           fontWeight: 600,
           borderRadius: '10px',
-          border: isOpen ? '1.5px solid #107c41' : '1.5px solid var(--border-color, #d1d5db)',
+          border: isOpen ? '1.5px solid var(--primary-color)' : '1.5px solid var(--border-color, #d1d5db)',
           background: 'var(--surface-color, #fff)',
           color: selectedCount === 0 ? 'var(--text-secondary)' : 'var(--text-primary)',
           cursor: 'pointer',
@@ -128,14 +128,14 @@ function AccessoryMultiSelectDropdown({
                   fontSize: '13px',
                   fontWeight: isChecked ? 600 : 500,
                   background: isChecked ? 'rgba(16, 124, 65, 0.08)' : 'transparent',
-                  color: isChecked ? '#107c41' : 'var(--text-primary)',
+                  color: isChecked ? 'var(--primary-color)' : 'var(--text-primary)',
                 }}
               >
                 <input
                   type="checkbox"
                   checked={isChecked}
                   onChange={() => onToggleKey(opt.key)}
-                  style={{ width: '16px', height: '16px', accentColor: '#107c41', cursor: 'pointer', margin: 0 }}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--primary-color)', cursor: 'pointer', margin: 0 }}
                 />
                 <span>{opt.label}</span>
               </label>
@@ -159,8 +159,8 @@ function AccessoryMultiSelectDropdown({
                 style={{
                   padding: '6px 6px 6px 14px',
                   borderRadius: '999px',
-                  border: isActive ? '1.5px solid #107c41' : '1.5px solid var(--border-color)',
-                  background: isActive ? '#107c41' : 'var(--surface-color, #fff)',
+                  border: isActive ? '1.5px solid var(--primary-color)' : '1.5px solid var(--border-color)',
+                  background: isActive ? 'var(--primary-color)' : 'var(--surface-color, #fff)',
                   color: isActive ? '#fff' : 'var(--text-primary)',
                   fontSize: '12.5px',
                   fontWeight: 600,
@@ -235,7 +235,7 @@ function FabricCard({ fabric, picked, onToggle }) {
         )}
         {fabric.available_stock !== undefined && (
           <span style={{ display: 'block', marginTop: '2px', fontSize: '10.5px',
-                         color: Number(fabric.available_stock) > 0 ? '#107c41' : 'var(--danger-color, #b91c1c)' }}>
+                         color: Number(fabric.available_stock) > 0 ? 'var(--primary-color)' : 'var(--danger-color, #b91c1c)' }}>
             {Number(fabric.available_stock) > 0
               ? `${Number(fabric.available_stock)} ${unitShort(fabric)} in stock`
               : 'Out of stock'}
@@ -262,7 +262,7 @@ function SlotRow({ label, fabrics, chosen, onToggle, accessoriesOnly = false,
         </span>
         <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 9px', borderRadius: '999px',
                        background: chosen.length > 0 ? 'rgba(16,124,65,0.1)' : 'var(--surface-inset, #f3f4f6)',
-                       color: chosen.length > 0 ? '#107c41' : 'var(--text-secondary)' }}>
+                       color: chosen.length > 0 ? 'var(--primary-color)' : 'var(--text-secondary)' }}>
           {chosen.length > 0 ? `${chosen.length} chosen` : `${fabrics.length} available`}
         </span>
       </div>
@@ -333,7 +333,7 @@ function SlotRow({ label, fabrics, chosen, onToggle, accessoriesOnly = false,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    background: '#ffffff',
+                    background: 'var(--surface-color)',
                     border: '1px solid var(--border-color, #e2e8f0)',
                     borderRadius: '8px',
                     padding: '6px 12px 6px 6px',
@@ -514,7 +514,7 @@ export default function GarmentFabricPicker({
             <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
               <span style={{ width: '34px', height: '34px', borderRadius: '10px', display: 'flex',
                              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                             background: 'rgba(16,124,65,0.1)', color: '#107c41' }}>
+                             background: 'rgba(16,124,65,0.1)', color: 'var(--brand-link)' }}>
                 <Layers size={17} />
               </span>
               <span>{garmentName} {accessoriesOnly ? 'Accessories' : ''}</span>
@@ -568,8 +568,8 @@ export default function GarmentFabricPicker({
                                       padding: '7px 14px',
                                       fontSize: '12.5px',
                                       borderRadius: '999px',
-                                      border: isSelected ? '1.5px solid #107c41' : '1.5px solid var(--border-color)',
-                                      background: isSelected ? '#107c41' : 'var(--surface-color, #fff)',
+                                      border: isSelected ? '1.5px solid var(--primary-color)' : '1.5px solid var(--border-color)',
+                                      background: isSelected ? 'var(--primary-color)' : 'var(--surface-color, #fff)',
                                       color: isSelected ? '#fff' : 'var(--text-primary)',
                                       fontWeight: 600,
                                       whiteSpace: 'nowrap',

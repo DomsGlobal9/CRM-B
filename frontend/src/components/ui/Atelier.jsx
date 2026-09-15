@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import {
-  ArrowRight, Search, X as CloseIcon, Upload as UploadIcon, Camera as CameraIcon, Plus as PlusIcon,
+  ArrowRight, Search, X as CloseIcon, Upload as UploadIcon, Camera as CameraIcon,
   Lightbulb as LightbulbIcon, CheckCircle2 as CheckIcon,
 } from 'lucide-react';
 
@@ -206,14 +206,63 @@ export function Field({ label, required, optional, hint, icon: Icon, children, h
 }
 
 /**
- * A drop area for files, with the two ways a phone actually adds a photo --
- * the gallery and the camera. Dropped or chosen files reach `onFiles` as an
- * array; the inputs reset themselves so the same file can be picked twice.
+ * The one way to add a photo: a single button over a plain file input.
+ *
+ * No `capture` attribute and no second "Take photo" button. A phone's own
+ * picker already asks camera or library when the input is left plain, and a
+ * laptop has only the file dialog, so two buttons were two CTAs for one act.
+ * Pass `onCamera` only where the screen has its own live camera (the garment
+ * part picker); then the click asks which of the two.
  */
-export function Dropzone({ onFiles, accept = 'image/*', multiple = false, camera = false, title, subtitle, chooseLabel = 'Choose file', cameraLabel = 'Take photo', hint, compact = false, icon: Icon = UploadIcon }) {
+export function AddPhotoButton({ onFiles, multiple = false, label = 'Add photo', onCamera, className = 'btn-secondary at-btn-sm',
+                                 style, disabled = false, icon: Icon = CameraIcon, iconSize = 14 }) {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  const pick = (e) => {
+    const files = [...(e.target.files || [])];
+    e.target.value = '';        // so the same file can be picked twice
+    if (files.length) onFiles(multiple ? files : files.slice(0, 1));
+  };
+  const input = <input ref={ref} type="file" accept="image/*" multiple={multiple} hidden onChange={pick} />;
+  if (!onCamera) {
+    return (
+      <>
+        <button type="button" className={className} style={style} disabled={disabled} onClick={() => ref.current?.click()}>
+          <Icon size={iconSize} /> {label}
+        </button>
+        {input}
+      </>
+    );
+  }
+  return (
+    <span className="at-menu-anchor" onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}>
+      <button type="button" className={className} style={style} disabled={disabled}
+              aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <Icon size={iconSize} /> {label}
+      </button>
+      {open && (
+        <span className="at-menu" role="menu">
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); onCamera(); }}>
+            <CameraIcon size={14} /> Take a photo
+          </button>
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); ref.current?.click(); }}>
+            <UploadIcon size={14} /> Choose from device
+          </button>
+        </span>
+      )}
+      {input}
+    </span>
+  );
+}
+
+/**
+ * A drop area for files. Dropped or chosen files reach `onFiles` as an array;
+ * the input resets itself so the same file can be picked twice. One button:
+ * see AddPhotoButton for why there is no camera button beside it.
+ */
+export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title, subtitle, chooseLabel = 'Choose file', hint, compact = false, icon: Icon = UploadIcon }) {
   const [over, setOver] = useState(false);
   const fileRef = useRef(null);
-  const camRef = useRef(null);
   const take = (list) => {
     const files = [...(list || [])].filter(Boolean);
     if (files.length) onFiles(multiple ? files : files.slice(0, 1));
@@ -227,13 +276,8 @@ export function Dropzone({ onFiles, accept = 'image/*', multiple = false, camera
     >
       <span className="at-drop-icon"><Icon size={compact ? 22 : 30} strokeWidth={1.5} /></span>
       <div className="at-drop-title">{title || (multiple ? 'Drag & drop photos here' : 'Drag & drop a file here')}</div>
-      {subtitle !== null && <div className="at-drop-sub">{subtitle || (camera ? 'or choose an option' : 'or choose from your device')}</div>}
+      {subtitle !== null && <div className="at-drop-sub">{subtitle || 'or choose from your device'}</div>}
       <div className="at-drop-actions">
-        {camera && (
-          <button type="button" className="btn-secondary at-btn-sm" onClick={() => camRef.current?.click()}>
-            <CameraIcon size={14} /> {cameraLabel}
-          </button>
-        )}
         <button type="button" className="btn-secondary at-btn-sm" onClick={() => fileRef.current?.click()}>
           <UploadIcon size={14} /> {chooseLabel}
         </button>
@@ -241,10 +285,6 @@ export function Dropzone({ onFiles, accept = 'image/*', multiple = false, camera
       {hint && <div className="at-drop-hint">{hint}</div>}
       <input ref={fileRef} type="file" accept={accept} multiple={multiple} hidden
              onChange={(e) => { take(e.target.files); e.target.value = ''; }} />
-      {camera && (
-        <input ref={camRef} type="file" accept="image/*" capture="environment" hidden
-               onChange={(e) => { take(e.target.files); e.target.value = ''; }} />
-      )}
     </div>
   );
 }
@@ -261,16 +301,6 @@ export function PhotoTile({ src, alt = '', onRemove, label, size = 96 }) {
       )}
       {label && <span className="at-photo-label">{label}</span>}
     </span>
-  );
-}
-
-export function AddMoreTile({ onClick, hint, size = 96 }) {
-  return (
-    <button type="button" className="at-photo at-photo--add" style={{ width: size, height: Math.round(size * 1.25) }} onClick={onClick}>
-      <span className="at-photo-plus"><PlusIcon size={18} /></span>
-      <span className="at-photo-add-text">Add More</span>
-      {hint && <span className="at-photo-add-hint">{hint}</span>}
-    </button>
   );
 }
 

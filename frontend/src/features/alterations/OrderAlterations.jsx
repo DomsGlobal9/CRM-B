@@ -22,8 +22,8 @@ const COUNTER_ROLES = ['Owner', 'Master'];
 const STATUS_TONE = {
   RECEIVED: '#6b7280', INSPECTION: '#3b82f6', PENDING_APPROVAL: '#f59e0b',
   APPROVED: '#8b5cf6', ASSIGNED: '#0ea5e9', IN_PROGRESS: '#f59e0b',
-  QC: '#a855f7', READY_FOR_PICKUP: '#10b981', COMPLETED: '#10b981',
-  CANCELLED: '#ef4444',
+  QC: '#a855f7', READY_FOR_PICKUP: 'var(--success-color)', COMPLETED: 'var(--success-color)',
+  CANCELLED: 'var(--danger-color)',
 };
 
 const money = (value) => formatMoney(Number(value || 0));
@@ -87,7 +87,7 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
         </p>
 
         {error && (
-          <div style={{ display: 'flex', gap: '8px', padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', fontSize: '13px', marginBottom: '12px', whiteSpace: 'pre-line' }}>
+          <div style={{ display: 'flex', gap: '8px', padding: '10px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--danger-color)', fontSize: '13px', marginBottom: '12px', whiteSpace: 'pre-line' }}>
             <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: '1px' }} />
             <span>{error}</span>
           </div>
@@ -97,7 +97,7 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
         <div style={field}>
           <label style={label}>Which garment came back?</label>
           {garments.length === 0 ? (
-            <div style={{ fontSize: '13px', color: '#ef4444' }}>
+            <div style={{ fontSize: '13px', color: 'var(--danger-color)' }}>
               This order has no garment records, so an alteration cannot be raised against it.
             </div>
           ) : (
@@ -218,7 +218,7 @@ export default function OrderAlterations({ order, customerId, currentUser, onOpe
         )}
       </div>
 
-      {error && <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '6px' }}>{error}</div>}
+      {error && <div style={{ fontSize: '12px', color: 'var(--danger-color)', marginTop: '6px' }}>{error}</div>}
 
       {rows.length === 0 ? (
         <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
@@ -247,11 +247,11 @@ export default function OrderAlterations({ order, customerId, currentUser, onOpe
                 }}>
                   {row.status_display || row.status}
                 </span>
-                <span style={{ color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : '#10b981' }}>
+                <span style={{ color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : 'var(--success-color)' }}>
                   {row.alteration_type === 'PAID_CLIENT_REQUEST' ? 'Paid' : 'Free'}
                 </span>
                 {Number(row.outstanding_balance) > 0 && (
-                  <span style={{ color: '#ef4444' }}>{money(row.outstanding_balance)} due</span>
+                  <span style={{ color: 'var(--danger-color)' }}>{money(row.outstanding_balance)} due</span>
                 )}
                 <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>{fmtDate(row.received_at)}</span>
               </div>

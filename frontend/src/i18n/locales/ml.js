@@ -25,6 +25,7 @@ const ml = {
     subtitle: "ഉപശീർഷകം",
     refresh: "പുതുക്കുക",
     takePhoto: "ഫോട്ടോ എടുക്കുക",
+    addPhoto: "ഫോട്ടോ ചേർക്കുക",
     chooseFromGallery: "ഗാലറിയിൽ നിന്ന് തിരഞ്ഞെടുക്കുക",
     remove: "നീക്കം ചെയ്യുക",
     uploading: "അപ്‌ലോഡ് ചെയ്യുന്നു…",

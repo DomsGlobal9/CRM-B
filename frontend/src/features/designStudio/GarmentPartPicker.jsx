@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Upload, X } from 'lucide-react';
+import { AddPhotoButton } from '../../components/ui/Atelier';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
@@ -43,7 +44,7 @@ function PickCard({ src, alt, picked, onClick, onView, children, height = '110px
     <div
       style={{
         position: 'relative', background: 'var(--surface-color)', borderRadius: '9px',
-        border: picked ? '2px solid #107c41' : '1px solid var(--border-color)',
+        border: picked ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
         overflow: 'hidden',
       }}
     >
@@ -53,7 +54,7 @@ function PickCard({ src, alt, picked, onClick, onView, children, height = '110px
         style={{ padding: 0, margin: 0, border: 'none', background: 'none', cursor: 'pointer',
                  textAlign: 'left', display: 'block', width: '100%' }}
       >
-        <div style={{ height, background: '#222' }}>
+        <div style={{ height, background: 'var(--brand-dark)' }}>
           <img src={resolveMediaUrl(src, FALLBACK)} alt={alt} loading="lazy"
                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
@@ -62,7 +63,7 @@ function PickCard({ src, alt, picked, onClick, onView, children, height = '110px
 
       {picked && (
         <span style={{ position: 'absolute', top: '6px', right: '6px', width: '20px', height: '20px',
-                       borderRadius: '50%', background: '#107c41', color: '#fff', display: 'flex',
+                       borderRadius: '50%', background: 'var(--primary-color)', color: 'var(--primary-foreground)', display: 'flex',
                        alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
           <Check size={12} />
         </span>
@@ -322,7 +323,7 @@ function DesignModal({ design, partOrder, partLabels, selection, onChoose, onClo
                       {label}
                     </div>
                     {selection[image.part]?.id === image.id && (
-                      <div style={{ fontSize: '10px', fontWeight: 700, color: '#107c41' }}>
+                      <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--brand-link)' }}>
                         chosen
                       </div>
                     )}
@@ -557,7 +558,7 @@ function AccessoryMultiSelectDropdown({
                   fontSize: '12.5px',
                   fontWeight: isChecked ? 600 : 400,
                   background: isChecked ? 'rgba(16, 124, 65, 0.08)' : 'transparent',
-                  color: isChecked ? '#107c41' : 'var(--text-primary)',
+                  color: isChecked ? 'var(--primary-color)' : 'var(--text-primary)',
                   marginBottom: '2px',
                 }}
               >
@@ -565,7 +566,7 @@ function AccessoryMultiSelectDropdown({
                   type="checkbox"
                   checked={isChecked}
                   onChange={() => onToggleKey(opt.key)}
-                  style={{ width: '15px', height: '15px', accentColor: '#107c41', cursor: 'pointer' }}
+                  style={{ width: '15px', height: '15px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
                 />
                 <span>{opt.label}</span>
               </label>
@@ -589,8 +590,8 @@ function AccessoryMultiSelectDropdown({
                 style={{
                   padding: '4px 10px',
                   borderRadius: '16px',
-                  border: isActive ? '1.5px solid #107c41' : '1px solid var(--border-color)',
-                  background: isActive ? '#107c41' : 'var(--surface-color, #f3f4f6)',
+                  border: isActive ? '1.5px solid var(--primary-color)' : '1px solid var(--border-color)',
+                  background: isActive ? 'var(--primary-color)' : 'var(--surface-color, #f3f4f6)',
                   color: isActive ? '#fff' : 'var(--text-primary)',
                   fontSize: '11.5px',
                   fontWeight: 600,
@@ -789,7 +790,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   const [addingLink, setAddingLink] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
-  const ownFileRef = useRef(null);
   // "Search the web": photographs the catalogue does not have, found through
   // Design Discovery. Shown only where the server says it is set up. A pick
   // is copied into our storage before it joins the part's references, because
@@ -1028,7 +1028,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 
   if (error) {
     return (
-      <div className="content-card" style={{ color: '#c0392b', fontSize: '12.5px' }}>
+      <div className="content-card" style={{ color: 'var(--danger-color)', fontSize: '12.5px' }}>
         {error}
         <button className="btn-secondary" style={{ marginLeft: '10px', padding: '3px 9px', fontSize: '11px' }}
                 onClick={() => { setAllDesigns(null); setError(null); setReloadToken(t => t + 1); }}>
@@ -1132,16 +1132,14 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
             )}
 
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
-              <button type="button" className="btn-secondary" disabled={uploading}
-                      style={{ padding: '5px 11px', fontSize: '11.5px' }}
-                      onClick={() => ownFileRef.current?.click()}>
-                <Upload size={12} /> {uploading ? 'Uploading…' : `Upload ${partFabricLabel} photos`}
-              </button>
-              <button type="button" className="btn-secondary" disabled={uploading}
-                      style={{ padding: '5px 11px', fontSize: '11.5px' }}
-                      onClick={openCamera}>
-                <Camera size={12} /> Take photo
-              </button>
+              {/* One control; it asks live camera or device, because this screen
+                  has its own camera (openCamera) and a laptop can use it too. Several
+                  files at once, because a customer describing one part sends several
+                  pictures of it; each becomes its own reference for this part. */}
+              <AddPhotoButton multiple className="btn-secondary" style={{ padding: '5px 11px', fontSize: '11.5px' }}
+                              icon={Upload} iconSize={12} disabled={uploading}
+                              label={uploading ? 'Uploading…' : `Add ${partFabricLabel} photos`}
+                              onCamera={openCamera} onFiles={uploadFiles} />
               {!isFabric && (
                 <button type="button" className="btn-secondary"
                         style={{ padding: '5px 11px', fontSize: '11.5px' }}
@@ -1157,13 +1155,8 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
                   <Globe size={12} /> Search the web
                 </button>
               )}
-              {/* multiple, because a customer describing one part sends several
-                  pictures of it. Each becomes its own reference for this part. */}
-              <input ref={ownFileRef} type="file" accept="image/*" multiple hidden
-                     onChange={uploadReference} />
-              {/* capture, so a phone opens the camera rather than the gallery. One
-                  shot at a time, which is what a camera gives; both land in the
-                  same list for this part through the same handler. */}
+              {/* Only the fallback for openCamera when getUserMedia is refused: a
+                  phone still gets its native camera through it. */}
               <input ref={ownCamRef} type="file" accept="image/*" capture="environment" hidden
                      onChange={uploadReference} />
 
@@ -1183,7 +1176,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
               )}
 
               {uploadError && (
-                <span role="alert" style={{ fontSize: '11.5px', color: 'var(--danger-color, #c0392b)' }}>
+                <span role="alert" style={{ fontSize: '11.5px', color: 'var(--danger-color, var(--danger-color))' }}>
                   {uploadError}
                 </span>
               )}
@@ -1264,7 +1257,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
               {/* Which part it was kept on; the open tab's own are marked. */}
               <span style={{ position: 'absolute', top: '6px', left: '6px', padding: '2px 8px', borderRadius: '999px',
                              fontSize: '10px', fontWeight: 700, letterSpacing: '0.02em',
-                             background: ref.part === openPart ? '#107c41' : 'rgba(0,0,0,0.62)', color: '#fff' }}>
+                             background: ref.part === openPart ? 'var(--primary-color)' : 'rgba(0,0,0,0.62)', color: '#fff' }}>
                 {partLabels[ref.part] || ref.part.replace(/_/g, ' ')}
               </span>
               <button
@@ -1335,7 +1328,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
                 <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
                   {image.designer_name || 'Unattributed'}
                   {selection[openPart]?.id === image.id && (
-                    <span style={{ color: '#107c41', fontWeight: 700 }}> · chosen</span>
+                    <span style={{ color: 'var(--brand-link)', fontWeight: 700 }}> · chosen</span>
                   )}
                 </div>
               </div>
@@ -1391,7 +1384,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
                     {design.garment_type || garmentName} · {(design.images || []).length} photograph
                     {(design.images || []).length === 1 ? '' : 's'}
                     {taken > 0 && (
-                      <span style={{ color: '#107c41', fontWeight: 700 }}> · {taken} chosen</span>
+                      <span style={{ color: 'var(--brand-link)', fontWeight: 700 }}> · {taken} chosen</span>
                     )}
                   </div>
                 </div>
@@ -1548,7 +1541,7 @@ export function SelectedDesignSummary({ garmentJobs = [], onClear }) {
           <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
             {section.picks.map(({ part, image }) => (
               <div key={part} style={{ width: '112px', flexShrink: 0, position: 'relative' }}>
-                <div style={{ height: '104px', background: '#222', borderRadius: '8px',
+                <div style={{ height: '104px', background: 'var(--brand-dark)', borderRadius: '8px',
                               overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                   <img src={resolveMediaUrl(image.image_url, FALLBACK)}
                        alt={image.part_label || part} loading="lazy"

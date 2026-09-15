@@ -23,6 +23,14 @@ class BoutiqueTenant(TenantMixin):
                   "{module_key: true/false}. A module that is not listed is on.",
     )
 
+    # The look the platform has enabled for this boutique. Set from the
+    # console, not by the boutique: the design system is part of the product
+    # it is sold, so the workspace's own Settings has no control for it.
+    DESIGN_SYSTEMS = [('scaleezy', 'Scaleezy'), ('atelier', 'Atelier')]
+    COLOR_MODES = [('light', 'Light'), ('dark', 'Dark'), ('system', 'Match device')]
+    design_system = models.CharField(max_length=32, choices=DESIGN_SYSTEMS, default='scaleezy')
+    color_mode = models.CharField(max_length=16, choices=COLOR_MODES, default='light')
+
     auto_create_schema = True
 
     def __str__(self):

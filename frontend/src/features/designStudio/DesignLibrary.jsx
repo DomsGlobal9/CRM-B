@@ -538,7 +538,7 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
                    border: '1px solid var(--border-color)', borderRadius: '10px',
                    overflow: 'hidden', cursor: 'pointer', background: 'var(--surface-color)',
                  }}>
-              <div style={{ height: '170px', background: '#222', position: 'relative' }}>
+              <div style={{ height: '170px', background: 'var(--brand-dark)', position: 'relative' }}>
                 <img src={resolveMediaUrl(design.image_url, CARD_IMAGE_FALLBACK)} alt={design.title}
                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 <span style={{

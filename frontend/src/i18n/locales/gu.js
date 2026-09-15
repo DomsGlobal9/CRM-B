@@ -24,6 +24,7 @@ const gu = {
     subtitle: "ઉપશીર્ષક",
     refresh: "રિફ્રેશ",
     takePhoto: "ફોટો લો",
+    addPhoto: "ફોટો ઉમેરો",
     chooseFromGallery: "ગેલેરીમાંથી પસંદ કરો",
     remove: "દૂર કરો",
     uploading: "અપલોડ થઈ રહ્યું છે…",

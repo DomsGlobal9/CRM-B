@@ -44,7 +44,7 @@ const newCustomerFields = (form) => Object.fromEntries(
 
 const PAD_W = 1000;
 const PAD_H = 700;
-const INKS = ['#1b201e', '#b03a2e', '#1f5fa8', '#107c41', '#986a26'];
+const INKS = ['#1b201e', '#b03a2e', '#1f5fa8', 'var(--primary-color)', '#986a26'];
 const SIZES = [{ key: 'fine', px: 3 }, { key: 'medium', px: 6 }, { key: 'bold', px: 12 }];
 
 function paint(ctx, strokes) {
@@ -134,9 +134,9 @@ function SketchPad({ strokes, onStrokes }) {
 
   const tool = (active) => ({
     padding: '5px 9px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', borderRadius: '7px',
-    border: active ? '1.5px solid #107c41' : '1px solid var(--border-color)',
+    border: active ? '1.5px solid var(--primary-color)' : '1px solid var(--border-color)',
     background: active ? 'rgba(16,124,65,0.10)' : 'var(--surface-color)',
-    color: active ? '#107c41' : 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px',
+    color: active ? 'var(--primary-color)' : 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '4px',
   });
 
   return (
@@ -179,7 +179,7 @@ function SketchPad({ strokes, onStrokes }) {
         </span>
       </div>
       <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden',
-                    border: '1px solid var(--border-color)', background: '#fff' }}>
+                    border: '1px solid var(--border-color)', background: 'var(--surface-color)' }}>
         <canvas
           ref={canvasRef} width={PAD_W} height={PAD_H}
           onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={up}
@@ -354,8 +354,8 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
           </div>
         </div>
       ) : (
-        <Dropzone onFiles={pick} camera title="Drag & drop the sketch here"
-                  chooseLabel="Choose photo" cameraLabel="Take photo"
+        <Dropzone onFiles={pick} title="Drag & drop the sketch here"
+                  chooseLabel="Add photo"
                   hint="A clear photograph of the paper drawing. JPG, PNG or any image." />
       )}
 
@@ -523,7 +523,7 @@ export default function CustomerDesigns({ customerId, customers = [], orders = [
                     {d.source_display || d.source}
                   </span>
                   <button type="button" onClick={() => setViewing(d)}
-                          style={{ fontSize: '11.5px', fontWeight: 600, color: '#107c41', background: 'none',
+                          style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--brand-link)', background: 'none',
                                    border: 'none', cursor: 'pointer', padding: 0 }}>
                     View
                   </button>

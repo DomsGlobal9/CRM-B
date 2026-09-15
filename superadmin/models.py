@@ -8,6 +8,7 @@ class AuditLog(models.Model):
         ('boutique.suspend', 'Boutique suspended'),
         ('boutique.reactivate', 'Boutique reactivated'),
         ('boutique.modules', 'Boutique modules changed'),
+        ('boutique.appearance', 'Boutique appearance changed'),
         ('user.deactivate', 'User deactivated'),
         ('user.activate', 'User activated'),
         ('user.revoke_token', 'User sessions revoked'),

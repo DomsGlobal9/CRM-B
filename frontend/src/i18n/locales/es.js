@@ -28,6 +28,7 @@ const es = {
     subtitle: "Subtítulo",
     refresh: "Actualizar",
     takePhoto: "Tomar foto",
+    addPhoto: "Añadir foto",
     chooseFromGallery: "Elegir de la galería",
     remove: "Quitar",
     uploading: "Subiendo…",

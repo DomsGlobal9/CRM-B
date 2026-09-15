@@ -143,6 +143,10 @@ def user_payload(user, role=None):
         "profile_photo": profile_photo,
         "modules": modules,
         "module_groups": module_groups,
+        # The look the platform enabled for this boutique; the workspace applies
+        # it at sign-in. A public-schema login (the console) has no tenant.
+        "design_system": getattr(getattr(connection, 'tenant', None), 'design_system', 'scaleezy'),
+        "color_mode": getattr(getattr(connection, 'tenant', None), 'color_mode', 'light'),
     }
 
 

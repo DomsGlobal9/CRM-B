@@ -22,6 +22,7 @@ const ar = {
     retry: "إعادة المحاولة",
     refresh: "تحديث",
     takePhoto: "التقاط صورة",
+    addPhoto: "إضافة صورة",
     chooseFromGallery: "اختر من المعرض",
     remove: "إزالة",
     uploading: "جارٍ الرفع…",

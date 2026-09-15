@@ -97,7 +97,7 @@ function Metric({ name, metric, label }) {
 
 function Banner({ text, tone = 'info', icon: Icon }) {
   const c = tone === 'error'
-    ? { bg: 'rgba(220,80,60,0.12)', bd: 'rgba(220,80,60,0.35)', fg: '#c0392b' }
+    ? { bg: 'rgba(220,80,60,0.12)', bd: 'rgba(220,80,60,0.35)', fg: 'var(--danger-color)' }
     : { bg: 'rgba(140,140,140,0.10)', bd: 'var(--border-color, rgba(255,255,255,0.08))', fg: 'var(--text-secondary)' };
   return (
     <div style={{
@@ -114,7 +114,7 @@ function Banner({ text, tone = 'info', icon: Icon }) {
 function Modal({ title, onClose, children, width = '580px' }) {
   return (
     <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1200,
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1200,
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{

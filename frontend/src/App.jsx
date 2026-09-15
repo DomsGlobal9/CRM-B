@@ -1,18 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { 
-  Users, ShoppingBag, Scissors, Search, 
-  Upload, Check, ArrowRight, ArrowLeft, Heart, 
-  MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2,
-  FolderOpen, Sparkles, HelpCircle, X, ExternalLink,
-  ChevronRight, Lock, Mail, Phone, Calendar, Landmark, 
-  FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu,
-  PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle,
-  Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote,
-  Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList,
-  Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save,
-  Play, Pause, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store,
-  PanelLeftClose, PanelLeftOpen
-} from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Search, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, HelpCircle, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, Pause, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import {
@@ -52,11 +39,9 @@ import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import OrderKanban from './features/orders/OrderKanban';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import useAutosave from './hooks/useAutosave';
+import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
-import {
-  PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile,
-  FormModal, Field, Dropzone, PhotoTile, AddMoreTile, InfoNote, FormSection,
-} from './components/ui/Atelier';
+import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
 import LanguageSelector from './components/LanguageSelector.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
@@ -86,7 +71,7 @@ const UserAvatar = ({ user, size }) => {
   }
   return (
     <div style={{ ...box, borderRadius: '50%', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', background: '#0f291e', color: '#fff',
+                  justifyContent: 'center', background: 'var(--selected-bg)', color: 'var(--selected-fg)',
                   fontWeight: 600, fontSize: size ? size * 0.42 : '1em' }}>
       {initial}
     </div>
@@ -220,6 +205,21 @@ const PRODUCTION_ROLES = [
 ];
 const isProductionStaff = (role) => PRODUCTION_ROLES.includes(role);
 
+/** Badge colour for an order's status, shared by the order book and the order page. */
+const orderStatusTone = (st) =>
+  st === 'Delivered' ? 'success'
+    : st === 'Cancelled' ? 'neutral'
+    : (st === 'Shipped' || st === 'Ready for Dispatch') ? 'info'
+    : 'warning';
+
+/** One icon per workroom step, keyed by the workflow's stage_key. */
+const STAGE_ICONS = {
+  created: FileText, measurements_completed: Ruler, fabric_confirmed: Layers, pattern_cutting: Scissors,
+  maggam_work: PenTool, assigned_to_tailor: User, stitching_in_progress: Shirt, stitching_completed: CheckCircle2,
+  finishing: Sparkles, pressing: Flame, master_quality_check: ShieldCheck, trial_scheduled: CalendarClock,
+  trial_completed: UserCheck, ready_for_delivery: PackageCheck, delivered: Truck,
+};
+
 /**
  * A stored mobile number, written the way its owner would recognise it.
  *
@@ -337,7 +337,7 @@ const getColorCircleStyle = (colorName) => {
   if (name.includes('blue')) return '#4169e1';
   if (name.includes('green') || name.includes('olive')) return '#556b2f';
   if (name.includes('maroon') || name.includes('red')) return '#800000';
-  if (name.includes('white') || name.includes('cream')) return '#fafafa';
+  if (name.includes('white') || name.includes('cream')) return 'var(--surface-2)';
   return '#fbeedb';
 };
 
@@ -447,76 +447,66 @@ function CustomerMessageQueue({ orderId, messages, onMarkSent }) {
   if (!messages.length && !error) return null;
 
   const queued = messages.filter((m) => m.status === 'QUEUED');
+  const when = (iso) => {
+    if (!iso) return ['', ''];
+    const d = new Date(iso);
+    return [
+      d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
+      d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+    ];
+  };
 
   return (
-    <div style={{
-      margin: '8px 0', padding: '12px 16px', background: 'var(--surface-color)',
-      borderRadius: '8px', border: '1px solid var(--border-color)'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-        <MessageSquare size={14} />
-        <span style={{ fontSize: '13px', fontWeight: 600 }}>Customer updates</span>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-          {queued.length} waiting to send
-        </span>
-      </div>
-
-      {error && (
-        <div style={{ fontSize: '12px', color: 'var(--danger-color, #b3261e)', marginBottom: '8px' }}>
-          {error}
+    <div className="at-section od-updates">
+      <div className="od-section-head">
+        <IconTile icon={MessageSquare} tone="neutral" size={36} iconSize={16} />
+        <div className="od-section-title">
+          <h3>Customer updates</h3>
+          {queued.length > 0
+            ? <span className="ui-badge ui-badge--warning">{queued.length} waiting to send</span>
+            : <span className="od-section-sub">Everything sent</span>}
         </div>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {messages.map((message) => (
-          <div key={message.id} style={{
-            display: 'flex', alignItems: 'flex-start', gap: '12px',
-            padding: '10px', borderRadius: '6px',
-            border: '1px solid var(--border-color)',
-            opacity: message.status === 'QUEUED' ? 1 : 0.6
-          }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>
-                {message.template_key.replace(/_/g, ' ')} &middot; {message.to_number}
-                {message.status !== 'QUEUED' && ` · ${message.status.toLowerCase()}`}
-                {message.sent_by_name && ` by ${message.sent_by_name}`}
-              </div>
-              <div style={{ fontSize: '13px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                {message.body}
-              </div>
-            </div>
-
-            {message.status === 'QUEUED' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
-                {message.whatsapp_url ? (
-                  <a
-                    href={message.whatsapp_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-secondary"
-                    style={{ fontSize: '12px', padding: '6px 10px', whiteSpace: 'nowrap', textAlign: 'center' }}
-                  >
-                    Open WhatsApp
-                  </a>
-                ) : (
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                    No mobile number
-                  </span>
-                )}
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  style={{ fontSize: '12px', padding: '6px 10px', whiteSpace: 'nowrap' }}
-                  disabled={busyId === message.id}
-                  onClick={() => markSent(message.id)}
-                >
-                  {busyId === message.id ? 'Saving…' : 'Mark sent'}
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
       </div>
+
+      {error && <div className="od-error">{error}</div>}
+
+      <ol className="od-feed">
+        {messages.map((message) => {
+          const isQueued = message.status === 'QUEUED';
+          const [day, time] = when(message.created_at);
+          return (
+            <li key={message.id} className={`od-feed-item${isQueued ? '' : ' od-feed-item--sent'}`}>
+              <span className={`od-feed-dot od-feed-dot--${isQueued ? 'queued' : 'sent'}`} aria-hidden="true" />
+              <div className="od-feed-when">{day}<br />{time}</div>
+              <div className="od-feed-body">
+                <div className="od-feed-meta">
+                  <span className="ui-badge ui-badge--neutral">{message.template_key.replace(/_/g, ' ')}</span>
+                  <span>{message.to_number}</span>
+                  {!isQueued && (
+                    <span>· {message.status.toLowerCase()}{message.sent_by_name ? ` by ${message.sent_by_name}` : ''}</span>
+                  )}
+                </div>
+                <p className="od-feed-text">{message.body}</p>
+              </div>
+              {isQueued && (
+                <div className="od-feed-actions">
+                  {message.whatsapp_url ? (
+                    <a href={message.whatsapp_url} target="_blank" rel="noopener noreferrer" className="btn-secondary at-btn-sm">
+                      <MessageSquare size={14} /> Open WhatsApp
+                    </a>
+                  ) : (
+                    <span className="od-hint">No mobile number</span>
+                  )}
+                  <button type="button" className="btn-secondary at-btn-sm" disabled={busyId === message.id}
+                          onClick={() => markSent(message.id)}>
+                    <Check size={14} /> {busyId === message.id ? 'Saving…' : 'Mark sent'}
+                  </button>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
@@ -545,8 +535,6 @@ function GarmentGallery({ order, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [view, setView] = useState('FRONT');
-  const fileRef = useRef(null);
-  const cameraRef = useRef(null);
 
   const images = order.garment_images || [];
   const published = order.garment_images_published;
@@ -566,125 +554,70 @@ function GarmentGallery({ order, onChanged }) {
     }
   };
 
-  const onPick = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    run(() => api.uploadGarmentImage(order.id, view, file));
-    event.target.value = '';
-  };
-
   return (
-    <div style={{
-      margin: '8px 0', padding: '12px 16px', background: 'var(--surface-color)',
-      borderRadius: '8px', border: '1px solid var(--border-color)'
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-        <Package size={14} />
-        <span style={{ fontSize: '13px', fontWeight: 600 }}>{t('ordersPage.finishedGarmentPhotos', 'Finished garment photos')}</span>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-          {published ? t('ordersPage.visibleToCustomer', 'visible to the customer') : t('ordersPage.uploadedNotShared', '{count} uploaded, not yet shared', { count: images.length })}
-        </span>
+    <section className="at-section od-gallery">
+      <div className="od-section-head">
+        <IconTile icon={Camera} tone="amber" size={40} iconSize={18} />
+        <div className="od-section-title od-section-title--stack">
+          <h3>{t('ordersPage.garmentPhotos', 'Garment photos')}</h3>
+          <span className="od-section-sub">
+            {published
+              ? t('ordersPage.visibleToCustomer', 'visible to the customer')
+              : t('ordersPage.uploadedNotShared', '{count} uploaded, not yet shared', { count: images.length })}
+          </span>
+        </div>
+        <div className="od-head-actions">
+          <select className="form-control od-select" value={view} onChange={(e) => setView(e.target.value)} disabled={busy}
+                  aria-label="Which view the next photo shows">
+            {GARMENT_VIEWS.map(([value, label]) => (
+              <option key={value} value={value}>{label}{have.has(value) ? ' (replace)' : ''}</option>
+            ))}
+          </select>
+          <AddPhotoButton className="btn-primary at-btn-sm" icon={Plus} disabled={busy}
+                          label={busy ? 'Working…' : t('common.addPhoto', 'Add photo')}
+                          onFiles={([file]) => run(() => api.uploadGarmentImage(order.id, view, file))} />
+        </div>
       </div>
 
-      {error && (
-        <div style={{ fontSize: '12px', color: 'var(--danger-color, #b3261e)', marginBottom: '8px' }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="od-error">{error}</div>}
 
-      {images.length > 0 && (
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+      {images.length > 0 ? (
+        <div className="od-photos">
           {images.map((image) => (
-            <figure key={image.id} style={{ margin: 0, width: '90px' }}>
-              <img
-                src={resolveMediaUrl(image.image)}
-                alt={image.view_label}
-                style={{
-                  width: '90px', height: '120px', objectFit: 'cover',
-                  borderRadius: '6px', border: '1px solid var(--border-color)'
-                }}
-              />
-              <figcaption style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                {image.view_label}
-              </figcaption>
-              <button
-                type="button"
-                onClick={() => run(() => api.deleteGarmentImage(order.id, image.id))}
-                disabled={busy}
-                style={{
-                  fontSize: '10px', padding: '2px 6px', marginTop: '2px',
-                  background: 'none', border: '1px solid var(--border-color)',
-                  borderRadius: '4px', cursor: 'pointer', width: '100%'
-                }}
-              >
-                {t('ordersPage.remove', 'Remove')}
-              </button>
-            </figure>
+            <PhotoTile key={image.id} src={resolveMediaUrl(image.image)} alt={image.view_label} label={image.view_label} size={112}
+                       onRemove={busy ? undefined : () => run(() => api.deleteGarmentImage(order.id, image.id))} />
           ))}
+        </div>
+      ) : (
+        <div className="od-photos-empty">
+          <Camera size={18} />
+          <span>{t('ordersPage.noPhotosYet', 'No photos yet. Add the front and back views to share them with the customer.')}</span>
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-        <select
-          className="form-control"
-          style={{ fontSize: '12px', padding: '6px 10px', width: 'auto', margin: 0 }}
-          value={view}
-          onChange={(e) => setView(e.target.value)}
-          disabled={busy}
-        >
-          {GARMENT_VIEWS.map(([value, label]) => (
-            <option key={value} value={value}>{label}{have.has(value) ? ' (replace)' : ''}</option>
-          ))}
-        </select>
-
-        <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPick} />
-        <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={onPick} />
-        <button
-          type="button"
-          className="btn-secondary"
-          style={{ fontSize: '12px', padding: '6px 10px' }}
-          disabled={busy}
-          onClick={() => cameraRef.current?.click()}
-        >
-          {busy ? 'Working…' : '📷 Take photo'}
+      {/* Sharing is what the photos are for: the customer sees them once front
+          and back are in. */}
+      <div className="od-gallery-foot">
+        <button type="button" className="btn-secondary at-btn-sm"
+                disabled={busy || (!published && missing.length > 0)}
+                title={missing.length ? `Still needs: ${missing.join(', ')}` : ''}
+                onClick={() => run(() => api.publishGarmentImages(order.id, !published))}>
+          <ArrowRight size={14} /> {published ? 'Hide from customer' : t('ordersPage.shareWithCustomer', 'Share with customer')}
         </button>
-        <button
-          type="button"
-          className="btn-secondary"
-          style={{ fontSize: '12px', padding: '6px 10px' }}
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
-        >
-          {busy ? 'Working…' : t('common.chooseFromGallery', 'Choose from gallery')}
-        </button>
-
-        <button
-          type="button"
-          className="btn-secondary"
-          style={{ fontSize: '12px', padding: '6px 10px' }}
-          disabled={busy || (!published && missing.length > 0)}
-          title={missing.length ? `Still needs: ${missing.join(', ')}` : ''}
-          onClick={() => run(() => api.publishGarmentImages(order.id, !published))}
-        >
-          {published ? 'Hide from customer' : t('ordersPage.shareWithCustomer', 'Share with customer')}
-        </button>
-
         {!published && missing.length > 0 && (
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            {t('ordersPage.needsFrontAndBack', 'needs front and back')}
-          </span>
+          <span className="od-hint">{t('ordersPage.needsFrontAndBack', 'needs front and back')}</span>
         )}
       </div>
-    </div>
+    </section>
   );
 }
 
 function StageTimeline({ stages, onSelectStage }) {
   const { t } = useLanguage();
-  // Fifteen stages in a strip about three-and-a-half stages wide: opening an
-  // order on a phone put "Created" on screen and whatever actually needs doing
-  // several swipes away. Centre the live stage (or the last one finished) so
-  // the strip opens where the work is.
+  // Fifteen steps in a strip about four steps wide: opening an order on a
+  // phone put "Created" on screen and whatever actually needs doing several
+  // swipes away. Centre the live step (or the last one finished) so the strip
+  // opens where the work is.
   const activeRef = React.useRef(null);
   const scrollerRef = React.useRef(null);
   React.useEffect(() => {
@@ -707,79 +640,106 @@ function StageTimeline({ stages, onSelectStage }) {
 
   if (!stages || stages.length === 0) {
     return (
-      <div style={{
-        margin: '8px 0', padding: '12px 16px', background: 'var(--surface-color)',
-        borderRadius: '8px', border: '1px solid var(--border-color)',
-        fontSize: '12px', color: 'var(--text-muted)', textAlign: 'center'
-      }}>
+      <div className="od-empty">
         {t('ordersPage.noProductionStages', 'No production stages recorded for this order.')}
       </div>
     );
   }
 
+  const shortDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
   return (
-    <div ref={scrollerRef} style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      margin: '8px 0', padding: '12px 16px', background: 'var(--surface-color)',
-      borderRadius: '8px', border: '1px solid var(--border-color)',
-      overflowX: 'auto', gap: '4px'
-    }}>
+    <div ref={scrollerRef} className="od-timeline" role="list">
       {stages.map((stage, idx, arr) => {
         const isCompleted = stage.status === 'COMPLETED';
-        const isInProgress = stage.status === 'IN_PROGRESS';
-        const isPaused = stage.status === 'PAUSED';
+        const isLive = stage.status === 'IN_PROGRESS';
+        const isHeld = stage.status === 'PAUSED' || stage.status === 'PENDING_VERIFICATION';
         const isSkipped = stage.status === 'SKIPPED';
-        const isPendingVerification = stage.status === 'PENDING_VERIFICATION';
-
-        let statusColor = 'var(--border-color)';
-        if (isCompleted) statusColor = '#10b981';
-        else if (isInProgress) statusColor = '#3b82f6';
-        else if (isPaused || isPendingVerification) statusColor = '#f59e0b';
-        else if (isSkipped) statusColor = '#9ca3af';
-
+        const tone = isCompleted ? 'done' : isLive ? 'live' : isHeld ? 'held' : isSkipped ? 'skipped' : 'next';
+        const note = isLive ? 'In progress' : stage.status === 'PAUSED' ? 'Paused'
+          : stage.status === 'PENDING_VERIFICATION' ? 'Awaiting check' : isSkipped ? 'Skipped'
+          : isCompleted && stage.completed_at ? shortDate(stage.completed_at) : '';
+        const Icon = STAGE_ICONS[stage.stage_key] || Clock;
         return (
           <div
             key={stage.id || stage.stage_key}
             ref={idx === activeIndex ? activeRef : null}
-            role="button"
+            role="listitem"
             tabIndex={0}
-            title={`${stage.stage_name} — ${stage.status.replace('_', ' ').toLowerCase()}`}
-            style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: '108px', cursor: 'pointer', padding: '4px 0' }}
+            title={`${stage.stage_name} — ${stage.status.replace(/_/g, ' ').toLowerCase()}`}
+            className={`od-stage od-stage--${tone}${idx === 0 ? ' od-stage--first' : ''}${idx === arr.length - 1 ? ' od-stage--last' : ''}`}
             onClick={() => onSelectStage(stage)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectStage(stage); } }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', flex: '0 0 88px', width: '88px' }}>
-              <div style={{
-                width: '10px', height: '10px', borderRadius: '50%',
-                backgroundColor: statusColor,
-                border: isInProgress ? '2px solid #fff' : 'none',
-                boxShadow: isInProgress ? '0 0 0 2px #3b82f6' : 'none'
-              }} />
-              <span style={{
-                fontSize: '10px',
-                lineHeight: 1.25,
-                fontWeight: isInProgress ? 700 : 500,
-                color: isCompleted ? '#10b981' : isInProgress ? '#3b82f6' : 'var(--text-muted)',
-                // Was nowrap: a label wider than its slot overflowed both sides
-                // and printed on top of the neighbouring stage's label. The
-                // strip already scrolls horizontally, so wrapping inside a
-                // fixed slot is what keeps every stage name readable.
-                textAlign: 'center', overflowWrap: 'anywhere', width: '100%'
-              }}>
-                {stage.stage_name}
+            <div className="od-stage-row">
+              <span className="od-node">
+                <Icon size={16} />
+                {isCompleted && <span className="od-node-check"><Check size={9} strokeWidth={3} /></span>}
               </span>
             </div>
-            {idx < arr.length - 1 && (
-              <div style={{
-                height: '2px', flex: 1,
-                backgroundColor: isCompleted ? '#10b981' : 'var(--border-color)',
-                minWidth: '10px', alignSelf: 'flex-start', marginTop: '9px'
-              }} />
-            )}
+            <span className="od-stage-name">{stage.stage_name}</span>
+            {note && <span className={`od-stage-note od-stage-note--${tone}`}>{note}</span>}
           </div>
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The order's special instructions, where the boutique can edit the order.
+ * Saved on blur and every minute like the rest of the product, through the
+ * PATCH the master's checklist already uses. Keyed by order at the call site,
+ * so a different order starts from its own text.
+ */
+function OrderNotesCard({ order, canEdit, onSaved }) {
+  const [text, setText] = useState(order.special_instructions || '');
+  const [state, setState] = useState('idle');
+  const savedRef = useRef(order.special_instructions || '');
+
+  const save = async () => {
+    const value = text.trim();
+    if (value === savedRef.current) return;
+    setState('saving');
+    try {
+      await api.updateOrder(order.id, { special_instructions: value });
+      savedRef.current = value;
+      setState('saved');
+      if (onSaved) onSaved();
+    } catch (err) {
+      setState('error');
+      throw err;
+    }
+  };
+  useAutosave({ getSnapshot: () => (canEdit ? text.trim() : null), save, enabled: canEdit });
+
+  if (!canEdit && !text) return null;
+  return (
+    <section className="at-section od-notes">
+      <div className="od-section-head">
+        <IconTile icon={FileText} tone="neutral" size={40} iconSize={18} />
+        <div className="od-section-title od-section-title--stack">
+          <h3>Special instructions</h3>
+          <span className="od-section-sub">What the workroom should know about this order.</span>
+        </div>
+      </div>
+      {canEdit ? (
+        <>
+          <textarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
+                    placeholder="Anything the workroom should know about this order…"
+                    onChange={(e) => { setText(e.target.value); setState('idle'); }}
+                    onBlur={() => save().catch(() => {})} />
+          <div className="od-notes-foot">
+            <span className={state === 'error' ? 'od-error' : 'od-hint'}>
+              {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : state === 'error' ? 'Could not save, will retry' : 'Saves on its own'}
+            </span>
+            <span className="od-hint">{text.length}/500</span>
+          </div>
+        </>
+      ) : (
+        <p className="od-notes-text">{text}</p>
+      )}
+    </section>
   );
 }
 
@@ -945,8 +905,8 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
 
   if (!opened) {
     return (
-      <button type="button" className="btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', marginTop: '8px' }} onClick={() => setOpened(true)}>
-        Show materials
+      <button type="button" className="btn-secondary at-btn-sm" onClick={() => setOpened(true)}>
+        Show materials <ArrowRight size={14} />
       </button>
     );
   }
@@ -964,7 +924,7 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
 
   return (
     <div style={{ marginTop: '8px' }}>
-      <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: remaining ? '#b45309' : '#10b981' }}>
+      <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: remaining ? '#b45309' : 'var(--success-color)' }}>
         {remaining ? `⚠ ${remaining} of ${plan.lines.length} still to gather` : `✓ All ${plan.lines.length} materials gathered`}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -987,32 +947,12 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
                 </span>
               </label>
               {canEdit && (
-                <span style={{ display: 'inline-flex', gap: '6px' }}>
-                  <label className="btn-secondary" style={{ fontSize: '11px', padding: '3px 8px', cursor: 'pointer' }}>
-                    📷
-                    <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
-                      disabled={busyLineId === line.id}
-                      onChange={(e) => {
-                        const f = e.target.files[0];
-                        if (!f) return;
-                        setBusyLineId(line.id);
-                        act(() => api.addMaterialLinePhoto(plan.id, line.id, f));
-                        e.target.value = '';
-                      }} />
-                  </label>
-                  <label className="btn-secondary" style={{ fontSize: '11px', padding: '3px 8px', cursor: 'pointer' }}>
-                    🖼
-                    <input type="file" accept="image/*" style={{ display: 'none' }}
-                      disabled={busyLineId === line.id}
-                      onChange={(e) => {
-                        const f = e.target.files[0];
-                        if (!f) return;
-                        setBusyLineId(line.id);
-                        act(() => api.addMaterialLinePhoto(plan.id, line.id, f));
-                        e.target.value = '';
-                      }} />
-                  </label>
-                </span>
+                <AddPhotoButton className="btn-secondary" style={{ fontSize: '11px', padding: '3px 8px' }} iconSize={12}
+                                disabled={busyLineId === line.id}
+                                onFiles={([f]) => {
+                                  setBusyLineId(line.id);
+                                  act(() => api.addMaterialLinePhoto(plan.id, line.id, f));
+                                }} />
               )}
             </div>
             {(line.gathered_at || Number(line.consumed_quantity) > 0 || (line.photos || []).length > 0) && (
@@ -1055,7 +995,7 @@ function NetworkActivityBar() {
   if (!active) return null;
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: '3px', zIndex: 3000, overflow: 'hidden', background: 'rgba(15, 41, 30, 0.12)' }}>
-      <div style={{ position: 'absolute', top: 0, bottom: 0, width: '38%', background: 'var(--text-primary, #0f291e)', borderRadius: '3px', animation: 'apiActivitySweep 1.1s ease-in-out infinite' }} />
+      <div style={{ position: 'absolute', top: 0, bottom: 0, width: '38%', background: 'var(--text-primary, var(--text-primary))', borderRadius: '3px', animation: 'apiActivitySweep 1.1s ease-in-out infinite' }} />
     </div>
   );
 }
@@ -1126,12 +1066,12 @@ const navSectionsFor = (user, t) => {
   const sections =
     (!role || role === 'Owner') ? [
       { key: 'daily', label: t('nav.groups.daily', 'Daily'), items: [
-        { tab: 'overview', icon: Users, label: t('nav.dashboard'), phone: true },
+        { tab: 'overview', icon: Store, label: t('nav.dashboard'), phone: true },
         { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
-        { tab: 'customers', icon: Users, label: t('nav.customers'), phone: true },
+        { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
-        { tab: 'designs', icon: Sparkles, label: t('nav.manageDesigns') },
+        { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
         { tab: 'designWork', icon: PenTool, label: t('nav.designWork') },
       ] },
       // Fabrics used to sit apart from Inventory in one flat list of eleven,
@@ -1143,11 +1083,11 @@ const navSectionsFor = (user, t) => {
       // Manage Tailors is WHO works here; Staff Management is their
       // employment, time and pay. The pairing is the point of the group.
       { key: 'people', label: t('nav.groups.people', 'People'), items: [
-        { tab: 'staff', icon: Landmark, label: t('nav.staffManagement') },
+        { tab: 'staff', icon: Users, label: t('nav.staffManagement') },
       ] },
       { key: 'business', label: t('nav.groups.business', 'Business'), items: [
         { tab: 'finance', icon: Wallet, label: t('nav.finance', 'Cost & P&L') },
-        { tab: 'invoices', icon: FileText, label: t('nav.invoices') },
+        { tab: 'invoices', icon: Receipt, label: t('nav.invoices') },
         { tab: 'analytics', icon: BarChart2, label: t('nav.analytics') },
       ] },
     ] : role === 'Master' ? [
@@ -1159,7 +1099,7 @@ const navSectionsFor = (user, t) => {
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
         { tab: 'designWork', icon: PenTool, label: t('nav.myWork'), phone: true },
-        { tab: 'designs', icon: Sparkles, label: t('nav.designStudio') },
+        { tab: 'designs', icon: Palette, label: t('nav.designStudio') },
       ] },
     ] : [
       { key: 'production', items: [
@@ -1262,6 +1202,8 @@ function App() {
     return !c;
   });
   const [currentUser, setCurrentUser] = useState(null);
+  // The boutique's look is platform-set: apply whatever the account payload says.
+  useEffect(() => { applyTenantTheme(currentUser); }, [currentUser]);
   const { t, language } = useLanguage();
   const currentUserName = currentUser?.first_name || currentUser?.name || currentUser?.email?.split('@')[0] || 'User';
 
@@ -1917,6 +1859,13 @@ function App() {
   const [ordersSearch, setOrdersSearch] = useState('');
   const [ordersFilterTab, setOrdersFilterTab] = useState('All');
   const [ordersView, setOrdersView] = useState('list');
+  // The order book's View button opens one order on its own page.
+  const openOrder = openOrdersRowId ? ordersList.find((o) => o.id === openOrdersRowId) : null;
+  useEffect(() => {
+    if (!openOrdersRowId) return;
+    window.scrollTo({ top: 0 });
+    document.querySelector('.portal-main')?.scrollTo?.(0, 0);
+  }, [openOrdersRowId]);
 
   // One predicate for the order registry, whichever way it is drawn: the list
   // and the board show the same orders under the same filter and search.
@@ -3209,7 +3158,7 @@ function App() {
         <pre style={{ whiteSpace: 'pre-wrap', fontSize: '14px', background: 'rgba(0,0,0,0.2)', padding: '16px', borderRadius: '8px' }}>
           {globalError}
         </pre>
-        <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="btn-secondary" style={{ marginTop: '16px', background: '#fff', color: '#7f1d1d', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}>
+        <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="btn-secondary" style={{ marginTop: '16px', background: 'var(--surface-color)', color: '#7f1d1d', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer' }}>
           Clear Session & Reload
         </button>
       </div>
@@ -3218,7 +3167,7 @@ function App() {
 
   if (loading && !dashboardData && view === 'login') {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f291e', color: '#fff', fontSize: '18px', fontFamily: 'var(--font-sans, sans-serif)' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--selected-bg)', color: 'var(--selected-fg)', fontSize: '18px', fontFamily: 'var(--font-sans, sans-serif)' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ border: '4px solid rgba(255,255,255,0.1)', borderTop: '4px solid #d4af37', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 16px auto' }}></div>
           <span>Loading Atelier CRM...</span>
@@ -3256,7 +3205,7 @@ function App() {
       {/* 2. SIGN IN SCREEN (Image 2) */}
 
       {view === 'login' && (
-        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#faf9f6', padding: '88px 16px 40px' }}>
+        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
           
           {/* Back to Home Button */}
           <button 
@@ -3268,8 +3217,8 @@ function App() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              background: '#fff',
-              border: '1px solid #eaecef',
+              background: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
               padding: '10px 18px',
               borderRadius: '99px',
               cursor: 'pointer',
@@ -3280,17 +3229,17 @@ function App() {
               transition: 'all 0.2s ease'
             }}
             onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--accent-text, #b07c40)'; e.currentTarget.style.color = 'var(--accent-text, #b07c40)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#eaecef'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
           >
             <ArrowLeft size={16} />
             Back to Home
           </button>
 
-          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: '#0f291e', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
+          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: 'var(--shell-logo)', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
+          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
-          <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: '#fff', border: '1px solid #eaecef', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: '#0f291e', fontWeight: 600, margin: '0 0 8px 0' }}>Welcome back 👋</h2>
+          <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
+            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>Welcome back 👋</h2>
             <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 32px 0' }}>Login to continue your custom creation journey.</p>
             
             <form onSubmit={handleLoginSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -3303,7 +3252,7 @@ function App() {
                     placeholder="Enter your email"
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    style={{ width: '100%', padding: '12px 14px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid #eaecef', outline: 'none' }}
+                    style={{ width: '100%', padding: '12px 14px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
                   />
                 </div>
@@ -3318,7 +3267,7 @@ function App() {
                     placeholder="Enter your password"
                     value={loginPassword}
                     onChange={(e) => setLoginPassword(e.target.value)}
-                    style={{ width: '100%', padding: '12px 40px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid #eaecef', outline: 'none' }}
+                    style={{ width: '100%', padding: '12px 40px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
                   />
                   <button 
@@ -3354,7 +3303,7 @@ function App() {
               </button>
             </form>
 
-            <div className="auth-card-footer" style={{ borderTop: '1px solid #eaecef', marginTop: '32px', paddingTop: '20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+            <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '32px', paddingTop: '20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
               Don't have a boutique account?{' '}
               <a href="#" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }} onClick={() => { setSignupStep(1); setView('signup'); }}>
                 Signup
@@ -3370,8 +3319,8 @@ function App() {
       {/* Ask for a reset link. Reached from the login screen; leaves back to
           it. Nothing here reveals whether the address is one we know. */}
       {view === 'forgot' && (
-        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#faf9f6', padding: '88px 16px 40px' }}>
-          <div className="auth-card" style={{ background: '#fff', border: '1px solid #eaecef', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <div className="auth-card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
             <h2 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Reset your password</h2>
 
             {resetSent ? (
@@ -3397,7 +3346,7 @@ function App() {
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
                   placeholder="you@yourboutique.com"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #eaecef', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
                 />
                 {authError && (
                   <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px' }}>
@@ -3419,8 +3368,8 @@ function App() {
       {/* Choose the new password. Only reachable by following the emailed
           link, which is what put resetToken in state. */}
       {view === 'reset' && (
-        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#faf9f6', padding: '88px 16px 40px' }}>
-          <div className="auth-card" style={{ background: '#fff', border: '1px solid #eaecef', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <div className="auth-card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
             <h2 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Choose a new password</h2>
 
             {resetDone ? (
@@ -3441,14 +3390,14 @@ function App() {
                   value={resetPassword}
                   onChange={(e) => setResetPassword(e.target.value)}
                   placeholder="New password"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #eaecef', fontSize: '14px', marginBottom: '10px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '10px', boxSizing: 'border-box' }}
                 />
                 <input
                   type="password"
                   value={resetConfirm}
                   onChange={(e) => setResetConfirm(e.target.value)}
                   placeholder="Repeat new password"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #eaecef', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
                 />
                 {authError && (
                   <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
@@ -3468,7 +3417,7 @@ function App() {
       )}
 
       {view === 'signup' && (
-        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#faf9f6', padding: '88px 16px 40px' }}>
+        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
           
           {/* Back to Home Button */}
           <button 
@@ -3480,8 +3429,8 @@ function App() {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              background: '#fff',
-              border: '1px solid #eaecef',
+              background: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
               padding: '10px 18px',
               borderRadius: '99px',
               cursor: 'pointer',
@@ -3492,14 +3441,14 @@ function App() {
               transition: 'all 0.2s ease'
             }}
             onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--accent-text, #b07c40)'; e.currentTarget.style.color = 'var(--accent-text, #b07c40)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.borderColor = '#eaecef'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
           >
             <ArrowLeft size={16} />
             Back to Home
           </button>
 
-          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: '#0f291e', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
+          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: 'var(--shell-logo)', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
+          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
           {/* Auth Steps Tracker */}
           <div className="auth-steps-tracker">
@@ -3723,6 +3672,7 @@ function App() {
               dashboardTab === 'orders' ? 'nav.manageOrders' :
               dashboardTab === 'tailors' ? 'nav.manageTailors' :
               dashboardTab === 'designs' ? 'nav.manageDesigns' :
+              dashboardTab === 'staff' ? 'nav.staffManagement' :
               `nav.${dashboardTab}`,
               dashboardTab.charAt(0).toUpperCase() + dashboardTab.slice(1)
             )}
@@ -3841,7 +3791,7 @@ function App() {
                   <div className="portal-header-right">
                     <div className="user-profile-widget">
                       <div className="user-avatar-circle">
-                        <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentUserName)}`} alt="Avatar" />
+                        <img src={`https://api.dicebear.com/7.x/initials/svg?backgroundColor=e6f1c8&textColor=1f2a06&seed=${encodeURIComponent(currentUserName)}`} alt="Avatar" />
                       </div>
                       <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
                     </div>
@@ -4189,23 +4139,9 @@ function App() {
                                       id={`image-${order.id}`}
                                       accept="image/*"
                                     />
-                                    <input
-                                      type="file"
-                                      style={{ display: 'none' }}
-                                      id={`image-${order.id}-camera`}
-                                      accept="image/*"
-                                      capture="environment"
-                                    />
-                                    <label
-                                      htmlFor={`image-${order.id}-camera`}
-                                      className="btn-secondary"
-                                      style={{ display: 'inline-block', fontSize: '12px', padding: '6px 10px', marginTop: '6px', cursor: 'pointer' }}
-                                    >
-                                      📷 Take photo
-                                    </label>
                                     {order.completed_garment_image && (
                                       <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '11px', color: '#107c41', fontWeight: 600 }}>✓ Picture Uploaded</span>
+                                        <span style={{ fontSize: '11px', color: 'var(--brand-link)', fontWeight: 600 }}>✓ Picture Uploaded</span>
                                         <a href={order.completed_garment_image} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: 'var(--accent-text, #b07c40)', textDecoration: 'underline' }}>View Image</a>
                                       </div>
                                     )}
@@ -4219,9 +4155,7 @@ function App() {
                                   onClick={async () => {
                                     if (submittingCompletionId) return;
                                     const commentVal = document.getElementById(`comments-${order.id}`).value;
-                                    const fileInput = document.getElementById(`image-${order.id}`);
-                                    const cameraInput = document.getElementById(`image-${order.id}-camera`);
-                                    const file = fileInput.files[0] || cameraInput?.files[0];
+                                    const file = document.getElementById(`image-${order.id}`).files[0];
 
                                     setSubmittingCompletionId(order.id);
                                     try {
@@ -4368,7 +4302,7 @@ function App() {
                             width: '20px', height: '20px', borderRadius: '50%', flexShrink: 0,
                             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                             border: step.done ? 'none' : '1.5px solid var(--border-color)',
-                            background: step.done ? '#10b981' : 'transparent', color: '#fff', fontSize: '12px',
+                            background: step.done ? 'var(--success-color)' : 'transparent', color: '#fff', fontSize: '12px',
                           }}>
                             {step.done ? <Check size={12} /> : i + 1}
                           </span>
@@ -4721,7 +4655,283 @@ function App() {
             )}
 
             {/* Manage Orders Tab */}
-            {dashboardTab === 'orders' && (
+            {/* One order on its own page. Everything the row used to unfold
+                inline, laid out so the eye lands on the order, then who is on
+                it and when it is due, then where it stands, then the work. */}
+            {dashboardTab === 'orders' && openOrder && (() => {
+              const order = openOrder;
+              const stages = order.stages || [];
+              const liveIdx = stages.findIndex(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status));
+              const live = liveIdx !== -1 ? stages[liveIdx] : null;
+              const doneCount = stages.filter(st => st.status === 'COMPLETED').length;
+              const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
+              const journeyBadge = allDone ? ['success', 'Completed']
+                : live ? [live.status === 'IN_PROGRESS' ? 'info' : 'warning',
+                          live.status === 'IN_PROGRESS' ? 'In progress' : live.status === 'PAUSED' ? 'Paused' : 'Awaiting check']
+                : doneCount === 0 ? ['neutral', 'Not started'] : ['neutral', 'Next step pending'];
+              const stepChip = live ? `Step ${liveIdx + 1} of ${stages.length}` : `${doneCount} of ${stages.length} done`;
+              const briefStage = live || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || stages[0];
+              const preview = (order.garment_images || [])[0]?.image || order.completed_garment_image;
+              const garmentName = order.garment_label || orderGarmentNames(order).join(', ') || order.customer_garment_type;
+              const verification = order.master_verification || {};
+              const verifyTotal = 6 + (orderGarmentNames(order).includes('Saree') ? 1 : 0);
+              const verified = Object.values(verification).filter(Boolean).length;
+              return (
+                <div className="od-page">
+                  <button type="button" className="btn-link od-back" onClick={() => setOpenOrdersRowId(null)}>
+                    <ArrowLeft size={16} /> {t('ordersPage.backToOrders', 'Back to orders')}
+                  </button>
+
+                  <header className="od-head">
+                    <div className="od-head-left">
+                      <div className="od-title-row">
+                        <h1 className="od-title">Order {orderRef(order)}</h1>
+                        {/* The status pill is the control that moves the order along. */}
+                        <label className={`od-status od-status--${orderStatusTone(order.order_status)}`}
+                               title={t('ordersPage.updateStatus', 'Update status')}>
+                          <RefreshCw size={13} className="od-status-icon" />
+                          <select
+                            value={order.order_status}
+                            disabled={updatingStatusOrderId === order.id}
+                            onChange={(e) => {
+                              if (updatingStatusOrderId) return;
+                              setUpdatingStatusOrderId(order.id);
+                              api.updateOrderStatus(order.id, e.target.value)
+                                .then(() => fetchDashboardAndConfig())
+                                .catch(err => alert("Failed to update status: " + err.message))
+                                .finally(() => setUpdatingStatusOrderId(null));
+                            }}
+                          >
+                            {['Received', 'Confirmed', 'Stylist Review', 'Design & Creation', 'Quality Check', 'Ready for Dispatch', 'Shipped', 'Delivered'].map(status => (
+                              <option key={status} value={status}>{t(`status.${status}`, status)}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={13} className="od-status-chevron" />
+                        </label>
+                        {verified > 0 && (
+                          <span className="ui-badge ui-badge--success">
+                            👑 {t('ordersPage.masterVerified', 'Master Verified:')} {verified}/{verifyTotal} ({Math.round((verified / verifyTotal) * 100)}%)
+                          </span>
+                        )}
+                      </div>
+                      <div className="od-meta">
+                        <span><User size={14} />{t('ordersPage.client', 'Client:')} <strong>{order.customer_name}</strong></span>
+                        <span className="od-meta-sep" aria-hidden="true">·</span>
+                        <span><Calendar size={14} />{t('ordersPage.created', 'Created:')} {fmtDate(order.order_date)}</span>
+                      </div>
+                    </div>
+                    <p className="od-quote">“From fabric to finesse, we keep you in the loop.”</p>
+                  </header>
+
+                  {/* The four facts to scan: who is on it, what it is worth, when it is due. */}
+                  <section className="od-facts">
+                    <div className="od-fact">
+                      <IconTile icon={User} tone="green" size={44} iconSize={20} />
+                      <div>
+                        <div className="od-fact-label">{t('ordersPage.supervisingMaster', 'Supervising Master')}</div>
+                        <div className={`od-fact-value${order.master_name ? '' : ' od-fact-value--empty'}`}>
+                          {order.master_name || t('ordersPage.unassigned', 'Unassigned')}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="od-fact">
+                      <IconTile icon={Scissors} tone="amber" size={44} iconSize={20} />
+                      <div>
+                        <div className="od-fact-label">{t('ordersPage.stitchingTailor', 'Stitching Tailor')}</div>
+                        <div className={`od-fact-value${order.tailor_name ? '' : ' od-fact-value--empty'}`}>
+                          {order.tailor_name || t('ordersPage.unassigned', 'Unassigned')}
+                        </div>
+                      </div>
+                    </div>
+                    {!isProductionStaff(currentUser.role) && (
+                      <div className="od-fact">
+                        <IconTile icon={IndianRupee} tone="green" size={44} iconSize={20} />
+                        <div>
+                          <div className="od-fact-label">{t('ordersPage.totalValue', 'Total Value')}</div>
+                          <div className="od-fact-value">{inr(order.total_amount)}</div>
+                        </div>
+                      </div>
+                    )}
+                    <div className="od-fact">
+                      <IconTile icon={Calendar} tone="amber" size={44} iconSize={20} />
+                      <div>
+                        <div className="od-fact-label">{t('ordersPage.estDelivery', 'Est. Delivery')}</div>
+                        <div className="od-fact-value">{order.estimated_delivery ? fmtDate(order.estimated_delivery) : t('ordersPage.tbd', 'TBD')}</div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Where the order stands in the workroom; a step opens its panel. */}
+                  <section className="at-section od-journey">
+                    <div className="od-section-head">
+                      <IconTile icon={ClipboardList} tone="amber" size={40} iconSize={18} />
+                      <div className="od-section-title od-section-title--stack">
+                        <h3>{t('ordersPage.orderJourney', 'Order journey')}</h3>
+                        <span className="od-section-sub">{t('ordersPage.orderJourneySub', 'Track the progress from concept to completion')}</span>
+                      </div>
+                      {stages.length > 0 && (
+                        <div className="od-head-actions">
+                          <span className="od-chip">{stepChip}</span>
+                          <span className={`ui-badge ui-badge--${journeyBadge[0]}`}>{journeyBadge[1]}</span>
+                        </div>
+                      )}
+                    </div>
+                    <StageTimeline stages={stages} onSelectStage={(stage) => openStageReview(order, stage)} />
+                  </section>
+
+                  <div className="od-columns">
+                    <div className="od-main">
+                      <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} />
+
+                      <CustomerMessageQueue
+                        orderId={order.id}
+                        messages={queuedMessages.filter(m => m.order === order.id)}
+                        onMarkSent={handleMarkMessageSent}
+                      />
+
+                      {/* Raw materials checklist */}
+                      <section className="at-section od-materials">
+                        <div className="od-section-head">
+                          <IconTile icon={Layers} tone="neutral" size={40} iconSize={18} />
+                          <div className="od-section-title od-section-title--stack">
+                            <h3>{t('ordersPage.rawMaterials', 'Raw materials checklist')}</h3>
+                            <span className="od-section-sub">{t('ordersPage.rawMaterialsSub', 'Track the materials used for this order.')}</span>
+                          </div>
+                        </div>
+                        <MaterialsChecklist orderId={order.id} role={currentUser.role} />
+                      </section>
+
+                      <div className="od-extra">
+                          {/* Post-delivery alterations. Shown only once the
+                              order is Delivered -- before that a fitting
+                              problem is production's to fix, not a new job. */}
+                          <OrderAlterations
+                            order={order}
+                            customerId={order.customer}
+                            currentUser={currentUser}
+                            onOpenAlteration={openAlteration}
+                          />
+
+                          {/* Master verification checklist */}
+                          {currentUser.role === 'Master' && (
+                            <div style={{ padding: 'var(--space-4)', background: 'var(--accent-color)',
+                                 border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
+                              <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-3)', color: 'var(--accent-text)' }}>👑 Master production verification</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-2) var(--space-4)' }}>
+                                {[
+                                  { key: 'dress_cutting', label: 'Dress & Pattern Cutting' },
+                                  { key: 'thread', label: 'Matching Thread & Accents' },
+                                  { key: 'hemming', label: 'Hemming & Seam Finishes' },
+                                  ...(order.customer_garment_type === 'Saree' ? [{ key: 'fall_pico', label: 'Fall & Pico / Peack' }] : []),
+                                  { key: 'hook_buttons', label: 'Hook or Buttons Closure' },
+                                  { key: 'pressing', label: 'Garment Steam Pressing' },
+                                  { key: 'dispatch_trial', label: 'Dispatch or Fit Trial Ready' }
+                                ].map(item => {
+                                  const isChecked = order.master_verification?.[item.key] || false;
+                                  return (
+                                    <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        disabled={savingVerificationOrderId === order.id}
+                                        onChange={async (e) => {
+                                          if (savingVerificationOrderId) return;
+                                          const updatedVerification = { ...(order.master_verification || {}), [item.key]: e.target.checked };
+                                          setSavingVerificationOrderId(order.id);
+                                          try {
+                                            await api.saveMasterVerification(order.id, updatedVerification);
+                                            fetchDashboardAndConfig();
+                                          } catch (err) {
+                                            alert("Failed to update verification check: " + err.message);
+                                          } finally {
+                                            setSavingVerificationOrderId(null);
+                                          }
+                                        }}
+                                      />
+                                      <span style={{ textDecoration: isChecked ? 'line-through' : 'none', color: isChecked ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                                        {item.label}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Delivery */}
+                          <div style={{ background: 'var(--surface-2)', border: '1px dashed var(--border-strong)',
+                               borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}>
+                              {t('ordersPage.deliveryMethodLabel', 'Delivery Method:')} {order.delivery_method_display || t(`deliveryMethod.${order.delivery_method}`, order.delivery_method)}
+                            </div>
+                            {order.delivery_method === 'Courier' && (
+                              <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                                <div><strong>Courier Service Provider:</strong> {order.courier_service || 'TBD'}</div>
+                                <div><strong>Tracking Reference:</strong> {order.tracking_number || 'TBD'}</div>
+                                <div style={{ gridColumn: 'span 2', marginTop: '4px' }}>
+                                  <strong>Shipping Address:</strong> {order.delivery_address || 'No address specified'}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Tailor completion report */}
+                          {(order.tailor_comments || order.completed_garment_image) && (
+                            <div style={{ background: 'var(--accent-color)', border: '1px solid var(--accent-border)',
+                                 borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                              <div className="ui-eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--accent-text)' }}>
+                                <Scissors size={13} /> Stitching completion report
+                              </div>
+                              {order.tailor_comments && (
+                                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0, fontStyle: 'italic' }}>
+                                  "{order.tailor_comments}"
+                                </p>
+                              )}
+                              {order.completed_garment_image && (
+                                <div style={{ marginTop: '4px' }}>
+                                  <span className="ui-eyebrow" style={{ display: 'block', marginBottom: '6px' }}>Garment photo</span>
+                                  <a href={order.completed_garment_image} target="_blank" rel="noreferrer">
+                                    <img src={order.completed_garment_image} alt="Completed Garment"
+                                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', cursor: 'pointer' }} />
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                      </div>
+                    </div>
+
+                    <aside className="od-side">
+                      {/* The garment, and the stage panel behind it: that is where the
+                          latest design, its notes and references are read. */}
+                      <section className="at-section od-preview">
+                        <div className="od-section-head">
+                          <IconTile icon={Eye} tone="green" size={40} iconSize={18} />
+                          <div className="od-section-title"><h3>{t('ordersPage.garmentPreview', 'Garment preview')}</h3></div>
+                        </div>
+                        {preview
+                          ? <img className="od-preview-img" src={resolveMediaUrl(preview)} alt="" />
+                          : <div className="od-preview-empty"><Shirt size={28} /></div>}
+                        <div className="od-preview-name">{garmentName}</div>
+                        <span className={`ui-badge ui-badge--${orderStatusTone(order.order_status)} od-preview-status`}>
+                          {order.order_status_display || t(`status.${order.order_status}`, order.order_status)}
+                        </span>
+                        <p className="od-preview-text">{t('ordersPage.previewHint', 'View the latest design, notes and reference images.')}</p>
+                        {briefStage && (
+                          <button type="button" className="btn-primary" onClick={() => openStageReview(order, briefStage)}>
+                            {t('ordersPage.viewDesign', 'View design')} <ArrowRight size={14} />
+                          </button>
+                        )}
+                      </section>
+
+                      <OrderNotesCard key={order.id} order={order} canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
+                    </aside>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {dashboardTab === 'orders' && !openOrder && (
               <>
                 <PageHeader
                   title={t('ordersPage.title')}
@@ -4835,7 +5045,6 @@ function App() {
                         </thead>
                         <tbody>
                       {filtered.map(order => {
-                        const isOpen = openOrdersRowId === order.id;
                         const isDelivered = order.order_status === 'Delivered';
                         const isCancelled = order.order_status === 'Cancelled';
                         return (
@@ -4859,215 +5068,12 @@ function App() {
                           <td style={{ whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                               <button type="button" className="btn-secondary at-btn-sm"
-                                      onClick={() => setOpenOrdersRowId(isOpen ? null : order.id)}>
-                                <Eye size={12} /> {isOpen ? 'Hide' : 'View'}
+                                      onClick={() => setOpenOrdersRowId(order.id)}>
+                                <Eye size={12} /> View
                               </button>
                             </div>
                           </td>
                         </tr>
-                        {isOpen && (
-                        <tr>
-                        <td colSpan={6} style={{ padding: 0, background: 'var(--surface-2)' }}>
-                        {/* width:0 + min-width:100%: the details take the table's
-                            width instead of setting it, so a wide section (the
-                            stage strip) scrolls inside itself, not the table. */}
-                        <div style={{ width: 0, minWidth: '100%' }}>
-                        <div className="ui-card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', padding: 'var(--space-6)', border: 'none', borderRadius: 0 }}>
-                          {/* Header: id + status read first; client/date meta; verification note */}
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-                                <span style={{ fontWeight: 'var(--weight-bold)', fontSize: 'var(--text-lg)', color: 'var(--text-primary)', fontFamily: 'var(--font-serif)' }}>{orderRef(order)}</span>
-                                <span className={`ui-badge ui-badge--${statusTone(order.order_status)}`}>
-                                  {order.order_status_display || t(`status.${order.order_status}`, order.order_status)}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginTop: 'var(--space-1)' }}>
-                                {t('ordersPage.client', 'Client:')} <strong style={{ color: 'var(--text-primary)' }}>{order.customer_name}</strong>
-                                {'  ·  '}{t('ordersPage.created', 'Created:')} {fmtDate(order.order_date)}
-                              </div>
-                              {(() => {
-                                const v = order.master_verification || {};
-                                const total = 6 + (orderGarmentNames(order).includes('Saree') ? 1 : 0);
-                                const checked = Object.values(v).filter(Boolean).length;
-                                if (checked > 0) {
-                                  return (
-                                    <span className="ui-badge ui-badge--success" style={{ marginTop: 'var(--space-2)' }}>
-                                      👑 {t('ordersPage.masterVerified', 'Master Verified:')} {checked}/{total} ({Math.round((checked/total)*100)}%)
-                                    </span>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                              <span className="ui-eyebrow">{t('ordersPage.updateStatus', 'Update status')}</span>
-                              <select
-                                className="form-control"
-                                style={{ fontSize: 'var(--text-sm)', padding: '6px 12px', width: '180px', margin: 0 }}
-                                value={order.order_status}
-                                disabled={updatingStatusOrderId === order.id}
-                                onChange={(e) => {
-                                  if (updatingStatusOrderId) return;
-                                  setUpdatingStatusOrderId(order.id);
-                                  api.updateOrderStatus(order.id, e.target.value)
-                                    .then(() => fetchDashboardAndConfig())
-                                    .catch(err => alert("Failed to update status: " + err.message))
-                                    .finally(() => setUpdatingStatusOrderId(null));
-                                }}
-                              >
-                                {['Received', 'Confirmed', 'Stylist Review', 'Design & Creation', 'Quality Check', 'Ready for Dispatch', 'Shipped', 'Delivered'].map(status => (
-                                  <option key={status} value={status}>{t(`status.${status}`, status)}</option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-
-                          {/* Key facts strip: the four numbers/people to scan */}
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-                               gap: 'var(--space-4)', padding: 'var(--space-4)', background: 'var(--surface-2)',
-                               borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-                            <div>
-                              <div className="ui-eyebrow">{t('ordersPage.supervisingMaster', 'Supervising Master')}</div>
-                              <div style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginTop: '2px', color: order.master_name ? 'var(--accent-text)' : 'var(--text-muted)' }}>{order.master_name || t('ordersPage.unassigned', 'Unassigned')}</div>
-                            </div>
-                            <div>
-                              <div className="ui-eyebrow">{t('ordersPage.stitchingTailor', 'Stitching Tailor')}</div>
-                              <div style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginTop: '2px', color: order.tailor_name ? 'var(--text-primary)' : 'var(--text-muted)' }}>{order.tailor_name || t('ordersPage.unassigned', 'Unassigned')}</div>
-                            </div>
-                            {!isProductionStaff(currentUser.role) && (
-                              <div>
-                                <div className="ui-eyebrow">{t('ordersPage.totalValue', 'Total Value')}</div>
-                                <div className="ui-stat-value" style={{ fontSize: 'var(--text-lg)', marginTop: '2px' }}>{inr(order.total_amount)}</div>
-                              </div>
-                            )}
-                            <div>
-                              <div className="ui-eyebrow">{t('ordersPage.estDelivery', 'Est. Delivery')}</div>
-                              <div style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--weight-semibold)', marginTop: '2px', color: 'var(--text-primary)' }}>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : t('ordersPage.tbd', 'TBD')}</div>
-                            </div>
-                          </div>
-
-                          {/* Production timeline */}
-                          <StageTimeline
-                            stages={order.stages}
-                            onSelectStage={(stage) => openStageReview(order, stage)}
-                          />
-
-                          <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} />
-
-                          <CustomerMessageQueue
-                            orderId={order.id}
-                            messages={queuedMessages.filter(m => m.order === order.id)}
-                            onMarkSent={handleMarkMessageSent}
-                          />
-
-                          {/* Raw materials checklist */}
-                          <div style={{ padding: 'var(--space-4)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
-                            <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-2)' }}>🧵 Raw materials checklist</div>
-                            <MaterialsChecklist orderId={order.id} role={currentUser.role} />
-                          </div>
-
-                          {/* Post-delivery alterations. Shown only once the
-                              order is Delivered -- before that a fitting
-                              problem is production's to fix, not a new job. */}
-                          <OrderAlterations
-                            order={order}
-                            customerId={order.customer}
-                            currentUser={currentUser}
-                            onOpenAlteration={openAlteration}
-                          />
-
-                          {/* Master verification checklist */}
-                          {currentUser.role === 'Master' && (
-                            <div style={{ padding: 'var(--space-4)', background: 'var(--accent-color)',
-                                 border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
-                              <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-3)', color: 'var(--accent-text)' }}>👑 Master production verification</div>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-2) var(--space-4)' }}>
-                                {[
-                                  { key: 'dress_cutting', label: 'Dress & Pattern Cutting' },
-                                  { key: 'thread', label: 'Matching Thread & Accents' },
-                                  { key: 'hemming', label: 'Hemming & Seam Finishes' },
-                                  ...(order.customer_garment_type === 'Saree' ? [{ key: 'fall_pico', label: 'Fall & Pico / Peack' }] : []),
-                                  { key: 'hook_buttons', label: 'Hook or Buttons Closure' },
-                                  { key: 'pressing', label: 'Garment Steam Pressing' },
-                                  { key: 'dispatch_trial', label: 'Dispatch or Fit Trial Ready' }
-                                ].map(item => {
-                                  const isChecked = order.master_verification?.[item.key] || false;
-                                  return (
-                                    <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        disabled={savingVerificationOrderId === order.id}
-                                        onChange={async (e) => {
-                                          if (savingVerificationOrderId) return;
-                                          const updatedVerification = { ...(order.master_verification || {}), [item.key]: e.target.checked };
-                                          setSavingVerificationOrderId(order.id);
-                                          try {
-                                            await api.saveMasterVerification(order.id, updatedVerification);
-                                            fetchDashboardAndConfig();
-                                          } catch (err) {
-                                            alert("Failed to update verification check: " + err.message);
-                                          } finally {
-                                            setSavingVerificationOrderId(null);
-                                          }
-                                        }}
-                                      />
-                                      <span style={{ textDecoration: isChecked ? 'line-through' : 'none', color: isChecked ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                                        {item.label}
-                                      </span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Delivery */}
-                          <div style={{ background: 'var(--surface-2)', border: '1px dashed var(--border-strong)',
-                               borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                            <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}>
-                              {t('ordersPage.deliveryMethodLabel', 'Delivery Method:')} {order.delivery_method_display || t(`deliveryMethod.${order.delivery_method}`, order.delivery_method)}
-                            </div>
-                            {order.delivery_method === 'Courier' && (
-                              <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                                <div><strong>Courier Service Provider:</strong> {order.courier_service || 'TBD'}</div>
-                                <div><strong>Tracking Reference:</strong> {order.tracking_number || 'TBD'}</div>
-                                <div style={{ gridColumn: 'span 2', marginTop: '4px' }}>
-                                  <strong>Shipping Address:</strong> {order.delivery_address || 'No address specified'}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Tailor completion report */}
-                          {(order.tailor_comments || order.completed_garment_image) && (
-                            <div style={{ background: 'var(--accent-color)', border: '1px solid var(--accent-border)',
-                                 borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                              <div className="ui-eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--accent-text)' }}>
-                                <Scissors size={13} /> Stitching completion report
-                              </div>
-                              {order.tailor_comments && (
-                                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0, fontStyle: 'italic' }}>
-                                  "{order.tailor_comments}"
-                                </p>
-                              )}
-                              {order.completed_garment_image && (
-                                <div style={{ marginTop: '4px' }}>
-                                  <span className="ui-eyebrow" style={{ display: 'block', marginBottom: '6px' }}>Garment photo</span>
-                                  <a href={order.completed_garment_image} target="_blank" rel="noreferrer">
-                                    <img src={order.completed_garment_image} alt="Completed Garment"
-                                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', cursor: 'pointer' }} />
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        </div>
-                        </td>
-                        </tr>
-                        )}
                         </React.Fragment>
                         );
                       })}
@@ -6146,9 +6152,9 @@ function App() {
                                        onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
                               </div>
                             ) : (
-                              <Dropzone camera
+                              <Dropzone
                                         title="Drag & drop your logo here" subtitle="or choose a file from your device"
-                                        chooseLabel="Choose File" cameraLabel="Take photo"
+                                        chooseLabel="Choose file"
                                         onFiles={(files) => setLogoFile(files[0] || null)} />
                             )}
                             <InfoNote tone="green" icon={ShieldCheck} title="Logo Guidelines"
@@ -6278,7 +6284,7 @@ function App() {
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'flex-end' }}>
                     {editingAppointment && appointmentForm.status !== 'CANCELLED' && (
                       <button type="button" className="btn-secondary" disabled={savingAppointment}
-                              style={{ marginRight: 'auto', color: '#c0392b', borderColor: 'rgba(192,57,43,0.3)' }}
+                              style={{ marginRight: 'auto', color: 'var(--danger-color)', borderColor: 'rgba(192,57,43,0.3)' }}
                               onClick={handleCancelAppointment}>
                         {t('dashboard.cancelAppointment', 'Cancel appointment')}
                       </button>
@@ -6788,13 +6794,13 @@ function App() {
       {view === 'wizard' && (
         <div className="wizard-outer-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', backgroundColor: '#fcfcfd' }}>
           {/* Brand header & stepper */}
-          <div className="wizard-header-container" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: '#fff', padding: '16px 24px' }}>
+          <div className="wizard-header-container" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--surface-color)', padding: '16px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', maxWidth: '1280px', margin: '0 auto 16px' }}>
               <div className="brand-logo" style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '1px', color: 'var(--text-primary)' }}>SCALEEZY</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 <span style={{ fontSize: '12.5px',
                                color: draftSaveState === 'conflict' || draftSaveState === 'failed'
-                                      ? '#c0392b' : 'var(--text-secondary)' }}>
+                                      ? 'var(--danger-color)' : 'var(--text-secondary)' }}>
                   {draftSaveState === 'idle' && t('wizard.autosaveOn', 'Autosaves every minute')}
                   {draftSaveState === 'saving' && t('wizard.saving')}
                   {draftSaveState === 'saved' && <>{t('wizard.saved')} · {t('wizard.autosaveOn', 'Autosaves every minute')}</>}
@@ -6837,9 +6843,9 @@ function App() {
                         width: '28px',
                         height: '28px',
                         borderRadius: '50%',
-                        backgroundColor: isCompleted ? '#107c41' : (isActive ? '#0f291e' : '#f1f3f5'),
-                        color: isCompleted || isActive ? '#fff' : 'var(--text-secondary)',
-                        border: isActive ? '2px solid #107c41' : 'none',
+                        backgroundColor: isCompleted ? 'var(--primary-color)' : (isActive ? 'var(--selected-bg)' : 'var(--surface-inset)'),
+                        color: isCompleted ? 'var(--primary-foreground)' : isActive ? 'var(--selected-fg)' : 'var(--text-secondary)',
+                        border: isActive ? '2px solid var(--primary-color)' : 'none',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -6860,7 +6866,7 @@ function App() {
                       <div style={{
                         height: '2px',
                         flex: 1,
-                        backgroundColor: currentStep > stepNum ? '#107c41' : '#e0e0e0',
+                        backgroundColor: currentStep > stepNum ? 'var(--primary-color)' : 'var(--border-color)',
                         margin: '0 -20px',
                         transform: 'translateY(-20px)',
                         zIndex: 1
@@ -6897,18 +6903,7 @@ function App() {
                     </div>
                     <div className="photo-upload-actions">
                       <label className="upload-btn-label">
-                        📷 {t('common.takePhoto', 'Take photo')}
-                        <input
-                          type="file"
-                          id="profile-picker-camera"
-                          accept="image/*"
-                          capture="environment"
-                          style={{ display: 'none' }}
-                          onChange={handleProfilePhotoChange}
-                        />
-                      </label>
-                      <label className="upload-btn-label">
-                        {t('common.chooseFromGallery', 'Choose from gallery')}
+                        <Camera size={14} /> {t('common.addPhoto', 'Add photo')}
                         <input
                           type="file"
                           id="profile-picker"
@@ -7575,7 +7570,7 @@ function App() {
                   <p className="page-subtitle">Designs, fabrics and accessories for every garment in this order. Edit any of them and come back — nothing chosen is lost.</p>
                 </div>
 
-                <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: '#107c41', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Check size={16} />
                   <span>Check each garment below, then Confirm &amp; Continue to add the customer's details.</span>
                 </div>
@@ -7637,7 +7632,7 @@ function App() {
                             }}
                           >
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                              <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(tailorItem.name)}`} alt={tailorItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={`https://api.dicebear.com/7.x/initials/svg?backgroundColor=e6f1c8&textColor=1f2a06&seed=${encodeURIComponent(tailorItem.name)}`} alt={tailorItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                             <div className="tailor-info" style={{ flex: 1 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -7690,7 +7685,7 @@ function App() {
                             }}
                           >
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                              <img src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(tailorItem.name)}`} alt={tailorItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={`https://api.dicebear.com/7.x/initials/svg?backgroundColor=e6f1c8&textColor=1f2a06&seed=${encodeURIComponent(tailorItem.name)}`} alt={tailorItem.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             </div>
                             <div className="tailor-info" style={{ flex: 1 }}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -7802,7 +7797,7 @@ function App() {
                       <p className="page-subtitle">Review the selections and order details. Once confirmed, it goes to the tailor and the customer is kept updated at every step.</p>
                     </div>
 
-                    <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: '#107c41', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Check size={16} />
                       <span>All set — ready to create this order.</span>
                     </div>
@@ -7826,7 +7821,7 @@ function App() {
                           ) : designPreviews.length > 0 ? (
                             <img src={designPreviews[0]} alt="Garment" style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--border-color)' }} />
                           ) : (
-                            <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={20} /></div>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={20} /></div>
                           )}
                           <div>
                             <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 600 }}>
@@ -7845,7 +7840,7 @@ function App() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           {fabricTab === 'boutique' && selectedFabric ? (
                             <>
-                              <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#f1f3f5', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+                              <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--surface-inset)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
                                 <img src={resolveMediaUrl(selectedFabric.image_url)} alt="Fabric" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               </div>
                               <div>
@@ -7865,7 +7860,7 @@ function App() {
                             </>
                           ) : (
                             <>
-                              <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}><Upload size={20} /></div>
+                              <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-color)' }}><Upload size={20} /></div>
                               <div>
                                 <span style={{ fontSize: '9px', textTransform: 'uppercase', color: 'var(--text-secondary)', display: 'block', fontWeight: 600 }}>FABRIC</span>
                                 <span style={{ fontSize: '13px', fontWeight: 600 }}>Customer Fabric</span>
@@ -7885,7 +7880,7 @@ function App() {
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#0f291e', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                          <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
                             <Sparkles size={20} />
                           </div>
                           <div>
@@ -7980,14 +7975,14 @@ function App() {
                           <div style={{ flex: 1, minWidth: '150px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <span style={{ fontSize: '15px', fontWeight: 600 }}>{selectedTailor.name}</span>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#107c41', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px' }}><Check size={8} /></span>
+                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: 'var(--primary-color)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '8px' }}><Check size={8} /></span>
                             </div>
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block' }}>{selectedTailor.specialty} • 12+ Years Experience</span>
                             <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
                               {getTailorTags(selectedTailor.name).map((tag, idx) => (
-                                <span key={idx} style={{ fontSize: '9px', backgroundColor: '#f1f3f5', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>{tag}</span>
+                                <span key={idx} style={{ fontSize: '9px', backgroundColor: 'var(--surface-inset)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>{tag}</span>
                               ))}
-                              <span style={{ fontSize: '9px', backgroundColor: '#f1f3f5', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>+2</span>
+                              <span style={{ fontSize: '9px', backgroundColor: 'var(--surface-inset)', padding: '2px 6px', borderRadius: '4px', color: 'var(--text-secondary)' }}>+2</span>
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
@@ -8054,7 +8049,7 @@ function App() {
                         <div>
                           <span style={{ fontSize: '9px', color: 'var(--text-secondary)', display: 'block', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>COMMUNICATION</span>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <MessageSquare size={16} style={{ color: '#107c41', flexShrink: 0, marginTop: '2px' }} />
+                            <MessageSquare size={16} style={{ color: 'var(--brand-link)', flexShrink: 0, marginTop: '2px' }} />
                             <div>
                               <span style={{ fontSize: '12px', fontWeight: 600, display: 'block' }}>WhatsApp</span>
                               <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block' }}>{formatMobile(customerForm.mobile_number)}</span>
@@ -8105,7 +8100,7 @@ function App() {
                       <p className="page-subtitle">Record how the customer is paying: in full now, or part now and the rest after the design is completed.</p>
                     </div>
 
-                    <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: '#107c41', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div className="accent-banner" style={{ margin: '4px 0 16px', backgroundColor: '#e2f5ec', borderColor: '#c3ebdb', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <ShieldCheck size={16} />
                       <span>Order and payment details are stored securely with Scaleezy.</span>
                     </div>
@@ -8120,7 +8115,7 @@ function App() {
                           ) : designPreviews.length > 0 ? (
                             <img src={designPreviews[0]} alt="Garment" style={{ width: '48px', height: '48px', borderRadius: '6px', objectFit: 'cover' }} />
                           ) : (
-                            <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={20} /></div>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '6px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShoppingBag size={20} /></div>
                           )}
                           <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                             <div>
@@ -8175,7 +8170,7 @@ function App() {
                         <div 
                           onClick={() => setPaymentOption('full')}
                           style={{
-                            border: `2px solid ${paymentOption === 'full' ? '#0f291e' : 'var(--border-color)'}`,
+                            border: `2px solid ${paymentOption === 'full' ? 'var(--text-primary)' : 'var(--border-color)'}`,
                             borderRadius: '8px',
                             padding: '20px',
                             cursor: 'pointer',
@@ -8187,12 +8182,12 @@ function App() {
                             <div>
                               <span style={{ fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 Pay Now (Full Payment)
-                                <span style={{ fontSize: '9px', backgroundColor: '#e2f5ec', color: '#107c41', padding: '2px 6px', borderRadius: '4px' }}>Recommended</span>
+                                <span style={{ fontSize: '9px', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', padding: '2px 6px', borderRadius: '4px' }}>Recommended</span>
                               </span>
                               <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px' }}>Pay the full amount now and we'll start your design & creation immediately.</p>
                             </div>
-                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid #0f291e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {paymentOption === 'full' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0f291e' }}></div>}
+                            <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {paymentOption === 'full' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--text-primary)' }}></div>}
                             </div>
                           </div>
                           
@@ -8202,15 +8197,15 @@ function App() {
 
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'var(--text-secondary)' }}>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: '#107c41', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
+                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
                               Priority design & production
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'var(--text-secondary)' }}>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: '#107c41', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
+                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
                               Faster delivery
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', color: 'var(--text-secondary)' }}>
-                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: '#107c41', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
+                              <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}><Check size={8} /></span>
                               Full peace of mind
                             </div>
                           </div>
@@ -8220,7 +8215,7 @@ function App() {
                         <div 
                           onClick={() => setPaymentOption('partial')}
                           style={{
-                            border: `2px solid ${paymentOption === 'partial' ? '#0f291e' : 'var(--border-color)'}`,
+                            border: `2px solid ${paymentOption === 'partial' ? 'var(--text-primary)' : 'var(--border-color)'}`,
                             borderRadius: '8px',
                             padding: '20px',
                             cursor: 'pointer',
@@ -8234,7 +8229,7 @@ function App() {
                               <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '4px' }}>Take part payment now to confirm the order. The rest is due after the design is completed.</p>
                             </div>
                             <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {paymentOption === 'partial' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0f291e' }}></div>}
+                              {paymentOption === 'partial' && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--text-primary)' }}></div>}
                             </div>
                           </div>
 
@@ -8252,7 +8247,7 @@ function App() {
                                   onClick={(e) => e.stopPropagation()}
                                 />
                               </div>
-                              <span style={{ fontSize: '8px', backgroundColor: '#f1f3f5', color: 'var(--text-secondary)', padding: '2px 4px', borderRadius: '2px' }}>Non-refundable</span>
+                              <span style={{ fontSize: '8px', backgroundColor: 'var(--surface-inset)', color: 'var(--text-secondary)', padding: '2px 4px', borderRadius: '2px' }}>Non-refundable</span>
                             </div>
                           </div>
 
@@ -8267,7 +8262,7 @@ function App() {
                                   the owner reads back to the customer. */}
                               <span style={{ fontSize: '16px', fontWeight: 700 }}>{formatMoney(Math.max(0, getTotalPrice() - (Number(advancePaymentAmount) || 0)))}</span>
                             </div>
-                            <span style={{ fontSize: '8px', backgroundColor: '#e2f5ec', color: '#107c41', padding: '2px 4px', borderRadius: '2px', fontWeight: 600 }}>DUE AT DELIVERY</span>
+                            <span style={{ fontSize: '8px', backgroundColor: '#e2f5ec', color: 'var(--brand-link)', padding: '2px 4px', borderRadius: '2px', fontWeight: 600 }}>DUE AT DELIVERY</span>
                           </div>
                         </div>
                       </div>
@@ -8390,7 +8385,7 @@ function App() {
                       <span className="price-display">−{formatMoney(quotePrices.discount)}</span>
                     </div>
                   )}
-                  <div className="summary-item-row" style={{ borderTop: '1px solid #f1f3f5', paddingTop: '10px' }}>
+                  <div className="summary-item-row" style={{ borderTop: '1px solid var(--surface-inset)', paddingTop: '10px' }}>
                     <span>{t('wizard.subtotal', 'Subtotal')}</span>
                     <span className="price-display">{formatMoney(getSubtotal())}</span>
                   </div>
@@ -8501,7 +8496,7 @@ function App() {
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         Total Amount <HelpCircle size={12} style={{ color: 'var(--text-secondary)' }} />
                       </span>
-                      <span className="price-display total" style={{ color: '#107c41', fontSize: '20px', fontWeight: 700 }}>
+                      <span className="price-display total" style={{ color: 'var(--brand-link)', fontSize: '20px', fontWeight: 700 }}>
                         {formatMoney(getTotalPrice())}
                       </span>
                     </div>
@@ -8509,15 +8504,15 @@ function App() {
                 </div>
 
                 <div className="sidebar-card" style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#fcfdfd', borderColor: '#e2e8f0' }}>
-                  <ShieldCheck size={20} style={{ color: '#107c41', flexShrink: 0 }} />
+                  <ShieldCheck size={20} style={{ color: 'var(--brand-link)', flexShrink: 0 }} />
                   <div>
                     <h5 style={{ fontSize: '12px', fontWeight: 600 }}>Secure Payments</h5>
                     <p style={{ fontSize: '10px', color: 'var(--text-secondary)', marginTop: '2px' }}>Your payment details are safe with us.</p>
                     <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#1a1f36', backgroundColor: '#eaecef', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>VISA</span>
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#f79e1b', backgroundColor: '#eaecef', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>MC</span>
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#0070d2', backgroundColor: '#eaecef', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>AMEX</span>
-                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#003087', backgroundColor: '#eaecef', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>RUPAY</span>
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#1a1f36', backgroundColor: 'var(--border-color)', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>VISA</span>
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#f79e1b', backgroundColor: 'var(--border-color)', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>MC</span>
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#0070d2', backgroundColor: 'var(--border-color)', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>AMEX</span>
+                      <span style={{ fontSize: '8px', fontWeight: 700, color: '#003087', backgroundColor: 'var(--border-color)', padding: '2px 4px', borderRadius: '2px', letterSpacing: '0.5px' }}>RUPAY</span>
                     </div>
                   </div>
                 </div>
@@ -8527,21 +8522,21 @@ function App() {
                     <h5 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '16px' }}>What happens next?</h5>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       <div style={{ display: 'flex', gap: '12px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Check size={12} /></div>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Check size={12} /></div>
                         <div>
                           <h6 style={{ fontSize: '11px', fontWeight: 600 }}>Order Confirmation</h6>
                           <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>You'll receive confirmation on WhatsApp & Email.</p>
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '12px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={12} /></div>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><User size={12} /></div>
                         <div>
                           <h6 style={{ fontSize: '11px', fontWeight: 600 }}>Tailor Notified</h6>
                           <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>We'll share details with {selectedTailor?.name || 'Rohit Mehra'} to start the magic.</p>
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '12px' }}>
-                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: '#f1f3f5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Scissors size={12} /></div>
+                        <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Scissors size={12} /></div>
                         <div>
                           <h6 style={{ fontSize: '11px', fontWeight: 600 }}>Design & Creation</h6>
                           <p style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Your garment will be crafted with care and regular updates.</p>
@@ -8694,7 +8689,7 @@ function App() {
             <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => { setView('dashboard'); fetchDashboardAndConfig(); }}>
               Back to Dashboard
             </button>
-            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center', backgroundColor: '#0f291e' }} onClick={() => setShowInvoiceModal(true)}>
+            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center', backgroundColor: 'var(--text-primary)' }} onClick={() => setShowInvoiceModal(true)}>
               <FileText size={18} /> View & Print Invoice
             </button>
           </div>
@@ -8741,7 +8736,7 @@ function App() {
           padding: '20px'
         }}>
           <div className="invoice-modal-content" style={{
-            backgroundColor: '#fff',
+            backgroundColor: 'var(--surface-color)',
             borderRadius: '12px',
             width: '100%',
             maxWidth: '700px',
@@ -8816,7 +8811,7 @@ function App() {
               </button>
               <button 
                 className="btn-primary" 
-                style={{ backgroundColor: '#0f291e' }}
+                style={{ backgroundColor: 'var(--text-primary)' }}
                 onClick={() => window.print()}
               >
                 Print Invoice
@@ -9263,9 +9258,9 @@ function App() {
                                  onRemove={() => setStageReviewImage(null)} />
                     </div>
                   ) : (
-                    <Dropzone compact camera
-                              title="Drag & drop an image here" subtitle="or choose a file"
-                              chooseLabel="Choose file" cameraLabel="Take photo"
+                    <Dropzone compact
+                              title="Drag & drop an image here" subtitle="or choose from your device"
+                              chooseLabel="Add photo"
                               onFiles={(files) => setStageReviewImage(files[0])} />
                   )}
                 </div>
@@ -9438,7 +9433,7 @@ function App() {
                   <button 
                     type="button" 
                     className="btn-primary" 
-                    style={{ padding: '8px 16px', fontSize: '12px', backgroundColor: '#107c41' }}
+                    style={{ padding: '8px 16px', fontSize: '12px', backgroundColor: 'var(--primary-color)' }}
                     onClick={() => {
                       setShowDrapingModal(false);
                     }}

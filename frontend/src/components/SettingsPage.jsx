@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
 import { InvoiceTemplateSelector } from './invoice/InvoiceTemplateSelector.jsx';
-import { Globe, ShieldCheck, CheckCircle2, Building, User, Clock, Info, MessageSquare, RotateCw, RefreshCw } from 'lucide-react';
+import { Globe, ShieldCheck, CheckCircle2, Building, User, Clock, Info, MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor } from 'lucide-react';
+import { getColorMode, setColorMode } from '../theme.js';
 import { api } from '../services/api.js';
 
 // Was a generic SaaS settings page on its own palette (indigo/green/amber
@@ -34,6 +35,12 @@ export const SettingsPage = ({
 }) => {
   const { t } = useLanguage();
   const [resetting, setResetting] = useState(false);
+  const [mode, setMode] = useState(getColorMode);
+  const modes = [
+    ['light', t('settingsPage.modeLight', 'Light'), Sun],
+    ['dark', t('settingsPage.modeDark', 'Dark'), Moon],
+    ['system', t('settingsPage.modeDefault', 'Default'), Monitor],
+  ];
   // The linked WhatsApp line is the boutique's own: only the owner sees it,
   // and only the owner's screen polls for it.
   const isOwner = !currentUser?.role || currentUser?.role === 'Owner';
@@ -99,6 +106,38 @@ export const SettingsPage = ({
               {t('settingsPage.selectLanguageLabel')}
             </div>
             <LanguageSelector />
+          </div>
+        </div>
+
+        {/* Appearance: light, dark, or follow the device. Which design system the
+            boutique runs on is set by the platform (console → Appearance); the
+            person only picks the mode, and the pick stays on this device. */}
+        <div className="settings-card ui-card">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+            <div style={iconChip}><SunMoon size={18} /></div>
+            <div>
+              <h2 className="ui-section-title">{t('settingsPage.appearanceTitle', 'Appearance')}</h2>
+              <p className="ui-section-sub">{t('settingsPage.appearanceDesc', 'Light or dark, for this device.')}</p>
+            </div>
+          </div>
+
+          <div style={{ marginTop: '20px' }}>
+            <div className="ui-eyebrow" style={{ marginBottom: '10px' }}>
+              {t('settingsPage.chooseModeLabel', 'Choose a look')}
+            </div>
+            <div className="at-seg" role="group" aria-label={t('settingsPage.appearanceTitle', 'Appearance')}>
+              {modes.map(([key, label, Icon]) => (
+                <button key={key} type="button" aria-pressed={mode === key}
+                        onClick={() => { setColorMode(key); setMode(key); }}>
+                  <Icon size={14} /> {label}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: '10px', marginBottom: 0 }}>
+              {mode === 'system'
+                ? t('settingsPage.modeDefaultHint', 'Follows the light or dark setting of your device.')
+                : t('settingsPage.savedNotice')}
+            </p>
           </div>
         </div>
 
@@ -221,11 +260,11 @@ export const SettingsPage = ({
                 <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                   {t('settingsPage.scanQrInstruction', 'Scan with WhatsApp on your mobile phone (Settings > Linked Devices):')}
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', background: '#ffffff', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'var(--surface-color)', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                   <img
                     src={whatsappStatus.qrCode}
                     alt="WhatsApp Link QR Code"
-                    style={{ width: '180px', height: '180px', objectFit: 'contain', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '6px', background: '#fff' }}
+                    style={{ width: '180px', height: '180px', objectFit: 'contain', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '6px', background: 'var(--surface-color)' }}
                   />
                   <div style={{ marginTop: '10px', fontSize: '12px', color: '#16A34A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <RotateCw size={14} className="spin" /> {t('settingsPage.waitingQrScan', 'Waiting for QR scan...')}
