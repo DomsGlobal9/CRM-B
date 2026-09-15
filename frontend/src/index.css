@@ -75,13 +75,13 @@
   --shadow-lg: 0 10px 15px -3px rgba(20, 18, 20, 0.12), 0 4px 6px -4px rgba(20, 18, 20, 0.10);
 
   /* ---- Theme-facing tokens the recipes read; each pack overrides these -- */
-  --shell-bg: #333D0C;          /* lime-900: sidebar, top bars, entry       */
+  --shell-bg: #0F261C;          /* brand dark green: sidebar, top bars, entry */
   --shell-fg: #F0EEE9;          /* Cloud Dancer on the shell                */
   --shell-logo: #B9D53C;        /* the wordmark in lime                     */
   --shell-active-bg: #F0EEE9;   /* the current page: a Cloud Dancer pill    */
   --shell-active-fg: #141214;   /*   with ink text, like the active tab     */
   --shell-accent: #B9D53C;      /* the bar beside it, and phone nav accents */
-  --shell-muted: #CDE272;       /* group labels: lime-300 on the shell      */
+  --shell-muted: #9FCBA8;       /* group labels: soft green on the shell    */
   --selected-bg: #141214;       /* the current step: ink, never the CTA     */
   --selected-fg: #FFFFFF;
   --secondary-hover-bg: #E6F1C8;      /* outline button on hover: soft fill */
@@ -5103,3 +5103,12 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .od-fact-select { width: 100%; margin-top: 2px; padding: 4px 26px 4px 0; border: 0; border-bottom: 1px dashed var(--border-strong); background: transparent; font: inherit; font-size: 16px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
 .od-delivery { background: var(--surface-2); border: 1px dashed var(--border-strong); border-radius: var(--radius-md); padding: var(--space-4); }
 .od-delivery-form { margin-top: 12px; }
+
+/* The wordmark: lime "scale", Cloud Dancer "ezy", on the green shell. */
+.portal-wordmark { display: block; height: 36px; width: auto; margin: 2px 12px 22px; }
+.portal-wordmark--sm { height: 24px; margin: 0; }
+.portal-wordmark--ink { margin: 0; }
+.portal-wordmark--auth { height: 36px; margin: 0 auto 6px; }
+@media (min-width: 1025px) {
+  .nav-collapsed .portal-wordmark { display: none; }
+}

@@ -3290,7 +3290,7 @@ function App() {
             Back to Home
           </button>
 
-          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: 'var(--shell-logo)', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
           <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
@@ -3502,7 +3502,7 @@ function App() {
             Back to Home
           </button>
 
-          <div className="auth-logo" style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: 'var(--shell-logo)', fontWeight: 700, letterSpacing: '2px', marginBottom: '4px' }}>SCALEEZY</div>
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
           {/* Auth Steps Tracker */}
@@ -3758,10 +3758,7 @@ function App() {
               >
                 {mobileNavOpen ? <X size={22} /> : <Menu size={22} />}
               </button>
-              <div>
-                <div className="portal-sidebar-logo" style={{ fontSize: '18px' }}>SCALEEZY</div>
-                <div className="portal-sidebar-logo-sub" style={{ fontSize: '9px' }}>THE ATELIER EXPERIENCE</div>
-              </div>
+              <img className="portal-wordmark portal-wordmark--sm" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
@@ -3799,10 +3796,7 @@ function App() {
           <aside className={`portal-sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
             <div className="portal-sidebar-header-desktop">
               <div className="portal-sidebar-brand">
-                <div>
-                  <div className="portal-sidebar-logo">SCALEEZY</div>
-                  <div className="portal-sidebar-logo-sub">THE ATELIER EXPERIENCE</div>
-                </div>
+                <img className="portal-wordmark" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
                 <div className="portal-sidebar-mark" aria-hidden="true">S</div>
                 <button type="button" className="portal-nav-toggle" onClick={toggleNav}
                         aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
@@ -6578,10 +6572,7 @@ function App() {
           {/* Reuse Sidebar for Portal Continuity */}
           <aside className={`portal-sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
             <div className="portal-sidebar-brand">
-              <div>
-                <div className="portal-sidebar-logo">SCALEEZY</div>
-                <div className="portal-sidebar-logo-sub">THE ATELIER EXPERIENCE</div>
-              </div>
+              <img className="portal-wordmark" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
               <div className="portal-sidebar-mark" aria-hidden="true">S</div>
               <button type="button" className="portal-nav-toggle" onClick={toggleNav}
                       aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
@@ -6719,7 +6710,7 @@ function App() {
           {/* Brand header & stepper */}
           <div className="wizard-header-container" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--surface-color)', padding: '16px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', maxWidth: '1280px', margin: '0 auto 16px' }}>
-              <div className="brand-logo" style={{ fontSize: '20px', fontWeight: 800, letterSpacing: '1px', color: 'var(--text-primary)' }}>SCALEEZY</div>
+              <img className="portal-wordmark portal-wordmark--ink" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" style={{ height: 28 }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                 {serviceType !== 'alter' && (
                   <span style={{ fontSize: '12.5px',
