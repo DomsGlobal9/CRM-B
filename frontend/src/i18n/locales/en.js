@@ -633,7 +633,7 @@ const en = {
     women: "Women",
     men: "Men",
     kids: "Kids",
-    dressesInOrder: "Dresses in this Order",
+    dressesInOrder: "Choose from our design",
     dressesInOrderSub: "Pick every garment being stitched. Each one gets its own measurements and options.",
     noGarmentChosen: "No garment chosen yet.",
     patternStyle: "Pattern Style",

@@ -147,7 +147,7 @@ function WebResultCard({ hit, kept, keeping, onKeep, sourceUrl, title }) {
  *  has enlarged a photograph to decide can act on the decision without closing
  *  it first.
  */
-function Lightbox({ items, index, onIndexChange, onClose, isSelected, onToggle }) {
+export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onToggle }) {
   const item = items[index];
   const many = items.length > 1;
 
