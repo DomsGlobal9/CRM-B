@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BarChart3, Clock, FileText, Image as ImageIcon, IndianRupee, Layers, Link as LinkIcon,
-  BarChart3, Clock, FileText, Image as ImageIcon, IndianRupee, Layers, Link as LinkIcon,
   PlayCircle, Plus, Save, Shirt, Sparkles, Type, User,
 } from 'lucide-react';
 
@@ -10,7 +9,6 @@ import TemplateForm from '../catalog/TemplateForm';
 import DesignCataloguePicker from './DesignCataloguePicker';
 import { describePath, useDesignCatalogue } from './designCatalogue';
 import { getSection, pruneHidden } from '../../services/templates';
-import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
 import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
 
 /**
@@ -87,7 +85,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
 
   // Object URLs are revoked on unmount; without that every re-pick leaks one.
   useEffect(() => () => Object.values(partPreviews).flat().forEach(URL.revokeObjectURL),
-            [partPreviews]);
+    [partPreviews]);
 
   const styleSection = useMemo(
     () => (template ? getSection(template, 'style') : null), [template]);
@@ -239,7 +237,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           </InfoNote>
           <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
           <button type="button" className="btn-primary" onClick={submit} disabled={saving}
-                  style={{ opacity: saving ? 0.6 : 1 }}>
+            style={{ opacity: saving ? 0.6 : 1 }}>
             <Save size={16} /> {saving ? 'Uploading…' : 'Add to library'}
           </button>
         </>
@@ -250,7 +248,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           So the three are asked in that order, and the name is suggested from
           the option chosen until the owner types one of their own. */}
       <FormSection icon={Shirt} tone="green" title="About this design"
-                   subtitle="Which garment, where it is filed, and what to call it.">
+        subtitle="Which garment, where it is filed, and what to call it.">
         <div className="at-form-grid at-form-grid--3">
           <Field label="Garment" icon={Shirt}>
             <select className="form-control" value={form.template_key} onChange={changeGarment}>
@@ -271,10 +269,10 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
             }}
           />
           <Field label="Design Name" required icon={Type}
-                 hint={!titleTouched && cataloguePayload ? 'Suggested from the catalogue — edit it as you like.' : undefined}>
+            hint={!titleTouched && cataloguePayload ? 'Suggested from the catalogue — edit it as you like.' : undefined}>
             <input className="form-control" value={form.title}
-                   onChange={(e) => { setTitleTouched(true); set('title')(e); }}
-                   placeholder="e.g. Hand-embroidered bridal lehenga" />
+              onChange={(e) => { setTitleTouched(true); set('title')(e); }}
+              placeholder="e.g. Hand-embroidered bridal lehenga" />
           </Field>
         </div>
       </FormSection>
@@ -299,12 +297,11 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           <div style={{ flex: '1 1 260px', maxWidth: '360px', display: 'flex' }}>
             <div style={{ flex: 1 }}>
               <Dropzone
-                compact multiple
-                title="Drag & drop photos here" subtitle="or choose from your device" chooseLabel="Add photos"
-                hint="JPG, PNG (Max 5MB each)"
                 compact multiple camera
-                title="Drag & drop photos here" subtitle="or add from your device"
-                chooseLabel="Choose Photos" cameraLabel="Take Photo"
+                title="Drag & drop photos here"
+                subtitle="or add from your device"
+                chooseLabel="Choose Photos"
+                cameraLabel="Take Photo"
                 hint="JPG, PNG (Max 5MB each)"
                 onFiles={(files) => pickFiles(activePart)({ target: { files, value: '' } })}
               />
@@ -327,29 +324,29 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           </Field>
           <Field label="Collection" icon={Layers}>
             <select className="form-control" value={form.collection} onChange={set('collection')}
-                    disabled={!form.designer_ref}>
+              disabled={!form.designer_ref}>
               <option value="">{form.designer_ref ? 'None' : 'Pick a designer first'}</option>
               {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </Field>
           <Field label="Price (₹)" icon={IndianRupee}>
             <input className="form-control" type="number" value={form.estimated_price}
-                   onChange={set('estimated_price')} placeholder="0" />
+              onChange={set('estimated_price')} placeholder="0" />
           </Field>
           <Field label="Difficulty" icon={BarChart3}>
             {select('difficulty', [['SIMPLE', 'Simple'], ['MODERATE', 'Moderate'], ['COMPLEX', 'Complex']], 'Not set')}
           </Field>
           <Field label="Stitch Time (hours)" icon={Clock}>
             <input className="form-control" type="number" step="0.5" value={form.stitch_hours}
-                   onChange={set('stitch_hours')} placeholder="e.g. 18" />
+              onChange={set('stitch_hours')} placeholder="e.g. 18" />
           </Field>
           <Field label="Reference URL" icon={LinkIcon}>
             <input className="form-control" value={form.source_url} onChange={set('source_url')}
-                   placeholder="Pinterest / Google link" />
+              placeholder="Pinterest / Google link" />
           </Field>
           <Field label="Video" icon={PlayCircle}>
             <input className="form-control" value={form.video_url} onChange={set('video_url')}
-                   placeholder="Optional video URL" />
+              placeholder="Optional video URL" />
           </Field>
         </div>
 
@@ -357,10 +354,10 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           <div className="at-field-inline">
             <div className="at-field-control" style={{ maxWidth: '260px', flex: '1 1 200px' }}>
               <input className="form-control" value={newCollection} onChange={(e) => setNewCollection(e.target.value)}
-                     placeholder="New collection name" />
+                placeholder="New collection name" />
             </div>
             <button type="button" className="btn-secondary at-btn-sm"
-                    onClick={addCollection} disabled={!newCollection.trim() || addingCollection}>
+              onClick={addCollection} disabled={!newCollection.trim() || addingCollection}>
               <Plus size={12} /> {addingCollection ? 'Adding…' : 'Add collection'}
             </button>
           </div>
@@ -368,10 +365,10 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
       </FormSection>
 
       <FormSection icon={FileText} tone="green" title="Description"
-                   subtitle="Add details about the design, fabric, work, or any other notes.">
+        subtitle="Add details about the design, fabric, work, or any other notes.">
         <div className="at-field-control">
           <textarea className="form-control" rows={3} value={form.description} onChange={set('description')}
-                    placeholder="e.g. Hand-embroidered with gold thread, georgette base, traditional motif…" />
+            placeholder="e.g. Hand-embroidered with gold thread, georgette base, traditional motif…" />
         </div>
         <div className="at-field-counter">{form.description.length} characters</div>
       </FormSection>
@@ -379,15 +376,17 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
       {/* The garment's own style options, straight from its template. */}
       {styleSection && (
         <FormSection icon={Sparkles} tone="amber" title={`${template.name} style tags`}
-                     subtitle="Tagged with exactly the values an order for this garment can hold.">
+          subtitle="Tagged with exactly the values an order for this garment can hold.">
           <TemplateForm template={template} section="style" values={specTags}
-                        onChange={(values) => setSpecTags(pruneHidden(template, values))} />
+            onChange={(values) => setSpecTags(pruneHidden(template, values))} />
         </FormSection>
       )}
 
       {error && (
-        <div role="alert" style={{ fontSize: 'var(--text-sm)', color: 'var(--danger-color)', background: 'var(--danger-bg)',
-                                   border: '1px solid var(--danger-color)', borderRadius: 'var(--radius-md)', padding: '10px 12px' }}>
+        <div role="alert" style={{
+          fontSize: 'var(--text-sm)', color: 'var(--danger-color)', background: 'var(--danger-bg)',
+          border: '1px solid var(--danger-color)', borderRadius: 'var(--radius-md)', padding: '10px 12px'
+        }}>
           {error}
         </div>
       )}
