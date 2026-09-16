@@ -12,7 +12,7 @@ from apps.catalog.models import GarmentJob, GarmentTemplate
 from apps.catalog.services import sync_global_templates
 from crm_api.models import Customer, Order, Tailor
 
-from .models import Designer, DesignAsset, DesignAssignment
+from .models import Designer, DesignAsset, DesignAssignment, DesignBoard, DesignBoardItem
 
 
 class AssignmentTestCase(TenantTestCase):
@@ -333,6 +333,35 @@ class ReviewTests(AssignmentTestCase):
         self.assertIsNotNone(assignment.reviewed_at)
         self.assertEqual(self.lehenga_job.design_assignment.design_id, design.id)
 
+        board = DesignBoard.objects.get(order=self.order)
+        self.assertEqual(board.status, DesignBoard.STATUS_APPROVED)
+        self.assertEqual(board.approved_by_id, self.owner.id)
+        selected = board.selected_item
+        self.assertEqual(selected.source_ref, str(design.id))
+        self.assertEqual(selected.title, design.title)
+        self.assertEqual(selected.garment_job_id, self.lehenga_job.id)
+
+    def test_the_tailor_brief_shows_the_approved_designer_asset(self):
+        assignment, design = self._submitted()
+        tailor = self._staff_client("Tailor", "stitcher@assign.test")
+        self.order.tailor = Tailor.objects.get(user__username="stitcher@assign.test")
+        self.order.save(update_fields=['tailor'])
+
+        self._review(assignment.id, 'approve')
+        response = tailor.get(reverse('design-board-list') + '?order_id=' + self.order.order_id)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['design']['title'], design.title)
+
+    def test_approving_twice_keeps_one_selected_design_for_the_garment(self):
+        assignment, design = self._submitted()
+        self._review(assignment.id, 'approve')
+        self._review(assignment.id, 'approve')
+        selected = DesignBoardItem.objects.filter(
+            board__order=self.order, garment_job=self.lehenga_job, part='overall', is_selected=True)
+        self.assertEqual(selected.count(), 1)
+        self.assertEqual(selected.get().source_ref, str(design.id))
+
     def test_requesting_changes_keeps_the_design_but_reopens_the_work(self):
         assignment, design = self._submitted()
         self._review(assignment.id, 'changes', note="Border too thin.")
@@ -340,6 +369,7 @@ class ReviewTests(AssignmentTestCase):
         self.assertEqual(assignment.status, DesignAssignment.Status.CHANGES_REQUESTED)
         self.assertEqual(assignment.design_id, design.id)
         self.assertEqual(assignment.review_note, "Border too thin.")
+        self.assertFalse(DesignBoard.objects.filter(order=self.order).exists())
 
     def test_a_resubmission_after_changes_is_accepted(self):
         assignment, _ = self._submitted()

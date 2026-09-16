@@ -8,11 +8,14 @@ Two rules, kept apart on purpose:
 Roles are the ones the product actually has: 'Owner' and 'Designer' from
 core.roles, plus the nine strings in Tailor.ROLE_CHOICES. There is no
 front-desk role in this product; counter work is the Owner's and the Master's,
-so those two are the roles that take a garment in and hand it back.
+so those two are the roles that quote, approve and hand a garment back. Taking
+one IN is the exception: any staff login may do that, so whoever the customer
+meets at the door can log the return.
 """
 
 from apps.alterations.models import AlterationStatus, AlterationType
 from core.roles import DESIGNER, OWNER
+from crm_api.models import Tailor
 
 
 class TransitionError(ValueError):
@@ -92,6 +95,14 @@ QC_ROLES = COUNTER_ROLES | {'QC Master'}
 #: to be the person the alteration is actually assigned to; see
 #: `assigned_tailor_ids` below.
 WORK_ROLES = frozenset({OWNER}) | PRODUCTION_ROLES
+
+#: Who may take a garment in. Every staff login: whoever is at the door when
+#: the customer arrives logs the return, and the counter takes over from
+#: inspection onwards. Read off the roster's own role list so a role added
+#: there (Karigar, Packaging Staff, QC Staff...) is never refused at the door.
+#: check_role already refuses Designer and None.
+INTAKE_ROLES = COUNTER_ROLES | PRODUCTION_ROLES | frozenset(
+    role for role, _label in Tailor.ROLE_CHOICES)
 
 
 #: Roles permitted to move an alteration *into* each status.

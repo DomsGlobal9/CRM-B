@@ -7,7 +7,8 @@ from datetime import timedelta
 from django.contrib.auth.models import User
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.db.models import Count, F, Q, Sum
+from django.db import transaction
+from django.db.models import Count, F, Min, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, serializers, status, viewsets, views
@@ -1051,10 +1052,14 @@ class DesignAssignmentViewSet(viewsets.ModelViewSet):
         assignment.review_note = request.data.get('note', '')
         assignment.reviewed_by = request.user if request.user.is_authenticated else None
         assignment.reviewed_at = timezone.now()
-        assignment.save()
 
         job = assignment.garment_job
         approved = assignment.status == DesignAssignment.Status.APPROVED
+        with transaction.atomic():
+            assignment.save()
+            if approved:
+                _put_approved_design_on_board(assignment, request.user)
+
         _log(request, assignment,
              "DESIGN_APPROVED" if approved else "DESIGN_CHANGES_REQUESTED",
              f"Design {'approved' if approved else 'sent back'}: {job.template.name}",
@@ -1065,6 +1070,39 @@ class DesignAssignmentViewSet(viewsets.ModelViewSet):
               "note": assignment.review_note},
              entity_type="DesignAssignment")
         return Response(self.get_serializer(assignment).data)
+
+
+def _put_approved_design_on_board(assignment, user):
+    """Make the approved asset the order's selected design and approve the board.
+
+    A tailor only ever reads the order's board (visible_boards hides anything
+    not APPROVED, and the brief renders board.selected_item), so an approval
+    that stayed on the assignment would never reach the stitching floor.
+    """
+    job = assignment.garment_job
+    asset = assignment.design
+    if job.order_id is None:
+        return
+    board, _ = DesignBoard.objects.get_or_create(
+        order=job.order,
+        defaults={'customer': job.order.customer,
+                  'created_by': user if user.is_authenticated else None,
+                  'status': DesignBoard.STATUS_SHORTLISTED},
+    )
+    # Re-approving must replace, not duplicate: the constraint allows one
+    # selected row per (board, garment, part).
+    board.items.filter(garment_job=job, part='overall', is_selected=True).update(is_selected=False)
+    lowest = board.items.aggregate(Min('position'))['position__min']
+    DesignBoardItem.objects.create(
+        board=board, garment_job=job, part='overall',
+        source='designer', source_ref=str(asset.id),
+        title=asset.title, image_url=asset.image_url, source_url=asset.source_url or '',
+        is_selected=True,
+        # selected_item is ordered by position with no garment filter, so the
+        # new row has to sort ahead of whatever the board already holds.
+        position=0 if lowest is None else lowest - 1,
+    )
+    services.approve_board(board, user)
 
 
 class CustomerDesignViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,

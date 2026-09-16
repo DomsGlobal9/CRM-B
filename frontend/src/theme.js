@@ -8,7 +8,7 @@
  * renders so the first paint is already in the right theme.
  */
 export const DESIGN_SYSTEMS = [
-  { key: 'scaleezy', label: 'Scaleezy', hint: 'Lime on Cloud Dancer, with a deep-olive shell.' },
+  { key: 'scaleezy', label: 'Scaleezy', hint: 'Lime on Cloud Dancer, with a near-black shell.' },
   { key: 'atelier', label: 'Atelier', hint: 'Warm paper, forest green and brass.' },
 ];
 export const COLOR_MODES = ['light', 'dark', 'system'];

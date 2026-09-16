@@ -17,7 +17,8 @@ import { parseAdjustments } from './adjustments';
  * avoids drawing a button that would be refused.
  */
 
-const COUNTER_ROLES = ['Owner', 'Master'];
+// Intake is any counter login; the server refuses Designer logins itself.
+const canRaise = (user) => !user?.role || user.role !== 'Designer';
 
 const STATUS_TONE = {
   RECEIVED: '#6b7280', INSPECTION: '#3b82f6', PENDING_APPROVAL: '#f59e0b',
@@ -170,7 +171,7 @@ export default function OrderAlterations({ order, customerId, currentUser, onOpe
   const [error, setError] = useState(null);
 
   const canRequest = order.order_status === 'Delivered'
-    && (!currentUser?.role || COUNTER_ROLES.includes(currentUser.role));
+    && canRaise(currentUser);
 
   const isDelivered = order.order_status === 'Delivered';
 

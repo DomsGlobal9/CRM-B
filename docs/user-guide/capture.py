@@ -619,9 +619,9 @@ def probe_stage(page):
 
 
 STAGE_FLOW = [
-    "Fabric Confirmed", "Pattern Cutting", "Maggam Work", "Assigned to Tailor",
-    "Stitching In Progress", "Stitching Completed", "Hemming & Finishing",
-    "Pressing", "Master Quality Check",
+    "Fabric", "Pattern cutting", "Maggam work", "Handover to tailor",
+    "Stitching", "Stitching check", "Hemming & finishing",
+    "Pressing", "Master quality check",
 ]
 
 
@@ -638,8 +638,8 @@ def probe_stage2(page):
     email, password, *_ = ROLES["master"]
     login(page, email, password)
     page.wait_for_timeout(1500)
-    stage_buttons(page, "Fabric Confirmed")
-    stage_buttons(page, "Pattern Cutting")
+    stage_buttons(page, "Fabric")
+    stage_buttons(page, "Pattern cutting")
 
 
 def run_production(page):
@@ -667,9 +667,9 @@ def run_production(page):
     pathlib.Path("/tmp/master-after-stages.txt").write_text(page.inner_text("body"))
 
 
-TAILOR_STAGES = ["Stitching In Progress", "Stitching Completed"]
-MASTER_STAGES_LATE = ["Hemming & Finishing", "Pressing", "Master Quality Check",
-                      "Trial Scheduled", "Trial Completed", "Ready for Delivery"]
+TAILOR_STAGES = ["Stitching", "Stitching check"]
+MASTER_STAGES_LATE = ["Hemming & finishing", "Pressing", "Master quality check",
+                      "Trial booking", "Trial", "Delivery prep"]
 
 
 def advance(page, role, stages, folder, shots=()):
@@ -698,13 +698,13 @@ def advance(page, role, stages, folder, shots=()):
 
 def tailor_production(page):
     advance(page, "tailor", TAILOR_STAGES, "tailor",
-            {"Stitching In Progress": "72-tailor-stage-stitching"})
+            {"Stitching": "72-tailor-stage-stitching"})
     shot(page, "tailor", "73-tailor-stitching-done.png")
 
 
 def master_production_late(page):
     advance(page, "master", MASTER_STAGES_LATE, "master",
-            {"Master Quality Check": "58-master-quality-check"})
+            {"Master quality check": "58-master-quality-check"})
     shot(page, "master", "59-master-ready-for-delivery.png")
 
 
@@ -780,7 +780,7 @@ def deliver_order(page):
             page.wait_for_timeout(2000)
         except Exception as exc:
             print("  !!", action, str(exc)[:80])
-    page.locator("select").first.select_option(label="Delivered")
+    page.locator("select").first.select_option(label="Delivery")
     page.wait_for_timeout(2500)
     shot(page, "owner", "11e-owner-order-delivered.png")
     pathlib.Path("/tmp/delivered.txt").write_text(page.inner_text("body"))
