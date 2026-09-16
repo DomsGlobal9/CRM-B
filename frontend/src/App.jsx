@@ -23,8 +23,10 @@ const DesignLibrary = lazy(() => import('./features/designStudio/DesignLibrary')
 const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
 const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboard'));
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
+const CustomerDesigns = lazy(() => import('./features/designStudio/CustomerDesigns'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const AlterationsPanel = lazy(() => import('./features/alterations/AlterationsPanel'));
+const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 import TemplateForm from './features/catalog/TemplateForm';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
@@ -323,6 +325,22 @@ const STAFF_ROLES = [
   { value: 'QC Staff', label: 'QC Staff', hint: 'Runs the quality inspection.' },
 ];
 
+// Which garment templates the order wizard offers for a customer's gender.
+// Keyed by GarmentTemplate.key; a jacket is worn by everyone, so it sits in
+// both. "Other" (or no answer) shows the whole list.
+const MENS_GARMENT_KEYS = new Set([
+  'shirt', 't_shirt', 'kurta', 'indo_western', 'mens_suit', 'trouser', 'jeans',
+  'shorts', 'mens_bottom_wear', 'coat', 'casual_wear', 'sherwani', 'jacket',
+]);
+const WOMENS_GARMENT_KEYS = new Set([
+  'saree', 'blouse', 'lehenga', 'lehenga_blouse', 'dupatta', 'kurti', 'anarkali',
+  'petticoat', 'bottom_wear', 'gown', 'suit', 'jacket',
+]);
+const garmentsForGender = (templates, gender) => {
+  const keys = gender === 'Male' ? MENS_GARMENT_KEYS : gender === 'Female' ? WOMENS_GARMENT_KEYS : null;
+  return keys ? templates.filter((t) => keys.has(t.key)) : templates;
+};
+
 const GARMENT_PRICES = {
   'Lehenga': 32000,
   'Gown': 25000,
@@ -330,7 +348,19 @@ const GARMENT_PRICES = {
   'Anarkali': 18000,
   'Kurti': 5000,
   'Sherwani': 35000,
-  'Suit': 22000
+  'Suit': 22000,
+  // men's wear
+  'Shirt': 3500,
+  'T-Shirt': 1500,
+  'Kurta': 4500,
+  'Indo-Western': 25000,
+  'Mens Suit': 30000,
+  'Trouser': 3000,
+  'Jeans': 3000,
+  'Shorts': 2000,
+  'Mens Bottom Wear': 2500,
+  'Coat': 18000,
+  'Casual Wear': 3000
 };
 
 const DEFAULT_CUSTOMER_DATA = {
@@ -1852,10 +1882,27 @@ function App() {
   const [openAlterationId, setOpenAlterationId] = useState(null);
   // Delivered order picked for alteration from the customer profile.
   const [alterationOrder, setAlterationOrder] = useState(null);
+  // Delivered order picked for alteration from the Manage Orders table.
+  const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
+  // The "Outside garment" intake opened from the Manage Orders header.
+  const [takingInOutside, setTakingInOutside] = useState(false);
   const openAlteration = (id) => {
     setOpenAlterationId(id);
     setSelectedDirectoryCustomer(null);
     setDashboardTab('alterations');
+    // Opened on one the register does not hold yet (raised from inside an
+    // order card, which hands up only the id): refresh the register, so it
+    // is there when the counter comes back to Manage Orders.
+    if (id && !alterationsList.some((a) => a.id === id)) {
+      api.getAlterations().then((d) => setAlterationsList(d || [])).catch(() => {});
+    }
+  };
+  // An alteration just taken in: into the register at the top, so it is
+  // there when the counter comes back to Manage Orders, rather than only
+  // after the next reload.
+  const rememberAlteration = (created) => {
+    if (!created?.id) return;
+    setAlterationsList((prev) => [created, ...(prev || []).filter((a) => a.id !== created.id)]);
   };
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   // Which order in the customer profile is expanded to show its production
@@ -2234,6 +2281,61 @@ function App() {
     }
   }, [view, dashboardTab, currentUser, fetchWhatsAppStatus]);
 
+  // The Today card (staff on the floor, today's appointments) reads from
+  // /api/dashboard/, which was fetched once at sign-in. A check-in on the
+  // Staff tab or a booking made elsewhere never reached it until a full
+  // reload, so the card sat on 0 / "No appointments". Re-read just the
+  // dashboard payload whenever the overview tab comes back into view.
+  useEffect(() => {
+    if (view === 'dashboard' && dashboardTab === 'overview' && dashboardData) {
+      api.getDashboard().then(setDashboardData).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dashboardTab]);
+
+  // The browser's Back button. Every screen here is state, not a URL, so the
+  // only history entry was the sign-in page (or whatever tab the app was
+  // opened from) and Back left the app entirely -- which read as a logout.
+  // Each signed-in screen now puts an entry in history, so Back walks the
+  // screens the person actually visited; from the first one it stays put
+  // rather than leaving. The session is untouched either way.
+  useEffect(() => {
+    if (view === 'login' || view === 'signup' || view === 'forgot' || view === 'reset') return;
+    // After Back, history.state already is the screen being shown, so the
+    // check below keeps a pop from pushing a fresh entry of its own.
+    const here = { atelier: true, view, tab: dashboardTab };
+    const current = window.history.state;
+    if (current?.atelier && current.view === view && current.tab === dashboardTab) return;
+    if (current?.atelier) {
+      window.history.pushState(here, '');
+    } else {
+      // The first signed-in screen claims the entry the app was opened on
+      // AND adds one more: Back from the first screen then lands on the
+      // app's own duplicate (where popstate can hold it) instead of on
+      // whatever page came before the app.
+      window.history.replaceState(here, '');
+      window.history.pushState(here, '');
+    }
+  }, [view, dashboardTab]);
+  useEffect(() => {
+    const onPop = (event) => {
+      const state = event.state;
+      if (state?.atelier) {
+        if (state.view === view && state.tab === dashboardTab) {
+          // Popped onto the duplicate of the screen already showing -- the
+          // first screen's guard. Put the guard back so the next Back holds
+          // too, and stay where we are.
+          window.history.pushState(state, '');
+          return;
+        }
+        setView(state.view);
+        setDashboardTab(state.tab);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [view, dashboardTab]);
+
   const handleMarkMessageSent = async (orderId, messageId) => {
     await api.markMessageSent(orderId, messageId);
     // The queue holds only what is still waiting, so a sent one leaves it.
@@ -2296,6 +2398,8 @@ function App() {
         await api.createAppointment(payload);
       }
       await reloadAppointments();
+      // The dashboard's Today card lists today's bookings from its own payload.
+      fetchDashboardAndConfig();
       closeAppointmentModal();
     } catch (err) {
       alert((editingAppointment ? "Could not save the appointment: "
@@ -2314,6 +2418,7 @@ function App() {
     try {
       await api.updateAppointment(editingAppointment.id, { status: 'CANCELLED' });
       await reloadAppointments();
+      fetchDashboardAndConfig();
       closeAppointmentModal();
     } catch (err) {
       alert("Could not cancel the appointment: " + err.message);
@@ -2744,6 +2849,7 @@ function App() {
           alert('Enter the customer\u2019s name.');
           return;
         }
+        if (serviceType !== 'alter' && !customerForm.gender) { alert('Select the customer\u2019s gender.'); return; }
         if (serviceType !== 'alter') await persistDraft({ step: 2 });
         reachStep(2);
       } else if (wizardStepKey === 'what') {
@@ -4992,14 +5098,42 @@ function App() {
 
             {dashboardTab === 'orders' && !openOrder && (
               <>
+                {ordersAlterationOrder && (
+                  <RequestAlterationModal
+                    order={ordersAlterationOrder}
+                    customerId={ordersAlterationOrder.customer}
+                    onClose={() => setOrdersAlterationOrder(null)}
+                    onCreated={(created) => { setOrdersAlterationOrder(null); rememberAlteration(created); openAlteration(created.id); }}
+                  />
+                )}
+                {/* A garment we did not make, brought in for work: the same
+                    intake the Alterations tab offers, reachable from where
+                    the counter is standing. Opens on the new alteration. */}
+                {takingInOutside && (
+                  <Suspense fallback={<ScreenLoading />}>
+                    <OutsideGarmentIntake
+                      onClose={() => setTakingInOutside(false)}
+                      onCreated={(created) => { setTakingInOutside(false); rememberAlteration(created); openAlteration(created.id); }}
+                    />
+                  </Suspense>
+                )}
                 <PageHeader
                   title={t('ordersPage.title')}
                   subtitle={t('ordersPage.subtitle')}
                   aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
-                  actions={(!currentUser?.role || currentUser.role === 'Owner') && (
-                    <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                      <Plus size={16} /> {t('ordersPage.newOrder')}
-                    </button>
+                  actions={(
+                    <>
+                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                        <button className="btn-secondary" style={{ padding: '10px 18px' }} onClick={() => setTakingInOutside(true)}>
+                          <Scissors size={16} /> Outside garment alteration
+                        </button>
+                      )}
+                      {(!currentUser?.role || currentUser.role === 'Owner') && (
+                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                          <Plus size={16} /> {t('ordersPage.newOrder')}
+                        </button>
+                      )}
+                    </>
                   )}
                 />
 
@@ -5127,41 +5261,9 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                      {filtered.map(order => {
-                        const isDelivered = order.order_status === 'Delivered';
-                        const isCancelled = order.order_status === 'Cancelled';
-                        return (
-                        <React.Fragment key={order.id}>
-                        <tr>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
-                          <td>Stitching</td>
-                          <td>{order.customer_name}</td>
-                          <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
-                          <td>
-                            <span className={`ui-badge ui-badge--${awaitingVerification(order) ? 'info' : statusTone(order.order_status)}`}>
-                              {isDelivered ? 'Delivered' : isCancelled ? 'Cancelled'
-                                : awaitingVerification(order) ? 'Pending verification' : 'Pending'}
-                            </span>
-                            {!isDelivered && !isCancelled && stageNow(order) && (
-                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {stageNow(order)}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <button type="button" className="btn-secondary at-btn-sm"
-                                      onClick={() => setOpenOrdersRowId(order.id)}>
-                                <Eye size={12} /> View
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        </React.Fragment>
-                        );
-                      })}
-                      {/* Alterations, after the stitching orders. View opens
-                          the alteration's own page rather than expanding. */}
+                      {/* Alterations first, newest at the top -- the one just taken
+                          in is what the counter is looking for. View opens the
+                          alteration's own page rather than expanding. */}
                       {filteredAlterations.map(alt => {
                         const done = alt.status === 'COMPLETED';
                         const cancelled = alt.status === 'CANCELLED';
@@ -5189,6 +5291,50 @@ function App() {
                             </div>
                           </td>
                         </tr>
+                        );
+                      })}
+                      {filtered.map(order => {
+                        const isDelivered = order.order_status === 'Delivered';
+                        const isCancelled = order.order_status === 'Cancelled';
+                        return (
+                        <React.Fragment key={order.id}>
+                        <tr>
+                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
+                          <td>Stitching</td>
+                          <td>{order.customer_name}</td>
+                          <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
+                          <td>
+                            <span className={`ui-badge ui-badge--${awaitingVerification(order) ? 'info' : statusTone(order.order_status)}`}>
+                              {isDelivered ? 'Delivered' : isCancelled ? 'Cancelled'
+                                : awaitingVerification(order) ? 'Pending verification' : 'Pending'}
+                            </span>
+                            {!isDelivered && !isCancelled && stageNow(order) && (
+                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                                {stageNow(order)}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+                              {/* A delivered garment can come back: the same
+                                  request form the order card and the customer
+                                  profile open, one click from the row, for
+                                  the roles that run the counter. */}
+                              {isDelivered && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                                <button type="button" className="btn-secondary at-btn-sm"
+                                        style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--accent-color)' }}
+                                        onClick={() => setOrdersAlterationOrder(order)}>
+                                  <Scissors size={12} /> Alteration
+                                </button>
+                              )}
+                              <button type="button" className="btn-secondary at-btn-sm"
+                                      onClick={() => setOpenOrdersRowId(order.id)}>
+                                <Eye size={12} /> View
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        </React.Fragment>
                         );
                       })}
                         </tbody>
@@ -5627,7 +5773,7 @@ function App() {
                         order={alterationOrder}
                         customerId={c.id}
                         onClose={() => setAlterationOrder(null)}
-                        onCreated={(created) => { setAlterationOrder(null); openAlteration(created.id); }}
+                        onCreated={(created) => { setAlterationOrder(null); rememberAlteration(created); openAlteration(created.id); }}
                       />
                     )}
                   </div>
@@ -6429,6 +6575,20 @@ function App() {
                       <option value="Anarkali">{t('designsPage.anarkali', 'Anarkali')}</option>
                       <option value="Suit">{t('designsPage.salwarKameez', 'Salwar Kameez')}</option>
                       <option value="Jacket">{t('designsPage.jacket', 'Jacket')}</option>
+                      {/* Men's wear. Values slug to the template / catalogue
+                          keys the picker below looks up ("Mens Suit" ->
+                          mens_suit), so an apostrophe would break the match. */}
+                      <option value="Shirt">{t('designsPage.mensShirt', "Men's Shirt")}</option>
+                      <option value="T-Shirt">{t('designsPage.tShirt', 'T-Shirt')}</option>
+                      <option value="Kurta">{t('designsPage.mensKurta', "Men's Kurta")}</option>
+                      <option value="Indo-Western">{t('designsPage.indoWestern', 'Indo-Western')}</option>
+                      <option value="Mens Suit">{t('designsPage.mensSuit', "Men's Suit")}</option>
+                      <option value="Trouser">{t('designsPage.trouser', 'Trouser')}</option>
+                      <option value="Jeans">{t('designsPage.jeans', 'Jeans')}</option>
+                      <option value="Shorts">{t('designsPage.shorts', 'Shorts')}</option>
+                      <option value="Mens Bottom Wear">{t('designsPage.mensBottomWear', "Men's Bottom Wear")}</option>
+                      <option value="Coat">{t('designsPage.coat', 'Coat / Overcoat')}</option>
+                      <option value="Casual Wear">{t('designsPage.casualWear', 'Casual Wear')}</option>
                     </select>
                   </Field>
                   <Field label={t('designsPage.designType', 'Design Type')} required icon={Tag}>
@@ -6804,6 +6964,22 @@ function App() {
                     </div>
                   </div>
 
+                  {/* Gender, right after the number and required: the garment
+                      list on the next screen is filtered by it. Alterations
+                      skip it -- their garments come from past orders. */}
+                  {serviceType !== 'alter' && (
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="required">*</span></label>
+                      <select id="wz-gender" className="form-control" value={customerForm.gender || ''}
+                              onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
+                        <option value="">{t('wizard.selectGender', 'Select Gender')}</option>
+                        <option value="Female">{t('wizard.female', 'Female')}</option>
+                        <option value="Male">{t('wizard.male', 'Male')}</option>
+                        <option value="Other">{t('wizard.other', 'Other')}</option>
+                      </select>
+                    </div>
+                  )}
+
                   {customerId ? (
                     <div className="wz-known">
                       <AvatarInitials name={`${customerForm.first_name} ${customerForm.last_name}`} size={40} />
@@ -6889,16 +7065,6 @@ function App() {
                             <option value="Website">{t('wizard.website', 'Website')}</option>
                           </select>
                         </div>
-                        <div className="form-group">
-                          <label className="form-label">{t('wizard.gender', 'Gender')}</label>
-                          <select className="form-control" value={customerForm.gender || ''}
-                                  onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
-                            <option value="">{t('wizard.selectGender', 'Select Gender')}</option>
-                            <option value="Female">{t('wizard.female', 'Female')}</option>
-                            <option value="Male">{t('wizard.male', 'Male')}</option>
-                            <option value="Other">{t('wizard.other', 'Other')}</option>
-                          </select>
-                        </div>
                       </div>
                     </details>
                   )}
@@ -6921,7 +7087,7 @@ function App() {
                   <DressesDropdown
                     title={t('wizard.dressesInOrder', 'Dresses in this Order')}
                     subtitle={t('wizard.dressesSubtitle', 'Pick every garment being made.')}
-                    garmentTemplates={garmentTemplates}
+                    garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
                     garmentJobs={garmentJobs}
                     addingGarmentKey={addingGarmentKey}
                     garmentTemplatesError={garmentTemplatesError}
@@ -7016,9 +7182,82 @@ function App() {
                             </Suspense>
                           </details>
                         )}
+
+                        {/* The three sections the order-flow rewrite dropped
+                            from the old Fabric Selection screen -- Customer
+                            Fabrics, Boutique Accessories, Customer Accessories
+                            -- folded away per garment like the ones above.
+                            Same pickers, same partReferences / fabricSelection
+                            slots, so the draft and the workroom brief read them
+                            exactly as before. */}
+                        <details className="wz-more">
+                          <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer Fabrics (My Fabrics)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker ownOnly isFabric
+                                               garmentKey={job.template?.key || job.key}
+                                               garmentName={job.template?.name || job.key}
+                                               taxonomy={fabricTaxonomy}
+                                               references={partReferences[job.key] || {}}
+                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                          </Suspense>
+                        </details>
+
+                        {canSeeTab(currentUser, 'inventory') && (
+                          <details className="wz-more">
+                            <summary><Package size={14} /> {t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentFabricPicker
+                                garmentJobs={[job]}
+                                fabrics={fabrics}
+                                taxonomy={fabricTaxonomy}
+                                selection={fabricSelection}
+                                onChange={handleFabricSelection}
+                                quantities={fabricQuantities}
+                                onQuantityChange={handleFabricQuantity}
+                                accessoriesOnly />
+                            </Suspense>
+                          </details>
+                        )}
+
+                        <details className="wz-more">
+                          <summary><Package size={14} /> {t('wizard.sheetCustomerAccessories', 'Customer Accessories (My Accessories)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker ownOnly isFabric accessoriesOnly
+                                               garmentKey={job.template?.key || job.key}
+                                               garmentName={job.template?.name || job.key}
+                                               taxonomy={fabricTaxonomy}
+                                               references={partReferences[job.key] || {}}
+                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                          </Suspense>
+                        </details>
                       </div>
                     );
                   })}
+
+                  {/* Customer Designs: a design the customer described, captured
+                      by the studio -- a photograph of a paper sketch, or drawn
+                      here. Order-level, as its tab on the old Design Studio
+                      screen was; its own rows kept for the customer, nothing on
+                      the draft. */}
+                  <details className="wz-more" style={{ marginTop: '18px' }}>
+                    <summary><PenTool size={14} /> {t('wizard.sheetCustomerDesigns', 'Customer Designs')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                    <Suspense fallback={<ScreenLoading />}>
+                      <CustomerDesigns
+                        customerId={customerId}
+                        customers={allCustomers}
+                        orders={ordersList}
+                        garmentTemplates={garmentTemplates}
+                        newCustomer={customerForm}
+                        onCustomerCreated={(row) => {
+                          // The walk-in is now a customer: the draft carries
+                          // the id, so confirm updates them rather than
+                          // creating a second row for the same mobile.
+                          setCustomerId(row.id);
+                          setAllCustomers((prev) => [row, ...prev]);
+                        }}
+                      />
+                    </Suspense>
+                  </details>
 
                   {garmentJobs.length > 0 && (
                     <div className="form-group" style={{ marginTop: '18px' }}>

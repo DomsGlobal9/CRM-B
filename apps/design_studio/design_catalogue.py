@@ -734,6 +734,427 @@ _JACKET_CATEGORIES = [
         ]),
 ]
 
+# --------------------------------------------------------------------------
+# MEN'S WEAR
+#
+# Same dimensions as the women's catalogues above: what it is, how it is cut,
+# what it is made of, the occasion, and the parts a photograph can be of --
+# kept apart so "Slim Fit" in Fit and "Slim Fit Shirt" in Type are two
+# positions, not one. Keys are GarmentTemplate.key values.
+# --------------------------------------------------------------------------
+
+_MENS_SHIRT_CATEGORIES = [
+    _category(
+        'Shirt Types', short='Types',
+        options=[
+            'Formal Shirt', 'Casual Shirt', 'Dress Shirt', 'Oxford Shirt', 'Linen Shirt',
+            'Denim Shirt', 'Printed Shirt', 'Checked Shirt', 'Striped Shirt',
+            'Mandarin Collar Shirt', 'Cuban Collar Shirt', 'Band Collar Shirt',
+            'Half Sleeve Shirt', 'Full Sleeve Shirt', 'Short Kurta Shirt', 'Oversized Shirt',
+            'Slim Fit Shirt', 'Regular Fit Shirt',
+        ]),
+    _category(
+        'Collar Patterns', short='Collar',
+        options=[
+            'Spread Collar', 'Point Collar', 'Button-Down Collar', 'Mandarin Collar',
+            'Cuban Collar', 'Band Collar', 'Club Collar', 'Cutaway Collar', 'Wing Collar',
+            'Pin Collar', 'Tab Collar', 'Camp Collar',
+        ]),
+    _category(
+        'Sleeve & Cuff Patterns', short='Sleeve / Cuff',
+        subcategories=[
+            ('Sleeve', ['Half Sleeve', 'Full Sleeve', 'Roll-Up Sleeve', 'Raglan Sleeve',
+                        'Bishop Sleeve', 'Puff Sleeve']),
+            ('Cuff', ['Single-Button Cuff', 'Double-Button Cuff', 'French Cuff', 'Rounded Cuff',
+                      'Square Cuff', 'Angled Cuff', 'Convertible Cuff']),
+        ]),
+    _category(
+        'Front / Placket & Pocket Patterns', short='Front / Pocket',
+        subcategories=[
+            ('Placket', ['Plain Placket', 'French Placket', 'Hidden Placket', 'Contrast Placket',
+                         'Half Placket', 'Popover']),
+            ('Pocket', ['No Pocket', 'Single Chest Pocket', 'Double Chest Pocket', 'Flap Pocket',
+                        'Welt Pocket', 'Patch Pocket']),
+        ]),
+    _category(
+        'Back & Yoke Patterns', short='Back / Yoke',
+        options=[
+            'Plain Back', 'Box Pleat Back', 'Side Pleat Back', 'Darted Back', 'Split Yoke',
+            'Single Yoke', 'Western Yoke', 'Locker Loop Back',
+        ]),
+    _category(
+        'Fabric / Print', short='Fabric / Print',
+        options=[
+            'Cotton', 'Linen', 'Poplin', 'Oxford Cloth', 'Twill', 'Chambray', 'Denim', 'Flannel',
+            'Satin', 'Silk', 'Checks', 'Stripes', 'Floral Print', 'Geometric Print',
+            'Block Print', 'Solid',
+        ]),
+]
+
+_T_SHIRT_CATEGORIES = [
+    _category(
+        'T-Shirt Types', short='Types',
+        options=[
+            'Crew Neck T-Shirt', 'V-Neck T-Shirt', 'Polo T-Shirt', 'Henley T-Shirt',
+            'Round Neck T-Shirt', 'Oversized T-Shirt', 'Graphic T-Shirt', 'Printed T-Shirt',
+            'Full Sleeve T-Shirt', 'Half Sleeve T-Shirt', 'Tank Top', 'Sports T-Shirt',
+        ]),
+    _category(
+        'Neck Patterns', short='Neck',
+        options=[
+            'Crew Neck', 'V-Neck', 'Deep V-Neck', 'Scoop Neck', 'Henley Neck', 'Polo Collar',
+            'Mock Neck', 'Turtle Neck', 'Boat Neck',
+        ]),
+    _category(
+        'Sleeve Patterns', short='Sleeve',
+        options=[
+            'Sleeveless', 'Cap Sleeve', 'Half Sleeve', 'Three-Quarter Sleeve', 'Full Sleeve',
+            'Raglan Sleeve', 'Drop Shoulder', 'Ringer Sleeve',
+        ]),
+    _category(
+        'Print / Graphic', short='Print',
+        options=[
+            'Solid', 'Graphic Print', 'Typography Print', 'All-Over Print', 'Chest Print',
+            'Back Print', 'Tie-Dye', 'Stripes', 'Colour Block', 'Embroidered Logo',
+        ]),
+]
+
+_KURTA_CATEGORIES = [
+    _category(
+        'Kurta Types', short='Types',
+        options=[
+            'Straight Kurta', 'Short Kurta', 'Long Kurta', 'Pathani Kurta', 'Asymmetric Kurta',
+            'Angrakha Kurta', 'Lucknowi Kurta', 'Nehru Collar Kurta', 'Band Collar Kurta',
+            'Silk Kurta', 'Cotton Kurta', 'Linen Kurta', 'Embroidered Kurta', 'Printed Kurta',
+        ]),
+    _category(
+        'Cut / Silhouette', short='Cut',
+        options=[
+            'Straight Cut', 'A-Line Cut', 'Asymmetric Cut', 'Pathani Cut', 'Angrakha Cut',
+            'Kalidar Cut', 'Slim Fit', 'Regular Fit', 'Relaxed Fit',
+        ]),
+    _category(
+        'Collar / Neck Patterns', short='Collar / Neck',
+        options=[
+            'Nehru Collar', 'Band Collar', 'Mandarin Collar', 'Shirt Collar', 'Collarless',
+            'Round Neck', 'V-Neck', 'Keyhole Neck', 'Angrakha Neck',
+        ]),
+    _category(
+        'Placket & Front Patterns', short='Placket / Front',
+        options=[
+            'Short Placket', 'Long Placket', 'Side Placket', 'Hidden Placket', 'Angrakha Front',
+            'Asymmetric Front', 'Button-Down Front', 'Contrast Placket', 'Embroidered Placket',
+        ]),
+    _category(
+        'Sleeve & Cuff Patterns', short='Sleeve / Cuff',
+        options=[
+            'Half Sleeve', 'Full Sleeve', 'Roll-Up Sleeve', 'Plain Cuff', 'Buttoned Cuff',
+            'Embroidered Cuff', 'Contrast Cuff',
+        ]),
+    _category(
+        'Side Slit & Hem Patterns', short='Slit / Hem',
+        options=[
+            'Side Slit', 'High Side Slit', 'No Slit', 'Straight Hem', 'Curved Hem',
+            'Asymmetric Hem', 'Embroidered Hem', 'Contrast Hem',
+        ]),
+    _category(
+        'Embroidery / Work', short='Embroidery',
+        options=[
+            'Chikankari', 'Lucknowi Work', 'Zardozi', 'Thread Embroidery', 'Mirror Work',
+            'Kantha', 'Phulkari', 'Block Print', 'Bandhani', 'Ajrakh', 'Ikat', 'Plain',
+        ]),
+]
+
+_INDO_WESTERN_CATEGORIES = [
+    _category(
+        'Indo-Western Types', short='Types',
+        options=[
+            'Indo-Western Kurta', 'Indo-Western Jacket', 'Asymmetric Indo-Western',
+            'Draped Indo-Western', 'Layered Indo-Western', 'Indo-Western Suit',
+            'Kurta with Jacket', 'Kurta with Waistcoat', 'Kurta with Nehru Jacket',
+        ]),
+    _category(
+        'Silhouette / Cut', short='Silhouette',
+        options=[
+            'Asymmetric Cut', 'Draped Cut', 'Layered Cut', 'Cowl Drape', 'Angrakha Cut',
+            'Bandhgala Cut', 'Jodhpuri Cut', 'Slim Fit', 'Regular Fit',
+        ]),
+    _category(
+        'Collar / Neck Patterns', short='Collar / Neck',
+        options=[
+            'Bandhgala Collar', 'Mandarin Collar', 'Nehru Collar', 'Shawl Collar',
+            'Notch Lapel', 'Collarless', 'Asymmetric Neck',
+        ]),
+    _category(
+        'Embroidery / Work', short='Embroidery',
+        options=[
+            'Zardozi', 'Thread Embroidery', 'Sequin Work', 'Mirror Work', 'Bead Work',
+            'Cut-Work', 'Brocade', 'Printed', 'Plain',
+        ]),
+    _category(
+        'Occasion', short='Occasion',
+        options=[
+            'Wedding', 'Reception', 'Sangeet', 'Engagement', 'Festive', 'Cocktail', 'Party',
+        ]),
+]
+
+_MENS_SUIT_CATEGORIES = [
+    _category(
+        'Suit Types', short='Types',
+        options=[
+            'Two-Piece Suit', 'Three-Piece Suit', 'Tuxedo', 'Dinner Suit', 'Business Suit',
+            'Formal Suit', 'Wedding Suit', 'Bandhgala Suit', 'Jodhpuri Suit',
+            'Double-Breasted Suit', 'Single-Breasted Suit', 'Slim Fit Suit', 'Regular Fit Suit',
+        ]),
+    _category(
+        'Lapel / Collar Patterns', short='Lapel',
+        options=[
+            'Notch Lapel', 'Peak Lapel', 'Shawl Lapel', 'Bandhgala Collar', 'Wide Lapel',
+            'Slim Lapel', 'Contrast Lapel', 'Satin Lapel',
+        ]),
+    _category(
+        'Jacket Front / Button Patterns', short='Front / Buttons',
+        options=[
+            'One-Button', 'Two-Button', 'Three-Button', 'Double-Breasted Four-Button',
+            'Double-Breasted Six-Button', 'Covered Buttons', 'Contrast Buttons',
+        ]),
+    _category(
+        'Pocket & Vent Patterns', short='Pocket / Vent',
+        subcategories=[
+            ('Pocket', ['Flap Pocket', 'Jetted Pocket', 'Patch Pocket', 'Ticket Pocket',
+                        'Slanted Pocket', 'Welt Breast Pocket']),
+            ('Vent', ['Centre Vent', 'Side Vents', 'No Vent']),
+        ]),
+    _category(
+        'Trouser Patterns', short='Trouser',
+        options=[
+            'Flat Front', 'Single Pleat', 'Double Pleat', 'Plain Hem', 'Cuffed Hem',
+            'Side Adjusters', 'Belt Loops', 'Tapered Leg', 'Straight Leg',
+        ]),
+    _category(
+        'Waistcoat Patterns', short='Waistcoat',
+        options=[
+            'Single-Breasted Waistcoat', 'Double-Breasted Waistcoat', 'Shawl Collar Waistcoat',
+            'Lapel-Less Waistcoat', 'Low-Cut Waistcoat', 'Contrast Waistcoat',
+        ]),
+    _category(
+        'Fabric / Pattern', short='Fabric',
+        options=[
+            'Wool', 'Worsted Wool', 'Tweed', 'Linen', 'Cotton', 'Velvet', 'Silk Blend',
+            'Pinstripe', 'Chalk Stripe', 'Glen Check', 'Herringbone', 'Houndstooth', 'Solid',
+        ]),
+]
+
+_TROUSER_CATEGORIES = [
+    _category(
+        'Trouser Types', short='Types',
+        options=[
+            'Formal Trouser', 'Dress Trouser', 'Chinos', 'Casual Trouser', 'Straight Fit Trouser',
+            'Slim Fit Trouser', 'Regular Fit Trouser', 'Tapered Trouser', 'Pleated Trouser',
+            'Flat Front Trouser', 'Wide Leg Trouser', 'Linen Trouser', 'Cotton Trouser',
+            'Cargo Pant', 'Utility Pant',
+        ]),
+    _category(
+        'Front & Waist Patterns', short='Front / Waist',
+        options=[
+            'Flat Front', 'Single Pleat', 'Double Pleat', 'Belt Loops', 'Side Adjusters',
+            'Elastic Waist', 'Drawstring Waist', 'Extended Tab Waist',
+        ]),
+    _category(
+        'Pocket Patterns', short='Pocket',
+        options=[
+            'Side Pocket', 'Slanted Pocket', 'Back Welt Pocket', 'Back Flap Pocket',
+            'Cargo Pocket', 'Patch Pocket', 'Coin Pocket',
+        ]),
+    _category(
+        'Leg & Hem Patterns', short='Leg / Hem',
+        options=[
+            'Straight Leg', 'Slim Leg', 'Tapered Leg', 'Wide Leg', 'Bootcut', 'Plain Hem',
+            'Cuffed Hem', 'Ankle Length', 'Full Length',
+        ]),
+]
+
+_JEANS_CATEGORIES = [
+    _category(
+        'Jeans Types', short='Types',
+        options=[
+            'Straight Fit Jeans', 'Slim Fit Jeans', 'Skinny Jeans', 'Regular Fit Jeans',
+            'Relaxed Fit Jeans', 'Tapered Jeans', 'Bootcut Jeans', 'Wide Leg Jeans',
+            'Distressed Jeans', 'Ripped Jeans', 'Denim Joggers',
+        ]),
+    _category(
+        'Rise & Closure', short='Rise / Closure',
+        options=['Low Rise', 'Mid Rise', 'High Rise', 'Zip Fly', 'Button Fly']),
+    _category(
+        'Wash / Finish', short='Wash',
+        options=[
+            'Raw Denim', 'Light Wash', 'Medium Wash', 'Dark Wash', 'Black Denim', 'Acid Wash',
+            'Stone Wash', 'Distressed', 'Ripped', 'Whiskered', 'Faded',
+        ]),
+    _category(
+        'Pocket & Hem Patterns', short='Pocket / Hem',
+        options=[
+            'Five-Pocket', 'Patch Back Pocket', 'Embroidered Back Pocket', 'Plain Hem',
+            'Cuffed Hem', 'Raw Edge Hem', 'Frayed Hem',
+        ]),
+]
+
+_SHORTS_CATEGORIES = [
+    _category(
+        'Shorts Types', short='Types',
+        options=[
+            'Casual Shorts', 'Formal Shorts', 'Bermuda Shorts', 'Denim Shorts', 'Cargo Shorts',
+            'Chino Shorts', 'Sports Shorts', 'Linen Shorts',
+        ]),
+    _category(
+        'Waist & Pocket Patterns', short='Waist / Pocket',
+        options=[
+            'Belt Loops', 'Elastic Waist', 'Drawstring Waist', 'Side Pocket', 'Back Pocket',
+            'Cargo Pocket', 'Zip Pocket',
+        ]),
+    _category(
+        'Length & Hem', short='Length / Hem',
+        options=[
+            'Above Knee', 'Knee Length', 'Below Knee', 'Plain Hem', 'Cuffed Hem', 'Raw Hem',
+        ]),
+]
+
+_MENS_BOTTOM_WEAR_CATEGORIES = [
+    _category(
+        'Bottom Types', short='Types',
+        options=[
+            'Churidar', 'Pajama', 'Kurta Pajama', 'Pathani Pajama', 'Salwar', 'Dhoti',
+            'Dhoti Pants', 'Afghani Pants', 'Patiala Pajama', 'Mojari Pants', 'Pleated Dhoti Pants',
+        ]),
+    _category(
+        'Waist & Drawstring Patterns', short='Waist',
+        options=[
+            'Drawstring Waist', 'Elastic Waist', 'Elastic with Drawstring', 'Belted Waist',
+            'Button Waist', 'Pleated Waist',
+        ]),
+    _category(
+        'Leg & Bottom Patterns', short='Leg / Bottom',
+        options=[
+            'Straight Leg', 'Tapered Leg', 'Gathered Ankle', 'Churidar Gathers', 'Cuffed Ankle',
+            'Draped Leg', 'Pleated Front', 'Side Pocket', 'No Pocket',
+        ]),
+    _category(
+        'Border / Work', short='Border / Work',
+        options=[
+            'Plain', 'Zari Border', 'Embroidered Border', 'Printed', 'Contrast Piping',
+        ]),
+]
+
+_COAT_CATEGORIES = [
+    _category(
+        'Coat Types', short='Types',
+        options=[
+            'Formal Coat', 'Suit Coat', 'Long Coat', 'Overcoat', 'Trench Coat', 'Peacoat',
+            'Chesterfield Coat', 'Double-Breasted Coat', 'Winter Coat', 'Designer Coat',
+        ]),
+    _category(
+        'Lapel / Collar Patterns', short='Lapel',
+        options=[
+            'Notch Lapel', 'Peak Lapel', 'Shawl Collar', 'Stand Collar', 'Storm Collar',
+            'Ulster Collar', 'Fur Collar', 'Velvet Collar',
+        ]),
+    _category(
+        'Front / Closure Patterns', short='Front / Closure',
+        options=[
+            'Single-Breasted', 'Double-Breasted', 'Concealed Buttons', 'Zip Front', 'Belted',
+            'Toggle Closure',
+        ]),
+    _category(
+        'Pocket & Vent Patterns', short='Pocket / Vent',
+        options=[
+            'Flap Pocket', 'Welt Pocket', 'Patch Pocket', 'Slanted Pocket', 'Centre Vent',
+            'Side Vents', 'No Vent',
+        ]),
+    _category(
+        'Fabric', short='Fabric',
+        options=[
+            'Wool', 'Cashmere', 'Tweed', 'Camel Hair', 'Gabardine', 'Cotton Twill', 'Velvet',
+            'Herringbone', 'Houndstooth', 'Solid',
+        ]),
+]
+
+_CASUAL_WEAR_CATEGORIES = [
+    _category(
+        'Casual Wear Types', short='Types',
+        options=[
+            'Hoodie', 'Sweatshirt', 'Pullover', 'Cardigan', 'Sweater', 'Tracksuit', 'Joggers',
+            'Lounge Pants', 'Track Pants', 'Co-Ord Set', 'Casual Co-Ord Set',
+        ]),
+    _category(
+        'Neck / Hood Patterns', short='Neck / Hood',
+        options=[
+            'Pullover Hood', 'Zip Hood', 'Crew Neck', 'V-Neck', 'Half Zip', 'Turtle Neck',
+            'Shawl Collar', 'Polo Collar',
+        ]),
+    _category(
+        'Pocket & Closure Patterns', short='Pocket / Closure',
+        options=[
+            'Kangaroo Pocket', 'Side Pocket', 'Zip Pocket', 'No Pocket', 'Full Zip', 'Half Zip',
+            'Button Front', 'Pullover',
+        ]),
+    _category(
+        'Cuff / Hem & Leg Patterns', short='Cuff / Hem',
+        options=[
+            'Rib Cuff', 'Elastic Cuff', 'Open Hem', 'Drawstring Hem', 'Tapered Leg',
+            'Straight Leg', 'Cuffed Ankle', 'Open Ankle',
+        ]),
+    _category(
+        'Print / Graphic', short='Print',
+        options=[
+            'Solid', 'Graphic Print', 'Typography', 'Colour Block', 'Stripes', 'Tie-Dye',
+            'Embroidered Logo', 'All-Over Print',
+        ]),
+]
+
+_SHERWANI_CATEGORIES = [
+    _category(
+        'Sherwani Types', short='Types',
+        options=[
+            'Classic Sherwani', 'Indo-Western Sherwani', 'Achkan', 'Jodhpuri Sherwani',
+            'Angrakha Sherwani', 'Asymmetric Sherwani', 'Embroidered Sherwani',
+            'Bandhgala Sherwani', 'Designer Sherwani', 'Wedding Sherwani', 'Reception Sherwani',
+        ]),
+    _category(
+        'Collar / Neck Patterns', short='Collar / Neck',
+        options=[
+            'Bandhgala Collar', 'Mandarin Collar', 'Nehru Collar', 'Shawl Collar',
+            'Notch Lapel', 'Angrakha Neck', 'Embroidered Collar',
+        ]),
+    _category(
+        'Front / Closure Patterns', short='Front / Closure',
+        options=[
+            'Button Front', 'Hook Front', 'Concealed Zip', 'Open Front', 'Angrakha Closure',
+            'Asymmetric Closure', 'Double-Breasted',
+        ]),
+    _category(
+        'Sleeve, Hem & Vent Patterns', short='Sleeve / Hem',
+        options=[
+            'Full Sleeve', 'Plain Cuff', 'Embroidered Cuff', 'Straight Hem', 'Curved Hem',
+            'Asymmetric Hem', 'Centre Vent', 'Side Vents', 'No Vent',
+        ]),
+    _category(
+        'Embroidery / Work', short='Embroidery',
+        options=[
+            'Zardozi', 'Thread Embroidery', 'Sequin Work', 'Mirror Work', 'Bead Work',
+            'Dabka Work', 'Resham Work', 'Brocade', 'Jacquard', 'Printed', 'Plain',
+        ]),
+    _category(
+        'Set / Pairing', short='Set',
+        options=[
+            'Sherwani Pajama Set', 'Sherwani Churidar Set', 'Achkan Pajama Set', 'Jodhpuri Set',
+            'Sherwani with Stole', 'Sherwani with Safa', 'Sherwani with Mojari',
+        ]),
+    _category(
+        'Occasion', short='Occasion',
+        options=['Wedding', 'Reception', 'Sangeet', 'Engagement', 'Festive', 'Groomsmen']),
+]
+
+
 CATALOGUE = {
     'saree': {'key': 'saree', 'label': 'Saree', 'categories': _SAREE_CATEGORIES},
     'blouse': {'key': 'blouse', 'label': 'Blouse', 'categories': _BLOUSE_CATEGORIES},
@@ -743,6 +1164,19 @@ CATALOGUE = {
     # a salwar kameez, and so does its catalogue.
     'suit': {'key': 'suit', 'label': 'Salwar Kameez', 'categories': _SUIT_CATEGORIES},
     'jacket': {'key': 'jacket', 'label': 'Jacket', 'categories': _JACKET_CATEGORIES},
+    # --- men's wear (sherwani's template predates its catalogue; the rest are new)
+    'sherwani': {'key': 'sherwani', 'label': 'Sherwani', 'categories': _SHERWANI_CATEGORIES},
+    'shirt': {'key': 'shirt', 'label': "Men's Shirt", 'categories': _MENS_SHIRT_CATEGORIES},
+    't_shirt': {'key': 't_shirt', 'label': 'T-Shirt', 'categories': _T_SHIRT_CATEGORIES},
+    'kurta': {'key': 'kurta', 'label': "Men's Kurta", 'categories': _KURTA_CATEGORIES},
+    'indo_western': {'key': 'indo_western', 'label': 'Indo-Western', 'categories': _INDO_WESTERN_CATEGORIES},
+    'mens_suit': {'key': 'mens_suit', 'label': "Men's Suit", 'categories': _MENS_SUIT_CATEGORIES},
+    'trouser': {'key': 'trouser', 'label': 'Trouser', 'categories': _TROUSER_CATEGORIES},
+    'jeans': {'key': 'jeans', 'label': 'Jeans', 'categories': _JEANS_CATEGORIES},
+    'shorts': {'key': 'shorts', 'label': 'Shorts', 'categories': _SHORTS_CATEGORIES},
+    'mens_bottom_wear': {'key': 'mens_bottom_wear', 'label': "Men's Bottom Wear", 'categories': _MENS_BOTTOM_WEAR_CATEGORIES},
+    'coat': {'key': 'coat', 'label': 'Coat / Overcoat', 'categories': _COAT_CATEGORIES},
+    'casual_wear': {'key': 'casual_wear', 'label': 'Casual Wear', 'categories': _CASUAL_WEAR_CATEGORIES},
 }
 
 

@@ -89,7 +89,8 @@ export default function AlterationList({ title, params, onOpenAlteration, refres
                 </span>
               </div>
               <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                {row.customer?.name} · {row.garment_job?.template_name} · from order {row.original_order?.order_id}
+                {row.customer?.name} · {row.garment_name || row.garment_job?.template_name || row.garment_note}
+                {row.original_order ? ` · from order ${row.original_order.order_id}` : ' · brought from outside'}
                 {row.assigned_to_name ? ` · ${row.assigned_to_name}` : ''}
               </div>
               {row.issue_description && (
