@@ -113,3 +113,51 @@ class ConfigurationCheckTests(TransactionTestCase):
                        WHATSAPP_SERVICE_URL='https://wa.example')
     def test_a_clean_production_is_healthy(self):
         self.assertEqual(health._configuration()[0], 'healthy')
+
+
+class SigninTests(TransactionTestCase):
+    """Recording is wired into the three doors; the rules notice a run."""
+
+    def setUp(self):
+        connection.set_schema_to_public()
+        from .models import LoginAttempt
+        LoginAttempt.objects.all().delete()
+        PlatformSetting.objects.filter(key=guardian.STATE_KEY).delete()
+
+    def attempt(self, ip, username='a@x.test', boutique='shop1', ok=False, kind='login', n=1):
+        from .models import LoginAttempt
+        for _ in range(n):
+            LoginAttempt.objects.create(kind=kind, username=username, boutique=boutique, ip=ip, ok=ok)
+
+    def test_console_login_failure_is_recorded_with_its_address(self):
+        from rest_framework.test import APIClient
+        from .models import LoginAttempt
+        APIClient().post('/api/superadmin/auth/login/',
+                         {'username': 'nobody', 'password': 'wrong'},
+                         format='json', REMOTE_ADDR='203.0.113.9')
+        row = LoginAttempt.objects.get()
+        self.assertEqual((row.kind, row.username, row.ip, row.ok),
+                         ('console', 'nobody', '203.0.113.9', False))
+
+    def test_the_four_rules(self):
+        from . import signins
+        self.attempt('198.51.100.1', n=20)                       # brute force from one address
+        for i in range(3):                                       # probing several boutiques
+            self.attempt('198.51.100.2', username=f'u{i}', boutique=f'shop{i}')
+        self.attempt('198.51.100.3', username='owner@x.test', n=10)   # one account hammered
+        self.attempt('198.51.100.4', kind='console', n=5)        # the console itself
+        keys = {k.split(':')[0] for k, _ in signins.suspicious()}
+        self.assertEqual(keys, {'ip', 'probe', 'user', 'console'})
+
+    def test_the_guardian_reports_an_attack_once_an_hour(self):
+        from . import signins
+        sent = []
+        self.attempt('198.51.100.1', n=20)
+        with mock.patch.object(health, 'checks', return_value=QUIET), \
+             mock.patch.object(signins, 'suspicious',
+                               return_value=[('ip:198.51.100.1', '20 failed sign-ins')]):
+            guardian.run(send=lambda t: sent.append(t) or None, now=at(3))
+            guardian.run(send=lambda t: sent.append(t) or None, now=at(3) + timedelta(minutes=30))
+            guardian.run(send=lambda t: sent.append(t) or None, now=at(3) + timedelta(minutes=61))
+        self.assertEqual(len(sent), 2)
+        self.assertIn('Sign-in attacks', sent[0])

@@ -21,6 +21,7 @@ from django.db import connection, transaction
 from tenants.models import BoutiqueTenant, Domain
 from tenants.provision import provision_tenant
 from django_tenants.utils import schema_context
+from superadmin import signins
 from core.modules import MODULE_GROUP, effective_modules
 from core.roles import OWNER, resolve_user_role
 from apps.email_service.services import EmailService
@@ -335,12 +336,14 @@ class LoginView(views.APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             LoginThrottle.record_failure(request)
+            signins.record(request, 'login', username_or_email, ok=False)
             return Response(
                 {"error": "Invalid login credentials. Please try again."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         tenant, user = authenticated
+        signins.record(request, 'login', user.username, ok=True, boutique=tenant.schema_name)
         connection.set_tenant(tenant)
 
         try:
@@ -442,6 +445,8 @@ class PasswordResetRequestView(views.APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         tenant = find_tenant_for_account(email)
+        signins.record(request, 'reset', email, ok=bool(tenant),
+                       boutique=tenant.schema_name if tenant else '')
         if not tenant:
             return Response(self.ANSWER, status=status.HTTP_200_OK)
 

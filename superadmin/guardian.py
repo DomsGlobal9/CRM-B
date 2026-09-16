@@ -17,7 +17,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.utils import timezone
 
-from . import health
+from . import health, signins
 from .models import ErrorEvent, PlatformSetting
 
 logger = logging.getLogger(__name__)
@@ -78,9 +78,18 @@ def compose(now, previous, checks):
     turned_bad = [bad_now[k] for k in bad_now if k not in bad_before]
     recovered = [k for k in bad_before if k not in bad_now]
 
+    # Sign-in patterns are judged over an hour, so remember what was already
+    # said and say it again only once that hour has passed.
+    cutoff = (now - signins.WINDOW).isoformat()
+    said = {k: t for k, t in previous.get('signins_said', {}).items() if t > cutoff}
+    attacks = [(k, text) for k, text in signins.suspicious(now) if k not in said]
+    said.update({k: now.isoformat() for k, _ in attacks})
+
     parts = []
     if crashes:
         parts.append(f'Crashed requests since last check ({crashes}):\n' + '\n'.join(crash_lines))
+    if attacks:
+        parts.append('Sign-in attacks:\n' + '\n'.join(f'• {text}' for _, text in attacks))
     if turned_bad:
         parts.append('Turned bad:\n' + '\n'.join(
             f'• {c["label"]}: {c["status"]} — {c["detail"]}' for c in turned_bad))
@@ -98,7 +107,8 @@ def compose(now, previous, checks):
     if message and len(message) > MAX_MESSAGE:
         message = message[:MAX_MESSAGE - 1] + '…'
 
-    new = {**previous, 'last_run': now.isoformat(), 'bad_checks': sorted(bad_now)}
+    new = {**previous, 'last_run': now.isoformat(), 'bad_checks': sorted(bad_now),
+           'signins_said': said}
     if heartbeat_due and message:
         new['heartbeat_date'] = today
     return message, new

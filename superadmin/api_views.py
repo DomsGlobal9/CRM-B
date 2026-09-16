@@ -9,7 +9,7 @@ from core import modules as module_registry
 from tenants.middleware import clear_platform_cache, clear_tenant_cache
 from tenants.models import BoutiqueTenant
 
-from . import audit, health, onboarding, search as search_module, users as users_module
+from . import audit, health, onboarding, search as search_module, users as users_module, signins
 from .metrics import operational_metrics, tenant_metrics
 from .models import AuditLog, ErrorEvent, FeatureFlag, PlatformSetting
 from .permissions import IsPlatformAdmin
@@ -505,6 +505,13 @@ class ErrorDetailView(ConsoleView):
             reason=(request.data.get('reason') or '').strip())
         return Response(after)
 
+
+
+class SigninsView(ConsoleView):
+
+    def get(self, request):
+        with public_scope():
+            return Response(signins.summary())
 
 
 class AuditView(ConsoleView):

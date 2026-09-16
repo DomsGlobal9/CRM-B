@@ -38,6 +38,7 @@ import ErrorHandling from './screens/ErrorHandling.jsx';
 import Health from './screens/Health.jsx';
 import Audit from './screens/Audit.jsx';
 import Sessions from './screens/Sessions.jsx';
+import Signins from './screens/Signins.jsx';
 import Support from './screens/Support.jsx';
 import NotMeasured from './screens/NotMeasured.jsx';
 
@@ -63,6 +64,7 @@ const SCREENS = {
   api: NotMeasured,
   audit: Audit,
   sessions: Sessions,
+  signins: Signins,
   support: Support,
 };
 

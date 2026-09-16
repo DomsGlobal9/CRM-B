@@ -15,7 +15,7 @@
  */
 
 import {
-  Activity, AlertTriangle, Building2, FileWarning, Gauge, HeartPulse,
+  Activity, AlertTriangle, Building2, FileWarning, Fingerprint, Gauge, HeartPulse,
   KeyRound, LayoutDashboard, Mail, Plug, PackageSearch, ScrollText, Settings,
   ShieldAlert, ShoppingBag, Sparkles, Users, Wrench,
 } from 'lucide-react';
@@ -90,6 +90,7 @@ export const NAV = [
     items: [
       { key: 'audit', label: 'Audit Log', icon: ScrollText },
       { key: 'sessions', label: 'Sessions & Tokens', icon: KeyRound },
+      { key: 'signins', label: 'Sign-in Attempts', icon: Fingerprint },
     ],
   },
   {

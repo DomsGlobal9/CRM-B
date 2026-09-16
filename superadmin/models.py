@@ -182,3 +182,32 @@ class PlatformSetting(models.Model):
 
     def __str__(self):
         return self.key
+
+
+class LoginAttempt(models.Model):
+    """
+    Every sign-in and reset request, pass or fail, in one place.
+
+    The throttles in crm_api.auth_views stop a brute-force run; this is what
+    lets somebody find out afterwards that one happened, from where, and at
+    which accounts. Not an AuditLog row: that table is what administrators
+    did, and burying it under every wrong password would make its daily digest
+    unreadable.
+    """
+    KINDS = [('login', 'Boutique sign-in'), ('console', 'Console sign-in'),
+             ('reset', 'Password reset requested')]
+
+    kind = models.CharField(max_length=10, choices=KINDS, db_index=True)
+    username = models.CharField(max_length=150, blank=True, db_index=True)
+    boutique = models.CharField(max_length=63, blank=True, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True, db_index=True)
+    ok = models.BooleanField()
+    user_agent = models.CharField(max_length=300, blank=True)
+    at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-at']
+        indexes = [models.Index(fields=['ok', '-at'])]
+
+    def __str__(self):
+        return f'{self.kind} {self.username} {"ok" if self.ok else "failed"}'

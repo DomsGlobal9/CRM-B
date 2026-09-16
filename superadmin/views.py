@@ -16,7 +16,7 @@ from crm_api.auth_views import LoginThrottle
 from tenants.middleware import clear_tenant_cache
 from tenants.models import BoutiqueTenant, DemoRequest
 
-from . import audit, datasets
+from . import audit, signins, datasets
 from .metrics import platform_totals
 from .permissions import IsPlatformAdmin
 from .serializers import LeadSerializer, TenantSerializer
@@ -44,12 +44,14 @@ class PlatformLoginView(APIView):
         if user is None or not user.is_superuser or not user.is_active:
             LoginThrottle.record_failure(request)
             audit.record(request, 'console.login_failed', target=username)
+            signins.record(request, 'console', username, ok=False)
             return Response({'error': 'Invalid administrator credentials.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
         token, _ = Token.objects.get_or_create(user=user)
         audit.record(request, 'console.login', target=user.username,
                      actor=user.username)
+        signins.record(request, 'console', user.username, ok=True)
         return Response({
             'token': token.key,
             'user': {'username': user.username, 'email': user.email},

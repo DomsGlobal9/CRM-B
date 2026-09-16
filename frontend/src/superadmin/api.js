@@ -172,6 +172,7 @@ export const consoleApi = {
   updateError: (id, body) => request(`/errors/${id}/`, { method: 'PATCH', body }),
 
   audit: (filters = {}) => request(`/audit/?${qs(filters)}`),
+  signins: () => request('/signins/'),
 
   ordersMonitor: () => request('/orders/'),
   ordersFor: (schema) => request(`/orders/${schema}/`),
