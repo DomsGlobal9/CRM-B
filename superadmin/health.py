@@ -171,6 +171,42 @@ def _sms():
     return 'not_configured', 'No SMS provider exists in this product.'
 
 
+def _configuration():
+    """Settings that are fine on a laptop and a hole in production."""
+    from boutique_crm.settings import _DEV_SECRET_KEY
+
+    findings = []
+    if settings.DEBUG:
+        findings.append('DEBUG is on: tracebacks and settings are shown to anyone who triggers a 500')
+    if settings.SECRET_KEY == _DEV_SECRET_KEY or len(settings.SECRET_KEY) < 32:
+        findings.append('DJANGO_SECRET_KEY is the published development key or too short')
+    if '*' in settings.ALLOWED_HOSTS:
+        findings.append('DJANGO_ALLOWED_HOSTS is *')
+    if getattr(settings, 'CORS_ALLOW_ALL_ORIGINS', False):
+        findings.append('CORS_ALLOWED_ORIGINS is unset, so every origin is allowed')
+    if settings.PASSWORD_RESET_BASE_URL.startswith('http://localhost'):
+        findings.append('PASSWORD_RESET_BASE_URL points at localhost: reset and sign-in links are dead')
+    if settings.INTERNAL_API_SECRET == 'scaleezy_internal_secret_key_2026':
+        findings.append('INTERNAL_API_SECRET is the default from settings.py')
+    if (getattr(settings, 'CUSTOMER_MESSAGE_BACKEND', '')
+            and ('127.0.0.1' in settings.WHATSAPP_SERVICE_URL
+                 or 'localhost' in settings.WHATSAPP_SERVICE_URL)):
+        findings.append('WHATSAPP_SERVICE_URL is localhost while the WhatsApp backend is on: every customer message fails')
+
+    if not findings:
+        return 'healthy', 'No development defaults are live.'
+    production = bool(os.environ.get('RENDER'))
+    return ('critical' if production else 'warning'), (
+        f'{len(findings)} development default(s) live'
+        + ('' if production else ' (not a Render host, so noted rather than raised)')
+        + ': ' + '; '.join(findings) + '.')
+
+
+def _guardian():
+    from . import guardian
+    return guardian.check()
+
+
 _CHECKS = (
     ('database', 'Database', _database),
     ('migrations', 'Migrations', _migrations),
@@ -183,6 +219,8 @@ _CHECKS = (
     ('payments', 'Payments', _payments),
     ('background_jobs', 'Background jobs', _background_jobs),
     ('sms', 'SMS', _sms),
+    ('configuration', 'Configuration', _configuration),
+    ('guardian', 'Guardian', _guardian),
 )
 
 

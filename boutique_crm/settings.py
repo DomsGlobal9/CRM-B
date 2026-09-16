@@ -425,6 +425,13 @@ WHATSAPP_SERVICE_URL = os.environ.get(
     'http://127.0.0.1:3001'
 )
 
+# The guardian: `manage.py guardian`, run from a cron every few minutes. It
+# sends a WhatsApp message to this number (through the same whatsapp_service
+# the boutiques use) when a request crashes or a health check turns bad.
+GUARDIAN_WHATSAPP_NUMBER = os.environ.get('GUARDIAN_WHATSAPP_NUMBER', '')
+GUARDIAN_WHATSAPP_SESSION = os.environ.get('GUARDIAN_WHATSAPP_SESSION', 'default')
+GUARDIAN_INTERVAL_MINUTES = int(os.environ.get('GUARDIAN_INTERVAL_MINUTES', '5'))
+
 
 
 

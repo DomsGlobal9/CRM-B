@@ -289,7 +289,7 @@ class HealthCheckTests(TransactionTestCase):
                 [check['key'] for check in results],
                 ['database', 'migrations', 'tenant_schemas', 'media_storage',
                  'email', 'supabase_storage', 'errors', 'whatsapp', 'payments',
-                 'background_jobs', 'sms'])
+                 'background_jobs', 'sms', 'configuration', 'guardian'])
 
             by_key = {check['key']: check for check in results}
             for check in results:
@@ -312,4 +312,4 @@ class HealthCheckTests(TransactionTestCase):
             {check['key'] for check in health.checks()},
             {'database', 'migrations', 'tenant_schemas', 'media_storage',
              'email', 'supabase_storage', 'errors', 'whatsapp', 'payments',
-             'background_jobs', 'sms'})
+             'background_jobs', 'sms', 'configuration', 'guardian'})
