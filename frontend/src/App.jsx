@@ -25,6 +25,7 @@ const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboa
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const AlterationsPanel = lazy(() => import('./features/alterations/AlterationsPanel'));
+const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 import TemplateForm from './features/catalog/TemplateForm';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
@@ -1852,10 +1853,27 @@ function App() {
   const [openAlterationId, setOpenAlterationId] = useState(null);
   // Delivered order picked for alteration from the customer profile.
   const [alterationOrder, setAlterationOrder] = useState(null);
+  // Delivered order picked for alteration from the Manage Orders table.
+  const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
+  // The "Outside garment" intake opened from the Manage Orders header.
+  const [takingInOutside, setTakingInOutside] = useState(false);
   const openAlteration = (id) => {
     setOpenAlterationId(id);
     setSelectedDirectoryCustomer(null);
     setDashboardTab('alterations');
+    // Opened on one the register does not hold yet (raised from inside an
+    // order card, which hands up only the id): refresh the register, so it
+    // is there when the counter comes back to Manage Orders.
+    if (id && !alterationsList.some((a) => a.id === id)) {
+      api.getAlterations().then((d) => setAlterationsList(d || [])).catch(() => {});
+    }
+  };
+  // An alteration just taken in: into the register at the top, so it is
+  // there when the counter comes back to Manage Orders, rather than only
+  // after the next reload.
+  const rememberAlteration = (created) => {
+    if (!created?.id) return;
+    setAlterationsList((prev) => [created, ...(prev || []).filter((a) => a.id !== created.id)]);
   };
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   // Which order in the customer profile is expanded to show its production
@@ -2234,6 +2252,61 @@ function App() {
     }
   }, [view, dashboardTab, currentUser, fetchWhatsAppStatus]);
 
+  // The Today card (staff on the floor, today's appointments) reads from
+  // /api/dashboard/, which was fetched once at sign-in. A check-in on the
+  // Staff tab or a booking made elsewhere never reached it until a full
+  // reload, so the card sat on 0 / "No appointments". Re-read just the
+  // dashboard payload whenever the overview tab comes back into view.
+  useEffect(() => {
+    if (view === 'dashboard' && dashboardTab === 'overview' && dashboardData) {
+      api.getDashboard().then(setDashboardData).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dashboardTab]);
+
+  // The browser's Back button. Every screen here is state, not a URL, so the
+  // only history entry was the sign-in page (or whatever tab the app was
+  // opened from) and Back left the app entirely -- which read as a logout.
+  // Each signed-in screen now puts an entry in history, so Back walks the
+  // screens the person actually visited; from the first one it stays put
+  // rather than leaving. The session is untouched either way.
+  useEffect(() => {
+    if (view === 'login' || view === 'signup' || view === 'forgot' || view === 'reset') return;
+    // After Back, history.state already is the screen being shown, so the
+    // check below keeps a pop from pushing a fresh entry of its own.
+    const here = { atelier: true, view, tab: dashboardTab };
+    const current = window.history.state;
+    if (current?.atelier && current.view === view && current.tab === dashboardTab) return;
+    if (current?.atelier) {
+      window.history.pushState(here, '');
+    } else {
+      // The first signed-in screen claims the entry the app was opened on
+      // AND adds one more: Back from the first screen then lands on the
+      // app's own duplicate (where popstate can hold it) instead of on
+      // whatever page came before the app.
+      window.history.replaceState(here, '');
+      window.history.pushState(here, '');
+    }
+  }, [view, dashboardTab]);
+  useEffect(() => {
+    const onPop = (event) => {
+      const state = event.state;
+      if (state?.atelier) {
+        if (state.view === view && state.tab === dashboardTab) {
+          // Popped onto the duplicate of the screen already showing -- the
+          // first screen's guard. Put the guard back so the next Back holds
+          // too, and stay where we are.
+          window.history.pushState(state, '');
+          return;
+        }
+        setView(state.view);
+        setDashboardTab(state.tab);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [view, dashboardTab]);
+
   const handleMarkMessageSent = async (orderId, messageId) => {
     await api.markMessageSent(orderId, messageId);
     // The queue holds only what is still waiting, so a sent one leaves it.
@@ -2296,6 +2369,8 @@ function App() {
         await api.createAppointment(payload);
       }
       await reloadAppointments();
+      // The dashboard's Today card lists today's bookings from its own payload.
+      fetchDashboardAndConfig();
       closeAppointmentModal();
     } catch (err) {
       alert((editingAppointment ? "Could not save the appointment: "
@@ -2314,6 +2389,7 @@ function App() {
     try {
       await api.updateAppointment(editingAppointment.id, { status: 'CANCELLED' });
       await reloadAppointments();
+      fetchDashboardAndConfig();
       closeAppointmentModal();
     } catch (err) {
       alert("Could not cancel the appointment: " + err.message);
@@ -4992,14 +5068,42 @@ function App() {
 
             {dashboardTab === 'orders' && !openOrder && (
               <>
+                {ordersAlterationOrder && (
+                  <RequestAlterationModal
+                    order={ordersAlterationOrder}
+                    customerId={ordersAlterationOrder.customer}
+                    onClose={() => setOrdersAlterationOrder(null)}
+                    onCreated={(created) => { setOrdersAlterationOrder(null); rememberAlteration(created); openAlteration(created.id); }}
+                  />
+                )}
+                {/* A garment we did not make, brought in for work: the same
+                    intake the Alterations tab offers, reachable from where
+                    the counter is standing. Opens on the new alteration. */}
+                {takingInOutside && (
+                  <Suspense fallback={<ScreenLoading />}>
+                    <OutsideGarmentIntake
+                      onClose={() => setTakingInOutside(false)}
+                      onCreated={(created) => { setTakingInOutside(false); rememberAlteration(created); openAlteration(created.id); }}
+                    />
+                  </Suspense>
+                )}
                 <PageHeader
                   title={t('ordersPage.title')}
                   subtitle={t('ordersPage.subtitle')}
                   aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
-                  actions={(!currentUser?.role || currentUser.role === 'Owner') && (
-                    <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                      <Plus size={16} /> {t('ordersPage.newOrder')}
-                    </button>
+                  actions={(
+                    <>
+                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                        <button className="btn-secondary" style={{ padding: '10px 18px' }} onClick={() => setTakingInOutside(true)}>
+                          <Scissors size={16} /> Outside garment alteration
+                        </button>
+                      )}
+                      {(!currentUser?.role || currentUser.role === 'Owner') && (
+                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                          <Plus size={16} /> {t('ordersPage.newOrder')}
+                        </button>
+                      )}
+                    </>
                   )}
                 />
 
@@ -5127,41 +5231,9 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                      {filtered.map(order => {
-                        const isDelivered = order.order_status === 'Delivered';
-                        const isCancelled = order.order_status === 'Cancelled';
-                        return (
-                        <React.Fragment key={order.id}>
-                        <tr>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
-                          <td>Stitching</td>
-                          <td>{order.customer_name}</td>
-                          <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
-                          <td>
-                            <span className={`ui-badge ui-badge--${awaitingVerification(order) ? 'info' : statusTone(order.order_status)}`}>
-                              {isDelivered ? 'Delivered' : isCancelled ? 'Cancelled'
-                                : awaitingVerification(order) ? 'Pending verification' : 'Pending'}
-                            </span>
-                            {!isDelivered && !isCancelled && stageNow(order) && (
-                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {stageNow(order)}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <button type="button" className="btn-secondary at-btn-sm"
-                                      onClick={() => setOpenOrdersRowId(order.id)}>
-                                <Eye size={12} /> View
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        </React.Fragment>
-                        );
-                      })}
-                      {/* Alterations, after the stitching orders. View opens
-                          the alteration's own page rather than expanding. */}
+                      {/* Alterations first, newest at the top -- the one just taken
+                          in is what the counter is looking for. View opens the
+                          alteration's own page rather than expanding. */}
                       {filteredAlterations.map(alt => {
                         const done = alt.status === 'COMPLETED';
                         const cancelled = alt.status === 'CANCELLED';
@@ -5189,6 +5261,50 @@ function App() {
                             </div>
                           </td>
                         </tr>
+                        );
+                      })}
+                      {filtered.map(order => {
+                        const isDelivered = order.order_status === 'Delivered';
+                        const isCancelled = order.order_status === 'Cancelled';
+                        return (
+                        <React.Fragment key={order.id}>
+                        <tr>
+                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
+                          <td>Stitching</td>
+                          <td>{order.customer_name}</td>
+                          <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
+                          <td>
+                            <span className={`ui-badge ui-badge--${awaitingVerification(order) ? 'info' : statusTone(order.order_status)}`}>
+                              {isDelivered ? 'Delivered' : isCancelled ? 'Cancelled'
+                                : awaitingVerification(order) ? 'Pending verification' : 'Pending'}
+                            </span>
+                            {!isDelivered && !isCancelled && stageNow(order) && (
+                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                                {stageNow(order)}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+                              {/* A delivered garment can come back: the same
+                                  request form the order card and the customer
+                                  profile open, one click from the row, for
+                                  the roles that run the counter. */}
+                              {isDelivered && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                                <button type="button" className="btn-secondary at-btn-sm"
+                                        style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--accent-color)' }}
+                                        onClick={() => setOrdersAlterationOrder(order)}>
+                                  <Scissors size={12} /> Alteration
+                                </button>
+                              )}
+                              <button type="button" className="btn-secondary at-btn-sm"
+                                      onClick={() => setOpenOrdersRowId(order.id)}>
+                                <Eye size={12} /> View
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        </React.Fragment>
                         );
                       })}
                         </tbody>
@@ -5627,7 +5743,7 @@ function App() {
                         order={alterationOrder}
                         customerId={c.id}
                         onClose={() => setAlterationOrder(null)}
-                        onCreated={(created) => { setAlterationOrder(null); openAlteration(created.id); }}
+                        onCreated={(created) => { setAlterationOrder(null); rememberAlteration(created); openAlteration(created.id); }}
                       />
                     )}
                   </div>

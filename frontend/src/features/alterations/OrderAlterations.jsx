@@ -34,6 +34,7 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
   const [form, setForm] = useState({
     garment_job_id: garments.length === 1 ? garments[0].id : '',
     alteration_type: 'PAID_CLIENT_REQUEST',
+    issue_scale: '',
     issue_description: '',
     adjustments: '',
     charge_amount: '',
@@ -55,6 +56,7 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
         garment_job_id: form.garment_job_id,
         alteration_type: form.alteration_type,
         issue_description: form.issue_description,
+        issue_scale: form.issue_scale,
         requested_adjustments: parseAdjustments(form.adjustments),
         charge_amount: isPaid && form.charge_amount ? form.charge_amount : '0.00',
         notes: form.notes,
@@ -133,6 +135,18 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
             ))}
           </div>
         </div>
+        </div>
+
+        {/* How big a job it is, judged at the counter: a small issue is a
+            small process and comes back sooner; a big one takes more work
+            and more time. Optional, so an intake in a hurry is not blocked. */}
+        <div style={field}>
+          <label style={label}>How big is the issue?</label>
+          <select className="form-control" value={form.issue_scale} onChange={set('issue_scale')}>
+            <option value="">Not decided yet</option>
+            <option value="SMALL">Small — a quick fix, less time</option>
+            <option value="BIG">Big — more work, more time</option>
+          </select>
         </div>
 
         <div className="form-grid-2" style={{ gap: '12px' }}>
@@ -241,7 +255,7 @@ export default function OrderAlterations({ order, customerId, currentUser, onOpe
                 }}
               >
                 <strong>{row.alteration_number}</strong>
-                <span style={{ color: 'var(--text-muted)' }}>{row.garment_job?.template_name}</span>
+                <span style={{ color: 'var(--text-muted)' }}>{row.garment_name || row.garment_job?.template_name}</span>
                 <span style={{
                   fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px',
                   color: tone, background: `${tone}1f`, border: `1px solid ${tone}55`,

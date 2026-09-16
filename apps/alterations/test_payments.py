@@ -43,6 +43,7 @@ class AlterationPaymentTests(AlterationTestCase):
             (services.start_alteration_work, {}),
             (services.send_to_qc, {}),
             (services.pass_quality_check, {}),
+            (services.customer_approved, {}),
         ):
             fn(alteration.id, performed_by=self.owner, role='Owner', **kw)
         alteration.refresh_from_db()
