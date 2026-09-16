@@ -663,6 +663,476 @@ TEMPLATES = [
             ],
         },
     },
+    # --- men's wear --------------------------------------------------------
+    #
+    # One template per garment family, the way Bottom Wear replaced four
+    # bottoms in 0007: the family is the template, the cut is a `*_type`
+    # select, the fit is a `fit` select, and the parts a photograph can be of
+    # are design_parts. Sherwani and Jacket above already cover the wedding
+    # and ethnic-jacket families, so they are not repeated here.
+    {
+        'key': 'shirt', 'name': "Men's Shirt", 'sequence': 170,
+        'design_parts': parts('Overall Shirt Design', 'Collar Design', 'Front / Placket Design',
+              'Back Design', 'Sleeve Design', 'Cuff Design', 'Pocket Design',
+              'Yoke Design', 'Hem Design', 'Print / Pattern Design',
+              'Embroidery Design'),
+        'sections': {
+            'basic': [
+                field('shirt_type', 'Shirt Type', 'select', required=True, options=[
+                    'Formal', 'Casual', 'Dress', 'Oxford', 'Linen', 'Denim', 'Printed',
+                    'Checked', 'Striped', 'Short Kurta Shirt', 'Other']),
+                field('shirt_type_other', 'Specify Type', 'text',
+                      when=eq('shirt_type', 'other')),
+                field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Oversized']),
+            ],
+            'measurements': [
+                measurement('shirt_length', 'Shirt Length', required=True),
+                measurement('shoulder', 'Shoulder'),
+                measurement('chest', 'Chest', required=True),
+                measurement('waist', 'Waist'),
+                measurement('hip', 'Hip'),
+                measurement('neck', 'Neck'),
+                measurement('sleeve_length', 'Sleeve Length'),
+                measurement('armhole', 'Armhole'),
+                measurement('bicep', 'Bicep'),
+                measurement('cuff', 'Cuff'),
+            ],
+            'style': [
+                field('collar_style', 'Collar', 'select', options=[
+                    'Spread', 'Point', 'Button Down', 'Mandarin', 'Cuban', 'Band', 'Club']),
+                field('sleeve_style', 'Sleeve', 'select', options=['Half Sleeve', 'Full Sleeve']),
+                field('cuff_style', 'Cuff', 'select', options=[
+                    'Single Button', 'Double Button', 'French', 'Rounded', 'Square'],
+                      when=eq('sleeve_style', 'full_sleeve')),
+                field('placket', 'Placket', 'select', options=['Plain', 'French', 'Hidden']),
+                field('pocket', 'Pocket', 'select', options=['None', 'One', 'Two']),
+                field('back_style', 'Back', 'select', options=[
+                    'Plain', 'Box Pleat', 'Side Pleats', 'Darts']),
+            ],
+            'materials': [
+                material('fabric', 'Fabric', Inv.FABRIC),
+                material('interlining', 'Collar / Cuff Interlining', Inv.LINING),
+                material('buttons', 'Buttons', Inv.STITCHING),
+                material('thread', 'Thread', Inv.STITCHING),
+            ],
+        },
+    },
+    {
+        'key': 't_shirt', 'name': 'T-Shirt', 'sequence': 180,
+        'design_parts': parts('Overall T-Shirt Design', 'Neck Design', 'Front Design',
+              'Back Design', 'Sleeve Design', 'Hem Design', 'Print / Graphic Design'),
+        'sections': {
+            'basic': [
+                field('tshirt_type', 'T-Shirt Type', 'select', required=True, options=[
+                    'Crew Neck', 'V-Neck', 'Polo', 'Henley', 'Round Neck', 'Oversized',
+                    'Graphic', 'Printed', 'Tank Top', 'Sports', 'Other']),
+                field('tshirt_type_other', 'Specify Type', 'text',
+                      when=eq('tshirt_type', 'other')),
+                field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Oversized']),
+            ],
+            'measurements': [
+                measurement('shirt_length', 'Length', required=True),
+                measurement('shoulder', 'Shoulder'),
+                measurement('chest', 'Chest', required=True),
+                measurement('waist', 'Waist'),
+                measurement('sleeve_length', 'Sleeve Length'),
+                measurement('bicep', 'Bicep'),
+            ],
+            'style': [
+                field('sleeve_style', 'Sleeve', 'select', options=[
+                    'Sleeveless', 'Half Sleeve', 'Full Sleeve']),
+                field('neck_finish', 'Neck Finish', 'select', options=['Rib', 'Self Fabric', 'Collar']),
+                field('pocket', 'Pocket', 'boolean'),
+            ],
+            'materials': [
+                material('fabric', 'Fabric', Inv.FABRIC),
+                material('rib', 'Rib', Inv.FABRIC),
+                material('thread', 'Thread', Inv.STITCHING),
+            ],
+        },
+    },
+    {
+        'key': 'kurta', 'name': "Men's Kurta", 'sequence': 190,
+        'design_parts': parts('Overall Kurta Design', 'Front Design', 'Back Design',
+              'Collar / Neck Design', 'Placket Design', 'Sleeve Design', 'Cuff Design',
+              'Side Slit Design', 'Hem Design', 'Pocket Design', 'Embroidery Design',
+              'Print Design'),
+        'sections': {
+            'basic': [
+                field('kurta_type', 'Kurta Type', 'select', required=True, options=[
+                    'Straight', 'Short', 'Long', 'Pathani', 'Asymmetric', 'Angrakha',
+                    'Lucknowi', 'Other']),
+                field('kurta_type_other', 'Specify Type', 'text',
+                      when=eq('kurta_type', 'other')),
+                field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Relaxed Fit']),
+            ],
+            'measurements': [
+                measurement('full_length', 'Full Length', required=True),
+                measurement('shoulder', 'Shoulder'),
+                measurement('chest', 'Chest', required=True),
+                measurement('waist', 'Waist'),
+                measurement('hip', 'Hip'),
+                measurement('neck', 'Neck'),
+                measurement('arm_length', 'Arm Length'),
+                measurement('armhole', 'Armhole'),
+                measurement('bicep', 'Bicep'),
+                measurement('cuff', 'Cuff'),
+                measurement('slit_length', 'Slit Length'),
+            ],
+            'style': [
+                field('collar_style', 'Collar', 'select', options=[
+                    'Nehru', 'Band', 'Mandarin', 'Shirt', 'Collarless']),
+                field('placket', 'Placket', 'select', options=[
+                    'Short', 'Long', 'Angrakha', 'Side', 'Hidden']),
+                field('sleeve_style', 'Sleeve', 'select', options=['Half Sleeve', 'Full Sleeve']),
+                field('cuff_style', 'Cuff', 'select', options=['Plain', 'Buttoned', 'Roll-Up'],
+                      when=eq('sleeve_style', 'full_sleeve')),
+                field('slit', 'Side Slit', 'select', options=['Both', 'None']),
+                field('pocket', 'Pocket', 'select', options=['None', 'Chest', 'Side', 'Both']),
+                field('embroidery_finish', 'Embroidery Finish', 'select',
+                      options=['None', 'Machine', 'Hand', 'Chikankari', 'Zardozi']),
+            ],
+            'materials': [
+                material('fabric', 'Fabric', Inv.FABRIC),
+                material('lining', 'Lining', Inv.LINING),
+                material('buttons', 'Buttons', Inv.STITCHING),
+                material('thread', 'Thread', Inv.STITCHING),
+                material('embroidery_material', 'Embroidery Material', Inv.MAGGAM,
+                         when=not_one_of('embroidery_finish', ['none'])),
+            ],
+        },
+    },
+    {
+        'key': 'indo_western', 'name': 'Indo-Western', 'sequence': 200,
+        'design_parts': parts('Overall Design', 'Front Design', 'Back Design',
+              'Collar / Neck Design', 'Sleeve Design', 'Drape / Layer Design',
+              'Jacket / Waistcoat Design', 'Hem Design', 'Embroidery Design',
+              'Print / Pattern Design'),
+        'sections': {
+            'basic': [
+                field('indo_western_type', 'Indo-Western Type', 'select', required=True, options=[
+                    'Kurta', 'Jacket', 'Asymmetric', 'Draped', 'Layered', 'Suit',
+                    'Kurta with Jacket', 'Kurta with Waistcoat', 'Kurta with Nehru Jacket']),
+                field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit']),
+            ],
+            'measurements': [
+                measurement('full_length', 'Full Length', required=True),
+                measurement('shoulder', 'Shoulder'),
+                measurement('chest', 'Chest', required=True),
+                measurement('waist', 'Waist'),
+                measurement('hip', 'Hip'),
+                measurement('neck', 'Neck'),
+                measurement('arm_length', 'Arm Length'),
+                measurement('jacket_length', 'Jacket / Waistcoat Length',
+                            when=one_of('indo_western_type', [
+                                'jacket', 'kurta_with_jacket', 'kurta_with_waistcoat',
+                                'kurta_with_nehru_jacket'])),
+            ],
+            'style': [
+                field('collar_style', 'Collar', 'select', options=[
+                    'Bandhgala', 'Mandarin', 'Nehru', 'Shawl', 'Notch', 'Collarless']),
+                field('front_closure', 'Front Closure', 'select', options=[
+                    'Buttons', 'Hooks', 'Concealed Zip', 'Open Front', 'Asymmetric']),
+                field('drape', 'Drape / Layer', 'select', options=['None', 'Single', 'Double'],
+                      when=one_of('indo_western_type', ['draped', 'layered', 'asymmetric'])),
+                field('embroidery_finish', 'Embroidery Finish', 'select',
+                      options=['None', 'Machine', 'Hand', 'Maggam', 'Zardozi']),
+            ],
+            'materials': [
+                material('main_fabric', 'Main Fabric', Inv.FABRIC),
+                material('jacket_fabric', 'Jacket / Waistcoat Fabric', Inv.FABRIC,
+                         when=one_of('indo_western_type', [
+                             'jacket', 'kurta_with_jacket', 'kurta_with_waistcoat',
+                             'kurta_with_nehru_jacket'])),
+                material('lining', 'Lining', Inv.LINING),
+                material('buttons', 'Buttons', Inv.STITCHING),
+                material('thread', 'Thread', Inv.STITCHING),
+                material('embroidery_material', 'Embroidery Material', Inv.MAGGAM,
+                         when=not_one_of('embroidery_finish', ['none'])),
+            ],
+        },
+    },
+    {
+        'key': 'mens_suit', 'name': "Men's Suit", 'sequence': 210,
+        'design_parts': parts('Overall Suit Design', 'Jacket Front Design', 'Jacket Back Design',
+              'Lapel / Collar Design', 'Sleeve Design', 'Pocket Design', 'Button Design',
+              'Waistcoat Design', 'Trouser Design', 'Lining Design'),
+        'sections': {
+            'basic': [
+                field('suit_type', 'Suit Type', 'select', required=True, options=[
+                    'Two-Piece', 'Three-Piece', 'Tuxedo', 'Dinner', 'Business', 'Wedding',
+                    'Bandhgala', 'Jodhpuri']),
+                field('breast', 'Breast', 'select', options=['Single-Breasted', 'Double-Breasted']),
+                field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit']),
+            ],
+            'measurements': [
+                measurement('jacket_length', 'Jacket Length', required=True),
+                measurement('shoulder', 'Shoulder'),
+                measurement('chest', 'Chest', required=True),
+                measurement('waist', 'Waist'),
+                measurement('hip', 'Hip'),
+                measurement('neck', 'Neck'),
+                measurement('arm_length', 'Arm Length'),
+                measurement('bicep', 'Bicep'),
+                measurement('trouser_length', 'Trouser Length', required=True),
+                measurement('inseam', 'Inseam'),
+                measurement('thigh', 'Thigh'),
+                measurement('knee', 'Knee'),
+                measurement('bottom_opening', 'Bottom Opening'),
+                measurement('waistcoat_length', 'Waistcoat Length',
+                            when=eq('suit_type', 'three_piece')),
+            ],
+            'style': [
+                field('lapel', 'Lapel', 'select', options=['Notch', 'Peak', 'Shawl', 'Bandhgala']),
+                field('buttons_count', 'Buttons', 'select', options=[
+                    ('1', '1 Button'), ('2', '2 Buttons'), ('3', '3 Buttons'), ('6', '6 Buttons')]),
+                field('vent', 'Vent', 'select', options=['Centre', 'Side', 'None']),
+                field('jacket_pocket', 'Jacket Pocket', 'select', options=[
+                    'Flap', 'Jetted', 'Patch', 'Ticket']),
+                field('trouser_front', 'Trouser Front', 'select', options=['Flat Front', 'Pleated']),
+                field('trouser_hem', 'Trouser Hem', 'select', options=['Plain', 'Cuffed']),
+            ],
+            'materials': [
+                material('main_fabric', 'Suiting Fabric', Inv.FABRIC),
+                material('lining', 'Lining', Inv.LINING),
+                material('canvas', 'Canvas / Fusing', Inv.LINING),
+                material('buttons', 'Buttons', Inv.STITCHING),
+                material('thread', 'Thread', Inv.STITCHING),
+                material('shoulder_pads', 'Shoulder Pads', Inv.STITCHING),
+            ],
+        },
+    },
+    {
+        'key': 'trouser', 'name': 'Trouser', 'sequence': 220,
+        'design_parts': parts('Overall Trouser Design', 'Waistband Design', 'Front / Pleat Design',
+              'Back Design', 'Pocket Design', 'Leg Design', 'Hem Design'),
+        'sections': {
+            'basic': [
+                field('trouser_type', 'Trouser Type', 'select', required=True, options=[
+                    'Formal', 'Dress', 'Chinos', 'Casual', 'Linen', 'Cotton', 'Cargo',
+                    'Utility', 'Other']),
+                field('trouser_type_other', 'Specify Type', 'text',
+                      when=eq('trouser_type', 'other')),
+                field('fit', 'Fit', 'select', options=[
+                    'Straight Fit', 'Slim Fit', 'Regular Fit', 'Tapered', 'Wide Leg']),
+            ],
+            'measurements': [
+                measurement('full_length', 'Full Length', required=True),
+                measurement('waist', 'Waist', required=True),
+                measurement('hip', 'Hip'),
+                measurement('thigh', 'Thigh'),
+                measurement('knee', 'Knee'),
+                measurement('bottom_opening', 'Bottom Opening'),
+                measurement('inseam', 'Inseam'),
+                measurement('crotch', 'Crotch'),
+            ],
+            'style': [
+                field('front_style', 'Front', 'select', options=['Flat Front', 'Single Pleat', 'Double Pleat']),
+                field('waist_finish', 'Waist Finish', 'select', options=[
+                    'Belt Loops', 'Side Adjusters', 'Elastic']),
+                field('hem_finish', 'Hem', 'select', options=['Plain', 'Cuffed']),
+                field('pocket', 'Pockets', 'select', options=[
+                    'Side Only', 'Side + Back', 'Cargo']),
+            ],
+            'materials': [
+                material('fabric', 'Fabric', Inv.FABRIC),
+                material('pocketing', 'Pocketing', Inv.LINING),
+                material('waistband_lining', 'Waistband Lining', Inv.LINING),
+                material('zip', 'Zip', Inv.STITCHING),
+                material('buttons', 'Buttons / Hook', Inv.STITCHING),
+                material('thread', 'Thread', Inv.STITCHING),
+            ],
+        },
+    },
+    {
+        'key': 'jeans', 'name': 'Jeans', 'sequence': 230,
+        'design_parts': parts('Overall Jeans Design', 'Waistband Design', 'Front Design',
+              'Back / Yoke Design', 'Pocket Design', 'Leg Design', 'Hem Design',
+              'Wash / Distress Design'),
+        'sections': {
+            'basic': [
+                field('jeans_type', 'Jeans Type', 'select', required=True, options=[
+                    'Straight Fit', 'Slim Fit', 'Skinny', 'Regular Fit', 'Relaxed Fit',
+                    'Tapered', 'Bootcut', 'Wide Leg', 'Distressed', 'Ripped', 'Denim Joggers']),
+            ],
+            'measurements': [
+                measurement('full_length', 'Full Length', required=True),
+                measurement('waist', 'Waist', required=True),
+                measurement('hip', 'Hip'),
+                measurement('thigh', 'Thigh'),
+                measurement('knee', 'Knee'),
+                measurement('bottom_opening', 'Bottom Opening'),
+                measurement('inseam', 'Inseam'),
+                measurement('crotch', 'Crotch'),
+            ],
+            'style': [
+                field('rise', 'Rise', 'select', options=['Low', 'Mid', 'High']),
+                field('closure', 'Closure', 'select', options=['Zip Fly', 'Button Fly']),
+                field('wash', 'Wash', 'select', options=['Raw', 'Light', 'Medium', 'Dark', 'Black']),
+                field('hem_finish', 'Hem', 'select', options=['Plain', 'Cuffed', 'Raw Edge']),
+            ],
+            'materials': [
+                material('fabric', 'Denim', Inv.FABRIC),
+                material('pocketing', 'Pocketing', Inv.LINING),
+                material('zip', 'Zip', Inv.STITCHING),
+                material('buttons', 'Buttons / Rivets', Inv.STITCHING),
+                material('thread', 'Thread', Inv.STITCHING),
+            ],
+        },
+    },
+    {
+        'key': 'shorts', 'name': 'Shorts', 'sequence': 240,
+        'design_parts': parts('Overall Shorts Design', 'Waistband Design', 'Front Design',
+              'Back Design', 'Pocket Design', 'Hem Design'),
+        'sections': {
+            'basic': [
+                field('shorts_type', 'Shorts Type', 'select', required=True, options=[
+                    'Casual', 'Formal', 'Bermuda', 'Denim', 'Cargo', 'Chino', 'Sports', 'Linen']),
+                field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Relaxed Fit']),
+            ],
+            'measurements': [
+                measurement('full_length', 'Length', required=True),
+                measurement('waist', 'Waist', required=True),
+                measurement('hip', 'Hip'),
+                measurement('thigh', 'Thigh'),
+                measurement('bottom_opening', 'Bottom Opening'),
+                measurement('inseam', 'Inseam'),
+            ],
+            'style': [
+                field('waist_finish', 'Waist Finish', 'select', options=[
+                    'Belt Loops', 'Elastic', 'Drawstring']),
+                field('pocket', 'Pockets', 'select', options=['Side Only', 'Side + Back', 'Cargo']),
+                field('hem_finish', 'Hem', 'select', options=['Plain', 'Cuffed']),
+            ],
+            'materials': [
+                material('fabric', 'Fabric', Inv.FABRIC),
+                material('pocketing', 'Pocketing', Inv.LINING),
+                material('zip', 'Zip', Inv.STITCHING),
+                material('elastic', 'Elastic / Drawstring', Inv.STITCHING,
+                         when=one_of('waist_finish', ['elastic', 'drawstring'])),
+                material('thread', 'Thread', Inv.STITCHING),
+            ],
+        },
+    },
+    {
+        'key': 'mens_bottom_wear', 'name': "Men's Bottom Wear", 'sequence': 250,
+        'design_parts': parts('Overall Design', 'Waist Design', 'Leg Design',
+              'Bottom / Ankle Design', 'Pleat / Drape Design', 'Pocket Design',
+              'Border Design', 'Embroidery Design'),
+        'sections': {
+            'basic': [
+                field('bottom_type', 'Bottom Type', 'select', required=True, options=[
+                    'Churidar', 'Pajama', 'Pathani Pajama', 'Salwar', 'Dhoti', 'Dhoti Pants',
+                    'Afghani Pants', 'Patiala Pajama', 'Pleated Dhoti Pants', 'Other']),
+                field('bottom_type_other', 'Specify Type', 'text',
+                      when=eq('bottom_type', 'other')),
+            ],
+            'measurements': [
+                measurement('full_length', 'Full Length', required=True),
+                measurement('waist', 'Waist', required=True),
+                measurement('hip', 'Hip'),
+                measurement('thigh', 'Thigh'),
+                measurement('knee', 'Knee'),
+                measurement('calf', 'Calf'),
+                measurement('ankle', 'Ankle'),
+                measurement('crotch', 'Crotch'),
+            ],
+            'style': [
+                field('waist_finish', 'Waist Finish', 'select', options=WAIST_FINISH),
+                field('bottom_finish', 'Bottom Finish', 'select',
+                      options=['Straight', 'Tapered', 'Ankle', 'Gathered']),
+                field('pocket_required', 'Pockets', 'boolean'),
+            ],
+            'materials': bottom_materials(extra=[
+                material('zip', 'Zip', Inv.STITCHING),
+            ]),
+        },
+    },
+    {
+        'key': 'coat', 'name': 'Coat / Overcoat', 'sequence': 260,
+        'design_parts': parts('Overall Coat Design', 'Front Design', 'Back Design',
+              'Lapel / Collar Design', 'Sleeve Design', 'Pocket Design', 'Button Design',
+              'Hem Design', 'Lining Design'),
+        'sections': {
+            'basic': [
+                field('coat_type', 'Coat Type', 'select', required=True, options=[
+                    'Formal', 'Suit Coat', 'Long Coat', 'Overcoat', 'Trench', 'Peacoat',
+                    'Chesterfield', 'Winter', 'Designer']),
+                field('breast', 'Breast', 'select', options=['Single-Breasted', 'Double-Breasted']),
+                field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit']),
+            ],
+            'measurements': [
+                measurement('full_length', 'Full Length', required=True),
+                measurement('shoulder', 'Shoulder'),
+                measurement('chest', 'Chest', required=True),
+                measurement('waist', 'Waist'),
+                measurement('hip', 'Hip'),
+                measurement('neck', 'Neck'),
+                measurement('arm_length', 'Arm Length'),
+                measurement('bicep', 'Bicep'),
+            ],
+            'style': [
+                field('lapel', 'Lapel / Collar', 'select', options=[
+                    'Notch', 'Peak', 'Shawl', 'Stand', 'Storm Collar']),
+                field('front_closure', 'Front Closure', 'select', options=[
+                    'Buttons', 'Concealed Buttons', 'Zip', 'Belted']),
+                field('vent', 'Vent', 'select', options=['Centre', 'Side', 'None']),
+                field('pocket', 'Pocket', 'select', options=['Flap', 'Welt', 'Patch', 'Slanted']),
+            ],
+            'materials': [
+                material('main_fabric', 'Main Fabric', Inv.FABRIC),
+                material('lining', 'Lining', Inv.LINING),
+                material('canvas', 'Canvas / Fusing', Inv.LINING),
+                material('buttons', 'Buttons', Inv.STITCHING),
+                material('thread', 'Thread', Inv.STITCHING),
+                material('shoulder_pads', 'Shoulder Pads', Inv.STITCHING),
+            ],
+        },
+    },
+    {
+        'key': 'casual_wear', 'name': 'Casual Wear', 'sequence': 270,
+        'design_parts': parts('Overall Design', 'Front Design', 'Back Design', 'Neck / Hood Design',
+              'Sleeve Design', 'Pocket Design', 'Hem / Cuff Design', 'Print / Graphic Design'),
+        'sections': {
+            'basic': [
+                field('casual_type', 'Garment', 'select', required=True, options=[
+                    'Hoodie', 'Sweatshirt', 'Pullover', 'Cardigan', 'Sweater', 'Tracksuit',
+                    'Joggers', 'Lounge Pants', 'Track Pants', 'Co-Ord Set']),
+                field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Oversized']),
+            ],
+            'measurements': [
+                measurement('full_length', 'Length', required=True),
+                measurement('shoulder', 'Shoulder',
+                            when=not_one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants'])),
+                measurement('chest', 'Chest',
+                            when=not_one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants'])),
+                measurement('sleeve_length', 'Sleeve Length',
+                            when=not_one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants'])),
+                measurement('waist', 'Waist'),
+                measurement('hip', 'Hip',
+                            when=one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants',
+                                                        'tracksuit', 'co_ord_set'])),
+                measurement('inseam', 'Inseam',
+                            when=one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants',
+                                                        'tracksuit', 'co_ord_set'])),
+            ],
+            'style': [
+                field('neck_style', 'Neck', 'select', options=[
+                    'Hood', 'Crew', 'V-Neck', 'Zip', 'Turtle', 'Collar'],
+                      when=not_one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants'])),
+                field('closure', 'Closure', 'select', options=['Pullover', 'Full Zip', 'Half Zip', 'Buttons']),
+                field('pocket', 'Pocket', 'select', options=['None', 'Kangaroo', 'Side', 'Zip']),
+                field('cuff_finish', 'Cuff / Hem', 'select', options=['Rib', 'Elastic', 'Open', 'Drawstring']),
+            ],
+            'materials': [
+                material('fabric', 'Fabric', Inv.FABRIC),
+                material('rib', 'Rib', Inv.FABRIC),
+                material('zip', 'Zip', Inv.STITCHING),
+                material('drawstring', 'Drawstring / Elastic', Inv.STITCHING),
+                material('thread', 'Thread', Inv.STITCHING),
+            ],
+        },
+    },
 ]
 
 SECTION_TITLES = [

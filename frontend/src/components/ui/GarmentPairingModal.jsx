@@ -29,6 +29,14 @@ export const GARMENT_PAIR_MAP = {
     pairKeys: ['bottom_wear', 'dupatta'],
     pairLabels: ['Bottom Wear', 'Dupatta'],
   },
+  // Listed before `suit`: the lookup below is a substring match, and
+  // 'menssuit' contains 'suit', so the men's entry has to win first.
+  menssuit: {
+    primaryName: "Men's Suit",
+    prompt: 'Would you like to add a matching Trouser and Waistcoat / Jacket?',
+    pairKeys: ['trouser', 'jacket'],
+    pairLabels: ['Trouser', 'Waistcoat / Jacket'],
+  },
   suit: {
     primaryName: 'Suit (Kameez)',
     prompt: 'Would you like to customize the Bottom Wear and Dupatta style?',
@@ -46,6 +54,23 @@ export const GARMENT_PAIR_MAP = {
     prompt: 'Would you like to add matching Bottom Wear and a Stole / Dupatta?',
     pairKeys: ['bottom_wear', 'dupatta'],
     pairLabels: ['Bottom Wear', 'Stole / Dupatta'],
+  },
+  // Men's ethnic sets: kurta-pajama, kurta-jacket, indo-western with its bottom.
+  kurta: {
+    primaryName: "Men's Kurta",
+    prompt: 'Would you like to add a matching Pajama / Churidar and a Nehru Jacket?',
+    // 'mens_bottom', not 'mens_bottom_wear': findMatchingTemplate is a
+    // substring match over every template in order, and the women's
+    // 'bottom_wear' sits earlier in the list and is contained in the
+    // longer key -- so the full key resolved to the wrong garment.
+    pairKeys: ['mens_bottom', 'jacket'],
+    pairLabels: ['Pajama / Churidar', 'Nehru Jacket'],
+  },
+  indowestern: {
+    primaryName: 'Indo-Western',
+    prompt: 'Would you like to add matching Bottom Wear?',
+    pairKeys: ['mens_bottom'],
+    pairLabels: ['Pajama / Dhoti / Trouser'],
   },
 };
 

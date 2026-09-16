@@ -138,6 +138,76 @@ GARMENTS = {
         'section_label': None,
         'sections': {'': ['MAIN_FABRIC', 'LINING', 'BACKING_FABRIC', 'BORDER', 'WAISTBAND']},
     },
+    'jacket': {
+        'label': 'Jacket',
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'LINING', 'BACKING_FABRIC', 'BORDER', 'BUTTONS']},
+    },
+    # --- men's wear: keyed by GarmentTemplate.key, like every entry above.
+    'shirt': {
+        'label': "Men's Shirt",
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'LINING', 'BUTTONS']},
+    },
+    't_shirt': {
+        'label': 'T-Shirt',
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'BORDER']},
+    },
+    'kurta': {
+        'label': "Men's Kurta",
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'LINING', 'BACKING_FABRIC', 'BORDER', 'BUTTONS']},
+    },
+    'indo_western': {
+        'label': 'Indo-Western',
+        'section_label': 'Indo-Western Section',
+        'sections': {
+            'KURTA': ['MAIN_FABRIC', 'LINING', 'BACKING_FABRIC', 'BORDER', 'BUTTONS'],
+            'JACKET': ['MAIN_FABRIC', 'LINING', 'BORDER', 'BUTTONS'],
+        },
+        'section_labels': {'KURTA': 'Kurta', 'JACKET': 'Jacket / Waistcoat'},
+    },
+    'mens_suit': {
+        'label': "Men's Suit",
+        'section_label': 'Suit Section',
+        'sections': {
+            'JACKET': ['MAIN_FABRIC', 'LINING', 'BUTTONS'],
+            'TROUSER': ['MAIN_FABRIC', 'LINING', 'WAISTBAND', 'ZIPPER_HOOKS'],
+            'WAISTCOAT': ['MAIN_FABRIC', 'LINING', 'BUTTONS'],
+        },
+        'section_labels': {'JACKET': 'Jacket', 'TROUSER': 'Trouser', 'WAISTCOAT': 'Waistcoat'},
+    },
+    'trouser': {
+        'label': 'Trouser',
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'LINING', 'WAISTBAND', 'ZIPPER_HOOKS', 'BUTTONS']},
+    },
+    'jeans': {
+        'label': 'Jeans',
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'LINING', 'WAISTBAND', 'ZIPPER_HOOKS', 'BUTTONS']},
+    },
+    'shorts': {
+        'label': 'Shorts',
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'LINING', 'WAISTBAND', 'ZIPPER_HOOKS', 'DRAWSTRING_DORI']},
+    },
+    'mens_bottom_wear': {
+        'label': "Men's Bottom Wear",
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'LINING', 'WAISTBAND', 'BORDER', 'DRAWSTRING_DORI']},
+    },
+    'coat': {
+        'label': 'Coat / Overcoat',
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'LINING', 'BACKING_FABRIC', 'BUTTONS']},
+    },
+    'casual_wear': {
+        'label': 'Casual Wear',
+        'section_label': None,
+        'sections': {'': ['MAIN_FABRIC', 'LINING', 'ZIPPER_HOOKS', 'DRAWSTRING_DORI']},
+    },
 }
 
 

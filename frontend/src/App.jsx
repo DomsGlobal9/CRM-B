@@ -331,7 +331,19 @@ const GARMENT_PRICES = {
   'Anarkali': 18000,
   'Kurti': 5000,
   'Sherwani': 35000,
-  'Suit': 22000
+  'Suit': 22000,
+  // men's wear
+  'Shirt': 3500,
+  'T-Shirt': 1500,
+  'Kurta': 4500,
+  'Indo-Western': 25000,
+  'Mens Suit': 30000,
+  'Trouser': 3000,
+  'Jeans': 3000,
+  'Shorts': 2000,
+  'Mens Bottom Wear': 2500,
+  'Coat': 18000,
+  'Casual Wear': 3000
 };
 
 const DEFAULT_CUSTOMER_DATA = {
@@ -6545,6 +6557,20 @@ function App() {
                       <option value="Anarkali">{t('designsPage.anarkali', 'Anarkali')}</option>
                       <option value="Suit">{t('designsPage.salwarKameez', 'Salwar Kameez')}</option>
                       <option value="Jacket">{t('designsPage.jacket', 'Jacket')}</option>
+                      {/* Men's wear. Values slug to the template / catalogue
+                          keys the picker below looks up ("Mens Suit" ->
+                          mens_suit), so an apostrophe would break the match. */}
+                      <option value="Shirt">{t('designsPage.mensShirt', "Men's Shirt")}</option>
+                      <option value="T-Shirt">{t('designsPage.tShirt', 'T-Shirt')}</option>
+                      <option value="Kurta">{t('designsPage.mensKurta', "Men's Kurta")}</option>
+                      <option value="Indo-Western">{t('designsPage.indoWestern', 'Indo-Western')}</option>
+                      <option value="Mens Suit">{t('designsPage.mensSuit', "Men's Suit")}</option>
+                      <option value="Trouser">{t('designsPage.trouser', 'Trouser')}</option>
+                      <option value="Jeans">{t('designsPage.jeans', 'Jeans')}</option>
+                      <option value="Shorts">{t('designsPage.shorts', 'Shorts')}</option>
+                      <option value="Mens Bottom Wear">{t('designsPage.mensBottomWear', "Men's Bottom Wear")}</option>
+                      <option value="Coat">{t('designsPage.coat', 'Coat / Overcoat')}</option>
+                      <option value="Casual Wear">{t('designsPage.casualWear', 'Casual Wear')}</option>
                     </select>
                   </Field>
                   <Field label={t('designsPage.designType', 'Design Type')} required icon={Tag}>
