@@ -75,7 +75,7 @@
   --shadow-lg: 0 10px 15px -3px rgba(20, 18, 20, 0.12), 0 4px 6px -4px rgba(20, 18, 20, 0.10);
 
   /* ---- Theme-facing tokens the recipes read; each pack overrides these -- */
-  --shell-bg: #0F261C;          /* brand dark green: sidebar, top bars, entry */
+  --shell-bg: #0C0F00;          /* near-black lime: sidebar, top bars, entry */
   --shell-fg: #F0EEE9;          /* Cloud Dancer on the shell                */
   --shell-logo: #B9D53C;        /* the wordmark in lime                     */
   --shell-active-bg: #F0EEE9;   /* the current page: a Cloud Dancer pill    */

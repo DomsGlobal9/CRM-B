@@ -17,7 +17,7 @@ html[data-theme="scaleezy-dark"] {
   --danger-color: #F08A86; --danger-bg: #2C1616; --info-color: #ADADAD; --info-bg: #222222;
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.6); --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.6);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5); --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6), 0 4px 6px -4px rgba(0, 0, 0, 0.6);
-  --shell-bg: #0A1A13; --shell-fg: #F0EEE9; --shell-logo: #B9D53C; --shell-active-bg: #F0EEE9; --shell-active-fg: #141214; --shell-accent: #B9D53C; --shell-muted: #9FCBA8;
+  --shell-bg: #0C0F00; --shell-fg: #F0EEE9; --shell-logo: #B9D53C; --shell-active-bg: #F0EEE9; --shell-active-fg: #141214; --shell-accent: #B9D53C; --shell-muted: #9FCBA8;
   --selected-bg: #F0EEE9; --selected-fg: #141214;
   --secondary-hover-bg: #1E2610; --secondary-hover-fg: #CFE36A; --secondary-hover-border: #B9D53C; --overlay: rgba(0, 0, 0, 0.8);
   --tone-green-bg: var(--surface-color);  --tone-green-tile: var(--primary-color); --tone-green-fg: var(--primary-foreground); --tone-green-line: var(--border-color);
