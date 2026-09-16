@@ -276,20 +276,38 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       break;
     }
 
-    case 'file':
-      // Uploads run through the existing media service on save, so the form only
-      // records the intent here.
+    case 'file': {
+      // The draft is JSON and a File cannot ride in it, so the picture is
+      // stored the moment it is chosen and the value is its URL -- the same
+      // shape the customer-reference upload already produces.
+      const urls = field.is_repeatable ? (value || []) : (value ? [value] : []);
+      const upload = async (e) => {
+        const files = [...e.target.files];
+        e.target.value = '';
+        if (!files.length) return;
+        try {
+          const uploaded = await Promise.all(files.map((f) => api.uploadReferenceImage(f)));
+          const next = uploaded.map((r) => r.image_url);
+          onChange(field.key, field.is_repeatable ? [...urls, ...next] : next[0]);
+        } catch (err) {
+          alert(err.message || 'Could not upload the image.');
+        }
+      };
       control = (
-        <input
-          className="form-control"
-          type="file"
-          multiple={field.is_repeatable}
-          onChange={(e) =>
-            onChange(field.key, field.is_repeatable ? [...e.target.files] : e.target.files[0])
-          }
-        />
+        <>
+          <input className="form-control" id={`tf-${field.key}`} type="file" accept="image/*"
+                 multiple={field.is_repeatable} onChange={upload} />
+          {urls.length > 0 && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
+              {urls.map((url) => (
+                <img key={url} src={url} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 6 }} />
+              ))}
+            </div>
+          )}
+        </>
       );
       break;
+    }
 
     default:
       control = <input {...common} type="text" placeholder={field.help_text || ''} />;

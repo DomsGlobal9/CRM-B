@@ -1545,8 +1545,16 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 except (TypeError, ValueError):
                     return 0.0
 
-            per_garment = [g.get('pricing') or {} for g in garments]
-            has_job_pricing = any(any(money(v) for v in p.values()) for p in per_garment)
+            # Per-line extras (backing, border, fall, pico) are priced on
+            # their own rows in the wizard and folded into customization
+            # here, so the stored components still sum to the total.
+            def with_extras(p):
+                extras = sum(money(v) for v in (p.get('extras') or {}).values())
+                return {**p, 'customization': money(p.get('customization')) + extras}
+
+            per_garment = [with_extras(g.get('pricing') or {}) for g in garments]
+            has_job_pricing = any(any(money(v) for k, v in p.items() if k != 'extras')
+                                  for p in per_garment)
             component_keys = ('base', 'fabric', 'embroidery', 'customization', 'tailoring')
             if has_job_pricing:
                 component_totals = {
@@ -1603,7 +1611,7 @@ class OrderDraftViewSet(viewsets.ViewSet):
                             'exists in the catalogue. Re-open the draft and '
                             'review its garments before confirming.')
                     continue
-                job_pricing = garment.get('pricing') or {}
+                job_pricing = with_extras(garment.get('pricing') or {})
                 serializer = GarmentJobSerializer(data={
                     'order': order.id,
                     'template': str(template.id),

@@ -189,8 +189,8 @@ export const SettingsPage = ({
         <div 
           className="settings-card" 
           style={{ 
-            backgroundColor: 'var(--bg-primary, #ffffff)', 
-            border: '1px solid var(--border-color, #e2e8f0)', 
+            backgroundColor: 'var(--surface-color)', 
+            border: '1px solid var(--border-color)', 
             borderRadius: '16px', 
             padding: '24px',
             boxShadow: '0 4px 6px -1px rgba(0,0,0,0.04), 0 2px 4px -2px rgba(0,0,0,0.02)',
@@ -202,7 +202,7 @@ export const SettingsPage = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ padding: '8px', borderRadius: '10px', backgroundColor: '#F0FDF4', color: '#16A34A' }}>
+                <div style={{ padding: '8px', borderRadius: '10px', backgroundColor: 'var(--success-bg)', color: 'var(--success-color)' }}>
                   <MessageSquare size={20} />
                 </div>
                 <div>
@@ -229,10 +229,10 @@ export const SettingsPage = ({
             </div>
 
             {whatsappStatus.connected ? (
-              <div style={{ padding: '16px', background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '12px', marginTop: '12px' }}>
+              <div style={{ padding: '16px', background: 'var(--success-bg)', border: '1px solid var(--success-color)', borderRadius: '12px', marginTop: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
                   <MessageSquare size={18} color="#16A34A" />
-                  <span style={{ fontWeight: 600, fontSize: '14px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--success-color)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {t('settingsPage.connectedTitle', 'WhatsApp Connected')} <CheckCircle2 size={16} color="#16A34A" />
                   </span>
                 </div>
@@ -240,12 +240,12 @@ export const SettingsPage = ({
                   {t('settingsPage.connectedDesc', 'Automated customer notifications and stage update messages are active.')}
                 </div>
                 <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', background: '#DCFCE7', color: '#15803D', borderRadius: '20px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '4px 10px', background: 'var(--surface-color)', color: 'var(--success-color)', borderRadius: '20px' }}>
                     {t('settingsPage.connectedBadge', 'Connected')}
                   </span>
                   <button
                     type="button"
-                    style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+                    style={{ background: 'none', border: 'none', color: 'var(--danger-color)', fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
                     onClick={handleReset}
                   >
                     {t('settingsPage.disconnectRepair', 'Disconnect & Re-pair')}
@@ -253,26 +253,26 @@ export const SettingsPage = ({
                 </div>
               </div>
             ) : whatsappStatus.qrCode ? (
-              <div style={{ padding: '16px', border: '1px solid #25D366', borderRadius: '12px', background: '#FAFFFA', marginTop: '12px' }}>
+              <div style={{ padding: '16px', border: '1px solid #25D366', borderRadius: '12px', background: 'var(--success-bg)', marginTop: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#25D366', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
                   <MessageSquare size={14} /> {t('settingsPage.linkDevice', 'Link Device')}
                 </div>
                 <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
                   {t('settingsPage.scanQrInstruction', 'Scan with WhatsApp on your mobile phone (Settings > Linked Devices):')}
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'var(--surface-color)', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'var(--surface-color)', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                   <img
                     src={whatsappStatus.qrCode}
                     alt="WhatsApp Link QR Code"
-                    style={{ width: '180px', height: '180px', objectFit: 'contain', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '6px', background: 'var(--surface-color)' }}
+                    style={{ width: '180px', height: '180px', objectFit: 'contain', borderRadius: '8px', border: '1px solid var(--border-color)', padding: '6px', background: 'var(--surface-color)' }}
                   />
-                  <div style={{ marginTop: '10px', fontSize: '12px', color: '#16A34A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--success-color)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <RotateCw size={14} className="spin" /> {t('settingsPage.waitingQrScan', 'Waiting for QR scan...')}
                   </div>
                 </div>
               </div>
             ) : (
-              <div style={{ padding: '16px', border: '1px dashed #25D366', borderRadius: '12px', background: '#FAFFFA', marginTop: '12px' }}>
+              <div style={{ padding: '16px', border: '1px dashed #25D366', borderRadius: '12px', background: 'var(--success-bg)', marginTop: '12px' }}>
                 <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                   {t('settingsPage.linkWhatsAppAccount', 'Link WhatsApp Account')}
                 </div>

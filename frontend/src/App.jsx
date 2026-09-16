@@ -2992,11 +2992,27 @@ function App() {
     ['base', 'Base price'], ['fabric', 'Fabric'], ['embroidery', 'Embroidery & work'],
     ['customization', 'Customization'], ['tailoring', 'Tailoring'],
   ];
+  // Work a garment's spec adds on top of stitching -- backing, a border, a
+  // fall, pico -- each priced on its own line. Mirrors the extras the server
+  // folds into customization_price at confirm.
+  const EXTRA_CHARGES = [
+    ['backing', 'Backing', (v) => v.backing === 'with_backing'],
+    ['border', 'Border', (v) => v.border === 'with_border'],
+    ['fall', 'Fall', (v) => ['fall', 'fall_pico'].some(s => (v.services || []).includes(s))],
+    ['pico', 'Pico', (v) => ['pico', 'fall_pico'].some(s => (v.services || []).includes(s))],
+  ];
+  const jobExtras = (job) => EXTRA_CHARGES.filter(([, , applies]) => applies(job.values || {}));
   const jobSubtotal = (job) =>
-    PRICING_FIELDS.reduce((sum, [key]) => sum + parseFloat(job.pricing?.[key] || 0), 0);
+    PRICING_FIELDS.reduce((sum, [key]) => sum + parseFloat(job.pricing?.[key] || 0), 0)
+    + jobExtras(job).reduce((sum, [key]) => sum + parseFloat(job.pricing?.extras?.[key] || 0), 0);
   const setJobPrice = (jobKey, field, value) => {
     setGarmentJobs(prev => prev.map(job => job.key === jobKey
       ? { ...job, pricing: { ...(job.pricing || {}), [field]: value } }
+      : job));
+  };
+  const setJobExtra = (jobKey, key, value) => {
+    setGarmentJobs(prev => prev.map(job => job.key === jobKey
+      ? { ...job, pricing: { ...(job.pricing || {}), extras: { ...(job.pricing?.extras || {}), [key]: value } } }
       : job));
   };
 
@@ -7375,6 +7391,19 @@ function App() {
                         </div>
                       </div>
                     ))}
+                    {garmentJobs.flatMap((job) => jobExtras(job).map(([key, label]) => (
+                      <div key={`${job.key}-${key}`} className="wz-money-row">
+                        <label htmlFor={`wz-extra-${job.key}-${key}`} className="wz-money-label" style={{ paddingLeft: '16px' }}>
+                          {job.template.name} · {label} <span className="od-hint">({t('wizard.extraWork', 'extra work')})</span>
+                        </label>
+                        <div className="wz-money-input">
+                          <span>₹</span>
+                          <input id={`wz-extra-${job.key}-${key}`} type="number" min="0" step="1" inputMode="decimal" className="form-control"
+                                 value={job.pricing?.extras?.[key] ?? ''} placeholder="0"
+                                 onChange={(e) => setJobExtra(job.key, key, e.target.value)} />
+                        </div>
+                      </div>
+                    )))}
                     <div className="wz-money-row">
                       <label htmlFor="wz-packaging" className="wz-money-label">{t('wizard.packaging', 'Packaging & handling')}</label>
                       <div className="wz-money-input">
@@ -7576,17 +7605,6 @@ function App() {
             </p>
             <div className="order-id-badge">
               <span>Order ID: <strong>{orderRef(confirmedOrder)}</strong></span>
-              <button 
-                aria-label="Copy order ID"
-                title="Copy order ID"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', minWidth: '44px', minHeight: '44px', margin: '-12px' }}
-                onClick={() => {
-                  navigator.clipboard.writeText(orderRef(confirmedOrder));
-                  alert("Copied!");
-                }}
-              >
-                <Copy size={16} />
-              </button>
             </div>
           </div>
 
@@ -7664,7 +7682,7 @@ function App() {
             <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => { setView('dashboard'); fetchDashboardAndConfig(); }}>
               Back to Dashboard
             </button>
-            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center', backgroundColor: 'var(--text-primary)' }} onClick={() => setShowInvoiceModal(true)}>
+            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => setShowInvoiceModal(true)}>
               <FileText size={18} /> View & Print Invoice
             </button>
           </div>

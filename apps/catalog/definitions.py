@@ -174,6 +174,11 @@ TEMPLATES = [
                 field('border_source', 'Border From', 'select', options=[
                     'From Customer', 'From Inventory'],
                       when=eq('border', 'with_border')),
+                field('border_length', 'Border Length', 'number', unit='m',
+                      validation={'min': 0, 'max': 20, 'step': 0.25},
+                      when=eq('border_source', 'from_customer')),
+                field('border_image', 'Border Photo', 'file',
+                      when=eq('border_source', 'from_customer')),
                 field('backing', 'Backing', 'select', options=[
                     ('with_backing', 'With Backing'), ('without_backing', 'Without Backing')],
                       when=one_of('services', ['stitching', 'saree_finishing'])),

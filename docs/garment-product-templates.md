@@ -168,6 +168,8 @@ measurements below apply; blouse measurements belong to a separate Blouse job.
 | `services` | Services Required | multiselect | Stitching, Fall, Pico, Fall + Pico, Tassel Work, Saree Finishing, Polishing / Steam |
 | `border` | Border | select | With Border, Without Border |
 | `border_source` | Border From | select | From Customer, From Inventory → `border` eq with_border |
+| `border_length` | Border Length | number (m) | → `border_source` eq from_customer |
+| `border_image` | Border Photo | file | → `border_source` eq from_customer |
 | `backing` | Backing | select | With Backing, Without Backing |
 | `backing_size` | Backing Size | select | Small Size, Same as Border Size, Inches Backing → `backing` eq with_backing |
 | `backing_inches` | Backing (inches) | number (in) | → `backing_size` eq inches_backing |
