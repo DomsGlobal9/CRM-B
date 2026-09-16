@@ -1,3 +1,4 @@
+# Scaleezy — Garment Product Template Specification
 
 Complete product configuration for the 15 garments the boutique stitches. Written so
 frontend and backend implement against **one shared definition**: the backend stores the
@@ -17,6 +18,7 @@ order wizard's garment picker and detail step render from them.
 
 ---
 
+## 1. The five sections
 
 Every garment renders the same five sections in the same order, regardless of type. A
 garment that has nothing to put in a section simply has fewer fields there; the section
@@ -35,7 +37,9 @@ every template rather than repeated in each garment definition below.
 
 ---
 
+## 2. Data model
 
+### 2.1 Template side (configuration — `apps/catalog`)
 
 ```
 GarmentTemplate            one per garment type, versioned
@@ -65,6 +69,7 @@ GarmentTemplate            one per garment type, versioned
 `TemplateFieldOption` is a table, not a Python enum — the boutique owner must be able to
 add "Paithani" to saree types from the admin without a deploy.
 
+### 2.2 Instance side (what an order captures)
 
 ```
 GarmentJob                          one dress
@@ -89,6 +94,7 @@ changes, while still letting measurement history work the way it does today.
 **`template_version` is frozen at creation.** A job opened in March renders and validates
 against the template as it was in March, even after the owner edits it in April.
 
+### 2.3 Field types
 
 | `field_type` | Renders as | Stored as |
 |---|---|---|
@@ -105,6 +111,7 @@ against the template as it was in March, even after the owner edits it in April.
 Every `select` carries an `Other` option where the list is open-ended; choosing it reveals
 a paired `*_other` text field via `visible_when`.
 
+### 2.4 Conditional visibility
 
 One rule shape, evaluated identically in JS and Python:
 
@@ -124,6 +131,7 @@ saved but data is wrong" bugs, so it belongs in shared, tested code — `core/te
 holding `is_visible(field, spec)` and `validate_spec(template, spec)`, mirrored in
 `frontend/src/services/templates.js`.
 
+### 2.5 API
 
 | Method | Endpoint | Purpose |
 |---|---|---|
@@ -137,12 +145,14 @@ The template endpoint is cacheable per `(key, version)`.
 
 ---
 
+## 3. Garment definitions
 
 Notation: `key` — Label · `type` · options. `→` marks a conditional rule. All measurements
 are inches unless a `unit` is given.
 
 ---
 
+### 3.1 Saree — `saree`
 
 **Basic Information**
 
@@ -184,6 +194,7 @@ measurements below apply; blouse measurements belong to a separate Blouse job.
 
 ---
 
+### 3.2 Blouse — `blouse`
 
 **Basic Information** — common fields only, plus:
 
@@ -217,6 +228,7 @@ measurements below apply; blouse measurements belong to a separate Blouse job.
 
 ---
 
+### 3.3 Lehenga — `lehenga`
 
 | Section | Fields |
 |---|---|
@@ -228,6 +240,7 @@ measurements below apply; blouse measurements belong to a separate Blouse job.
 
 ---
 
+### 3.4 Lehenga Blouse — `lehenga_blouse`
 
 Shares the blouse measurement and neck/sleeve block; differs in the style-specific fields.
 
@@ -256,6 +269,7 @@ Long Waist, Corset
 
 ---
 
+### 3.5 Dupatta — `dupatta`
 
 | Section | Fields |
 |---|---|
@@ -265,6 +279,7 @@ Long Waist, Corset
 
 ---
 
+### 3.6 Kurti — `kurti`
 
 | Section | Fields |
 |---|---|
@@ -275,6 +290,7 @@ Long Waist, Corset
 
 ---
 
+### 3.7 Anarkali — `anarkali`
 
 | Section | Fields |
 |---|---|
@@ -285,6 +301,7 @@ Long Waist, Corset
 
 ---
 
+### 3.8 Petticoat — `petticoat`
 
 | Section | Fields |
 |---|---|
@@ -294,6 +311,7 @@ Long Waist, Corset
 
 ---
 
+### 3.9 Salwar — `salwar`
 
 | Section | Fields |
 |---|---|
@@ -303,6 +321,7 @@ Long Waist, Corset
 
 ---
 
+### 3.10 Churidar — `churidar`
 
 | Section | Fields |
 |---|---|
@@ -312,6 +331,7 @@ Long Waist, Corset
 
 ---
 
+### 3.11 Palazzo — `palazzo`
 
 | Section | Fields |
 |---|---|
@@ -321,6 +341,7 @@ Long Waist, Corset
 
 ---
 
+### 3.12 Sharara — `sharara`
 
 | Section | Fields |
 |---|---|
@@ -330,6 +351,7 @@ Long Waist, Corset
 
 ---
 
+## 4. Measurement key registry
 
 Keys are shared across garments deliberately — `waist` means the same thing on a lehenga
 and a churidar, so measurement history, the cutting sheet and "reuse last measurements"
@@ -363,10 +385,12 @@ select) on migration, and keep `neck` as a body measurement outside the template
 
 ---
 
+## 5. Common fields (appended to every template)
 
 Defined once in code and merged into every template's sections, so a change reaches all 12
 garments at once. Their keys are reserved and cannot be redefined by a garment.
 
+### Section 1 — Basic Information
 
 | Key | Label | Type | Options |
 |---|---|---|---|
@@ -380,6 +404,7 @@ garments at once. Their keys are reserved and cannot be redefined by a garment.
 | `priority` | Priority | select | Low, Medium, High *(mirrors `ProductionTask.PRIORITY_CHOICES`)* |
 | `material_source` | Material Source | select | Customer Provided Fabric, Store Inventory Fabric, Mixed |
 
+### Section 4 — Materials & Accessories
 
 Every garment's material fields are `inventory_ref` fields resolving to
 `apps.inventory.InventoryItem`. The mapping from the requested accessory list to the
@@ -402,6 +427,7 @@ touches stock.
 An `other_accessories` repeatable `inventory_ref` field is appended to every template for
 anything not anticipated.
 
+### Section 5 — Production Notes
 
 | Key | Label | Type |
 |---|---|---|
@@ -413,6 +439,7 @@ anything not anticipated.
 | `audio_note` | Audio Note | file *(transcribed to `special_instructions`)* |
 | `final_approved_design` | Final Approved Design | file |
 
+### Production tracking — **not** template fields
 
 Master Assigned, Cutter Assigned, Trial Status, Alteration Count, QC Status and Ready for
 Delivery are workflow state, not customer configuration. They stay on the existing
@@ -422,6 +449,7 @@ editable at intake and duplicate the stage machinery.
 
 ---
 
+## 6. Validation rules
 
 1. **Required** applies only to visible fields (§2.4).
 2. **Numeric** — measurements: min 0, max 120 in, step 0.25. Lengths in metres: step 0.25.
@@ -437,6 +465,7 @@ editable at intake and duplicate the stage machinery.
 
 ---
 
+## 7. Frontend rendering contract
 
 The wizard's Steps 1 and 2 in [src/App.jsx](../src/App.jsx) — the hardcoded garment
 dropdown at [App.jsx:6276](../src/App.jsx:6276), the stitch-parts map at
@@ -457,6 +486,7 @@ dropdown at [App.jsx:6276](../src/App.jsx:6276), the stitch-parts map at
 
 ---
 
+## 8. Multi-tenancy
 
 Boutiques are already separated by schema (django-tenants), so each one gets its own
 copy of the twelve templates and cannot see another's. `GarmentTemplate.tenant` is the
@@ -467,6 +497,7 @@ boutique inherits improvements to the defaults until the moment it overrides one
 
 ---
 
+## 9. Implementation sequence
 
 1. `apps/catalog` models + migrations; `core/templates.py` with `is_visible` /
    `validate_spec`, unit-tested against a fixture template.
