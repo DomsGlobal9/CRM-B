@@ -363,7 +363,7 @@ class OwnerDropdownLiveRegressionTests(StateMachineTestBase):
 
         refused = self.set_status('Ready for Dispatch')
         self.assertEqual(refused.status_code, 400)
-        self.assertIn('Master Quality Check', str(refused.data))
+        self.assertIn('Master quality check', str(refused.data))
         self.assertEqual(
             self.order.stages.get(stage_key='master_quality_check').status,
             'NOT_STARTED')
