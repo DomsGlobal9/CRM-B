@@ -207,6 +207,11 @@ def _guardian():
     return guardian.check()
 
 
+def _backups():
+    from . import backups
+    return backups.check()
+
+
 _CHECKS = (
     ('database', 'Database', _database),
     ('migrations', 'Migrations', _migrations),
@@ -221,6 +226,7 @@ _CHECKS = (
     ('sms', 'SMS', _sms),
     ('configuration', 'Configuration', _configuration),
     ('guardian', 'Guardian', _guardian),
+    ('backups', 'Backups', _backups),
 )
 
 
