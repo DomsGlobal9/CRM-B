@@ -159,10 +159,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   const submit = async () => {
     if (inFlight.current) return;          // one click, one upload
     if (!form.title.trim()) { setError('The design needs a name.'); return; }
-    if (!totalFiles && !form.source_url) {
-      setError('Add at least one photograph, or a reference URL.');
-      return;
-    }
     // Flattened in the order the parts are displayed, so the cover photograph
     // is the first one of the first part the boutique filled in -- the overall
     // shot, for any garment that lists it first. `flatParts` runs alongside as
