@@ -2842,14 +2842,21 @@ function App() {
   const performNext = async () => {
     try {
       if (wizardStepKey === 'who') {
-        if (!customerForm.mobile_number.trim()) { alert('Enter the mobile number.'); return; }
+        if (!/^[6-9]\d{9}$/.test(customerForm.mobile_number.replace(/\D/g, ''))) {
+          alert('Enter a valid 10-digit mobile number.');
+          return;
+        }
         if (serviceType === 'alter') {
           if (!customerId) { alert('Pick the customer from the list: alterations are for garments we made.'); return; }
-        } else if (!customerForm.first_name.trim()) {
-          alert('Enter the customer\u2019s name.');
+        } else if (customerForm.first_name.trim().length < 2) {
+          alert('Enter the customer\u2019s name (at least 2 letters).');
           return;
         }
         if (serviceType !== 'alter' && !customerForm.gender) { alert('Select the customer\u2019s gender.'); return; }
+        if (customerForm.email_address && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerForm.email_address.trim())) {
+          alert('Enter a valid email address, or leave it blank.');
+          return;
+        }
         if (serviceType !== 'alter') await persistDraft({ step: 2 });
         reachStep(2);
       } else if (wizardStepKey === 'what') {
@@ -6959,7 +6966,8 @@ function App() {
                       <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
                       <input id="wz-mobile" type="tel" inputMode="numeric" autoFocus
                              value={customerForm.mobile_number}
-                             onChange={(e) => { setCustomerForm({ ...customerForm, mobile_number: e.target.value }); if (customerId) clearPickedCustomer(e.target.value); }}
+                             maxLength={10}
+                             onChange={(e) => { const digits = e.target.value.replace(/\D/g, '').slice(0, 10); setCustomerForm({ ...customerForm, mobile_number: digits }); if (customerId) clearPickedCustomer(digits); }}
                              style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
                     </div>
                   </div>
@@ -7017,7 +7025,8 @@ function App() {
                         <div className="form-group" style={{ marginTop: '14px' }}>
                           <label className="form-label" htmlFor="wz-name">{t('wizard.customerName', 'Customer Name')} <span className="required">*</span></label>
                           <input id="wz-name" type="text" className="form-control" value={customerName}
-                                 onChange={(e) => setCustomerNameSplit(e.target.value)}
+                                 maxLength={60}
+                                 onChange={(e) => setCustomerNameSplit(e.target.value.replace(/[^\p{L} .'-]/gu, ''))}
                                  placeholder={t('wizard.namePlaceholder', 'e.g. Amara Singh')} />
                         </div>
                       )}

@@ -168,9 +168,11 @@ measurements below apply; blouse measurements belong to a separate Blouse job.
 | `services` | Services Required | multiselect | Stitching, Fall, Pico, Fall + Pico, Tassel Work, Saree Finishing, Polishing / Steam |
 | `border` | Border | select | With Border, Without Border |
 | `backing` | Backing | select | With Backing, Without Backing |
+| `backing_size` | Backing Size | select | Small Size, Same as Border Size, Inches Backing → `backing` eq with_backing |
+| `backing_inches` | Backing (inches) | number (in) | → `backing_size` eq inches_backing |
 | `fall_type` | Fall | select | Big Fall, Small Fall → `services` in [fall, fall_pico] |
 | `pico_type` | Pico | select | Standard, Premium → `services` in [pico, fall_pico] |
-| `tassels` | Tassels | select | No Tassels, Hand Made, Readymade, Knot Style |
+| `tassels` | Tassels | select | Hand Made, Readymade, Knot Style |
 | `petticoat_required` | Petticoat Required | boolean | |
 | `petticoat_waist_finish` | Petticoat Waist Finish | multiselect | Belt, Elastic, Button, Dori → `petticoat_required` eq true |
 
