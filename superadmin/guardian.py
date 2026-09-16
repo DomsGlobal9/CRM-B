@@ -138,22 +138,22 @@ def check():
     s = state()
     if not settings.GUARDIAN_WHATSAPP_NUMBER:
         return 'not_configured', (
-            'GUARDIAN_WHATSAPP_NUMBER is not set, so nothing is watching when '
-            'this page is closed. Set it, and run `manage.py guardian` from a '
-            'cron every few minutes.')
+            'Nobody is alerted when this page is closed: no WhatsApp number is set '
+            '(GUARDIAN_WHATSAPP_NUMBER). Set it and schedule `manage.py guardian` '
+            'every few minutes.')
     if not s.get('last_run'):
-        return 'degraded', ('Never run. Add a cron that runs `manage.py guardian` '
-                            f'every {settings.GUARDIAN_INTERVAL_MINUTES} minutes.')
+        return 'degraded', ('Has never run. Schedule `manage.py guardian` every '
+                            f'{settings.GUARDIAN_INTERVAL_MINUTES} minutes on the server.')
     last = timezone.datetime.fromisoformat(s['last_run'])
     age = timezone.localtime() - last
     limit = timedelta(minutes=settings.GUARDIAN_INTERVAL_MINUTES * 3)
     minutes = int(age.total_seconds() // 60)
     if age > limit:
-        return 'degraded', (f'Last ran {minutes} min ago; the cron has stopped '
-                            f'or the command is failing. Alerts are not going out.')
+        return 'degraded', (f'Last ran {minutes} min ago: the scheduled job has stopped '
+                            f'or is failing. No alerts are going out.')
     if s.get('last_send_error'):
-        return 'critical', (f'Running, but the last alert could not be sent: '
+        return 'critical', (f'Running, but the last WhatsApp alert could not be sent: '
                             f'{s["last_send_error"]}')
     when = s.get('last_alert_at', '')[:16].replace('T', ' ')
-    return 'healthy', (f'Ran {minutes} min ago. ' +
+    return 'healthy', (f'Watching. Last ran {minutes} min ago. ' +
                        (f'Last alert {when}.' if when else 'No alert sent yet.'))

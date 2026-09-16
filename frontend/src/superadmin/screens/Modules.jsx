@@ -96,8 +96,8 @@ export default function Modules() {
         {(data) => (
           <>
             <SectionHead
-              title="Modules"
-              subtitle="Enforced by the server on every request. A switch that is not set is on: a boutique nobody has edited has the whole product."
+              title="Features per boutique"
+              subtitle="Which parts of the product each boutique can use. Everything is on until you switch it off; the server enforces it, not just the menu."
             >
               <SearchBox value={term} onChange={setTerm} placeholder="Boutique name or schema…" />
             </SectionHead>
@@ -158,8 +158,8 @@ export default function Modules() {
 
             <div style={{ marginTop: 32 }}>
               <SectionHead
-                title="Cannot be switched off"
-                subtitle="These carry several product concerns on one URL prefix. A gate would take the others with it, so there is no switch to offer."
+                title="Always available"
+                subtitle="Orders and customers are the product itself; switching them off would break everything else."
               />
               <div className="sa-cards">
                 {data.structural.map((s) => (
@@ -175,8 +175,8 @@ export default function Modules() {
 
             <div style={{ marginTop: 32 }}>
               <SectionHead
-                title="No server-side switch"
-                subtitle="Browser-only surfaces. A toggle here would hide a menu item and a curl would walk straight past it — which reads as a security control and is not one."
+                title="Screens only, no switch"
+                subtitle="These exist only in the app, not on the server, so a switch here would hide a menu item without actually blocking anything. Not offered, to be honest about it."
               />
               <div className="sa-cards">
                 {data.client_only.map((c) => (
@@ -190,7 +190,7 @@ export default function Modules() {
 
             <div style={{ marginTop: 32 }}>
               <SectionHead title="Always on"
-                subtitle="Never gateable, whatever is stored against a boutique." />
+                subtitle="Signing in and settings can never be switched off." />
               <div className="sa-card">
                 <h4><ShieldCheck size={14} /> Authentication, settings, the dashboard and this console</h4>
                 <p>

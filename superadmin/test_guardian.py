@@ -89,7 +89,7 @@ class GuardianTests(TransactionTestCase):
         with mock.patch.object(timezone, 'localtime', return_value=at(3) + timedelta(hours=1)):
             status, detail = guardian.check()
         self.assertEqual(status, 'degraded')
-        self.assertIn('cron has stopped', detail)
+        self.assertIn('scheduled job has stopped', detail)
 
     @override_settings(GUARDIAN_WHATSAPP_NUMBER='')
     def test_unset_number_is_not_configured_and_send_refuses(self):

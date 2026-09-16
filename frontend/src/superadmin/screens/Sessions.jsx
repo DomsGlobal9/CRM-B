@@ -141,8 +141,8 @@ export default function Sessions({ route }) {
   return (
     <>
       <SectionHead
-        title="Sessions & tokens"
-        subtitle="Who currently holds a key to the API."
+        title="Who has access"
+        subtitle="Accounts that currently hold a working sign-in. Revoke one to sign that person out everywhere."
       >
         <SearchBox value={filters.q} onChange={set('q')} placeholder="Name, username or email…" />
         <Select value={filters.boutique} onChange={set('boutique')} label="Boutique"

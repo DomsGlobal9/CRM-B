@@ -249,25 +249,25 @@ def run_restore_test():
 
 def check():
     if not configured():
-        return 'not_configured', ('CLOUDINARY_URL is not set, so there is nowhere to put a '
-                                  'backup. Supabase free tier keeps none of its own.')
+        return 'not_configured', ('Nowhere to keep a backup: CLOUDINARY_URL is not set. '
+                                  'The database host keeps none of its own.')
     s = state()
     now = timezone.now()
     if s.get('last_backup_error'):
         return 'critical', f'Last backup failed: {s["last_backup_error"]}'
     if not s.get('last_backup_at'):
-        return 'critical', 'No backup has ever been taken. Add a nightly cron: manage.py backup'
+        return 'critical', 'No backup has ever been taken. Schedule `manage.py backup` nightly.'
     age = now - timezone.datetime.fromisoformat(s['last_backup_at'])
     if age > STALE_AFTER:
         return 'critical', (f'Last backup is {age.days}d {age.seconds // 3600}h old '
-                            f'({s["last_backup"]}). The nightly cron has stopped.')
+                            f'({s["last_backup"]}). The nightly job has stopped.')
     detail = (f'{s["last_backup"]}: {s["last_backup_tables"]} tables, '
               f'{s["last_backup_bytes"] / 1e6:.1f} MB, {int(age.total_seconds() // 3600)}h ago. ')
     if not s.get('last_restore_test_at'):
-        return 'warning', detail + 'Never restore-tested: add a weekly cron: manage.py backup --restore-test'
+        return 'warning', detail + 'Never tested by restoring it: schedule `manage.py backup --restore-test` weekly.'
     tested = now - timezone.datetime.fromisoformat(s['last_restore_test_at'])
     if not s.get('last_restore_test_ok'):
-        return 'critical', detail + f'Restore test FAILED: {s["last_restore_test"]}'
+        return 'critical', detail + f'The last restore test FAILED, so this backup may not be usable: {s["last_restore_test"]}'
     if tested > RESTORE_TEST_EVERY:
         return 'warning', detail + f'Last restore test was {tested.days} days ago.'
-    return 'healthy', detail + f'Restore test {tested.days}d ago passed.'
+    return 'healthy', detail + f'Restored and checked {tested.days}d ago: usable.'

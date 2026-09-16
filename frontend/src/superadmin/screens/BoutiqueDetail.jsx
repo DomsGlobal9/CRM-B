@@ -329,12 +329,12 @@ function Overview({ schema, route }) {
               <div className="sa-card">
                 <h4><Wrench size={14} /> Going further</h4>
                 <p>
-                  Errors, the audit trail and every account in this boutique are on the Diagnostics
+                  Errors, the audit trail and every account in this boutique are on the One boutique in depth
                   screen, which fetches them in the same request as the figures above.
                 </p>
                 <button className="sa-btn" style={{ marginTop: 10 }}
                   onClick={() => route.go(`support/${schema}`)}>
-                  Diagnostics <ArrowUpRight size={13} />
+                  One boutique in depth <ArrowUpRight size={13} />
                 </button>
               </div>
             </div>

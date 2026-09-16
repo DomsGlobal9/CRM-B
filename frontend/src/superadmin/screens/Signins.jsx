@@ -32,7 +32,7 @@ export default function Signins() {
     <>
       <SectionHead
         title="Sign-in attempts"
-        subtitle="Boutique and console sign-ins and password-reset requests, last 200. Rules run over the last hour; the guardian sends the same findings to WhatsApp."
+        subtitle="Who tried to sign in, from where, and whether it worked — boutiques and this console. Suspicious patterns in the last hour are flagged here and sent to WhatsApp."
       >
         <button className="sa-btn" onClick={state.reload} disabled={state.loading}>Refresh</button>
       </SectionHead>

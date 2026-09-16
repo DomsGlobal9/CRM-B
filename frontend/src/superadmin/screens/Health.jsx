@@ -20,7 +20,7 @@ import { useCallback } from 'react';
 import { AlertTriangle, Check, Info, RefreshCw } from 'lucide-react';
 
 import { consoleApi } from '../api';
-import { Async, Pill, SectionHead, moment, useApi } from '../ui';
+import { Async, Pill, SectionHead, moment, useApi, wordFor } from '../ui';
 
 /** Worst first. not_configured sorts below healthy: it is a decision, not a fault. */
 const RANK = { critical: 0, offline: 1, degraded: 2, warning: 3, healthy: 4, not_configured: 5 };
@@ -48,13 +48,13 @@ function Group({ title, hint, icon, checks, route }) {
             {c.key === 'errors' && (
               <button className="sa-btn" style={{ marginTop: 10 }}
                 onClick={() => route.go('errors')}>
-                Open the Error Center
+                Open Crashes
               </button>
             )}
             {c.key === 'whatsapp' && (
               <button className="sa-btn" style={{ marginTop: 10 }}
                 onClick={() => route.go('messaging')}>
-                Open Customer Messaging
+                Open WhatsApp backlog
               </button>
             )}
           </div>
@@ -74,8 +74,8 @@ export default function Health({ route }) {
   return (
     <>
       <SectionHead
-        title="System health"
-        subtitle="Run on demand, when this page loads. No check sends a message, writes a row or pokes a live integration."
+        title="Is everything working?"
+        subtitle="Checked fresh each time this page opens. Red needs action, amber is worth a look, grey is simply not part of the product."
       >
         {state.data && <Pill value={state.data.overall} />}
         {/* Reload keeps the old cards on screen (useApi holds data through a
@@ -97,26 +97,26 @@ export default function Health({ route }) {
               {attention.length === 0 && (
                 <div className="sa-note info">
                   Nothing is failing. The headline reads{' '}
-                  <strong>{data.overall.replace(/_/g, ' ')}</strong>
+                  <strong>{wordFor(data.overall)}</strong>
                   {data.overall === 'not_configured'
-                    ? ' only because the worst status on the page belongs to an integration this product deliberately does not have.'
+                    ? ' only because something this product does not have is listed below in grey.'
                     : '.'}
                 </div>
               )}
 
               <Group title="Needs attention" route={route}
                 icon={<AlertTriangle size={15} />}
-                hint="Something is wrong, slow, or could not be checked at all."
+                hint="Something is wrong, slow, or could not be checked."
                 checks={attention} />
 
-              <Group title="Healthy" route={route}
+              <Group title="Working" route={route}
                 icon={<Check size={15} />}
                 hint="Checked just now and answering."
                 checks={healthy} />
 
-              <Group title="Not configured — by design" route={route}
+              <Group title="Not part of the product" route={route}
                 icon={<Info size={15} />}
-                hint="Absent from this product on purpose. Grey, not red: there is nothing here to fix."
+                hint="Left out on purpose. Grey, not red: nothing here needs fixing."
                 checks={absent} />
 
               <p className="sa-muted" style={{ fontSize: 12.5 }}>

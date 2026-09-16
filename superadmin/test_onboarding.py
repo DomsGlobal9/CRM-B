@@ -288,7 +288,7 @@ class HealthCheckTests(TransactionTestCase):
             self.assertEqual(
                 [check['key'] for check in results],
                 ['database', 'migrations', 'tenant_schemas', 'media_storage',
-                 'email', 'supabase_storage', 'errors', 'whatsapp', 'payments',
+                 'email', 'errors', 'whatsapp', 'payments',
                  'background_jobs', 'sms', 'configuration', 'guardian', 'backups'])
 
             by_key = {check['key']: check for check in results}
@@ -305,11 +305,10 @@ class HealthCheckTests(TransactionTestCase):
             for key in ('whatsapp', 'payments', 'background_jobs', 'sms'):
                 self.assertEqual(by_key[key]['status'], 'not_configured', key)
             self.assertIn('by hand', by_key['whatsapp']['detail'])
-            self.assertEqual(by_key['supabase_storage']['status'], 'not_configured')
 
     def test_checks_run_with_no_tenants_at_all(self):
         self.assertEqual(
             {check['key'] for check in health.checks()},
             {'database', 'migrations', 'tenant_schemas', 'media_storage',
-             'email', 'supabase_storage', 'errors', 'whatsapp', 'payments',
+             'email', 'errors', 'whatsapp', 'payments',
              'background_jobs', 'sms', 'configuration', 'guardian', 'backups'})

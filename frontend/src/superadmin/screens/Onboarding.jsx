@@ -129,8 +129,8 @@ export default function Onboarding({ route }) {
   return (
     <>
       <SectionHead
-        title="Onboarding"
-        subtitle="Signup seeds tailors, fabrics and hundreds of catalogue rows, so none of those count here. Every step below is something no seeder could have written."
+        title="Setup progress"
+        subtitle="How far each boutique has got with real use: their own customers, orders and staff. Sample data added at signup does not count."
       />
 
       <Async

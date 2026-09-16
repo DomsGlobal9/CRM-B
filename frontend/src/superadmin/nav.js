@@ -24,23 +24,24 @@ export const NAV = [
   {
     group: 'Overview',
     items: [
-      { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { key: 'health', label: 'System Health', icon: HeartPulse },
+      { key: 'dashboard', label: 'Home', icon: LayoutDashboard },
+      { key: 'health', label: 'Is everything working?', icon: HeartPulse },
     ],
   },
   {
-    group: 'Organizations',
+    group: 'Boutiques',
     items: [
-      { key: 'boutiques', label: 'Boutiques', icon: Building2 },
-      { key: 'users', label: 'Users', icon: Users },
-      { key: 'onboarding', label: 'Onboarding', icon: Sparkles },
-      { key: 'leads', label: 'Leads', icon: Mail },
+      { key: 'boutiques', label: 'All boutiques', icon: Building2 },
+      { key: 'users', label: 'Staff accounts', icon: Users },
+      { key: 'onboarding', label: 'Setup progress', icon: Sparkles },
+      { key: 'leads', label: 'Demo requests', icon: Mail },
+      { key: 'support', label: 'One boutique in depth', icon: Wrench },
     ],
   },
   {
-    group: 'Product',
+    group: 'Product controls',
     items: [
-      { key: 'modules', label: 'Modules', icon: PackageSearch },
+      { key: 'modules', label: 'Features per boutique', icon: PackageSearch },
       // Feature Flags is deliberately NOT listed, and the screen it pointed at
       // is still in the repository.
       //
@@ -59,44 +60,39 @@ export const NAV = [
       // Put it back the moment there is a real consumer: add the item here and
       // the `flags` entry to SCREENS in SuperAdmin.jsx (both are required), and
       // point superadmin/models.py FeatureFlag at what now reads it.
-      { key: 'config', label: 'Configuration', icon: Settings },
+      { key: 'config', label: 'Settings & maintenance', icon: Settings },
     ],
   },
   {
-    group: 'Operations',
+    group: 'Activity',
     items: [
-      { key: 'orders', label: 'Orders Monitor', icon: ShoppingBag },
-      { key: 'integrations', label: 'Integrations', icon: Plug },
-      { key: 'messaging', label: 'Customer Messaging', icon: Activity },
+      { key: 'orders', label: 'Orders across boutiques', icon: ShoppingBag },
+      { key: 'messaging', label: 'WhatsApp backlog', icon: Activity },
+      { key: 'integrations', label: 'Connected services', icon: Plug },
     ],
   },
   {
-    group: 'Reliability',
+    group: 'Problems',
     items: [
-      { key: 'errors', label: 'Error Center', icon: FileWarning, badge: 'errors' },
-      // Sits directly under the Error Center because the pair only makes sense
+      { key: 'errors', label: 'Crashes', icon: FileWarning, badge: 'errors' },
+      // Sits directly under Crashes because the pair only makes sense
       // together: that screen is what nothing caught, this one is everything
       // the product handled -- swallowed exceptions, refusals by our own
       // controls, deliberate 4xx and browser crashes. Kept apart rather than
       // merged because mixing them buries fifty crashes under fifty thousand
       // validation errors, which is the whole reason ErrorEvent grew a `kind`.
-      { key: 'handling', label: 'Error Handling', icon: ShieldAlert },
-      { key: 'jobs', label: 'Jobs & Queues', icon: Gauge, absent: true },
-      { key: 'api', label: 'API Monitoring', icon: AlertTriangle, absent: true },
+      { key: 'handling', label: 'Other errors', icon: ShieldAlert },
+      // 'jobs' and 'api' are still routable (SuperAdmin.jsx SCREENS) and
+      // explain why this product has neither; they are off the menu because
+      // a menu item that leads to "there is nothing here" is a false lead.
     ],
   },
   {
     group: 'Security',
     items: [
-      { key: 'audit', label: 'Audit Log', icon: ScrollText },
-      { key: 'sessions', label: 'Sessions & Tokens', icon: KeyRound },
-      { key: 'signins', label: 'Sign-in Attempts', icon: Fingerprint },
-    ],
-  },
-  {
-    group: 'Support',
-    items: [
-      { key: 'support', label: 'Diagnostics', icon: Wrench },
+      { key: 'signins', label: 'Sign-in attempts', icon: Fingerprint },
+      { key: 'sessions', label: 'Who has access', icon: KeyRound },
+      { key: 'audit', label: 'What admins did', icon: ScrollText },
     ],
   },
 ];

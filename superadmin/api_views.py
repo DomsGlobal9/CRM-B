@@ -332,6 +332,8 @@ class ConfigView(ConsoleView):
             'credentials': {
                 'email_host': bool(getattr(django_settings, 'EMAIL_HOST', '')),
                 'supabase': bool(django_settings.SUPABASE_URL and django_settings.SUPABASE_KEY),
+                'cloudinary': bool(django_settings.CLOUDINARY_URL),
+                'guardian_whatsapp_number': bool(django_settings.GUARDIAN_WHATSAPP_NUMBER),
                 'customer_message_backend': bool(django_settings.CUSTOMER_MESSAGE_BACKEND),
                 'design_studio_pinterest': bool(django_settings.DESIGN_STUDIO_PINTEREST_TOKEN),
                 'design_studio_google': bool(django_settings.DESIGN_STUDIO_GOOGLE_API_KEY),
