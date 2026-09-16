@@ -325,6 +325,22 @@ const STAFF_ROLES = [
   { value: 'QC Staff', label: 'QC Staff', hint: 'Runs the quality inspection.' },
 ];
 
+// Which garment templates the order wizard offers for a customer's gender.
+// Keyed by GarmentTemplate.key; a jacket is worn by everyone, so it sits in
+// both. "Other" (or no answer) shows the whole list.
+const MENS_GARMENT_KEYS = new Set([
+  'shirt', 't_shirt', 'kurta', 'indo_western', 'mens_suit', 'trouser', 'jeans',
+  'shorts', 'mens_bottom_wear', 'coat', 'casual_wear', 'sherwani', 'jacket',
+]);
+const WOMENS_GARMENT_KEYS = new Set([
+  'saree', 'blouse', 'lehenga', 'lehenga_blouse', 'dupatta', 'kurti', 'anarkali',
+  'petticoat', 'bottom_wear', 'gown', 'suit', 'jacket',
+]);
+const garmentsForGender = (templates, gender) => {
+  const keys = gender === 'Male' ? MENS_GARMENT_KEYS : gender === 'Female' ? WOMENS_GARMENT_KEYS : null;
+  return keys ? templates.filter((t) => keys.has(t.key)) : templates;
+};
+
 const GARMENT_PRICES = {
   'Lehenga': 32000,
   'Gown': 25000,
@@ -2833,6 +2849,7 @@ function App() {
           alert('Enter the customer\u2019s name.');
           return;
         }
+        if (serviceType !== 'alter' && !customerForm.gender) { alert('Select the customer\u2019s gender.'); return; }
         if (serviceType !== 'alter') await persistDraft({ step: 2 });
         reachStep(2);
       } else if (wizardStepKey === 'what') {
@@ -6947,6 +6964,22 @@ function App() {
                     </div>
                   </div>
 
+                  {/* Gender, right after the number and required: the garment
+                      list on the next screen is filtered by it. Alterations
+                      skip it -- their garments come from past orders. */}
+                  {serviceType !== 'alter' && (
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="required">*</span></label>
+                      <select id="wz-gender" className="form-control" value={customerForm.gender || ''}
+                              onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
+                        <option value="">{t('wizard.selectGender', 'Select Gender')}</option>
+                        <option value="Female">{t('wizard.female', 'Female')}</option>
+                        <option value="Male">{t('wizard.male', 'Male')}</option>
+                        <option value="Other">{t('wizard.other', 'Other')}</option>
+                      </select>
+                    </div>
+                  )}
+
                   {customerId ? (
                     <div className="wz-known">
                       <AvatarInitials name={`${customerForm.first_name} ${customerForm.last_name}`} size={40} />
@@ -7032,16 +7065,6 @@ function App() {
                             <option value="Website">{t('wizard.website', 'Website')}</option>
                           </select>
                         </div>
-                        <div className="form-group">
-                          <label className="form-label">{t('wizard.gender', 'Gender')}</label>
-                          <select className="form-control" value={customerForm.gender || ''}
-                                  onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
-                            <option value="">{t('wizard.selectGender', 'Select Gender')}</option>
-                            <option value="Female">{t('wizard.female', 'Female')}</option>
-                            <option value="Male">{t('wizard.male', 'Male')}</option>
-                            <option value="Other">{t('wizard.other', 'Other')}</option>
-                          </select>
-                        </div>
                       </div>
                     </details>
                   )}
@@ -7064,7 +7087,7 @@ function App() {
                   <DressesDropdown
                     title={t('wizard.dressesInOrder', 'Dresses in this Order')}
                     subtitle={t('wizard.dressesSubtitle', 'Pick every garment being made.')}
-                    garmentTemplates={garmentTemplates}
+                    garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
                     garmentJobs={garmentJobs}
                     addingGarmentKey={addingGarmentKey}
                     garmentTemplatesError={garmentTemplatesError}
