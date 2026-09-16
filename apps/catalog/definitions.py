@@ -171,6 +171,9 @@ TEMPLATES = [
                 field('border', 'Border', 'select', options=[
                     ('with_border', 'With Border'), ('without_border', 'Without Border')],
                       when=one_of('services', ['stitching', 'saree_finishing'])),
+                field('border_source', 'Border From', 'select', options=[
+                    'From Customer', 'From Inventory'],
+                      when=eq('border', 'with_border')),
                 field('backing', 'Backing', 'select', options=[
                     ('with_backing', 'With Backing'), ('without_backing', 'Without Backing')],
                       when=one_of('services', ['stitching', 'saree_finishing'])),
