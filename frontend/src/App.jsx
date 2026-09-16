@@ -23,6 +23,7 @@ const DesignLibrary = lazy(() => import('./features/designStudio/DesignLibrary')
 const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
 const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboard'));
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
+const CustomerDesigns = lazy(() => import('./features/designStudio/CustomerDesigns'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const AlterationsPanel = lazy(() => import('./features/alterations/AlterationsPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
@@ -7158,9 +7159,82 @@ function App() {
                             </Suspense>
                           </details>
                         )}
+
+                        {/* The three sections the order-flow rewrite dropped
+                            from the old Fabric Selection screen -- Customer
+                            Fabrics, Boutique Accessories, Customer Accessories
+                            -- folded away per garment like the ones above.
+                            Same pickers, same partReferences / fabricSelection
+                            slots, so the draft and the workroom brief read them
+                            exactly as before. */}
+                        <details className="wz-more">
+                          <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer Fabrics (My Fabrics)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker ownOnly isFabric
+                                               garmentKey={job.template?.key || job.key}
+                                               garmentName={job.template?.name || job.key}
+                                               taxonomy={fabricTaxonomy}
+                                               references={partReferences[job.key] || {}}
+                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                          </Suspense>
+                        </details>
+
+                        {canSeeTab(currentUser, 'inventory') && (
+                          <details className="wz-more">
+                            <summary><Package size={14} /> {t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentFabricPicker
+                                garmentJobs={[job]}
+                                fabrics={fabrics}
+                                taxonomy={fabricTaxonomy}
+                                selection={fabricSelection}
+                                onChange={handleFabricSelection}
+                                quantities={fabricQuantities}
+                                onQuantityChange={handleFabricQuantity}
+                                accessoriesOnly />
+                            </Suspense>
+                          </details>
+                        )}
+
+                        <details className="wz-more">
+                          <summary><Package size={14} /> {t('wizard.sheetCustomerAccessories', 'Customer Accessories (My Accessories)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker ownOnly isFabric accessoriesOnly
+                                               garmentKey={job.template?.key || job.key}
+                                               garmentName={job.template?.name || job.key}
+                                               taxonomy={fabricTaxonomy}
+                                               references={partReferences[job.key] || {}}
+                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                          </Suspense>
+                        </details>
                       </div>
                     );
                   })}
+
+                  {/* Customer Designs: a design the customer described, captured
+                      by the studio -- a photograph of a paper sketch, or drawn
+                      here. Order-level, as its tab on the old Design Studio
+                      screen was; its own rows kept for the customer, nothing on
+                      the draft. */}
+                  <details className="wz-more" style={{ marginTop: '18px' }}>
+                    <summary><PenTool size={14} /> {t('wizard.sheetCustomerDesigns', 'Customer Designs')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                    <Suspense fallback={<ScreenLoading />}>
+                      <CustomerDesigns
+                        customerId={customerId}
+                        customers={allCustomers}
+                        orders={ordersList}
+                        garmentTemplates={garmentTemplates}
+                        newCustomer={customerForm}
+                        onCustomerCreated={(row) => {
+                          // The walk-in is now a customer: the draft carries
+                          // the id, so confirm updates them rather than
+                          // creating a second row for the same mobile.
+                          setCustomerId(row.id);
+                          setAllCustomers((prev) => [row, ...prev]);
+                        }}
+                      />
+                    </Suspense>
+                  </details>
 
                   {garmentJobs.length > 0 && (
                     <div className="form-group" style={{ marginTop: '18px' }}>
