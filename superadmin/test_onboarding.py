@@ -3,7 +3,7 @@ from contextlib import contextmanager
 
 from django.contrib.auth.models import User
 from django.db import connection
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, override_settings
 from django_tenants.utils import schema_context
 
 from apps.catalog.models import GarmentTemplate
@@ -278,6 +278,9 @@ class HealthCheckTests(TransactionTestCase):
     def setUp(self):
         connection.set_schema_to_public()
 
+    # The product ships with a WhatsApp backend switched on (1df3232), so the
+    # "sent by hand" branch is the one that needs pinning, not the default.
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='')
     def test_every_check_reports_and_none_of_them_raises(self):
         with ghost_tenant():
             results = health.checks()
