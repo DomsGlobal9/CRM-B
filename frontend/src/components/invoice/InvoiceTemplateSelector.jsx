@@ -144,8 +144,8 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
     <div
       className="settings-card"
       style={{
-        backgroundColor: 'var(--bg-primary, #ffffff)',
-        border: '1px solid var(--border-color, #e2e8f0)',
+        backgroundColor: 'var(--surface-color)',
+        border: '1px solid var(--border-color)',
         borderRadius: '16px',
         padding: '24px',
         boxShadow: '0 4px 6px -1px rgba(0,0,0,0.04), 0 2px 4px -2px rgba(0,0,0,0.02)',
@@ -204,7 +204,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                 border: isSelected ? '2px solid var(--primary-color, #2563eb)' : '1px solid var(--border-color, #e2e8f0)',
                 borderRadius: '14px',
                 padding: '18px',
-                backgroundColor: isSelected ? 'rgba(37, 99, 235, 0.03)' : 'var(--bg-card, #ffffff)',
+                backgroundColor: isSelected ? 'var(--accent-color)' : 'var(--surface-2, var(--surface-color))',
                 position: 'relative',
                 transition: 'all 0.25s ease',
                 boxShadow: isSelected ? '0 4px 12px rgba(37, 99, 235, 0.08)' : 'none'
@@ -216,14 +216,14 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                   <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 2px 0', color: 'var(--text-primary, #0f172a)' }}>
                     {currentTplDetails.name}
                   </h3>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--primary-color, #2563eb)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-text, var(--primary-color))', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     {currentTplDetails.tagline}
                   </span>
                 </div>
                 {isSelected ? (
                   <span style={{
-                    backgroundColor: 'var(--primary-color, #2563eb)',
-                    color: '#ffffff',
+                    backgroundColor: 'var(--primary-color)',
+                    color: 'var(--primary-foreground)',
                     fontSize: '11px',
                     fontWeight: 700,
                     padding: '3px 10px',
@@ -235,7 +235,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                     <Check size={12} /> {t('settingsPage.activeDefault', 'Active Default')}
                   </span>
                 ) : (
-                  <span style={{ fontSize: '11px', color: '#64748b', backgroundColor: '#f1f5f9', padding: '3px 8px', borderRadius: '8px', fontWeight: 600 }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'var(--surface-inset)', padding: '3px 8px', borderRadius: '8px', fontWeight: 600 }}>
                     {currentIndex + 1} {t('settingsPage.of', 'of')} {availableTemplates.length}
                   </span>
                 )}
@@ -300,8 +300,8 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                     fontSize: '13px',
                     padding: '8px 14px',
                     borderRadius: '8px',
-                    backgroundColor: isSelected ? 'var(--primary-color, #2563eb)' : undefined,
-                    color: isSelected ? '#ffffff' : undefined,
+                    backgroundColor: isSelected ? 'var(--primary-color)' : undefined,
+                    color: isSelected ? 'var(--primary-foreground)' : undefined,
                     fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
@@ -345,8 +345,8 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                 width: '38px',
                 height: '38px',
                 borderRadius: '50%',
-                backgroundColor: '#ffffff',
-                border: '1px solid #cbd5e1',
+                backgroundColor: 'var(--surface-color)',
+                border: '1px solid var(--border-strong)',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 display: 'flex',
                 alignItems: 'center',
@@ -373,8 +373,8 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                 width: '38px',
                 height: '38px',
                 borderRadius: '50%',
-                backgroundColor: '#ffffff',
-                border: '1px solid #cbd5e1',
+                backgroundColor: 'var(--surface-color)',
+                border: '1px solid var(--border-strong)',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 display: 'flex',
                 alignItems: 'center',

@@ -171,15 +171,31 @@ TEMPLATES = [
                 field('border', 'Border', 'select', options=[
                     ('with_border', 'With Border'), ('without_border', 'Without Border')],
                       when=one_of('services', ['stitching', 'saree_finishing'])),
+                field('border_source', 'Border From', 'select', options=[
+                    'From Customer', 'From Inventory'],
+                      when=eq('border', 'with_border')),
+                field('border_length', 'Border Length', 'number', unit='m',
+                      validation={'min': 0, 'max': 20, 'step': 0.25},
+                      when=eq('border_source', 'from_customer')),
+                field('border_image', 'Border Photo', 'file',
+                      when=eq('border_source', 'from_customer')),
                 field('backing', 'Backing', 'select', options=[
                     ('with_backing', 'With Backing'), ('without_backing', 'Without Backing')],
                       when=one_of('services', ['stitching', 'saree_finishing'])),
+                # `backing` is pruned the moment it hides, so these need only
+                # watch it, not the services list behind it.
+                field('backing_size', 'Backing Size', 'select', options=[
+                    'Small Size', 'Same as Border Size', 'Inches Backing'],
+                      when=eq('backing', 'with_backing')),
+                field('backing_inches', 'Backing (inches)', 'number', unit='in',
+                      validation={'min': 0, 'max': 60, 'step': 0.25},
+                      when=eq('backing_size', 'inches_backing')),
                 field('fall_type', 'Fall', 'select', options=['Big Fall', 'Small Fall'],
                       when=one_of('services', ['fall', 'fall_pico'])),
                 field('pico_type', 'Pico', 'select', options=['Standard', 'Premium'],
                       when=one_of('services', ['pico', 'fall_pico'])),
                 field('tassels', 'Tassels', 'select', options=[
-                    'No Tassels', 'Hand Made', 'Readymade', 'Knot Style'],
+                    'Hand Made', 'Readymade', 'Knot Style'],
                       when=one_of('services', ['tassel_work'])),
                 field('petticoat_required', 'Petticoat Required', 'boolean',
                       when=one_of('services', ['stitching'])),

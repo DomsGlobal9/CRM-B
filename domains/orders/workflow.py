@@ -203,7 +203,8 @@ def check_reopen(order, stage, *, config, role, owner_role):
     """May this settled stage be reopened, by this caller, right now?
 
     Raises TransitionError when it may not; PermissionError when the caller's
-    role is the problem (the view maps that to 403 rather than 400).
+    role is the problem (the view maps that to 403 rather than 400). Returns
+    the keys of later stages that have begun and must be reset with it.
     """
     label = stage.stage_name or stage.stage_key
 
@@ -221,19 +222,12 @@ def check_reopen(order, stage, *, config, role, owner_role):
         raise TransitionError(
             f'"{stage.stage_key}" is not a stage in this boutique\'s workflow.')
 
-    # The frontier rule: nothing after this stage may have been started. A
-    # reopened stage with completed work stacked on top of it would make the
-    # record claim the later work happened on a garment whose earlier state is
-    # now officially unfinished -- the exact ambiguity reopening exists to fix.
-    # To go further back, reopen the later stages first, one honest step at a
-    # time.
+    # Anything after this stage that has been started is reset alongside it:
+    # a reopened stage with completed work stacked on top would make the
+    # record claim the later work happened on a garment whose earlier state
+    # is now officially unfinished. The caller resets these and logs them.
     live = dict(order.stages.values_list('stage_key', 'status'))
-    started_later = [
-        s for s in ordered_stages(config)[position + 1:]
+    return [
+        s['key'] for s in ordered_stages(config)[position + 1:]
         if live.get(s['key'], 'NOT_STARTED') != 'NOT_STARTED'
     ]
-    if started_later:
-        names = ', '.join(s.get('name', s['key']) for s in started_later)
-        raise TransitionError(
-            f'Cannot reopen {label} while later work has begun ({names}). '
-            f'Reopen the later stages first.')

@@ -2842,14 +2842,21 @@ function App() {
   const performNext = async () => {
     try {
       if (wizardStepKey === 'who') {
-        if (!customerForm.mobile_number.trim()) { alert('Enter the mobile number.'); return; }
+        if (!/^[6-9]\d{9}$/.test(customerForm.mobile_number.replace(/\D/g, ''))) {
+          alert('Enter a valid 10-digit mobile number.');
+          return;
+        }
         if (serviceType === 'alter') {
           if (!customerId) { alert('Pick the customer from the list: alterations are for garments we made.'); return; }
-        } else if (!customerForm.first_name.trim()) {
-          alert('Enter the customer\u2019s name.');
+        } else if (customerForm.first_name.trim().length < 2) {
+          alert('Enter the customer\u2019s name (at least 2 letters).');
           return;
         }
         if (serviceType !== 'alter' && !customerForm.gender) { alert('Select the customer\u2019s gender.'); return; }
+        if (customerForm.email_address && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerForm.email_address.trim())) {
+          alert('Enter a valid email address, or leave it blank.');
+          return;
+        }
         if (serviceType !== 'alter') await persistDraft({ step: 2 });
         reachStep(2);
       } else if (wizardStepKey === 'what') {
@@ -2985,11 +2992,27 @@ function App() {
     ['base', 'Base price'], ['fabric', 'Fabric'], ['embroidery', 'Embroidery & work'],
     ['customization', 'Customization'], ['tailoring', 'Tailoring'],
   ];
+  // Work a garment's spec adds on top of stitching -- backing, a border, a
+  // fall, pico -- each priced on its own line. Mirrors the extras the server
+  // folds into customization_price at confirm.
+  const EXTRA_CHARGES = [
+    ['backing', 'Backing', (v) => v.backing === 'with_backing'],
+    ['border', 'Border', (v) => v.border === 'with_border'],
+    ['fall', 'Fall', (v) => ['fall', 'fall_pico'].some(s => (v.services || []).includes(s))],
+    ['pico', 'Pico', (v) => ['pico', 'fall_pico'].some(s => (v.services || []).includes(s))],
+  ];
+  const jobExtras = (job) => EXTRA_CHARGES.filter(([, , applies]) => applies(job.values || {}));
   const jobSubtotal = (job) =>
-    PRICING_FIELDS.reduce((sum, [key]) => sum + parseFloat(job.pricing?.[key] || 0), 0);
+    PRICING_FIELDS.reduce((sum, [key]) => sum + parseFloat(job.pricing?.[key] || 0), 0)
+    + jobExtras(job).reduce((sum, [key]) => sum + parseFloat(job.pricing?.extras?.[key] || 0), 0);
   const setJobPrice = (jobKey, field, value) => {
     setGarmentJobs(prev => prev.map(job => job.key === jobKey
       ? { ...job, pricing: { ...(job.pricing || {}), [field]: value } }
+      : job));
+  };
+  const setJobExtra = (jobKey, key, value) => {
+    setGarmentJobs(prev => prev.map(job => job.key === jobKey
+      ? { ...job, pricing: { ...(job.pricing || {}), extras: { ...(job.pricing?.extras || {}), [key]: value } } }
       : job));
   };
 
@@ -6959,7 +6982,8 @@ function App() {
                       <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
                       <input id="wz-mobile" type="tel" inputMode="numeric" autoFocus
                              value={customerForm.mobile_number}
-                             onChange={(e) => { setCustomerForm({ ...customerForm, mobile_number: e.target.value }); if (customerId) clearPickedCustomer(e.target.value); }}
+                             maxLength={10}
+                             onChange={(e) => { const digits = e.target.value.replace(/\D/g, '').slice(0, 10); setCustomerForm({ ...customerForm, mobile_number: digits }); if (customerId) clearPickedCustomer(digits); }}
                              style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
                     </div>
                   </div>
@@ -7017,7 +7041,8 @@ function App() {
                         <div className="form-group" style={{ marginTop: '14px' }}>
                           <label className="form-label" htmlFor="wz-name">{t('wizard.customerName', 'Customer Name')} <span className="required">*</span></label>
                           <input id="wz-name" type="text" className="form-control" value={customerName}
-                                 onChange={(e) => setCustomerNameSplit(e.target.value)}
+                                 maxLength={60}
+                                 onChange={(e) => setCustomerNameSplit(e.target.value.replace(/[^\p{L} .'-]/gu, ''))}
                                  placeholder={t('wizard.namePlaceholder', 'e.g. Amara Singh')} />
                         </div>
                       )}
@@ -7366,6 +7391,19 @@ function App() {
                         </div>
                       </div>
                     ))}
+                    {garmentJobs.flatMap((job) => jobExtras(job).map(([key, label]) => (
+                      <div key={`${job.key}-${key}`} className="wz-money-row">
+                        <label htmlFor={`wz-extra-${job.key}-${key}`} className="wz-money-label" style={{ paddingLeft: '16px' }}>
+                          {job.template.name} · {label} <span className="od-hint">({t('wizard.extraWork', 'extra work')})</span>
+                        </label>
+                        <div className="wz-money-input">
+                          <span>₹</span>
+                          <input id={`wz-extra-${job.key}-${key}`} type="number" min="0" step="1" inputMode="decimal" className="form-control"
+                                 value={job.pricing?.extras?.[key] ?? ''} placeholder="0"
+                                 onChange={(e) => setJobExtra(job.key, key, e.target.value)} />
+                        </div>
+                      </div>
+                    )))}
                     <div className="wz-money-row">
                       <label htmlFor="wz-packaging" className="wz-money-label">{t('wizard.packaging', 'Packaging & handling')}</label>
                       <div className="wz-money-input">
@@ -7567,17 +7605,6 @@ function App() {
             </p>
             <div className="order-id-badge">
               <span>Order ID: <strong>{orderRef(confirmedOrder)}</strong></span>
-              <button 
-                aria-label="Copy order ID"
-                title="Copy order ID"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', minWidth: '44px', minHeight: '44px', margin: '-12px' }}
-                onClick={() => {
-                  navigator.clipboard.writeText(orderRef(confirmedOrder));
-                  alert("Copied!");
-                }}
-              >
-                <Copy size={16} />
-              </button>
             </div>
           </div>
 
@@ -7655,7 +7682,7 @@ function App() {
             <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => { setView('dashboard'); fetchDashboardAndConfig(); }}>
               Back to Dashboard
             </button>
-            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center', backgroundColor: 'var(--text-primary)' }} onClick={() => setShowInvoiceModal(true)}>
+            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => setShowInvoiceModal(true)}>
               <FileText size={18} /> View & Print Invoice
             </button>
           </div>
@@ -8422,6 +8449,23 @@ function App() {
                 ? 'The stitching stages reopen for rework and the order drops back to Design & Creation. Say what was wrong — the tailor doing the rework reads this.'
                 : 'This goes on the order\u2019s record with your name. Say why the stage is being reopened.'}
             </p>
+            {reversalPrompt.type === 'reopen' && (() => {
+              // Later work is reset with it: the server does this, the
+              // warning just makes sure nobody is surprised.
+              const stages = activeReviewOrder?.stages || [];
+              const at = stages.findIndex(s => s.stage_key === selectedStageObj?.stage_key);
+              const reset = at === -1 ? [] : stages.slice(at + 1).filter(s => s.status !== 'NOT_STARTED');
+              return reset.length > 0 && (
+                <div role="alert" style={{ display: 'flex', gap: '8px', padding: '10px 12px', marginBottom: '12px', borderRadius: '10px',
+                                           background: 'var(--warning-bg)', color: 'var(--warning-color)', fontSize: '13px' }}>
+                  <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+                  <span>
+                    <strong>Later work will be reset.</strong>{' '}
+                    {reset.map(s => s.stage_name || s.stage_key).join(', ')} {reset.length === 1 ? 'goes' : 'go'} back to Not started and must be done again.
+                  </span>
+                </div>
+              );
+            })()}
             <textarea
               className="form-control"
               rows={3}
