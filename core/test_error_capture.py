@@ -391,8 +391,8 @@ class ErrorFeedScopeTests(TransactionTestCase):
         from superadmin.health import _errors
         state, detail = _errors()
         # crash + handled + frontend = 3 faults; the refusal is reported apart.
-        self.assertIn('3 unresolved', detail)
-        self.assertIn('1 platform refusal', detail)
+        self.assertIn('3 minor one(s) open', detail)
+        self.assertIn('1 request(s) were refused by a platform control', detail)
 
 
 class ReturnedClientErrorTests(TransactionTestCase):
