@@ -193,9 +193,7 @@ class OnboardingProgressTests(TransactionTestCase):
 
             self.assertEqual(
                 {key: value for key, value in modules.items() if value},
-                {'staff_added': 'tailors',
-                 'specialist_roles': 'tailors',
-                 'designers': 'design_studio',
+                {'designers': 'design_studio',
                  'collections': 'design_studio',
                  'boards': 'design_studio',
                  'real_inventory': 'inventory'})
@@ -207,6 +205,7 @@ class OnboardingProgressTests(TransactionTestCase):
                 {key for key, value in modules.items() if value is None},
                 {'logo_uploaded', 'address_set', 'phone_set', 'first_customer',
                  'first_order', 'communication', 'email_verified',
+                 'staff_added', 'specialist_roles',
                  'phone_verified', 'whatsapp_connected', 'payment_configured',
                  'integrations_configured', 'real_designs',
                  'design_approval_configured'})
@@ -214,8 +213,9 @@ class OnboardingProgressTests(TransactionTestCase):
             tenant.enabled_modules = {'tailors': False, 'inventory': False}
             states = {step['key']: step['state']
                       for step in onboarding.progress(tenant)['steps']}
-            for key in ('staff_added', 'specialist_roles', 'real_inventory'):
-                self.assertEqual(states[key], 'module_off', key)
+            self.assertEqual(states['real_inventory'], 'module_off')
+            # The roster cannot be switched off, so a stored False changes nothing.
+            self.assertNotEqual(states['staff_added'], 'module_off')
             self.assertEqual(states['designers'], 'todo')
 
     def test_a_design_the_boutique_added_is_indistinguishable_from_seed_data(self):

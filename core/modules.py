@@ -162,30 +162,74 @@ MODULE_GROUP = {
 
 #: Modules that exist for URL governance -- every prefix must belong to one --
 #: but are not features anybody buys or switches. The bell is on every screen,
-#: the order wizard reads garment templates, the inventory item form reads the
-#: purchasing catalogue, the production API has no screen, and the activity
-#: feed is role-gated already. They are always entitled; role distribution
+#: the order wizard reads garment templates and assigns from the roster, the
+#: inventory item form reads the purchasing catalogue, the production API has
+#: no screen, and the activity feed is role-gated already. They are always entitled; role distribution
 #: (Layer 2) still applies. Hidden from the console's switch list and from
 #: every plan, because a switch that breaks the product is not a control.
 INFRASTRUCTURE = frozenset({
     'notifications', 'garment_catalog', 'inventory_catalog', 'production_api', 'activities',
+    # The roster: every order is assigned to a tailor and a master, so a
+    # boutique without it cannot take an order. Employment records, attendance
+    # and pay are the sellable part (Team Management), not the names.
+    'tailors',
 })
 
 #: Sold separately from the plan a boutique is on.
 ADDONS = frozenset({'whatsapp', 'email'})
 
-_STARTER = frozenset({'order_drafts', 'order_tracking', 'tailors'})
-_STUDIO = _STARTER | {'design_studio', 'scheduling', 'alterations', 'inventory'}
-_ATELIER = _STUDIO | {'staff', 'payroll', 'finance'} | ADDONS
+#: What the business sells: a handful of modules, each a bundle of the
+#: switchable features above. (In this file the features are called MODULES
+#: for historical reasons -- the URL registry, the middleware, the column and
+#: the API all speak that name -- so the sellable bundles are PRODUCT_MODULES.
+#: The console says "module" for these and "feature" for the entries above.)
+#: Every gateable, non-infrastructure feature belongs to exactly one; core.E011
+#: checks it. An empty feature list is a module that is announced but not built.
+PRODUCT_MODULES = {
+    'crm': ('CRM',
+            'Customers, orders and how you reach them: drafts, the public tracking '
+            'link, appointments, alterations, WhatsApp and email.',
+            ('order_drafts', 'order_tracking', 'scheduling', 'alterations', 'whatsapp', 'email')),
+    'design': ('Design Studio',
+               'Design library, boards, collections, designers and search.',
+               ('design_studio',)),
+    'inventory': ('Inventory',
+                  'Stock, locations, suppliers, purchase orders and bills of materials.',
+                  ('inventory',)),
+    'team': ('Team Management',
+             'Employment terms, attendance, payroll and staff performance.',
+             ('staff', 'payroll')),
+    'finance': ('Finance',
+                'Business costs and the profit-and-loss report.',
+                ('finance',)),
+    'try_on': ('Try-On',
+               'Virtual try-on. Not built yet; listed so the plan it will belong to is decided now.',
+               ()),
+}
+
+
+def module_features(module):
+    return frozenset(PRODUCT_MODULES[module][2])
+
+
+def _bundle(modules, addons=False):
+    features = frozenset().union(*(module_features(m) for m in modules))
+    return features if addons else features - ADDONS
+
 
 #: What each plan includes, on top of the structural product every boutique
-#: has (orders, customers, invoices, reports). A boutique's overrides
-#: (BoutiqueTenant.enabled_modules) sit on top: an add-on bought, or one
-#: module granted or withheld by hand.
+#: has (orders, customers, invoices, reports). Named by product module; the
+#: feature set is what the server enforces. Add-ons are extra on Starter and
+#: Studio, included in Atelier. A boutique's overrides
+#: (BoutiqueTenant.enabled_modules, keyed by feature) sit on top.
+PLAN_MODULES = {
+    'starter': ('Starter', ('crm',)),
+    'studio': ('Studio', ('crm', 'design', 'inventory')),
+    'atelier': ('Atelier', ('crm', 'design', 'inventory', 'team', 'finance')),
+}
 PLANS = {
-    'starter': ('Starter', _STARTER),
-    'studio': ('Studio', _STUDIO),
-    'atelier': ('Atelier', _ATELIER),
+    key: (label, _bundle(modules, addons=(key == 'atelier')))
+    for key, (label, modules) in PLAN_MODULES.items()
 }
 DEFAULT_PLAN = 'starter'
 
@@ -405,8 +449,14 @@ def catalogue():
              'addon': key in ADDONS, 'group': MODULE_GROUP.get(key)}
             for key, (label, prefixes, description) in MODULES.items()
         ],
-        'plans': [{'key': key, 'label': label, 'modules': sorted(modules)}
-                  for key, (label, modules) in PLANS.items()],
+        'product_modules': [
+            {'key': key, 'label': label, 'description': description,
+             'features': list(features), 'built': bool(features)}
+            for key, (label, description, features) in PRODUCT_MODULES.items()
+        ],
+        'plans': [{'key': key, 'label': label, 'modules': list(PLAN_MODULES[key][1]),
+                   'features': sorted(features)}
+                  for key, (label, features) in PLANS.items()],
         'addons': sorted(ADDONS),
         'default_plan': DEFAULT_PLAN,
         'groups': dict(GROUPS),

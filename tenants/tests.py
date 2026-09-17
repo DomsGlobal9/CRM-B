@@ -428,15 +428,15 @@ class ModuleGateTests(TransactionTestCase):
     def test_a_disabled_module_is_refused_and_the_message_names_it(self):
         with temporary_tenant('mod_test_a', 'a@mod.test', 'Atelier A') as tenant:
             client = tenant_client('mod_test_a')
-            self.assertEqual(client.get('/api/tailors/').status_code, 200)
+            self.assertEqual(client.get('/api/staff/').status_code, 200)
 
-            set_modules(tenant, {'tailors': False})
+            set_modules(tenant, {'staff': False})
 
-            response = client.get('/api/tailors/')
+            response = client.get('/api/staff/')
             self.assertEqual(response.status_code, 403)
             body = response.json()
-            self.assertIn('Team', body['error'])
-            self.assertEqual(body['module'], 'tailors')
+            self.assertIn('Staff Management', body['error'])
+            self.assertEqual(body['module'], 'staff')
             self.assertNotIn('suspended', body['error'])
 
     def test_everything_disabled_still_leaves_the_boutique_a_way_in(self):

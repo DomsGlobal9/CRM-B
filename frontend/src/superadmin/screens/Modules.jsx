@@ -57,15 +57,28 @@ export default function Modules() {
     setStored((map) => ({ ...map, [schema]: {
       plan: result.plan, enabled_modules: result.enabled_modules, entitled: result.entitled } }));
 
-  const sellable = useMemo(
-    () => (state.data ? state.data.modules.filter((m) => m.gateable) : []), [state.data]);
-  const labelOf = (key) => state.data?.modules.find((m) => m.key === key)?.label || key;
+  // "Module" on this screen is a product module (CRM, Inventory, ...); each
+  // bundles the switchable features the server actually gates.
+  const featureOf = (key) => state.data?.modules.find((m) => m.key === key);
+  const labelOf = (key) => featureOf(key)?.label || key;
+  const productModules = state.data?.product_modules || [];
+  // The boutique+module whose features are open in the side panel.
+  const [open, setOpen] = useState(null);
+
+  const moduleState = (row, mod) => {
+    const on = mod.features.filter((k) => row.entitled.includes(k)).length;
+    if (!mod.features.length) return 'not built';
+    if (on === 0) return 'off';
+    return on === mod.features.length ? 'on' : 'partly';
+  };
 
   const apply = async (reason) => {
-    const { boutique, module, plan, next } = pending;
+    const { boutique, module, plan, next, bundle } = pending;
     setBusy(true);
     try {
-      const body = plan ? { plan } : { [module.key]: next };
+      const body = bundle
+        ? Object.fromEntries(bundle.features.map((k) => [k, next]))
+        : { [module.key]: next };
       const result = plan
         ? await consoleApi.setPlan(boutique.schema_name, plan, reason)
         : await consoleApi.setModules(boutique.schema_name, body, reason);
@@ -74,9 +87,12 @@ export default function Modules() {
       // part someone has to act on -- it is the difference between "it worked"
       // and "it worked in the worker that answered me" -- and a toast is gone
       // before they have finished reading the grid.
+      const state = next === null ? 'following the plan' : next ? 'on' : 'off';
       const what = plan
         ? `${boutique.name} is now on ${planLabel(plan)}.`
-        : `${module.label} is now ${next === null ? 'following the plan' : next ? 'on' : 'off'} for ${boutique.name}.`;
+        : bundle
+          ? `Every ${bundle.label} feature is now ${state} for ${boutique.name}.`
+          : `${module.label} is now ${state} for ${boutique.name}.`;
       setNote([what, result.note].filter(Boolean).join(' '));
       toast('Saved.');
     } catch (e) {
@@ -101,7 +117,7 @@ export default function Modules() {
           <>
             <SectionHead
               title="Features per boutique"
-              subtitle="Each boutique's plan decides what it can use; add-ons and hand-set exceptions sit on top. The server enforces it, not just the menu."
+              subtitle="Modules per boutique — CRM, Design Studio, Inventory, Team Management, Finance, Try-On. The plan sets them; open a module to switch its features one by one. The server enforces it, not just the menu."
             >
               <SearchBox value={term} onChange={setTerm} placeholder="Boutique name or schema…" />
             </SectionHead>
@@ -117,10 +133,12 @@ export default function Modules() {
                     <tr>
                       <th style={PINNED}>Boutique</th>
                       <th>Plan</th>
-                      {sellable.map((m) => (
-                        <th key={m.key} title={m.description}>
-                          {m.label}
-                          <div className="sa-schema">{m.addon ? 'add-on' : m.group}</div>
+                      {productModules.map((mod) => (
+                        <th key={mod.key} title={mod.description}>
+                          {mod.label}
+                          <div className="sa-schema">
+                            {mod.features.length ? `${mod.features.length} feature${mod.features.length === 1 ? '' : 's'}` : 'not built'}
+                          </div>
                         </th>
                       ))}
                     </tr>
@@ -145,28 +163,17 @@ export default function Modules() {
                               {data.plans.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
                             </select>
                           </td>
-                          {sellable.map((m) => {
-                            const on = isOn(row, m.key);
-                            const override = isOverride(row, m.key);
+                          {productModules.map((mod) => {
+                            const st = moduleState(row, mod);
+                            const tone = { on: 'ok', partly: 'warn', off: 'off', 'not built': 'muted' }[st];
+                            const overridden = mod.features.some((k) => isOverride(row, k));
                             return (
-                              <td key={m.key}>
-                                <button
-                                  className={`sa-btn${on ? '' : ' danger'}`}
-                                  aria-pressed={on}
-                                  title={override ? 'Set by hand for this boutique, not by its plan' : `From the ${planLabel(row.plan)} plan`}
-                                  aria-label={`${m.label} for ${b.name}: ${on ? 'on' : 'off'}`}
-                                  onClick={() => setPending({ boutique: b, module: m, next: !on })}
-                                >
-                                  {on ? 'On' : 'Off'}{override ? ' *' : ''}
+                              <td key={mod.key}>
+                                <button className="sa-btn" disabled={!mod.features.length}
+                                  aria-label={`${mod.label} for ${b.name}: ${st}`}
+                                  onClick={() => setOpen({ boutique: b, module: mod })}>
+                                  <Pill value={st} tone={tone} label={st} />{overridden ? ' *' : ''}
                                 </button>
-                                {override && (
-                                  <button className="sa-btn" style={{ marginLeft: 4 }}
-                                    title="Remove the hand-set value so this follows the plan again"
-                                    aria-label={`${m.label} for ${b.name}: follow plan`}
-                                    onClick={() => setPending({ boutique: b, module: m, next: null })}>
-                                    ↺
-                                  </button>
-                                )}
                               </td>
                             );
                           })}
@@ -176,7 +183,7 @@ export default function Modules() {
                   </tbody>
                 </table>
                 <p className="sa-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
-                  * set by hand for that boutique, overriding its plan. ↺ puts it back on the plan.
+                  Click a module to see and switch its features. * means at least one feature is set by hand, overriding the plan.
                 </p>
               </div>
             )}
@@ -188,12 +195,12 @@ export default function Modules() {
                 {data.plans.map((p) => (
                   <div key={p.key} className="sa-card">
                     <h4><PackageSearch size={14} /> {p.label}</h4>
-                    <p>{p.modules.map((k) => labelOf(k)).join(' · ')}</p>
+                    <p>{p.modules.map((k) => productModules.find((m) => m.key === k)?.label || k).join(' · ')}</p>
                   </div>
                 ))}
                 <div className="sa-card">
                   <h4><PackageSearch size={14} /> Add-ons</h4>
-                  <p>{data.addons.map((k) => labelOf(k)).join(' · ')} — switched on per boutique with the * buttons above; included in {planLabel('atelier')}.</p>
+                  <p>{data.addons.map((k) => labelOf(k)).join(' · ')} — CRM features sold separately; switch them on per boutique inside CRM. Included in {planLabel('atelier')}.</p>
                 </div>
               </div>
             </div>
@@ -262,6 +269,66 @@ export default function Modules() {
         )}
       </Async>
 
+      {open && (() => {
+        const row = stored[open.boutique.schema_name] ?? open.boutique;
+        const mod = open.module;
+        return (
+          <div className="sa-modal-backdrop" onClick={() => setOpen(null)}>
+            <div className="sa-modal" onClick={(e) => e.stopPropagation()} role="dialog"
+              aria-label={`${mod.label} features for ${open.boutique.name}`}>
+              <h3>{mod.label} — {open.boutique.name}</h3>
+              <p className="sa-muted">{mod.description}</p>
+              <div style={{ display: 'flex', gap: 8, margin: '12px 0' }}>
+                <button className="sa-btn" onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: true })}>
+                  Whole module on
+                </button>
+                <button className="sa-btn danger" onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: false })}>
+                  Whole module off
+                </button>
+                <button className="sa-btn" onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: null })}>
+                  ↺ Follow plan
+                </button>
+              </div>
+              <table className="sa-table">
+                <thead><tr><th>Feature</th><th>State</th><th>Set by</th><th></th></tr></thead>
+                <tbody>
+                  {mod.features.map((k) => {
+                    const f = featureOf(k);
+                    const on = isOn(row, k);
+                    const override = isOverride(row, k);
+                    return (
+                      <tr key={k}>
+                        <td title={f?.description}>
+                          {f?.label || k}{f?.addon ? <span className="sa-schema"> add-on</span> : null}
+                        </td>
+                        <td><Pill value={on ? 'on' : 'off'} tone={on ? 'ok' : 'off'} label={on ? 'on' : 'off'} /></td>
+                        <td className="sa-muted">{override ? 'by hand' : `${planLabel(row.plan)} plan`}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <button className={`sa-btn${on ? ' danger' : ''}`}
+                            onClick={() => setPending({ boutique: open.boutique, module: f, next: !on })}>
+                            Switch {on ? 'off' : 'on'}
+                          </button>
+                          {override && (
+                            <button className="sa-btn" style={{ marginLeft: 4 }}
+                              title="Remove the hand-set value so this follows the plan again"
+                              onClick={() => setPending({ boutique: open.boutique, module: f, next: null })}>
+                              ↺
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div style={{ textAlign: 'right', marginTop: 12 }}>
+                <button className="sa-btn" onClick={() => setOpen(null)}>Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <Confirm
         open={Boolean(pending)}
         busy={busy}
@@ -269,12 +336,21 @@ export default function Modules() {
         requireReason
         title={!pending ? '' : pending.plan
           ? `Move ${pending.boutique.name} to ${planLabel(pending.plan)}?`
+          : pending.bundle
+            ? `${pending.next === null ? 'Let every' : pending.next ? 'Switch every' : 'Switch every'} ${pending.bundle.label} feature ${pending.next === null ? 'follow the plan' : pending.next ? 'on' : 'off'} for ${pending.boutique.name}?`
           : pending.next === null
             ? `Let ${pending.module.label} follow the plan for ${pending.boutique.name}?`
             : `Switch ${pending.module.label} ${pending.next ? 'on' : 'off'} for ${pending.boutique.name}?`}
         confirmLabel={!pending ? '' : pending.plan ? 'Change plan'
           : pending.next === null ? 'Follow plan' : pending.next ? 'Switch on' : 'Switch off'}
-        body={pending && (pending.plan ? (
+        body={pending && (pending.bundle ? (
+          <p>
+            {pending.bundle.features.map(labelOf).join(', ')}
+            {pending.next === null ? ' go back to whatever the plan says.'
+              : pending.next ? ' become reachable, whatever the plan says.'
+              : ' are refused by the server until switched back on. Nothing is deleted.'}
+          </p>
+        ) : pending.plan ? (
           <>
             <p>
               <strong>{pending.boutique.name}</strong> gets everything in{' '}

@@ -209,6 +209,21 @@ def check_plans_are_consistent(app_configs, **kwargs):
             errors.append(Error(f'Plan {plan!r} lists infrastructure module {key!r}; it is always on.', id='core.E011'))
     if DEFAULT_PLAN not in PLANS:
         errors.append(Error(f'DEFAULT_PLAN {DEFAULT_PLAN!r} is not in PLANS.', id='core.E011'))
+
+    from .modules import PRODUCT_MODULES
+    owners = {}
+    for module, (_l, _d, features) in PRODUCT_MODULES.items():
+        for key in features:
+            if key not in MODULES:
+                errors.append(Error(f'Product module {module!r} lists {key!r}, which is not a feature.', id='core.E011'))
+            elif key in INFRASTRUCTURE:
+                errors.append(Error(f'Product module {module!r} lists infrastructure {key!r}.', id='core.E011'))
+            owners.setdefault(key, []).append(module)
+    for key, modules in owners.items():
+        if len(modules) > 1:
+            errors.append(Error(f'Feature {key!r} is in more than one product module: {modules}.', id='core.E011'))
+    for key in sorted(set(MODULES) - INFRASTRUCTURE - set(owners)):
+        errors.append(Error(f'Feature {key!r} belongs to no product module, so no plan can sell it.', id='core.E011'))
     return errors
 
 
