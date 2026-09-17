@@ -13,6 +13,7 @@ stay a factual record rather than a financial one.
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from core.formatting import to_local
@@ -125,6 +126,36 @@ def record_for_staff(staff, *, user, check_in_at, check_out_at=None, note=''):
             f"{staff.name} already has an open session. Close it before adding "
             f"another.")
     return session
+
+
+def check_in_from_work(staff, *, user, started_at, note=''):
+    """Open a session for somebody who started a task without checking in.
+
+    The workroom already stamps who started what and when; this copies that
+    stamp into attendance when there is no session for the day, so a forgotten
+    check-in still puts the hours on the timesheet. Marked WORK so the owner can
+    see it was the system, not a tap, and correct it if they know the person was
+    on the floor earlier.
+
+    Returns the new session, or None when there is nothing to do -- an open
+    session, a session already filed for that day, or a race with a real
+    check-in. Never raises: starting work must not fail because of attendance.
+    """
+    if staff is None or started_at is None:
+        return None
+    day = business_date(started_at)
+    if AttendanceSession.objects.filter(staff=staff).filter(
+            Q(check_out__isnull=True) | Q(date=day)).exists():
+        return None
+    try:
+        with transaction.atomic():
+            return AttendanceSession.objects.create(
+                staff=staff, date=day, check_in=started_at,
+                source=AttendanceSession.Source.WORK, note=note or '',
+                recorded_by=user,
+            )
+    except IntegrityError:
+        return None
 
 
 def correct(session, *, user, reason, check_in_at=None, check_out_at=None):

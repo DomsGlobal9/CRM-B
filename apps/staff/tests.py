@@ -922,6 +922,61 @@ class OwnerRecordedAttendanceTests(AttendanceTestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class WorkStartCheckInTests(AttendanceTestCase):
+    """Starting a task with no session for the day opens one from that stamp."""
+
+    def test_starting_work_opens_a_session_from_the_task_stamp(self):
+        from .attendance import check_in_from_work
+        started = self._at(2026, 9, 1, 9, 45)
+        session = check_in_from_work(
+            self.anita, user=self.anita_user, started_at=started, note='Auto')
+        self.assertIsNotNone(session)
+        self.assertEqual(session.source, 'WORK')
+        self.assertEqual(session.check_in, started)
+        self.assertEqual(session.date, date(2026, 9, 1))
+        self.assertIsNone(session.check_out)
+
+    def test_nothing_happens_when_they_already_checked_in(self):
+        from .attendance import check_in_from_work
+        self.client_for(self.anita_user).post(
+            reverse('staff-attendance-check-in'), {}, format='json')
+        self.assertIsNone(check_in_from_work(
+            self.anita, user=self.anita_user, started_at=timezone.now()))
+        self.assertEqual(AttendanceSession.objects.filter(staff=self.anita).count(), 1)
+
+    def test_nothing_happens_when_the_day_is_already_filed(self):
+        from .attendance import check_in_from_work
+        AttendanceSession.objects.create(
+            staff=self.anita, date=date(2026, 9, 1),
+            check_in=self._at(2026, 9, 1, 9, 0), check_out=self._at(2026, 9, 1, 13, 0),
+            minutes=240)
+        self.assertIsNone(check_in_from_work(
+            self.anita, user=self.anita_user, started_at=self._at(2026, 9, 1, 15, 0)))
+
+    def test_a_stage_start_checks_the_tailor_in(self):
+        """End to end: the workroom transition itself opens the session."""
+        from crm_api.models import Customer, Order, OrderStage
+        from domains.orders.services import OrderService
+        customer = Customer.objects.create(
+            first_name='Test', last_name='Client', mobile_number='9000000001')
+        order = Order.objects.create(order_id='T2B-ATT-1', customer=customer,
+                                     tailor=self.anita)
+        # Everything before stitching is done, so the tailor may start it.
+        for seq, key in enumerate(['created', 'measurements_completed', 'fabric_confirmed',
+                                   'pattern_cutting', 'maggam_work', 'assigned_to_tailor']):
+            OrderStage.objects.create(order=order, stage_key=key, stage_name=key,
+                                      sequence=seq, status='COMPLETED')
+        stage = OrderStage.objects.create(
+            order=order, stage_key='stitching_in_progress', stage_name='Stitching',
+            sequence=6, assigned_to=self.anita)
+        OrderService.transition_order_stage(
+            order, stage.stage_key, 'IN_PROGRESS', user=self.anita_user)
+        session = AttendanceSession.objects.get(staff=self.anita)
+        self.assertEqual(session.source, 'WORK')
+        stage.refresh_from_db()
+        self.assertEqual(session.check_in, stage.started_at)
+
+
 class AttendanceCorrectionTests(AttendanceTestCase):
     def setUp(self):
         super().setUp()
