@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlertCircle, Check, ChevronLeft, Lock, Star, X } from 'lucide-react';
 
 import { api } from '../../services/api';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -245,7 +246,7 @@ function ReviewForm({ member, period, existing, onCancel, onSaved }) {
         <div key={key} style={{ display: 'flex', flexDirection: 'column',
                                 gap: '5px', marginTop: '14px' }}>
           <label style={label} htmlFor={`rv-${key}`}>{text}</label>
-          <textarea id={`rv-${key}`} rows={2} value={form[key]} onChange={set(key)} />
+          <VoiceTextarea id={`rv-${key}`} rows={2} value={form[key]} onChange={set(key)} />
         </div>
       ))}
 

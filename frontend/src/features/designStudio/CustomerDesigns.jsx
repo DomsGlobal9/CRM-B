@@ -6,6 +6,7 @@ import {
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
 import { Dropzone, Field, FormModal } from '../../components/ui/Atelier';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 /**
  * A customer's own designs, captured in the studio.
@@ -360,7 +361,7 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
       )}
 
       <Field label="Notes" optional>
-        <textarea className="form-control" rows={2} value={form.notes} onChange={set('notes')}
+        <VoiceTextarea className="form-control" rows={2} value={form.notes} onChange={set('notes')}
                   placeholder='e.g. "Deep back neck with embroidery on sleeves."' />
       </Field>
 

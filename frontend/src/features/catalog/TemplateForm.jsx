@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '../../services/api';
 import { getSection, isVisible, pruneHidden } from '../../services/templates';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 /**
  * Renders one section of a garment template.
@@ -66,7 +67,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
   let control;
   switch (field.field_type) {
     case 'textarea':
-      control = <textarea {...common} rows={3} placeholder={field.help_text || ''} />;
+      control = <VoiceTextarea {...common} rows={3} placeholder={field.help_text || ''} />;
       break;
 
     case 'number':

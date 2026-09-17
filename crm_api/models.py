@@ -317,6 +317,10 @@ class Order(models.Model):
     garment_images_published = models.BooleanField(default=False)
 
     special_instructions = models.TextField(blank=True, default='')
+    # The spoken version of special_instructions, when it was dictated: a
+    # URL into media storage (see VoiceNoteUploadView). Text stays the record
+    # every report reads; this is for the tailor who would rather listen.
+    instructions_voice_note = models.URLField(max_length=500, blank=True, default='')
     current_stage_key = models.CharField(max_length=100, default="created", db_index=True)
     production_status = models.CharField(max_length=50, default="NOT_STARTED", db_index=True) # NOT_STARTED, IN_PROGRESS, COMPLETED, PAUSED, SKIPPED
     invoice_template = models.CharField(max_length=50, default="classic", blank=True, null=True)
@@ -352,6 +356,9 @@ class OrderStage(models.Model):
     )
     performed_by = models.ForeignKey(Tailor, on_delete=models.SET_NULL, null=True, blank=True)
     comments = models.TextField(blank=True, null=True)
+    # The recording behind `comments` when they were dictated -- same idea as
+    # Order.instructions_voice_note. Empty when the note was typed.
+    voice_note = models.URLField(max_length=500, blank=True, default='')
     attachments = models.JSONField(default=list, blank=True) # list of image URLs
     # A supervisor's verdict on individual attachments, keyed by URL:
     # {url: {'status': 'REJECTED', 'remark': ..., 'by': ..., 'at': ...}}.

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, FolderOpen, Search, Sparkles, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { resolveMediaUrl as resolveImage } from '../../services/media';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 const SOURCE_LABELS = {
   catalogue: 'Boutique Catalogue',
@@ -515,7 +516,7 @@ export default function DesignStudio({
 
       <div className="form-group">
         <label className="form-label">Design Notes (Optional)</label>
-        <textarea
+        <VoiceTextarea
           value={notes}
           onChange={(e) => onNotesChange(e.target.value)}
           className="form-control"
@@ -572,12 +573,12 @@ function InspectPanel({ design, boardItem, onClose, onCustomise }) {
               </div>
               <div className="form-group">
                 <label className="form-label">Customer notes</label>
-                <textarea className="form-control" value={customerNotes}
+                <VoiceTextarea className="form-control" value={customerNotes}
                           onChange={(e) => setCustomerNotes(e.target.value)} />
               </div>
               <div className="form-group">
                 <label className="form-label">Tailor instructions</label>
-                <textarea className="form-control" value={instructions}
+                <VoiceTextarea className="form-control" value={instructions}
                           onChange={(e) => setInstructions(e.target.value)} />
               </div>
               <button

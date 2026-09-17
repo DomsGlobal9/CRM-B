@@ -16,6 +16,7 @@ from core.permissions import (
     OwnerOnly, OwnNotifications, SUPERVISOR_ROLES, visible_customers, visible_orders,
 )
 from core.roles import OWNER, resolve_user_role
+from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -832,6 +833,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         stage_key = request.data.get('stage_key')
         new_status = request.data.get('status')
         comments = request.data.get('comments', '')
+        voice_note = (request.data.get('voice_note') or '').strip()
         performer_id = request.data.get('performed_by_id')
 
         if not stage_key or not new_status:
@@ -848,6 +850,11 @@ class OrderViewSet(viewsets.ModelViewSet):
                 files=request.FILES.getlist('images'),
                 request=request
             )
+            # The recording behind the comment, uploaded first through
+            # VoiceNoteUploadView. Written after the transition so a refused
+            # move leaves no stray audio on the stage.
+            if voice_note:
+                updated_order.stages.filter(stage_key=stage_key).update(voice_note=voice_note)
             # Re-read: `order` was loaded with its stages prefetched, so the
             # cache still holds the pre-transition rows and would serialise the
             # stage as unchanged even though the write succeeded.
@@ -970,6 +977,44 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def mark_all_read(self, request):
         self.get_queryset().filter(is_read=False).update(is_read=True)
         return Response({'status': 'marked as read'})
+
+class VoiceNoteUploadView(views.APIView):
+    """Store one short audio clip and hand back its URL.
+
+    Dictated notes keep their recording alongside the text (OrderStage.voice_note,
+    Order.instructions_voice_note). The clip goes to the same media storage the
+    stage photographs use, so there is nothing new to host; the caller then
+    saves the URL with the note through the endpoint it already used. Only
+    audio, and only a few megabytes -- a voice note is a minute or two.
+    """
+
+    MAX_BYTES = 8 * 1024 * 1024
+
+    def post(self, request):
+        clip = request.FILES.get('audio')
+        if clip is None:
+            return Response({'error': 'Send the recording as "audio".'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if not (clip.content_type or '').startswith('audio/'):
+            return Response({'error': 'Only audio recordings can be uploaded here.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if clip.size > self.MAX_BYTES:
+            return Response({'error': 'That recording is too long to store. Keep it under a few minutes.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        ext = (clip.content_type.split('/')[1].split(';')[0] or 'webm').replace('x-', '')
+        # Cloudinary files audio under its 'video' resource type; the default
+        # (image) storage the photos use refuses it as 'Invalid image file'.
+        # Any other backend (local disk, tests) stores bytes and does not care.
+        storage = default_storage
+        if 'cloudinary' in settings.STORAGES['default']['BACKEND']:
+            from cloudinary_storage.storage import VideoMediaCloudinaryStorage
+            storage = VideoMediaCloudinaryStorage()
+        path = storage.save(f'voice_notes/{uuid.uuid4()}.{ext}', clip)
+        url = storage.url(path)
+        if url.startswith('/'):
+            url = request.build_absolute_uri(url)
+        return Response({'url': url}, status=status.HTTP_201_CREATED)
+
 
 class DashboardView(views.APIView):
 

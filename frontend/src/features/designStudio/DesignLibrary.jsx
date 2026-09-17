@@ -8,6 +8,7 @@ import GarmentPartTabs from './GarmentPartTabs';
 import DesignCatalogueBrowser from './DesignCatalogueBrowser';
 import ItemFormModal from '../inventory/ItemFormModal';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 /**
  * The boutique's design library.
@@ -241,7 +242,7 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
             <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px' }}>
               Awaiting your review
             </div>
-            <textarea className="form-control" rows={2} placeholder="Note for the designer (optional)"
+            <VoiceTextarea className="form-control" rows={2} placeholder="Note for the designer (optional)"
                       value={note} onChange={(e) => setNote(e.target.value)}
                       style={{ fontSize: '12.5px', marginBottom: '10px' }} />
             <div style={{ display: 'flex', gap: '8px' }}>

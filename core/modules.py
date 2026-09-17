@@ -201,6 +201,11 @@ ALWAYS_ON = (
     # purpose. The rest of /api/whatsapp/ stays behind the `whatsapp` module.
     '/api/whatsapp/webhook/',
     '/api/dashboard/',
+    # A dictated note's recording is uploaded here before the note is saved
+    # through whichever endpoint owns it (orders, alterations), and that
+    # endpoint's own module and role gates decide whether the note lands.
+    # Gating the upload separately would only orphan the clip.
+    '/api/voice-notes/',
     '/api/superadmin/',
     '/admin/',
     '/media/',

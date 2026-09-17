@@ -8,6 +8,7 @@ import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMoney } fro
 import { formatAdjustments, parseAdjustments } from './adjustments';
 import OutsideGarmentIntake from './OutsideGarmentIntake';
 import AdjustmentsTable from './AdjustmentsTable';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 /**
  * The alterations register and one alteration's whole file.
@@ -576,7 +577,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
         <>
           <div style={field}>
             <label style={label}>Findings</label>
-            <textarea className="form-control" rows={3} value={form.inspection_notes} onChange={set('inspection_notes')} />
+            <VoiceTextarea className="form-control" rows={3} value={form.inspection_notes} onChange={set('inspection_notes')} />
           </div>
           <div style={field}>
             <label style={label}>Measurement / specification changes</label>
@@ -609,7 +610,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
           )}
           <div style={field}>
             <label style={label}>Notes (optional)</label>
-            <textarea className="form-control" rows={3} value={form.notes} onChange={set('notes')} />
+            <VoiceTextarea className="form-control" rows={3} value={form.notes} onChange={set('notes')} />
           </div>
         </>
       ),
@@ -639,7 +640,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
           </div>
           <div style={field}>
             <label style={label}>Notes for the tailor (optional)</label>
-            <textarea className="form-control" rows={3} value={form.notes} onChange={set('notes')} />
+            <VoiceTextarea className="form-control" rows={3} value={form.notes} onChange={set('notes')} />
           </div>
         </>
       ),
@@ -654,7 +655,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
       body: (
         <div style={field}>
           <label style={label}>What did they say is still wrong? (required)</label>
-          <textarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
+          <VoiceTextarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
         </div>
       ),
       call: () => api.alterationCustomerRejected(alteration.id, form.reason),
@@ -666,7 +667,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
       body: (
         <div style={field}>
           <label style={label}>What is wrong? (required)</label>
-          <textarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
+          <VoiceTextarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
         </div>
       ),
       call: () => api.failAlterationQC(alteration.id, form.reason),
@@ -678,7 +679,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
       body: (
         <div style={field}>
           <label style={label}>Why is it being cancelled? (required)</label>
-          <textarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
+          <VoiceTextarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
         </div>
       ),
       call: () => api.cancelAlteration(alteration.id, form.reason),
@@ -693,7 +694,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
           )}
           <div style={field}>
             <label style={label}>Notes (optional)</label>
-            <textarea className="form-control" rows={3} value={form.notes} onChange={set('notes')} />
+            <VoiceTextarea className="form-control" rows={3} value={form.notes} onChange={set('notes')} />
           </div>
         </>
       ),

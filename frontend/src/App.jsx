@@ -54,6 +54,7 @@ import { ResponsiveCard } from './components/ui/ResponsiveCard';
 import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
+import VoiceTextarea, { SpeakButton, VoiceNotePlayer } from './components/ui/VoiceTextarea';
 
 /** Placeholder shown while a lazily loaded screen arrives. */
 // Whole-rupee money for the dashboard, Indian digit grouping. Paise are
@@ -829,6 +830,17 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
   const [text, setText] = useState(order.special_instructions || '');
   const [state, setState] = useState('idle');
   const savedRef = useRef(order.special_instructions || '');
+  // The recording behind a dictated note, saved the moment dictation stops --
+  // separately from the text autosave, which keeps its own diffing.
+  const [voiceNote, setVoiceNote] = useState(order.instructions_voice_note || '');
+  const keepRecording = async (blob) => {
+    try {
+      const url = await api.uploadVoiceNote(blob);
+      await api.updateOrder(order.id, { instructions_voice_note: url });
+      setVoiceNote(url);
+      if (onSaved) onSaved();
+    } catch { /* the words were kept; only the clip was lost */ }
+  };
 
   const save = async () => {
     const value = text.trim();
@@ -858,10 +870,12 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
       </div>
       {canEdit ? (
         <>
-          <textarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
+          <VoiceTextarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
                     placeholder="Anything the workroom should know about this order…"
                     onChange={(e) => { setText(e.target.value); setState('idle'); }}
-                    onBlur={() => save().catch(() => {})} />
+                    onBlur={() => save().catch(() => {})}
+                    onRecording={keepRecording} />
+          <VoiceNotePlayer src={voiceNote} />
           <div className="od-notes-foot">
             <span className={state === 'error' ? 'od-error' : 'od-hint'}>
               {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : state === 'error' ? 'Could not save, will retry' : 'Saves on its own'}
@@ -870,7 +884,10 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
           </div>
         </>
       ) : (
-        <p className="od-notes-text">{text}</p>
+        <>
+          <p className="od-notes-text">{text}</p>
+          <VoiceNotePlayer src={voiceNote} />
+        </>
       )}
     </section>
   );
@@ -2025,6 +2042,9 @@ function App() {
   const [activeReviewOrder, setActiveReviewOrder] = useState(null);
   const [stageReviewComments, setStageReviewComments] = useState('');
   const [stageReviewImage, setStageReviewImage] = useState(null);
+  // URL of the recording behind the comment being written, uploaded the
+  // moment dictation stops and sent along with the transition.
+  const [stageReviewVoiceNote, setStageReviewVoiceNote] = useState('');
   const [selectedStageObj, setSelectedStageObj] = useState(null);
   const [selectedPerformerId, setSelectedPerformerId] = useState('');
   const [stageTransitionBusy, setStageTransitionBusy] = useState(false);
@@ -3295,6 +3315,7 @@ function App() {
     setSelectedStageObj(stage);
     setStageReviewComments(stage.comments || '');
     setStageReviewImage(null);
+    setStageReviewVoiceNote('');
   };
 
   // The directory list returns flat rows without orders or measurement history,
@@ -4364,7 +4385,7 @@ function App() {
                                 <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                   <div>
                                     <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Tailor Completion Comments</label>
-                                    <textarea 
+                                    <VoiceTextarea 
                                       className="form-control"
                                       style={{ height: '70px', fontSize: '13px' }}
                                       placeholder="Enter stitching details, alterations made, or fabric remarks..."
@@ -5197,7 +5218,7 @@ function App() {
                               </div>
                               {order.tailor_comments && (
                                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0, fontStyle: 'italic' }}>
-                                  "{order.tailor_comments}"
+                                  "{order.tailor_comments}"<SpeakButton text={order.tailor_comments} />
                                 </p>
                               )}
                               {(() => {
@@ -6702,7 +6723,7 @@ function App() {
                   )}
                   <div>
                     <label className="form-label">Notes</label>
-                    <textarea className="form-control" rows={2}
+                    <VoiceTextarea className="form-control" rows={2}
                               value={appointmentForm.notes}
                               onChange={(e) => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} />
                   </div>
@@ -7466,7 +7487,7 @@ function App() {
                   {garmentJobs.length > 0 && (
                     <div className="form-group" style={{ marginTop: '18px' }}>
                       <label className="form-label" htmlFor="wz-notes">{t('wizard.notesForTailor', 'Notes for the tailor')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
-                      <textarea id="wz-notes" className="form-control" rows={3} value={specialInstructions}
+                      <VoiceTextarea id="wz-notes" className="form-control" rows={3} value={specialInstructions}
                                 onChange={(e) => setSpecialInstructions(e.target.value)}
                                 placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
                     </div>
@@ -7501,7 +7522,7 @@ function App() {
                   )}
                   <div className="form-group">
                     <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
-                    <textarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief}
+                    <VoiceTextarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief}
                               onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
                               placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
                   </div>
@@ -7823,7 +7844,7 @@ function App() {
                 <div className="content-card wz-card">
                   <div className="form-group">
                     <label className="form-label" htmlFor="wz-issue">{t('wizard.alterIssue', 'What is wrong')} <span className="required">*</span></label>
-                    <textarea id="wz-issue" className="form-control" rows={4} value={alterationForm.issue}
+                    <VoiceTextarea id="wz-issue" className="form-control" rows={4} value={alterationForm.issue}
                               onChange={(e) => setAlterationForm({ ...alterationForm, issue: e.target.value })}
                               placeholder={t('wizard.alterIssuePlaceholder', 'e.g. Waist too tight, let out by an inch. Sleeve length short.')} />
                   </div>
@@ -8235,7 +8256,8 @@ function App() {
               status,
               comments,
               stageReviewImage ? [stageReviewImage] : [],
-              selectedPerformerId || null
+              selectedPerformerId || null,
+              stageReviewVoiceNote || null
             );
             alert(okMessage);
             closeStage();
@@ -8446,7 +8468,8 @@ function App() {
             )}
             {stage && stage.comments && (
               <InfoNote icon={FileText} tone="neutral" title="Active notes / logs">
-                &ldquo;{stage.comments}&rdquo;
+                &ldquo;{stage.comments}&rdquo;<SpeakButton text={stage.comments} />
+                <VoiceNotePlayer src={stage.voice_note} />
               </InfoNote>
             )}
 
@@ -8530,12 +8553,14 @@ function App() {
                   </Field>
                 )}
                 <Field label="Comments / Fitting Logs">
-                  <textarea
+                  <VoiceTextarea
                     className="form-control"
                     placeholder="Enter notes, alterations details, or comments..."
                     value={stageReviewComments}
                     onChange={(e) => setStageReviewComments(e.target.value)}
+                    onRecording={(blob) => api.uploadVoiceNote(blob).then(setStageReviewVoiceNote).catch(() => {})}
                   />
+                  <VoiceNotePlayer src={stageReviewVoiceNote} />
                 </Field>
                 <div className="at-field">
                   <span className="at-field-label">Upload Progress Photo</span>
@@ -8795,7 +8820,7 @@ function App() {
                 </div>
               );
             })()}
-            <textarea
+            <VoiceTextarea
               className="form-control"
               rows={3}
               autoFocus

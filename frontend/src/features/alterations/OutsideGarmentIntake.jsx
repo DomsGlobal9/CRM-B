@@ -3,6 +3,7 @@ import { AlertTriangle, Camera, Shirt, User, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { Dropzone } from '../../components/ui/Atelier';
 import { parseAdjustments } from './adjustments';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 /**
  * Taking in a garment that was stitched somewhere else.
@@ -176,11 +177,11 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
         <div className="form-grid-2" style={{ gap: '12px' }}>
           <div style={field}>
             <label style={label}>What does the customer want done?</label>
-            <textarea className="form-control" rows={2} placeholder="The sleeves are too tight…" value={form.issue_description} onChange={set('issue_description')} />
+            <VoiceTextarea className="form-control" rows={2} placeholder="The sleeves are too tight…" value={form.issue_description} onChange={set('issue_description')} />
           </div>
           <div style={field}>
             <label style={label}>Adjustments asked for — one per line, e.g. “sleeve: let out 1 inch”</label>
-            <textarea className="form-control" rows={2} value={form.adjustments} onChange={set('adjustments')} />
+            <VoiceTextarea className="form-control" rows={2} value={form.adjustments} onChange={set('adjustments')} />
           </div>
         </div>
 

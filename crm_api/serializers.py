@@ -350,7 +350,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'packaging_handling', 'discount', 'taxes', 'total_amount', 'order_date', 'estimated_delivery',
             'delivery_method', 'delivery_method_display', 'courier_service', 'tracking_number', 'delivery_address',
             'advance_paid', 'amount_paid', 'tailor_comments', 'completed_garment_image',
-            'special_instructions',
+            'special_instructions', 'instructions_voice_note',
             'master_verification', 'stage_histories', 'current_stage_key', 'production_status',
             'stages', 'activities', 'garment_images', 'garment_images_published',
             'garment_jobs', 'invoice_template',

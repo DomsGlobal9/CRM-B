@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CustomerViewSet, TailorViewSet, BoutiqueDesignViewSet, OrderViewSet, OrderDraftViewSet, DashboardView, NotificationViewSet, BoutiqueSettingsViewSet
+from .views import CustomerViewSet, TailorViewSet, BoutiqueDesignViewSet, OrderViewSet, OrderDraftViewSet, DashboardView, VoiceNoteUploadView, NotificationViewSet, BoutiqueSettingsViewSet
 from .client_errors import ClientErrorView
 from .auth_views import (
     SignupView, LoginView, LogoutView, MeView, SeedDataView,
@@ -22,6 +22,7 @@ from .invoice_views import InvoiceTemplateView
 urlpatterns = [
     path('', include(router.urls)),
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
+    path('voice-notes/', VoiceNoteUploadView.as_view(), name='voice-note-upload'),
     path('client-errors/', ClientErrorView.as_view(), name='client-errors'),
     path('auth/signup/', SignupView.as_view(), name='auth-signup'),
     path('auth/login/', LoginView.as_view(), name='auth-login'),

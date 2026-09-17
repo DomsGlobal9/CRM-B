@@ -15,6 +15,7 @@ import { Calendar, FileText, IndianRupee, LayoutGrid, Lightbulb, PieChart, Plus,
 
 import { api } from '../../services/api';
 import { Dropzone, Field, FormModal, IconTile, InfoNote, PageHeader, SectionCard, StatCard } from '../../components/ui/Atelier';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 const errorBox = {
   background: 'var(--danger-bg)',
@@ -129,7 +130,7 @@ function AddExpenseForm({ onCancel, onSaved }) {
                  placeholder="Landlord, electricity board, supplier name…" />
         </Field>
         <Field label="Note" optional icon={FileText}>
-          <textarea className="form-input" rows={3} value={form.note} onChange={set('note')}
+          <VoiceTextarea className="form-input" rows={3} value={form.note} onChange={set('note')}
                     placeholder="Add any additional details about this expense…" />
         </Field>
         <div className="at-field">

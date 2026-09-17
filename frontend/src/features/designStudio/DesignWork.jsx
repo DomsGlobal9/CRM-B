@@ -8,6 +8,7 @@ import { orderRef } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../../components/ui/Atelier';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 /**
  * Design work as a job on someone's desk.
@@ -127,7 +128,7 @@ function AssignPanel({ orders, designers, onAssigned, onError }) {
           </Field>
         </div>
         <Field label={t('designWorkPage.briefOptional', 'Brief / Notes (optional)')} icon={FileText}>
-          <textarea className="form-input" rows={3} value={brief}
+          <VoiceTextarea className="form-input" rows={3} value={brief}
                     placeholder={t('designWorkPage.briefPlaceholder', 'What are you asking for, beyond the spec?')}
                     onChange={(e) => setBrief(e.target.value)} />
         </Field>

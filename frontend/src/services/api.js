@@ -630,12 +630,13 @@ export const api = {
     return res.json();
   },
 
-  async transitionStage(orderId, stageKey, status, comments, imageFiles = [], performedById = null) {
+  async transitionStage(orderId, stageKey, status, comments, imageFiles = [], performedById = null, voiceNote = null) {
     const formData = new FormData();
     formData.append('stage_key', stageKey);
     formData.append('status', status);
     if (comments) formData.append('comments', comments);
     if (performedById) formData.append('performed_by_id', performedById);
+    if (voiceNote) formData.append('voice_note', voiceNote);
     
     if (imageFiles && imageFiles.length > 0) {
       imageFiles.forEach(file => {
@@ -653,6 +654,19 @@ export const api = {
       throw new Error(describeApiError(res, err) || 'Failed to transition stage');
     }
     return res.json();
+  },
+
+  // A dictated note's recording. Stored in media, URL comes back; the caller
+  // saves that URL with the note through the endpoint that owns the note.
+  async uploadVoiceNote(blob) {
+    const formData = new FormData();
+    const ext = (blob.type || 'audio/webm').split('/')[1].split(';')[0];
+    formData.append('audio', blob, `note.${ext}`);
+    const res = await guardedFetch(`${BASE_URL}/voice-notes/`, {
+      method: 'POST', headers: getHeaders(true), body: formData,
+    });
+    if (!res.ok) await failWith(res, 'Could not save the recording');
+    return (await res.json()).url;
   },
 
   async updateOrder(orderId, orderData) {

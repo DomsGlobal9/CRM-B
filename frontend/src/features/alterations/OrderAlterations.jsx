@@ -3,6 +3,7 @@ import { AlertTriangle, Scissors, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatDate as fmtDate, formatMoney } from '../../services/format';
 import { parseAdjustments } from './adjustments';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 /**
  * The alteration strip that lives inside an order card and a customer's order
@@ -152,12 +153,12 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
         <div className="form-grid-2" style={{ gap: '12px' }}>
         <div style={field}>
           <label style={label}>What is wrong?</label>
-          <textarea className="form-control" rows={2} placeholder="The waist is loose…" value={form.issue_description} onChange={set('issue_description')} />
+          <VoiceTextarea className="form-control" rows={2} placeholder="The waist is loose…" value={form.issue_description} onChange={set('issue_description')} />
         </div>
 
         <div style={field}>
           <label style={label}>Adjustments asked for — one per line, e.g. “waist: let out 1 inch”</label>
-          <textarea className="form-control" rows={2} value={form.adjustments} onChange={set('adjustments')} />
+          <VoiceTextarea className="form-control" rows={2} value={form.adjustments} onChange={set('adjustments')} />
         </div>
         </div>
 

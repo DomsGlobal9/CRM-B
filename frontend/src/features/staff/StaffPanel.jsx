@@ -29,6 +29,7 @@ import Attendance from './Attendance';
 import Payroll from './Payroll';
 import Performance from './Performance';
 import TeamTasks from './TeamTasks';
+import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -189,7 +190,7 @@ function TermsFields({ form, setForm, memberName }) {
         <textarea id="sp-address" rows={2} value={form.address} onChange={set('address')} placeholder="Enter full address" />
       </Field>
       <Field label="Notes" icon={FileText} htmlFor="sp-notes">
-        <textarea id="sp-notes" rows={2} value={form.notes} onChange={set('notes')} placeholder="Add any additional notes…" />
+        <VoiceTextarea id="sp-notes" rows={2} value={form.notes} onChange={set('notes')} placeholder="Add any additional notes…" />
       </Field>
 
       <InfoNote tone="amber" icon={Shield}>
