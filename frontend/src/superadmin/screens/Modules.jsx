@@ -172,7 +172,7 @@ export default function Modules() {
                                 <button className="sa-btn" disabled={!mod.features.length}
                                   aria-label={`${mod.label} for ${b.name}: ${st}`}
                                   onClick={() => setOpen({ boutique: b, module: mod })}>
-                                  <Pill value={st} tone={tone} label={st} />{overridden ? ' *' : ''}
+                                  <Pill value={st} tone={tone} label={st} />{overridden ? " *" : ""}{mod.features.length ? <span className="sa-schema"> · {mod.features.length} feature{mod.features.length === 1 ? "" : "s"} ▸</span> : null}
                                 </button>
                               </td>
                             );

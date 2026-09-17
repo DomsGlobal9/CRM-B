@@ -21,7 +21,7 @@ from core.checks import (
 from core.modules import (
     ALL_ROLES, MODULES, MODULE_GROUP, PRODUCTION_ROLES, ROLE_DEFAULTS,
     STRUCTURAL, catalogue, effective_modules, is_enabled, module_for_path,
-    role_allows, ADDONS, INFRASTRUCTURE, plan_modules,
+    role_allows, ADDONS, INFRASTRUCTURE, PARENT, plan_modules,
 )
 
 TAILOR_DEFAULT = ROLE_DEFAULTS['Tailor']
@@ -292,3 +292,31 @@ urlpatterns = [
     path('api/tailors/', _view),
     path('admin/', include([path('login/', _view)])),
 ]
+
+
+class ChildFeatureTests(SimpleTestCase):
+    """A child is carved out of its parent's prefix and inherits its answer."""
+
+    def test_the_longer_prefix_is_the_child(self):
+        self.assertEqual(module_for_path('/api/inventory/suppliers/'), 'inventory_suppliers')
+        self.assertEqual(module_for_path('/api/inventory/items/'), 'inventory')
+        self.assertEqual(module_for_path('/api/staff/attendance/3/'), 'staff_attendance')
+
+    def test_a_parent_override_carries_down_unless_the_child_has_its_own(self):
+        self.assertFalse(is_enabled('atelier', {'inventory': False}, 'inventory_suppliers'))
+        self.assertTrue(is_enabled('atelier', {'inventory': False, 'inventory_suppliers': True},
+                                   'inventory_suppliers'))
+        self.assertTrue(is_enabled('starter', {'inventory': True}, 'inventory_bom'))
+
+    def test_a_role_inherits_its_parent_access(self):
+        self.assertTrue(role_allows({}, 'Tailor', 'staff_attendance'))
+        self.assertFalse(role_allows({'Tailor': {'staff': False}}, 'Tailor', 'staff_attendance'))
+        self.assertTrue(role_allows({'Tailor': {'staff': False, 'staff_attendance': True}},
+                                    'Tailor', 'staff_attendance'))
+        self.assertFalse(role_allows({}, 'Designer', 'inventory_reports'))
+
+    def test_every_child_sits_in_its_parents_plan(self):
+        for child, parent in PARENT.items():
+            for plan in ('starter', 'studio', 'atelier'):
+                self.assertEqual(child in plan_modules(plan), parent in plan_modules(plan),
+                                 (child, plan))

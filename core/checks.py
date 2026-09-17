@@ -224,6 +224,18 @@ def check_plans_are_consistent(app_configs, **kwargs):
             errors.append(Error(f'Feature {key!r} is in more than one product module: {modules}.', id='core.E011'))
     for key in sorted(set(MODULES) - INFRASTRUCTURE - set(owners)):
         errors.append(Error(f'Feature {key!r} belongs to no product module, so no plan can sell it.', id='core.E011'))
+
+    from .modules import PARENT
+    for child, parent in PARENT.items():
+        if child not in MODULES or parent not in MODULES:
+            errors.append(Error(f'PARENT maps {child!r} -> {parent!r}; both must be features.', id='core.E011'))
+            continue
+        if owners.get(child) != owners.get(parent):
+            errors.append(Error(f'{child!r} and its parent {parent!r} are in different product modules.', id='core.E011'))
+        parent_prefixes = MODULES[parent][1]
+        for prefix in MODULES[child][1]:
+            if not any(prefix.startswith(p) for p in parent_prefixes):
+                errors.append(Error(f'{child!r} prefix {prefix} is not under its parent {parent!r}.', id='core.E011'))
     return errors
 
 
