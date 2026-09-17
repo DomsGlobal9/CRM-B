@@ -315,6 +315,12 @@ class Order(models.Model):
     master_verification = models.JSONField(default=dict, blank=True)
     
     garment_images_published = models.BooleanField(default=False)
+    # Which path through the workroom this order takes. Decided when the order
+    # is placed from whether any garment carries hand work; the owner may
+    # change it until cutting starts. 'legacy' marks orders placed before the
+    # paths split, which keep the single 15-stage line they were created with.
+    FLOW_CHOICES = [('stitching', 'Stitching'), ('maggam', 'Maggam'), ('legacy', 'Legacy')]
+    flow = models.CharField(max_length=20, choices=FLOW_CHOICES, default='stitching', db_index=True)
 
     special_instructions = models.TextField(blank=True, default='')
     # The spoken version of special_instructions, when it was dictated: a
@@ -487,8 +493,17 @@ def get_default_workflow():
         {"key": "created", "name": "Order taken", "sla_hours": 12, "roles": ["Owner", "Master"]},
         {"key": "measurements_completed", "name": "Measurements", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "fabric_confirmed", "name": "Fabric", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "pattern_cutting", "name": "Pattern cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"]},
-        {"key": "maggam_work", "name": "Maggam work", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar"], "optional": True},
+        # The two paths through the workroom part here. A stage with `flows`
+        # is only on the orders of those flows; one without is on every order.
+        # Plain stitching: cut, then stitch.
+        {"key": "pattern_cutting", "name": "Cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["stitching"]},
+        # Maggam: paper pattern for the embroiderer, the work (handed to the
+        # maggam master from its own stage panel), the Master's sign-off on
+        # it, and only then the fabric is cut.
+        {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
+        {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar"], "flows": ["maggam"]},
+        {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"]},
+        {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
         {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},
         {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Tailor"]},
         {"key": "stitching_completed", "name": "Stitching check", "sla_hours": 12, "roles": ["Owner", "Tailor"]},

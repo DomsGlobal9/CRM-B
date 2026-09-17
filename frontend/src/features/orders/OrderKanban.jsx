@@ -40,8 +40,11 @@ const STAGE_LOOK = {
   created:               ['amber',   Sparkles,     'New orders to be processed'],
   measurements_completed:['amber',   Ruler,        'Awaiting / in progress'],
   fabric_confirmed:      ['green',   Package,      'Fabric selected & ready'],
-  pattern_cutting:       ['blue',    Scissors,     'Patterns in progress'],
-  maggam_work:           ['violet',  PenTool,      'Embroidery, when ordered'],
+  pattern_cutting:       ['blue',    Scissors,     'Cutting in progress'],
+  paper_cutting:         ['blue',    Scissors,     'Paper pattern for the embroiderer'],
+  maggam_work:           ['violet',  PenTool,      'Embroidery in progress'],
+  maggam_verification:   ['violet',  ShieldCheck,  'Embroidery awaiting sign-off'],
+  fabric_cutting:        ['blue',    Scissors,     'Cutting after embroidery'],
   assigned_to_tailor:    ['blue',    User,         'Handed to the stitcher'],
   stitching_in_progress: ['violet',  Shirt,        'Stitching in progress'],
   stitching_completed:   ['violet',  CheckCircle2, 'Stitched, awaiting finishing'],
@@ -100,8 +103,11 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
 
   // Columns are the boutique's configured workflow. Before settings arrive,
   // the first order's own stage rows are the same list in the same order.
+  // A stage no order on the board carries is not a column: with two paths
+  // through the workroom, a boutique doing no maggam sees no maggam columns.
+  const carried = new Set(orders.flatMap((o) => (o.stages || []).map((s) => s.stage_key)));
   const columns = (workflow && workflow.length)
-    ? workflow.filter((s) => s.key)
+    ? workflow.filter((s) => s.key && (carried.size === 0 || carried.has(s.key)))
     : ((orders[0]?.stages || []).map((s) => ({ key: s.stage_key, name: s.stage_name })));
   const keys = columns.map((c) => c.key);
 
@@ -132,7 +138,13 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
     }
 
     const stageOf = (key) => (order.stages || []).find((s) => s.stage_key === key);
-    const hops = keys.slice(from, to);
+    if (!stageOf(target.key)) {
+      alert(`${orderRef(order)} does not go through ${target.name}: it is on the other path.`);
+      return;
+    }
+    // Only the stages this order carries; the other path's columns are
+    // passed over, not completed.
+    const hops = keys.slice(from, to).filter((k) => stageOf(k));
     if (hops.length > 1) {
       const names = hops.map((k) => columns.find((c) => c.key === k)?.name || k).join(', ');
       if (!window.confirm(`Moving ${orderRef(order)} to ${target.name} will complete `

@@ -548,6 +548,15 @@ export const api = {
     return res.json();
   },
 
+  /** Owner/Master moves an order onto the other path through the workroom. */
+  async setOrderFlow(orderId, flow) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/set-flow/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify({ flow }),
+    });
+    if (!res.ok) await failWith(res, 'Failed to change the order path');
+    return res.json();
+  },
+
   /** Owner/Master rejects one submitted photo with a remark, or clears a verdict. */
   async reviewStagePhoto(orderId, stageKey, url, remark, status = 'REJECTED') {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/review-photo/`, {

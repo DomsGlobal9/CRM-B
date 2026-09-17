@@ -72,6 +72,30 @@ class WorkflowTestBase(TenantTestCase):
     def stage(self, order, key):
         return order.stages.get(stage_key=key)
 
+    def make_legacy_order(self, **kwargs):
+        """An order the way they were placed before the workroom paths split:
+        the single line with an optional maggam stage after cutting."""
+        order = self.make_order(**kwargs)
+        config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
+        line = [s for s in config if s["key"] not in
+                ("paper_cutting", "maggam_verification", "fabric_cutting")]
+        maggam = next(s for s in line if s["key"] == "maggam_work")
+        line = [s for s in line if s["key"] != "maggam_work"]
+        line.insert(next(i for i, s in enumerate(line) if s["key"] == "pattern_cutting") + 1, maggam)
+        keep = {st.stage_key: st for st in order.stages.all()}
+        order.stages.all().delete()
+        for i, s in enumerate(line):
+            old = keep.get(s["key"])
+            OrderStage.objects.create(
+                order=order, stage_key=s["key"], stage_name=s["name"], sequence=i,
+                status=old.status if old else "NOT_STARTED",
+                started_at=old.started_at if old else None,
+                completed_at=old.completed_at if old else None,
+                sla_hours=s.get("sla_hours", 24))
+        order.flow = "legacy"
+        order.save(update_fields=["flow"])
+        return order
+
     def step(self, order, key, status="COMPLETED", user=None):
         user = user or self.owner
         # A worker does not complete a stage: they submit it with a photo and
@@ -95,8 +119,10 @@ class WorkflowTestBase(TenantTestCase):
         return SimpleUploadedFile("work.jpg", b"jpeg-bytes", content_type="image/jpeg")
 
     def reach(self, order, key):
+        from domains.orders import workflow
         config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
-        keys = [s["key"] for s in config]
+        mine = workflow.for_order(config, order)
+        keys = [s["key"] for s in mine]
         if key not in keys:
             return
         for earlier in keys[:keys.index(key)]:
@@ -104,7 +130,7 @@ class WorkflowTestBase(TenantTestCase):
             if stage is None or stage.status in ("COMPLETED", "SKIPPED"):
                 continue
             optional = next(
-                (s.get("optional") for s in config if s["key"] == earlier), False)
+                (s.get("optional") for s in mine if s["key"] == earlier), False)
             OrderService.transition_order_stage(
                 order=order, stage_key=earlier,
                 new_status="SKIPPED" if optional else "COMPLETED", user=self.owner,
@@ -267,10 +293,7 @@ class StageBookkeepingTests(WorkflowTestBase):
         order.refresh_from_db()
         self.assertEqual(order.production_status, "IN_PROGRESS")
 
-        for conf in BoutiqueSettings.objects.get(id=1).workflow_config:
-            if conf["key"] == "delivered":
-                continue
-            stage = self.stage(order, conf["key"])
+        for stage in order.stages.exclude(stage_key="delivered"):
             if stage.status != "COMPLETED":
                 stage.status = "COMPLETED"
                 stage.save()
@@ -280,9 +303,8 @@ class StageBookkeepingTests(WorkflowTestBase):
 
     def test_production_status_completes_on_an_order_loaded_the_way_the_api_loads_it(self):
         order = self.make_order()
-        for conf in BoutiqueSettings.objects.get(id=1).workflow_config:
-            stage = self.stage(order, conf["key"])
-            if stage.status != "COMPLETED" and conf["key"] != "delivered":
+        for stage in order.stages.exclude(stage_key="delivered"):
+            if stage.status != "COMPLETED":
                 stage.status = "COMPLETED"
                 stage.save()
 
@@ -293,13 +315,9 @@ class StageBookkeepingTests(WorkflowTestBase):
         self.assertEqual(order.production_status, "COMPLETED")
 
     def test_a_skipped_stage_does_not_strand_production_status(self):
-        order = self.make_order()
-        for conf in BoutiqueSettings.objects.get(id=1).workflow_config:
-            key = conf["key"]
-            if key == "delivered":
-                continue
-            stage = self.stage(order, key)
-            stage.status = "SKIPPED" if key == "maggam_work" else "COMPLETED"
+        order = self.make_legacy_order()
+        for stage in order.stages.exclude(stage_key="delivered"):
+            stage.status = "SKIPPED" if stage.stage_key == "maggam_work" else "COMPLETED"
             stage.save()
 
         self.complete(order, "delivered")
@@ -345,9 +363,11 @@ class StaffAvailabilityTests(WorkflowTestBase):
 
 class OrderCreationTests(WorkflowTestBase):
     def test_order_is_created_with_its_full_stage_list(self):
+        from domains.orders import workflow
         order = self.make_order()
-        expected = len(BoutiqueSettings.objects.get(id=1).workflow_config)
-        self.assertEqual(order.stages.count(), expected)
+        config = BoutiqueSettings.objects.get(id=1).workflow_config
+        self.assertEqual(order.stages.count(), len(workflow.stages_for_flow(config, "stitching")))
+        self.assertLess(order.stages.count(), len(config), "the other path's stages are not on it")
 
     def test_measurements_stage_is_pre_completed_when_sizing_exists(self):
         order = self.make_order()
@@ -393,7 +413,8 @@ class OrderCreationTests(WorkflowTestBase):
         from apps.production.models import ProductionTask
         order = self.make_order()
         tasks = ProductionTask.objects.filter(order=order)
-        self.assertEqual(tasks.count(), 9)
+        # One per workroom stage, less Order taken and Delivery.
+        self.assertEqual(tasks.count(), order.stages.count() - 2)
         stitching = tasks.get(stage_key="stitching_in_progress")
         self.assertEqual(stitching.assigned_to, self.tailor)
         cutting = tasks.get(stage_key="pattern_cutting")
@@ -1751,7 +1772,7 @@ class ReversalTests(WorkflowTestBase):
         self.assertEqual(order.order_status, "Quality Check")
 
     def test_reopened_skipped_stage_returns_to_not_started(self):
-        order = self.make_order()
+        order = self.make_legacy_order()
         self.reach(order, "assigned_to_tailor")
         self.assertEqual(self.stage(order, "maggam_work").status, "SKIPPED")
         self.reopen(order, "maggam_work")
@@ -1936,7 +1957,7 @@ class ReversalTests(WorkflowTestBase):
     def test_settled_skipped_stage_refuses_backward_transition_for_everyone(self):
         """The /transition/ route cannot reverse a settled stage -- not even for
         the owner. That door is reopen-stage, which demands a reason."""
-        order = self.make_order()
+        order = self.make_legacy_order()
         self.reach(order, "assigned_to_tailor")
         self.assertEqual(self.stage(order, "maggam_work").status, "SKIPPED")
         from domains.orders.workflow import TransitionError
@@ -1958,3 +1979,88 @@ class ReversalTests(WorkflowTestBase):
         qc_task = ProductionTask.objects.get(
             order=order, stage_key="master_quality_check")
         self.assertEqual(qc_task.status, "PENDING")
+
+
+class FlowTests(WorkflowTestBase):
+    """Two paths through the workroom. A plain order cuts then stitches; a
+    maggam order goes paper cutting -> assignment -> the work -> its
+    verification -> fabric cutting, and only then to the tailor. Each order
+    carries only its own path's stages, and is judged against those alone."""
+
+    MAGGAM_ONLY = ["paper_cutting", "maggam_work",
+                   "maggam_verification", "fabric_cutting"]
+
+    def keys(self, order):
+        return list(order.stages.order_by("sequence").values_list("stage_key", flat=True))
+
+    def test_a_plain_order_carries_no_maggam_stages(self):
+        order = self.make_order()
+        self.assertEqual(order.flow, "stitching")
+        keys = self.keys(order)
+        self.assertIn("pattern_cutting", keys)
+        for key in self.MAGGAM_ONLY:
+            self.assertNotIn(key, keys)
+        # Cutting comes right after Fabric; nothing embroidery-shaped blocks it.
+        self.reach(order, "pattern_cutting")
+        self.step(order, "pattern_cutting", status="IN_PROGRESS")
+        self.assertEqual(self.stage(order, "pattern_cutting").status, "IN_PROGRESS")
+
+    def test_a_maggam_order_runs_the_embroidery_path_before_cutting(self):
+        order = self.make_order(flow="maggam")
+        keys = self.keys(order)
+        self.assertNotIn("pattern_cutting", keys)
+        expected = ["created", "measurements_completed", "fabric_confirmed",
+                    *self.MAGGAM_ONLY, "assigned_to_tailor"]
+        self.assertEqual(keys[:len(expected)], expected)
+        # Fabric cutting waits on the verification, which waits on the work.
+        self.reach(order, "maggam_work")
+        from domains.orders.workflow import TransitionError
+        with self.assertRaises((TransitionError, ValueError)):
+            self.step(order, "fabric_cutting", status="IN_PROGRESS")
+        self.reach(order, "fabric_cutting")
+        self.step(order, "fabric_cutting", status="IN_PROGRESS")
+        self.assertEqual(self.stage(order, "fabric_cutting").status, "IN_PROGRESS")
+        # The task mirror is the same path.
+        from apps.production.models import ProductionTask
+        task_keys = set(ProductionTask.objects.filter(order=order).values_list("stage_key", flat=True))
+        self.assertIn("maggam_work", task_keys)
+        self.assertNotIn("pattern_cutting", task_keys)
+
+    def test_hand_work_on_any_garment_picks_the_maggam_flow(self):
+        from domains.orders.services import flow_for_garments
+        self.assertEqual(flow_for_garments([{"spec": {"hand_work": "none"}}]), "stitching")
+        self.assertEqual(flow_for_garments([{"spec": {}}, {"spec": {"hand_work": "zardozi"}}]), "maggam")
+        self.assertEqual(flow_for_garments([]), "stitching")
+
+    def test_owner_switches_the_path_until_work_begins(self):
+        from domains.orders.services import set_order_flow
+        from domains.orders.workflow import TransitionError
+        order = self.make_order()
+        self.reach(order, "pattern_cutting")          # up to and including Fabric
+        with self.assertRaises(PermissionError):
+            set_order_flow(order, "maggam", self.tailor_user)
+        set_order_flow(order, "maggam", self.owner)
+        order.refresh_from_db()
+        self.assertEqual(order.flow, "maggam")
+        keys = self.keys(order)
+        self.assertNotIn("pattern_cutting", keys)
+        self.assertIn("maggam_work", keys)
+        # Fabric stayed completed; the new stages start from nothing.
+        self.assertEqual(self.stage(order, "fabric_confirmed").status, "COMPLETED")
+        self.assertEqual(self.stage(order, "paper_cutting").status, "NOT_STARTED")
+        # Once cutting has begun, the path is fixed.
+        self.step(order, "paper_cutting", status="IN_PROGRESS")
+        with self.assertRaises(TransitionError):
+            set_order_flow(order, "stitching", self.owner)
+
+    def test_a_legacy_order_keeps_its_full_line_and_optional_maggam(self):
+        from domains.orders import workflow
+        order = self.make_legacy_order()
+        config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
+        mine = workflow.for_order(config, order)
+        self.assertEqual([s["key"] for s in mine][3:6],
+                         ["pattern_cutting", "maggam_work", "assigned_to_tailor"])
+        self.assertTrue(next(s for s in mine if s["key"] == "maggam_work").get("optional"))
+        self.reach(order, "maggam_work")
+        self.step(order, "maggam_work", status="SKIPPED")
+        self.assertEqual(self.stage(order, "maggam_work").status, "SKIPPED")

@@ -137,9 +137,11 @@ class ValidationTests(CatalogTestCase):
             f.key for f in style.fields.all() if is_visible(f, {'services': services})
         }
 
-        self.assertEqual(visible(['fall_pico']), {'services', 'fall_type', 'pico_type'})
+        # `hand_work` is on every garment and asked unconditionally; its
+        # follow-ups only once work is wanted.
+        self.assertEqual(visible(['fall_pico']), {'services', 'fall_type', 'pico_type', 'hand_work'})
         self.assertEqual(
-            visible(['stitching']), {'services', 'border', 'backing', 'petticoat_required'}
+            visible(['stitching']), {'services', 'border', 'backing', 'petticoat_required', 'hand_work'}
         )
         self.assertIn('tassels', visible(['tassel_work']))
         self.assertNotIn('tassels', visible(['stitching']))

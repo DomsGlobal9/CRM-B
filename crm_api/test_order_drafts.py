@@ -341,7 +341,11 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         self.assertEqual(OrderDraft.objects.count(), 0)
 
         order = Order.objects.get()
-        self.assertEqual(order.stages.count(), 15, 'production stages exist now')
+        from domains.orders import workflow
+        from crm_api.models import BoutiqueSettings
+        expected = len(workflow.stages_for_flow(
+            BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, 'stitching'))
+        self.assertEqual(order.stages.count(), expected, 'production stages exist now')
         self.assertEqual(order.garment_jobs.count(), 1)
         job = order.garment_jobs.get()
         self.assertEqual(job.materials.count(), 1)
@@ -412,7 +416,10 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         self.assertEqual(Order.objects.count(), 1)
         self.assertEqual(Customer.objects.count(), 1)
         self.assertEqual(Order.objects.get().garment_jobs.count(), 1)
-        self.assertEqual(OrderStage.objects.count(), 15)
+        from domains.orders import workflow
+        from crm_api.models import BoutiqueSettings
+        self.assertEqual(OrderStage.objects.count(), len(workflow.stages_for_flow(
+            BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, 'stitching')))
 
     def test_a_failure_anywhere_in_confirm_leaves_the_draft_and_nothing_else(self):
         draft_id = self.a_draft(prices={'base': -5000})

@@ -1,4 +1,3 @@
-
 import re
 
 from apps.inventory.models import Category as Inv
@@ -1166,10 +1165,55 @@ COMMON_BY_SECTION = {
 }
 
 
+HAND_WORK_KINDS = [
+    'None', ('maggam', 'Maggam (Aari)'), 'Zardozi', 'Thread Embroidery',
+    ('mirror_sequin', 'Mirror / Sequin'), ('bead_pearl', 'Bead / Pearl'), 'Cutwork',
+]
+#: The answers that mean work is wanted. Matched with `in` rather than
+#: "not none" so an unanswered question reveals nothing.
+HAND_WORK_WANTED = [k if isinstance(k, str) else k[0] for k in HAND_WORK_KINDS][1:]
+HAND_WORK_WANTED = [_slug(k) for k in HAND_WORK_WANTED]
+
+
+def hand_work_fields(definition):
+    """The hand-work question every garment gets: which work, on which of its
+    own parts, how dense, and a word for the maggam master. Any answer but
+    None puts the order on the maggam path through the workroom."""
+    # The garment's own pieces (pallu, border, sleeves...), not the photo
+    # categories that share the list (print, embroidery, the overall shot).
+    skip = ('overall', 'print', 'embroidery', 'work', 'tassel', 'latkan')
+    part_options = [(p['key'], re.sub(r'\s+Design$', '', p['label']))
+                    for p in definition.get('design_parts', [])
+                    if not any(w in p['key'] for w in skip)]
+    has_work = one_of('hand_work', HAND_WORK_WANTED)
+    fields = [
+        field('hand_work', 'Maggam / Hand Work', 'select', options=HAND_WORK_KINDS, default='none'),
+        field('hand_work_density', 'Work Coverage', 'select',
+              options=['Light', 'Medium', 'Heavy'], when=has_work),
+        field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
+              help_text='Thread colour, motif size, what to match.',
+              validation={'max_length': 500}, when=has_work),
+    ]
+    if part_options:
+        fields.insert(1, field('hand_work_parts', 'Work On', 'multiselect',
+                               options=part_options, when=has_work))
+    return fields
+
+
+HAND_WORK_MATERIALS = [
+    material('hand_work_material', 'Work Materials (zari, stones, thread)', Inv.MAGGAM,
+             when=one_of('hand_work', HAND_WORK_WANTED)),
+]
+
+
 def build(definition):
     sections = []
     for index, (key, title) in enumerate(SECTION_TITLES):
         fields = list(definition['sections'].get(key, [])) + COMMON_BY_SECTION.get(key, [])
+        if key == 'style':
+            fields = fields + hand_work_fields(definition)
+        elif key == 'materials':
+            fields = fields + HAND_WORK_MATERIALS
         sections.append({
             'key': key,
             'title': title,

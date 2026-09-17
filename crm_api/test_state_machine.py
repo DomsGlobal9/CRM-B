@@ -15,9 +15,11 @@ from crm_api.models import (
 from domains.orders import workflow
 from domains.orders.services import OrderService
 
+# The plain stitching path. Every order here is placed on it; the maggam
+# path and the legacy line are FlowTests' business.
 SEQUENCE = [
     'created', 'measurements_completed', 'fabric_confirmed', 'pattern_cutting',
-    'maggam_work', 'assigned_to_tailor', 'stitching_in_progress',
+    'assigned_to_tailor', 'stitching_in_progress',
     'stitching_completed', 'finishing', 'pressing', 'master_quality_check',
     'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'delivered',
 ]
@@ -71,7 +73,7 @@ class StateMachineTestBase(TenantTestCase):
             order_id=order_id, customer=self.customer, total_amount=Decimal('1000'),
             tailor=self.tailor, master=self.master)
         config = BoutiqueSettings.objects.get(id=1).workflow_config
-        for seq, conf in enumerate(config):
+        for seq, conf in enumerate(workflow.stages_for_flow(config, 'stitching')):
             OrderStage.objects.create(
                 order=order, stage_key=conf['key'], stage_name=conf['name'],
                 sequence=seq, sla_hours=conf.get('sla_hours', 24))
@@ -159,7 +161,7 @@ class InvalidTransitionTests(StateMachineTestBase):
 
     def test_pattern_cutting_to_ready_for_dispatch_is_refused(self):
 
-        self.advance_to('maggam_work')          # through pattern cutting
+        self.advance_to('assigned_to_tailor')   # through pattern cutting
         before = self.snapshot()
 
         with self.assertRaises(ValueError) as caught:
@@ -187,15 +189,18 @@ class InvalidTransitionTests(StateMachineTestBase):
         self.assertIn('cannot be skipped', str(caught.exception))
         self.assertEqual(self.snapshot(), before)
 
-    def test_an_optional_stage_may_be_skipped(self):
-
-        self.advance_to('maggam_work')
-        self.move('maggam_work', 'SKIPPED')
-        self.assertEqual(
-            self.order.stages.get(stage_key='maggam_work').status, 'SKIPPED')
-        self.move('assigned_to_tailor')
-        self.assertEqual(
-            self.order.stages.get(stage_key='assigned_to_tailor').status, 'COMPLETED')
+    def test_maggam_design_cannot_be_skipped_on_the_maggam_path(self):
+        # On the maggam path the work is the point of the path, so it is not
+        # optional the way it was on the old single line.
+        order = self._order(order_id="T2B-SM-M")
+        from domains.orders.services import set_order_flow
+        set_order_flow(order, 'maggam', self.owner)
+        for key in ('created', 'measurements_completed', 'fabric_confirmed',
+                    'paper_cutting'):
+            self.move(key, order=order)
+        with self.assertRaises(ValueError) as caught:
+            self.move('maggam_work', 'SKIPPED', order=order)
+        self.assertIn('cannot be skipped', str(caught.exception))
 
     def test_an_unknown_stage_is_refused(self):
         before = self.snapshot()
@@ -224,8 +229,7 @@ class InvalidTransitionTests(StateMachineTestBase):
 
     def test_nothing_moves_after_delivery(self):
         for key in SEQUENCE:
-            status = 'SKIPPED' if key == 'maggam_work' else 'COMPLETED'
-            self.move(key, status)
+            self.move(key)
         self.assertEqual(self.order.stages.get(stage_key='delivered').status,
                          'COMPLETED')
         before = self.snapshot()
@@ -262,11 +266,10 @@ class ValidSequenceTests(StateMachineTestBase):
 
     def test_the_whole_workflow_runs_in_order(self):
         for key in SEQUENCE:
-            status = 'SKIPPED' if key == 'maggam_work' else 'COMPLETED'
-            self.move(key, status)
+            self.move(key)
             self.assertEqual(
-                self.order.stages.get(stage_key=key).status, status,
-                f'{key} did not reach {status}')
+                self.order.stages.get(stage_key=key).status, 'COMPLETED',
+                f'{key} did not reach COMPLETED')
 
         self.order.refresh_from_db()
         self.assertEqual(self.order.order_status, 'Delivered')
@@ -280,7 +283,7 @@ class ValidSequenceTests(StateMachineTestBase):
                 later = SEQUENCE[index + 2]
                 with self.assertRaises(ValueError, msg=f'{later} should be refused'):
                     self.move(later)
-            self.move(key, 'SKIPPED' if key == 'maggam_work' else 'COMPLETED')
+            self.move(key)
 
     def test_a_successful_transition_writes_exactly_one_activity_event(self):
         before = OrderActivity.objects.filter(order=self.order).count()
@@ -363,7 +366,7 @@ class OwnerDropdownLiveRegressionTests(StateMachineTestBase):
 
         refused = self.set_status('Ready for Dispatch')
         self.assertEqual(refused.status_code, 400)
-        self.assertIn('Master Quality Check', str(refused.data))
+        self.assertIn('Master quality check', str(refused.data))
         self.assertEqual(
             self.order.stages.get(stage_key='master_quality_check').status,
             'NOT_STARTED')
