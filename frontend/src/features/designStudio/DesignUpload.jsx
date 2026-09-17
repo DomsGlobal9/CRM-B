@@ -29,37 +29,29 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   const [templates, setTemplates] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [collections, setCollections] = useState([]);
-  const [template, setTemplate] = useState(null);       // the full definition
+  const [template, setTemplate] = useState(null);      
   const [specTags, setSpecTags] = useState({});
-  // { partKey: File[] } and { partKey: objectURL[] }. A design is not one
-  // photograph: a saree has a pallu, a border and a body, and the boutique
-  // shows a customer the part they asked about. The keys come from the chosen
-  // garment's template, so the vocabulary is the catalogue's, not this form's.
+  
   const [partFiles, setPartFiles] = useState({});
   const [partPreviews, setPartPreviews] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [newCollection, setNewCollection] = useState('');
-  // Which part of the garment the next photographs are filed under.
+ 
   const [selectedPart, setSelectedPart] = useState('overall');
   const [addingCollection, setAddingCollection] = useState(false);
   const inFlight = useRef(false);
 
-  // Where in the garment's design catalogue this design is filed. Cleared
-  // with the garment, because a saree's catalogue says nothing about a kurti.
   const [catalogue, setCatalogue] = useState(initialCatalogue || {});
-  // The position to send: set by the picker only once the path is complete.
   const [cataloguePayload, setCataloguePayload] = useState(null);
-  // Whether the owner has typed a name. Until they do, choosing a catalogue
-  // option fills the name in for them ("Ruffle Saree"); once they have, the
-  // form never overwrites what they wrote.
+ 
   const [titleTouched, setTitleTouched] = useState(false);
   const [form, setForm] = useState({
     title: '', template_key: initialGarmentKey || '', designer_ref: '', collection: '',
     description: '', estimated_price: '', difficulty: '', stitch_hours: '',
     video_url: '', source_url: '',
   });
-  // The garment's catalogue tree, for the name suggestion.
+ 
   const catalogueTree = useDesignCatalogue(form.template_key);
 
   useEffect(() => {
@@ -67,7 +59,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
     api.getDesigners({ active: 'true' }).then(setDesigners).catch(() => setDesigners([]));
   }, []);
 
-  // Collections belong to a designer, so the list follows the chosen one.
   useEffect(() => {
     if (!form.designer_ref) { setCollections([]); return; }
     api.getCollections({ designer: form.designer_ref, active: 'true' })
@@ -90,10 +81,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   const styleSection = useMemo(
     () => (template ? getSection(template, 'style') : null), [template]);
 
-  // A design uploaded without a garment still has to go somewhere, so every
-  // garment has an implicit 'overall'. Older templates carry no design_parts
-  // at all and fall back to it alone, which is the behaviour this form had
-  // before parts existed.
+
   const designParts = useMemo(() => {
     const defined = template?.design_parts;
     return defined?.length ? defined : [{ key: 'overall', label: 'Overall Design' }];
@@ -102,12 +90,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   const totalFiles = useMemo(
     () => Object.values(partFiles).reduce((n, list) => n + list.length, 0), [partFiles]);
 
-  // Changing garment changes the vocabulary, so photographs filed under the old
-  // garment's parts would keep keys the new one does not have. Everything
-  // already picked collapses into 'overall' -- the one part every garment has
-  // -- rather than being silently dropped. Done in the change handler rather
-  // than an effect: the boutique made the change, so this is a consequence of
-  // an event, not state to be synchronised.
   const collapseToOverall = (map) => {
     const all = Object.values(map).flat();
     return all.length ? { overall: all } : {};
@@ -131,7 +113,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
       ...prev,
       [partKey]: [...(prev[partKey] || []), ...chosen.map(f => URL.createObjectURL(f))],
     }));
-    e.target.value = '';   // so re-picking the same file fires change again
+    e.target.value = '';  
   };
 
   const removeFile = (partKey, index) => {
@@ -164,13 +146,9 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   };
 
   const submit = async () => {
-    if (inFlight.current) return;          // one click, one upload
+    if (inFlight.current) return;          
     if (!form.title.trim()) { setError('The design needs a name.'); return; }
-    // Flattened in the order the parts are displayed, so the cover photograph
-    // is the first one of the first part the boutique filled in -- the overall
-    // shot, for any garment that lists it first. `flatParts` runs alongside as
-    // a parallel list; multipart has no nesting, and the server reads the two
-    // together.
+    
     const flatFiles = [];
     const flatParts = [];
     designParts.forEach(({ key }) => {
