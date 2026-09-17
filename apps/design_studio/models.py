@@ -102,7 +102,7 @@ class DesignAsset(models.Model):
     source = models.CharField(max_length=32, choices=SOURCE_CHOICES, default=SOURCE_UPLOAD, db_index=True)
     external_id = models.CharField(max_length=255, blank=True, default='', db_index=True)
     title = models.CharField(max_length=200)
-    image_url = models.CharField(max_length=500)
+    image_url = models.CharField(max_length=500, blank=True, default='')
     source_url = models.CharField(max_length=500, blank=True, default='')
     designer = models.CharField(max_length=150, blank=True, default='')
     designer_ref = models.ForeignKey(
