@@ -10,25 +10,6 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
-/**
- * Design work as a job on someone's desk.
- *
- * One component for both audiences, because it is one loop seen from two ends:
- * a supervisor assigns a garment and reviews what comes back, a designer sees
- * what they have been asked for and submits it. Splitting it into two screens
- * would duplicate the card, the status vocabulary and the empty states, and let
- * the two drift until "submitted" meant something different on each.
- *
- * The role split is NOT enforced here. The API scopes the list to the caller
- * (a designer's request comes back as their own desk, and their payload carries
- * no customer identity at all -- see DesignerAssignmentSerializer), so this
- * renders what it is given rather than filtering what it should not have asked
- * for. `isSupervisor` decides which controls to draw, not which data to trust.
- */
-
-// tone maps to a .ui-badge modifier so the pill uses the design system's
-// contrast-checked colour pairs, not a raw hex on a `${colour}1f` alpha tint
-// (bright shades tuned for a dark theme, low-contrast on the light one).
 const STATUS_STYLE = {
   ASSIGNED: { label: 'Assigned', tone: 'neutral', icon: ClipboardList },
   SUBMITTED: { label: 'Awaiting review', tone: 'info', icon: Clock },
@@ -70,9 +51,7 @@ function AssignPanel({ orders, designers, onAssigned, onError }) {
   const [dueDate, setDueDate] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Every garment on every open order, flattened, because the unit of
-  // assignment is the garment and not the order it arrived on. An order with a
-  // lehenga and a blouse offers two rows here, and they can go to two people.
+  
   const garmentOptions = (orders || []).flatMap(order =>
     (order.garment_jobs || []).map(job => ({
       id: job.id,
@@ -215,8 +194,6 @@ function AssignmentCard({ assignment, isSupervisor, designs, onChanged, onError,
     }
   };
 
-  // The spec is what a designer needs to do the work at all, so it is shown to
-  // them rather than left behind on an order screen their role cannot open.
   const spec = assignment.spec || {};
   const measurements = assignment.measurements || {};
 
@@ -244,8 +221,6 @@ function AssignmentCard({ assignment, isSupervisor, designs, onChanged, onError,
       {!isSupervisor && (Object.keys(spec).length > 0 || Object.keys(measurements).length > 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
           {Object.entries({ ...spec, ...measurements })
-            // Material fields hold inventory-item UUIDs; a designer cannot read
-            // a UUID and the materials themselves are the store's concern.
             .filter(([, value]) => !/^[0-9a-f]{8}-[0-9a-f]{4}/.test(String(value)))
             .map(([key, value]) => (
             <span key={key} style={{
@@ -338,19 +313,11 @@ export default function DesignWork({ currentUser }) {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    // Supervisors need the pickers to assign with. A designer must not be
-    // pulling the order book down just to render a page, so neither call is
-    // made for the role that has no use for it.
     if (!isSupervisor) return;
     api.getDesigners().then(d => setDesigners(d.results || d || [])).catch(() => {});
     api.getOrders().then(o => setOrders(o.results || o || [])).catch(() => {});
   }, [isSupervisor]);
 
-  // A designer's own library, to submit from. Their id comes off their own
-  // assignments rather than from a separate profile call -- every row in this
-  // list is theirs by construction, so the first one already names them. Uploads
-  // are credited to the uploader's profile by default (DesignAssetViewSet.create),
-  // which is what makes this filter find their own work.
   const myDesignerId = assignments[0]?.designer || null;
   useEffect(() => {
     if (isSupervisor || !myDesignerId) return;
