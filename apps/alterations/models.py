@@ -18,13 +18,29 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
-from apps.catalog.models import GarmentJob
+from apps.catalog.models import GarmentJob, GarmentTemplate
 from crm_api.models import Customer, Order, Tailor
+
+
+class AlterationOrigin(models.TextChoices):
+    """Where the garment came from. OWN is one of the boutique's own delivered
+    orders, the only case there used to be; OUTSIDE is a garment stitched
+    elsewhere that a customer brought in for work."""
+    OWN = 'OWN', 'Our own order'
+    OUTSIDE = 'OUTSIDE', 'Brought from outside'
 
 
 class AlterationType(models.TextChoices):
     FREE_BOUTIQUE_FAULT = 'FREE_BOUTIQUE_FAULT', 'Free / Boutique Fault'
     PAID_CLIENT_REQUEST = 'PAID_CLIENT_REQUEST', 'Paid / Customer Request'
+
+
+class IssueScale(models.TextChoices):
+    """How big a job the counter judged it at intake: a small issue is a
+    small process and comes back sooner, a big one is more work and more
+    time. Blank on alterations raised before the question was asked."""
+    SMALL = 'SMALL', 'Small'
+    BIG = 'BIG', 'Big'
 
 
 class AlterationStatus(models.TextChoices):
@@ -35,6 +51,11 @@ class AlterationStatus(models.TextChoices):
     ASSIGNED = 'ASSIGNED', 'Assigned'
     IN_PROGRESS = 'IN_PROGRESS', 'In Progress'
     QC = 'QC', 'Quality Check'
+    # The small-issue flow's own stops: the customer looks at the finished
+    # work, then it is pressed and packed. A big issue never visits them.
+    CUSTOMER_REVIEW = 'CUSTOMER_REVIEW', 'Customer Review'
+    PRESSING = 'PRESSING', 'Pressing'
+    PACKAGING = 'PACKAGING', 'Packaging'
     READY_FOR_PICKUP = 'READY_FOR_PICKUP', 'Ready for Pickup'
     COMPLETED = 'COMPLETED', 'Completed'
     CANCELLED = 'CANCELLED', 'Cancelled'
@@ -81,20 +102,39 @@ class AlterationRequest(models.Model):
         Customer, on_delete=models.CASCADE,
         related_name='alteration_requests', db_index=True,
     )
+    # Both null only for a garment brought from outside: there is no order of
+    # ours and no garment job behind it. Every alteration raised before that
+    # was possible keeps both, and PROTECT keeps them, as before.
     original_order = models.ForeignKey(
-        Order, on_delete=models.PROTECT,
+        Order, on_delete=models.PROTECT, null=True, blank=True,
         related_name='alteration_requests', db_index=True,
     )
     garment_job = models.ForeignKey(
-        GarmentJob, on_delete=models.PROTECT,
+        GarmentJob, on_delete=models.PROTECT, null=True, blank=True,
         related_name='alteration_requests', db_index=True,
     )
+    origin = models.CharField(
+        max_length=10, choices=AlterationOrigin.choices,
+        default=AlterationOrigin.OWN, db_index=True,
+    )
+    # What an outside garment is, since no garment job says so: one of the
+    # boutique's garment types, a line about the piece itself (colour, fabric,
+    # where it was bought), and a photograph of it as it arrived -- the
+    # record of what was already wrong with it before we touched it.
+    garment_template = models.ForeignKey(
+        GarmentTemplate, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='outside_alterations',
+    )
+    garment_note = models.CharField(max_length=200, blank=True, default='')
+    intake_photo_url = models.CharField(max_length=500, blank=True, default='')
 
     alteration_type = models.CharField(
         max_length=50, choices=AlterationType.choices,
         default=AlterationType.PAID_CLIENT_REQUEST, db_index=True,
     )
     issue_description = models.TextField(blank=True, default='')
+    issue_scale = models.CharField(
+        max_length=10, choices=IssueScale.choices, blank=True, default='', db_index=True)
     #: Free-form {"waist": "loosen 1 inch", ...} captured at intake.
     requested_adjustments = models.JSONField(default=dict, blank=True)
     #: What the person who handled the garment found, written during INSPECTION.

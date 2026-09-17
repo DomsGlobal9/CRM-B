@@ -27,6 +27,7 @@ from django.utils import timezone
 from apps.alterations.models import (
     AlterationActivity,
     AlterationMaterialLine,
+    AlterationOrigin,
     AlterationPayment,
     AlterationRequest,
     AlterationStatus,
@@ -36,7 +37,7 @@ from apps.alterations.models import (
     PaymentMethod,
     PaymentStatus,
 )
-from apps.catalog.models import GarmentJob
+from apps.catalog.models import GarmentJob, GarmentTemplate
 from apps.inventory.models import InventoryItem
 from apps.inventory.services import InventoryService
 from crm_api.models import Customer, Order, Tailor
@@ -50,6 +51,7 @@ from domains.alterations.workflow import (
     TransitionError,
     check_permission,
     check_role,
+    customer_approved_target,
     validate_transition,
 )
 
@@ -137,6 +139,18 @@ def _fallback_alteration_number(order):
     return f"ALT-{order.order_id}-{uuid.uuid4().hex[:6].upper()}"
 
 
+def _outside_alteration_number():
+    """ALT-OUT-<yymmdd>-<n>: no order of ours to number an outside garment from."""
+    today = timezone.localdate()
+    prefix = f"ALT-OUT-{today:%y%m%d}-"
+    existing = AlterationRequest.objects.filter(alteration_number__startswith=prefix).count()
+    return f"{prefix}{existing + 1}"
+
+
+def _outside_fallback_number():
+    return f"ALT-OUT-{uuid.uuid4().hex[:6].upper()}"
+
+
 def calculate_outstanding_balance(alteration):
     """What the customer still owes on this alteration.
 
@@ -168,7 +182,8 @@ def _resolve_order(order_id):
 def create_alteration_request(*, customer_id, order_id, garment_job_id,
                               alteration_type=AlterationType.PAID_CLIENT_REQUEST,
                               issue_description='', requested_adjustments=None,
-                              charge_amount=ZERO, notes='', performed_by=None, role=None):
+                              charge_amount=ZERO, notes='', performed_by=None, role=None,
+                              issue_scale=''):
     """Take a delivered garment back in.
 
     Every one of these checks is repeated server-side on purpose: the browser
@@ -223,6 +238,7 @@ def create_alteration_request(*, customer_id, order_id, garment_job_id,
                     garment_job=garment_job,
                     alteration_type=alteration_type,
                     issue_description=issue_description or '',
+                    issue_scale=issue_scale or '',
                     requested_adjustments=requested_adjustments or {},
                     status=AlterationStatus.RECEIVED,
                     charge_amount=charge,
@@ -241,9 +257,87 @@ def create_alteration_request(*, customer_id, order_id, garment_job_id,
          to_status=AlterationStatus.RECEIVED,
          alteration_type=alteration_type,
          issue_description=issue_description or '',
+         issue_scale=issue_scale or '',
          charge_amount=str(charge),
          order_id=order.order_id,
          garment=str(garment_job))
+
+    _safe_notify(notifications.alteration_received, alteration)
+    return alteration
+
+
+@transaction.atomic
+def create_outside_alteration_request(*, customer_id, garment_template_id=None, garment_note='',
+                                      issue_description='', issue_scale='',
+                                      requested_adjustments=None, charge_amount=ZERO,
+                                      notes='', intake_photo_url='',
+                                      performed_by=None, role=None):
+    """Take in a garment stitched somewhere else.
+
+    No order of ours and no garment job: the customer, one of our garment
+    types and a line about the piece stand in for them. Always a paid,
+    customer-requested job -- 'our fault' has no meaning for a garment we did
+    not make. From here on it is an alteration like any other and walks the
+    same small or big flow.
+    """
+    check_role(role, COUNTER_ROLES, what='creating an alteration')
+
+    customer = Customer.objects.filter(pk=customer_id).first()
+    if customer is None:
+        raise ValueError('That customer could not be found.')
+
+    template = None
+    if garment_template_id:
+        template = GarmentTemplate.objects.filter(pk=garment_template_id).first()
+        if template is None:
+            raise ValueError('That garment type could not be found.')
+    if template is None and not (garment_note or '').strip():
+        raise ValueError('Say what the garment is: pick a garment type or describe it.')
+
+    charge = _money(charge_amount or ZERO, 'Charge amount')
+    if charge < ZERO:
+        raise ValueError('Charge amount cannot be negative.')
+    if requested_adjustments is not None and not isinstance(requested_adjustments, dict):
+        raise ValueError('Requested adjustments must be an object.')
+
+    for attempt in (1, 2):
+        number = _outside_alteration_number() if attempt == 1 else _outside_fallback_number()
+        try:
+            with transaction.atomic():
+                alteration = AlterationRequest.objects.create(
+                    alteration_number=number,
+                    customer=customer,
+                    original_order=None,
+                    garment_job=None,
+                    origin=AlterationOrigin.OUTSIDE,
+                    garment_template=template,
+                    garment_note=(garment_note or '').strip(),
+                    intake_photo_url=intake_photo_url or '',
+                    alteration_type=AlterationType.PAID_CLIENT_REQUEST,
+                    issue_description=issue_description or '',
+                    issue_scale=issue_scale or '',
+                    requested_adjustments=requested_adjustments or {},
+                    status=AlterationStatus.RECEIVED,
+                    charge_amount=charge,
+                    amount_paid=ZERO,
+                    notes=notes or '',
+                    received_at=timezone.now(),
+                )
+            break
+        except IntegrityError:
+            if attempt == 2:
+                raise
+    else:  # pragma: no cover
+        raise IntegrityError('Could not allocate an alteration number.')
+
+    _log(alteration, 'ALTERATION_CREATED', performed_by=performed_by,
+         to_status=AlterationStatus.RECEIVED,
+         alteration_type=AlterationType.PAID_CLIENT_REQUEST,
+         origin=AlterationOrigin.OUTSIDE,
+         issue_description=issue_description or '',
+         issue_scale=issue_scale or '',
+         charge_amount=str(charge),
+         garment=template.name if template else (garment_note or ''))
 
     _safe_notify(notifications.alteration_received, alteration)
     return alteration
@@ -284,7 +378,7 @@ def _transition(alteration_request_id, target, *, event_type, performed_by, role
             f"This action needs the alteration to be in '{require_status}'; "
             f"it is currently '{previous}'."
         )
-    validate_transition(previous, target)
+    validate_transition(previous, target, alteration.issue_scale)
 
     if mutate is not None:
         mutate(alteration)
@@ -438,6 +532,15 @@ def start_alteration_work(alteration_request_id, *, task_id=None, performed_by=N
             task.started_at = timezone.now()
         task.completed_at = None
         task.save(update_fields=['status', 'started_at', 'completed_at', 'updated_at'])
+        # A forgotten check-in is opened from the task's own start stamp;
+        # see apps.staff.attendance.check_in_from_work. Never raises.
+        worker = task.assigned_to or getattr(performed_by, 'tailor_profile', None)
+        if worker is not None:
+            from apps.staff import attendance
+            attendance.check_in_from_work(
+                worker, user=_actor(performed_by),
+                started_at=task.started_at,
+                note=f'Auto check-in: started alteration {alteration.pk}')
 
     _safe_notify(notifications.work_started, alteration)
     return alteration
@@ -465,15 +568,18 @@ def send_to_qc(alteration_request_id, *, task_id=None, performed_by=None, role=N
 
 @transaction.atomic
 def pass_quality_check(alteration_request_id, *, performed_by=None, role=None, notes=None):
+    """QC is happy; now the customer is shown the work. A QC sign-off, so
+    gated on QC_ROLES rather than on the assigned tailor, and only from QC."""
     alteration = _transition(
-        alteration_request_id, AlterationStatus.READY_FOR_PICKUP,
+        alteration_request_id, AlterationStatus.CUSTOMER_REVIEW,
         event_type='QC_PASSED', performed_by=performed_by, role=role,
+        permission=lambda r: check_role(r, QC_ROLES, what='passing a quality check'),
+        require_status=AlterationStatus.QC,
         metadata={'notes': notes or ''},
     )
     alteration.tasks.exclude(status=AlterationTaskStatus.CANCELLED).update(
         status=AlterationTaskStatus.COMPLETED, completed_at=timezone.now(),
     )
-    _safe_notify(notifications.ready_for_pickup, alteration)
     return alteration
 
 
@@ -496,6 +602,79 @@ def fail_quality_check(alteration_request_id, *, reason, performed_by=None, role
         status=AlterationTaskStatus.IN_PROGRESS, completed_at=None,
     )
     return alteration
+
+
+# -- the small-issue flow ----------------------------------------------------
+#
+# Verify (start_inspection) and assign are the same steps as the big flow;
+# the table decides that a small issue may go straight from Inspection to
+# Assigned. These four are the stops only a small issue has.
+
+@transaction.atomic
+def complete_work(alteration_request_id, *, task_id=None, performed_by=None, role=None,
+                  tailor_id=None, notes=None):
+    """The bench is done: the garment goes to the customer to look at.
+    Only from In progress -- on a big job QC stands between, and passing it
+    is the QC's call, not the bench's."""
+    alteration = _transition(
+        alteration_request_id, AlterationStatus.CUSTOMER_REVIEW,
+        event_type='WORK_COMPLETED', performed_by=performed_by, role=role,
+        tailor_id=tailor_id, require_status=AlterationStatus.IN_PROGRESS,
+        metadata={'notes': notes or ''},
+    )
+    tasks = alteration.tasks.all()
+    task = (tasks.filter(pk=task_id).first() if task_id else tasks.first())
+    if task is not None:
+        task.status = AlterationTaskStatus.COMPLETED
+        task.completed_at = timezone.now()
+        task.save(update_fields=['status', 'completed_at', 'updated_at'])
+    return alteration
+
+
+@transaction.atomic
+def customer_approved(alteration_request_id, *, performed_by=None, role=None, notes=None):
+    """The customer is satisfied: on to pressing (small) or ready for pickup (big)."""
+    scale = (AlterationRequest.objects.filter(pk=alteration_request_id)
+             .values_list('issue_scale', flat=True).first()) or ''
+    target = customer_approved_target(scale)
+    alteration = _transition(
+        alteration_request_id, target,
+        event_type='CUSTOMER_APPROVED', performed_by=performed_by, role=role,
+        require_status=AlterationStatus.CUSTOMER_REVIEW,
+        metadata={'notes': notes or ''},
+    )
+    if target == AlterationStatus.READY_FOR_PICKUP:
+        _safe_notify(notifications.ready_for_pickup, alteration)
+    return alteration
+
+
+@transaction.atomic
+def customer_rejected(alteration_request_id, *, reason, performed_by=None, role=None):
+    """The customer is not satisfied: back to the bench, with what they said."""
+    if not reason or not str(reason).strip():
+        raise ValueError('What the customer was unhappy with is required.')
+
+    alteration = _transition(
+        alteration_request_id, AlterationStatus.IN_PROGRESS,
+        event_type='CUSTOMER_REJECTED', performed_by=performed_by, role=role,
+        permission=lambda r: check_role(r, COUNTER_ROLES, what="recording the customer's review"),
+        require_status=AlterationStatus.CUSTOMER_REVIEW,
+        metadata={'reason': str(reason).strip()},
+    )
+    alteration.tasks.exclude(status=AlterationTaskStatus.CANCELLED).update(
+        status=AlterationTaskStatus.IN_PROGRESS, completed_at=None,
+    )
+    return alteration
+
+
+@transaction.atomic
+def mark_pressed(alteration_request_id, *, performed_by=None, role=None, notes=None):
+    """Pressed: on to packaging."""
+    return _transition(
+        alteration_request_id, AlterationStatus.PACKAGING,
+        event_type='PRESSED', performed_by=performed_by, role=role,
+        metadata={'notes': notes or ''},
+    )
 
 
 @transaction.atomic

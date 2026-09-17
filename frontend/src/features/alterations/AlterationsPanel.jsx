@@ -6,6 +6,8 @@ import {
 import { api } from '../../services/api';
 import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMoney } from '../../services/format';
 import { formatAdjustments, parseAdjustments } from './adjustments';
+import OutsideGarmentIntake from './OutsideGarmentIntake';
+import AdjustmentsTable from './AdjustmentsTable';
 
 /**
  * The alterations register and one alteration's whole file.
@@ -25,6 +27,12 @@ const STATUS_TONE = {
   ASSIGNED: '#0ea5e9',
   IN_PROGRESS: '#f59e0b',
   QC: '#a855f7',
+  CUSTOMER_REVIEW: '#a855f7',
+  PRESSING: '#0ea5e9',
+  PACKAGING: '#8b5cf6',
+  READY_FOR_PICKUP: '#10b981',
+  COMPLETED: '#10b981',
+  CANCELLED: '#ef4444',
   READY_FOR_PICKUP: 'var(--success-color)',
   COMPLETED: 'var(--success-color)',
   CANCELLED: 'var(--danger-color)',
@@ -32,7 +40,14 @@ const STATUS_TONE = {
 
 const STATUS_ORDER = [
   'RECEIVED', 'INSPECTION', 'PENDING_APPROVAL', 'APPROVED', 'ASSIGNED',
-  'IN_PROGRESS', 'QC', 'READY_FOR_PICKUP', 'COMPLETED',
+  'IN_PROGRESS', 'QC', 'CUSTOMER_REVIEW', 'READY_FOR_PICKUP', 'COMPLETED',
+];
+
+// A small issue walks a shorter road: verified, assigned, worked, shown to
+// the customer, pressed, packed, delivered. The server's small-issue table.
+const SMALL_STATUS_ORDER = [
+  'RECEIVED', 'INSPECTION', 'ASSIGNED', 'IN_PROGRESS', 'CUSTOMER_REVIEW',
+  'PRESSING', 'PACKAGING', 'COMPLETED',
 ];
 
 // Titlecasing the status key renders QC as "Qc". Spelled out here rather than
@@ -46,10 +61,17 @@ const STATUS_LABELS = {
   ASSIGNED: 'Assigned',
   IN_PROGRESS: 'In progress',
   QC: 'Quality check',
+  CUSTOMER_REVIEW: 'Customer review',
+  PRESSING: 'Pressing',
+  PACKAGING: 'Packaging',
   READY_FOR_PICKUP: 'Ready for pickup',
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
 };
+
+// The same steps read differently on a small issue: "Inspection" is a quick
+// verification, and "Completed" is the delivery at the end of packing.
+const SMALL_STATUS_LABELS = { INSPECTION: 'Verify', COMPLETED: 'Delivered' };
 
 const statusLabel = (status) =>
   STATUS_LABELS[status] || String(status || '').replace(/_/g, ' ').toLowerCase();
@@ -61,10 +83,21 @@ const ACTION_LABELS = {
   assign: 'Assign to a tailor',
   'start-work': 'Start work',
   'send-to-qc': 'Send to quality check',
-  'pass-qc': 'Pass quality check',
+  'pass-qc': 'Pass quality check — show the customer',
   'fail-qc': 'Fail quality check',
+  'work-complete': 'Work complete — show the customer',
+  'customer-approved': 'Customer approved — ready for pickup',
+  'customer-rejected': 'Customer not satisfied — rework',
+  pressed: 'Pressed — send to packaging',
   complete: 'Complete & hand back',
   cancel: 'Cancel alteration',
+};
+
+// What the shared steps are called on a small issue.
+const SMALL_ACTION_LABELS = {
+  'start-inspection': 'Verify the issue',
+  'customer-approved': 'Customer satisfied — send to pressing',
+  complete: 'Packed — deliver to customer',
 };
 
 const PAYMENT_METHODS = [
@@ -152,14 +185,15 @@ function ErrorNote({ error, onDismiss }) {
   );
 }
 
-function StatusTrack({ status }) {
+function StatusTrack({ status, small = false }) {
   if (status === 'CANCELLED') {
     return <Pill status="CANCELLED" label="Cancelled" />;
   }
-  const current = STATUS_ORDER.indexOf(status);
+  const order = small ? SMALL_STATUS_ORDER : STATUS_ORDER;
+  const current = order.indexOf(status);
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-      {STATUS_ORDER.map((step, index) => {
+      {order.map((step, index) => {
         const done = index < current;
         const here = index === current;
         return (
@@ -169,7 +203,7 @@ function StatusTrack({ status }) {
             background: here ? (STATUS_TONE[step] || '#6b7280') : done ? 'rgba(16,185,129,0.12)' : 'transparent',
             border: `1px solid ${here ? 'transparent' : done ? 'rgba(16,185,129,0.3)' : 'var(--border-color)'}`,
           }}>
-            {statusLabel(step)}
+            {(small && SMALL_STATUS_LABELS[step]) || statusLabel(step)}
           </span>
         );
       })}
@@ -275,8 +309,11 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
   const canRecordInspection = alteration.status === 'INSPECTION'
     && actions.includes('submit-for-approval');
 
+  const isSmall = alteration.issue_scale === 'SMALL';
+  const actionLabel = (key) => (isSmall && SMALL_ACTION_LABELS[key]) || ACTION_LABELS[key];
+
   const act = (key) => {
-    if (['submit-for-approval', 'assign', 'fail-qc', 'cancel', 'complete'].includes(key)) {
+    if (['submit-for-approval', 'assign', 'fail-qc', 'cancel', 'complete', 'customer-rejected'].includes(key)) {
       setDialog({ kind: key });
       return;
     }
@@ -286,6 +323,9 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
       'start-work': () => api.startAlterationWork(alteration.id),
       'send-to-qc': () => api.sendAlterationToQC(alteration.id),
       'pass-qc': () => api.passAlterationQC(alteration.id, ''),
+      'work-complete': () => api.completeAlterationWork(alteration.id),
+      'customer-approved': () => api.alterationCustomerApproved(alteration.id, ''),
+      pressed: () => api.markAlterationPressed(alteration.id, ''),
     };
     if (calls[key]) run(key, calls[key]);
   };
@@ -305,6 +345,16 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
         }}>
           {alteration.alteration_type_display}
         </span>
+        {alteration.issue_scale && (
+          <span title={isSmall ? 'A small issue: a short flow, back sooner.' : 'A big issue: the full flow, step by step.'}
+                style={{
+                  fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '999px',
+                  background: isSmall ? 'rgba(14,165,233,0.14)' : 'rgba(139,92,246,0.14)',
+                  color: isSmall ? '#0ea5e9' : '#8b5cf6',
+                }}>
+            {alteration.issue_scale_display} issue
+          </span>
+        )}
         <button type="button" className="btn-secondary" onClick={refresh} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '6px 12px' }}>
           <RotateCw size={13} /> Refresh
         </button>
@@ -313,7 +363,7 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
       <ErrorNote error={error} onDismiss={() => setError(null)} />
 
       <div style={{ ...panel, padding: '16px 18px' }}>
-        <StatusTrack status={alteration.status} />
+        <StatusTrack status={alteration.status} small={isSmall} />
         {(actions.length > 0 || canRecordInspection) && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '14px' }}>
             {/* Not a transition, so it is not in available_actions: it writes
@@ -334,12 +384,12 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
               <button
                 key={key}
                 type="button"
-                className={key === 'cancel' || key === 'fail-qc' ? 'btn-secondary' : 'btn-primary'}
+                className={key === 'cancel' || key === 'fail-qc' || key === 'customer-rejected' ? 'btn-secondary' : 'btn-primary'}
                 disabled={busy !== null}
                 onClick={() => act(key)}
                 style={{ fontSize: '12.5px', padding: '7px 14px' }}
               >
-                {busy === key ? 'Working…' : ACTION_LABELS[key]}
+                {busy === key ? 'Working…' : actionLabel(key)}
               </button>
             ))}
           </div>
@@ -355,8 +405,25 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
         <Section icon={ClipboardList} title="The request">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
             <div><span style={{ color: 'var(--text-muted)' }}>Customer</span><br /><strong>{alteration.customer?.name}</strong> · {alteration.customer?.mobile_number}</div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Original order</span><br /><strong>{alteration.original_order?.order_id}</strong> · {alteration.original_order?.order_status} · delivered {fmtDate(alteration.original_order?.order_date)}</div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Garment</span><br /><strong>{alteration.garment_job?.template_name}</strong></div>
+            {alteration.original_order ? (
+              <div><span style={{ color: 'var(--text-muted)' }}>Original order</span><br /><strong>{alteration.original_order.order_id}</strong> · {alteration.original_order.order_status} · delivered {fmtDate(alteration.original_order.order_date)}</div>
+            ) : (
+              <div><span style={{ color: 'var(--text-muted)' }}>Origin</span><br /><strong>{alteration.origin_display || 'Brought from outside'}</strong> · not one of our orders</div>
+            )}
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>Garment</span><br />
+              <strong>{alteration.garment_name || alteration.garment_job?.template_name || '—'}</strong>
+              {alteration.garment_note && <> · {alteration.garment_note}</>}
+            </div>
+            {alteration.intake_photo_url && (
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>As received</span><br />
+                <a href={alteration.intake_photo_url} target="_blank" rel="noreferrer">
+                  <img src={alteration.intake_photo_url} alt="Garment as received"
+                       style={{ width: '96px', height: '120px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)', marginTop: '4px' }} />
+                </a>
+              </div>
+            )}
             <div><span style={{ color: 'var(--text-muted)' }}>Issue</span><br />{alteration.issue_description || '—'}</div>
             <div><span style={{ color: 'var(--text-muted)' }}>Requested adjustments</span><br /><KeyValues data={alteration.requested_adjustments} /></div>
             {(alteration.inspection_notes || Object.keys(alteration.inspection_adjustments || {}).length > 0) && (
@@ -512,8 +579,11 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
             <textarea className="form-control" rows={3} value={form.inspection_notes} onChange={set('inspection_notes')} />
           </div>
           <div style={field}>
-            <label style={label}>Measurement / specification changes — one per line, e.g. “waist: +1 inch”</label>
-            <textarea className="form-control" rows={3} value={form.inspection_adjustments} onChange={set('inspection_adjustments')} />
+            <label style={label}>Measurement / specification changes</label>
+            {/* A table in place of the free-text lines; it hands up the same
+                "waist: +1 inch" text, so saving is unchanged. */}
+            <AdjustmentsTable value={form.inspection_adjustments}
+                              onChange={(text) => setForm((prev) => ({ ...prev, inspection_adjustments: text }))} />
           </div>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '0 0 8px' }}>
             Stored on the alteration. The garment’s original specification is
@@ -576,6 +646,18 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
       call: () => api.assignAlteration(alteration.id, {
         tailor_id: Number(form.tailor_id), title: form.title, notes: form.notes,
       }),
+    },
+    'customer-rejected': {
+      title: 'The customer is not satisfied',
+      submit: 'Send back for rework',
+      disabled: !form.reason.trim(),
+      body: (
+        <div style={field}>
+          <label style={label}>What did they say is still wrong? (required)</label>
+          <textarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
+        </div>
+      ),
+      call: () => api.alterationCustomerRejected(alteration.id, form.reason),
     },
     'fail-qc': {
       title: 'Fail the quality check',
@@ -716,6 +798,8 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(initialAlterationId);
   const [tailors, setTailors] = useState([]);
+  const [takingIn, setTakingIn] = useState(false);
+  const isCounter = !currentUser?.role || ['Owner', 'Master'].includes(currentUser.role);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -779,7 +863,15 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
             </p>
           </div>
         </div>
-        <div className="portal-header-right">
+        <div className="portal-header-right" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {/* A garment we did not make. Our own orders are taken in from
+              the order itself; this is the door for everything else. */}
+          {isCounter && (
+            <button type="button" className="btn-primary" onClick={() => setTakingIn(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 14px' }}>
+              <Scissors size={15} /> Outside garment
+            </button>
+          )}
           <button type="button" className="btn-secondary" onClick={load} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 14px' }}>
             <RotateCw size={15} className={loading ? 'spin' : ''} /> {loading ? 'Loading…' : 'Refresh'}
           </button>
@@ -787,6 +879,13 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
       </header>
 
       <ErrorNote error={error} onDismiss={() => setError(null)} />
+
+      {takingIn && (
+        <OutsideGarmentIntake
+          onClose={() => setTakingIn(false)}
+          onCreated={(created) => { setTakingIn(false); load(); setSelectedId(created.id); }}
+        />
+      )}
 
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <Stat label="In progress" value={totals.open} />
@@ -828,7 +927,7 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
           <Scissors size={22} style={{ marginBottom: '10px' }} />
           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Nothing here</div>
           <div style={{ fontSize: '13px', marginTop: '6px', maxWidth: '46ch', marginInline: 'auto', lineHeight: 1.5 }}>
-            Alterations are raised from a delivered order — open the order in Manage Orders and use “Request alteration”.
+            Alterations are raised from a delivered order — open the order in Manage Orders and use “Request alteration”. A garment stitched elsewhere comes in through “Outside garment” above.
           </div>
         </div>
       ) : (
@@ -850,9 +949,14 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
                 >
                   <td style={{ padding: '12px 14px', fontWeight: 600 }}>{row.alteration_number}</td>
                   <td style={{ padding: '12px 14px' }}>{row.customer?.name}</td>
-                  <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>{row.original_order?.order_id}</td>
-                  <td style={{ padding: '12px 14px' }}>{row.garment_job?.template_name}</td>
-                  <td style={{ padding: '12px 14px', color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : 'var(--success-color)' }}>
+                  <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
+                    {row.original_order?.order_id || (
+                      <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px',
+                                     color: '#986a26', background: 'rgba(152,106,38,0.12)' }}>Outside</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>{row.garment_name || row.garment_job?.template_name || row.garment_note || '—'}</td>
+                  <td style={{ padding: '12px 14px', color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : '#10b981' }}>
                     {row.alteration_type === 'PAID_CLIENT_REQUEST' ? 'Paid' : 'Free'}
                   </td>
                   <td style={{ padding: '12px 14px' }}><Pill status={row.status} label={row.status_display} /></td>

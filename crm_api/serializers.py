@@ -439,7 +439,19 @@ def build_style_dna(obj, avg_price=None, last_order_date=None):
             'Anarkali': 18000,
             'Kurti': 5000,
             'Sherwani': 35000,
-            'Suit': 22000
+            'Suit': 22000,
+            # men's wear
+            'Shirt': 3500,
+            'T-Shirt': 1500,
+            'Kurta': 4500,
+            'Indo-Western': 25000,
+            'Mens Suit': 30000,
+            'Trouser': 3000,
+            'Jeans': 3000,
+            'Shorts': 2000,
+            'Mens Bottom Wear': 2500,
+            'Coat': 18000,
+            'Casual Wear': 3000,
         }
         avg_price = prices.get(obj.garment_type, 15000)
 

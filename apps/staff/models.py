@@ -175,6 +175,10 @@ class AttendanceSession(models.Model):
     class Source(models.TextChoices):
         SELF = 'SELF', 'Recorded by the staff member'
         OWNER = 'OWNER', 'Recorded by the boutique owner'
+        #: Opened by the system when somebody started a workroom task with no
+        #: session for the day -- they forgot to check in. The check-in is the
+        #: task's own start stamp, so it is the time they produced themselves.
+        WORK = 'WORK', 'Recorded from the start of work'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 

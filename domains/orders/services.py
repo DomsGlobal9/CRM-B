@@ -380,6 +380,14 @@ class OrderService:
             order_stage.verification_note = comments
         elif new_status == 'PENDING_VERIFICATION':
             order_stage.verification_note = ''
+            # A fresh submission replaces what was rejected: those photos
+            # come off the stage, the verdicts with them, and the ones that
+            # were never faulted stay.
+            rejected_urls = {u for u, r in (order_stage.attachment_reviews or {}).items()
+                             if r.get('status') == 'REJECTED'}
+            order_stage.attachments = [u for u in (order_stage.attachments or [])
+                                       if u not in rejected_urls]
+            order_stage.attachment_reviews = {}
 
         # Naming SOMEBODY ELSE as the performer is a supervisor's call.
         #
@@ -403,11 +411,12 @@ class OrderService:
         elif user and user.is_authenticated and getattr(user, 'tailor_profile', None):
             order_stage.performed_by = user.tailor_profile
 
+        work_started_at = None
         if new_status == 'IN_PROGRESS' and old_status not in ('IN_PROGRESS', 'PENDING_VERIFICATION'):
-            order_stage.started_at = timezone.now()
+            order_stage.started_at = work_started_at = timezone.now()
         elif new_status == 'COMPLETED' and old_status != 'COMPLETED':
             if not order_stage.started_at:
-                order_stage.started_at = timezone.now()
+                order_stage.started_at = work_started_at = timezone.now()
             order_stage.completed_at = timezone.now()
             delta = order_stage.completed_at - order_stage.started_at
             order_stage.duration_seconds = int(delta.total_seconds())
@@ -424,6 +433,15 @@ class OrderService:
             order_stage.attachments = image_urls
 
         order_stage.save()
+
+        # Somebody who starts a task without having checked in gets a
+        # session opened from this very stamp (apps.staff.attendance). It
+        # never raises: the stage moves whatever attendance thinks.
+        if work_started_at is not None and order_stage.performed_by_id:
+            from apps.staff import attendance
+            attendance.check_in_from_work(
+                order_stage.performed_by, user=user, started_at=work_started_at,
+                note=f'Auto check-in: started {stage_key} on {order.order_id}')
 
         from apps.inventory import order_materials
         material_report = order_materials.sync_order_materials(
@@ -596,7 +614,8 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
     if role is None:
         raise workflow.TransitionError('Sign in to update this order.')
 
-    workflow.check_reopen(order, stage, config=config, role=role, owner_role=OWNER)
+    reset_keys = workflow.check_reopen(
+        order, stage, config=config, role=role, owner_role=OWNER)
 
     with transaction.atomic():
         previous = stage.status
@@ -608,6 +627,16 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
         stage.save(update_fields=['status', 'completed_at', 'duration_seconds'])
         _sync_task_status(order, stage_key, stage.status)
 
+        # Later work goes back to the starting line: it was done on a garment
+        # whose earlier state is now unfinished, so it has to be done again.
+        for later in order.stages.filter(stage_key__in=reset_keys):
+            later.status = 'NOT_STARTED'
+            later.started_at = None
+            later.completed_at = None
+            later.duration_seconds = 0
+            later.save(update_fields=['status', 'started_at', 'completed_at', 'duration_seconds'])
+            _sync_task_status(order, later.stage_key, 'NOT_STARTED')
+
         order.current_stage_key = stage_key
         order.production_status = 'IN_PROGRESS'
         order.order_status = recompute_client_status(order, config)
@@ -616,6 +645,7 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
         _log_reversal(order, 'STAGE_REOPENED', user, {
             'stage_key': stage_key,
             'previous_status': previous,
+            'reset_stages': reset_keys,
             'reason': reason,
             'role': role,
         })

@@ -1723,15 +1723,23 @@ class ReversalTests(WorkflowTestBase):
         with self.assertRaises(TransitionError):
             self.reopen(order, "measurements_completed", reason="   ")
 
-    def test_only_the_frontier_stage_can_be_reopened(self):
+    def test_reopening_an_earlier_stage_resets_the_later_work(self):
         order = self.make_order()
         self.complete(order, "fabric_confirmed")
-        from domains.orders.workflow import TransitionError
-        with self.assertRaises(TransitionError):
-            self.reopen(order, "measurements_completed")
-        # The refused call changed nothing.
+        self.reopen(order, "measurements_completed")
         self.assertEqual(
-            self.stage(order, "measurements_completed").status, "COMPLETED")
+            self.stage(order, "measurements_completed").status, "IN_PROGRESS")
+        # Fabric was confirmed on measurements that are now unfinished, so it
+        # goes back to the starting line -- and the record says so.
+        fabric = self.stage(order, "fabric_confirmed")
+        self.assertEqual(fabric.status, "NOT_STARTED")
+        self.assertIsNone(fabric.completed_at)
+        order.refresh_from_db()
+        self.assertEqual(order.current_stage_key, "measurements_completed")
+        from crm_api.models import OrderActivity
+        event = OrderActivity.objects.filter(
+            order=order, event_type="STAGE_REOPENED").latest("timestamp")
+        self.assertEqual(event.metadata["reset_stages"], ["fabric_confirmed"])
 
     def test_reopen_drops_client_status_to_what_remains_true(self):
         order = self.make_order()
@@ -1844,6 +1852,75 @@ class ReversalTests(WorkflowTestBase):
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertEqual(
             self.stage(order, "measurements_completed").status, "IN_PROGRESS")
+
+    def test_tailor_submits_several_completion_photos(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+        photos = [SimpleUploadedFile(f"shot{i}.jpg", b"jpeg", content_type="image/jpeg")
+                  for i in range(3)]
+        res = self.api(self.tailor_user).patch(
+            f"/api/orders/{order.id}/submit-completion/",
+            {"tailor_comments": "done", "completed_garment_images": photos},
+            format="multipart")
+        self.assertEqual(res.status_code, status.HTTP_200_OK, res.data)
+        stage = self.stage(order, "stitching_in_progress")
+        self.assertEqual(stage.status, "PENDING_VERIFICATION")
+        self.assertEqual(len(stage.attachments), 3)
+        order.refresh_from_db()
+        self.assertTrue(order.completed_garment_image)
+
+    def test_master_rejects_one_photo_and_the_resubmission_replaces_it(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+        shots = [SimpleUploadedFile(f"s{i}.jpg", b"jpeg", content_type="image/jpeg") for i in range(2)]
+        self.api(self.tailor_user).patch(
+            f"/api/orders/{order.id}/submit-completion/",
+            {"completed_garment_images": shots}, format="multipart")
+        bad, good = self.stage(order, "stitching_in_progress").attachments
+
+        # The tailor may not judge; the Master may, and must say why.
+        res = self.api(self.tailor_user).post(
+            f"/api/orders/{order.id}/review-photo/",
+            {"stage_key": "stitching_in_progress", "url": bad, "remark": "blurry"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        res = self.api(self.master_user).post(
+            f"/api/orders/{order.id}/review-photo/",
+            {"stage_key": "stitching_in_progress", "url": bad, "remark": ""}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
+        res = self.api(self.master_user).post(
+            f"/api/orders/{order.id}/review-photo/",
+            {"stage_key": "stitching_in_progress", "url": bad, "remark": "blurry"}, format="json")
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        reviews = self.stage(order, "stitching_in_progress").attachment_reviews
+        self.assertEqual(reviews[bad]["remark"], "blurry")
+
+        # Sent back, the tailor uploads a replacement: the faulted photo goes,
+        # the good one stays, the verdicts are cleared.
+        OrderService.transition_order_stage(
+            order=order, stage_key="stitching_in_progress", new_status="IN_PROGRESS",
+            user=self.master_user, comments="retake the front")
+        self.api(self.tailor_user).patch(
+            f"/api/orders/{order.id}/submit-completion/",
+            {"completed_garment_images": [SimpleUploadedFile("s3.jpg", b"jpeg", content_type="image/jpeg")]},
+            format="multipart")
+        stage = self.stage(order, "stitching_in_progress")
+        self.assertNotIn(bad, stage.attachments)
+        self.assertIn(good, stage.attachments)
+        self.assertEqual(len(stage.attachments), 2)
+        self.assertEqual(stage.attachment_reviews, {})
+
+    def test_more_than_five_completion_photos_is_refused(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+        photos = [SimpleUploadedFile(f"shot{i}.jpg", b"jpeg", content_type="image/jpeg")
+                  for i in range(6)]
+        res = self.api(self.tailor_user).patch(
+            f"/api/orders/{order.id}/submit-completion/",
+            {"completed_garment_images": photos}, format="multipart")
+        self.assertEqual(res.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_fail_qc_endpoint_round_trip(self):
         order = self.make_order()

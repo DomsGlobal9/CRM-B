@@ -13,6 +13,8 @@ import {
 // TemplateForm stays eager: it renders inline in the order wizard, where a
 // loading flicker mid-form would be worse than its few KB.
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
+const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
+import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
 import { fabricMatchesColour } from './features/fabrics/colour';
@@ -23,8 +25,10 @@ const DesignLibrary = lazy(() => import('./features/designStudio/DesignLibrary')
 const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
 const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboard'));
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
+const CustomerDesigns = lazy(() => import('./features/designStudio/CustomerDesigns'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const AlterationsPanel = lazy(() => import('./features/alterations/AlterationsPanel'));
+const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 import TemplateForm from './features/catalog/TemplateForm';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
@@ -32,6 +36,7 @@ import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview'
 import OrderAlterations, { RequestAlterationModal } from './features/alterations/OrderAlterations';
 import AlterationList from './features/alterations/AlterationList';
 import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
+import GarmentSummary from './features/catalog/GarmentSummary';
 import OrderKanban from './features/orders/OrderKanban';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import useAutosave from './hooks/useAutosave';
@@ -59,6 +64,7 @@ const WIZARD_STEPS = {
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'what', label: 'Garments', sub: 'What we are making' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
+    { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Money', sub: 'Price and place the order' },
   ],
   design: [
@@ -66,6 +72,7 @@ const WIZARD_STEPS = {
     { key: 'what', label: 'Garments', sub: 'What we are making' },
     { key: 'designer', label: 'Designer', sub: 'Who designs it' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
+    { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Money', sub: 'Price and place the order' },
   ],
   alter: [
@@ -323,6 +330,22 @@ const STAFF_ROLES = [
   { value: 'QC Staff', label: 'QC Staff', hint: 'Runs the quality inspection.' },
 ];
 
+// Which garment templates the order wizard offers for a customer's gender.
+// Keyed by GarmentTemplate.key; a jacket is worn by everyone, so it sits in
+// both. "Other" (or no answer) shows the whole list.
+const MENS_GARMENT_KEYS = new Set([
+  'shirt', 't_shirt', 'kurta', 'indo_western', 'mens_suit', 'trouser', 'jeans',
+  'shorts', 'mens_bottom_wear', 'coat', 'casual_wear', 'sherwani', 'jacket',
+]);
+const WOMENS_GARMENT_KEYS = new Set([
+  'saree', 'blouse', 'lehenga', 'lehenga_blouse', 'dupatta', 'kurti', 'anarkali',
+  'petticoat', 'bottom_wear', 'gown', 'suit', 'jacket',
+]);
+const garmentsForGender = (templates, gender) => {
+  const keys = gender === 'Male' ? MENS_GARMENT_KEYS : gender === 'Female' ? WOMENS_GARMENT_KEYS : null;
+  return keys ? templates.filter((t) => keys.has(t.key)) : templates;
+};
+
 const GARMENT_PRICES = {
   'Lehenga': 32000,
   'Gown': 25000,
@@ -330,7 +353,19 @@ const GARMENT_PRICES = {
   'Anarkali': 18000,
   'Kurti': 5000,
   'Sherwani': 35000,
-  'Suit': 22000
+  'Suit': 22000,
+  // men's wear
+  'Shirt': 3500,
+  'T-Shirt': 1500,
+  'Kurta': 4500,
+  'Indo-Western': 25000,
+  'Mens Suit': 30000,
+  'Trouser': 3000,
+  'Jeans': 3000,
+  'Shorts': 2000,
+  'Mens Bottom Wear': 2500,
+  'Coat': 18000,
+  'Casual Wear': 3000
 };
 
 const DEFAULT_CUSTOMER_DATA = {
@@ -934,11 +969,6 @@ function CuttingUsage({ orderId }) {
   );
 }
 
-const normaliseDesignBrief = (brief) => {
-  if (!brief) return null;
-  return { ...brief, design: brief.design || brief.selected || null };
-};
-
 
 /**
  * The Master\'s gathering checklist for one order.
@@ -949,6 +979,11 @@ const normaliseDesignBrief = (brief) => {
  * note once stitching has drawn it. Visibility for everyone; ticking and
  * photographing are the Owner\'s and the Master\'s.
  */
+/** Does this order name any material to gather? The checklist's lines are
+ *  built from exactly these picks, so no picks means no list. */
+const hasMaterials = (order) =>
+  (order.garment_jobs || []).some((job) => (job.materials || []).length > 0);
+
 function MaterialsChecklist({ orderId, role, onActivity }) {
   const [plan, setPlan] = useState(null);
   const [loaded, setLoaded] = useState(false);
@@ -1399,6 +1434,10 @@ function App() {
   const [designLibraryToken, setDesignLibraryToken] = useState(0);
   const [designsView, setDesignsView] = useState('dashboard'); // 'dashboard' | 'library'
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Bumped whenever a sidebar item is picked, and used as the key of the main
+  // pane: picking a section always lands on its front page, even from a
+  // detail view inside that same section, because the pane remounts.
+  const [sectionVisit, setSectionVisit] = useState(0);
 
   // Wizard Details State
   const [designNotes, setDesignNotes] = useState('');
@@ -1852,10 +1891,27 @@ function App() {
   const [openAlterationId, setOpenAlterationId] = useState(null);
   // Delivered order picked for alteration from the customer profile.
   const [alterationOrder, setAlterationOrder] = useState(null);
+  // Delivered order picked for alteration from the Manage Orders table.
+  const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
+  // The "Outside garment" intake opened from the Manage Orders header.
+  const [takingInOutside, setTakingInOutside] = useState(false);
   const openAlteration = (id) => {
     setOpenAlterationId(id);
     setSelectedDirectoryCustomer(null);
     setDashboardTab('alterations');
+    // Opened on one the register does not hold yet (raised from inside an
+    // order card, which hands up only the id): refresh the register, so it
+    // is there when the counter comes back to Manage Orders.
+    if (id && !alterationsList.some((a) => a.id === id)) {
+      api.getAlterations().then((d) => setAlterationsList(d || [])).catch(() => {});
+    }
+  };
+  // An alteration just taken in: into the register at the top, so it is
+  // there when the counter comes back to Manage Orders, rather than only
+  // after the next reload.
+  const rememberAlteration = (created) => {
+    if (!created?.id) return;
+    setAlterationsList((prev) => [created, ...(prev || []).filter((a) => a.id !== created.id)]);
   };
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   // Which order in the customer profile is expanded to show its production
@@ -1970,9 +2026,6 @@ function App() {
   const [stageReviewComments, setStageReviewComments] = useState('');
   const [stageReviewImage, setStageReviewImage] = useState(null);
   const [selectedStageObj, setSelectedStageObj] = useState(null);
-  const [stageDesignBrief, setStageDesignBrief] = useState(null);
-  const [productionNotesDraft, setProductionNotesDraft] = useState('');
-  const [savingProductionNotes, setSavingProductionNotes] = useState(false);
   const [selectedPerformerId, setSelectedPerformerId] = useState('');
   const [stageTransitionBusy, setStageTransitionBusy] = useState(false);
   // The two sanctioned reversals, both behind a mandatory-reason dialog:
@@ -2234,6 +2287,61 @@ function App() {
     }
   }, [view, dashboardTab, currentUser, fetchWhatsAppStatus]);
 
+  // The Today card (staff on the floor, today's appointments) reads from
+  // /api/dashboard/, which was fetched once at sign-in. A check-in on the
+  // Staff tab or a booking made elsewhere never reached it until a full
+  // reload, so the card sat on 0 / "No appointments". Re-read just the
+  // dashboard payload whenever the overview tab comes back into view.
+  useEffect(() => {
+    if (view === 'dashboard' && dashboardTab === 'overview' && dashboardData) {
+      api.getDashboard().then(setDashboardData).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dashboardTab]);
+
+  // The browser's Back button. Every screen here is state, not a URL, so the
+  // only history entry was the sign-in page (or whatever tab the app was
+  // opened from) and Back left the app entirely -- which read as a logout.
+  // Each signed-in screen now puts an entry in history, so Back walks the
+  // screens the person actually visited; from the first one it stays put
+  // rather than leaving. The session is untouched either way.
+  useEffect(() => {
+    if (view === 'login' || view === 'signup' || view === 'forgot' || view === 'reset') return;
+    // After Back, history.state already is the screen being shown, so the
+    // check below keeps a pop from pushing a fresh entry of its own.
+    const here = { atelier: true, view, tab: dashboardTab };
+    const current = window.history.state;
+    if (current?.atelier && current.view === view && current.tab === dashboardTab) return;
+    if (current?.atelier) {
+      window.history.pushState(here, '');
+    } else {
+      // The first signed-in screen claims the entry the app was opened on
+      // AND adds one more: Back from the first screen then lands on the
+      // app's own duplicate (where popstate can hold it) instead of on
+      // whatever page came before the app.
+      window.history.replaceState(here, '');
+      window.history.pushState(here, '');
+    }
+  }, [view, dashboardTab]);
+  useEffect(() => {
+    const onPop = (event) => {
+      const state = event.state;
+      if (state?.atelier) {
+        if (state.view === view && state.tab === dashboardTab) {
+          // Popped onto the duplicate of the screen already showing -- the
+          // first screen's guard. Put the guard back so the next Back holds
+          // too, and stay where we are.
+          window.history.pushState(state, '');
+          return;
+        }
+        setView(state.view);
+        setDashboardTab(state.tab);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [view, dashboardTab]);
+
   const handleMarkMessageSent = async (orderId, messageId) => {
     await api.markMessageSent(orderId, messageId);
     // The queue holds only what is still waiting, so a sent one leaves it.
@@ -2296,6 +2404,8 @@ function App() {
         await api.createAppointment(payload);
       }
       await reloadAppointments();
+      // The dashboard's Today card lists today's bookings from its own payload.
+      fetchDashboardAndConfig();
       closeAppointmentModal();
     } catch (err) {
       alert((editingAppointment ? "Could not save the appointment: "
@@ -2314,6 +2424,7 @@ function App() {
     try {
       await api.updateAppointment(editingAppointment.id, { status: 'CANCELLED' });
       await reloadAppointments();
+      fetchDashboardAndConfig();
       closeAppointmentModal();
     } catch (err) {
       alert("Could not cancel the appointment: " + err.message);
@@ -2484,9 +2595,12 @@ function App() {
   // Start Order Creation Flows
   const pickCustomer = (cust) => {
     setCustomerId(cust.id);
+    // Older records carry the country code; the field is the 10 local digits.
+    const digits = String(cust.mobile_number || '').replace(/\D/g, '');
     setCustomerForm({
       ...DEFAULT_CUSTOMER_DATA,
       ...cust,
+      mobile_number: digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits,
       measurements: cust.measurements || DEFAULT_CUSTOMER_DATA.measurements,
     });
     setCustomerName(`${cust.first_name || ''} ${cust.last_name || ''}`.trim());
@@ -2737,11 +2851,19 @@ function App() {
   const performNext = async () => {
     try {
       if (wizardStepKey === 'who') {
-        if (!customerForm.mobile_number.trim()) { alert('Enter the mobile number.'); return; }
+        if (!/^[6-9]\d{9}$/.test(customerForm.mobile_number.replace(/\D/g, ''))) {
+          alert('Enter a valid 10-digit mobile number.');
+          return;
+        }
         if (serviceType === 'alter') {
           if (!customerId) { alert('Pick the customer from the list: alterations are for garments we made.'); return; }
-        } else if (!customerForm.first_name.trim()) {
-          alert('Enter the customer\u2019s name.');
+        } else if (customerForm.first_name.trim().length < 2) {
+          alert('Enter the customer\u2019s name (at least 2 letters).');
+          return;
+        }
+        if (serviceType !== 'alter' && !customerForm.gender) { alert('Select the customer\u2019s gender.'); return; }
+        if (customerForm.email_address && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerForm.email_address.trim())) {
+          alert('Enter a valid email address, or leave it blank.');
           return;
         }
         if (serviceType !== 'alter') await persistDraft({ step: 2 });
@@ -2768,6 +2890,9 @@ function App() {
           return;
         }
         rememberMeasurements();
+        await persistDraft({ step: currentStep + 1 });
+        reachStep(currentStep + 1);
+      } else if (wizardStepKey === 'review') {
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'money') {
@@ -2833,18 +2958,6 @@ function App() {
     paused: ctaBusy,
   });
 
-  const saveProductionNotesNow = async () => {
-    if (!stageDesignBrief) return;
-    await api.saveProductionNotes(stageDesignBrief.id, stageDesignBrief.design.id, productionNotesDraft);
-    setStageDesignBrief((b) => (b ? { ...b, design: { ...b.design, production_notes: productionNotesDraft } } : b));
-  };
-  const notesAutosave = useAutosave({
-    getSnapshot: () => (stageDesignBrief ? productionNotesDraft : null),
-    save: saveProductionNotesNow,
-    enabled: Boolean(stageDesignBrief),
-    paused: savingProductionNotes,
-  });
-
   const boutiqueFormRef = useRef(null);
   const saveBoutiqueForm = async (form) => {
     const formData = new FormData();
@@ -2879,11 +2992,27 @@ function App() {
     ['base', 'Base price'], ['fabric', 'Fabric'], ['embroidery', 'Embroidery & work'],
     ['customization', 'Customization'], ['tailoring', 'Tailoring'],
   ];
+  // Work a garment's spec adds on top of stitching -- backing, a border, a
+  // fall, pico -- each priced on its own line. Mirrors the extras the server
+  // folds into customization_price at confirm.
+  const EXTRA_CHARGES = [
+    ['backing', 'Backing', (v) => v.backing === 'with_backing'],
+    ['border', 'Border', (v) => v.border === 'with_border'],
+    ['fall', 'Fall', (v) => ['fall', 'fall_pico'].some(s => (v.services || []).includes(s))],
+    ['pico', 'Pico', (v) => ['pico', 'fall_pico'].some(s => (v.services || []).includes(s))],
+  ];
+  const jobExtras = (job) => EXTRA_CHARGES.filter(([, , applies]) => applies(job.values || {}));
   const jobSubtotal = (job) =>
-    PRICING_FIELDS.reduce((sum, [key]) => sum + parseFloat(job.pricing?.[key] || 0), 0);
+    PRICING_FIELDS.reduce((sum, [key]) => sum + parseFloat(job.pricing?.[key] || 0), 0)
+    + jobExtras(job).reduce((sum, [key]) => sum + parseFloat(job.pricing?.extras?.[key] || 0), 0);
   const setJobPrice = (jobKey, field, value) => {
     setGarmentJobs(prev => prev.map(job => job.key === jobKey
       ? { ...job, pricing: { ...(job.pricing || {}), [field]: value } }
+      : job));
+  };
+  const setJobExtra = (jobKey, key, value) => {
+    setGarmentJobs(prev => prev.map(job => job.key === jobKey
+      ? { ...job, pricing: { ...(job.pricing || {}), extras: { ...(job.pricing?.extras || {}), [key]: value } } }
       : job));
   };
 
@@ -2976,6 +3105,67 @@ function App() {
       : job));
   };
 
+  // An out-of-stock roll picked in the wizard: ask whether to restock it now
+  // or carry on. Restocking is a round trip -- the pick is made, the draft is
+  // saved, the inventory opens on that roll's stock-in form, and closing it
+  // brings the wizard back from the draft exactly where it was left.
+  const [stockPrompt, setStockPrompt] = useState(null);      // { fabric, proceed }
+  // The review screen's picture viewer: which group is open, and where in it.
+  const [reviewView, setReviewView] = useState(null);        // { items, index }
+  // Photographs the tailor has picked but not yet submitted, per order, as
+  // object URLs for the thumbnails. Revoked when replaced.
+  const [completionPicks, setCompletionPicks] = useState({});  // { [orderId]: [{ file, url }] }
+  // Adds to what is already waiting rather than replacing it, so a photo
+  // picked after removing one keeps the others. Five at most, in total.
+  const pickCompletionPhotos = (orderId, files) => {
+    setCompletionPicks(prev => {
+      const current = prev[orderId] || [];
+      const room = Math.max(0, 5 - current.length);
+      if (files.length > room) alert(`You can upload up to 5 photos. ${room ? `Only ${room} more will be added.` : 'Remove one first.'}`);
+      const added = files.slice(0, room).map(file => ({ file, url: URL.createObjectURL(file) }));
+      return { ...prev, [orderId]: [...current, ...added] };
+    });
+  };
+  const clearCompletionPhotos = (orderId) => {
+    setCompletionPicks(prev => {
+      (prev[orderId] || []).forEach(p => URL.revokeObjectURL(p.url));
+      return { ...prev, [orderId]: [] };
+    });
+  };
+  const dropCompletionPhoto = (orderId, url) => {
+    URL.revokeObjectURL(url);
+    setCompletionPicks(prev => ({ ...prev, [orderId]: (prev[orderId] || []).filter(p => p.url !== url) }));
+  };
+  const [restockTrip, setRestockTrip] = useState(null);      // { fabric, draftId? }
+  useEffect(() => {
+    if (!restockTrip || restockTrip.draftId) return;
+    // Runs after the pick has committed, so the draft carries it.
+    (async () => {
+      try {
+        const id = await persistDraft({ step: currentStep });
+        setRestockTrip({ ...restockTrip, draftId: id });
+        setView('dashboard');
+        setDashboardTab('inventory');
+      } catch (err) {
+        setRestockTrip(null);
+        alert(`Could not save the order before leaving: ${err.message}`);
+      }
+    })();
+  }, [restockTrip]); // eslint-disable-line react-hooks/exhaustive-deps
+  const finishRestockTrip = async () => {
+    const trip = restockTrip;
+    setRestockTrip(null);
+    if (!trip?.draftId) return;
+    try {
+      const [rolls, draft] = await Promise.all([
+        api.getInventoryItems({ picker: 'true' }), api.getOrderDraft(trip.draftId)]);
+      setFabrics(rolls || []);
+      await hydrateWizard(draft);
+    } catch (err) {
+      alert(`Could not return to the order: ${err.message}. Open it from your drafts.`);
+    }
+  };
+
   // How much of each picked roll the garment needs, keyed "SLOT:itemId" per
   // garment. Asked at the moment of choosing: a pick with no quantity is one
   // the ledger can never reserve or consume.
@@ -3063,17 +3253,20 @@ function App() {
 
   // A task is closed for this person once the order is over, or once every
   // stage that was theirs -- handed to them by name, or one their role
-  // performs -- is settled. A Master supervises every stage, so for them the
-  // task is the whole order.
+  // performs -- is off their bench. For a worker that includes work they
+  // have submitted and are waiting to have verified: their part is done.
+  // A Master (or the owner) supervises every stage, so for them the task is
+  // the whole order, and work waiting for their verification is open work.
   const isClosedForMe = (order) => {
     if (['Delivered', 'Cancelled'].includes(order.order_status) || !liveStage(order)) return true;
+    if (currentUser?.role === 'Owner' || currentUser?.role === 'Master') return false;
     const config = boutiqueSettings?.workflow_config || [];
     const rolesFor = (key) => (config.find(s => s.key === key)?.roles) || [];
     const me = currentUser?.tailor_id;
     const mine = (order.stages || []).filter(s =>
-      s.assigned_to === me
-      || (currentUser?.role !== 'Master' && rolesFor(s.stage_key).includes(currentUser?.role)));
-    return mine.length > 0 && mine.every(s => ['COMPLETED', 'SKIPPED'].includes(s.status));
+      s.assigned_to === me || rolesFor(s.stage_key).includes(currentUser?.role));
+    return mine.length > 0
+      && mine.every(s => ['COMPLETED', 'SKIPPED', 'PENDING_VERIFICATION'].includes(s.status));
   };
   const closedTasksView = dashboardTab === 'closedTasks';
   const taskOrders = ordersList.filter(o => isMyAssignment(o) && isClosedForMe(o) === closedTasksView);
@@ -3102,20 +3295,6 @@ function App() {
     setSelectedStageObj(stage);
     setStageReviewComments(stage.comments || '');
     setStageReviewImage(null);
-
-    // Fetch the approved design for this order. Best-effort: a board that does
-    // not exist is the normal case for an order placed without one, and must
-    // not stop the stage panel from opening.
-    setStageDesignBrief(null);
-    setProductionNotesDraft('');
-    api.getDesignBoards({ order_id: order.order_id })
-      .then((boards) => {
-        const brief = normaliseDesignBrief(
-          Array.isArray(boards) ? boards[0] : boards);
-        setStageDesignBrief(brief);
-        setProductionNotesDraft(brief?.design?.production_notes || '');
-      })
-      .catch(() => setStageDesignBrief(null));
   };
 
   // The directory list returns flat rows without orders or measurement history,
@@ -3813,7 +3992,18 @@ function App() {
                 sections={navSections}
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
-                onPick={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setMobileNavOpen(false); }}
+                onPick={(tab) => {
+                  setDashboardTab(tab);
+                  // App-level detail state lives outside the pane, so it is
+                  // cleared by hand; everything inside resets with the key.
+                  setSelectedDirectoryCustomer(null);
+                  setOpenOrdersRowId(null);
+                  setOpenTaskRowId(null);
+                  setOpenAlterationId(null);
+                  setSelectedDashboardOrder(null);
+                  setSectionVisit(n => n + 1);
+                  setMobileNavOpen(false);
+                }}
               />
               <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
                        onClick={() => { setShowLogoutConfirm(true); setMobileNavOpen(false); }} />
@@ -3823,7 +4013,7 @@ function App() {
           </aside>
 
           {/* Main Content Area */}
-          <main className="portal-main">
+          <main className="portal-main" key={`${dashboardTab}:${sectionVisit}`}>
             {(dashboardTab === 'pendingTasks' || dashboardTab === 'closedTasks') && (
               <>
                 <header className="portal-header">
@@ -4084,13 +4274,16 @@ function App() {
                             </div>
 
                             {/* The same gathering checklist, on the card the
-                                Master actually works from. */}
+                                Master actually works from. Only when the order
+                                names any material at all. */}
+                            {hasMaterials(order) && (
                             <div style={{ marginTop: '12px', padding: '14px 16px', border: '1px solid var(--border-color)', borderRadius: '8px', textAlign: 'left' }}>
                               <h4 style={{ fontSize: '13px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 🧵 Raw Materials Checklist
                               </h4>
                               <MaterialsChecklist orderId={order.id} role={currentUser.role} />
                             </div>
+                            )}
 
                             {/* Master Verification Checklist */}
                             {currentUser.role === 'Master' && (
@@ -4180,20 +4373,76 @@ function App() {
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Upload Completed Garment Photo</label>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                                      Upload Completed Garment Photos <span style={{ color: 'var(--text-muted)' }}>(up to 5)</span>
+                                    </label>
                                     <input
                                       type="file"
                                       className="form-control"
                                       style={{ fontSize: '13px' }}
                                       id={`image-${order.id}`}
                                       accept="image/*"
+                                      multiple
+                                      onChange={(e) => {
+                                        pickCompletionPhotos(order.id, [...e.target.files]);
+                                        // The strip is the list; the input is only the way in.
+                                        e.target.value = '';
+                                      }}
                                     />
-                                    {order.completed_garment_image && (
-                                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--brand-link)', fontWeight: 600 }}>✓ Picture Uploaded</span>
-                                        <a href={order.completed_garment_image} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: 'var(--accent-text, #b07c40)', textDecoration: 'underline' }}>View Image</a>
-                                      </div>
-                                    )}
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                      Select several at once — hold Ctrl (or ⌘) while choosing. Up to 5 photos.
+                                    </div>
+                                    {(() => {
+                                      // What is about to go up, then what already went up: the
+                                      // stitching stage's attachments, with the cover shot as a
+                                      // fallback for orders from before several were kept.
+                                      const picked = completionPicks[order.id] || [];
+                                      const stitching = (order.stages || []).find(st => st.stage_key === 'stitching_in_progress');
+                                      const uploaded = (stitching?.attachments?.length ? stitching.attachments
+                                        : (order.completed_garment_image ? [order.completed_garment_image] : []));
+                                      const verdicts = stitching?.attachment_reviews || {};
+                                      const strip = (title, items, onRemove) => items.length > 0 && (
+                                        <div style={{ marginTop: '8px' }}>
+                                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--brand-link)', marginBottom: '4px' }}>{title}</div>
+                                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                            {items.map((it, i) => (
+                                              <div key={it.image_url} style={{ position: 'relative', width: '64px', height: it.rejected ? 'auto' : '64px' }}>
+                                                <img src={it.image_url} alt="" title={it.rejected || undefined}
+                                                     style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block',
+                                                              border: it.rejected ? '2px solid var(--danger-color)' : '1px solid var(--border-color)' }} />
+                                                {it.rejected && <div style={{ fontSize: '10px', color: 'var(--danger-color)', lineHeight: 1.2, marginTop: '2px' }}>✕ {it.rejected}</div>}
+                                                <button type="button" title="View" aria-label="View photo"
+                                                        onClick={() => setReviewView({ items, index: i })}
+                                                        style={{ position: 'absolute', top: 0, left: 0, width: '64px', height: '64px', background: 'rgba(0,0,0,0.35)', border: 'none', borderRadius: '6px',
+                                                                 color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.85 }}>
+                                                  <Eye size={16} />
+                                                </button>
+                                                {onRemove && (
+                                                  <button type="button" title="Remove" aria-label="Remove photo"
+                                                          onClick={() => onRemove(it)}
+                                                          style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%',
+                                                                   background: 'var(--surface-color)', border: '1px solid var(--border-strong)', color: 'var(--text-primary)',
+                                                                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                                                    <X size={12} />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      );
+                                      return (
+                                        <>
+                                          {strip(`Ready to upload · ${picked.length}`, picked.map((p, i) => ({ image_url: p.url, label: `Photo ${i + 1}` })),
+                                                 (it) => dropCompletionPhoto(order.id, it.image_url))}
+                                          {picked.length === 0 && strip(
+                                                 Object.keys(verdicts).length
+                                                   ? `${Object.keys(verdicts).length} photo${Object.keys(verdicts).length === 1 ? '' : 's'} rejected — upload replacements`
+                                                   : `✓ ${uploaded.length} photo${uploaded.length === 1 ? '' : 's'} uploaded`,
+                                                 uploaded.map((u, i) => ({ image_url: u, label: `Uploaded photo ${i + 1}`, rejected: verdicts[u]?.remark })))}
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
 
@@ -4204,11 +4453,12 @@ function App() {
                                   onClick={async () => {
                                     if (submittingCompletionId) return;
                                     const commentVal = document.getElementById(`comments-${order.id}`).value;
-                                    const file = document.getElementById(`image-${order.id}`).files[0];
+                                    const files = (completionPicks[order.id] || []).map(p => p.file).slice(0, 5);
 
                                     setSubmittingCompletionId(order.id);
                                     try {
-                                      await api.submitCompletion(order.id, commentVal, file);
+                                      await api.submitCompletion(order.id, commentVal, files);
+                                      clearCompletionPhotos(order.id);
                                       alert("Completion report submitted successfully!");
                                       fetchDashboardAndConfig();
                                     } catch (err) {
@@ -4555,7 +4805,9 @@ function App() {
             {/* INVENTORY TAB */}
             {dashboardTab === 'inventory' && (
               <Suspense fallback={<ScreenLoading />}>
-                <InventoryPanel currentUser={currentUser} />
+                <InventoryPanel currentUser={currentUser}
+                                restockItem={restockTrip?.fabric || null}
+                                onRestockDone={finishRestockTrip} />
               </Suspense>
             )}
 
@@ -4861,7 +5113,8 @@ function App() {
                         onMarkSent={handleMarkMessageSent}
                       />
 
-                      {/* Raw materials checklist */}
+                      {/* Raw materials checklist; nothing to gather, no section. */}
+                      {hasMaterials(order) && (
                       <section className="at-section od-materials">
                         <div className="od-section-head">
                           <IconTile icon={Layers} tone="neutral" size={40} iconSize={18} />
@@ -4872,6 +5125,7 @@ function App() {
                         </div>
                         <MaterialsChecklist orderId={order.id} role={currentUser.role} />
                       </section>
+                      )}
 
                       <div className="od-extra">
                           {/* Post-delivery alterations. Shown only once the
@@ -4946,15 +5200,68 @@ function App() {
                                   "{order.tailor_comments}"
                                 </p>
                               )}
-                              {order.completed_garment_image && (
-                                <div style={{ marginTop: '4px' }}>
-                                  <span className="ui-eyebrow" style={{ display: 'block', marginBottom: '6px' }}>Garment photo</span>
-                                  <a href={order.completed_garment_image} target="_blank" rel="noreferrer">
-                                    <img src={order.completed_garment_image} alt="Completed Garment"
-                                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', cursor: 'pointer' }} />
-                                  </a>
-                                </div>
-                              )}
+                              {(() => {
+                                // Every photograph the tailor submitted, off the stitching
+                                // stage; the cover shot alone for orders from before several
+                                // were kept. The supervisor can fault any one of them.
+                                const stitching = (order.stages || []).find(st => st.stage_key === 'stitching_in_progress');
+                                const photos = stitching?.attachments?.length ? stitching.attachments
+                                  : (order.completed_garment_image ? [order.completed_garment_image] : []);
+                                const reviews = stitching?.attachment_reviews || {};
+                                const canReview = currentUser?.role === 'Owner' || currentUser?.role === 'Master';
+                                const items = photos.map((u, i) => ({ image_url: u, label: `Photo ${i + 1}` }));
+                                const reject = async (url) => {
+                                  const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
+                                  if (remark === null) return;
+                                  if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
+                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, remark.trim()); fetchDashboardAndConfig(); }
+                                  catch (err) { alert(err.message); }
+                                };
+                                const clear = async (url) => {
+                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, '', 'CLEAR'); fetchDashboardAndConfig(); }
+                                  catch (err) { alert(err.message); }
+                                };
+                                return photos.length > 0 && (
+                                  <div style={{ marginTop: '4px' }}>
+                                    <span className="ui-eyebrow" style={{ display: 'block', marginBottom: '6px' }}>
+                                      Garment photo{photos.length === 1 ? '' : 's'} · {photos.length}
+                                    </span>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                      {photos.map((url, i) => {
+                                        const verdict = reviews[url];
+                                        return (
+                                          <div key={url} style={{ width: '120px' }}>
+                                            <div style={{ position: 'relative' }}>
+                                              <img src={url} alt="" style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: 'var(--radius-md)', display: 'block',
+                                                                              border: verdict ? '2px solid var(--danger-color)' : '1px solid var(--border-color)',
+                                                                              opacity: verdict ? 0.7 : 1 }} />
+                                              <button type="button" className="btn-secondary at-btn-sm" title="View"
+                                                      style={{ position: 'absolute', top: '6px', right: '6px', minHeight: '26px', padding: '0 8px' }}
+                                                      onClick={() => setReviewView({ items, index: i })}>
+                                                <Eye size={12} /> View
+                                              </button>
+                                              {verdict && (
+                                                <span style={{ position: 'absolute', left: '6px', bottom: '6px', fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px',
+                                                               background: 'var(--danger-color)', color: '#fff' }}>Rejected</span>
+                                              )}
+                                            </div>
+                                            {verdict && (
+                                              <div style={{ fontSize: '11px', color: 'var(--danger-color)', marginTop: '4px', lineHeight: 1.3 }}>{verdict.remark}</div>
+                                            )}
+                                            {canReview && (
+                                              verdict
+                                                ? <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px' }} onClick={() => clear(url)}>Undo rejection</button>
+                                                : <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px', color: 'var(--danger-color)' }} onClick={() => reject(url)}>
+                                                    <X size={11} /> Reject photo
+                                                  </button>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
                       </div>
@@ -4992,14 +5299,42 @@ function App() {
 
             {dashboardTab === 'orders' && !openOrder && (
               <>
+                {ordersAlterationOrder && (
+                  <RequestAlterationModal
+                    order={ordersAlterationOrder}
+                    customerId={ordersAlterationOrder.customer}
+                    onClose={() => setOrdersAlterationOrder(null)}
+                    onCreated={(created) => { setOrdersAlterationOrder(null); rememberAlteration(created); openAlteration(created.id); }}
+                  />
+                )}
+                {/* A garment we did not make, brought in for work: the same
+                    intake the Alterations tab offers, reachable from where
+                    the counter is standing. Opens on the new alteration. */}
+                {takingInOutside && (
+                  <Suspense fallback={<ScreenLoading />}>
+                    <OutsideGarmentIntake
+                      onClose={() => setTakingInOutside(false)}
+                      onCreated={(created) => { setTakingInOutside(false); rememberAlteration(created); openAlteration(created.id); }}
+                    />
+                  </Suspense>
+                )}
                 <PageHeader
                   title={t('ordersPage.title')}
                   subtitle={t('ordersPage.subtitle')}
                   aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
-                  actions={(!currentUser?.role || currentUser.role === 'Owner') && (
-                    <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                      <Plus size={16} /> {t('ordersPage.newOrder')}
-                    </button>
+                  actions={(
+                    <>
+                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                        <button className="btn-secondary" style={{ padding: '10px 18px' }} onClick={() => setTakingInOutside(true)}>
+                          <Scissors size={16} /> Outside garment alteration
+                        </button>
+                      )}
+                      {(!currentUser?.role || currentUser.role === 'Owner') && (
+                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                          <Plus size={16} /> {t('ordersPage.newOrder')}
+                        </button>
+                      )}
+                    </>
                   )}
                 />
 
@@ -5127,41 +5462,9 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                      {filtered.map(order => {
-                        const isDelivered = order.order_status === 'Delivered';
-                        const isCancelled = order.order_status === 'Cancelled';
-                        return (
-                        <React.Fragment key={order.id}>
-                        <tr>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
-                          <td>Stitching</td>
-                          <td>{order.customer_name}</td>
-                          <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
-                          <td>
-                            <span className={`ui-badge ui-badge--${awaitingVerification(order) ? 'info' : statusTone(order.order_status)}`}>
-                              {isDelivered ? 'Delivered' : isCancelled ? 'Cancelled'
-                                : awaitingVerification(order) ? 'Pending verification' : 'Pending'}
-                            </span>
-                            {!isDelivered && !isCancelled && stageNow(order) && (
-                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {stageNow(order)}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <button type="button" className="btn-secondary at-btn-sm"
-                                      onClick={() => setOpenOrdersRowId(order.id)}>
-                                <Eye size={12} /> View
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        </React.Fragment>
-                        );
-                      })}
-                      {/* Alterations, after the stitching orders. View opens
-                          the alteration's own page rather than expanding. */}
+                      {/* Alterations first, newest at the top -- the one just taken
+                          in is what the counter is looking for. View opens the
+                          alteration's own page rather than expanding. */}
                       {filteredAlterations.map(alt => {
                         const done = alt.status === 'COMPLETED';
                         const cancelled = alt.status === 'CANCELLED';
@@ -5189,6 +5492,50 @@ function App() {
                             </div>
                           </td>
                         </tr>
+                        );
+                      })}
+                      {filtered.map(order => {
+                        const isDelivered = order.order_status === 'Delivered';
+                        const isCancelled = order.order_status === 'Cancelled';
+                        return (
+                        <React.Fragment key={order.id}>
+                        <tr>
+                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
+                          <td>Stitching</td>
+                          <td>{order.customer_name}</td>
+                          <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
+                          <td>
+                            <span className={`ui-badge ui-badge--${awaitingVerification(order) ? 'info' : statusTone(order.order_status)}`}>
+                              {isDelivered ? 'Delivered' : isCancelled ? 'Cancelled'
+                                : awaitingVerification(order) ? 'Pending verification' : 'Pending'}
+                            </span>
+                            {!isDelivered && !isCancelled && stageNow(order) && (
+                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                                {stageNow(order)}
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+                              {/* A delivered garment can come back: the same
+                                  request form the order card and the customer
+                                  profile open, one click from the row, for
+                                  the roles that run the counter. */}
+                              {isDelivered && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                                <button type="button" className="btn-secondary at-btn-sm"
+                                        style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--accent-color)' }}
+                                        onClick={() => setOrdersAlterationOrder(order)}>
+                                  <Scissors size={12} /> Alteration
+                                </button>
+                              )}
+                              <button type="button" className="btn-secondary at-btn-sm"
+                                      onClick={() => setOpenOrdersRowId(order.id)}>
+                                <Eye size={12} /> View
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        </React.Fragment>
                         );
                       })}
                         </tbody>
@@ -5627,7 +5974,7 @@ function App() {
                         order={alterationOrder}
                         customerId={c.id}
                         onClose={() => setAlterationOrder(null)}
-                        onCreated={(created) => { setAlterationOrder(null); openAlteration(created.id); }}
+                        onCreated={(created) => { setAlterationOrder(null); rememberAlteration(created); openAlteration(created.id); }}
                       />
                     )}
                   </div>
@@ -6429,6 +6776,20 @@ function App() {
                       <option value="Anarkali">{t('designsPage.anarkali', 'Anarkali')}</option>
                       <option value="Suit">{t('designsPage.salwarKameez', 'Salwar Kameez')}</option>
                       <option value="Jacket">{t('designsPage.jacket', 'Jacket')}</option>
+                      {/* Men's wear. Values slug to the template / catalogue
+                          keys the picker below looks up ("Mens Suit" ->
+                          mens_suit), so an apostrophe would break the match. */}
+                      <option value="Shirt">{t('designsPage.mensShirt', "Men's Shirt")}</option>
+                      <option value="T-Shirt">{t('designsPage.tShirt', 'T-Shirt')}</option>
+                      <option value="Kurta">{t('designsPage.mensKurta', "Men's Kurta")}</option>
+                      <option value="Indo-Western">{t('designsPage.indoWestern', 'Indo-Western')}</option>
+                      <option value="Mens Suit">{t('designsPage.mensSuit', "Men's Suit")}</option>
+                      <option value="Trouser">{t('designsPage.trouser', 'Trouser')}</option>
+                      <option value="Jeans">{t('designsPage.jeans', 'Jeans')}</option>
+                      <option value="Shorts">{t('designsPage.shorts', 'Shorts')}</option>
+                      <option value="Mens Bottom Wear">{t('designsPage.mensBottomWear', "Men's Bottom Wear")}</option>
+                      <option value="Coat">{t('designsPage.coat', 'Coat / Overcoat')}</option>
+                      <option value="Casual Wear">{t('designsPage.casualWear', 'Casual Wear')}</option>
                     </select>
                   </Field>
                   <Field label={t('designsPage.designType', 'Design Type')} required icon={Tag}>
@@ -6799,10 +7160,27 @@ function App() {
                       <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
                       <input id="wz-mobile" type="tel" inputMode="numeric" autoFocus
                              value={customerForm.mobile_number}
-                             onChange={(e) => { setCustomerForm({ ...customerForm, mobile_number: e.target.value }); if (customerId) clearPickedCustomer(e.target.value); }}
+                             maxLength={10}
+                             onChange={(e) => { const digits = e.target.value.replace(/\D/g, '').slice(0, 10); setCustomerForm({ ...customerForm, mobile_number: digits }); if (customerId) clearPickedCustomer(digits); }}
                              style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
                     </div>
                   </div>
+
+                  {/* Gender, right after the number and required: the garment
+                      list on the next screen is filtered by it. Alterations
+                      skip it -- their garments come from past orders. */}
+                  {serviceType !== 'alter' && (
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="required">*</span></label>
+                      <select id="wz-gender" className="form-control" value={customerForm.gender || ''}
+                              onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
+                        <option value="">{t('wizard.selectGender', 'Select Gender')}</option>
+                        <option value="Female">{t('wizard.female', 'Female')}</option>
+                        <option value="Male">{t('wizard.male', 'Male')}</option>
+                        <option value="Other">{t('wizard.other', 'Other')}</option>
+                      </select>
+                    </div>
+                  )}
 
                   {customerId ? (
                     <div className="wz-known">
@@ -6841,7 +7219,8 @@ function App() {
                         <div className="form-group" style={{ marginTop: '14px' }}>
                           <label className="form-label" htmlFor="wz-name">{t('wizard.customerName', 'Customer Name')} <span className="required">*</span></label>
                           <input id="wz-name" type="text" className="form-control" value={customerName}
-                                 onChange={(e) => setCustomerNameSplit(e.target.value)}
+                                 maxLength={60}
+                                 onChange={(e) => setCustomerNameSplit(e.target.value.replace(/[^\p{L} .'-]/gu, ''))}
                                  placeholder={t('wizard.namePlaceholder', 'e.g. Amara Singh')} />
                         </div>
                       )}
@@ -6889,16 +7268,6 @@ function App() {
                             <option value="Website">{t('wizard.website', 'Website')}</option>
                           </select>
                         </div>
-                        <div className="form-group">
-                          <label className="form-label">{t('wizard.gender', 'Gender')}</label>
-                          <select className="form-control" value={customerForm.gender || ''}
-                                  onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
-                            <option value="">{t('wizard.selectGender', 'Select Gender')}</option>
-                            <option value="Female">{t('wizard.female', 'Female')}</option>
-                            <option value="Male">{t('wizard.male', 'Male')}</option>
-                            <option value="Other">{t('wizard.other', 'Other')}</option>
-                          </select>
-                        </div>
                       </div>
                     </details>
                   )}
@@ -6921,7 +7290,7 @@ function App() {
                   <DressesDropdown
                     title={t('wizard.dressesInOrder', 'Dresses in this Order')}
                     subtitle={t('wizard.dressesSubtitle', 'Pick every garment being made.')}
-                    garmentTemplates={garmentTemplates}
+                    garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
                     garmentJobs={garmentJobs}
                     addingGarmentKey={addingGarmentKey}
                     garmentTemplatesError={garmentTemplatesError}
@@ -7010,15 +7379,89 @@ function App() {
                                     selection={fabricSelection}
                                     onChange={handleFabricSelection}
                                     quantities={fabricQuantities}
-                                    onQuantityChange={handleFabricQuantity} />
+                                    onQuantityChange={handleFabricQuantity}
+                                    onPickOutOfStock={(fabric, proceed) => setStockPrompt({ fabric, proceed })} />
                                 </>
                               )}
                             </Suspense>
                           </details>
                         )}
+
+                        {/* The three sections the order-flow rewrite dropped
+                            from the old Fabric Selection screen -- Customer
+                            Fabrics, Boutique Accessories, Customer Accessories
+                            -- folded away per garment like the ones above.
+                            Same pickers, same partReferences / fabricSelection
+                            slots, so the draft and the workroom brief read them
+                            exactly as before. */}
+                        <details className="wz-more">
+                          <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer Fabrics (My Fabrics)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker ownOnly isFabric
+                                               garmentKey={job.template?.key || job.key}
+                                               garmentName={job.template?.name || job.key}
+                                               taxonomy={fabricTaxonomy}
+                                               references={partReferences[job.key] || {}}
+                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                          </Suspense>
+                        </details>
+
+                        {canSeeTab(currentUser, 'inventory') && (
+                          <details className="wz-more">
+                            <summary><Package size={14} /> {t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentFabricPicker
+                                garmentJobs={[job]}
+                                fabrics={fabrics}
+                                taxonomy={fabricTaxonomy}
+                                selection={fabricSelection}
+                                onChange={handleFabricSelection}
+                                quantities={fabricQuantities}
+                                onQuantityChange={handleFabricQuantity}
+                                accessoriesOnly />
+                            </Suspense>
+                          </details>
+                        )}
+
+                        <details className="wz-more">
+                          <summary><Package size={14} /> {t('wizard.sheetCustomerAccessories', 'Customer Accessories (My Accessories)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker ownOnly isFabric accessoriesOnly
+                                               garmentKey={job.template?.key || job.key}
+                                               garmentName={job.template?.name || job.key}
+                                               taxonomy={fabricTaxonomy}
+                                               references={partReferences[job.key] || {}}
+                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                          </Suspense>
+                        </details>
                       </div>
                     );
                   })}
+
+                  {/* Customer Designs: a design the customer described, captured
+                      by the studio -- a photograph of a paper sketch, or drawn
+                      here. Order-level, as its tab on the old Design Studio
+                      screen was; its own rows kept for the customer, nothing on
+                      the draft. */}
+                  <details className="wz-more" style={{ marginTop: '18px' }}>
+                    <summary><PenTool size={14} /> {t('wizard.sheetCustomerDesigns', 'Customer Designs')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                    <Suspense fallback={<ScreenLoading />}>
+                      <CustomerDesigns
+                        customerId={customerId}
+                        customers={allCustomers}
+                        orders={ordersList}
+                        garmentTemplates={garmentTemplates}
+                        newCustomer={customerForm}
+                        onCustomerCreated={(row) => {
+                          // The walk-in is now a customer: the draft carries
+                          // the id, so confirm updates them rather than
+                          // creating a second row for the same mobile.
+                          setCustomerId(row.id);
+                          setAllCustomers((prev) => [row, ...prev]);
+                        }}
+                      />
+                    </Suspense>
+                  </details>
 
                   {garmentJobs.length > 0 && (
                     <div className="form-group" style={{ marginTop: '18px' }}>
@@ -7093,6 +7536,151 @@ function App() {
               </>
             )}
 
+            {/* REVIEW: everything the order will say, on one page, before a
+                price is put on it. Each card jumps back to the screen that
+                owns it. */}
+            {wizardStepKey === 'review' && (() => {
+              const stepOf = (key) => wizardSteps.findIndex(st => st.key === key) + 1;
+              const slotLabel = (garmentKey, slotKey) => {
+                const g = (fabricTaxonomy?.garments || []).find(x => x.key === garmentKey);
+                const slot = (g?.sections || []).flatMap(sec => sec.slots || []).find(sl => sl.key === slotKey);
+                return slot?.label || slotKey.replace(/_/g, ' ');
+              };
+              const rollName = (id) => fabrics.find(f => String(f.id) === String(id))?.name || 'Stock item';
+              const card = (title, step, body) => (
+                <div className="content-card wz-card" style={{ padding: '16px 20px', gap: 0, marginTop: '-16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{title}</h2>
+                    <button type="button" className="btn-secondary at-btn-sm" onClick={() => jumpToStep(step)}>
+                      <Edit2 size={12} /> {t('common.edit', 'Edit')}
+                    </button>
+                  </div>
+                  {body}
+                </div>
+              );
+              // Every picture attached to the order, in the groups the counter
+              // thinks in: the design chosen per part, the rolls from stock,
+              // the accessories, and whatever the customer brought.
+              const accessoryKeys = new Set(ACCESSORY_OPTIONS.map(o => o.key));
+              const partName = (p, img) => img?.part_label || String(p).replace(/_/g, ' ');
+              const withGarment = (job, list) => list.map(pic => ({
+                ...pic, label: garmentJobs.length > 1 ? `${job.template?.name || job.key} · ${pic.label}` : pic.label }));
+              const stockPics = (job, keep) => Object.entries(job.fabrics || {})
+                .filter(([slotKey]) => keep(slotKey))
+                .flatMap(([slotKey, ids]) => (ids || [])
+                  .map(id => fabrics.find(f => String(f.id) === String(id)))
+                  .filter(f => f?.image_url)
+                  .map(f => ({ key: `${job.key}:${slotKey}:${f.id}`, image_url: f.image_url,
+                               label: `${slotLabel(job.template?.key || job.key, slotKey)} · ${f.name}` })));
+              const groups = [
+                { key: 'design', title: t('wizard.reviewDesign', 'Design'), items: garmentJobs.flatMap(job => withGarment(job,
+                  Object.entries(job.design?.parts || {}).filter(([, img]) => img?.image_url)
+                    .map(([part, img]) => ({ key: `${job.key}:pick:${part}`, image_url: img.image_url,
+                                              label: `${partName(part, img)} · ${img.design_title || 'from our catalogue'}` })))) },
+                { key: 'fabric', title: t('wizard.sheetFabric', 'Fabric from our stock'), items: garmentJobs.flatMap(job => withGarment(job,
+                  stockPics(job, k => !accessoryKeys.has(k)))) },
+                { key: 'accessories', title: t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims'), items: garmentJobs.flatMap(job => withGarment(job,
+                  stockPics(job, k => accessoryKeys.has(k)))) },
+                { key: 'customer', title: t('wizard.reviewCustomerPhotos', 'From the customer'), items: garmentJobs.flatMap(job => withGarment(job, [
+                  ...Object.values(job.design?.part_refs || {}).flat().filter(r => r?.image_url)
+                    .map(r => ({ key: `${job.key}:ref:${r.id}`, image_url: r.image_url,
+                                 label: `${partName(r.part, r)} · ${r.design_title || 'reference'}` })),
+                  ...(job.template?.sections || []).flatMap(sec => sec.fields)
+                    .filter(f => f.field_type === 'file' && job.values?.[f.key])
+                    .flatMap(f => (Array.isArray(job.values[f.key]) ? job.values[f.key] : [job.values[f.key]])
+                      .filter(u => typeof u === 'string')
+                      .map((u, i) => ({ key: `${job.key}:file:${f.key}:${i}`, image_url: u, label: f.label }))),
+                ])) },
+              ].filter(g => g.items.length > 0);
+              const thumb = (pic, items, i) => (
+                <figure key={pic.key} style={{ margin: 0, position: 'relative' }}>
+                  <img src={resolveMediaUrl(pic.image_url)} alt="" loading="lazy"
+                       style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '10px',
+                                border: '1px solid var(--border-color)', display: 'block' }} />
+                  <button type="button" className="btn-secondary at-btn-sm"
+                          style={{ position: 'absolute', top: '8px', right: '8px', minHeight: '28px', padding: '0 10px' }}
+                          onClick={() => setReviewView({ items, index: i })}>
+                    <Eye size={12} /> {t('common.view', 'View')}
+                  </button>
+                  <figcaption style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.3 }}>{pic.label}</figcaption>
+                </figure>
+              );
+              const fabricLines = garmentJobs.flatMap(job =>
+                Object.entries(job.fabrics || {}).flatMap(([slotKey, ids]) => (ids || []).map(id => ({
+                  key: `${job.key}:${slotKey}:${id}`, garment: job.template?.name || job.key,
+                  part: slotLabel(job.template?.key || job.key, slotKey), name: rollName(id),
+                  qty: job.fabric_qty?.[`${slotKey}:${id}`],
+                }))));
+              return (
+                <>
+                  <div className="page-title-group">
+                    <h1 className="page-title">{t('wizard.reviewTitle', 'Review and confirm')}</h1>
+                    <p className="page-subtitle">{t('wizard.reviewSubtitle', 'Everything this order will say. Check it once; the price comes next.')}</p>
+                  </div>
+
+                  <div style={{ marginTop: '16px' }} />
+                  {card(t('wizard.step.who', 'Customer'), stepOf('who'), (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <AvatarInitials name={`${customerForm.first_name} ${customerForm.last_name}`} size={40} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{customerForm.first_name} {customerForm.last_name}</div>
+                        <div className="od-hint">
+                          {[formatMobile(customerForm.mobile_number), customerForm.gender, customerForm.city_region].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {card(t('wizard.step.what', 'Garments'), stepOf('what'), (
+                    <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: job.template, values: job.values || {} }))} />
+                  ))}
+
+                  {groups.length > 0 && card(t('wizard.reviewPhotos', 'Photos & references'), stepOf('what'), (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {groups.map(group => (
+                        <section key={group.key}>
+                          <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>
+                            {group.title} <span className="ui-badge ui-badge--neutral" style={{ marginLeft: '6px' }}>{group.items.length}</span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))', gap: '8px' }}>
+                            {group.items.map((pic, i) => thumb(pic, group.items, i))}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                  ))}
+                  {reviewView && (
+                    <Suspense fallback={null}>
+                      <ReviewLightbox items={reviewView.items} index={reviewView.index}
+                                      onIndexChange={(i) => setReviewView({ ...reviewView, index: i })}
+                                      onClose={() => setReviewView(null)} />
+                    </Suspense>
+                  )}
+
+                  {fabricLines.length > 0 && card(t('wizard.sheetFabric', 'Fabric from our stock'), stepOf('what'), (
+                    <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        {fabricLines.map(line => (
+                          <tr key={line.key} style={{ borderTop: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{line.garment} · {line.part}</td>
+                            <td style={{ padding: '8px 0', fontWeight: 600 }}>{line.name}</td>
+                            <td style={{ padding: '8px 0', textAlign: 'right' }}>{line.qty ? `${line.qty} m` : <span className="od-hint">no quantity</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ))}
+
+                  {serviceType === 'design' && card(t('wizard.step.designer', 'Designer'), stepOf('designer'), (
+                    <div style={{ fontSize: '14px' }}>
+                      {designers.find(d => String(d.id) === String(designRequest.designer))?.name || designRequest.designer || <span className="od-hint">Not picked</span>}
+                      {designRequest.brief && <div className="od-hint" style={{ marginTop: '4px' }}>{designRequest.brief}</div>}
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
+
             {/* MONEY: when it is promised for, what it costs, what was paid. */}
             {wizardStepKey === 'money' && (
               <>
@@ -7127,6 +7715,19 @@ function App() {
                         </div>
                       </div>
                     ))}
+                    {garmentJobs.flatMap((job) => jobExtras(job).map(([key, label]) => (
+                      <div key={`${job.key}-${key}`} className="wz-money-row">
+                        <label htmlFor={`wz-extra-${job.key}-${key}`} className="wz-money-label" style={{ paddingLeft: '16px' }}>
+                          {job.template.name} · {label} <span className="od-hint">({t('wizard.extraWork', 'extra work')})</span>
+                        </label>
+                        <div className="wz-money-input">
+                          <span>₹</span>
+                          <input id={`wz-extra-${job.key}-${key}`} type="number" min="0" step="1" inputMode="decimal" className="form-control"
+                                 value={job.pricing?.extras?.[key] ?? ''} placeholder="0"
+                                 onChange={(e) => setJobExtra(job.key, key, e.target.value)} />
+                        </div>
+                      </div>
+                    )))}
                     <div className="wz-money-row">
                       <label htmlFor="wz-packaging" className="wz-money-label">{t('wizard.packaging', 'Packaging & handling')}</label>
                       <div className="wz-money-input">
@@ -7328,17 +7929,6 @@ function App() {
             </p>
             <div className="order-id-badge">
               <span>Order ID: <strong>{orderRef(confirmedOrder)}</strong></span>
-              <button 
-                aria-label="Copy order ID"
-                title="Copy order ID"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', minWidth: '44px', minHeight: '44px', margin: '-12px' }}
-                onClick={() => {
-                  navigator.clipboard.writeText(orderRef(confirmedOrder));
-                  alert("Copied!");
-                }}
-              >
-                <Copy size={16} />
-              </button>
             </div>
           </div>
 
@@ -7416,7 +8006,7 @@ function App() {
             <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => { setView('dashboard'); fetchDashboardAndConfig(); }}>
               Back to Dashboard
             </button>
-            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center', backgroundColor: 'var(--text-primary)' }} onClick={() => setShowInvoiceModal(true)}>
+            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => setShowInvoiceModal(true)}>
               <FileText size={18} /> View & Print Invoice
             </button>
           </div>
@@ -7843,64 +8433,6 @@ function App() {
               </FormSection>
             )}
 
-            {/* The approved design, and the Master's note on how to make it.
-                GET /design-studio/boards/ serves this and swaps in
-                TailorBriefSerializer for a Tailor; the notes box lives here
-                because the endpoint that writes it had nowhere else to be
-                called from. */}
-            {stageDesignBrief && stageDesignBrief.design && (
-              <FormSection icon={Sparkles} tone="amber" title="Approved design"
-                           subtitle="The design the owner approved, and how it is to be made.">
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  {stageDesignBrief.design.image_url && (
-                    <img src={resolveMediaUrl(stageDesignBrief.design.image_url)} alt="Approved design"
-                         style={{ width: '84px', height: '110px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />
-                  )}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>{stageDesignBrief.design.title}</div>
-                    {stageDesignBrief.design.tailor_instructions && (
-                      <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>
-                        {stageDesignBrief.design.tailor_instructions}
-                      </div>
-                    )}
-                    {stageDesignBrief.design.customer_notes && (
-                      <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>
-                        Customer: {stageDesignBrief.design.customer_notes}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <label className="form-label" style={{ marginTop: '10px', display: 'block' }}>Production notes</label>
-                <textarea className="form-control" rows={2}
-                          placeholder="How this is to be made — cutting, finishing, anything the tailor needs."
-                          value={productionNotesDraft}
-                          onChange={(e) => setProductionNotesDraft(e.target.value)} />
-                <button className="btn-secondary" style={{ marginTop: '6px', padding: '5px 10px', fontSize: '11px' }}
-                        disabled={savingProductionNotes}
-                        onClick={async () => {
-                          setSavingProductionNotes(true);
-                          try {
-                            await api.saveProductionNotes(
-                              stageDesignBrief.id, stageDesignBrief.design.id, productionNotesDraft);
-                            const fresh = await api.getDesignBoards({ order_id: activeReviewOrder.order_id });
-                            setStageDesignBrief(normaliseDesignBrief(Array.isArray(fresh) ? fresh[0] : fresh));
-                          } catch (err) {
-                            alert("Could not save the production notes: " + err.message);
-                          } finally {
-                            setSavingProductionNotes(false);
-                          }
-                        }}>
-                  {savingProductionNotes ? 'Saving…' : 'Save notes'}
-                </button>
-                <span style={{ marginLeft: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {notesAutosave.lastSavedAt
-                    ? `Autosaved ${notesAutosave.lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                    : 'Autosaves every minute'}
-                </span>
-              </FormSection>
-            )}
-
             {stage && stage.verification_note && stage.status !== 'COMPLETED' && (
               <InfoNote icon={AlertTriangle} tone="warning" title="Sent back for rework">
                 &ldquo;{stage.verification_note}&rdquo;
@@ -7922,11 +8454,43 @@ function App() {
               <div className="at-field">
                 <span className="at-field-label">Progress photos ({stage.attachments.length})</span>
                 <div className="at-photos">
-                  {stage.attachments.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noreferrer" style={{ lineHeight: 0 }}>
-                      <PhotoTile src={url} alt={`attachment-${i}`} size={72} />
-                    </a>
-                  ))}
+                  {stage.attachments.map((url, i) => {
+                    const verdict = stage.attachment_reviews?.[url];
+                    const items = stage.attachments.map((u, n) => ({ image_url: u, label: `Photo ${n + 1}` }));
+                    return (
+                      <div key={url} style={{ position: 'relative', width: '96px' }}>
+                        <div style={{ position: 'relative' }}>
+                          <PhotoTile src={url} alt={`attachment-${i}`} size={96} />
+                          <button type="button" className="btn-secondary at-btn-sm" title="View"
+                                  style={{ position: 'absolute', top: '6px', right: '6px', minHeight: '26px', padding: '0 8px' }}
+                                  onClick={() => setReviewView({ items, index: i })}>
+                            <Eye size={12} /> View
+                          </button>
+                          {verdict && (
+                            <span style={{ position: 'absolute', left: '6px', bottom: '6px', fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px',
+                                           background: 'var(--danger-color)', color: '#fff' }}>Rejected</span>
+                          )}
+                        </div>
+                        {verdict && <div style={{ fontSize: '11px', color: 'var(--danger-color)', marginTop: '4px', lineHeight: 1.3 }}>{verdict.remark}</div>}
+                        {isSupervisor && stage.status === 'PENDING_VERIFICATION' && (
+                          verdict
+                            ? <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px' }}
+                                      onClick={async () => {
+                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, '', 'CLEAR'); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
+                                        catch (err) { alert(err.message); }
+                                      }}>Undo rejection</button>
+                            : <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px', color: 'var(--danger-color)' }}
+                                      onClick={async () => {
+                                        const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
+                                        if (remark === null) return;
+                                        if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
+                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, remark.trim()); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
+                                        catch (err) { alert(err.message); }
+                                      }}><X size={11} /> Reject photo</button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -8172,6 +8736,37 @@ function App() {
       )}
 
       <NetworkActivityBar />
+      {reviewView && view !== 'wizard' && (
+        <Suspense fallback={null}>
+          <ReviewLightbox items={reviewView.items} index={reviewView.index}
+                          onIndexChange={(i) => setReviewView({ ...reviewView, index: i })}
+                          onClose={() => setReviewView(null)} />
+        </Suspense>
+      )}
+      {stockPrompt && (
+        <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
+          <div className="search-modal-card" style={{ maxWidth: '440px', width: '100%', padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={18} style={{ color: 'var(--warning-color)' }} /> Out of stock
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '18px' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>{stockPrompt.fabric.name}</strong> has no stock right now.
+              Restock it first, or carry on with the order and let the workroom sort the material out later.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button type="button" className="btn-secondary" onClick={() => setStockPrompt(null)}>Cancel</button>
+              <button type="button" className="btn-secondary"
+                      onClick={() => { stockPrompt.proceed(); setStockPrompt(null); }}>
+                Complete the order
+              </button>
+              <button type="button" className="btn-primary"
+                      onClick={() => { stockPrompt.proceed(); setRestockTrip({ fabric: stockPrompt.fabric }); setStockPrompt(null); }}>
+                <Boxes size={16} /> Restock now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {reversalPrompt && (
         <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
           <div className="search-modal-card" style={{ maxWidth: '420px', width: '100%', padding: '24px' }}>
@@ -8183,6 +8778,23 @@ function App() {
                 ? 'The stitching stages reopen for rework and the order drops back to Design & Creation. Say what was wrong — the tailor doing the rework reads this.'
                 : 'This goes on the order\u2019s record with your name. Say why the stage is being reopened.'}
             </p>
+            {reversalPrompt.type === 'reopen' && (() => {
+              // Later work is reset with it: the server does this, the
+              // warning just makes sure nobody is surprised.
+              const stages = activeReviewOrder?.stages || [];
+              const at = stages.findIndex(s => s.stage_key === selectedStageObj?.stage_key);
+              const reset = at === -1 ? [] : stages.slice(at + 1).filter(s => s.status !== 'NOT_STARTED');
+              return reset.length > 0 && (
+                <div role="alert" style={{ display: 'flex', gap: '8px', padding: '10px 12px', marginBottom: '12px', borderRadius: '10px',
+                                           background: 'var(--warning-bg)', color: 'var(--warning-color)', fontSize: '13px' }}>
+                  <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+                  <span>
+                    <strong>Later work will be reset.</strong>{' '}
+                    {reset.map(s => s.stage_name || s.stage_key).join(', ')} {reset.length === 1 ? 'goes' : 'go'} back to Not started and must be done again.
+                  </span>
+                </div>
+              );
+            })()}
             <textarea
               className="form-control"
               rows={3}

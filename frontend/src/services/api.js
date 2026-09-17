@@ -548,10 +548,21 @@ export const api = {
     return res.json();
   },
 
-  async submitCompletion(orderId, comments, imageFile) {
+  /** Owner/Master rejects one submitted photo with a remark, or clears a verdict. */
+  async reviewStagePhoto(orderId, stageKey, url, remark, status = 'REJECTED') {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/review-photo/`, {
+      method: 'POST', headers: getHeaders(),
+      body: JSON.stringify({ stage_key: stageKey, url, remark, status }),
+    });
+    if (!res.ok) await failWith(res, 'Failed to review the photo');
+    return res.json();
+  },
+
+  async submitCompletion(orderId, comments, imageFiles) {
     const formData = new FormData();
     if (comments) formData.append('tailor_comments', comments);
-    if (imageFile) formData.append('completed_garment_image', imageFile);
+    [].concat(imageFiles || []).filter(Boolean)
+      .forEach((f) => formData.append('completed_garment_images', f));
 
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/submit-completion/`, {
       method: 'PATCH',
@@ -1858,6 +1869,24 @@ Object.assign(api, {
   getAlterations: (params) => alterationRequest('', {}, params),
   getAlteration: (id) => alterationRequest(`${id}`),
   createAlteration: (payload) => alterationRequest('', { method: 'POST', body: payload }),
+  // A garment stitched elsewhere: multipart, so the photograph of it as it
+  // arrived can ride along with the fields.
+  async createOutsideAlteration(fields, photoFile) {
+    const form = new FormData();
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value === '' || value === null || value === undefined) return;
+      form.append(key, typeof value === 'object' ? JSON.stringify(value) : value);
+    });
+    if (photoFile) form.append('intake_photo', photoFile);
+    const res = await guardedFetch(alterationsUrl('outside'), {
+      method: 'POST', headers: getHeaders(true), body: form,
+    });
+    const raw = await res.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch { /* not JSON */ }
+    if (!res.ok) throw new Error(describeApiError(res, data));
+    return data;
+  },
 
   // Workflow. Each one returns the whole alteration back, including the
   // refreshed `available_actions`, so a screen never has to guess what is
@@ -1871,6 +1900,11 @@ Object.assign(api, {
   sendAlterationToQC: (id, payload) => alterationAction(id, 'send-to-qc', payload || {}),
   passAlterationQC: (id, notes) => alterationAction(id, 'pass-qc', { notes }),
   failAlterationQC: (id, reason) => alterationAction(id, 'fail-qc', { reason }),
+  // The small-issue flow's own stops.
+  completeAlterationWork: (id, payload) => alterationAction(id, 'work-complete', payload || {}),
+  alterationCustomerApproved: (id, notes) => alterationAction(id, 'customer-approved', { notes }),
+  alterationCustomerRejected: (id, reason) => alterationAction(id, 'customer-rejected', { reason }),
+  markAlterationPressed: (id, notes) => alterationAction(id, 'pressed', { notes }),
   completeAlteration: (id, notes) => alterationAction(id, 'complete', { notes }),
   cancelAlteration: (id, reason) => alterationAction(id, 'cancel', { reason }),
 

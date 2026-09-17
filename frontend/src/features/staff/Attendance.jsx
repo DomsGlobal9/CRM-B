@@ -648,7 +648,7 @@ function Timesheet({ canSeeTeam, isOwner, roster, onCorrect }) {
                   <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '4px' }}>
                     {clockText(s.check_in)} → {s.is_open ? '—' : clockText(s.check_out)}
                     {' · '}
-                    {s.source === 'OWNER' ? 'Entered by owner' : 'Self'}
+                    {s.source === 'OWNER' ? 'Entered by owner' : s.source === 'WORK' ? 'From start of work' : 'Self'}
                     {s.was_corrected && ' · corrected'}
                   </div>
                   {isOwner && (

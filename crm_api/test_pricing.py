@@ -148,6 +148,16 @@ class MultiGarmentPricingTests(PricingTestBase):
         self.assertEqual(pricing.job_subtotal(jobs['blouse']), Decimal('3800.00'))
         self.assertEqual(pricing.job_subtotal(jobs['lehenga']), Decimal('34000.00'))
 
+    def test_extra_work_lines_fold_into_customization(self):
+        blouse = self.garment(self.blouse, base=3000, customization=800)
+        blouse['pricing']['extras'] = {'border': 200, 'fall': 150}
+        self.confirm(self.a_draft([blouse]))
+        order = Order.objects.get()
+        job = order.garment_jobs.get()
+        self.assertEqual(job.customization_price, Decimal('1150.00'))
+        self.assertEqual(order.customization_price, Decimal('1150.00'))
+        self.assertEqual(pricing.job_subtotal(job), Decimal('4150.00'))
+
     def test_the_same_garment_type_twice_is_two_bills_not_one(self):
         draft = self.a_draft([
             self.garment(self.blouse, base=3000),

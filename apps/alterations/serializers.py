@@ -13,10 +13,12 @@ from rest_framework import serializers
 from apps.alterations.models import (
     AlterationActivity,
     AlterationMaterialLine,
+    AlterationOrigin,
     AlterationPayment,
     AlterationRequest,
     AlterationTask,
     AlterationType,
+    IssueScale,
     PaymentMethod,
 )
 from apps.catalog.models import GarmentJob
@@ -116,9 +118,15 @@ class AlterationRequestListSerializer(_BalanceMixin, serializers.ModelSerializer
     customer = CustomerSummarySerializer(read_only=True)
     original_order = OrderSummarySerializer(read_only=True)
     garment_job = GarmentJobSummarySerializer(read_only=True)
+    origin_display = serializers.CharField(source='get_origin_display', read_only=True)
+    # The garment's name whichever way the alteration knows it: the garment
+    # job's template for our own order, the chosen template for an outside one.
+    garment_name = serializers.SerializerMethodField()
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     alteration_type_display = serializers.CharField(
         source='get_alteration_type_display', read_only=True)
+    issue_scale_display = serializers.CharField(
+        source='get_issue_scale_display', read_only=True)
     assigned_to_name = serializers.SerializerMethodField()
     outstanding_balance = serializers.SerializerMethodField()
 
@@ -126,12 +134,21 @@ class AlterationRequestListSerializer(_BalanceMixin, serializers.ModelSerializer
         model = AlterationRequest
         fields = [
             'id', 'alteration_number', 'customer', 'original_order', 'garment_job',
+            'origin', 'origin_display', 'garment_template', 'garment_name', 'garment_note',
+            'intake_photo_url',
             'alteration_type', 'alteration_type_display', 'issue_description',
+            'issue_scale', 'issue_scale_display',
             'status', 'status_display', 'assigned_to_name',
             'charge_amount', 'amount_paid', 'outstanding_balance',
             'received_at', 'completed_at', 'cancelled_at', 'created_at', 'updated_at',
         ]
         read_only_fields = fields
+
+    def get_garment_name(self, obj):
+        job = obj.garment_job
+        if job is not None and job.template_id:
+            return job.template.name
+        return obj.garment_template.name if obj.garment_template_id else ''
 
     def get_assigned_to_name(self, obj):
         for task in obj.tasks.all():
@@ -178,6 +195,22 @@ class AlterationRequestCreateSerializer(serializers.Serializer):
     alteration_type = serializers.ChoiceField(
         choices=AlterationType.choices, default=AlterationType.PAID_CLIENT_REQUEST)
     issue_description = serializers.CharField(required=False, allow_blank=True, default='')
+    issue_scale = serializers.ChoiceField(
+        choices=IssueScale.choices, required=False, allow_blank=True, default='')
+    requested_adjustments = serializers.JSONField(required=False, default=dict)
+    charge_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False, default=Decimal('0.00'))
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+
+
+class OutsideAlterationCreateSerializer(serializers.Serializer):
+    """Intake for a garment stitched elsewhere: no order, no garment job."""
+    customer_id = serializers.UUIDField()
+    garment_template_id = serializers.UUIDField(required=False, allow_null=True)
+    garment_note = serializers.CharField(required=False, allow_blank=True, default='', max_length=200)
+    issue_description = serializers.CharField(required=False, allow_blank=True, default='')
+    issue_scale = serializers.ChoiceField(
+        choices=IssueScale.choices, required=False, allow_blank=True, default='')
     requested_adjustments = serializers.JSONField(required=False, default=dict)
     charge_amount = serializers.DecimalField(
         max_digits=10, decimal_places=2, required=False, default=Decimal('0.00'))

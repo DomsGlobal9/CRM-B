@@ -248,9 +248,7 @@ function FabricCard({ fabric, picked, onToggle }) {
 
 
 /** One part of one garment, and the fabrics filed under it. */
-function SlotRow({ label, fabrics, chosen, onToggle, accessoriesOnly = false,
-                   slotKey = '', quantities = {}, onQuantity }) {
-  const chosenFabrics = fabrics.filter(f => chosen.includes(String(f.id)));
+function SlotRow({ label, fabrics, chosen, onToggle, accessoriesOnly = false }) {
   const itemCategoryName = accessoriesOnly ? 'Accessories' : 'Fabrics';
 
   return (
@@ -293,106 +291,68 @@ function SlotRow({ label, fabrics, chosen, onToggle, accessoriesOnly = false,
         </div>
       )}
 
-      {/* Display selected fabrics for this part at the bottom */}
-      {chosenFabrics.length > 0 && (
-        <div
-          style={{
-            marginTop: '16px',
-            padding: '14px 16px',
-            background: 'rgba(16, 124, 65, 0.04)',
-            border: '1px solid rgba(16, 124, 65, 0.35)',
-            borderRadius: '12px',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '12px',
-              paddingBottom: '8px',
-              borderBottom: '1px solid rgba(16, 124, 65, 0.18)',
-            }}
-          >
-            <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-primary, #0f172a)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Check size={14} style={{ color: '#16a34a', strokeWidth: 3 }} />
-              Selected Fabric{chosenFabrics.length > 1 ? 's' : ''} for {label}:
-            </span>
-            <span style={{ fontSize: '11px', fontWeight: 600, color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '10px' }}>
-              {chosenFabrics.length} selected
-            </span>
-          </div>
+    </div>
+  );
+}
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-            {chosenFabrics.map((fabric) => {
-              const image = resolveMediaUrl(fabric.image_url) || FABRIC_FALLBACK;
-              return (
-                <div
-                  key={fabric.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '10px',
-                    background: 'var(--surface-color)',
-                    border: '1px solid var(--border-color, #e2e8f0)',
-                    borderRadius: '8px',
-                    padding: '6px 12px 6px 6px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
-                  }}
-                >
-                  <img
-                    src={image}
-                    alt={fabric.name}
-                    style={{ width: '38px', height: '38px', borderRadius: '6px', objectFit: 'cover' }}
-                    onError={(e) => { e.currentTarget.src = FABRIC_FALLBACK; }}
-                  />
-                  <div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary, #0f172a)' }}>
-                      {fabric.name}
-                    </div>
-                    <div style={{ fontSize: '10.5px', color: 'var(--text-secondary, #64748b)' }}>
-                      {[fabric.material_type, fabric.color].filter(Boolean).join(' · ')}
-                      {Number(fabric.selling_price) > 0 && ` · ₹${Number(fabric.selling_price).toLocaleString('en-IN')}/${unitShort(fabric)}`}
-                    </div>
-                  </div>
-                  {/* How much of it: the number the ledger reserves at Fabric
-                      Confirmed and the cutting table later consumes. */}
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', marginLeft: '6px' }}>
-                    <input
-                      type="number" min="0" step="0.01" className="form-control"
-                      style={{ width: '84px', padding: '4px 8px', fontSize: '12px' }}
-                      placeholder={accessoriesOnly ? 'Qty' : 'Metres'}
-                      value={quantities[`${slotKey}:${fabric.id}`] ?? ''}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => onQuantity?.(slotKey, String(fabric.id), e.target.value)}
-                    />
-                    <span style={{ color: 'var(--text-secondary)' }}>{unitShort(fabric)}</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => onToggle(String(fabric.id))}
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: 'var(--text-secondary, #94a3b8)',
-                      cursor: 'pointer',
-                      padding: '4px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '50%',
-                      marginLeft: '4px',
-                    }}
-                    title="Remove fabric selection"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              );
-            })}
+
+/** Every fabric picked for one garment, grouped by part: one compact table,
+ *  a row per roll, so a saree's pallu, border and body picks read at a glance. */
+function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQuantity, onToggle }) {
+  const total = groups.reduce((n, g) => n + g.fabrics.length, 0);
+  if (!total) return null;
+  const rowStyle = {
+    display: 'grid', gridTemplateColumns: '30px minmax(0, 1fr) 76px 24px',
+    alignItems: 'center', gap: '8px', padding: '5px 0',
+    borderTop: '1px solid rgba(16, 124, 65, 0.12)',
+  };
+  return (
+    <div style={{ marginTop: '14px', padding: '10px 12px', borderRadius: '10px',
+                  background: 'rgba(16, 124, 65, 0.04)', border: '1px solid rgba(16, 124, 65, 0.3)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700 }}>
+        <Check size={14} style={{ color: '#16a34a', strokeWidth: 3 }} />
+        Selected {accessoriesOnly ? 'accessories' : 'fabrics'}
+        <span style={{ marginLeft: 'auto', fontSize: '11px', fontWeight: 600, color: '#16a34a',
+                       background: '#dcfce7', padding: '1px 8px', borderRadius: '10px' }}>
+          {total}
+        </span>
+      </div>
+      {groups.map(({ key, label, fabrics }) => fabrics.length > 0 && (
+        <div key={key} style={{ marginTop: '8px' }}>
+          <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                        color: 'var(--text-secondary)', marginBottom: '2px' }}>
+            {label}
           </div>
+          {fabrics.map((fabric) => (
+            <div key={fabric.id} style={rowStyle}>
+              <img src={resolveMediaUrl(fabric.image_url) || FABRIC_FALLBACK} alt=""
+                   style={{ width: '30px', height: '30px', borderRadius: '5px', objectFit: 'cover' }}
+                   onError={(e) => { e.currentTarget.src = FABRIC_FALLBACK; }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {fabric.name}
+                </div>
+                <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {[fabric.color, Number(fabric.selling_price) > 0 && `₹${Number(fabric.selling_price).toLocaleString('en-IN')}/${unitShort(fabric)}`]
+                    .filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              {/* How much of it: the number the ledger reserves at Fabric
+                  Confirmed and the cutting table later consumes. */}
+              <input type="number" min="0" step="0.01" className="form-control"
+                     style={{ width: '76px', padding: '3px 6px', fontSize: '12px' }}
+                     placeholder={accessoriesOnly ? 'Qty' : unitShort(fabric)}
+                     value={quantities[`${key}:${fabric.id}`] ?? ''}
+                     onChange={(e) => onQuantity?.(key, String(fabric.id), e.target.value)} />
+              <button type="button" onClick={() => onToggle(key, String(fabric.id))} title="Remove"
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)',
+                               cursor: 'pointer', padding: '2px', display: 'flex' }}>
+                <X size={14} />
+              </button>
+            </div>
+          ))}
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -401,6 +361,9 @@ function SlotRow({ label, fabrics, chosen, onToggle, accessoriesOnly = false,
 export default function GarmentFabricPicker({
   garmentJobs = [], fabrics = [], taxonomy = null, selection = {}, onChange, loading = false, accessoriesOnly = false,
   quantities = {}, onQuantityChange,
+  // Called instead of picking when the roll is out of stock, with a `proceed`
+  // that makes the pick anyway. The caller decides whether to ask first.
+  onPickOutOfStock,
 }) {
   const [activeSlotMap, setActiveSlotMap] = useState({});
 
@@ -495,14 +458,21 @@ export default function GarmentFabricPicker({
 
         const toggle = (slotKey) => (fabricId) => {
           const current = chosenForJob[slotKey] || [];
-          const next = current.includes(fabricId)
-            ? current.filter(id => id !== fabricId)
-            : [...current, fabricId];
+          const adding = !current.includes(fabricId);
+          const next = adding
+            ? [...current, fabricId]
+            : current.filter(id => id !== fabricId);
           // The slot's key goes with its last fabric rather than sitting on the
           // order as an empty list.
           const forJob = { ...chosenForJob };
           if (next.length) forJob[slotKey] = next; else delete forJob[slotKey];
-          onChange?.(job.key, forJob);
+          const proceed = () => onChange?.(job.key, forJob);
+          const fabric = inStock.find(f => String(f.id) === fabricId);
+          if (adding && onPickOutOfStock && fabric && !(Number(fabric.available_stock) > 0)) {
+            onPickOutOfStock(fabric, proceed);
+          } else {
+            proceed();
+          }
         };
 
         const currentAccOption = accessoriesOnly && activeSlotKey && ACCESSORY_OPTIONS.find(o => o.key === activeSlotKey);
@@ -641,12 +611,21 @@ export default function GarmentFabricPicker({
                       chosen={chosenForJob[slot.key] || []}
                       onToggle={toggle(slot.key)}
                       accessoriesOnly={accessoriesOnly}
-                      slotKey={slot.key}
-                      quantities={quantities[job.key] || {}}
-                      onQuantity={(s, id, q) => onQuantityChange?.(job.key, s, id, q)}
                     />
                   );
                 })()}
+
+                {/* Every part's picks, not only the open tab's: the counter
+                    sees the whole saree -- pallu, border, body -- at once. */}
+                <ChosenSummary
+                  groups={allSlots.map(({ key, label }) => ({
+                    key, label,
+                    fabrics: inStock.filter(f => (chosenForJob[key] || []).includes(String(f.id))),
+                  }))}
+                  accessoriesOnly={accessoriesOnly}
+                  quantities={quantities[job.key] || {}}
+                  onQuantity={(s, id, q) => onQuantityChange?.(job.key, s, id, q)}
+                  onToggle={(slotKey, id) => toggle(slotKey)(id)} />
               </div>
             )}
           </div>
