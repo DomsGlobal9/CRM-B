@@ -62,7 +62,11 @@ const errorBox = {
   borderRadius: 'var(--radius-md)',
 };
 
-export default function InventoryPanel({ currentUser }) {
+// `restockItem` is a roll handed in from elsewhere (the order wizard found it
+// out of stock): the stock-in modal opens on it straight away, and closing
+// that modal -- done or not -- calls `onRestockDone` so the caller can take
+// the user back to where they were.
+export default function InventoryPanel({ currentUser, restockItem = null, onRestockDone }) {
   const { t } = useLanguage();
   const [tab, setTab] = useState('items');
 
@@ -78,7 +82,7 @@ export default function InventoryPanel({ currentUser }) {
   const [category, setCategory] = useState('');
   const [reorderOnly, setReorderOnly] = useState(false);
 
-  const [movementItem, setMovementItem] = useState(null);
+  const [movementItem, setMovementItem] = useState(restockItem);
   const [ledgerItem, setLedgerItem] = useState(null);
   const [ledger, setLedger] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
@@ -266,8 +270,8 @@ export default function InventoryPanel({ currentUser }) {
       {movementItem && (
         <MovementModal
           item={movementItem}
-          onClose={() => setMovementItem(null)}
-          onDone={() => { setMovementItem(null); refresh(); }}
+          onClose={() => { setMovementItem(null); if (restockItem) onRestockDone?.(false); }}
+          onDone={() => { setMovementItem(null); refresh(); if (restockItem) onRestockDone?.(true); }}
         />
       )}
 
