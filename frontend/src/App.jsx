@@ -1429,6 +1429,10 @@ function App() {
   const [designLibraryToken, setDesignLibraryToken] = useState(0);
   const [designsView, setDesignsView] = useState('dashboard'); // 'dashboard' | 'library'
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Bumped whenever a sidebar item is picked, and used as the key of the main
+  // pane: picking a section always lands on its front page, even from a
+  // detail view inside that same section, because the pane remounts.
+  const [sectionVisit, setSectionVisit] = useState(0);
 
   // Wizard Details State
   const [designNotes, setDesignNotes] = useState('');
@@ -3942,7 +3946,18 @@ function App() {
                 sections={navSections}
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
-                onPick={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setMobileNavOpen(false); }}
+                onPick={(tab) => {
+                  setDashboardTab(tab);
+                  // App-level detail state lives outside the pane, so it is
+                  // cleared by hand; everything inside resets with the key.
+                  setSelectedDirectoryCustomer(null);
+                  setOpenOrdersRowId(null);
+                  setOpenTaskRowId(null);
+                  setOpenAlterationId(null);
+                  setSelectedDashboardOrder(null);
+                  setSectionVisit(n => n + 1);
+                  setMobileNavOpen(false);
+                }}
               />
               <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
                        onClick={() => { setShowLogoutConfirm(true); setMobileNavOpen(false); }} />
@@ -3952,7 +3967,7 @@ function App() {
           </aside>
 
           {/* Main Content Area */}
-          <main className="portal-main">
+          <main className="portal-main" key={`${dashboardTab}:${sectionVisit}`}>
             {(dashboardTab === 'pendingTasks' || dashboardTab === 'closedTasks') && (
               <>
                 <header className="portal-header">
