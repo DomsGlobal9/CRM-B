@@ -1723,15 +1723,23 @@ class ReversalTests(WorkflowTestBase):
         with self.assertRaises(TransitionError):
             self.reopen(order, "measurements_completed", reason="   ")
 
-    def test_only_the_frontier_stage_can_be_reopened(self):
+    def test_reopening_an_earlier_stage_resets_the_later_work(self):
         order = self.make_order()
         self.complete(order, "fabric_confirmed")
-        from domains.orders.workflow import TransitionError
-        with self.assertRaises(TransitionError):
-            self.reopen(order, "measurements_completed")
-        # The refused call changed nothing.
+        self.reopen(order, "measurements_completed")
         self.assertEqual(
-            self.stage(order, "measurements_completed").status, "COMPLETED")
+            self.stage(order, "measurements_completed").status, "IN_PROGRESS")
+        # Fabric was confirmed on measurements that are now unfinished, so it
+        # goes back to the starting line -- and the record says so.
+        fabric = self.stage(order, "fabric_confirmed")
+        self.assertEqual(fabric.status, "NOT_STARTED")
+        self.assertIsNone(fabric.completed_at)
+        order.refresh_from_db()
+        self.assertEqual(order.current_stage_key, "measurements_completed")
+        from crm_api.models import OrderActivity
+        event = OrderActivity.objects.filter(
+            order=order, event_type="STAGE_REOPENED").latest("timestamp")
+        self.assertEqual(event.metadata["reset_stages"], ["fabric_confirmed"])
 
     def test_reopen_drops_client_status_to_what_remains_true(self):
         order = self.make_order()

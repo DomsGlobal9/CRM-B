@@ -596,7 +596,8 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
     if role is None:
         raise workflow.TransitionError('Sign in to update this order.')
 
-    workflow.check_reopen(order, stage, config=config, role=role, owner_role=OWNER)
+    reset_keys = workflow.check_reopen(
+        order, stage, config=config, role=role, owner_role=OWNER)
 
     with transaction.atomic():
         previous = stage.status
@@ -608,6 +609,16 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
         stage.save(update_fields=['status', 'completed_at', 'duration_seconds'])
         _sync_task_status(order, stage_key, stage.status)
 
+        # Later work goes back to the starting line: it was done on a garment
+        # whose earlier state is now unfinished, so it has to be done again.
+        for later in order.stages.filter(stage_key__in=reset_keys):
+            later.status = 'NOT_STARTED'
+            later.started_at = None
+            later.completed_at = None
+            later.duration_seconds = 0
+            later.save(update_fields=['status', 'started_at', 'completed_at', 'duration_seconds'])
+            _sync_task_status(order, later.stage_key, 'NOT_STARTED')
+
         order.current_stage_key = stage_key
         order.production_status = 'IN_PROGRESS'
         order.order_status = recompute_client_status(order, config)
@@ -616,6 +627,7 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
         _log_reversal(order, 'STAGE_REOPENED', user, {
             'stage_key': stage_key,
             'previous_status': previous,
+            'reset_stages': reset_keys,
             'reason': reason,
             'role': role,
         })

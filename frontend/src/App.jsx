@@ -8449,6 +8449,23 @@ function App() {
                 ? 'The stitching stages reopen for rework and the order drops back to Design & Creation. Say what was wrong — the tailor doing the rework reads this.'
                 : 'This goes on the order\u2019s record with your name. Say why the stage is being reopened.'}
             </p>
+            {reversalPrompt.type === 'reopen' && (() => {
+              // Later work is reset with it: the server does this, the
+              // warning just makes sure nobody is surprised.
+              const stages = activeReviewOrder?.stages || [];
+              const at = stages.findIndex(s => s.stage_key === selectedStageObj?.stage_key);
+              const reset = at === -1 ? [] : stages.slice(at + 1).filter(s => s.status !== 'NOT_STARTED');
+              return reset.length > 0 && (
+                <div role="alert" style={{ display: 'flex', gap: '8px', padding: '10px 12px', marginBottom: '12px', borderRadius: '10px',
+                                           background: 'var(--warning-bg)', color: 'var(--warning-color)', fontSize: '13px' }}>
+                  <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
+                  <span>
+                    <strong>Later work will be reset.</strong>{' '}
+                    {reset.map(s => s.stage_name || s.stage_key).join(', ')} {reset.length === 1 ? 'goes' : 'go'} back to Not started and must be done again.
+                  </span>
+                </div>
+              );
+            })()}
             <textarea
               className="form-control"
               rows={3}
