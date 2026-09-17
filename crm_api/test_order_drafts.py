@@ -257,6 +257,21 @@ class ConfirmTests(DraftTestBase):
         self.assertEqual(resolved.pk, customer.pk)
         self.assertEqual(Customer.objects.count(), 1)
 
+    def test_a_known_client_without_gender_gets_it_from_the_order(self):
+        customer = Customer.objects.create(
+            first_name='Lakshmi', last_name='Iyer', mobile_number='919845012345')
+        draft = drafts.save_draft(
+            self.owner, {**self.WIZARD, 'mobile_number': '9845012345', 'gender': 'Female'})
+        drafts.customer_for(draft, draft.payload)
+        customer.refresh_from_db()
+        self.assertEqual(customer.gender, 'Female')
+        # An answer already on file is not overwritten by a later order.
+        draft2 = drafts.save_draft(
+            self.owner, {**self.WIZARD, 'mobile_number': '9845012345', 'gender': 'Other'})
+        drafts.customer_for(draft2, draft2.payload)
+        customer.refresh_from_db()
+        self.assertEqual(customer.gender, 'Female')
+
     def test_not_them_outranks_the_customer_the_draft_was_started_for(self):
         # Picked A, pressed "Not them", typed B: the draft still carries A's id.
         first = Customer.objects.create(

@@ -13,6 +13,8 @@ import {
 // TemplateForm stays eager: it renders inline in the order wizard, where a
 // loading flicker mid-form would be worse than its few KB.
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
+const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
+import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
 import { fabricMatchesColour } from './features/fabrics/colour';
@@ -34,6 +36,7 @@ import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview'
 import OrderAlterations, { RequestAlterationModal } from './features/alterations/OrderAlterations';
 import AlterationList from './features/alterations/AlterationList';
 import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
+import GarmentSummary from './features/catalog/GarmentSummary';
 import OrderKanban from './features/orders/OrderKanban';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import useAutosave from './hooks/useAutosave';
@@ -61,6 +64,7 @@ const WIZARD_STEPS = {
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'what', label: 'Garments', sub: 'What we are making' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
+    { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Money', sub: 'Price and place the order' },
   ],
   design: [
@@ -68,6 +72,7 @@ const WIZARD_STEPS = {
     { key: 'what', label: 'Garments', sub: 'What we are making' },
     { key: 'designer', label: 'Designer', sub: 'Who designs it' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
+    { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Money', sub: 'Price and place the order' },
   ],
   alter: [
@@ -1429,6 +1434,10 @@ function App() {
   const [designLibraryToken, setDesignLibraryToken] = useState(0);
   const [designsView, setDesignsView] = useState('dashboard'); // 'dashboard' | 'library'
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Bumped whenever a sidebar item is picked, and used as the key of the main
+  // pane: picking a section always lands on its front page, even from a
+  // detail view inside that same section, because the pane remounts.
+  const [sectionVisit, setSectionVisit] = useState(0);
 
   // Wizard Details State
   const [designNotes, setDesignNotes] = useState('');
@@ -2589,9 +2598,12 @@ function App() {
   // Start Order Creation Flows
   const pickCustomer = (cust) => {
     setCustomerId(cust.id);
+    // Older records carry the country code; the field is the 10 local digits.
+    const digits = String(cust.mobile_number || '').replace(/\D/g, '');
     setCustomerForm({
       ...DEFAULT_CUSTOMER_DATA,
       ...cust,
+      mobile_number: digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits,
       measurements: cust.measurements || DEFAULT_CUSTOMER_DATA.measurements,
     });
     setCustomerName(`${cust.first_name || ''} ${cust.last_name || ''}`.trim());
@@ -2883,6 +2895,9 @@ function App() {
         rememberMeasurements();
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
+      } else if (wizardStepKey === 'review') {
+        await persistDraft({ step: currentStep + 1 });
+        reachStep(currentStep + 1);
       } else if (wizardStepKey === 'money') {
         if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); reachStep(2); return; }
         if (!readyBy) { alert('Pick the ready-by date.'); return; }
@@ -3103,6 +3118,43 @@ function App() {
     setGarmentJobs(prev => prev.map(job => job.key === garmentKey
       ? { ...job, fabrics: next }
       : job));
+  };
+
+  // An out-of-stock roll picked in the wizard: ask whether to restock it now
+  // or carry on. Restocking is a round trip -- the pick is made, the draft is
+  // saved, the inventory opens on that roll's stock-in form, and closing it
+  // brings the wizard back from the draft exactly where it was left.
+  const [stockPrompt, setStockPrompt] = useState(null);      // { fabric, proceed }
+  // The review screen's picture viewer: which group is open, and where in it.
+  const [reviewView, setReviewView] = useState(null);        // { items, index }
+  const [restockTrip, setRestockTrip] = useState(null);      // { fabric, draftId? }
+  useEffect(() => {
+    if (!restockTrip || restockTrip.draftId) return;
+    // Runs after the pick has committed, so the draft carries it.
+    (async () => {
+      try {
+        const id = await persistDraft({ step: currentStep });
+        setRestockTrip({ ...restockTrip, draftId: id });
+        setView('dashboard');
+        setDashboardTab('inventory');
+      } catch (err) {
+        setRestockTrip(null);
+        alert(`Could not save the order before leaving: ${err.message}`);
+      }
+    })();
+  }, [restockTrip]); // eslint-disable-line react-hooks/exhaustive-deps
+  const finishRestockTrip = async () => {
+    const trip = restockTrip;
+    setRestockTrip(null);
+    if (!trip?.draftId) return;
+    try {
+      const [rolls, draft] = await Promise.all([
+        api.getInventoryItems({ picker: 'true' }), api.getOrderDraft(trip.draftId)]);
+      setFabrics(rolls || []);
+      await hydrateWizard(draft);
+    } catch (err) {
+      alert(`Could not return to the order: ${err.message}. Open it from your drafts.`);
+    }
   };
 
   // How much of each picked roll the garment needs, keyed "SLOT:itemId" per
@@ -3942,7 +3994,18 @@ function App() {
                 sections={navSections}
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
-                onPick={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setMobileNavOpen(false); }}
+                onPick={(tab) => {
+                  setDashboardTab(tab);
+                  // App-level detail state lives outside the pane, so it is
+                  // cleared by hand; everything inside resets with the key.
+                  setSelectedDirectoryCustomer(null);
+                  setOpenOrdersRowId(null);
+                  setOpenTaskRowId(null);
+                  setOpenAlterationId(null);
+                  setSelectedDashboardOrder(null);
+                  setSectionVisit(n => n + 1);
+                  setMobileNavOpen(false);
+                }}
               />
               <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
                        onClick={() => { setShowLogoutConfirm(true); setMobileNavOpen(false); }} />
@@ -3952,7 +4015,7 @@ function App() {
           </aside>
 
           {/* Main Content Area */}
-          <main className="portal-main">
+          <main className="portal-main" key={`${dashboardTab}:${sectionVisit}`}>
             {(dashboardTab === 'pendingTasks' || dashboardTab === 'closedTasks') && (
               <>
                 <header className="portal-header">
@@ -4684,7 +4747,9 @@ function App() {
             {/* INVENTORY TAB */}
             {dashboardTab === 'inventory' && (
               <Suspense fallback={<ScreenLoading />}>
-                <InventoryPanel currentUser={currentUser} />
+                <InventoryPanel currentUser={currentUser}
+                                restockItem={restockTrip?.fabric || null}
+                                onRestockDone={finishRestockTrip} />
               </Suspense>
             )}
 
@@ -7201,7 +7266,8 @@ function App() {
                                     selection={fabricSelection}
                                     onChange={handleFabricSelection}
                                     quantities={fabricQuantities}
-                                    onQuantityChange={handleFabricQuantity} />
+                                    onQuantityChange={handleFabricQuantity}
+                                    onPickOutOfStock={(fabric, proceed) => setStockPrompt({ fabric, proceed })} />
                                 </>
                               )}
                             </Suspense>
@@ -7356,6 +7422,151 @@ function App() {
                 )}
               </>
             )}
+
+            {/* REVIEW: everything the order will say, on one page, before a
+                price is put on it. Each card jumps back to the screen that
+                owns it. */}
+            {wizardStepKey === 'review' && (() => {
+              const stepOf = (key) => wizardSteps.findIndex(st => st.key === key) + 1;
+              const slotLabel = (garmentKey, slotKey) => {
+                const g = (fabricTaxonomy?.garments || []).find(x => x.key === garmentKey);
+                const slot = (g?.sections || []).flatMap(sec => sec.slots || []).find(sl => sl.key === slotKey);
+                return slot?.label || slotKey.replace(/_/g, ' ');
+              };
+              const rollName = (id) => fabrics.find(f => String(f.id) === String(id))?.name || 'Stock item';
+              const card = (title, step, body) => (
+                <div className="content-card wz-card" style={{ padding: '16px 20px', gap: 0, marginTop: '-16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{title}</h2>
+                    <button type="button" className="btn-secondary at-btn-sm" onClick={() => jumpToStep(step)}>
+                      <Edit2 size={12} /> {t('common.edit', 'Edit')}
+                    </button>
+                  </div>
+                  {body}
+                </div>
+              );
+              // Every picture attached to the order, in the groups the counter
+              // thinks in: the design chosen per part, the rolls from stock,
+              // the accessories, and whatever the customer brought.
+              const accessoryKeys = new Set(ACCESSORY_OPTIONS.map(o => o.key));
+              const partName = (p, img) => img?.part_label || String(p).replace(/_/g, ' ');
+              const withGarment = (job, list) => list.map(pic => ({
+                ...pic, label: garmentJobs.length > 1 ? `${job.template?.name || job.key} · ${pic.label}` : pic.label }));
+              const stockPics = (job, keep) => Object.entries(job.fabrics || {})
+                .filter(([slotKey]) => keep(slotKey))
+                .flatMap(([slotKey, ids]) => (ids || [])
+                  .map(id => fabrics.find(f => String(f.id) === String(id)))
+                  .filter(f => f?.image_url)
+                  .map(f => ({ key: `${job.key}:${slotKey}:${f.id}`, image_url: f.image_url,
+                               label: `${slotLabel(job.template?.key || job.key, slotKey)} · ${f.name}` })));
+              const groups = [
+                { key: 'design', title: t('wizard.reviewDesign', 'Design'), items: garmentJobs.flatMap(job => withGarment(job,
+                  Object.entries(job.design?.parts || {}).filter(([, img]) => img?.image_url)
+                    .map(([part, img]) => ({ key: `${job.key}:pick:${part}`, image_url: img.image_url,
+                                              label: `${partName(part, img)} · ${img.design_title || 'from our catalogue'}` })))) },
+                { key: 'fabric', title: t('wizard.sheetFabric', 'Fabric from our stock'), items: garmentJobs.flatMap(job => withGarment(job,
+                  stockPics(job, k => !accessoryKeys.has(k)))) },
+                { key: 'accessories', title: t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims'), items: garmentJobs.flatMap(job => withGarment(job,
+                  stockPics(job, k => accessoryKeys.has(k)))) },
+                { key: 'customer', title: t('wizard.reviewCustomerPhotos', 'From the customer'), items: garmentJobs.flatMap(job => withGarment(job, [
+                  ...Object.values(job.design?.part_refs || {}).flat().filter(r => r?.image_url)
+                    .map(r => ({ key: `${job.key}:ref:${r.id}`, image_url: r.image_url,
+                                 label: `${partName(r.part, r)} · ${r.design_title || 'reference'}` })),
+                  ...(job.template?.sections || []).flatMap(sec => sec.fields)
+                    .filter(f => f.field_type === 'file' && job.values?.[f.key])
+                    .flatMap(f => (Array.isArray(job.values[f.key]) ? job.values[f.key] : [job.values[f.key]])
+                      .filter(u => typeof u === 'string')
+                      .map((u, i) => ({ key: `${job.key}:file:${f.key}:${i}`, image_url: u, label: f.label }))),
+                ])) },
+              ].filter(g => g.items.length > 0);
+              const thumb = (pic, items, i) => (
+                <figure key={pic.key} style={{ margin: 0, position: 'relative' }}>
+                  <img src={resolveMediaUrl(pic.image_url)} alt="" loading="lazy"
+                       style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '10px',
+                                border: '1px solid var(--border-color)', display: 'block' }} />
+                  <button type="button" className="btn-secondary at-btn-sm"
+                          style={{ position: 'absolute', top: '8px', right: '8px', minHeight: '28px', padding: '0 10px' }}
+                          onClick={() => setReviewView({ items, index: i })}>
+                    <Eye size={12} /> {t('common.view', 'View')}
+                  </button>
+                  <figcaption style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.3 }}>{pic.label}</figcaption>
+                </figure>
+              );
+              const fabricLines = garmentJobs.flatMap(job =>
+                Object.entries(job.fabrics || {}).flatMap(([slotKey, ids]) => (ids || []).map(id => ({
+                  key: `${job.key}:${slotKey}:${id}`, garment: job.template?.name || job.key,
+                  part: slotLabel(job.template?.key || job.key, slotKey), name: rollName(id),
+                  qty: job.fabric_qty?.[`${slotKey}:${id}`],
+                }))));
+              return (
+                <>
+                  <div className="page-title-group">
+                    <h1 className="page-title">{t('wizard.reviewTitle', 'Review and confirm')}</h1>
+                    <p className="page-subtitle">{t('wizard.reviewSubtitle', 'Everything this order will say. Check it once; the price comes next.')}</p>
+                  </div>
+
+                  <div style={{ marginTop: '16px' }} />
+                  {card(t('wizard.step.who', 'Customer'), stepOf('who'), (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <AvatarInitials name={`${customerForm.first_name} ${customerForm.last_name}`} size={40} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{customerForm.first_name} {customerForm.last_name}</div>
+                        <div className="od-hint">
+                          {[formatMobile(customerForm.mobile_number), customerForm.gender, customerForm.city_region].filter(Boolean).join(' · ')}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {card(t('wizard.step.what', 'Garments'), stepOf('what'), (
+                    <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: job.template, values: job.values || {} }))} />
+                  ))}
+
+                  {groups.length > 0 && card(t('wizard.reviewPhotos', 'Photos & references'), stepOf('what'), (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {groups.map(group => (
+                        <section key={group.key}>
+                          <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>
+                            {group.title} <span className="ui-badge ui-badge--neutral" style={{ marginLeft: '6px' }}>{group.items.length}</span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))', gap: '8px' }}>
+                            {group.items.map((pic, i) => thumb(pic, group.items, i))}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                  ))}
+                  {reviewView && (
+                    <Suspense fallback={null}>
+                      <ReviewLightbox items={reviewView.items} index={reviewView.index}
+                                      onIndexChange={(i) => setReviewView({ ...reviewView, index: i })}
+                                      onClose={() => setReviewView(null)} />
+                    </Suspense>
+                  )}
+
+                  {fabricLines.length > 0 && card(t('wizard.sheetFabric', 'Fabric from our stock'), stepOf('what'), (
+                    <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        {fabricLines.map(line => (
+                          <tr key={line.key} style={{ borderTop: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{line.garment} · {line.part}</td>
+                            <td style={{ padding: '8px 0', fontWeight: 600 }}>{line.name}</td>
+                            <td style={{ padding: '8px 0', textAlign: 'right' }}>{line.qty ? `${line.qty} m` : <span className="od-hint">no quantity</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ))}
+
+                  {serviceType === 'design' && card(t('wizard.step.designer', 'Designer'), stepOf('designer'), (
+                    <div style={{ fontSize: '14px' }}>
+                      {designers.find(d => String(d.id) === String(designRequest.designer))?.name || designRequest.designer || <span className="od-hint">Not picked</span>}
+                      {designRequest.brief && <div className="od-hint" style={{ marginTop: '4px' }}>{designRequest.brief}</div>}
+                    </div>
+                  ))}
+                </>
+              );
+            })()}
 
             {/* MONEY: when it is promised for, what it costs, what was paid. */}
             {wizardStepKey === 'money' && (
@@ -8438,6 +8649,30 @@ function App() {
       )}
 
       <NetworkActivityBar />
+      {stockPrompt && (
+        <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
+          <div className="search-modal-card" style={{ maxWidth: '440px', width: '100%', padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={18} style={{ color: 'var(--warning-color)' }} /> Out of stock
+            </h3>
+            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '18px' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>{stockPrompt.fabric.name}</strong> has no stock right now.
+              Restock it first, or carry on with the order and let the workroom sort the material out later.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button type="button" className="btn-secondary" onClick={() => setStockPrompt(null)}>Cancel</button>
+              <button type="button" className="btn-secondary"
+                      onClick={() => { stockPrompt.proceed(); setStockPrompt(null); }}>
+                Complete the order
+              </button>
+              <button type="button" className="btn-primary"
+                      onClick={() => { stockPrompt.proceed(); setRestockTrip({ fabric: stockPrompt.fabric }); setStockPrompt(null); }}>
+                <Boxes size={16} /> Restock now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {reversalPrompt && (
         <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
           <div className="search-modal-card" style={{ maxWidth: '420px', width: '100%', padding: '24px' }}>

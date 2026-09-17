@@ -72,6 +72,10 @@ function displayValue(field, value, inventoryNames) {
     // File object does not survive JSON.stringify, so what reached the database
     // was `{}` or `[{}]` while this line reported success. A summary that
     // confirms an upload the product cannot perform is worse than no summary.
+    // TemplateForm now uploads on pick and stores the URL, so a string (or a
+    // list of them) is a photograph that really was saved.
+    const urls = (Array.isArray(value) ? value : [value]).filter((v) => typeof v === 'string' && v);
+    if (urls.length) return `${urls.length} photo${urls.length === 1 ? '' : 's'} attached`;
     if (Array.isArray(value)) {
       const named = value.filter((v) => v && v.name);
       return named.length ? named.map((v) => v.name).join(', ') : 'Not saved';

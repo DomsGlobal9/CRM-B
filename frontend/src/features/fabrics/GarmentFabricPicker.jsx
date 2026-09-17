@@ -361,6 +361,9 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
 export default function GarmentFabricPicker({
   garmentJobs = [], fabrics = [], taxonomy = null, selection = {}, onChange, loading = false, accessoriesOnly = false,
   quantities = {}, onQuantityChange,
+  // Called instead of picking when the roll is out of stock, with a `proceed`
+  // that makes the pick anyway. The caller decides whether to ask first.
+  onPickOutOfStock,
 }) {
   const [activeSlotMap, setActiveSlotMap] = useState({});
 
@@ -455,14 +458,21 @@ export default function GarmentFabricPicker({
 
         const toggle = (slotKey) => (fabricId) => {
           const current = chosenForJob[slotKey] || [];
-          const next = current.includes(fabricId)
-            ? current.filter(id => id !== fabricId)
-            : [...current, fabricId];
+          const adding = !current.includes(fabricId);
+          const next = adding
+            ? [...current, fabricId]
+            : current.filter(id => id !== fabricId);
           // The slot's key goes with its last fabric rather than sitting on the
           // order as an empty list.
           const forJob = { ...chosenForJob };
           if (next.length) forJob[slotKey] = next; else delete forJob[slotKey];
-          onChange?.(job.key, forJob);
+          const proceed = () => onChange?.(job.key, forJob);
+          const fabric = inStock.find(f => String(f.id) === fabricId);
+          if (adding && onPickOutOfStock && fabric && !(Number(fabric.available_stock) > 0)) {
+            onPickOutOfStock(fabric, proceed);
+          } else {
+            proceed();
+          }
         };
 
         const currentAccOption = accessoriesOnly && activeSlotKey && ACCESSORY_OPTIONS.find(o => o.key === activeSlotKey);
