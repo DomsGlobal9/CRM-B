@@ -300,11 +300,11 @@ class CustomerDesignSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'customer', 'customer_name', 'order', 'order_reference',
             'template', 'garment_type', 'image_url', 'source', 'source_display', 'notes',
-            'created_by', 'created_at',
+            'created_by', 'created_at', 'library_asset',
         ]
         # The picture comes from the file that was actually stored, never from
         # a claim in the request body; the garment's name follows its template.
-        read_only_fields = ['image_url', 'garment_type', 'created_by', 'created_at']
+        read_only_fields = ['image_url', 'garment_type', 'created_by', 'created_at', 'library_asset']
 
     def get_customer_name(self, obj):
         c = obj.customer

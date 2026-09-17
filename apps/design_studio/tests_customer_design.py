@@ -59,6 +59,30 @@ class CustomerDesignTests(TenantTestCase):
         rows = r.data['results'] if isinstance(r.data, dict) else r.data
         self.assertEqual([d['title'] for d in rows], ['Bridal Blouse'])
 
+    def test_add_to_library_keeps_a_copy_in_the_boutique_designs(self):
+        """The same picture becomes a catalogue asset, filed under the garment,
+        and the customer's row points at it."""
+        from apps.design_studio.models import DesignImage
+        r = self.create(source='drawn', image=png('drawing.png'), add_to_library='true')
+        self.assertEqual(r.status_code, 201, r.content)
+        asset = DesignAsset.objects.get(source=DesignAsset.SOURCE_CATALOGUE)
+        self.assertEqual(str(r.data['library_asset']), str(asset.id))
+        self.assertEqual(asset.title, 'Bridal Blouse')
+        self.assertEqual(asset.image_url, r.data['image_url'])
+        self.assertEqual(asset.template_id, self.blouse.id)
+        self.assertEqual(asset.garment_type, 'Blouse')
+        self.assertEqual(asset.description, 'Deep back neck.')
+        self.assertEqual(DesignImage.objects.filter(design=asset, part='overall').count(), 1)
+        # The customer's own design is untouched by what happens to the copy.
+        asset.delete()
+        self.assertTrue(CustomerDesign.objects.filter(id=r.data['id']).exists())
+
+    def test_without_the_flag_nothing_reaches_the_library(self):
+        r = self.create()
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertIsNone(r.data['library_asset'])
+        self.assertFalse(DesignAsset.objects.filter(source=DesignAsset.SOURCE_CATALOGUE).exists())
+
     def test_drawn_design_is_the_same_thing_with_its_source_recorded(self):
         r = self.create(title='Neck sketch', source='drawn', image=png('drawing.png'))
         self.assertEqual(r.status_code, 201, r.content)

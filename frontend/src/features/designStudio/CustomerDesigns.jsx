@@ -224,6 +224,9 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
   const [form, setForm] = useState({
     title: '', customer: initialCustomerId || (pendingNew ? NEW_CUSTOMER : ''), order: '', template: '', notes: '',
   });
+  // Ticked by default: the boutique wants what it captures in its own
+  // library. One tap keeps a plainly personal sketch out of it.
+  const [addToLibrary, setAddToLibrary] = useState(true);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState('');
   const [strokes, setStrokes] = useState([]);
@@ -269,6 +272,7 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
       const created = await api.createCustomerDesign({
         title: form.title.trim(), customer, order: form.order,
         template: form.template, notes: form.notes, source: mode === 'draw' ? 'drawn' : 'uploaded',
+        add_to_library: addToLibrary ? 'true' : 'false',
       }, image);
       onSaved?.(created);
     } catch (err) {
@@ -365,6 +369,16 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
                   placeholder='e.g. "Deep back neck with embroidery on sleeves."' />
       </Field>
 
+      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer', marginBottom: '12px' }}>
+        <input type="checkbox" checked={addToLibrary} onChange={(e) => setAddToLibrary(e.target.checked)} />
+        <span>
+          Also add to boutique designs
+          <span className="od-hint" style={{ display: 'block', fontSize: '11.5px' }}>
+            Keeps a copy in the Design library under this garment, for every customer to pick.
+          </span>
+        </span>
+      </label>
+
       {error && (
         <div role="alert" style={{ fontSize: 'var(--text-sm)', color: 'var(--danger-color)', background: 'var(--danger-bg)',
                                    border: '1px solid var(--danger-color)', borderRadius: 'var(--radius-md)', padding: '10px 12px' }}>
@@ -383,6 +397,7 @@ function CustomerDesignView({ design, onClose }) {
     ['Design', design.title], ['Customer', design.customer_name],
     ['Garment', design.garment_type || '—'], ['Order', design.order_reference || '—'],
     ['Source', design.source_display || design.source],
+    ['Boutique designs', design.library_asset ? 'Yes — a copy is in the Design library' : 'No'],
     ['Captured', design.created_at ? new Date(design.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'],
   ];
   return (
@@ -523,6 +538,9 @@ export default function CustomerDesigns({ customerId, customers = [], orders = [
                     {d.source === 'drawn' ? <PenTool size={11} /> : <Upload size={11} />}
                     {d.source_display || d.source}
                   </span>
+                  {d.library_asset && (
+                    <span className="ui-badge ui-badge--success" title="A copy is in the Design library">In boutique designs</span>
+                  )}
                   <button type="button" onClick={() => setViewing(d)}
                           style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--brand-link)', background: 'none',
                                    border: 'none', cursor: 'pointer', padding: 0 }}>

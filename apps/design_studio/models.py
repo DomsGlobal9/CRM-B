@@ -451,6 +451,13 @@ class CustomerDesign(models.Model):
     image_url = models.CharField(max_length=500)
     source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default=SOURCE_UPLOADED, db_index=True)
     notes = models.TextField(blank=True, default='')
+    # The copy of this picture in the boutique's own library, when the studio
+    # chose to keep one (the "also add to boutique designs" box). The customer
+    # row stays theirs; the library row is the boutique's to browse and file.
+    # SET_NULL: retiring the library copy must not delete the customer's design.
+    library_asset = models.OneToOneField(
+        'DesignAsset', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='customer_design')
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_designs')
     created_at = models.DateTimeField(auto_now_add=True)

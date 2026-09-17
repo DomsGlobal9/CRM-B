@@ -1145,4 +1145,28 @@ class CustomerDesignViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
             garment_type=template.name if template else '',
             created_by=request.user if request.user.is_authenticated else None,
         )
+        # "Also add to boutique designs": the same picture becomes a library
+        # asset -- the boutique's own catalogue entry, filed under the garment's
+        # overall part -- through the same status rule the library upload uses,
+        # so an approval-required boutique still reviews it. Off unless asked,
+        # so every other caller of this endpoint behaves as it always did.
+        if str(request.data.get('add_to_library', '')).lower() in ('1', 'true', 'yes', 'on'):
+            from crm_api.models import BoutiqueSettings
+            config, _ = BoutiqueSettings.objects.get_or_create(id=1)
+            role = resolve_user_role(request.user)
+            asset = DesignAsset.objects.create(
+                source=DesignAsset.SOURCE_CATALOGUE,
+                title=design.title,
+                image_url=design.image_url,
+                template=template,
+                garment_type=design.garment_type,
+                description=design.notes,
+                status=(DesignAsset.Status.ACTIVE
+                        if role == OWNER or not config.design_approval_required
+                        else DesignAsset.Status.PENDING),
+                created_by=design.created_by,
+            )
+            DesignImage.objects.create(design=asset, part='overall', image_url=design.image_url)
+            design.library_asset = asset
+            design.save(update_fields=['library_asset'])
         return Response(self.get_serializer(design).data, status=status.HTTP_201_CREATED)
