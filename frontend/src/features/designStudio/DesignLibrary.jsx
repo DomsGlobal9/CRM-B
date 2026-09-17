@@ -10,18 +10,6 @@ import ItemFormModal from '../inventory/ItemFormModal';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 
-/**
- * The boutique's design library.
- *
- * Replaces a flat grid of every design in the boutique. That works at fifty
- * designs and stops working at five hundred: the owner cannot find anything, and
- * the page loads the whole catalogue to show the first row of it.
- *
- * So the library opens on counts per garment, and only the chosen category is
- * fetched. Filters use the same vocabulary the order form does, which is what
- * makes "show me the elbow-sleeve wedding lehengas" a query rather than
- * scrolling.
- */
 
 const CARD_IMAGE_FALLBACK =
   'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
@@ -33,13 +21,8 @@ const STATUS_COLOURS = {
   ARCHIVED: { bg: 'var(--surface-inset)', fg: 'var(--text-secondary)' },
 };
 
-// Only the boutique's own catalogue rows are editable through the catalogue
-// endpoints; an imported pin or a studio upload is not a catalogue entry.
 const EDITABLE_SOURCES = ['catalogue', 'suggestion'];
 
-// "Add to inventory": the boutique's own design is stock too. The inventory
-// form opens with what the design already knows; the id rides along so the
-// item links back and the card can say "In your inventory".
 const inventoryDraft = (design) => ({
   name: design.title,
   category: 'DESIGN',
@@ -118,8 +101,7 @@ function Filters({ value, onChange, designers, collections, parts = [] }) {
 
 function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview, partLabels = {} }) {
   const editable = EDITABLE_SOURCES.includes(design.source);
-  // Grouped in the order the server returned them, which is the template's own
-  // part order (DesignImage.Meta.ordering), so the overall shot leads.
+
   const byPart = useMemo(() => {
     const groups = new Map();
     (design.images || []).forEach((img) => {
@@ -132,10 +114,6 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
   const [note, setNote] = useState('');
   const [reviewing, setReviewing] = useState(false);
   const isPending = design.status === 'PENDING';
-  // A ref, not just the state above: two clicks in the same tick both read
-  // `reviewing` as false, because React has not re-rendered between them yet.
-  // That let a fast double-click on Approve write two DesignApproval rows for
-  // one decision. The ref is checked synchronously, before either render.
   const inFlight = useRef(false);
 
   useEffect(() => {
@@ -143,7 +121,7 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
   }, [design.id]);
 
   const decide = async (decision) => {
-    if (inFlight.current) return;   // one click, one call
+    if (inFlight.current) return;  
     inFlight.current = true;
     setReviewing(true);
     try {
@@ -291,10 +269,10 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
 }
 
 export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false, canStock = false }) {
-  const [stocking, setStocking] = useState(null);   // the design being filed into inventory
+  const [stocking, setStocking] = useState(null);   
   const [categories, setCategories] = useState([]);
   const [total, setTotal] = useState(0);
-  const [openCategory, setOpenCategory] = useState(null);   // null = section list
+  const [openCategory, setOpenCategory] = useState(null);  
   const [designs, setDesigns] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [collections, setCollections] = useState([]);
@@ -304,21 +282,10 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [pendingCount, setPendingCount] = useState(0);
-  // Parts per garment key, for the Part filter and the detail modal's headings.
-  // Cached by key rather than reset per category: reopening a category the
-  // owner has already looked at costs nothing, and it keeps the state write
-  // inside the fetch callback rather than in an effect body.
+  
   const [partsByKey, setPartsByKey] = useState({});
-  // The part tab the owner clicked, stamped with the garment it was clicked
-  // under: {garment, part}, where a null part is the whole-design grid this
-  // screen has always shown. The stamp is what makes switching garment drop
-  // the choice -- a saree's Pallu is not a part a kurti has, and carrying the
-  // key across would open a tab that garment does not own.
+  
   const [partTab, setPartTab] = useState(null);
-  // Where in the garment's design catalogue the owner is looking:
-  // {garment, value: {category, subcategory, option}}. Stamped with the
-  // garment so opening another one starts from its own top, and derived below
-  // so the reset is not a thing an effect has to remember to do.
   const [catalogueTab, setCatalogueTab] = useState(null);
 
   const PENDING_QUEUE = { key: '__pending__', name: 'Pending Approval' };
@@ -367,33 +334,20 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
   const partLabels = useMemo(
     () => Object.fromEntries(parts.map(p => [p.key, p.label])), [parts]);
 
-  // Which part is showing. Derived rather than reset in an effect: opening a
-  // garment, or switching to another one, lands on that garment's first
-  // declared part -- its overall shot, for every template that lists one --
-  // and only an explicit click under this garment moves off it.
   const openPart = (partTab && openKey && partTab.garment === openKey) ? partTab.part : (parts[0]?.key ?? null);
   const cataloguePath = (catalogueTab && catalogueTab.garment === openKey) ? catalogueTab.value : {};
 
-  // The design behind a card, in the detail panel. Shared by the design grid
-  // and the part tabs, so a photograph opens the same View its whole design
-  // opens; `fallback` is the row already in hand when the fetch cannot run.
   const openDesign = (id, fallback = null) =>
     api.getDesignAsset(id).then(setSelected).catch(() => { if (fallback) setSelected(fallback); });
 
-  // Only the open category is fetched, so the landing page never pays for the
-  // whole library.
   useEffect(() => {
     if (openCategory === null) return;
     let cancelled = false;
     setLoading(true);
     const query = isPendingQueue
       ? { ...filters, status: 'PENDING', template: undefined }
-      // The Uncategorised bucket carries an empty key. Sending no filter
-      // at all listed the entire library under it; 'none' lists what it
-      // says on the tile.
+
       : { ...filters, template: openCategory.key || 'none',
-          // The exact catalogue position, when one is chosen. Nothing chosen
-          // lists every design under the garment, filed or not, as before.
           catalogue_category: cataloguePath.category,
           catalogue_subcategory: cataloguePath.subcategory,
           catalogue_option: cataloguePath.option };
@@ -405,9 +359,6 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
   }, [openCategory, filters, refreshToken, isPendingQueue,
       cataloguePath.category, cataloguePath.subcategory, cataloguePath.option]);
 
-  // A design leaving PENDING (approved/rejected) must disappear from the queue
-  // immediately, not on the next reload -- otherwise the owner reviews the same
-  // design twice.
   const handleReviewed = (updated) => {
     setSelected(updated);
     setDesigns((prev) => (isPendingQueue
@@ -588,7 +539,7 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
         <ItemFormModal
           item={inventoryDraft(stocking)}
           onClose={() => setStocking(null)}
-          onSaved={() => { setStocking(null); setFilters({ ...filters }); }}   // refetch: the card flips
+          onSaved={() => { setStocking(null); setFilters({ ...filters }); }}  
         />
       )}
 
@@ -600,7 +551,7 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
           onUploaded={() => {
             setUploading(false);
             loadCategories();
-            setFilters({ ...filters });   // refetch the open category
+            setFilters({ ...filters });  
             onUploaded?.();
           }}
         />
