@@ -205,16 +205,16 @@ class RefusalTests(TransactionTestCase):
         # The module goes in the identity, not just the message, so two modules
         # switched off are two rows rather than one that keeps rewriting itself.
         with temporary_tenant('refuse_mod', 'owner@refuse.test', 'Refused') as tenant:
-            tenant.enabled_modules = {'tailors': False}
+            tenant.enabled_modules = {'staff': False}
             tenant.save(update_fields=['enabled_modules'])
             clear_tenant_cache()
 
             self.assertEqual(
-                Client().get('/api/tailors/', HTTP_X_TENANT_ID='refuse_mod').status_code, 403)
+                Client().get('/api/staff/', HTTP_X_TENANT_ID='refuse_mod').status_code, 403)
 
             connection.set_schema_to_public()
             event = ErrorEvent.objects.get(kind='refusal')
-            self.assertEqual(event.exception_type, 'ModuleDisabled:tailors')
+            self.assertEqual(event.exception_type, 'ModuleDisabled:staff')
             self.assertEqual(event.boutique, 'refuse_mod')
 
     def test_an_unknown_tenant_is_recorded(self):
@@ -436,18 +436,18 @@ class ReturnedClientErrorTests(TransactionTestCase):
         # too. Those already filed themselves with a reason worth more than a
         # status code, so this must leave them alone.
         with temporary_tenant('ret_mod', 'owner@ret.test', 'Ret') as tenant:
-            tenant.enabled_modules = {'tailors': False}
+            tenant.enabled_modules = {'staff': False}
             tenant.save(update_fields=['enabled_modules'])
             clear_tenant_cache()
 
             self.assertEqual(
-                Client().get('/api/tailors/', HTTP_X_TENANT_ID='ret_mod').status_code, 403)
+                Client().get('/api/staff/', HTTP_X_TENANT_ID='ret_mod').status_code, 403)
 
             connection.set_schema_to_public()
             self.assertEqual(ErrorEvent.objects.filter(kind='client').count(), 0)
             self.assertEqual(
                 ErrorEvent.objects.get(kind='refusal').exception_type,
-                'ModuleDisabled:tailors')
+                'ModuleDisabled:staff')
 
     def test_the_ingest_endpoints_own_refusal_is_not_a_product_error(self):
         # "Nothing to report" is the crash reporter being told off, not the
