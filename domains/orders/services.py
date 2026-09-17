@@ -380,6 +380,14 @@ class OrderService:
             order_stage.verification_note = comments
         elif new_status == 'PENDING_VERIFICATION':
             order_stage.verification_note = ''
+            # A fresh submission replaces what was rejected: those photos
+            # come off the stage, the verdicts with them, and the ones that
+            # were never faulted stay.
+            rejected_urls = {u for u, r in (order_stage.attachment_reviews or {}).items()
+                             if r.get('status') == 'REJECTED'}
+            order_stage.attachments = [u for u in (order_stage.attachments or [])
+                                       if u not in rejected_urls]
+            order_stage.attachment_reviews = {}
 
         # Naming SOMEBODY ELSE as the performer is a supervisor's call.
         #
