@@ -2593,9 +2593,12 @@ function App() {
   // Start Order Creation Flows
   const pickCustomer = (cust) => {
     setCustomerId(cust.id);
+    // Older records carry the country code; the field is the 10 local digits.
+    const digits = String(cust.mobile_number || '').replace(/\D/g, '');
     setCustomerForm({
       ...DEFAULT_CUSTOMER_DATA,
       ...cust,
+      mobile_number: digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits,
       measurements: cust.measurements || DEFAULT_CUSTOMER_DATA.measurements,
     });
     setCustomerName(`${cust.first_name || ''} ${cust.last_name || ''}`.trim());
