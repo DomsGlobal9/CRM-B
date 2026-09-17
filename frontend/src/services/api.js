@@ -548,10 +548,21 @@ export const api = {
     return res.json();
   },
 
-  async submitCompletion(orderId, comments, imageFile) {
+  /** Owner/Master rejects one submitted photo with a remark, or clears a verdict. */
+  async reviewStagePhoto(orderId, stageKey, url, remark, status = 'REJECTED') {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/review-photo/`, {
+      method: 'POST', headers: getHeaders(),
+      body: JSON.stringify({ stage_key: stageKey, url, remark, status }),
+    });
+    if (!res.ok) await failWith(res, 'Failed to review the photo');
+    return res.json();
+  },
+
+  async submitCompletion(orderId, comments, imageFiles) {
     const formData = new FormData();
     if (comments) formData.append('tailor_comments', comments);
-    if (imageFile) formData.append('completed_garment_image', imageFile);
+    [].concat(imageFiles || []).filter(Boolean)
+      .forEach((f) => formData.append('completed_garment_images', f));
 
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/submit-completion/`, {
       method: 'PATCH',

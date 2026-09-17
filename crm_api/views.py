@@ -678,8 +678,16 @@ class OrderViewSet(viewsets.ModelViewSet):
     def submit_completion(self, request, pk=None):
         order = self.get_object()
         comments = request.data.get('tailor_comments')
-        image = request.FILES.get('completed_garment_image')
-        
+        # Up to five photographs of the finished work. The first is the
+        # order's cover shot; all of them go on the stage for verification.
+        images = request.FILES.getlist('completed_garment_images') or (
+            [request.FILES['completed_garment_image']]
+            if 'completed_garment_image' in request.FILES else [])
+        if len(images) > 5:
+            return Response({'error': 'Upload at most 5 photos.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        image = images[0] if images else None
+
         if comments is not None:
             order.tailor_comments = comments
         if image is not None:
@@ -710,15 +718,15 @@ class OrderViewSet(viewsets.ModelViewSet):
                 live = order.stages.filter(stage_key=stage_key).first()
                 if live and live.status == stage_status:
                     continue
-                if image is not None:
-                    image.seek(0)
+                for f in images:
+                    f.seek(0)
                 OrderService.transition_order_stage(
                     order=order,
                     stage_key=stage_key,
                     new_status=stage_status,
                     comments=comments or '',
                     user=request.user,
-                    files=[image] if (image is not None and stage_status == 'PENDING_VERIFICATION') else None,
+                    files=images if (images and stage_status == 'PENDING_VERIFICATION') else None,
                     request=request,
                 )
         except ValueError as ve:
@@ -849,6 +857,37 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['POST'], url_path='review-photo')
+    def review_photo(self, request, pk=None):
+        """Owner or Master rejects (or clears) one photograph a worker
+        submitted on a stage, with a remark the worker reads. An annotation,
+        not a transition: sending the whole stage back is still Send Back.
+        """
+        order = self.get_object()
+        stage = order.stages.filter(stage_key=request.data.get('stage_key')).first()
+        url = request.data.get('url')
+        if stage is None or url not in (stage.attachments or []):
+            return Response({'error': 'No such photo on this stage.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        verdict = request.data.get('status', 'REJECTED')
+        reviews = dict(stage.attachment_reviews or {})
+        if verdict == 'CLEAR':
+            reviews.pop(url, None)
+        else:
+            remark = (request.data.get('remark') or '').strip()
+            if not remark:
+                return Response({'error': 'Say what is wrong with the photo.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            reviews[url] = {
+                'status': 'REJECTED', 'remark': remark,
+                'by': request.user.get_full_name() or request.user.username,
+                'at': timezone.now().isoformat(),
+            }
+        stage.attachment_reviews = reviews
+        stage.save(update_fields=['attachment_reviews'])
+        return Response(
+            OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data)
 
     @action(detail=True, methods=['POST'], url_path='reopen-stage')
     def reopen_stage(self, request, pk=None):

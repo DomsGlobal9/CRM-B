@@ -353,6 +353,11 @@ class OrderStage(models.Model):
     performed_by = models.ForeignKey(Tailor, on_delete=models.SET_NULL, null=True, blank=True)
     comments = models.TextField(blank=True, null=True)
     attachments = models.JSONField(default=list, blank=True) # list of image URLs
+    # A supervisor's verdict on individual attachments, keyed by URL:
+    # {url: {'status': 'REJECTED', 'remark': ..., 'by': ..., 'at': ...}}.
+    # A photo with no entry is simply unreviewed. Cleared with the next
+    # submission, like verification_note.
+    attachment_reviews = models.JSONField(default=dict, blank=True)
     # Why a supervisor sent submitted work back. Set on rejection, cleared on
     # the next submission, so the worker reads it when they reopen the stage.
     verification_note = models.TextField(blank=True, default='')

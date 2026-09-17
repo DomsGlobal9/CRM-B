@@ -969,11 +969,6 @@ function CuttingUsage({ orderId }) {
   );
 }
 
-const normaliseDesignBrief = (brief) => {
-  if (!brief) return null;
-  return { ...brief, design: brief.design || brief.selected || null };
-};
-
 
 /**
  * The Master\'s gathering checklist for one order.
@@ -984,6 +979,11 @@ const normaliseDesignBrief = (brief) => {
  * note once stitching has drawn it. Visibility for everyone; ticking and
  * photographing are the Owner\'s and the Master\'s.
  */
+/** Does this order name any material to gather? The checklist's lines are
+ *  built from exactly these picks, so no picks means no list. */
+const hasMaterials = (order) =>
+  (order.garment_jobs || []).some((job) => (job.materials || []).length > 0);
+
 function MaterialsChecklist({ orderId, role, onActivity }) {
   const [plan, setPlan] = useState(null);
   const [loaded, setLoaded] = useState(false);
@@ -2026,9 +2026,6 @@ function App() {
   const [stageReviewComments, setStageReviewComments] = useState('');
   const [stageReviewImage, setStageReviewImage] = useState(null);
   const [selectedStageObj, setSelectedStageObj] = useState(null);
-  const [stageDesignBrief, setStageDesignBrief] = useState(null);
-  const [productionNotesDraft, setProductionNotesDraft] = useState('');
-  const [savingProductionNotes, setSavingProductionNotes] = useState(false);
   const [selectedPerformerId, setSelectedPerformerId] = useState('');
   const [stageTransitionBusy, setStageTransitionBusy] = useState(false);
   // The two sanctioned reversals, both behind a mandatory-reason dialog:
@@ -2961,18 +2958,6 @@ function App() {
     paused: ctaBusy,
   });
 
-  const saveProductionNotesNow = async () => {
-    if (!stageDesignBrief) return;
-    await api.saveProductionNotes(stageDesignBrief.id, stageDesignBrief.design.id, productionNotesDraft);
-    setStageDesignBrief((b) => (b ? { ...b, design: { ...b.design, production_notes: productionNotesDraft } } : b));
-  };
-  const notesAutosave = useAutosave({
-    getSnapshot: () => (stageDesignBrief ? productionNotesDraft : null),
-    save: saveProductionNotesNow,
-    enabled: Boolean(stageDesignBrief),
-    paused: savingProductionNotes,
-  });
-
   const boutiqueFormRef = useRef(null);
   const saveBoutiqueForm = async (form) => {
     const formData = new FormData();
@@ -3127,6 +3112,30 @@ function App() {
   const [stockPrompt, setStockPrompt] = useState(null);      // { fabric, proceed }
   // The review screen's picture viewer: which group is open, and where in it.
   const [reviewView, setReviewView] = useState(null);        // { items, index }
+  // Photographs the tailor has picked but not yet submitted, per order, as
+  // object URLs for the thumbnails. Revoked when replaced.
+  const [completionPicks, setCompletionPicks] = useState({});  // { [orderId]: [{ file, url }] }
+  // Adds to what is already waiting rather than replacing it, so a photo
+  // picked after removing one keeps the others. Five at most, in total.
+  const pickCompletionPhotos = (orderId, files) => {
+    setCompletionPicks(prev => {
+      const current = prev[orderId] || [];
+      const room = Math.max(0, 5 - current.length);
+      if (files.length > room) alert(`You can upload up to 5 photos. ${room ? `Only ${room} more will be added.` : 'Remove one first.'}`);
+      const added = files.slice(0, room).map(file => ({ file, url: URL.createObjectURL(file) }));
+      return { ...prev, [orderId]: [...current, ...added] };
+    });
+  };
+  const clearCompletionPhotos = (orderId) => {
+    setCompletionPicks(prev => {
+      (prev[orderId] || []).forEach(p => URL.revokeObjectURL(p.url));
+      return { ...prev, [orderId]: [] };
+    });
+  };
+  const dropCompletionPhoto = (orderId, url) => {
+    URL.revokeObjectURL(url);
+    setCompletionPicks(prev => ({ ...prev, [orderId]: (prev[orderId] || []).filter(p => p.url !== url) }));
+  };
   const [restockTrip, setRestockTrip] = useState(null);      // { fabric, draftId? }
   useEffect(() => {
     if (!restockTrip || restockTrip.draftId) return;
@@ -3244,17 +3253,20 @@ function App() {
 
   // A task is closed for this person once the order is over, or once every
   // stage that was theirs -- handed to them by name, or one their role
-  // performs -- is settled. A Master supervises every stage, so for them the
-  // task is the whole order.
+  // performs -- is off their bench. For a worker that includes work they
+  // have submitted and are waiting to have verified: their part is done.
+  // A Master (or the owner) supervises every stage, so for them the task is
+  // the whole order, and work waiting for their verification is open work.
   const isClosedForMe = (order) => {
     if (['Delivered', 'Cancelled'].includes(order.order_status) || !liveStage(order)) return true;
+    if (currentUser?.role === 'Owner' || currentUser?.role === 'Master') return false;
     const config = boutiqueSettings?.workflow_config || [];
     const rolesFor = (key) => (config.find(s => s.key === key)?.roles) || [];
     const me = currentUser?.tailor_id;
     const mine = (order.stages || []).filter(s =>
-      s.assigned_to === me
-      || (currentUser?.role !== 'Master' && rolesFor(s.stage_key).includes(currentUser?.role)));
-    return mine.length > 0 && mine.every(s => ['COMPLETED', 'SKIPPED'].includes(s.status));
+      s.assigned_to === me || rolesFor(s.stage_key).includes(currentUser?.role));
+    return mine.length > 0
+      && mine.every(s => ['COMPLETED', 'SKIPPED', 'PENDING_VERIFICATION'].includes(s.status));
   };
   const closedTasksView = dashboardTab === 'closedTasks';
   const taskOrders = ordersList.filter(o => isMyAssignment(o) && isClosedForMe(o) === closedTasksView);
@@ -3283,20 +3295,6 @@ function App() {
     setSelectedStageObj(stage);
     setStageReviewComments(stage.comments || '');
     setStageReviewImage(null);
-
-    // Fetch the approved design for this order. Best-effort: a board that does
-    // not exist is the normal case for an order placed without one, and must
-    // not stop the stage panel from opening.
-    setStageDesignBrief(null);
-    setProductionNotesDraft('');
-    api.getDesignBoards({ order_id: order.order_id })
-      .then((boards) => {
-        const brief = normaliseDesignBrief(
-          Array.isArray(boards) ? boards[0] : boards);
-        setStageDesignBrief(brief);
-        setProductionNotesDraft(brief?.design?.production_notes || '');
-      })
-      .catch(() => setStageDesignBrief(null));
   };
 
   // The directory list returns flat rows without orders or measurement history,
@@ -4276,13 +4274,16 @@ function App() {
                             </div>
 
                             {/* The same gathering checklist, on the card the
-                                Master actually works from. */}
+                                Master actually works from. Only when the order
+                                names any material at all. */}
+                            {hasMaterials(order) && (
                             <div style={{ marginTop: '12px', padding: '14px 16px', border: '1px solid var(--border-color)', borderRadius: '8px', textAlign: 'left' }}>
                               <h4 style={{ fontSize: '13px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 🧵 Raw Materials Checklist
                               </h4>
                               <MaterialsChecklist orderId={order.id} role={currentUser.role} />
                             </div>
+                            )}
 
                             {/* Master Verification Checklist */}
                             {currentUser.role === 'Master' && (
@@ -4372,20 +4373,76 @@ function App() {
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Upload Completed Garment Photo</label>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
+                                      Upload Completed Garment Photos <span style={{ color: 'var(--text-muted)' }}>(up to 5)</span>
+                                    </label>
                                     <input
                                       type="file"
                                       className="form-control"
                                       style={{ fontSize: '13px' }}
                                       id={`image-${order.id}`}
                                       accept="image/*"
+                                      multiple
+                                      onChange={(e) => {
+                                        pickCompletionPhotos(order.id, [...e.target.files]);
+                                        // The strip is the list; the input is only the way in.
+                                        e.target.value = '';
+                                      }}
                                     />
-                                    {order.completed_garment_image && (
-                                      <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ fontSize: '11px', color: 'var(--brand-link)', fontWeight: 600 }}>✓ Picture Uploaded</span>
-                                        <a href={order.completed_garment_image} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: 'var(--accent-text, #b07c40)', textDecoration: 'underline' }}>View Image</a>
-                                      </div>
-                                    )}
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                      Select several at once — hold Ctrl (or ⌘) while choosing. Up to 5 photos.
+                                    </div>
+                                    {(() => {
+                                      // What is about to go up, then what already went up: the
+                                      // stitching stage's attachments, with the cover shot as a
+                                      // fallback for orders from before several were kept.
+                                      const picked = completionPicks[order.id] || [];
+                                      const stitching = (order.stages || []).find(st => st.stage_key === 'stitching_in_progress');
+                                      const uploaded = (stitching?.attachments?.length ? stitching.attachments
+                                        : (order.completed_garment_image ? [order.completed_garment_image] : []));
+                                      const verdicts = stitching?.attachment_reviews || {};
+                                      const strip = (title, items, onRemove) => items.length > 0 && (
+                                        <div style={{ marginTop: '8px' }}>
+                                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--brand-link)', marginBottom: '4px' }}>{title}</div>
+                                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                            {items.map((it, i) => (
+                                              <div key={it.image_url} style={{ position: 'relative', width: '64px', height: it.rejected ? 'auto' : '64px' }}>
+                                                <img src={it.image_url} alt="" title={it.rejected || undefined}
+                                                     style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block',
+                                                              border: it.rejected ? '2px solid var(--danger-color)' : '1px solid var(--border-color)' }} />
+                                                {it.rejected && <div style={{ fontSize: '10px', color: 'var(--danger-color)', lineHeight: 1.2, marginTop: '2px' }}>✕ {it.rejected}</div>}
+                                                <button type="button" title="View" aria-label="View photo"
+                                                        onClick={() => setReviewView({ items, index: i })}
+                                                        style={{ position: 'absolute', top: 0, left: 0, width: '64px', height: '64px', background: 'rgba(0,0,0,0.35)', border: 'none', borderRadius: '6px',
+                                                                 color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.85 }}>
+                                                  <Eye size={16} />
+                                                </button>
+                                                {onRemove && (
+                                                  <button type="button" title="Remove" aria-label="Remove photo"
+                                                          onClick={() => onRemove(it)}
+                                                          style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%',
+                                                                   background: 'var(--surface-color)', border: '1px solid var(--border-strong)', color: 'var(--text-primary)',
+                                                                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                                                    <X size={12} />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      );
+                                      return (
+                                        <>
+                                          {strip(`Ready to upload · ${picked.length}`, picked.map((p, i) => ({ image_url: p.url, label: `Photo ${i + 1}` })),
+                                                 (it) => dropCompletionPhoto(order.id, it.image_url))}
+                                          {picked.length === 0 && strip(
+                                                 Object.keys(verdicts).length
+                                                   ? `${Object.keys(verdicts).length} photo${Object.keys(verdicts).length === 1 ? '' : 's'} rejected — upload replacements`
+                                                   : `✓ ${uploaded.length} photo${uploaded.length === 1 ? '' : 's'} uploaded`,
+                                                 uploaded.map((u, i) => ({ image_url: u, label: `Uploaded photo ${i + 1}`, rejected: verdicts[u]?.remark })))}
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
 
@@ -4396,11 +4453,12 @@ function App() {
                                   onClick={async () => {
                                     if (submittingCompletionId) return;
                                     const commentVal = document.getElementById(`comments-${order.id}`).value;
-                                    const file = document.getElementById(`image-${order.id}`).files[0];
+                                    const files = (completionPicks[order.id] || []).map(p => p.file).slice(0, 5);
 
                                     setSubmittingCompletionId(order.id);
                                     try {
-                                      await api.submitCompletion(order.id, commentVal, file);
+                                      await api.submitCompletion(order.id, commentVal, files);
+                                      clearCompletionPhotos(order.id);
                                       alert("Completion report submitted successfully!");
                                       fetchDashboardAndConfig();
                                     } catch (err) {
@@ -5055,7 +5113,8 @@ function App() {
                         onMarkSent={handleMarkMessageSent}
                       />
 
-                      {/* Raw materials checklist */}
+                      {/* Raw materials checklist; nothing to gather, no section. */}
+                      {hasMaterials(order) && (
                       <section className="at-section od-materials">
                         <div className="od-section-head">
                           <IconTile icon={Layers} tone="neutral" size={40} iconSize={18} />
@@ -5066,6 +5125,7 @@ function App() {
                         </div>
                         <MaterialsChecklist orderId={order.id} role={currentUser.role} />
                       </section>
+                      )}
 
                       <div className="od-extra">
                           {/* Post-delivery alterations. Shown only once the
@@ -5140,15 +5200,68 @@ function App() {
                                   "{order.tailor_comments}"
                                 </p>
                               )}
-                              {order.completed_garment_image && (
-                                <div style={{ marginTop: '4px' }}>
-                                  <span className="ui-eyebrow" style={{ display: 'block', marginBottom: '6px' }}>Garment photo</span>
-                                  <a href={order.completed_garment_image} target="_blank" rel="noreferrer">
-                                    <img src={order.completed_garment_image} alt="Completed Garment"
-                                      style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', cursor: 'pointer' }} />
-                                  </a>
-                                </div>
-                              )}
+                              {(() => {
+                                // Every photograph the tailor submitted, off the stitching
+                                // stage; the cover shot alone for orders from before several
+                                // were kept. The supervisor can fault any one of them.
+                                const stitching = (order.stages || []).find(st => st.stage_key === 'stitching_in_progress');
+                                const photos = stitching?.attachments?.length ? stitching.attachments
+                                  : (order.completed_garment_image ? [order.completed_garment_image] : []);
+                                const reviews = stitching?.attachment_reviews || {};
+                                const canReview = currentUser?.role === 'Owner' || currentUser?.role === 'Master';
+                                const items = photos.map((u, i) => ({ image_url: u, label: `Photo ${i + 1}` }));
+                                const reject = async (url) => {
+                                  const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
+                                  if (remark === null) return;
+                                  if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
+                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, remark.trim()); fetchDashboardAndConfig(); }
+                                  catch (err) { alert(err.message); }
+                                };
+                                const clear = async (url) => {
+                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, '', 'CLEAR'); fetchDashboardAndConfig(); }
+                                  catch (err) { alert(err.message); }
+                                };
+                                return photos.length > 0 && (
+                                  <div style={{ marginTop: '4px' }}>
+                                    <span className="ui-eyebrow" style={{ display: 'block', marginBottom: '6px' }}>
+                                      Garment photo{photos.length === 1 ? '' : 's'} · {photos.length}
+                                    </span>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                      {photos.map((url, i) => {
+                                        const verdict = reviews[url];
+                                        return (
+                                          <div key={url} style={{ width: '120px' }}>
+                                            <div style={{ position: 'relative' }}>
+                                              <img src={url} alt="" style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: 'var(--radius-md)', display: 'block',
+                                                                              border: verdict ? '2px solid var(--danger-color)' : '1px solid var(--border-color)',
+                                                                              opacity: verdict ? 0.7 : 1 }} />
+                                              <button type="button" className="btn-secondary at-btn-sm" title="View"
+                                                      style={{ position: 'absolute', top: '6px', right: '6px', minHeight: '26px', padding: '0 8px' }}
+                                                      onClick={() => setReviewView({ items, index: i })}>
+                                                <Eye size={12} /> View
+                                              </button>
+                                              {verdict && (
+                                                <span style={{ position: 'absolute', left: '6px', bottom: '6px', fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px',
+                                                               background: 'var(--danger-color)', color: '#fff' }}>Rejected</span>
+                                              )}
+                                            </div>
+                                            {verdict && (
+                                              <div style={{ fontSize: '11px', color: 'var(--danger-color)', marginTop: '4px', lineHeight: 1.3 }}>{verdict.remark}</div>
+                                            )}
+                                            {canReview && (
+                                              verdict
+                                                ? <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px' }} onClick={() => clear(url)}>Undo rejection</button>
+                                                : <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px', color: 'var(--danger-color)' }} onClick={() => reject(url)}>
+                                                    <X size={11} /> Reject photo
+                                                  </button>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           )}
                       </div>
@@ -8320,64 +8433,6 @@ function App() {
               </FormSection>
             )}
 
-            {/* The approved design, and the Master's note on how to make it.
-                GET /design-studio/boards/ serves this and swaps in
-                TailorBriefSerializer for a Tailor; the notes box lives here
-                because the endpoint that writes it had nowhere else to be
-                called from. */}
-            {stageDesignBrief && stageDesignBrief.design && (
-              <FormSection icon={Sparkles} tone="amber" title="Approved design"
-                           subtitle="The design the owner approved, and how it is to be made.">
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  {stageDesignBrief.design.image_url && (
-                    <img src={resolveMediaUrl(stageDesignBrief.design.image_url)} alt="Approved design"
-                         style={{ width: '84px', height: '110px', objectFit: 'cover', borderRadius: '6px', flexShrink: 0 }} />
-                  )}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>{stageDesignBrief.design.title}</div>
-                    {stageDesignBrief.design.tailor_instructions && (
-                      <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>
-                        {stageDesignBrief.design.tailor_instructions}
-                      </div>
-                    )}
-                    {stageDesignBrief.design.customer_notes && (
-                      <div style={{ marginTop: '4px', color: 'var(--text-secondary)' }}>
-                        Customer: {stageDesignBrief.design.customer_notes}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <label className="form-label" style={{ marginTop: '10px', display: 'block' }}>Production notes</label>
-                <textarea className="form-control" rows={2}
-                          placeholder="How this is to be made — cutting, finishing, anything the tailor needs."
-                          value={productionNotesDraft}
-                          onChange={(e) => setProductionNotesDraft(e.target.value)} />
-                <button className="btn-secondary" style={{ marginTop: '6px', padding: '5px 10px', fontSize: '11px' }}
-                        disabled={savingProductionNotes}
-                        onClick={async () => {
-                          setSavingProductionNotes(true);
-                          try {
-                            await api.saveProductionNotes(
-                              stageDesignBrief.id, stageDesignBrief.design.id, productionNotesDraft);
-                            const fresh = await api.getDesignBoards({ order_id: activeReviewOrder.order_id });
-                            setStageDesignBrief(normaliseDesignBrief(Array.isArray(fresh) ? fresh[0] : fresh));
-                          } catch (err) {
-                            alert("Could not save the production notes: " + err.message);
-                          } finally {
-                            setSavingProductionNotes(false);
-                          }
-                        }}>
-                  {savingProductionNotes ? 'Saving…' : 'Save notes'}
-                </button>
-                <span style={{ marginLeft: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {notesAutosave.lastSavedAt
-                    ? `Autosaved ${notesAutosave.lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                    : 'Autosaves every minute'}
-                </span>
-              </FormSection>
-            )}
-
             {stage && stage.verification_note && stage.status !== 'COMPLETED' && (
               <InfoNote icon={AlertTriangle} tone="warning" title="Sent back for rework">
                 &ldquo;{stage.verification_note}&rdquo;
@@ -8399,11 +8454,43 @@ function App() {
               <div className="at-field">
                 <span className="at-field-label">Progress photos ({stage.attachments.length})</span>
                 <div className="at-photos">
-                  {stage.attachments.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noreferrer" style={{ lineHeight: 0 }}>
-                      <PhotoTile src={url} alt={`attachment-${i}`} size={72} />
-                    </a>
-                  ))}
+                  {stage.attachments.map((url, i) => {
+                    const verdict = stage.attachment_reviews?.[url];
+                    const items = stage.attachments.map((u, n) => ({ image_url: u, label: `Photo ${n + 1}` }));
+                    return (
+                      <div key={url} style={{ position: 'relative', width: '96px' }}>
+                        <div style={{ position: 'relative' }}>
+                          <PhotoTile src={url} alt={`attachment-${i}`} size={96} />
+                          <button type="button" className="btn-secondary at-btn-sm" title="View"
+                                  style={{ position: 'absolute', top: '6px', right: '6px', minHeight: '26px', padding: '0 8px' }}
+                                  onClick={() => setReviewView({ items, index: i })}>
+                            <Eye size={12} /> View
+                          </button>
+                          {verdict && (
+                            <span style={{ position: 'absolute', left: '6px', bottom: '6px', fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px',
+                                           background: 'var(--danger-color)', color: '#fff' }}>Rejected</span>
+                          )}
+                        </div>
+                        {verdict && <div style={{ fontSize: '11px', color: 'var(--danger-color)', marginTop: '4px', lineHeight: 1.3 }}>{verdict.remark}</div>}
+                        {isSupervisor && stage.status === 'PENDING_VERIFICATION' && (
+                          verdict
+                            ? <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px' }}
+                                      onClick={async () => {
+                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, '', 'CLEAR'); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
+                                        catch (err) { alert(err.message); }
+                                      }}>Undo rejection</button>
+                            : <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px', color: 'var(--danger-color)' }}
+                                      onClick={async () => {
+                                        const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
+                                        if (remark === null) return;
+                                        if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
+                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, remark.trim()); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
+                                        catch (err) { alert(err.message); }
+                                      }}><X size={11} /> Reject photo</button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -8649,6 +8736,13 @@ function App() {
       )}
 
       <NetworkActivityBar />
+      {reviewView && view !== 'wizard' && (
+        <Suspense fallback={null}>
+          <ReviewLightbox items={reviewView.items} index={reviewView.index}
+                          onIndexChange={(i) => setReviewView({ ...reviewView, index: i })}
+                          onClose={() => setReviewView(null)} />
+        </Suspense>
+      )}
       {stockPrompt && (
         <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
           <div className="search-modal-card" style={{ maxWidth: '440px', width: '100%', padding: '24px' }}>
