@@ -537,7 +537,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                 create_order_notifications(order, created=False)
             return Response({'status': 'status updated', 'order_status': order.order_status})
 
-        config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
+        from domains.orders import workflow
+        config = workflow.for_order(
+            BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, order)
         keys = [s['key'] for s in config]
         target_index = keys.index(stage_key)
         previous_landing = -1
@@ -857,6 +859,21 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['POST'], url_path='set-flow')
+    def set_flow(self, request, pk=None):
+        """Owner/Master puts the order on the other path through the
+        workroom, while nothing past Fabric has begun."""
+        from domains.orders.services import set_order_flow
+        order = self.get_object()
+        try:
+            set_order_flow(order, request.data.get('flow'), request.user)
+        except PermissionError as pe:
+            return Response({'error': str(pe)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as ve:
+            return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data)
 
     @action(detail=True, methods=['POST'], url_path='review-photo')
     def review_photo(self, request, pk=None):
@@ -1613,7 +1630,9 @@ class OrderDraftViewSet(viewsets.ViewSet):
                             for g in (payload.get('garments') or []))
                 if d)
 
+            from domains.orders.services import flow_for_garments
             order = OrderService.create_order_for_customer(customer, {
+                'flow': payload.get('flow') or flow_for_garments(garments),
                 'tailor_id': staff.get('tailor_id'),
                 'master_id': staff.get('master_id'),
                 'base_price': component_totals['base'],

@@ -262,7 +262,8 @@ const STEP_TONE = { done: 'success', live: 'info', next: 'neutral' };
 /** One icon per workroom step, keyed by the workflow's stage_key. */
 const STAGE_ICONS = {
   created: FileText, measurements_completed: Ruler, fabric_confirmed: Layers, pattern_cutting: Scissors,
-  maggam_work: PenTool, assigned_to_tailor: User, stitching_in_progress: Shirt, stitching_completed: CheckCircle2,
+  paper_cutting: FileText, maggam_work: PenTool, maggam_verification: ShieldCheck,
+  fabric_cutting: Scissors, assigned_to_tailor: User, stitching_in_progress: Shirt, stitching_completed: CheckCircle2,
   finishing: Sparkles, pressing: Flame, master_quality_check: ShieldCheck, trial_scheduled: CalendarClock,
   trial_completed: UserCheck, ready_for_delivery: PackageCheck, delivered: Truck,
 };
@@ -1962,6 +1963,8 @@ function App() {
   const [ordersFilterTab, setOrdersFilterTab] = useState('All');
   // Customer tier, garment and workroom step: each 'All' or one value.
   const [ordersTierFilter, setOrdersTierFilter] = useState('All');
+  // Stitching orders, maggam orders, alterations, or everything.
+  const [ordersTypeFilter, setOrdersTypeFilter] = useState('All');
   const [ordersGarmentFilter, setOrdersGarmentFilter] = useState('All');
   const [ordersStageFilter, setOrdersStageFilter] = useState('All');
   const [ordersView, setOrdersView] = useState('list');
@@ -1977,6 +1980,7 @@ function App() {
   // and the board show the same orders under the same filter and search.
   // Same chips and search box, read off an alteration's own fields.
   const alterationMatchesFilters = (alt) => {
+    if (ordersTypeFilter === 'Stitching' || ordersTypeFilter === 'Maggam') return false;
     const closed = ['COMPLETED', 'CANCELLED'].includes(alt.status);
     if (ordersFilterTab === 'Active' && closed) return false;
     if (ordersFilterTab === 'Shipped') return false;
@@ -1990,6 +1994,9 @@ function App() {
   };
 
   const orderMatchesFilters = (order) => {
+    if (ordersTypeFilter === 'Alteration') return false;
+    if (ordersTypeFilter === 'Maggam' && order.flow !== 'maggam') return false;
+    if (ordersTypeFilter === 'Stitching' && order.flow === 'maggam') return false;
     if (ordersFilterTab === 'Active') {
       if (['Shipped', 'Delivered'].includes(order.order_status)) return false;
     } else if (ordersFilterTab === 'Shipped') {
@@ -2024,7 +2031,8 @@ function App() {
   const [activeReviewStage, setActiveReviewStage] = useState(null);
   const [activeReviewOrder, setActiveReviewOrder] = useState(null);
   const [stageReviewComments, setStageReviewComments] = useState('');
-  const [stageReviewImage, setStageReviewImage] = useState(null);
+  // Up to five photographs of the work, going up with the transition.
+  const [stageReviewImages, setStageReviewImages] = useState([]);
   const [selectedStageObj, setSelectedStageObj] = useState(null);
   const [selectedPerformerId, setSelectedPerformerId] = useState('');
   const [stageTransitionBusy, setStageTransitionBusy] = useState(false);
@@ -3000,7 +3008,10 @@ function App() {
     ['border', 'Border', (v) => v.border === 'with_border'],
     ['fall', 'Fall', (v) => ['fall', 'fall_pico'].some(s => (v.services || []).includes(s))],
     ['pico', 'Pico', (v) => ['pico', 'fall_pico'].some(s => (v.services || []).includes(s))],
+    ['hand_work', 'Maggam / hand work', (v) => Boolean(v.hand_work) && v.hand_work !== 'none'],
   ];
+  // Any garment asking for hand work puts the order on the maggam path.
+  const isMaggamOrder = () => garmentJobs.some(j => j.values?.hand_work && j.values.hand_work !== 'none');
   const jobExtras = (job) => EXTRA_CHARGES.filter(([, , applies]) => applies(job.values || {}));
   const jobSubtotal = (job) =>
     PRICING_FIELDS.reduce((sum, [key]) => sum + parseFloat(job.pricing?.[key] || 0), 0)
@@ -3219,8 +3230,10 @@ function App() {
     const config = boutiqueSettings?.workflow_config || [];
     const status = Object.fromEntries(
       (order.stages || []).map(s => [s.stage_key, s.status]));
+    // Only the stages this order carries: a plain stitching order has no
+    // embroidery stage to be "not started" on.
     return config.find(
-      s => !['COMPLETED', 'SKIPPED'].includes(status[s.key] || 'NOT_STARTED')) || null;
+      s => s.key in status && !['COMPLETED', 'SKIPPED'].includes(status[s.key])) || null;
   };
 
   const isMyAssignment = (order) => {
@@ -3294,7 +3307,7 @@ function App() {
     setActiveReviewOrder(order);
     setSelectedStageObj(stage);
     setStageReviewComments(stage.comments || '');
-    setStageReviewImage(null);
+    setStageReviewImages([]);
   };
 
   // The directory list returns flat rows without orders or measurement history,
@@ -5013,6 +5026,30 @@ function App() {
                             👑 {t('ordersPage.masterVerified', 'Master Verified:')} {verified}/{verifyTotal} ({Math.round((verified / verifyTotal) * 100)}%)
                           </span>
                         )}
+                        {order.flow && order.flow !== 'legacy' && (() => {
+                          // Which path through the workroom. Switchable by the
+                          // owner or Master until cutting or anything after it
+                          // has begun -- the server refuses it past that.
+                          const shared = new Set(['created', 'measurements_completed', 'fabric_confirmed']);
+                          const canSwitch = (currentUser?.role === 'Owner' || currentUser?.role === 'Master')
+                            && !(order.stages || []).some(st => !shared.has(st.stage_key) && st.status !== 'NOT_STARTED');
+                          const label = order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
+                          return canSwitch ? (
+                            <label className={`ui-badge ${order.flow === 'maggam' ? 'ui-badge--warning' : 'ui-badge--neutral'}`} style={{ cursor: 'pointer', gap: '4px' }} title="Change how this order is made">
+                              <select value={order.flow} aria-label="Order path"
+                                      style={{ background: 'transparent', border: 'none', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
+                                      onChange={async (e) => {
+                                        try { await api.setOrderFlow(order.id, e.target.value); fetchDashboardAndConfig(); }
+                                        catch (err) { alert(err.message); }
+                                      }}>
+                                <option value="stitching">{t('ordersPage.flowStitching', 'Stitching order')}</option>
+                                <option value="maggam">{t('ordersPage.flowMaggam', 'Maggam order')}</option>
+                              </select>
+                            </label>
+                          ) : (
+                            <span className={`ui-badge ${order.flow === 'maggam' ? 'ui-badge--warning' : 'ui-badge--neutral'}`}>{label}</span>
+                          );
+                        })()}
                       </div>
                       <div className="od-meta">
                         <span><User size={14} />{t('ordersPage.client', 'Client:')} <strong>{order.customer_name}</strong></span>
@@ -5365,6 +5402,13 @@ function App() {
                         {/* Narrow by who it is for, what it is, and where it stands;
                             the list and the board read the same filter. */}
                         <div className="at-toolbar-filters">
+                          <select className="form-control at-filter" value={ordersTypeFilter} aria-label="Order type"
+                                  onChange={(e) => setOrdersTypeFilter(e.target.value)}>
+                            <option value="All">{t('ordersPage.allTypes', 'All types')}</option>
+                            <option value="Stitching">{t('ordersPage.typeStitching', 'Stitching')}</option>
+                            <option value="Maggam">{t('ordersPage.typeMaggam', 'Maggam')}</option>
+                            <option value="Alteration">{t('ordersPage.typeAlteration', 'Alterations')}</option>
+                          </select>
                           <select className="form-control at-filter" value={ordersTierFilter} aria-label="Customer type"
                                   onChange={(e) => setOrdersTierFilter(e.target.value)}>
                             <option value="All">{t('ordersPage.allCustomerTypes', 'All customer types')}</option>
@@ -5501,7 +5545,7 @@ function App() {
                         <React.Fragment key={order.id}>
                         <tr>
                           <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
-                          <td>Stitching</td>
+                          <td>{order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td>{order.customer_name}</td>
                           <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
                           <td>
@@ -7632,7 +7676,14 @@ function App() {
                   ))}
 
                   {card(t('wizard.step.what', 'Garments'), stepOf('what'), (
-                    <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: job.template, values: job.values || {} }))} />
+                    <>
+                      <div className={`ui-badge ${isMaggamOrder() ? 'ui-badge--warning' : 'ui-badge--neutral'}`} style={{ marginBottom: '10px' }}>
+                        {isMaggamOrder()
+                          ? t('wizard.maggamPath', 'Maggam order — goes through paper cutting, embroidery and its verification before the fabric is cut')
+                          : t('wizard.stitchingPath', 'Plain stitching order — cut, then stitch')}
+                      </div>
+                      <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: job.template, values: job.values || {} }))} />
+                    </>
                   ))}
 
                   {groups.length > 0 && card(t('wizard.reviewPhotos', 'Photos & references'), stepOf('what'), (
@@ -8234,7 +8285,7 @@ function App() {
               stage.stage_key,
               status,
               comments,
-              stageReviewImage ? [stageReviewImage] : [],
+              stageReviewImages,
               selectedPerformerId || null
             );
             alert(okMessage);
@@ -8278,10 +8329,10 @@ function App() {
                     <Check size={16} /> Mark completed
                   </button>
                 ) : (
-                  <button className="btn-primary" disabled={stageTransitionBusy || !stageReviewImage}
-                          title={stageReviewImage ? '' : 'Upload a photo of the work first'}
-                          onClick={() => transition('PENDING_VERIFICATION', 'Marked done. The owner or Master will confirm it.')}>
-                    <Check size={16} /> Mark completed
+                  <button className="btn-primary" disabled={stageTransitionBusy || stageReviewImages.length === 0}
+                          title={stageReviewImages.length ? '' : 'Upload a photo of the work first'}
+                          onClick={() => transition('PENDING_VERIFICATION', 'Sent for verification. The owner or Master will confirm it.')}>
+                    <Check size={16} /> Submit for verification
                   </button>
                 ))}
                 {stage.status === 'PENDING_VERIFICATION' && (isSupervisor ? (
@@ -8425,7 +8476,7 @@ function App() {
             {/* What the cutting table actually took from each roll. Recorded
                 here, at the stage it happens, by the people standing at it;
                 Stitching Completed only mops up lines nobody recorded. */}
-            {stage?.stage_key === 'pattern_cutting'
+            {(stage?.stage_key === 'pattern_cutting' || stage?.stage_key === 'fabric_cutting')
               && (currentUser?.role === 'Owner' || currentUser?.role === 'Master') && (
               <FormSection icon={Scissors} tone="green" title="Fabric used at cutting"
                            subtitle="Metres cut from each roll, and the offcuts. Stock and the order's material cost follow from this.">
@@ -8538,17 +8589,26 @@ function App() {
                   />
                 </Field>
                 <div className="at-field">
-                  <span className="at-field-label">Upload Progress Photo</span>
-                  {stageReviewImage ? (
-                    <div className="at-photos">
-                      <PhotoTile src={URL.createObjectURL(stageReviewImage)} size={88}
-                                 onRemove={() => setStageReviewImage(null)} />
+                  <span className="at-field-label">
+                    Upload Progress Photos <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(up to 5)</span>
+                  </span>
+                  {stageReviewImages.length > 0 && (
+                    <div className="at-photos" style={{ marginBottom: '8px' }}>
+                      {stageReviewImages.map((file, i) => (
+                        <PhotoTile key={`${file.name}-${i}`} src={URL.createObjectURL(file)} size={88}
+                                   onRemove={() => setStageReviewImages(prev => prev.filter((_, n) => n !== i))} />
+                      ))}
                     </div>
-                  ) : (
-                    <Dropzone compact
-                              title="Drag & drop an image here" subtitle="or choose from your device"
-                              chooseLabel="Add photo"
-                              onFiles={(files) => setStageReviewImage(files[0])} />
+                  )}
+                  {stageReviewImages.length < 5 && (
+                    <Dropzone compact multiple
+                              title="Drag & drop images here" subtitle="or choose from your device — several at once"
+                              chooseLabel={stageReviewImages.length ? 'Add more' : 'Add photos'}
+                              onFiles={(files) => setStageReviewImages(prev => {
+                                const room = 5 - prev.length;
+                                if (files.length > room) alert(`Up to 5 photos. Only ${room} more ${room === 1 ? 'was' : 'were'} added.`);
+                                return [...prev, ...files.slice(0, room)];
+                              })} />
                   )}
                 </div>
               </div>

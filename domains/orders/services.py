@@ -247,10 +247,11 @@ class OrderService:
             amount_paid=amount_paid,
             current_stage_key='measurements_completed' if has_measurements else 'created',
             production_status='IN_PROGRESS',
-            invoice_template=data.get('invoice_template') or boutique_template
+            invoice_template=data.get('invoice_template') or boutique_template,
+            flow=data.get('flow') if data.get('flow') in ('stitching', 'maggam') else 'stitching',
         )
 
-        workflow_stages = config.workflow_config
+        workflow_stages = workflow.stages_for_flow(config.workflow_config, order.flow)
         from django.utils import timezone
 
         stages_to_create = []
@@ -286,16 +287,20 @@ class OrderService:
         from apps.production.models import ProductionTask
         from apps.activities.models import UniversalActivity
 
+        # One task per workroom stage the order has, named for the stage, so
+        # a maggam order's task list is the maggam path and a plain one's is
+        # not padded with embroidery it will never do.
+        tailor_stages = {'stitching_in_progress', 'stitching_completed', 'finishing'}
         tasks_to_create = [
-            ProductionTask(order=order, title="Verify Measurements & Requirements", stage_key="measurements_completed", assigned_to=master or tailor, sequence=1, priority="HIGH"),
-            ProductionTask(order=order, title="Fabric & Lining Selection Approval", stage_key="fabric_confirmed", assigned_to=master or tailor, sequence=2, priority="MEDIUM"),
-            ProductionTask(order=order, title="Pattern Cutting & Drafting", stage_key="pattern_cutting", assigned_to=master or tailor, sequence=3, priority="HIGH"),
-            ProductionTask(order=order, title="Garment Assembly & Stitching", stage_key="stitching_in_progress", assigned_to=tailor, sequence=4, priority="URGENT"),
-            ProductionTask(order=order, title="Hemming & Finishing", stage_key="finishing", assigned_to=tailor, sequence=5, priority="MEDIUM"),
-            ProductionTask(order=order, title="Pressing", stage_key="pressing", assigned_to=master or tailor, sequence=6, priority="MEDIUM"),
-            ProductionTask(order=order, title="Master Quality Control Inspection", stage_key="master_quality_check", assigned_to=master or tailor, sequence=7, priority="HIGH"),
-            ProductionTask(order=order, title="Customer Fitting Trial", stage_key="trial_scheduled", assigned_to=master or tailor, sequence=8, priority="MEDIUM"),
-            ProductionTask(order=order, title="Final Packaging & Dispatch Preparation", stage_key="ready_for_delivery", assigned_to=master or tailor, sequence=9, priority="MEDIUM"),
+            ProductionTask(
+                order=order, title=s_conf['name'], stage_key=s_conf['key'],
+                assigned_to=tailor if s_conf['key'] in tailor_stages else (master or tailor),
+                sequence=index,
+                priority='URGENT' if s_conf['key'] == 'stitching_in_progress'
+                         else 'HIGH' if s_conf['key'] in ('measurements_completed', 'pattern_cutting', 'fabric_cutting', 'maggam_work', 'master_quality_check')
+                         else 'MEDIUM')
+            for index, s_conf in enumerate(workflow_stages, start=1)
+            if s_conf['key'] not in ('created', 'delivered')
         ]
         ProductionTask.objects.bulk_create(tasks_to_create)
 
@@ -341,7 +346,7 @@ class OrderService:
             raise ValueError(f'Unknown stage "{stage_key}" for order {order.order_id}')
 
         config, _ = BoutiqueSettings.objects.get_or_create(id=1)
-        workflow_stages = config.workflow_config
+        workflow_stages = workflow.for_order(config.workflow_config, order)
 
         user_role = resolve_user_role(user)
         if user_role is None:
@@ -456,7 +461,10 @@ class OrderService:
             'measurements_completed': 'Confirmed',
             'fabric_confirmed': 'Confirmed',
             'pattern_cutting': 'Design & Creation',
+            'paper_cutting': 'Design & Creation',
             'maggam_work': 'Design & Creation',
+            'maggam_verification': 'Design & Creation',
+            'fabric_cutting': 'Design & Creation',
             'assigned_to_tailor': 'Design & Creation',
             'stitching_in_progress': 'Design & Creation',
             'stitching_completed': 'Quality Check',
@@ -553,7 +561,10 @@ CLIENT_STATUS_WHEN_SETTLED = {
     'measurements_completed': 'Confirmed',
     'fabric_confirmed': 'Confirmed',
     'pattern_cutting': 'Design & Creation',
+    'paper_cutting': 'Design & Creation',
     'maggam_work': 'Design & Creation',
+    'maggam_verification': 'Design & Creation',
+    'fabric_cutting': 'Design & Creation',
     'assigned_to_tailor': 'Design & Creation',
     'stitching_in_progress': 'Design & Creation',
     'stitching_completed': 'Quality Check',
@@ -609,7 +620,8 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
         raise workflow.TransitionError(
             f'Unknown stage "{stage_key}" for order {order.order_id}')
 
-    config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
+    config = workflow.for_order(
+        BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, order)
     role = resolve_user_role(user)
     if role is None:
         raise workflow.TransitionError('Sign in to update this order.')
@@ -673,7 +685,8 @@ def fail_quality_check(order, user, reason, request=None):
         raise PermissionError(
             f'Role {role} is not authorized to fail a quality check.')
 
-    config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
+    config = workflow.for_order(
+        BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, order)
     keys = [s['key'] for s in workflow.ordered_stages(config)]
     for needed in ('stitching_in_progress', 'master_quality_check'):
         if needed not in keys:
@@ -730,4 +743,62 @@ def fail_quality_check(order, user, reason, request=None):
             'role': role,
             'reopened_stages': band,
         })
+    return order
+
+
+#: Answers on a garment form that put the order on the maggam path.
+HAND_WORK_FIELD = 'hand_work'
+
+
+def flow_for_garments(garments):
+    """'maggam' when any garment on the order asks for hand work, else
+    'stitching'. `garments` are the wizard's garment payloads (spec dicts)."""
+    for g in garments or []:
+        spec = g.get('spec') or g.get('values') or {}
+        if (spec.get(HAND_WORK_FIELD) or 'none') != 'none':
+            return 'maggam'
+    return 'stitching'
+
+
+def set_order_flow(order, flow, user):
+    """The owner or Master moves an order onto the other path -- allowed only
+    while no cutting or later work has begun, because the two paths share
+    everything up to Fabric and nothing after it can be re-told."""
+    from crm_api.models import BoutiqueSettings
+    role = resolve_user_role(user)
+    if role != OWNER and role != 'Master':
+        raise PermissionError('Only the owner or the Master can change how an order is made.')
+    if flow not in ('stitching', 'maggam'):
+        raise workflow.TransitionError(f'Unknown flow "{flow}".')
+    if order.flow == flow:
+        return order
+    shared = {'created', 'measurements_completed', 'fabric_confirmed'}
+    begun = order.stages.exclude(stage_key__in=shared).exclude(status='NOT_STARTED')
+    if begun.exists():
+        names = ', '.join(begun.values_list('stage_name', flat=True))
+        raise workflow.TransitionError(
+            f'Work has already begun on this order ({names}), so its path can '
+            f'no longer be changed.')
+    config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
+    wanted = workflow.stages_for_flow(config, flow)
+    wanted_keys = [s['key'] for s in wanted]
+    with transaction.atomic():
+        order.stages.exclude(stage_key__in=wanted_keys).delete()
+        from apps.production.models import ProductionTask
+        ProductionTask.objects.filter(order=order).exclude(stage_key__in=wanted_keys).delete()
+        have = set(order.stages.values_list('stage_key', flat=True))
+        for index, s_conf in enumerate(wanted):
+            if s_conf['key'] in have:
+                order.stages.filter(stage_key=s_conf['key']).update(sequence=index)
+                continue
+            OrderStage.objects.create(
+                order=order, stage_key=s_conf['key'], stage_name=s_conf['name'],
+                status='NOT_STARTED', sequence=index, sla_hours=s_conf.get('sla_hours', 24))
+            if s_conf['key'] not in ('created', 'delivered'):
+                ProductionTask.objects.create(
+                    order=order, title=s_conf['name'], stage_key=s_conf['key'],
+                    assigned_to=order.master or order.tailor, sequence=index + 1, priority='MEDIUM')
+        order.flow = flow
+        order.save(update_fields=['flow'])
+        _log_reversal(order, 'FLOW_CHANGED', user, {'flow': flow, 'role': role})
     return order

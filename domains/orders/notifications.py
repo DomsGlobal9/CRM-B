@@ -171,12 +171,13 @@ def notify_next_stage_owners(order):
     from crm_api.models import BoutiqueSettings, Tailor
     from core.permissions import UNSETTLED_STATUSES
 
+    from domains.orders import workflow
     config, _ = BoutiqueSettings.objects.get_or_create(id=1)
     settled = dict(order.stages.values_list('stage_key', 'status'))
 
     live = next(
-        (s for s in (config.workflow_config or [])
-         if s.get('key') and settled.get(s['key'], 'NOT_STARTED') in UNSETTLED_STATUSES),
+        (s for s in workflow.for_order(config.workflow_config, order)
+         if settled.get(s['key'], 'NOT_STARTED') in UNSETTLED_STATUSES),
         None)
     if live is None:
         return

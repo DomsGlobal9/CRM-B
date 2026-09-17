@@ -106,6 +106,37 @@ def ordered_stages(config):
     return [s for s in (config or []) if s.get('key')]
 
 
+def stages_for_flow(config, flow):
+    """The stages an order on `flow` is built from. A stage that names no
+    `flows` is on every path; 'legacy' is the whole list, as it always was."""
+    if flow == 'legacy':
+        return ordered_stages(config)
+    return [s for s in ordered_stages(config)
+            if not s.get('flows') or flow in s['flows']]
+
+
+def for_order(config, order):
+    """The boutique's workflow as it applies to this one order: only the
+    stages the order actually has, in the configured order. Everything that
+    reasons about prerequisites or "what comes next" reads this, so a plain
+    stitching order is never blocked on an embroidery stage it does not carry.
+
+    A legacy order keeps maggam work optional -- that is the rule it was
+    placed under, and its rows may already say SKIPPED."""
+    # In the order's own sequence, not the config's: a legacy order was
+    # built when maggam sat after cutting, and its rows still say so.
+    declared = {s['key']: s for s in ordered_stages(config)}
+    out = []
+    for key in order.stages.order_by('sequence').values_list('stage_key', flat=True):
+        s = declared.get(key)
+        if s is None:
+            continue
+        if getattr(order, 'flow', 'legacy') == 'legacy' and key == 'maggam_work':
+            s = {**s, 'optional': True}
+        out.append(s)
+    return out
+
+
 def stage_position(config, stage_key):
 
     for index, stage in enumerate(ordered_stages(config)):

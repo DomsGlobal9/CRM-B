@@ -162,7 +162,7 @@ class RolePermission(ModuleAccess):
         'gather', 'line_photo',
         'assign_stage', 'upload_garment_image', 'delete_garment_image',
         'publish_garment_images',
-        'master_verification', 'review_photo',
+        'master_verification', 'review_photo', 'set_flow',
         # What the cutting table actually used, and what became offcuts, is
         # recorded by the Master standing at it.
         'consume',
