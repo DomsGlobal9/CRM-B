@@ -17,10 +17,17 @@ class BoutiqueTenant(TenantMixin):
         help_text="Unticked, this boutique cannot sign in or use the API. Its data is kept.",
     )
 
+    # The bundle this boutique is on (core.modules.PLANS). The column default
+    # is the largest so that boutiques from before plans existed (and every
+    # test fixture) keep the whole product; signup sets the smallest
+    # explicitly (crm_api/auth_views.py), which is where that decision belongs.
+    plan = models.CharField(max_length=20, default='atelier')
+
     enabled_modules = models.JSONField(
         default=dict, blank=True,
-        help_text="Module switches this boutique has had changed, as "
-                  "{module_key: true/false}. A module that is not listed is on.",
+        help_text="Overrides on top of the plan, as {module_key: true/false}: "
+                  "an add-on bought, or a module granted or withheld by hand. "
+                  "A module not listed follows the plan.",
     )
 
     # The look the platform has enabled for this boutique. Set from the

@@ -195,6 +195,23 @@ def check_registry_is_consistent(app_configs, **kwargs):
 
 
 @register()
+@register()
+def check_plans_are_consistent(app_configs, **kwargs):
+    from .modules import ADDONS, INFRASTRUCTURE, MODULES, PLANS, DEFAULT_PLAN
+    errors = []
+    for name, group in (('INFRASTRUCTURE', INFRASTRUCTURE), ('ADDONS', ADDONS)):
+        for key in sorted(group - set(MODULES)):
+            errors.append(Error(f'{name} names {key!r}, which is not in MODULES.', id='core.E011'))
+    for plan, (_label, modules) in PLANS.items():
+        for key in sorted(modules - set(MODULES)):
+            errors.append(Error(f'Plan {plan!r} includes {key!r}, which is not in MODULES.', id='core.E011'))
+        for key in sorted(modules & INFRASTRUCTURE):
+            errors.append(Error(f'Plan {plan!r} lists infrastructure module {key!r}; it is always on.', id='core.E011'))
+    if DEFAULT_PLAN not in PLANS:
+        errors.append(Error(f'DEFAULT_PLAN {DEFAULT_PLAN!r} is not in PLANS.', id='core.E011'))
+    return errors
+
+
 def check_production_roles_match_the_model(app_configs, **kwargs):
     """PRODUCTION_ROLES is a copy of Tailor.ROLE_CHOICES; keep it one.
 

@@ -216,7 +216,7 @@ def progress(tenant):
 
     tracked, gated = [], []
     for step in declared:
-        if step['module'] and not is_enabled(tenant.enabled_modules, step['module']):
+        if step['module'] and not is_enabled(tenant.plan, tenant.enabled_modules, step['module']):
             gated.append(_module_off(step))
         else:
             tracked.append(step)

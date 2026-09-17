@@ -22,21 +22,11 @@ import { Info, Lock, MonitorSmartphone, PackageSearch, ShieldCheck } from 'lucid
 import { consoleApi } from '../api';
 import { Async, Confirm, Empty, Pill, SearchBox, SectionHead, useApi, useToast } from '../ui';
 
-/**
- * core/modules.py is_enabled(), to the letter.
- *
- * An absent key is ON: a tenant row written before a module existed has no
- * opinion about it, and reading "no opinion" as "off" would switch a new module
- * off for every existing boutique at deploy time. A non-dict value is also ON --
- * the column is a JSONField editable by hand in the Django admin, and the server
- * degrades a malformed one to "no opinion" rather than 500ing. If this screen
- * drew it as OFF it would be lying about what the middleware will do.
- */
-function isEnabled(map, key) {
-  if (!map || typeof map !== 'object' || Array.isArray(map)) return true;
-  if (Object.keys(map).length === 0) return true;
-  return map[key] !== false;
-}
+/* The server sends each boutique's `entitled` list (plan + overrides, computed
+   in core/modules.py); this screen never re-derives it, so it cannot disagree
+   with the middleware about what is on. */
+const isOn = (row, key) => row.entitled.includes(key);
+const isOverride = (row, key) => row.enabled_modules && key in row.enabled_modules;
 
 // Twelve columns on a laptop, so the boutique name pins to the left instead of
 // scrolling out of sight and leaving a row of anonymous switches. Same problem
@@ -49,8 +39,8 @@ export default function Modules() {
   const [pending, setPending] = useState(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
-  // schema -> the map the server stored. The PATCH response is authoritative and
-  // merged server-side, so it replaces the fetched row without a second request.
+  // schema -> {plan, enabled_modules, entitled} as the server last answered.
+  // The PATCH response is authoritative, so it replaces the fetched row.
   const [stored, setStored] = useState({});
 
   const state = useApi(useCallback(() => consoleApi.modules(), []));
@@ -63,19 +53,31 @@ export default function Modules() {
     return list.filter((b) => `${b.name} ${b.schema_name}`.toLowerCase().includes(needle));
   }, [state.data, term]);
 
+  const remember = (schema, result) =>
+    setStored((map) => ({ ...map, [schema]: {
+      plan: result.plan, enabled_modules: result.enabled_modules, entitled: result.entitled } }));
+
+  const sellable = useMemo(
+    () => (state.data ? state.data.modules.filter((m) => m.gateable) : []), [state.data]);
+  const labelOf = (key) => state.data?.modules.find((m) => m.key === key)?.label || key;
+
   const apply = async (reason) => {
-    const { boutique, module, next } = pending;
+    const { boutique, module, plan, next } = pending;
     setBusy(true);
     try {
-      const result = await consoleApi.setModules(
-        boutique.schema_name, { [module.key]: next }, reason);
-      setStored((map) => ({ ...map, [boutique.schema_name]: result.enabled_modules }));
+      const body = plan ? { plan } : { [module.key]: next };
+      const result = plan
+        ? await consoleApi.setPlan(boutique.schema_name, plan, reason)
+        : await consoleApi.setModules(boutique.schema_name, body, reason);
+      remember(boutique.schema_name, result);
       // Kept on the page rather than only in a toast. The five-minute lag is the
       // part someone has to act on -- it is the difference between "it worked"
       // and "it worked in the worker that answered me" -- and a toast is gone
       // before they have finished reading the grid.
-      setNote([`${module.label} is now ${next ? 'on' : 'off'} for ${boutique.name}.`,
-               result.note].filter(Boolean).join(' '));
+      const what = plan
+        ? `${boutique.name} is now on ${planLabel(plan)}.`
+        : `${module.label} is now ${next === null ? 'following the plan' : next ? 'on' : 'off'} for ${boutique.name}.`;
+      setNote([what, result.note].filter(Boolean).join(' '));
       toast('Saved.');
     } catch (e) {
       toast(e.message, 'off');
@@ -84,6 +86,8 @@ export default function Modules() {
       setPending(null);
     }
   };
+
+  const planLabel = (key) => state.data?.plans.find((p) => p.key === key)?.label || key;
 
   return (
     <>
@@ -97,7 +101,7 @@ export default function Modules() {
           <>
             <SectionHead
               title="Features per boutique"
-              subtitle="Which parts of the product each boutique can use. Everything is on until you switch it off; the server enforces it, not just the menu."
+              subtitle="Each boutique's plan decides what it can use; add-ons and hand-set exceptions sit on top. The server enforces it, not just the menu."
             >
               <SearchBox value={term} onChange={setTerm} placeholder="Boutique name or schema…" />
             </SectionHead>
@@ -112,17 +116,18 @@ export default function Modules() {
                   <thead>
                     <tr>
                       <th style={PINNED}>Boutique</th>
-                      {data.modules.map((m) => (
+                      <th>Plan</th>
+                      {sellable.map((m) => (
                         <th key={m.key} title={m.description}>
                           {m.label}
-                          <div className="sa-schema">{m.prefixes.join(' ')}</div>
+                          <div className="sa-schema">{m.addon ? 'add-on' : m.group}</div>
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((b) => {
-                      const map = stored[b.schema_name] ?? b.enabled_modules;
+                      const row = stored[b.schema_name] ?? b;
                       return (
                         <tr key={b.schema_name}>
                           <td style={PINNED}>
@@ -133,18 +138,35 @@ export default function Modules() {
                                 reading as live. */}
                             {!b.is_active && <Pill value="suspended" />}
                           </td>
-                          {data.modules.map((m) => {
-                            const on = isEnabled(map, m.key);
+                          <td>
+                            <select className="sa-select" style={{ width: 110 }} value={row.plan}
+                              aria-label={`Plan for ${b.name}`}
+                              onChange={(e) => setPending({ boutique: b, plan: e.target.value })}>
+                              {data.plans.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+                            </select>
+                          </td>
+                          {sellable.map((m) => {
+                            const on = isOn(row, m.key);
+                            const override = isOverride(row, m.key);
                             return (
                               <td key={m.key}>
                                 <button
                                   className={`sa-btn${on ? '' : ' danger'}`}
                                   aria-pressed={on}
+                                  title={override ? 'Set by hand for this boutique, not by its plan' : `From the ${planLabel(row.plan)} plan`}
                                   aria-label={`${m.label} for ${b.name}: ${on ? 'on' : 'off'}`}
                                   onClick={() => setPending({ boutique: b, module: m, next: !on })}
                                 >
-                                  {on ? 'On' : 'Off'}
+                                  {on ? 'On' : 'Off'}{override ? ' *' : ''}
                                 </button>
+                                {override && (
+                                  <button className="sa-btn" style={{ marginLeft: 4 }}
+                                    title="Remove the hand-set value so this follows the plan again"
+                                    aria-label={`${m.label} for ${b.name}: follow plan`}
+                                    onClick={() => setPending({ boutique: b, module: m, next: null })}>
+                                    ↺
+                                  </button>
+                                )}
                               </td>
                             );
                           })}
@@ -153,8 +175,41 @@ export default function Modules() {
                     })}
                   </tbody>
                 </table>
+                <p className="sa-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+                  * set by hand for that boutique, overriding its plan. ↺ puts it back on the plan.
+                </p>
               </div>
             )}
+
+            <div style={{ marginTop: 32 }}>
+              <SectionHead title="What each plan includes"
+                subtitle="On top of orders, customers, invoices and reports, which every boutique has." />
+              <div className="sa-cards">
+                {data.plans.map((p) => (
+                  <div key={p.key} className="sa-card">
+                    <h4><PackageSearch size={14} /> {p.label}</h4>
+                    <p>{p.modules.map((k) => labelOf(k)).join(' · ')}</p>
+                  </div>
+                ))}
+                <div className="sa-card">
+                  <h4><PackageSearch size={14} /> Add-ons</h4>
+                  <p>{data.addons.map((k) => labelOf(k)).join(' · ')} — switched on per boutique with the * buttons above; included in {planLabel('atelier')}.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 32 }}>
+              <SectionHead title="Plumbing, always on"
+                subtitle="Parts every screen depends on. Not sold, not switchable: a switch here would break the product, not restrict it." />
+              <div className="sa-cards">
+                {data.modules.filter((m) => m.infrastructure).map((m) => (
+                  <div key={m.key} className="sa-card">
+                    <h4><ShieldCheck size={14} /> {m.label}</h4>
+                    <p>{m.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div style={{ marginTop: 32 }}>
               <SectionHead
@@ -210,17 +265,38 @@ export default function Modules() {
       <Confirm
         open={Boolean(pending)}
         busy={busy}
-        danger={pending ? !pending.next : false}
+        danger={pending ? pending.next === false : false}
         requireReason
-        title={pending
-          ? `Switch ${pending.module.label} ${pending.next ? 'on' : 'off'} for ${pending.boutique.name}?`
-          : ''}
-        confirmLabel={pending && pending.next ? 'Switch on' : 'Switch off'}
-        body={pending && (pending.next ? (
+        title={!pending ? '' : pending.plan
+          ? `Move ${pending.boutique.name} to ${planLabel(pending.plan)}?`
+          : pending.next === null
+            ? `Let ${pending.module.label} follow the plan for ${pending.boutique.name}?`
+            : `Switch ${pending.module.label} ${pending.next ? 'on' : 'off'} for ${pending.boutique.name}?`}
+        confirmLabel={!pending ? '' : pending.plan ? 'Change plan'
+          : pending.next === null ? 'Follow plan' : pending.next ? 'Switch on' : 'Switch off'}
+        body={pending && (pending.plan ? (
+          <>
+            <p>
+              <strong>{pending.boutique.name}</strong> gets everything in{' '}
+              <strong>{planLabel(pending.plan)}</strong>:{' '}
+              {(state.data?.plans.find((p) => p.key === pending.plan)?.modules || []).map(labelOf).join(', ')}.
+            </p>
+            <p style={{ marginTop: 8 }}>
+              Anything set by hand for this boutique (marked *) stays as it is. Screens for
+              modules the new plan lacks stop answering; nothing is deleted.
+            </p>
+          </>
+        ) : pending.next === null ? (
+          <p>
+            The hand-set value is removed and <strong>{pending.module.label}</strong> is whatever
+            the <strong>{planLabel((stored[pending.boutique.schema_name] ?? pending.boutique).plan)}</strong> plan says.
+          </p>
+        ) : pending.next ? (
           <>
             <p>
               <strong>{pending.boutique.name}</strong> can reach{' '}
-              <span className="sa-schema">{pending.module.prefixes.join(' ')}</span> again.
+              <span className="sa-schema">{pending.module.prefixes.join(' ')}</span>
+              {pending.module.addon ? ' — an add-on on top of their plan.' : ' again.'}
             </p>
             <p style={{ marginTop: 8 }}>{pending.module.description}</p>
           </>
@@ -241,8 +317,8 @@ export default function Modules() {
             </p>
           </>
         ))}
-        onCancel={() => setPending(null)}
         onConfirm={apply}
+        onCancel={() => setPending(null)}
       />
     </>
   );

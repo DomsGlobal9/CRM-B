@@ -46,7 +46,8 @@ def order_tracking(request, token):
     # drift about what "absent means enabled" means.
     if not tenant.is_active:
         raise Http404
-    if not is_enabled(getattr(tenant, 'enabled_modules', None), 'order_tracking'):
+    if not is_enabled(getattr(tenant, 'plan', None), getattr(tenant, 'enabled_modules', None),
+                      'order_tracking'):
         raise Http404
 
     with schema_context(schema_name):

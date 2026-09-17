@@ -789,7 +789,7 @@ class PayrollModuleGateTests(PayrollTestCase):
 
     def test_payroll_is_on_for_a_boutique_with_no_opinion(self):
         from core.modules import default_enabled, is_enabled
-        self.assertTrue(is_enabled({}, 'payroll'))
+        self.assertTrue(is_enabled('atelier', {}, 'payroll'))
         self.assertIs(default_enabled()['payroll'], True)
 
 

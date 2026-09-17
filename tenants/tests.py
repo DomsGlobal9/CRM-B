@@ -470,11 +470,11 @@ class ModuleGateTests(TransactionTestCase):
             self.assertEqual(client.get('/api/inventory/items/').status_code, 403)
             self.assertEqual(client.get('/api/inventory/catalog/items/').status_code, 200)
 
-            set_modules(tenant, {'inventory_catalog': False})
-            self.assertEqual(client.get('/api/inventory/items/').status_code, 200)
-            catalog = client.get('/api/inventory/catalog/items/')
-            self.assertEqual(catalog.status_code, 403)
-            self.assertEqual(catalog.json()['module'], 'inventory_catalog')
+            # The catalogue is infrastructure (the item form reads it), so even
+            # a stored False cannot switch it off -- and its parent stays off.
+            set_modules(tenant, {'inventory': False, 'inventory_catalog': False})
+            self.assertEqual(client.get('/api/inventory/items/').status_code, 403)
+            self.assertEqual(client.get('/api/inventory/catalog/items/').status_code, 200)
 
     def test_a_module_nobody_has_an_opinion_about_is_on(self):
         with temporary_tenant('mod_test_d', 'd@mod.test', 'Atelier D') as tenant:

@@ -160,6 +160,41 @@ MODULE_GROUP = {
     'alterations': 'operations',
 }
 
+#: Modules that exist for URL governance -- every prefix must belong to one --
+#: but are not features anybody buys or switches. The bell is on every screen,
+#: the order wizard reads garment templates, the inventory item form reads the
+#: purchasing catalogue, the production API has no screen, and the activity
+#: feed is role-gated already. They are always entitled; role distribution
+#: (Layer 2) still applies. Hidden from the console's switch list and from
+#: every plan, because a switch that breaks the product is not a control.
+INFRASTRUCTURE = frozenset({
+    'notifications', 'garment_catalog', 'inventory_catalog', 'production_api', 'activities',
+})
+
+#: Sold separately from the plan a boutique is on.
+ADDONS = frozenset({'whatsapp', 'email'})
+
+_STARTER = frozenset({'order_drafts', 'order_tracking', 'tailors'})
+_STUDIO = _STARTER | {'design_studio', 'scheduling', 'alterations', 'inventory'}
+_ATELIER = _STUDIO | {'staff', 'payroll', 'finance'} | ADDONS
+
+#: What each plan includes, on top of the structural product every boutique
+#: has (orders, customers, invoices, reports). A boutique's overrides
+#: (BoutiqueTenant.enabled_modules) sit on top: an add-on bought, or one
+#: module granted or withheld by hand.
+PLANS = {
+    'starter': ('Starter', _STARTER),
+    'studio': ('Studio', _STUDIO),
+    'atelier': ('Atelier', _ATELIER),
+}
+DEFAULT_PLAN = 'starter'
+
+
+def plan_modules(plan):
+    # An unknown or blank plan is the smallest one, never everything.
+    return PLANS.get(plan, PLANS[DEFAULT_PLAN])[1]
+
+
 STRUCTURAL = {
     'orders': (
         'Orders',
@@ -303,12 +338,16 @@ def role_allows(role_modules, role, key):
     return key in ROLE_DEFAULTS.get(role, _TAILOR)
 
 
-def effective_modules(enabled_modules, role_modules, role):
+def effective_modules(plan, overrides, role_modules, role):
     """entitled(boutique) AND allowed(role). Layer 1 wins."""
     return sorted(
         key for key in MODULES
-        if is_enabled(enabled_modules, key) and role_allows(role_modules, role, key)
+        if is_enabled(plan, overrides, key) and role_allows(role_modules, role, key)
     )
+
+
+def entitled_modules(plan, overrides):
+    return sorted(key for key in MODULES if is_enabled(plan, overrides, key))
 
 
 _ORDERED = sorted(
@@ -341,10 +380,18 @@ def default_enabled():
     return {key: True for key in MODULES}
 
 
-def is_enabled(enabled_modules, key):
-    if not isinstance(enabled_modules, dict) or not enabled_modules:
+def is_enabled(plan, overrides, key):
+    """Layer 1: is this boutique entitled to the module?
+
+    Plan first, then the boutique's own overrides on top. Infrastructure is
+    always on. `overrides` arrives from JSON written by an API and may be
+    anything; a malformed value reads as "no overrides", never raises.
+    """
+    if key in INFRASTRUCTURE:
         return True
-    return enabled_modules.get(key, True) is not False
+    if isinstance(overrides, dict) and key in overrides:
+        return overrides[key] is not False
+    return key in plan_modules(plan)
 
 
 def catalogue():
@@ -354,9 +401,14 @@ def catalogue():
         # working untouched if they ignore it.
         'modules': [
             {'key': key, 'label': label, 'prefixes': list(prefixes), 'description': description,
-             'gateable': True, 'group': MODULE_GROUP.get(key)}
+             'gateable': key not in INFRASTRUCTURE, 'infrastructure': key in INFRASTRUCTURE,
+             'addon': key in ADDONS, 'group': MODULE_GROUP.get(key)}
             for key, (label, prefixes, description) in MODULES.items()
         ],
+        'plans': [{'key': key, 'label': label, 'modules': sorted(modules)}
+                  for key, (label, modules) in PLANS.items()],
+        'addons': sorted(ADDONS),
+        'default_plan': DEFAULT_PLAN,
         'groups': dict(GROUPS),
         'structural': [
             {'key': key, 'label': label, 'reason': reason, 'gateable': False}

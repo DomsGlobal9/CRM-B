@@ -1188,11 +1188,11 @@ class BoutiqueSettingsViewSet(viewsets.ViewSet):
         # while the middleware is already refusing it.
         from tenants.models import BoutiqueTenant
         tenant = getattr(request, 'tenant', None)
-        entitlement = {} if tenant is None else (
-            BoutiqueTenant.objects.filter(pk=tenant.pk)
-            .values_list('enabled_modules', flat=True).first() or {})
+        row = (BoutiqueTenant.objects.filter(pk=tenant.pk).values('plan', 'enabled_modules').first()
+               if tenant is not None else None) or {'plan': None, 'enabled_modules': {}}
+        plan, overrides = row['plan'], row['enabled_modules'] or {}
 
-        entitled = [key for key in MODULES if is_enabled(entitlement, key)]
+        entitled = [key for key in MODULES if is_enabled(plan, overrides, key)]
         # Same healing on the read side: a GET against a corrupt column reports
         # "no decisions" rather than handing the screen a JSON list to render.
         stored = config.role_modules if isinstance(config.role_modules, dict) else {}
@@ -1208,7 +1208,8 @@ class BoutiqueSettingsViewSet(viewsets.ViewSet):
                         for key in MODULES],
             'entitled': entitled,
             'role_modules': stored,
-            'effective': {role: effective_modules(entitlement, stored, role)
+            'plan': plan,
+            'effective': {role: effective_modules(plan, overrides, stored, role)
                           for role in ALL_ROLES},
         })
 
