@@ -205,6 +205,9 @@ PRODUCT_MODULES = {
     'try_on': ('Try-On',
                'Virtual try-on. Not built yet; listed so the plan it will belong to is decided now.',
                ()),
+    'marketing': ('Marketing',
+                  'Campaigns, promotions and customer outreach. Not built yet.',
+                  ()),
 }
 
 

@@ -67,7 +67,7 @@ export default function Modules() {
 
   const moduleState = (row, mod) => {
     const on = mod.features.filter((k) => row.entitled.includes(k)).length;
-    if (!mod.features.length) return 'not built';
+    if (!mod.features.length) return 'coming soon';
     if (on === 0) return 'off';
     return on === mod.features.length ? 'on' : 'partly';
   };
@@ -117,7 +117,7 @@ export default function Modules() {
           <>
             <SectionHead
               title="Features per boutique"
-              subtitle="Modules per boutique — CRM, Design Studio, Inventory, Team Management, Finance, Try-On. The plan sets them; open a module to switch its features one by one. The server enforces it, not just the menu."
+              subtitle="Modules per boutique — CRM, Design Studio, Inventory, Team Management, Finance, Try-On, Marketing. The plan sets them; open a module to switch its features one by one. The server enforces it, not just the menu."
             >
               <SearchBox value={term} onChange={setTerm} placeholder="Boutique name or schema…" />
             </SectionHead>
@@ -137,7 +137,7 @@ export default function Modules() {
                         <th key={mod.key} title={mod.description}>
                           {mod.label}
                           <div className="sa-schema">
-                            {mod.features.length ? `${mod.features.length} feature${mod.features.length === 1 ? '' : 's'}` : 'not built'}
+                            {mod.features.length ? `${mod.features.length} feature${mod.features.length === 1 ? '' : 's'}` : 'coming soon'}
                           </div>
                         </th>
                       ))}
@@ -165,7 +165,7 @@ export default function Modules() {
                           </td>
                           {productModules.map((mod) => {
                             const st = moduleState(row, mod);
-                            const tone = { on: 'ok', partly: 'warn', off: 'off', 'not built': 'muted' }[st];
+                            const tone = { on: 'ok', partly: 'warn', off: 'off', 'coming soon': 'muted' }[st];
                             const overridden = mod.features.some((k) => isOverride(row, k));
                             return (
                               <td key={mod.key}>
