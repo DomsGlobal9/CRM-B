@@ -532,6 +532,15 @@ def start_alteration_work(alteration_request_id, *, task_id=None, performed_by=N
             task.started_at = timezone.now()
         task.completed_at = None
         task.save(update_fields=['status', 'started_at', 'completed_at', 'updated_at'])
+        # A forgotten check-in is opened from the task's own start stamp;
+        # see apps.staff.attendance.check_in_from_work. Never raises.
+        worker = task.assigned_to or getattr(performed_by, 'tailor_profile', None)
+        if worker is not None:
+            from apps.staff import attendance
+            attendance.check_in_from_work(
+                worker, user=_actor(performed_by),
+                started_at=task.started_at,
+                note=f'Auto check-in: started alteration {alteration.pk}')
 
     _safe_notify(notifications.work_started, alteration)
     return alteration

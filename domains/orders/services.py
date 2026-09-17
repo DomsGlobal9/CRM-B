@@ -403,11 +403,12 @@ class OrderService:
         elif user and user.is_authenticated and getattr(user, 'tailor_profile', None):
             order_stage.performed_by = user.tailor_profile
 
+        work_started_at = None
         if new_status == 'IN_PROGRESS' and old_status not in ('IN_PROGRESS', 'PENDING_VERIFICATION'):
-            order_stage.started_at = timezone.now()
+            order_stage.started_at = work_started_at = timezone.now()
         elif new_status == 'COMPLETED' and old_status != 'COMPLETED':
             if not order_stage.started_at:
-                order_stage.started_at = timezone.now()
+                order_stage.started_at = work_started_at = timezone.now()
             order_stage.completed_at = timezone.now()
             delta = order_stage.completed_at - order_stage.started_at
             order_stage.duration_seconds = int(delta.total_seconds())
@@ -424,6 +425,15 @@ class OrderService:
             order_stage.attachments = image_urls
 
         order_stage.save()
+
+        # Somebody who starts a task without having checked in gets a
+        # session opened from this very stamp (apps.staff.attendance). It
+        # never raises: the stage moves whatever attendance thinks.
+        if work_started_at is not None and order_stage.performed_by_id:
+            from apps.staff import attendance
+            attendance.check_in_from_work(
+                order_stage.performed_by, user=user, started_at=work_started_at,
+                note=f'Auto check-in: started {stage_key} on {order.order_id}')
 
         from apps.inventory import order_materials
         material_report = order_materials.sync_order_materials(
