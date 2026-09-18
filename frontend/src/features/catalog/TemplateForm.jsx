@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import { getSection, isVisible, pruneHidden } from '../../services/templates';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { CameraButton } from '../../components/ui/Atelier';
 
 /**
  * Renders one section of a garment template.
@@ -298,6 +299,9 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
         <>
           <input className="form-control" id={`tf-${field.key}`} type="file" accept="image/*"
                  multiple={field.is_repeatable} onChange={upload} />
+          <div style={{ marginTop: '6px' }}>
+            <CameraButton multiple={field.is_repeatable} onFiles={(files) => upload({ target: { files, value: '' } })} />
+          </div>
           {urls.length > 0 && (
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '8px' }}>
               {urls.map((url) => (

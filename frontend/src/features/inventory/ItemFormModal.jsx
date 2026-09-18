@@ -193,7 +193,7 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.photos', 'Photos')}</label>
-          <Dropzone compact multiple title="Drag & drop photos here" subtitle="or choose from your device"
+          <Dropzone compact multiple camera title="Drag & drop photos here" subtitle="or choose from your device"
                     chooseLabel="Add photos" onFiles={addPhotos} />
           {(form.image_urls || []).length > 0 && (
             <div className="at-photos" style={{ gap: '6px' }}>
