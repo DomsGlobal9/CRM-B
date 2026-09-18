@@ -3390,6 +3390,16 @@ function App() {
     setStageReviewRecording(false);
     setStageReviewImages([]);
     setStageReviewVoiceClip('');
+    // A verifier opening a submitted stage: the worker who sent it gets a
+    // "seen" tick and a notification. Only the first open counts, and only
+    // from someone who can verify -- the server enforces both; this just
+    // avoids a pointless round trip for everyone else.
+    const canVerify = !currentUser?.role || currentUser.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser.role);
+    if (stage.status === 'PENDING_VERIFICATION' && !stage.verification_seen_at && canVerify) {
+      api.markStageSeen(order.id, stage.stage_key)
+        .then((seen) => setSelectedStageObj((prev) => (prev && prev.stage_key === seen.stage_key ? { ...prev, ...seen } : prev)))
+        .catch(() => {});
+    }
   };
 
   // The directory list returns flat rows without orders or measurement history,
@@ -8626,6 +8636,12 @@ function App() {
               <InfoNote icon={Clock} tone="warning" title="Pending verification">
                 {stage.performed_by_name || 'The worker'} has submitted this stage. Check the photos below
                 {isSupervisor ? ', then verify it or send it back.' : '. The owner or Master will verify it.'}
+                {stage.verification_seen_at && (
+                  <div className="od-hint" style={{ marginTop: '6px' }}>
+                    <Eye size={12} style={{ verticalAlign: '-2px', marginRight: '4px' }} />
+                    Seen by {stage.verification_seen_by || 'the verifier'} · {new Date(stage.verification_seen_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+                  </div>
+                )}
               </InfoNote>
             )}
             {stage && (stage.comments || stage.voice_note) && (

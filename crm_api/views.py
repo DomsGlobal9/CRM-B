@@ -799,6 +799,42 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         return Response(OrderSerializer(order, context={'request': request}).data)
 
+    @action(detail=True, methods=['POST'], url_path='stage-seen')
+    def stage_seen(self, request, pk=None):
+        """A verifier opened a submitted stage: tick it and tell the worker.
+
+        First open only -- a Master glancing at the same piece three times is
+        one "seen", not three pings. Only a stage that is actually waiting, and
+        only from someone who can verify it: a tailor opening their own
+        submission is not it being seen. Idempotent, so the frontend can call
+        it on every open without thinking.
+        """
+        order = self.get_object()
+        stage = order.stages.filter(stage_key=request.data.get('stage_key')).first()
+        if stage is None:
+            return Response({'error': 'Unknown stage.'}, status=status.HTTP_404_NOT_FOUND)
+        role = resolve_user_role(request.user)
+        if stage.status != 'PENDING_VERIFICATION' or role not in (OWNER, *SUPERVISOR_ROLES):
+            return Response(OrderStageSerializer(stage).data)
+        if stage.verification_seen_at is None:
+            viewer = request.user.get_full_name() or request.user.username
+            profile = getattr(request.user, 'tailor_profile', None)
+            if profile is not None:
+                viewer = profile.name
+            stage.verification_seen_by = viewer
+            stage.verification_seen_at = timezone.now()
+            stage.save(update_fields=['verification_seen_by', 'verification_seen_at'])
+            worker = stage.performed_by
+            if worker is not None:
+                Notification.objects.create(
+                    recipient_role=worker.role,
+                    recipient_email=worker.email or (worker.user.email if worker.user_id else ''),
+                    title=f"{viewer} opened your {stage.stage_name} submission",
+                    message=f"{viewer} has opened {stage.stage_name} on order {order.reference} "
+                            f"for verification.",
+                )
+        return Response(OrderStageSerializer(stage).data)
+
     @action(detail=True, methods=['POST'], url_path='assign-stage')
     def assign_stage(self, request, pk=None):
         order = self.get_object()

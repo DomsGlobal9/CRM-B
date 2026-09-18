@@ -365,6 +365,12 @@ class OrderStage(models.Model):
     # The recording behind `comments` when they were dictated -- same idea as
     # Order.instructions_voice_note. Empty when the note was typed.
     voice_note = models.URLField(max_length=500, blank=True, default='')
+    # The "seen" tick on a submission: who first opened this stage while it
+    # was waiting for verification, and when. Cleared on every new submission,
+    # so a resubmitted piece of work gets its own tick. Read by the worker who
+    # sent it, the way a message shows it has been read.
+    verification_seen_by = models.CharField(max_length=150, blank=True, default='')
+    verification_seen_at = models.DateTimeField(null=True, blank=True)
     attachments = models.JSONField(default=list, blank=True) # list of image URLs
     # A supervisor's verdict on individual attachments, keyed by URL:
     # {url: {'status': 'REJECTED', 'remark': ..., 'by': ..., 'at': ...}}.

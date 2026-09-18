@@ -426,6 +426,9 @@ class OrderService:
 
         old_status = order_stage.status
         order_stage.status = new_status
+        if new_status == 'PENDING_VERIFICATION' and old_status != 'PENDING_VERIFICATION':
+            order_stage.verification_seen_by = ''
+            order_stage.verification_seen_at = None
         # A new note, spoken or typed, replaces the whole of the old one: a
         # recording left next to text it no longer matches (or the other way
         # round) would mislead the tailor who listens instead of reading. The
