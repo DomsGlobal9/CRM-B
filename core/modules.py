@@ -35,8 +35,9 @@ MODULES = {
     'design_discovery': (
         'Design search',
         ('/api/design-studio/discover/', '/api/design-studio/web-search/',
-         '/api/design-studio/web-keep/', '/api/design-studio/context/'),
-        'AI-assisted discovery and web search for reference designs.',
+         '/api/design-studio/web-keep/', '/api/design-studio/context/',
+         '/api/design-studio/preview/'),
+        'AI-assisted discovery, web search and garment previews for reference designs.',
     ),
     'inventory_catalog': (
         'Purchasing Catalogue',

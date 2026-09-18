@@ -14,7 +14,9 @@ import {
 // loading flicker mid-form would be worse than its few KB.
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
+const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
+import { PartTabStrip } from './features/designStudio/GarmentPartTabs';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
 import { fabricMatchesColour } from './features/fabrics/colour';
@@ -223,7 +225,7 @@ const HeaderClock = () => {
 const ScreenLoading = () => (
   <div style={{ padding: '48px', textAlign: 'center', color: '#8a8a8a' }}>Loading...</div>
 );
-import { isVisible, splitSpec, validateSpec } from './services/templates';
+import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 
 // Mirrors core/permissions.py SUPERVISOR_ROLES. Roles that run the floor and
 // may hand work to someone else. A list rather than a bare === 'Master' check
@@ -1430,6 +1432,11 @@ function App() {
   // lehenga, its blouse and a dupatta, so this is a list, not a single value.
   const [garmentTemplates, setGarmentTemplates] = useState([]);
   const [garmentJobs, setGarmentJobs] = useState([]);
+  // Which garment's form is open on the Garments step. One at a time, in
+  // tabs: two garments stacked meant scrolling past the whole saree form to
+  // reach the blouse. Derived at render so a removed garment falls back to
+  // the first rather than leaving an empty step.
+  const [activeGarmentKey, setActiveGarmentKey] = useState(null);
   const [activePairingGarment, setActivePairingGarment] = useState(null);
   // The order being written lives on the server as an OrderDraft; this is a
   // cache of it. Refreshing, following the step-4 empty-state button, or
@@ -1541,12 +1548,13 @@ function App() {
     try {
       const template = await api.getGarmentTemplate(key);
       setGarmentJobs(prev => [...prev, {
-        key, template, values: {}, quantities: {}, sources: {}, brought: {},
+        key, template, values: withDefaults(template), quantities: {}, sources: {}, brought: {},
         pricing: { base: GARMENT_PRICES[template.name] || 15000, fabric: 0,
                    embroidery: 0, customization: 0, tailoring: 0 },
       }]);
       // Saree asks after its blouse and petticoat, lehenga after its choli
       // and dupatta. Paired adds skip the prompt so it cannot chain.
+      setActiveGarmentKey(key);
       if (!skipPairingPrompt && getGarmentPairConfig(key, template.name)) {
         setActivePairingGarment({ key, name: template.name });
       }
@@ -1691,6 +1699,8 @@ function App() {
       if (Object.keys(jobQuantityErrors).length) quantityErrors[job.key] = jobQuantityErrors;
     });
     setGarmentErrors(errors);
+    const failed = Object.keys({ ...errors, ...quantityErrors })[0];
+    if (failed) setActiveGarmentKey(failed);
     return Object.keys(errors).length === 0 && Object.keys(quantityErrors).length === 0;
   };
 
@@ -1815,7 +1825,7 @@ function App() {
         rebuilt.push({
           key: garment.key || garment.template_key,
           template,
-          values: garment.values || {},
+          values: withDefaults(template, garment.values),
           quantities: garment.quantities || {},
           sources: garment.sources || {},
           brought: garment.brought || {},
@@ -7374,7 +7384,33 @@ function App() {
                     removeGarment={removeGarment}
                   />
 
+                  {garmentJobs.length > 1 && (() => {
+                    const openKey = garmentJobs.some(j => j.key === activeGarmentKey) ? activeGarmentKey : garmentJobs[0].key;
+                    return (
+                      <div style={{ marginTop: '16px' }}>
+                        {/* A tick once every required question this step asks is
+                            answered -- the same check Next runs -- and a dot
+                            while Next has found something missing. */}
+                        <PartTabStrip allLabel={null} active={openKey} onChange={setActiveGarmentKey}
+                          parts={garmentJobs.map((job, idx) => {
+                            const complete = Object.keys(validateSpec(job.template, job.values, { sections: ['basic', 'style'] })).length === 0;
+                            return {
+                              key: job.key,
+                              label: (
+                                <>
+                                  {idx + 1}. {job.template?.name || job.key}
+                                  {complete && <Check size={13} style={{ marginLeft: '6px', color: 'var(--success-color, #16a34a)', verticalAlign: '-2px' }} />}
+                                  {!complete && garmentErrors[job.key] && <span style={{ marginLeft: '6px', color: 'var(--danger-color, #b91c1c)' }}>•</span>}
+                                </>
+                              ),
+                            };
+                          })} />
+                      </div>
+                    );
+                  })()}
                   {garmentJobs.map((job, idx) => {
+                    const openKey = garmentJobs.some(j => j.key === activeGarmentKey) ? activeGarmentKey : garmentJobs[0]?.key;
+                    if (job.key !== openKey) return null;
                     const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
                     // Ready by (the Money screen) owns the delivery date; asking it
                     // per garment here would only be overwritten. Fields a rule
@@ -7731,6 +7767,16 @@ function App() {
                       ))}
                     </div>
                   ))}
+                  {/* The garment drawn on a model, from the designs and rolls
+                      above. Renders nothing where the vendor is not set up or
+                      no garment has a design. The photograph lands on
+                      job.design.preview and confirms with the rest. */}
+                  <Suspense fallback={null}>
+                    <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
+                      onPreview={(jobKey, url) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                        ? { ...j, design: { ...(j.design || {}), preview: url } } : j))}
+                      onView={(url, label) => setReviewView({ items: [{ key: 'preview', image_url: url, label }], index: 0 })} />
+                  </Suspense>
                   {reviewView && (
                     <Suspense fallback={null}>
                       <ReviewLightbox items={reviewView.items} index={reviewView.index}

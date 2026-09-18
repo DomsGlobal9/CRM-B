@@ -405,6 +405,11 @@ DESIGN_DISCOVERY_URL = os.environ.get(
     'DESIGN_DISCOVERY_URL',
     'https://api-super-admin.onrender.com/api/gateway/cat/api/v1/discovery/search')
 DESIGN_DISCOVERY_API_KEY = os.environ.get('DESIGN_DISCOVERY_API_KEY', '')
+# Design Studio generation (apps/design_studio/generate.py): the same gateway
+# and key, one prefix over. Off whenever the key is unset.
+DESIGN_STUDIO_URL = os.environ.get(
+    'DESIGN_STUDIO_URL',
+    'https://api-super-admin.onrender.com/api/gateway/cat/api/v1/designstudio')
 DESIGN_STUDIO_GOOGLE_API_KEY = os.environ.get('DESIGN_STUDIO_GOOGLE_API_KEY', '')
 
 UPSTASH_REDIS_REST_URL = os.environ.get(

@@ -2071,7 +2071,7 @@ class FlowTests(WorkflowTestBase):
     def test_hand_work_on_any_garment_picks_the_maggam_flow(self):
         from domains.orders.services import flow_for_garments
         self.assertEqual(flow_for_garments([{"spec": {"hand_work": "none"}}]), "stitching")
-        self.assertEqual(flow_for_garments([{"spec": {}}, {"spec": {"hand_work": "zardozi"}}]), "maggam")
+        self.assertEqual(flow_for_garments([{"spec": {}}, {"spec": {"hand_work": "with_work"}}]), "maggam")
         self.assertEqual(flow_for_garments([]), "stitching")
 
     def test_owner_switches_the_path_until_work_begins(self):

@@ -112,8 +112,10 @@ export default function VoiceTextarea({ value, defaultValue, onChange, style, on
   );
   if (!supported) return textarea;
 
+  // Classed so a bordered wrapper (.at-field-control) can treat this as the
+  // control itself rather than a box inside it -- see index.css.
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="voice-textarea" style={{ position: 'relative' }}>
       {textarea}
       <button type="button" onClick={start}
               title={listening ? 'Stop listening' : 'Speak instead of typing'}

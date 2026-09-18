@@ -1225,6 +1225,21 @@ export const api = {
     if (!res.ok) throw new Error(data.error || describeApiError(res, data) || 'Could not keep that picture.');
     return data;
   },
+  // Garment preview: the vendor draws the garment the wizard put together,
+  // on a model. 30-95 s live; the server waits it out and answers a URL.
+  async garmentPreviewAvailable() {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/preview/`, { headers: getHeaders() });
+    if (!res.ok) return false;
+    return !!(await res.json()).available;
+  },
+  async generateGarmentPreview(payload) {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/preview/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data) || 'The preview could not be made.');
+    return data;
+  },
   async uploadReferenceImage(file) {
     const body = new FormData();
     body.append('image', file);

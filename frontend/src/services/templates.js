@@ -71,6 +71,20 @@ export function pruneHidden(template, values) {
 }
 
 /** Returns {field_key: message}; empty when the spec is good. */
+/** The template's declared defaults under the values already answered.
+ *  A required question with a default (hand work: "Without Work") is then
+ *  answered the moment the garment is added, and a draft written before the
+ *  question existed resumes with it answered too. */
+export function withDefaults(template, values = {}) {
+  const out = { ...values };
+  (template?.sections || []).forEach((section) => section.fields.forEach((field) => {
+    if (field.default != null && (out[field.key] === undefined || out[field.key] === null || out[field.key] === '')) {
+      out[field.key] = field.default;
+    }
+  }));
+  return out;
+}
+
 export function validateSpec(template, values, { partial = false, sections = null } = {}) {
   const errors = {};
 
