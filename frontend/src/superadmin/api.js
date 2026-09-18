@@ -150,8 +150,12 @@ export const consoleApi = {
   onboardingFor: (schema) => request(`/onboarding/${schema}/`),
 
   modules: () => request('/modules/'),
+  // `modules` values: true / false set an override, null removes one so the
+  // module follows the plan again.
   setModules: (schema, modules, reason = '') =>
     request(`/boutiques/${schema}/modules/`, { method: 'PATCH', body: { modules, reason } }),
+  setPlan: (schema, plan, reason = '') =>
+    request(`/boutiques/${schema}/modules/`, { method: 'PATCH', body: { plan, reason } }),
   setAppearance: (schema, body) =>
     request(`/boutiques/${schema}/appearance/`, { method: 'PATCH', body }),
 
@@ -172,6 +176,7 @@ export const consoleApi = {
   updateError: (id, body) => request(`/errors/${id}/`, { method: 'PATCH', body }),
 
   audit: (filters = {}) => request(`/audit/?${qs(filters)}`),
+  signins: () => request('/signins/'),
 
   ordersMonitor: () => request('/orders/'),
   ordersFor: (schema) => request(`/orders/${schema}/`),

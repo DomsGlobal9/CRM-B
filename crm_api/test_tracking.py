@@ -112,7 +112,7 @@ class TrackingPageTests(TrackingTestBase):
         self.assertIn(self.order.reference, body)
         self.assertIn("Meera Couture", body)
         self.assertIn("Anita", body)
-        self.assertIn("Created", body)
+        self.assertIn("Order taken", body)
         self.assertNotIn("{#", body)
         self.assertNotIn("{%", body)
 

@@ -35,18 +35,20 @@ import { Async, Pill, SectionHead, useApi } from '../ui';
  * derived below from the provider code instead of invented.
  */
 const SEAMS = [
-  { key: 'email', label: 'Outbound email', check: 'email', credential: 'email_host',
+  { key: 'email', label: 'Email sending', check: 'email', credential: 'email_host',
     credentialLabel: 'EMAIL_HOST' },
-  { key: 'supabase_storage', label: 'Supabase storage', check: 'supabase_storage',
-    credential: 'supabase', credentialLabel: 'SUPABASE_URL + SUPABASE_KEY' },
-  { key: 'whatsapp', label: 'Customer messaging (WhatsApp)', check: 'whatsapp',
+  { key: 'media_storage', label: 'Photo storage (Cloudinary)', check: 'media_storage',
+    credential: 'cloudinary', credentialLabel: 'CLOUDINARY_URL' },
+  { key: 'backups', label: 'Database backups', check: 'backups', credential: null },
+  { key: 'guardian', label: 'Watchdog alerts (WhatsApp)', check: 'guardian', credential: null },
+  { key: 'whatsapp', label: 'Customer WhatsApp messages', check: 'whatsapp',
     credential: 'customer_message_backend', credentialLabel: 'CUSTOMER_MESSAGE_BACKEND' },
   { key: 'payments', label: 'Payments', check: 'payments', credential: null },
   { key: 'sms', label: 'SMS', check: 'sms', credential: null },
-  { key: 'background_jobs', label: 'Background jobs', check: 'background_jobs', credential: null },
-  { key: 'design_studio_pinterest', label: 'Design Studio — Pinterest', check: null,
+  { key: 'background_jobs', label: 'Background work', check: 'background_jobs', credential: null },
+  { key: 'design_studio_pinterest', label: 'Design search — Pinterest', check: null,
     credential: 'design_studio_pinterest', credentialLabel: 'DESIGN_STUDIO_PINTEREST_TOKEN' },
-  { key: 'design_studio_google', label: 'Design Studio — Google Images', check: null,
+  { key: 'design_studio_google', label: 'Design search — Google Images', check: null,
     credential: 'design_studio_google', credentialLabel: 'DESIGN_STUDIO_GOOGLE_API_KEY' },
 ];
 
@@ -80,8 +82,8 @@ export default function Integrations() {
   return (
     <>
       <SectionHead
-        title="Integrations"
-        subtitle="One row per seam with something outside this process. Statuses are read from the health checks, which never touch a live service — there is no test-connection endpoint, and adding a Test button that does nothing would be worse than not having one."
+        title="Connected services"
+        subtitle="Every outside service the product talks to, and whether it is set up. Statuses come from the health checks; nothing is pinged from here."
       />
 
       <Async state={state}>
@@ -101,10 +103,10 @@ export default function Integrations() {
                 <table className="sa-table">
                   <thead>
                     <tr>
-                      <th>Seam</th>
+                      <th>Service</th>
                       <th>Status</th>
-                      <th>Credential</th>
-                      <th>What this actually is</th>
+                      <th>Key set?</th>
+                      <th>What it means right now</th>
                     </tr>
                   </thead>
                   <tbody>

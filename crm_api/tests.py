@@ -393,11 +393,14 @@ class BoutiqueCRMTests(TenantTestCase):
         settle_stages_before(order, 'master_quality_check')
 
         from domains.orders.services import OrderService
+        # Below owner/Master a "complete" is a submission: photo attached,
+        # parked for verification. The role check is what this test is for.
         OrderService.transition_order_stage(
             order=order, stage_key='master_quality_check', new_status='COMPLETED', user=qc_user,
+            files=[SimpleUploadedFile("work.jpg", b"jpeg", content_type="image/jpeg")],
         )
         stage.refresh_from_db()
-        self.assertEqual(stage.status, 'COMPLETED')
+        self.assertEqual(stage.status, 'PENDING_VERIFICATION')
 
     def test_wrong_specialist_is_refused(self):
         self.authenticate_client()
@@ -476,9 +479,9 @@ class BoutiqueCRMTests(TenantTestCase):
         order = Order.objects.get(customer=customer)
         from domains.orders.services import OrderService
 
-        for key, name, role, username in [
-            ('finishing', 'Hemming & Finishing', 'Master', 'fin'),
-            ('pressing', 'Pressing', 'Packaging Staff', 'press'),
+        for key, name, role, username, lands_in in [
+            ('finishing', 'Hemming & Finishing', 'Master', 'fin', 'COMPLETED'),
+            ('pressing', 'Pressing', 'Packaging Staff', 'press', 'PENDING_VERIFICATION'),
         ]:
             OrderStage.objects.create(order=order, stage_key=key, stage_name=name, sequence=9)
             staff = Tailor.objects.create(name=f"{role} person", specialty=name,
@@ -491,8 +494,9 @@ class BoutiqueCRMTests(TenantTestCase):
 
             OrderService.transition_order_stage(
                 order=order, stage_key=key, new_status='COMPLETED', user=user,
+                files=[SimpleUploadedFile("work.jpg", b"jpeg", content_type="image/jpeg")],
             )
-            self.assertEqual(order.stages.get(stage_key=key).status, 'COMPLETED')
+            self.assertEqual(order.stages.get(stage_key=key).status, lands_in)
 
     def test_new_orders_get_the_full_fifteen_stage_workflow(self):
         self.authenticate_client()

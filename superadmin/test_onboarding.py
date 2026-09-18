@@ -3,7 +3,7 @@ from contextlib import contextmanager
 
 from django.contrib.auth.models import User
 from django.db import connection
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, override_settings
 from django_tenants.utils import schema_context
 
 from apps.catalog.models import GarmentTemplate
@@ -193,9 +193,7 @@ class OnboardingProgressTests(TransactionTestCase):
 
             self.assertEqual(
                 {key: value for key, value in modules.items() if value},
-                {'staff_added': 'tailors',
-                 'specialist_roles': 'tailors',
-                 'designers': 'design_studio',
+                {'designers': 'design_studio',
                  'collections': 'design_studio',
                  'boards': 'design_studio',
                  'real_inventory': 'inventory'})
@@ -207,6 +205,7 @@ class OnboardingProgressTests(TransactionTestCase):
                 {key for key, value in modules.items() if value is None},
                 {'logo_uploaded', 'address_set', 'phone_set', 'first_customer',
                  'first_order', 'communication', 'email_verified',
+                 'staff_added', 'specialist_roles',
                  'phone_verified', 'whatsapp_connected', 'payment_configured',
                  'integrations_configured', 'real_designs',
                  'design_approval_configured'})
@@ -214,8 +213,9 @@ class OnboardingProgressTests(TransactionTestCase):
             tenant.enabled_modules = {'tailors': False, 'inventory': False}
             states = {step['key']: step['state']
                       for step in onboarding.progress(tenant)['steps']}
-            for key in ('staff_added', 'specialist_roles', 'real_inventory'):
-                self.assertEqual(states[key], 'module_off', key)
+            self.assertEqual(states['real_inventory'], 'module_off')
+            # The roster cannot be switched off, so a stored False changes nothing.
+            self.assertNotEqual(states['staff_added'], 'module_off')
             self.assertEqual(states['designers'], 'todo')
 
     def test_a_design_the_boutique_added_is_indistinguishable_from_seed_data(self):
@@ -278,6 +278,9 @@ class HealthCheckTests(TransactionTestCase):
     def setUp(self):
         connection.set_schema_to_public()
 
+    # The product ships with a WhatsApp backend switched on (1df3232), so the
+    # "sent by hand" branch is the one that needs pinning, not the default.
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='')
     def test_every_check_reports_and_none_of_them_raises(self):
         with ghost_tenant():
             results = health.checks()
@@ -285,8 +288,8 @@ class HealthCheckTests(TransactionTestCase):
             self.assertEqual(
                 [check['key'] for check in results],
                 ['database', 'migrations', 'tenant_schemas', 'media_storage',
-                 'email', 'supabase_storage', 'errors', 'whatsapp', 'payments',
-                 'background_jobs', 'sms'])
+                 'email', 'errors', 'whatsapp', 'payments',
+                 'background_jobs', 'sms', 'configuration', 'guardian', 'backups'])
 
             by_key = {check['key']: check for check in results}
             for check in results:
@@ -302,11 +305,10 @@ class HealthCheckTests(TransactionTestCase):
             for key in ('whatsapp', 'payments', 'background_jobs', 'sms'):
                 self.assertEqual(by_key[key]['status'], 'not_configured', key)
             self.assertIn('by hand', by_key['whatsapp']['detail'])
-            self.assertEqual(by_key['supabase_storage']['status'], 'not_configured')
 
     def test_checks_run_with_no_tenants_at_all(self):
         self.assertEqual(
             {check['key'] for check in health.checks()},
             {'database', 'migrations', 'tenant_schemas', 'media_storage',
-             'email', 'supabase_storage', 'errors', 'whatsapp', 'payments',
-             'background_jobs', 'sms'})
+             'email', 'errors', 'whatsapp', 'payments',
+             'background_jobs', 'sms', 'configuration', 'guardian', 'backups'})

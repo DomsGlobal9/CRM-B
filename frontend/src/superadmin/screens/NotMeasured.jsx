@@ -24,7 +24,7 @@ const CONTENT = {
     body: [
       'There is no Celery, RQ, Huey, django-q or Dramatiq in requirements.txt, no cron entry and no scheduled management command. Every operation in this product runs inline inside the request that triggered it.',
       'The one deferred call is the customer-message hook, which uses transaction.on_commit and still runs in the same process. It is disabled by default: CUSTOMER_MESSAGE_BACKEND is unset, so messages queue in the database for a person to send.',
-      'The real backlog that exists today is that message queue, and it is on the Customer Messaging screen.',
+      'The real backlog that exists today is that message queue, and it is on the WhatsApp backlog screen.',
     ],
     build: 'A queue dashboard needs a queue first. Adding one means a broker, a worker process on Render, and a result backend — none of which exist.',
   },

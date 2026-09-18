@@ -121,14 +121,14 @@ def _tracked_steps(tenant):
               'Only the owner has an account. Counted as accounts, not as Tailor '
               'rows: signup seeds four tailors, so counting the team list would '
               'report every boutique as fully staffed on day one.',
-              module='tailors'),
+              module=None),  # the roster is infrastructure: never switched off
 
         _step('specialist_roles', 'Specialist production roles in use',
               specialists > 0,
               f'{specialists} tailor(s) in a specialist role.' if specialists else
               'Everyone is still Master or Tailor -- the two roles the signup '
               'seeder creates. Cutting, Maggam, QC and the rest are untouched.',
-              module='tailors'),
+              module=None),
 
         _step('first_customer', 'First customer added', customers['n'] > 0,
               f'{customers["n"]} customer(s), first on '
@@ -216,7 +216,7 @@ def progress(tenant):
 
     tracked, gated = [], []
     for step in declared:
-        if step['module'] and not is_enabled(tenant.enabled_modules, step['module']):
+        if step['module'] and not is_enabled(tenant.plan, tenant.enabled_modules, step['module']):
             gated.append(_module_off(step))
         else:
             tracked.append(step)

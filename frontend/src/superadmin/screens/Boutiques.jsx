@@ -98,8 +98,8 @@ export default function Boutiques({ route }) {
               </div>
             )}
 
-            <SectionHead title="Boutiques"
-              subtitle="Counts are read live from each boutique's own schema.">
+            <SectionHead title="All boutiques"
+              subtitle="Every boutique on the platform, counted live. Open one for its data, or suspend it.">
               <SearchBox value={term} onChange={setTerm} placeholder="Name, owner or schema…" />
               <Select value={status} onChange={setStatus} label="Status" options={[
                 { value: 'all', label: 'All statuses' },

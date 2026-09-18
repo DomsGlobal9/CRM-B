@@ -1,0 +1,11 @@
+from django.db import migrations
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('crm_api', '0046_voice_notes'),
+        ('crm_api', '0047_split_workflow_flows'),
+    ]
+
+    operations = []

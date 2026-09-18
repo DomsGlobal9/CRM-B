@@ -1,3 +1,4 @@
+# Super Admin Control Center — hardening pass
 
 Companion to `docs/superadmin-handoff.md`, which described the build. This
 describes what was found wrong with it, what was changed, and what is still
@@ -9,6 +10,7 @@ was already stale). After: **1018**, same suite, no test removed or weakened.
 
 ---
 
+## 1. Findings
 
 | # | Severity | Finding | Status |
 |---|---|---|---|
@@ -23,6 +25,7 @@ was already stale). After: **1018**, same suite, no test removed or weakened.
 | — | — | Console login rate limiting | **Verified working**, not a defect |
 | — | — | Cross-schema rewrite of a password-reset payload | **Verified refused**, not a defect |
 
+### 1.1 Suspension was not authoritative (P0)
 
 **Root cause.** `tenants/middleware.py` cached the whole `BoutiqueTenant`
 object for 300s per worker, and the suspension check read `is_active` off that
@@ -60,6 +63,7 @@ GET /api/dashboard/                 -> 401   (allowed through again)
 
 No cache was cleared between those calls, and reactivation is symmetric.
 
+### 1.2 Ghost schemas on the product's request path (P0)
 
 **Root cause.** `SET search_path = 'ghost', public` does not fail — Postgres
 skips the missing entry. `auth` and `authtoken` are in `SHARED_APPS`, so
@@ -87,6 +91,7 @@ and refuses (`503`) rather than binding a tenant whose schema is absent. Because
 this is the one chokepoint, the guard covers reads and writes across orders,
 inventory, design, production, scheduling and customers at once.
 
+### 1.3 The data browser was unaudited (P0)
 
 **Root cause.** `SupportView` recorded a `data.view` entry; `BoutiqueDataView`
 recorded nothing, while returning strictly more.
@@ -104,6 +109,7 @@ access; nothing else from the query string is stored.
 `owner_tryon2buy_com` produced audit rows `datasets` and
 `activities.universalactivity`, actor `verify@harden.test`, IP `127.0.0.1`.
 
+### 1.4 Masking was a denylist (P0)
 
 **Evidence.** The denylist caught `password`, `api_key`, `auth_token`. It let
 through, untouched:
@@ -130,6 +136,7 @@ published first and reviewed later if anyone noticed.
 
 ---
 
+## 2. Files changed
 
 | File | Change |
 |---|---|
@@ -148,6 +155,7 @@ existing API contract, URL, tenant migration or boutique workflow was changed.
 
 ---
 
+## 3. Audit retention (§8) — analysis, not a cleanup job
 
 **No deletion has been implemented, and none should be until the questions below
 have owners' answers.** A silent destructive cleanup on an audit trail is worse
@@ -184,6 +192,7 @@ and convention. Postgres would permit an `UPDATE` from a psql session. The
 
 ---
 
+## 4. Frontend error telemetry (§9) — the extension point, not an implementation
 
 No frontend monitoring was invented. The correct extension point, documented so
 the next person does not have to find it:
@@ -204,6 +213,7 @@ This is a separate, controlled task. It was not started.
 
 ---
 
+## 5. Multi-worker behaviour (§18)
 
 Deployment is gunicorn, `WEB_CONCURRENCY=2`, `GUNICORN_THREADS=4`,
 `CONN_MAX_AGE=60`, no shared cache configured (`LocMemCache`).
@@ -242,6 +252,7 @@ not a lockout. Making it exact needs a shared cache.
 
 ---
 
+## 6. Performance (§16) — measured, not assumed
 
 Warm timings against the real dev database, 8 boutiques, local Postgres:
 
@@ -266,6 +277,7 @@ where these become 1–2 s.
 
 ---
 
+## 7. Production verification (§17) — **NOT DONE**
 
 Everything above was verified against a **local Postgres dev database with 8
 boutiques**, not production. The handoff document's statement still stands: the
@@ -292,6 +304,7 @@ Before production use, in this order:
 
 ---
 
+## 8. Remaining limitations and production blockers
 
 **Blockers.**
 

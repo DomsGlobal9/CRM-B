@@ -22,21 +22,11 @@ import { Info, Lock, MonitorSmartphone, PackageSearch, ShieldCheck } from 'lucid
 import { consoleApi } from '../api';
 import { Async, Confirm, Empty, Pill, SearchBox, SectionHead, useApi, useToast } from '../ui';
 
-/**
- * core/modules.py is_enabled(), to the letter.
- *
- * An absent key is ON: a tenant row written before a module existed has no
- * opinion about it, and reading "no opinion" as "off" would switch a new module
- * off for every existing boutique at deploy time. A non-dict value is also ON --
- * the column is a JSONField editable by hand in the Django admin, and the server
- * degrades a malformed one to "no opinion" rather than 500ing. If this screen
- * drew it as OFF it would be lying about what the middleware will do.
- */
-function isEnabled(map, key) {
-  if (!map || typeof map !== 'object' || Array.isArray(map)) return true;
-  if (Object.keys(map).length === 0) return true;
-  return map[key] !== false;
-}
+/* The server sends each boutique's `entitled` list (plan + overrides, computed
+   in core/modules.py); this screen never re-derives it, so it cannot disagree
+   with the middleware about what is on. */
+const isOn = (row, key) => row.entitled.includes(key);
+const isOverride = (row, key) => row.enabled_modules && key in row.enabled_modules;
 
 // Twelve columns on a laptop, so the boutique name pins to the left instead of
 // scrolling out of sight and leaving a row of anonymous switches. Same problem
@@ -49,8 +39,8 @@ export default function Modules() {
   const [pending, setPending] = useState(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
-  // schema -> the map the server stored. The PATCH response is authoritative and
-  // merged server-side, so it replaces the fetched row without a second request.
+  // schema -> {plan, enabled_modules, entitled} as the server last answered.
+  // The PATCH response is authoritative, so it replaces the fetched row.
   const [stored, setStored] = useState({});
 
   const state = useApi(useCallback(() => consoleApi.modules(), []));
@@ -63,19 +53,47 @@ export default function Modules() {
     return list.filter((b) => `${b.name} ${b.schema_name}`.toLowerCase().includes(needle));
   }, [state.data, term]);
 
+  const remember = (schema, result) =>
+    setStored((map) => ({ ...map, [schema]: {
+      plan: result.plan, enabled_modules: result.enabled_modules, entitled: result.entitled } }));
+
+  // "Module" on this screen is a product module (CRM, Inventory, ...); each
+  // bundles the switchable features the server actually gates.
+  const featureOf = (key) => state.data?.modules.find((m) => m.key === key);
+  const labelOf = (key) => featureOf(key)?.label || key;
+  const productModules = state.data?.product_modules || [];
+  // The boutique+module whose features are open in the side panel.
+  const [open, setOpen] = useState(null);
+
+  const moduleState = (row, mod) => {
+    const on = mod.features.filter((k) => row.entitled.includes(k)).length;
+    if (!mod.features.length) return 'coming soon';
+    if (on === 0) return 'off';
+    return on === mod.features.length ? 'on' : 'partly';
+  };
+
   const apply = async (reason) => {
-    const { boutique, module, next } = pending;
+    const { boutique, module, plan, next, bundle } = pending;
     setBusy(true);
     try {
-      const result = await consoleApi.setModules(
-        boutique.schema_name, { [module.key]: next }, reason);
-      setStored((map) => ({ ...map, [boutique.schema_name]: result.enabled_modules }));
+      const body = bundle
+        ? Object.fromEntries(bundle.features.map((k) => [k, next]))
+        : { [module.key]: next };
+      const result = plan
+        ? await consoleApi.setPlan(boutique.schema_name, plan, reason)
+        : await consoleApi.setModules(boutique.schema_name, body, reason);
+      remember(boutique.schema_name, result);
       // Kept on the page rather than only in a toast. The five-minute lag is the
       // part someone has to act on -- it is the difference between "it worked"
       // and "it worked in the worker that answered me" -- and a toast is gone
       // before they have finished reading the grid.
-      setNote([`${module.label} is now ${next ? 'on' : 'off'} for ${boutique.name}.`,
-               result.note].filter(Boolean).join(' '));
+      const state = next === null ? 'following the plan' : next ? 'on' : 'off';
+      const what = plan
+        ? `${boutique.name} is now on ${planLabel(plan)}.`
+        : bundle
+          ? `Every ${bundle.label} feature is now ${state} for ${boutique.name}.`
+          : `${module.label} is now ${state} for ${boutique.name}.`;
+      setNote([what, result.note].filter(Boolean).join(' '));
       toast('Saved.');
     } catch (e) {
       toast(e.message, 'off');
@@ -84,6 +102,8 @@ export default function Modules() {
       setPending(null);
     }
   };
+
+  const planLabel = (key) => state.data?.plans.find((p) => p.key === key)?.label || key;
 
   return (
     <>
@@ -96,8 +116,8 @@ export default function Modules() {
         {(data) => (
           <>
             <SectionHead
-              title="Modules"
-              subtitle="Enforced by the server on every request. A switch that is not set is on: a boutique nobody has edited has the whole product."
+              title="Features per boutique"
+              subtitle="Modules per boutique — CRM, Design Studio, Inventory, Team Management, Finance, Try-On, Marketing. The plan sets them; open a module to switch its features one by one. The server enforces it, not just the menu."
             >
               <SearchBox value={term} onChange={setTerm} placeholder="Boutique name or schema…" />
             </SectionHead>
@@ -112,17 +132,20 @@ export default function Modules() {
                   <thead>
                     <tr>
                       <th style={PINNED}>Boutique</th>
-                      {data.modules.map((m) => (
-                        <th key={m.key} title={m.description}>
-                          {m.label}
-                          <div className="sa-schema">{m.prefixes.join(' ')}</div>
+                      <th>Plan</th>
+                      {productModules.map((mod) => (
+                        <th key={mod.key} title={mod.description}>
+                          {mod.label}
+                          <div className="sa-schema">
+                            {mod.features.length ? `${mod.features.length} feature${mod.features.length === 1 ? '' : 's'}` : 'coming soon'}
+                          </div>
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((b) => {
-                      const map = stored[b.schema_name] ?? b.enabled_modules;
+                      const row = stored[b.schema_name] ?? b;
                       return (
                         <tr key={b.schema_name}>
                           <td style={PINNED}>
@@ -133,17 +156,23 @@ export default function Modules() {
                                 reading as live. */}
                             {!b.is_active && <Pill value="suspended" />}
                           </td>
-                          {data.modules.map((m) => {
-                            const on = isEnabled(map, m.key);
+                          <td>
+                            <select className="sa-select" style={{ width: 110 }} value={row.plan}
+                              aria-label={`Plan for ${b.name}`}
+                              onChange={(e) => setPending({ boutique: b, plan: e.target.value })}>
+                              {data.plans.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+                            </select>
+                          </td>
+                          {productModules.map((mod) => {
+                            const st = moduleState(row, mod);
+                            const tone = { on: 'ok', partly: 'warn', off: 'off', 'coming soon': 'muted' }[st];
+                            const overridden = mod.features.some((k) => isOverride(row, k));
                             return (
-                              <td key={m.key}>
-                                <button
-                                  className={`sa-btn${on ? '' : ' danger'}`}
-                                  aria-pressed={on}
-                                  aria-label={`${m.label} for ${b.name}: ${on ? 'on' : 'off'}`}
-                                  onClick={() => setPending({ boutique: b, module: m, next: !on })}
-                                >
-                                  {on ? 'On' : 'Off'}
+                              <td key={mod.key}>
+                                <button className="sa-btn" disabled={!mod.features.length}
+                                  aria-label={`${mod.label} for ${b.name}: ${st}`}
+                                  onClick={() => setOpen({ boutique: b, module: mod })}>
+                                  <Pill value={st} tone={tone} label={st} />{overridden ? " *" : ""}{mod.features.length ? <span className="sa-schema"> · {mod.features.length} feature{mod.features.length === 1 ? "" : "s"} ▸</span> : null}
                                 </button>
                               </td>
                             );
@@ -153,13 +182,46 @@ export default function Modules() {
                     })}
                   </tbody>
                 </table>
+                <p className="sa-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+                  Click a module to see and switch its features. * means at least one feature is set by hand, overriding the plan.
+                </p>
               </div>
             )}
 
             <div style={{ marginTop: 32 }}>
+              <SectionHead title="What each plan includes"
+                subtitle="On top of orders, customers, invoices and reports, which every boutique has." />
+              <div className="sa-cards">
+                {data.plans.map((p) => (
+                  <div key={p.key} className="sa-card">
+                    <h4><PackageSearch size={14} /> {p.label}</h4>
+                    <p>{p.modules.map((k) => productModules.find((m) => m.key === k)?.label || k).join(' · ')}</p>
+                  </div>
+                ))}
+                <div className="sa-card">
+                  <h4><PackageSearch size={14} /> Add-ons</h4>
+                  <p>{data.addons.map((k) => labelOf(k)).join(' · ')} — CRM features sold separately; switch them on per boutique inside CRM. Included in {planLabel('atelier')}.</p>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 32 }}>
+              <SectionHead title="Plumbing, always on"
+                subtitle="Parts every screen depends on. Not sold, not switchable: a switch here would break the product, not restrict it." />
+              <div className="sa-cards">
+                {data.modules.filter((m) => m.infrastructure).map((m) => (
+                  <div key={m.key} className="sa-card">
+                    <h4><ShieldCheck size={14} /> {m.label}</h4>
+                    <p>{m.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginTop: 32 }}>
               <SectionHead
-                title="Cannot be switched off"
-                subtitle="These carry several product concerns on one URL prefix. A gate would take the others with it, so there is no switch to offer."
+                title="Always available"
+                subtitle="Orders and customers are the product itself; switching them off would break everything else."
               />
               <div className="sa-cards">
                 {data.structural.map((s) => (
@@ -175,8 +237,8 @@ export default function Modules() {
 
             <div style={{ marginTop: 32 }}>
               <SectionHead
-                title="No server-side switch"
-                subtitle="Browser-only surfaces. A toggle here would hide a menu item and a curl would walk straight past it — which reads as a security control and is not one."
+                title="Screens only, no switch"
+                subtitle="These exist only in the app, not on the server, so a switch here would hide a menu item without actually blocking anything. Not offered, to be honest about it."
               />
               <div className="sa-cards">
                 {data.client_only.map((c) => (
@@ -190,7 +252,7 @@ export default function Modules() {
 
             <div style={{ marginTop: 32 }}>
               <SectionHead title="Always on"
-                subtitle="Never gateable, whatever is stored against a boutique." />
+                subtitle="Signing in and settings can never be switched off." />
               <div className="sa-card">
                 <h4><ShieldCheck size={14} /> Authentication, settings, the dashboard and this console</h4>
                 <p>
@@ -207,20 +269,110 @@ export default function Modules() {
         )}
       </Async>
 
+      {open && (() => {
+        const row = stored[open.boutique.schema_name] ?? open.boutique;
+        const mod = open.module;
+        return (
+          <div className="sa-modal-backdrop" onClick={() => setOpen(null)}>
+            <div className="sa-modal" onClick={(e) => e.stopPropagation()} role="dialog"
+              aria-label={`${mod.label} features for ${open.boutique.name}`}>
+              <h3>{mod.label} — {open.boutique.name}</h3>
+              <p className="sa-muted">{mod.description}</p>
+              <div style={{ display: 'flex', gap: 8, margin: '12px 0' }}>
+                <button className="sa-btn" onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: true })}>
+                  Whole module on
+                </button>
+                <button className="sa-btn danger" onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: false })}>
+                  Whole module off
+                </button>
+                <button className="sa-btn" onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: null })}>
+                  ↺ Follow plan
+                </button>
+              </div>
+              <table className="sa-table">
+                <thead><tr><th>Feature</th><th>State</th><th>Set by</th><th></th></tr></thead>
+                <tbody>
+                  {mod.features.map((k) => {
+                    const f = featureOf(k);
+                    const on = isOn(row, k);
+                    const override = isOverride(row, k);
+                    return (
+                      <tr key={k}>
+                        <td title={f?.description}>
+                          {f?.label || k}{f?.addon ? <span className="sa-schema"> add-on</span> : null}
+                        </td>
+                        <td><Pill value={on ? 'on' : 'off'} tone={on ? 'ok' : 'off'} label={on ? 'on' : 'off'} /></td>
+                        <td className="sa-muted">{override ? 'by hand' : `${planLabel(row.plan)} plan`}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <button className={`sa-btn${on ? ' danger' : ''}`}
+                            onClick={() => setPending({ boutique: open.boutique, module: f, next: !on })}>
+                            Switch {on ? 'off' : 'on'}
+                          </button>
+                          {override && (
+                            <button className="sa-btn" style={{ marginLeft: 4 }}
+                              title="Remove the hand-set value so this follows the plan again"
+                              onClick={() => setPending({ boutique: open.boutique, module: f, next: null })}>
+                              ↺
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div style={{ textAlign: 'right', marginTop: 12 }}>
+                <button className="sa-btn" onClick={() => setOpen(null)}>Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <Confirm
         open={Boolean(pending)}
         busy={busy}
-        danger={pending ? !pending.next : false}
+        danger={pending ? pending.next === false : false}
         requireReason
-        title={pending
-          ? `Switch ${pending.module.label} ${pending.next ? 'on' : 'off'} for ${pending.boutique.name}?`
-          : ''}
-        confirmLabel={pending && pending.next ? 'Switch on' : 'Switch off'}
-        body={pending && (pending.next ? (
+        title={!pending ? '' : pending.plan
+          ? `Move ${pending.boutique.name} to ${planLabel(pending.plan)}?`
+          : pending.bundle
+            ? `${pending.next === null ? 'Let every' : pending.next ? 'Switch every' : 'Switch every'} ${pending.bundle.label} feature ${pending.next === null ? 'follow the plan' : pending.next ? 'on' : 'off'} for ${pending.boutique.name}?`
+          : pending.next === null
+            ? `Let ${pending.module.label} follow the plan for ${pending.boutique.name}?`
+            : `Switch ${pending.module.label} ${pending.next ? 'on' : 'off'} for ${pending.boutique.name}?`}
+        confirmLabel={!pending ? '' : pending.plan ? 'Change plan'
+          : pending.next === null ? 'Follow plan' : pending.next ? 'Switch on' : 'Switch off'}
+        body={pending && (pending.bundle ? (
+          <p>
+            {pending.bundle.features.map(labelOf).join(', ')}
+            {pending.next === null ? ' go back to whatever the plan says.'
+              : pending.next ? ' become reachable, whatever the plan says.'
+              : ' are refused by the server until switched back on. Nothing is deleted.'}
+          </p>
+        ) : pending.plan ? (
+          <>
+            <p>
+              <strong>{pending.boutique.name}</strong> gets everything in{' '}
+              <strong>{planLabel(pending.plan)}</strong>:{' '}
+              {(state.data?.plans.find((p) => p.key === pending.plan)?.modules || []).map(labelOf).join(', ')}.
+            </p>
+            <p style={{ marginTop: 8 }}>
+              Anything set by hand for this boutique (marked *) stays as it is. Screens for
+              modules the new plan lacks stop answering; nothing is deleted.
+            </p>
+          </>
+        ) : pending.next === null ? (
+          <p>
+            The hand-set value is removed and <strong>{pending.module.label}</strong> is whatever
+            the <strong>{planLabel((stored[pending.boutique.schema_name] ?? pending.boutique).plan)}</strong> plan says.
+          </p>
+        ) : pending.next ? (
           <>
             <p>
               <strong>{pending.boutique.name}</strong> can reach{' '}
-              <span className="sa-schema">{pending.module.prefixes.join(' ')}</span> again.
+              <span className="sa-schema">{pending.module.prefixes.join(' ')}</span>
+              {pending.module.addon ? ' — an add-on on top of their plan.' : ' again.'}
             </p>
             <p style={{ marginTop: 8 }}>{pending.module.description}</p>
           </>
@@ -241,8 +393,8 @@ export default function Modules() {
             </p>
           </>
         ))}
-        onCancel={() => setPending(null)}
         onConfirm={apply}
+        onCancel={() => setPending(null)}
       />
     </>
   );

@@ -21,7 +21,7 @@ from core.checks import (
 from core.modules import (
     ALL_ROLES, MODULES, MODULE_GROUP, PRODUCTION_ROLES, ROLE_DEFAULTS,
     STRUCTURAL, catalogue, effective_modules, is_enabled, module_for_path,
-    role_allows,
+    role_allows, ADDONS, INFRASTRUCTURE, PARENT, plan_modules,
 )
 
 TAILOR_DEFAULT = ROLE_DEFAULTS['Tailor']
@@ -128,13 +128,32 @@ class RegistryChecksTests(SimpleTestCase):
 
 class EntitlementTests(SimpleTestCase):
 
-    def test_absent_key_means_enabled(self):
-        # Sparse storage: a module added to the registry must not switch itself
-        # off for every existing boutique the moment it is deployed.
-        self.assertTrue(is_enabled({}, 'inventory'))
-        self.assertTrue(is_enabled({'tailors': False}, 'inventory'))
-        self.assertTrue(is_enabled(None, 'inventory'))
-        self.assertFalse(is_enabled({'inventory': False}, 'inventory'))
+    def test_plan_first_then_overrides(self):
+        # The plan answers unless the boutique has an override for that key.
+        self.assertTrue(is_enabled('atelier', {}, 'inventory'))
+        self.assertTrue(is_enabled('atelier', {'tailors': False}, 'inventory'))
+        self.assertTrue(is_enabled('atelier', None, 'inventory'))
+        self.assertFalse(is_enabled('atelier', {'inventory': False}, 'inventory'))
+        self.assertFalse(is_enabled('starter', {}, 'inventory'))
+        self.assertTrue(is_enabled('starter', {'inventory': True}, 'inventory'))
+
+    def test_an_unknown_plan_is_the_smallest_one(self):
+        self.assertEqual(plan_modules('gold'), plan_modules('starter'))
+        self.assertEqual(plan_modules(None), plan_modules('starter'))
+        self.assertFalse(is_enabled('', {}, 'design_studio'))
+
+    def test_infrastructure_is_always_on(self):
+        for key in INFRASTRUCTURE:
+            with self.subTest(key=key):
+                self.assertTrue(is_enabled('starter', {key: False}, key))
+
+    def test_plans_nest_and_addons_sit_on_top(self):
+        self.assertLess(plan_modules('starter'), plan_modules('studio'))
+        self.assertLess(plan_modules('studio'), plan_modules('atelier'))
+        self.assertTrue(ADDONS <= plan_modules('atelier'))
+        self.assertFalse(ADDONS & plan_modules('studio'))
+        self.assertFalse(is_enabled('studio', {}, 'whatsapp'))
+        self.assertTrue(is_enabled('studio', {'whatsapp': True}, 'whatsapp'))
 
     def test_longest_prefix_wins(self):
         self.assertEqual(module_for_path('/api/inventory/catalog/'), 'inventory_catalog')
@@ -164,19 +183,19 @@ class DistributionTests(SimpleTestCase):
         # screen left to switch it back on.
         self.assertTrue(role_allows({'Owner': {'inventory': False}}, 'Owner', 'inventory'))
         self.assertNotIn('Owner', ROLE_DEFAULTS)
-        self.assertEqual(effective_modules({}, {'Owner': {'inventory': False}}, 'Owner'),
+        self.assertEqual(effective_modules('atelier', {}, {'Owner': {'inventory': False}}, 'Owner'),
                          sorted(MODULES))
 
     def test_unknown_role_gets_the_tailor_defaults(self):
         for role in (None, 'Marketing Lead', '', 0):
             with self.subTest(role=role):
-                self.assertEqual(effective_modules({}, {}, role), sorted(TAILOR_DEFAULT))
-                self.assertLess(len(effective_modules({}, {}, role)), len(MODULES))
+                self.assertEqual(effective_modules('atelier', {}, {}, role), sorted(TAILOR_DEFAULT))
+                self.assertLess(len(effective_modules('atelier', {}, {}, role)), len(MODULES))
 
     def test_designer_is_confined_to_design(self):
         # core/permissions.py RolePermission already denies a designer every
         # business endpoint; this must not be a second, looser answer.
-        self.assertEqual(effective_modules({}, {}, 'Designer'), sorted(ROLE_DEFAULTS['Designer']))
+        self.assertEqual(effective_modules('atelier', {}, {}, 'Designer'), sorted(ROLE_DEFAULTS['Designer']))
         self.assertNotIn('inventory', ROLE_DEFAULTS['Designer'])
         self.assertNotIn('staff', ROLE_DEFAULTS['Designer'])
 
@@ -202,17 +221,19 @@ class TwoLayerTests(SimpleTestCase):
 
     def test_entitlement_beats_distribution(self):
         off = {'inventory': False}
-        self.assertNotIn('inventory', effective_modules(off, {}, 'Owner'))
+        self.assertNotIn('inventory', effective_modules('atelier', off, {}, 'Owner'))
         self.assertNotIn(
-            'inventory', effective_modules(off, {'Master': {'inventory': True}}, 'Master'))
+            'inventory', effective_modules('atelier', off, {'Master': {'inventory': True}}, 'Master'))
+        # A plan without the module is the same refusal, with no override at all.
+        self.assertNotIn('inventory', effective_modules('starter', {}, {}, 'Owner'))
 
     def test_distribution_narrows_an_entitled_module(self):
-        self.assertIn('activities', effective_modules({}, {}, 'Master'))
+        self.assertIn('activities', effective_modules('atelier', {}, {}, 'Master'))
         self.assertNotIn(
-            'activities', effective_modules({}, {'Master': {'activities': False}}, 'Master'))
+            'activities', effective_modules('atelier', {}, {'Master': {'activities': False}}, 'Master'))
 
     def test_effective_modules_is_sorted_and_a_subset(self):
-        modules = effective_modules({}, {}, 'Master')
+        modules = effective_modules('atelier', {}, {}, 'Master')
         self.assertEqual(modules, sorted(modules))
         self.assertLessEqual(set(modules), set(MODULES))
 
@@ -222,11 +243,15 @@ class CatalogueTests(SimpleTestCase):
     def test_existing_keys_survive(self):
         # superadmin/api_views.py and the console frontend read these.
         data = catalogue()
-        self.assertEqual(
-            set(data), {'modules', 'groups', 'structural', 'client_only', 'always_on'})
+        self.assertLessEqual(
+            {'modules', 'groups', 'structural', 'client_only', 'always_on', 'plans', 'addons'},
+            set(data))
         first = data['modules'][0]
-        self.assertEqual(
-            set(first), {'key', 'label', 'prefixes', 'description', 'gateable', 'group'})
+        self.assertLessEqual(
+            {'key', 'label', 'prefixes', 'description', 'gateable', 'group', 'infrastructure', 'addon'},
+            set(first))
+        for entry in data['modules']:
+            self.assertEqual(entry['gateable'], not entry['infrastructure'], entry['key'])
 
     def test_every_module_carries_its_group(self):
         for entry in catalogue()['modules']:
@@ -267,3 +292,31 @@ urlpatterns = [
     path('api/tailors/', _view),
     path('admin/', include([path('login/', _view)])),
 ]
+
+
+class ChildFeatureTests(SimpleTestCase):
+    """A child is carved out of its parent's prefix and inherits its answer."""
+
+    def test_the_longer_prefix_is_the_child(self):
+        self.assertEqual(module_for_path('/api/inventory/suppliers/'), 'inventory_suppliers')
+        self.assertEqual(module_for_path('/api/inventory/items/'), 'inventory')
+        self.assertEqual(module_for_path('/api/staff/attendance/3/'), 'staff_attendance')
+
+    def test_a_parent_override_carries_down_unless_the_child_has_its_own(self):
+        self.assertFalse(is_enabled('atelier', {'inventory': False}, 'inventory_suppliers'))
+        self.assertTrue(is_enabled('atelier', {'inventory': False, 'inventory_suppliers': True},
+                                   'inventory_suppliers'))
+        self.assertTrue(is_enabled('starter', {'inventory': True}, 'inventory_bom'))
+
+    def test_a_role_inherits_its_parent_access(self):
+        self.assertTrue(role_allows({}, 'Tailor', 'staff_attendance'))
+        self.assertFalse(role_allows({'Tailor': {'staff': False}}, 'Tailor', 'staff_attendance'))
+        self.assertTrue(role_allows({'Tailor': {'staff': False, 'staff_attendance': True}},
+                                    'Tailor', 'staff_attendance'))
+        self.assertFalse(role_allows({}, 'Designer', 'inventory_reports'))
+
+    def test_every_child_sits_in_its_parents_plan(self):
+        for child, parent in PARENT.items():
+            for plan in ('starter', 'studio', 'atelier'):
+                self.assertEqual(child in plan_modules(plan), parent in plan_modules(plan),
+                                 (child, plan))

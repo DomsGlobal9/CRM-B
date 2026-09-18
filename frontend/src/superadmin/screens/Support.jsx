@@ -178,9 +178,9 @@ function Diagnostics({ schema, route }) {
             </div>
 
             <SectionHead title="Recent errors"
-              subtitle="Server exceptions captured for this boutique, newest first.">
+              subtitle="Errors this boutique has hit, newest first.">
               <button className="sa-btn" onClick={() => route.go('errors')}>
-                Error Center <ArrowUpRight size={13} />
+                Crashes <ArrowUpRight size={13} />
               </button>
             </SectionHead>
             {errors.length === 0 ? (
@@ -249,8 +249,8 @@ function Diagnostics({ schema, route }) {
               </div>
             )}
 
-            <SectionHead title="What the console has done here"
-              subtitle="Every administrator action recorded against this boutique, newest first.">
+            <SectionHead title="What admins did here"
+              subtitle="Every console action taken on this boutique, newest first.">
               <button className="sa-btn" onClick={() => route.go('audit')}>
                 Audit log <ArrowUpRight size={13} />
               </button>
@@ -295,8 +295,8 @@ export default function Support({ route }) {
   return (
     <>
       <SectionHead
-        title="Diagnostics"
-        subtitle="Everything about one boutique in a single request. Opening this records a data.view entry in the audit log against your account — reaching into a customer's data is meant to leave a trace."
+        title="One boutique in depth"
+        subtitle="Everything about one boutique on one page. Opening it is recorded under What admins did, because looking into a customer's data should leave a trace."
       >
         <Picker value={schema}
           onChange={(next) => route.go(next ? `support/${next}` : 'support')} />

@@ -195,6 +195,50 @@ def check_registry_is_consistent(app_configs, **kwargs):
 
 
 @register()
+@register()
+def check_plans_are_consistent(app_configs, **kwargs):
+    from .modules import ADDONS, INFRASTRUCTURE, MODULES, PLANS, DEFAULT_PLAN
+    errors = []
+    for name, group in (('INFRASTRUCTURE', INFRASTRUCTURE), ('ADDONS', ADDONS)):
+        for key in sorted(group - set(MODULES)):
+            errors.append(Error(f'{name} names {key!r}, which is not in MODULES.', id='core.E011'))
+    for plan, (_label, modules) in PLANS.items():
+        for key in sorted(modules - set(MODULES)):
+            errors.append(Error(f'Plan {plan!r} includes {key!r}, which is not in MODULES.', id='core.E011'))
+        for key in sorted(modules & INFRASTRUCTURE):
+            errors.append(Error(f'Plan {plan!r} lists infrastructure module {key!r}; it is always on.', id='core.E011'))
+    if DEFAULT_PLAN not in PLANS:
+        errors.append(Error(f'DEFAULT_PLAN {DEFAULT_PLAN!r} is not in PLANS.', id='core.E011'))
+
+    from .modules import PRODUCT_MODULES
+    owners = {}
+    for module, (_l, _d, features) in PRODUCT_MODULES.items():
+        for key in features:
+            if key not in MODULES:
+                errors.append(Error(f'Product module {module!r} lists {key!r}, which is not a feature.', id='core.E011'))
+            elif key in INFRASTRUCTURE:
+                errors.append(Error(f'Product module {module!r} lists infrastructure {key!r}.', id='core.E011'))
+            owners.setdefault(key, []).append(module)
+    for key, modules in owners.items():
+        if len(modules) > 1:
+            errors.append(Error(f'Feature {key!r} is in more than one product module: {modules}.', id='core.E011'))
+    for key in sorted(set(MODULES) - INFRASTRUCTURE - set(owners)):
+        errors.append(Error(f'Feature {key!r} belongs to no product module, so no plan can sell it.', id='core.E011'))
+
+    from .modules import PARENT
+    for child, parent in PARENT.items():
+        if child not in MODULES or parent not in MODULES:
+            errors.append(Error(f'PARENT maps {child!r} -> {parent!r}; both must be features.', id='core.E011'))
+            continue
+        if owners.get(child) != owners.get(parent):
+            errors.append(Error(f'{child!r} and its parent {parent!r} are in different product modules.', id='core.E011'))
+        parent_prefixes = MODULES[parent][1]
+        for prefix in MODULES[child][1]:
+            if not any(prefix.startswith(p) for p in parent_prefixes):
+                errors.append(Error(f'{child!r} prefix {prefix} is not under its parent {parent!r}.', id='core.E011'))
+    return errors
+
+
 def check_production_roles_match_the_model(app_configs, **kwargs):
     """PRODUCTION_ROLES is a copy of Tailor.ROLE_CHOICES; keep it one.
 

@@ -124,8 +124,8 @@ export default function Audit() {
   return (
     <>
       <SectionHead
-        title="Audit Log"
-        subtitle="Every sensitive action the console can take, with the reason its operator typed."
+        title="What admins did"
+        subtitle="Every action taken from this console — who, when, to which boutique, and the reason they typed."
       >
         <SearchBox value={filters.q} onChange={(q) => set({ q })}
           placeholder="Actor, target, action or reason…" />

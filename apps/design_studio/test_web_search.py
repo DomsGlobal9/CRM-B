@@ -52,8 +52,6 @@ class FakeResponse:
             yield self._content[i:i + size]
 
 
-@override_settings(DESIGN_DISCOVERY_URL='https://vendor.test/api/v1/discovery/search',
-                   DESIGN_DISCOVERY_API_KEY='k-123')
 class WebSearchTests(TenantTestCase):
 
     @classmethod
@@ -64,6 +62,14 @@ class WebSearchTests(TenantTestCase):
 
     def setUp(self):
         super().setUp()
+        # Applied here, not as a class decorator: TenantTestCase.setUpClass
+        # never calls SimpleTestCase.setUpClass, so a class-level
+        # override_settings is silently ignored.
+        override = override_settings(
+            DESIGN_DISCOVERY_URL='https://vendor.test/api/v1/discovery/search',
+            DESIGN_DISCOVERY_API_KEY='k-123')
+        override.enable()
+        self.addCleanup(override.disable)
         from django.db import connection
         connection.set_tenant(self.tenant)
         cache.clear()

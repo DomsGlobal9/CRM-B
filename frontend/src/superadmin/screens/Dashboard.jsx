@@ -66,7 +66,7 @@ export default function Dashboard({ route }) {
 
   return (
     <>
-      <SectionHead title="Platform" subtitle="Read live from every boutique schema on this deployment." />
+      <SectionHead title="Home" subtitle="The whole platform at a glance, counted live from every boutique." />
 
       <Async state={state} skeletonRows={4}>
         {(data) => {
@@ -85,7 +85,7 @@ export default function Dashboard({ route }) {
                 <Stat label="Signed up in 30 days" value={count(fresh)}
                   note="Onboarding progress"
                   onClick={() => route.go('onboarding')} />
-                <Stat label="Unreadable schemas" value={count(t.unreadable)}
+                <Stat label="Boutiques with data problems" value={count(t.unreadable)}
                   note={t.unreadable ? 'Excluded from every total below' : 'All schemas readable'}
                   tone={t.unreadable ? 'off' : undefined}
                   onClick={() => route.go('health')} />
@@ -98,17 +98,17 @@ export default function Dashboard({ route }) {
                 <Stat label="Orders" value={count(t.orders)}
                   note={`${count(t.open_orders)} still open`}
                   onClick={() => route.go('orders')} />
-                <Stat label="Booked" value={money(t.revenue)}
+                <Stat label="Order value booked" value={money(t.revenue)}
                   note="Sum of order totals"
                   onClick={() => route.go('orders')} />
-                <Stat label="Collected" value={money(t.collected)}
+                <Stat label="Money collected" value={money(t.collected)}
                   note="Recorded by staff by hand"
                   onClick={() => route.go('orders')} />
                 <Stat label="Demo requests" value={count(data.leads.total)}
                   note={`${data.leads.new} new · ${data.leads.last_30_days} in 30 days`}
                   tone={data.leads.new ? 'warn' : undefined}
                   onClick={() => route.go('leads')} />
-                <Stat label="Unresolved errors"
+                <Stat label="Open errors"
                   value={errors.data ? count(errors.data.unresolved) : '—'}
                   // No invented zero: a failed count says so, and the tile still
                   // opens the screen that can answer the question properly.
@@ -127,7 +127,7 @@ export default function Dashboard({ route }) {
                   </span>
                   <button className="sa-btn danger" style={{ marginLeft: 'auto' }}
                     onClick={() => route.go('errors')}>
-                    Open the Error Center
+                    Open Crashes
                   </button>
                 </div>
               )}
@@ -177,8 +177,8 @@ export default function Dashboard({ route }) {
                 </Async>
               </div>
 
-              <SectionHead title="Needs attention"
-                subtitle="Suspended, unreadable, or nothing ordered in 30 days." />
+              <SectionHead title="Boutiques to look at"
+                subtitle="Suspended, cannot be read, or no order in 30 days." />
 
               <Table
                 columns={[

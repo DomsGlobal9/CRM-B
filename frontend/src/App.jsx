@@ -1134,7 +1134,7 @@ function NetworkActivityBar() {
 const NAV_MODULE = {
   overview: null,
   orders: null,
-  alterations: null,
+  alterations: 'alterations',
   customers: null,
   pendingTasks: null,
   closedTasks: null,

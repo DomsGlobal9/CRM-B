@@ -438,8 +438,8 @@ class CatalogSeedTests(InventoryTestBase):
 
         missing = expected - actual
         extra = actual - expected
-        self.assertFalse(missing, f"{len(missing)} catalogue item(s) missing: {sorted(missing)[:15]}")
-        self.assertFalse(extra, f"{len(extra)} item(s) not in any source document: {sorted(extra)[:15]}")
+        self.assertFalse(missing, f"{len(missing)} catalogue item(s) missing: {sorted(missing, key=str)[:15]}")
+        self.assertFalse(extra, f"{len(extra)} item(s) not in any source document: {sorted(extra, key=str)[:15]}")
 
     def test_every_source_section_exists_unmerged(self):
         from .models import CatalogSection

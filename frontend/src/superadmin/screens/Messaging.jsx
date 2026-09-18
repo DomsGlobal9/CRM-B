@@ -35,8 +35,8 @@ export default function Messaging({ route }) {
   return (
     <>
       <SectionHead
-        title="Customer Messaging"
-        subtitle="Messages queue in each boutique's own schema and are sent by hand. This is the backlog waiting on somebody's phone."
+        title="WhatsApp backlog"
+        subtitle="Customer messages each boutique has queued but not yet sent."
       />
 
       <Async
@@ -86,8 +86,8 @@ export default function Messaging({ route }) {
                 </div>
               )}
 
-              <SectionHead title="Backlog by boutique"
-                subtitle="Deepest first. The bar is each boutique's share of the largest backlog, not of a target." />
+              <SectionHead title="By boutique"
+                subtitle="Longest backlog first." />
 
               {withBacklog.length === 0 ? (
                 <Empty icon={<MessageSquare size={22} />} title="Nothing is waiting to be sent."

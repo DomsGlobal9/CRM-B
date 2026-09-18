@@ -20,7 +20,23 @@ MODULES = {
     'design_studio': (
         'Design Studio',
         ('/api/design-studio/', '/api/boutique-designs/'),
-        'Design library, boards, collections, designers and AI discovery.',
+        'Design assets, boards, assignments and the design brief for each order.',
+    ),
+    'design_collections': (
+        'Collections',
+        ('/api/design-studio/collections/',),
+        'Curated sets of designs to show customers.',
+    ),
+    'design_designers': (
+        'Designers',
+        ('/api/design-studio/designers/',),
+        'Designer profiles and their portfolios.',
+    ),
+    'design_discovery': (
+        'Design search',
+        ('/api/design-studio/discover/', '/api/design-studio/web-search/',
+         '/api/design-studio/web-keep/', '/api/design-studio/context/'),
+        'AI-assisted discovery and web search for reference designs.',
     ),
     'inventory_catalog': (
         'Purchasing Catalogue',
@@ -30,7 +46,26 @@ MODULES = {
     'inventory': (
         'Inventory',
         ('/api/inventory/',),
-        'Stock, locations, suppliers, purchase orders and bills of materials.',
+        'Items, movements, locations and unit conversions -- the core of inventory.',
+    ),
+    # Children of `inventory`: a longer prefix wins in module_for_path, so
+    # each is its own switch while everything else under /api/inventory/
+    # stays with the parent. PARENT below makes a parent's override and a
+    # role's parent access carry down unless the child says otherwise.
+    'inventory_suppliers': (
+        'Suppliers & purchase orders',
+        ('/api/inventory/suppliers/', '/api/inventory/purchase-orders/'),
+        'Who you buy from, and what is on order.',
+    ),
+    'inventory_bom': (
+        'Bills of materials',
+        ('/api/inventory/boms/', '/api/inventory/bom-lines/'),
+        'What each garment consumes, so stock is reserved when an order is taken.',
+    ),
+    'inventory_reports': (
+        'Stock reports',
+        ('/api/inventory/reports/',),
+        'Valuation, movement and low-stock reports.',
     ),
     'garment_catalog': (
         'Garment Templates',
@@ -64,17 +99,36 @@ MODULES = {
     'staff': (
         'Staff Management',
         ('/api/staff/',),
-        'Employment terms, attendance, payroll and staff performance.',
+        'Employment profiles and terms.',
+    ),
+    'staff_attendance': (
+        'Attendance',
+        ('/api/staff/attendance/', '/api/staff/day-marks/', '/api/staff/timesheet/'),
+        'Check-in, check-out, day marks and timesheets.',
+    ),
+    'staff_documents': (
+        'Staff documents',
+        ('/api/staff/documents/',),
+        'ID, contracts and other files kept per staff member.',
+    ),
+    'staff_reviews': (
+        'Performance reviews',
+        ('/api/staff/reviews/', '/api/staff/performance/'),
+        'Reviews and the performance summary.',
     ),
     # Its own switch rather than a part of `staff`: a boutique may well want
     # attendance and employment records without running its wages through the
     # product, and payroll is the one surface where switching it off has to
     # switch off everything -- generation, approval and every figure.
     'finance': (
-        'Cost & P&L',
+        'Expenses',
         ('/api/finance/',),
-        'Business costs the owner enters -- rent, utilities and the rest -- and '
-        'the profit-and-loss report that nets them against revenue. Owner-only.',
+        'Business costs the owner enters -- rent, utilities and the rest. Owner-only.',
+    ),
+    'finance_pl': (
+        'Profit & loss report',
+        ('/api/finance/profit-loss/',),
+        'Revenue netted against expenses. Owner-only.',
     ),
     'payroll': (
         'Payroll',
@@ -140,16 +194,43 @@ GROUPS = {
 #: `business` carries no module: invoices and reports are CLIENT_ONLY, computed
 #: in the browser from data already fetched. The group stays because the nav
 #: has it and a later server-side report belongs in it.
+#: Child feature -> parent feature. A child is a narrower switch carved out
+#: of its parent's prefix. Where nobody has said anything about the child --
+#: no override, no role decision -- the parent's answer stands, so adding a
+#: child never takes anything away from a boutique or a role.
+PARENT = {
+    'inventory_suppliers': 'inventory',
+    'inventory_bom': 'inventory',
+    'inventory_reports': 'inventory',
+    'design_collections': 'design_studio',
+    'design_designers': 'design_studio',
+    'design_discovery': 'design_studio',
+    'staff_attendance': 'staff',
+    'staff_documents': 'staff',
+    'staff_reviews': 'staff',
+    'finance_pl': 'finance',
+}
+
 MODULE_GROUP = {
     'order_drafts': 'daily',
     'design_studio': 'design',
+    'design_collections': 'design',
+    'design_designers': 'design',
+    'design_discovery': 'design',
     'garment_catalog': 'design',
     'inventory': 'stock',
+    'inventory_suppliers': 'stock',
+    'inventory_bom': 'stock',
+    'inventory_reports': 'stock',
     'inventory_catalog': 'stock',
     'tailors': 'people',
     'staff': 'people',
+    'staff_attendance': 'people',
+    'staff_documents': 'people',
+    'staff_reviews': 'people',
     'payroll': 'people',
     'finance': 'business',
+    'finance_pl': 'business',
     'scheduling': 'operations',
     'production_api': 'operations',
     'activities': 'operations',
@@ -159,6 +240,88 @@ MODULE_GROUP = {
     'whatsapp': 'platform',
     'alterations': 'operations',
 }
+
+#: Modules that exist for URL governance -- every prefix must belong to one --
+#: but are not features anybody buys or switches. The bell is on every screen,
+#: the order wizard reads garment templates and assigns from the roster, the
+#: inventory item form reads the purchasing catalogue, the production API has
+#: no screen, and the activity feed is role-gated already. They are always entitled; role distribution
+#: (Layer 2) still applies. Hidden from the console's switch list and from
+#: every plan, because a switch that breaks the product is not a control.
+INFRASTRUCTURE = frozenset({
+    'notifications', 'garment_catalog', 'inventory_catalog', 'production_api', 'activities',
+    # The roster: every order is assigned to a tailor and a master, so a
+    # boutique without it cannot take an order. Employment records, attendance
+    # and pay are the sellable part (Team Management), not the names.
+    'tailors',
+})
+
+#: Sold separately from the plan a boutique is on.
+ADDONS = frozenset({'whatsapp', 'email'})
+
+#: What the business sells: a handful of modules, each a bundle of the
+#: switchable features above. (In this file the features are called MODULES
+#: for historical reasons -- the URL registry, the middleware, the column and
+#: the API all speak that name -- so the sellable bundles are PRODUCT_MODULES.
+#: The console says "module" for these and "feature" for the entries above.)
+#: Every gateable, non-infrastructure feature belongs to exactly one; core.E011
+#: checks it. An empty feature list is a module that is announced but not built.
+PRODUCT_MODULES = {
+    'crm': ('CRM',
+            'Customers, orders and how you reach them: drafts, the public tracking '
+            'link, appointments, alterations, WhatsApp and email.',
+            ('order_drafts', 'order_tracking', 'scheduling', 'alterations', 'whatsapp', 'email')),
+    'design': ('Design Studio',
+               'Design library, boards, collections, designers and search.',
+               ('design_studio', 'design_collections', 'design_designers', 'design_discovery')),
+    'inventory': ('Inventory',
+                  'Stock, locations, suppliers, purchase orders and bills of materials.',
+                  ('inventory', 'inventory_suppliers', 'inventory_bom', 'inventory_reports')),
+    'team': ('Team Management',
+             'Employment terms, attendance, documents, reviews and payroll.',
+             ('staff', 'staff_attendance', 'staff_documents', 'staff_reviews', 'payroll')),
+    'finance': ('Finance',
+                'Business costs and the profit-and-loss report.',
+                ('finance', 'finance_pl')),
+    'try_on': ('Try-On',
+               'Virtual try-on. Not built yet; listed so the plan it will belong to is decided now.',
+               ()),
+    'marketing': ('Marketing',
+                  'Campaigns, promotions and customer outreach. Not built yet.',
+                  ()),
+}
+
+
+def module_features(module):
+    return frozenset(PRODUCT_MODULES[module][2])
+
+
+def _bundle(modules, addons=False):
+    features = frozenset().union(*(module_features(m) for m in modules))
+    return features if addons else features - ADDONS
+
+
+#: What each plan includes, on top of the structural product every boutique
+#: has (orders, customers, invoices, reports). Named by product module; the
+#: feature set is what the server enforces. Add-ons are extra on Starter and
+#: Studio, included in Atelier. A boutique's overrides
+#: (BoutiqueTenant.enabled_modules, keyed by feature) sit on top.
+PLAN_MODULES = {
+    'starter': ('Starter', ('crm',)),
+    'studio': ('Studio', ('crm', 'design', 'inventory')),
+    'atelier': ('Atelier', ('crm', 'design', 'inventory', 'team', 'finance')),
+}
+PLANS = {
+    key: (label, _bundle(modules, addons=(key == 'atelier')))
+    for key, (label, modules) in PLAN_MODULES.items()
+}
+DEFAULT_PLAN = 'starter'
+
+
+def plan_modules(plan):
+    # An unknown or blank plan is the smallest one, never everything.
+    return PLANS.get(plan, PLANS[DEFAULT_PLAN])[1]
+
 
 STRUCTURAL = {
     'orders': (
@@ -188,6 +351,9 @@ ALWAYS_ON = (
     # inventory module, the very checklist that is theirs to tick. Exempt it so
     # role -- not the procurement switch -- decides.
     '/api/inventory/material-plans/',
+    # Same reasoning: a customer's own cloth received at the counter is order
+    # data, not procurement. A boutique with no Inventory still takes cloth.
+    '/api/inventory/customer-materials/',
     '/api/auth/',
     '/api/boutique-settings/',
     '/api/settings/invoice-template/',
@@ -282,10 +448,15 @@ _TAILOR = frozenset({'notifications', 'garment_catalog', 'staff',
 _MASTER = _TAILOR | {'tailors', 'scheduling', 'production_api', 'activities'}
 _DESIGNER = frozenset({'design_studio', 'garment_catalog', 'notifications'})
 
+def _with_children(keys):
+    # A role that has a feature has its children too, unless told otherwise.
+    return frozenset(keys) | {child for child, parent in PARENT.items() if parent in keys}
+
+
 ROLE_DEFAULTS = {
-    DESIGNER: _DESIGNER,
-    'Master': frozenset(_MASTER),
-    **{role: _TAILOR for role in PRODUCTION_ROLES if role != 'Master'},
+    DESIGNER: _with_children(_DESIGNER),
+    'Master': _with_children(_MASTER),
+    **{role: _with_children(_TAILOR) for role in PRODUCTION_ROLES if role != 'Master'},
 }
 
 
@@ -299,21 +470,30 @@ def role_allows(role_modules, role, key):
     # a permission class on every request.
     if isinstance(role_modules, dict):
         explicit = role_modules.get(role)
-        if isinstance(explicit, dict) and key in explicit:
-            return explicit[key] is not False
+        if isinstance(explicit, dict):
+            if key in explicit:
+                return explicit[key] is not False
+            parent = PARENT.get(key)
+            if parent in explicit:
+                return explicit[parent] is not False
     # An unknown role -- None, or a value the model no longer has -- gets the
     # least-privileged real role, never everything. resolve_user_role returns
     # None for an account nothing claims (see core/roles.py: a deleted staff
     # member's live token), and that account must not inherit the floor.
-    return key in ROLE_DEFAULTS.get(role, _TAILOR)
+    defaults = ROLE_DEFAULTS.get(role, _TAILOR)
+    return key in defaults or PARENT.get(key) in defaults
 
 
-def effective_modules(enabled_modules, role_modules, role):
+def effective_modules(plan, overrides, role_modules, role):
     """entitled(boutique) AND allowed(role). Layer 1 wins."""
     return sorted(
         key for key in MODULES
-        if is_enabled(enabled_modules, key) and role_allows(role_modules, role, key)
+        if is_enabled(plan, overrides, key) and role_allows(role_modules, role, key)
     )
+
+
+def entitled_modules(plan, overrides):
+    return sorted(key for key in MODULES if is_enabled(plan, overrides, key))
 
 
 _ORDERED = sorted(
@@ -346,10 +526,22 @@ def default_enabled():
     return {key: True for key in MODULES}
 
 
-def is_enabled(enabled_modules, key):
-    if not isinstance(enabled_modules, dict) or not enabled_modules:
+def is_enabled(plan, overrides, key):
+    """Layer 1: is this boutique entitled to the module?
+
+    Plan first, then the boutique's own overrides on top. Infrastructure is
+    always on. `overrides` arrives from JSON written by an API and may be
+    anything; a malformed value reads as "no overrides", never raises.
+    """
+    if key in INFRASTRUCTURE:
         return True
-    return enabled_modules.get(key, True) is not False
+    if isinstance(overrides, dict):
+        if key in overrides:
+            return overrides[key] is not False
+        parent = PARENT.get(key)
+        if parent in overrides:
+            return overrides[parent] is not False
+    return key in plan_modules(plan)
 
 
 def catalogue():
@@ -359,9 +551,20 @@ def catalogue():
         # working untouched if they ignore it.
         'modules': [
             {'key': key, 'label': label, 'prefixes': list(prefixes), 'description': description,
-             'gateable': True, 'group': MODULE_GROUP.get(key)}
+             'gateable': key not in INFRASTRUCTURE, 'infrastructure': key in INFRASTRUCTURE,
+             'addon': key in ADDONS, 'group': MODULE_GROUP.get(key)}
             for key, (label, prefixes, description) in MODULES.items()
         ],
+        'product_modules': [
+            {'key': key, 'label': label, 'description': description,
+             'features': list(features), 'built': bool(features)}
+            for key, (label, description, features) in PRODUCT_MODULES.items()
+        ],
+        'plans': [{'key': key, 'label': label, 'modules': list(PLAN_MODULES[key][1]),
+                   'features': sorted(features)}
+                  for key, (label, features) in PLANS.items()],
+        'addons': sorted(ADDONS),
+        'default_plan': DEFAULT_PLAN,
         'groups': dict(GROUPS),
         'structural': [
             {'key': key, 'label': label, 'reason': reason, 'gateable': False}

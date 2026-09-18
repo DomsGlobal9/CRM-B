@@ -11,9 +11,10 @@
  * still be valid next year.
  *
  * There are no sessions. django.contrib.auth.login() is never called anywhere
- * in this codebase, so there is nothing to time out, no "signed in 20 minutes
- * ago", and no login history at all -- last_login is NULL for every account on
- * the platform (superadmin/users.py returns `last_login_tracked: false`).
+ * in this codebase, so there is nothing to time out and no "signed in 20
+ * minutes ago" -- last_login is NULL for every account on the platform
+ * (superadmin/users.py returns `last_login_tracked: false`). Sign-in *attempts*
+ * are recorded separately (superadmin/signins.py, the Sign-in Attempts screen).
  *
  * So deleting the token row is the only real sign-out this product has, and
  * Revoke below is that delete. It is also the only lever here: there is nothing
@@ -140,8 +141,8 @@ export default function Sessions({ route }) {
   return (
     <>
       <SectionHead
-        title="Sessions & tokens"
-        subtitle="Who currently holds a key to the API."
+        title="Who has access"
+        subtitle="Accounts that currently hold a working sign-in. Revoke one to sign that person out everywhere."
       >
         <SearchBox value={filters.q} onChange={set('q')} placeholder="Name, username or email…" />
         <Select value={filters.boutique} onChange={set('boutique')} label="Boutique"

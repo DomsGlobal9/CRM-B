@@ -87,8 +87,8 @@ export default function OrdersMonitor({ route }) {
   return (
     <>
       <SectionHead
-        title="Orders Monitor"
-        subtitle="Aggregates only — the console can see that orders are piling up at a stage without reading anybody's order book."
+        title="Orders across boutiques"
+        subtitle="Counts only: where orders are piling up, without opening anyone's order book."
       />
 
       <Async
@@ -229,7 +229,7 @@ export default function OrdersMonitor({ route }) {
               <div className="sa-note info" style={{ marginTop: 18 }}>
                 <MessageSquare size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
                 Queued messages are not a stuck queue. Nothing sends them automatically by design —
-                see Customer Messaging.
+                see WhatsApp backlog.
               </div>
             </>
           );

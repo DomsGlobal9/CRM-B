@@ -21,6 +21,17 @@ import { Info, Lock, Power, Server } from 'lucide-react';
 import { consoleApi } from '../api';
 import { Async, Confirm, Empty, Pill, SectionHead, Table, moment, useApi, useToast } from '../ui';
 
+/** Plain names for the keys ConfigView reports on. */
+const CREDENTIAL_NAMES = {
+  email_host: 'Mail server',
+  supabase: 'Supabase storage (unused)',
+  cloudinary: 'Cloudinary (photos & backups)',
+  customer_message_backend: 'Customer WhatsApp sending',
+  design_studio_pinterest: 'Design search — Pinterest',
+  design_studio_google: 'Design search — Google Images',
+  guardian_whatsapp_number: 'Watchdog WhatsApp number',
+};
+
 const MAINTENANCE = 'maintenance_mode';
 
 /**
@@ -110,7 +121,7 @@ export default function Config() {
               {note && <div className="sa-note info">{note}</div>}
 
               <SectionHead title="Maintenance mode"
-                subtitle="Platform-wide. Refuses every boutique request until it is switched off." />
+                subtitle="Pauses the whole platform: every boutique sees a maintenance message until this is switched off." />
 
               <div className="sa-card" style={{ marginBottom: 32 }}>
                 <h4>
@@ -155,7 +166,7 @@ export default function Config() {
               </div>
 
               <SectionHead title="Platform settings"
-                subtitle="Rows in the database, read by the application. Values are JSON — text goes in double quotes." />
+                subtitle="Values the product reads at runtime. Text must be in double quotes." />
 
               <Table
                 columns={[
@@ -208,8 +219,8 @@ export default function Config() {
               />
 
               <div style={{ marginTop: 32 }}>
-                <SectionHead title="Environment"
-                  subtitle="Read back from settings.py. Changing any of these is a deploy, not a click." />
+                <SectionHead title="Server settings"
+                  subtitle="Set on the server, shown here for reference. Changing one means a redeploy, not a click." />
                 <div className="sa-card">
                   <dl className="sa-kv">
                     <dt>DEBUG</dt>
@@ -234,20 +245,20 @@ export default function Config() {
               </div>
 
               <div style={{ marginTop: 32 }}>
-                <SectionHead title="Credentials"
-                  subtitle="Whether each one is set, and nothing else. The API sends a boolean — no endpoint here returns a key, and none should be asked to." />
+                <SectionHead title="Keys and passwords"
+                  subtitle="Only whether each one is set. The value itself is never shown here." />
                 <div className="sa-cards">
                   {Object.entries(data.credentials || {}).map(([key, present]) => (
                     <div key={key} className="sa-card">
                       <h4 style={{ textTransform: 'capitalize' }}>
                         {present ? <Lock size={14} /> : <Server size={14} />}
-                        {key.replace(/_/g, ' ')}
+                        {CREDENTIAL_NAMES[key] || key.replace(/_/g, ' ')}
                       </h4>
                       {/* not_configured is grey. Several of these are absent by
                           design, and a red light would send someone hunting a
                           bug that does not exist. */}
                       <Pill value={present ? 'ok' : 'not_configured'}
-                        label={present ? 'configured' : 'not configured'} />
+                        label={present ? 'set' : 'not set'} />
                     </div>
                   ))}
                 </div>
