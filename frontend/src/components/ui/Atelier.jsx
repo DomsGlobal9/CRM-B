@@ -223,13 +223,26 @@ export function Field({ label, required, optional, hint, icon: Icon, children, h
 // browser's own names (NotAllowedError, NotFoundError...) mean nothing to a
 // boutique, and a silent fall-through to the file dialog looked like the
 // button was simply broken.
-const cameraProblem = (err) => {
+const cameraProblem = (err, siteState) => {
   if (typeof window !== 'undefined' && !window.isSecureContext) {
     return 'The camera only works on a secure (https) address or on localhost. Open the app over https to use it.';
   }
   switch (err?.name) {
     case 'NotAllowedError': case 'PermissionDeniedError': case 'SecurityError':
-      return 'Camera access is blocked for this site. Click the camera or lock icon in the address bar, allow the camera, then try again.';
+      // The same error name covers two different situations, and the fix is
+      // different for each. A site-level block shows a camera icon in the
+      // address bar to undo it. A system-level block (Windows privacy
+      // settings, or a device policy) shows nothing in the browser at all --
+      // the icon the first message points at simply is not there.
+      if (siteState === 'denied') {
+        return 'Camera access is blocked for this site, so the browser will not ask again by itself. '
+          + 'Click the camera (or lock) icon at the right end of the address bar, choose "Always allow", '
+          + 'then press Reload page below.';
+      }
+      return 'The browser itself is not allowed to use the camera, so no permission bar or icon appears. '
+        + 'On Windows: Settings › Privacy & security › Camera → turn on "Camera access" and '
+        + '"Let desktop apps access your camera" (your browser is in that list). On a Mac: System Settings › '
+        + 'Privacy & Security › Camera → allow the browser. Then press Reload page below.';
     case 'NotFoundError': case 'DevicesNotFoundError':
       return 'No camera was found on this device.';
     case 'NotReadableError': case 'TrackStartError':
@@ -239,25 +252,61 @@ const cameraProblem = (err) => {
   }
 };
 
+// One camera request at a time, shared by whoever asks while it is pending.
+// React's StrictMode mounts an effect twice in development, and two back-to-
+// back getUserMedia calls made the browser's "Allow camera?" bar appear for
+// the first and vanish when the second replaced it -- the person never got to
+// answer. The rear camera where there is one; a laptop webcam that refuses
+// the facingMode hint gets a second, unconstrained ask before it counts as
+// unavailable.
+let cameraRequest = null;
+const acquireCamera = () => {
+  if (!cameraRequest) {
+    cameraRequest = navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .catch((first) => (first?.name === 'NotAllowedError' || first?.name === 'PermissionDeniedError'
+        ? Promise.reject(first)
+        : navigator.mediaDevices.getUserMedia({ video: true, audio: false })))
+      .finally(() => { cameraRequest = null; });
+  }
+  return cameraRequest;
+};
+
 export function CameraCapture({ onCapture, onClose, onUnavailable, label = 'Capture' }) {
   const [stream, setStream] = useState(null);
   const [problem, setProblem] = useState(null);
+  const [blocked, setBlocked] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const videoRef = useRef(null);
   useEffect(() => {
     let live = null;
     let cancelled = false;
     setProblem(null);
+    setBlocked(false);
     if (!navigator.mediaDevices?.getUserMedia) { setProblem(cameraProblem(null)); return undefined; }
-    // The rear camera where there is one; a laptop webcam that refuses the
-    // facingMode hint gets a second, unconstrained ask before it counts as
-    // unavailable.
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
-      .catch((first) => (first?.name === 'NotAllowedError' || first?.name === 'PermissionDeniedError'
-        ? Promise.reject(first)
-        : navigator.mediaDevices.getUserMedia({ video: true, audio: false })))
-      .then((s) => { if (cancelled) { s.getTracks().forEach((t) => t.stop()); return; } live = s; setStream(s); })
-      .catch((err) => { if (!cancelled) setProblem(cameraProblem(err)); });
+    acquireCamera()
+      // A mount that was cancelled before the answer leaves the stream to the
+      // mount that replaced it (StrictMode's second run) rather than stopping
+      // it under that one's feet; a stream nobody claims is stopped when its
+      // last claimant unmounts.
+      .then((s) => { if (cancelled) return; live = s; setStream(s); })
+      .catch(async (err) => {
+        if (cancelled) return;
+        // The bar was closed without an answer (a click elsewhere, Esc): that
+        // is not a block, just an unanswered question. Ask again.
+        if (/dismiss/i.test(err?.message || '')) {
+          setProblem('The camera request was closed before it was answered. Press Try again and choose Allow when the browser asks.');
+          setBlocked(false);
+          return;
+        }
+        // Which kind of refusal: the Permissions API knows whether THIS SITE
+        // is blocked; if it is not, the block sits above the browser.
+        let siteState = null;
+        try { siteState = (await navigator.permissions.query({ name: 'camera' })).state; } catch { /* not supported */ }
+        if (cancelled) return;
+        const detail = err?.name ? ` (${err.name}${err.message ? `: ${err.message}` : ''})` : '';
+        setProblem(cameraProblem(err, siteState) + detail);
+        setBlocked(['NotAllowedError', 'PermissionDeniedError', 'SecurityError'].includes(err?.name));
+      });
     // Every track stopped on the way out, or the camera light stays on.
     return () => { cancelled = true; live?.getTracks().forEach((t) => t.stop()); };
   }, [attempt]);  // eslint-disable-line react-hooks/exhaustive-deps
@@ -294,9 +343,15 @@ export function CameraCapture({ onCapture, onClose, onUnavailable, label = 'Capt
             <button type="button" className="btn-secondary at-btn-sm" onClick={() => { onClose(); onUnavailable?.(); }}>
               <UploadIcon size={14} /> Choose a file instead
             </button>
-            <button type="button" className="btn-primary at-btn-sm" onClick={() => setAttempt((n) => n + 1)}>
-              <CameraIcon size={14} /> Try again
-            </button>
+            {blocked ? (
+              <button type="button" className="btn-primary at-btn-sm" onClick={() => window.location.reload()}>
+                <CameraIcon size={14} /> Reload page
+              </button>
+            ) : (
+              <button type="button" className="btn-primary at-btn-sm" onClick={() => setAttempt((n) => n + 1)}>
+                <CameraIcon size={14} /> Try again
+              </button>
+            )}
           </div>
         </div>
       </div>,
@@ -305,11 +360,12 @@ export function CameraCapture({ onCapture, onClose, onUnavailable, label = 'Capt
   }
   if (!stream) {
     // Asking. The browser's permission bar is easy to miss, so say what is
-    // being waited for rather than showing nothing until it is answered.
+    // being waited for rather than showing nothing until it is answered. No
+    // close on the backdrop here: a click while the bar is up (often at the
+    // bar itself) must not withdraw the question.
     return createPortal(
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 20000,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px' }}
-           onClick={onClose}>
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px' }}>
         <div style={{ background: 'var(--surface-color, #fff)', color: 'var(--text-primary, #111)', borderRadius: '12px',
                       padding: '20px', maxWidth: '420px', width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}
              onClick={(e) => e.stopPropagation()}>
