@@ -4,6 +4,7 @@ import {
   ArrowRight, Search, X as CloseIcon, Upload as UploadIcon, Camera as CameraIcon,
   Lightbulb as LightbulbIcon, CheckCircle2 as CheckIcon,
 } from 'lucide-react';
+import { imageFilesError } from '../../services/validate';
 
 /**
  * The atelier design layer: the handful of shapes every workspace screen is
@@ -424,7 +425,12 @@ export function AddPhotoButton({ onFiles, multiple = false, label = 'Add photo',
   const pick = (e) => {
     const files = [...(e.target.files || [])];
     e.target.value = '';        // so the same file can be picked twice
-    if (files.length) onFiles(multiple ? files : files.slice(0, 1));
+    if (!files.length) return;
+    // Every photo picker in the product goes through here, so one check keeps
+    // renamed .exe files and 40 MB scans out of every upload at once.
+    const problem = imageFilesError(files);
+    if (problem) { window.alert(problem); return; }
+    onFiles(multiple ? files : files.slice(0, 1));
   };
   const input = <input ref={ref} type="file" accept="image/*" multiple={multiple} hidden onChange={pick} />;
   const [camOpen, setCamOpen] = useState(false);
@@ -500,15 +506,24 @@ export function CameraButton({ onFiles, multiple = false, label = 'Take photo', 
  * the input resets itself so the same file can be picked twice. `camera` adds
  * a "Take photo" button beside "Choose file" that opens the device camera
  * (a `capture` input), for the counter that photographs rather than browses.
+ * No icon above the title: the upload glyph already sits on the button, and
+ * twice on one card read as two controls.
  */
-export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title, subtitle, chooseLabel = 'Choose file', hint, compact = false, icon: Icon = UploadIcon, camera = false }) {
+export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title, subtitle, chooseLabel = 'Choose file', hint, compact = false, camera = false }) {
   const [over, setOver] = useState(false);
+  const [problem, setProblem] = useState('');
   const [camOpen, setCamOpen] = useState(false);
   const fileRef = useRef(null);
   const camRef = useRef(null);
   const take = (list) => {
     const files = [...(list || [])].filter(Boolean);
-    if (files.length) onFiles(multiple ? files : files.slice(0, 1));
+    if (!files.length) return;
+    // A drop ignores `accept`, so the image rule is checked here for every
+    // picker that asks for images; document pickers (PDF) keep their own rules.
+    const error = accept === 'image/*' ? imageFilesError(files) : '';
+    setProblem(error);
+    if (error) return;
+    onFiles(multiple ? files : files.slice(0, 1));
   };
   return (
     <div
@@ -517,7 +532,6 @@ export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title,
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files); }}
     >
-      <span className="at-drop-icon"><Icon size={compact ? 22 : 30} strokeWidth={1.5} /></span>
       <div className="at-drop-title">{title || (multiple ? 'Drag & drop photos here' : 'Drag & drop a file here')}</div>
       {subtitle !== null && <div className="at-drop-sub">{subtitle || 'or choose from your device'}</div>}
       <div className="at-drop-actions">
@@ -531,6 +545,7 @@ export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title,
         )}
       </div>
       {hint && <div className="at-drop-hint">{hint}</div>}
+      {problem && <div className="at-drop-hint" role="alert" style={{ color: '#dc2626' }}>{problem}</div>}
       <input ref={fileRef} type="file" accept={accept} multiple={multiple} hidden
              onChange={(e) => { take(e.target.files); e.target.value = ''; }} />
       {camera && (

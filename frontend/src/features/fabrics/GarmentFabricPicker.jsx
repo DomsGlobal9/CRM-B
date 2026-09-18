@@ -1,7 +1,8 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
 import { Check, ChevronDown, Inbox, Layers, X } from 'lucide-react';
 
-import { resolveMediaUrl } from '../../services/media';
+import { inventoryImage, inventoryTile } from '../../services/inventoryImages';
+import { LIMITS, cleanAmount } from '../../services/validate';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 import { ACCESSORY_OPTIONS } from '../designStudio/GarmentPartPicker';
 
@@ -196,9 +197,6 @@ function AccessoryMultiSelectDropdown({
   );
 }
 
-const FABRIC_FALLBACK =
-  'https://images.unsplash.com/photo-1574169208507-84376144848b?w=400';
-
 /** Does one placement cover this garment, section and slot?
  *
  *  A placement narrows: naming only the garment means anywhere on it, which is
@@ -211,7 +209,7 @@ const placementCovers = (placement, garment, section, slot) =>
   && (!placement.slot || placement.slot === slot);
 
 function FabricCard({ fabric, picked, onToggle }) {
-  const image = resolveMediaUrl(fabric.image_url) || FABRIC_FALLBACK;
+  const image = inventoryImage(fabric);
   return (
     <div className={`fabric-card ${picked ? 'selected' : ''}`}
          role="button"
@@ -220,7 +218,7 @@ function FabricCard({ fabric, picked, onToggle }) {
          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}>
       <div className="fabric-image-container">
         <img src={image} alt={fabric.name}
-             onError={(e) => { e.currentTarget.src = FABRIC_FALLBACK; }} />
+             onError={(e) => { e.currentTarget.src = inventoryTile(fabric); }} />
         {picked && <div className="fabric-badge"><Check size={14} /></div>}
       </div>
       <div className="fabric-details">
@@ -325,9 +323,9 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
           </div>
           {fabrics.map((fabric) => (
             <div key={fabric.id} style={rowStyle}>
-              <img src={resolveMediaUrl(fabric.image_url) || FABRIC_FALLBACK} alt=""
+              <img src={inventoryImage(fabric)} alt=""
                    style={{ width: '30px', height: '30px', borderRadius: '5px', objectFit: 'cover' }}
-                   onError={(e) => { e.currentTarget.src = FABRIC_FALLBACK; }} />
+                   onError={(e) => { e.currentTarget.src = inventoryTile(fabric); }} />
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {fabric.name}
@@ -339,11 +337,11 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
               </div>
               {/* How much of it: the number the ledger reserves at Fabric
                   Confirmed and the cutting table later consumes. */}
-              <input type="number" min="0" step="0.01" className="form-control"
+              <input inputMode="decimal" className="form-control"
                      style={{ width: '76px', padding: '3px 6px', fontSize: '12px' }}
                      placeholder={accessoriesOnly ? 'Qty' : unitShort(fabric)}
                      value={quantities[`${key}:${fabric.id}`] ?? ''}
-                     onChange={(e) => onQuantity?.(key, String(fabric.id), e.target.value)} />
+                     onChange={(e) => onQuantity?.(key, String(fabric.id), cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }))} />
               <button type="button" onClick={() => onToggle(key, String(fabric.id))} title="Remove"
                       style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)',
                                cursor: 'pointer', padding: '2px', display: 'flex' }}>
@@ -566,6 +564,7 @@ export default function GarmentFabricPicker({
                               type="text"
                               className="form-control"
                               placeholder={currentAccOption.placeholder || 'Enter measurement or size...'}
+                              maxLength={100}
                               value={accessoryMeasurements[`${job.key}:${activeSlotKey}`] || ''}
                               onChange={(e) => {
                                 const val = e.target.value;

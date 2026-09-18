@@ -12,6 +12,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from apps.inventory.models import InventoryItem, ItemPlacement
+from core.test_images import PNG
 
 ITEMS = '/api/inventory/items/'
 OWNER_EMAIL = 'owner@fabrics.test'
@@ -305,7 +306,7 @@ class ItemPlacementTests(TenantTestCase):
             self.client.post(upload, {'images': junk}, format='multipart').status_code,
             status.HTTP_400_BAD_REQUEST)
 
-        shot = SimpleUploadedFile('roll.png', b'\x89PNG\r\n\x1a\n fake', content_type='image/png')
+        shot = SimpleUploadedFile('roll.png', PNG, content_type='image/png')
         stored = self.client.post(upload, {'images': shot}, format='multipart')
         self.assertEqual(stored.status_code, status.HTTP_201_CREATED, stored.data)
         self.assertEqual(len(stored.data['image_urls']), 1)

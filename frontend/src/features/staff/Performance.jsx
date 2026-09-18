@@ -16,6 +16,7 @@ import { AlertCircle, Check, ChevronLeft, Lock, Star, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { LIMITS, todayIso } from '../../services/validate';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -175,6 +176,9 @@ function ReviewForm({ member, period, existing, onCancel, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    if (!existing && form.period_end && form.period_start && form.period_end < form.period_start) {
+      setError('The review period cannot end before it starts.'); return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -211,12 +215,12 @@ function ReviewForm({ member, period, existing, onCancel, onSaved }) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             <label style={label} htmlFor="rv-start">From</label>
-            <input id="rv-start" type="date" value={form.period_start}
+            <input id="rv-start" type="date" value={form.period_start} max={todayIso()}
                    onChange={set('period_start')} required />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
             <label style={label} htmlFor="rv-end">To</label>
-            <input id="rv-end" type="date" value={form.period_end}
+            <input id="rv-end" type="date" value={form.period_end} min={form.period_start || undefined} max={todayIso()}
                    onChange={set('period_end')} required />
           </div>
         </div>
@@ -246,7 +250,7 @@ function ReviewForm({ member, period, existing, onCancel, onSaved }) {
         <div key={key} style={{ display: 'flex', flexDirection: 'column',
                                 gap: '5px', marginTop: '14px' }}>
           <label style={label} htmlFor={`rv-${key}`}>{text}</label>
-          <VoiceTextarea id={`rv-${key}`} rows={2} value={form[key]} onChange={set(key)} />
+          <VoiceTextarea id={`rv-${key}`} rows={2} maxLength={LIMITS.note} value={form[key]} onChange={set(key)} />
         </div>
       ))}
 

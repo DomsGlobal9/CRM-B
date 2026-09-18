@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 
 import { consoleApi } from '../api';
+import { LIMITS } from '../../services/validate';
 import {
   Async, Confirm, Empty, Pager, Pill, SearchBox, SectionHead, Select, Stat,
   count, moment, since, useApi, useToast,
@@ -514,7 +515,7 @@ export default function ErrorHandling({ route, onBadges }) {
                                     <label htmlFor={`hnote-${e.id}`} style={LABEL}>
                                       Internal notes
                                     </label>
-                                    <textarea id={`hnote-${e.id}`} className="sa-textarea"
+                                    <textarea id={`hnote-${e.id}`} className="sa-textarea" maxLength={LIMITS.note}
                                       defaultValue={e.notes}
                                       placeholder="What you found, what you tried…"
                                       onBlur={(ev) => {

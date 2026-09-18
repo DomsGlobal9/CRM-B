@@ -19,6 +19,7 @@ import { useCallback, useState } from 'react';
 import { Info, Lock, Power, Server } from 'lucide-react';
 
 import { consoleApi } from '../api';
+import { LIMITS } from '../../services/validate';
 import { Async, Confirm, Empty, Pill, SectionHead, Table, moment, useApi, useToast } from '../ui';
 
 /** Plain names for the keys ConfigView reports on. */
@@ -132,7 +133,7 @@ export default function Config() {
 
                 <div className="sa-field" style={{ marginTop: 14, marginBottom: 10 }}>
                   <label htmlFor="sa-maint-message">Message every boutique sees</label>
-                  <textarea id="sa-maint-message" className="sa-textarea" value={message}
+                  <textarea id="sa-maint-message" className="sa-textarea" value={message} maxLength={LIMITS.reason}
                     placeholder="Back at 03:00 UTC. Nothing has been lost."
                     disabled={busy === MAINTENANCE}
                     onChange={(e) => setDraft(e.target.value)} />

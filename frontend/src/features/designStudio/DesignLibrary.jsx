@@ -9,6 +9,7 @@ import DesignCatalogueBrowser from './DesignCatalogueBrowser';
 import ItemFormModal from '../inventory/ItemFormModal';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { LIMITS, cleanAmount } from '../../services/validate';
 
 
 const CARD_IMAGE_FALLBACK =
@@ -90,9 +91,11 @@ function Filters({ value, onChange, designers, collections, parts = [] }) {
         Price
         <span style={{ display: 'flex', gap: '4px' }}>
           <input className="form-control" style={{ padding: '6px', fontSize: '12px', width: '50%' }}
-                 type="number" placeholder="min" value={value.price_min || ''} onChange={set('price_min')} />
+                 inputMode="decimal" placeholder="min" value={value.price_min || ''}
+                 onChange={(e) => set('price_min')({ target: { value: cleanAmount(e.target.value) } })} />
           <input className="form-control" style={{ padding: '6px', fontSize: '12px', width: '50%' }}
-                 type="number" placeholder="max" value={value.price_max || ''} onChange={set('price_max')} />
+                 inputMode="decimal" placeholder="max" value={value.price_max || ''}
+                 onChange={(e) => set('price_max')({ target: { value: cleanAmount(e.target.value) } })} />
         </span>
       </label>
     </div>
@@ -121,7 +124,9 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
   }, [design.id]);
 
   const decide = async (decision) => {
-    if (inFlight.current) return;  
+    if (inFlight.current) return;
+    // A designer sent back with no reason cannot act on it.
+    if (decision === 'CHANGES_REQUESTED' && !note.trim()) { window.alert('Tell the designer what to change.'); return; }
     inFlight.current = true;
     setReviewing(true);
     try {
@@ -220,7 +225,7 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
             <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '8px' }}>
               Awaiting your review
             </div>
-            <VoiceTextarea className="form-control" rows={2} placeholder="Note for the designer (optional)"
+            <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} placeholder="Note for the designer (needed when requesting changes)"
                       value={note} onChange={(e) => setNote(e.target.value)}
                       style={{ fontSize: '12.5px', marginBottom: '10px' }} />
             <div style={{ display: 'flex', gap: '8px' }}>

@@ -30,6 +30,10 @@ import Payroll from './Payroll';
 import Performance from './Performance';
 import TeamTasks from './TeamTasks';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import {
+  LIMITS, tenDigits, mobileError, emailError, nameError, cleanAmount, amountError,
+  cleanDocumentNumber, documentNumberError, todayIso, imageFilesError,
+} from '../../services/validate';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -76,27 +80,6 @@ const EMPLOYMENT_TYPES = [
 const employmentLabel = (value) =>
   (EMPLOYMENT_TYPES.find(([key]) => key === value) || [null, '—'])[1];
 
-/**
- * A mobile number is ten national digits, whatever was typed or pasted.
- *
- * Mirrors national_mobile() in crm_api/models.py step for step -- drop
- * everything that is not a digit, an international 00, the country code when
- * more than ten digits remain, and leading zeros -- so what the field shows
- * is what the server will store. Two rules that merely looked alike were not
- * enough: "first ten digits" turned a pasted "+91 98765 43210" into
- * 9198765432, a number that passes every check and reaches nobody.
- *
- * No maxLength on the input, on purpose. It counts characters, so it would
- * cut that same paste to "+91 98765 " before this function ever saw it. The
- * limit is here; the server (core.validators) is the one that decides.
- */
-const tenDigits = (e) => {
-  let d = e.target.value.replace(/\D/g, '');
-  if (d.startsWith('00')) d = d.slice(2);
-  if (d.length > 10 && d.startsWith('91')) d = d.slice(2);
-  return d.replace(/^0+/, '').slice(0, 10);
-};
-
 function Modal({ title, subtitle, icon, tone = 'green', onClose, children, width = '560px', footer }) {
   return (
     <FormModal icon={icon} tone={tone} title={title} subtitle={subtitle} onClose={onClose} width={width} footer={footer}>
@@ -133,6 +116,27 @@ const EMPTY_FORM = {
   notes: '',
 };
 
+// Sanity ceilings for employment terms; the server only refuses negatives.
+const MAX_HOURLY_RATE = 10000;
+const MAX_WEEKLY_HOURS = 168;
+
+/** The cross-field rules for employment terms; '' when they pass. */
+const termsError = (form) => {
+  const rate = amountError(form.hourly_rate, { label: 'Hourly rate', max: MAX_HOURLY_RATE });
+  if (rate) return rate;
+  const hours = amountError(form.weekly_hours, { label: 'Weekly hours', max: MAX_WEEKLY_HOURS });
+  if (hours) return hours;
+  const total = amountError(form.deposit_total, { label: 'Security deposit' });
+  if (total) return total;
+  const weekly = amountError(form.deposit_weekly, { label: 'Weekly deduction' });
+  if (weekly) return weekly;
+  if (form.deposit_weekly && Number(form.deposit_weekly) > Number(form.deposit_total || 0)) {
+    return 'The weekly deduction cannot be more than the security deposit.';
+  }
+  if (form.exit_date && form.joined_at && form.exit_date < form.joined_at) return 'The leaving date cannot be before the joining date.';
+  return '';
+};
+
 /** Blank strings are not zero. Sending '' for a Decimal is a 400. */
 const cleaned = (form) => {
   const payload = {};
@@ -145,6 +149,7 @@ const cleaned = (form) => {
 /** The employment fields, shared by the add and edit form. `form` is EMPTY_FORM-shaped. */
 function TermsFields({ form, setForm, memberName }) {
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const setAmount = (key, opts) => (e) => setForm((f) => ({ ...f, [key]: cleanAmount(e.target.value, opts) }));
   return (
     <>
       <div className="at-form-grid">
@@ -157,40 +162,40 @@ function TermsFields({ form, setForm, memberName }) {
         </Field>
         <Field label="Hourly rate (₹)" icon={IndianRupee} htmlFor="sp-rate"
                hint={`Set the hourly rate for ${memberName}.`}>
-          <input id="sp-rate" type="number" min="0" step="0.01"
-                 value={form.hourly_rate} onChange={set('hourly_rate')} placeholder="0.00" />
+          <input id="sp-rate" inputMode="decimal"
+                 value={form.hourly_rate} onChange={setAmount('hourly_rate', { max: MAX_HOURLY_RATE })} placeholder="0.00" />
         </Field>
 
         <Field label="Joined on" icon={Calendar} htmlFor="sp-joined">
           <input id="sp-joined" type="date" value={form.joined_at} onChange={set('joined_at')} />
         </Field>
         <Field label="Left on" icon={Calendar} htmlFor="sp-exit" hint="Leave blank if currently active.">
-          <input id="sp-exit" type="date" value={form.exit_date} onChange={set('exit_date')} />
+          <input id="sp-exit" type="date" min={form.joined_at || undefined} value={form.exit_date} onChange={set('exit_date')} />
         </Field>
 
         <Field label="Expected hours a week" icon={Clock} htmlFor="sp-hours" hint="Planned working hours per week.">
-          <input id="sp-hours" type="number" min="0" step="0.5"
-                 value={form.weekly_hours} onChange={set('weekly_hours')} placeholder="48" />
+          <input id="sp-hours" inputMode="decimal"
+                 value={form.weekly_hours} onChange={setAmount('weekly_hours', { max: MAX_WEEKLY_HOURS, decimals: 1 })} placeholder="48" />
         </Field>
         <Field label="Security deposit (₹)" icon={Shield} htmlFor="sp-dep-total">
-          <input id="sp-dep-total" type="number" min="0" step="0.01"
-                 value={form.deposit_total} onChange={set('deposit_total')} placeholder="0.00" />
+          <input id="sp-dep-total" inputMode="decimal"
+                 value={form.deposit_total} onChange={setAmount('deposit_total')} placeholder="0.00" />
         </Field>
         <Field label="Weekly deduction (₹)" icon={Coins} htmlFor="sp-dep-weekly">
-          <input id="sp-dep-weekly" type="number" min="0" step="0.01"
-                 value={form.deposit_weekly} onChange={set('deposit_weekly')} placeholder="0.00" />
+          <input id="sp-dep-weekly" inputMode="decimal"
+                 value={form.deposit_weekly} onChange={setAmount('deposit_weekly')} placeholder="0.00" />
         </Field>
       </div>
 
       <Field label="Emergency contact" icon={User} htmlFor="sp-emergency">
-        <input id="sp-emergency" value={form.emergency_contact} placeholder="Name and phone number"
+        <input id="sp-emergency" value={form.emergency_contact} placeholder="Name and phone number" maxLength={150}
                onChange={set('emergency_contact')} />
       </Field>
       <Field label="Address" icon={MapPin} htmlFor="sp-address">
-        <textarea id="sp-address" rows={2} value={form.address} onChange={set('address')} placeholder="Enter full address" />
+        <textarea id="sp-address" rows={2} maxLength={LIMITS.address} value={form.address} onChange={set('address')} placeholder="Enter full address" />
       </Field>
       <Field label="Notes" icon={FileText} htmlFor="sp-notes">
-        <VoiceTextarea id="sp-notes" rows={2} value={form.notes} onChange={set('notes')} placeholder="Add any additional notes…" />
+        <VoiceTextarea id="sp-notes" rows={2} maxLength={LIMITS.note} value={form.notes} onChange={set('notes')} placeholder="Add any additional notes…" />
       </Field>
 
       <InfoNote tone="amber" icon={Shield}>
@@ -212,6 +217,11 @@ function AdvanceForm({ member, onCancel, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    const problem = amountError(form.amount, { label: 'Amount', allowZero: false, required: true })
+      || amountError(form.weekly_recovery, { label: 'Weekly recovery' })
+      || (Number(form.weekly_recovery || 0) > Number(form.amount) ? 'Weekly recovery cannot be more than the advance.' : '')
+      || (form.issued_on > todayIso() ? 'The advance date cannot be in the future.' : '');
+    if (problem) { setError(problem); return; }
     setSaving(true);
     setError(null);
     try {
@@ -235,21 +245,21 @@ function AdvanceForm({ member, onCancel, onSaved }) {
            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
         <div style={field}>
           <label style={label} htmlFor="adv-amount">Amount (₹)</label>
-          <input id="adv-amount" type="number" min="0.01" step="0.01" required
-                 value={form.amount} onChange={set('amount')} placeholder="0.00" />
+          <input id="adv-amount" inputMode="decimal" required
+                 value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: cleanAmount(e.target.value) }))} placeholder="0.00" />
         </div>
         <div style={field}>
           <label style={label} htmlFor="adv-weekly">Recover per week (₹)</label>
-          <input id="adv-weekly" type="number" min="0" step="0.01"
-                 value={form.weekly_recovery} onChange={set('weekly_recovery')} placeholder="0.00" />
+          <input id="adv-weekly" inputMode="decimal"
+                 value={form.weekly_recovery} onChange={(e) => setForm((f) => ({ ...f, weekly_recovery: cleanAmount(e.target.value) }))} placeholder="0.00" />
         </div>
         <div style={field}>
           <label style={label} htmlFor="adv-date">Given on</label>
-          <input id="adv-date" type="date" required value={form.issued_on} onChange={set('issued_on')} />
+          <input id="adv-date" type="date" required max={todayIso()} value={form.issued_on} onChange={set('issued_on')} />
         </div>
         <div style={field}>
           <label style={label} htmlFor="adv-reason">Reason</label>
-          <input id="adv-reason" value={form.reason} onChange={set('reason')}
+          <input id="adv-reason" value={form.reason} maxLength={255} onChange={set('reason')}
                  placeholder="Emergency advance" />
         </div>
       </div>
@@ -344,8 +354,9 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       setDocsError(err.message || 'Could not remove that document.');
     }
   };
+  const docNumberProblem = documentNumberError(docForm.kind, docForm.number);
   const addDocument = () => {
-    if (!docFile) return;
+    if (!docFile || docNumberProblem) return;
     setPending((p) => [...p, { ...docForm, number: docForm.number.trim(), label: docForm.label.trim(), file: docFile }]);
     setDocForm({ kind: 'AADHAAR', number: '', label: '' });
     setDocFile(null);
@@ -366,10 +377,12 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) { setError('A name is needed.'); return; }
     if (roleChoice === '__custom__' && !customRole.trim()) {
       setError('Type a name for the custom role.'); return;
     }
+    const problem = nameError(form.name) || mobileError(form.phone, { required: false }) || emailError(form.email)
+      || (isDesigner ? '' : termsError(termsForm));
+    if (problem) { setError(problem); return; }
     setBusy(true);
     setError(null);
     try {
@@ -380,7 +393,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
         // Specialty is a free-text note on the roster row and the model
         // requires it, so the role stands in when it is left blank.
         specialty: form.specialty.trim() || form.role,
-        role: form.role,
+        role: (form.role || '').trim(),
         status: form.status,
       };
       const existing = member || savedMember;
@@ -546,7 +559,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
           <div style={errorBox}>{error}</div>
         )}
         <Field label="Name" icon={User}>
-          <input className="form-input" value={form.name} onChange={set('name')}
+          <input className="form-input" value={form.name} onChange={set('name')} maxLength={LIMITS.name}
                  placeholder="Full name" autoFocus />
         </Field>
         {form.role !== 'Designer' && (
@@ -571,8 +584,17 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
                     {photo ? photo.name : 'No file chosen'}
                   </span>
                   <input id="add-staff-photo" type="file" accept="image/*" hidden
-                         onChange={(e) => setPhoto(e.target.files?.[0] || null)} />
-                  <CameraButton onFiles={([f]) => setPhoto(f || null)} />
+                         onChange={(e) => {
+                           const file = e.target.files?.[0] || null;
+                           const bad = file ? imageFilesError([file]) : '';
+                           setError(bad || null);
+                           setPhoto(bad ? null : file);
+                         }} />
+                  <CameraButton onFiles={([f]) => {
+                    const bad = f ? imageFilesError([f]) : '';
+                    setError(bad || null);
+                    setPhoto(bad ? null : (f || null));
+                  }} />
                 </div>
                 <div className="at-field-hint" style={{ marginTop: '6px' }}>
                   Shows on their login. They can change it themselves from My Account.
@@ -582,8 +604,8 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
           </div>
         )}
         <Field label="Mobile number" icon={Smartphone}>
-          <input className="form-input" value={form.phone} inputMode="numeric"
-                 onChange={(e) => setForm({ ...form, phone: tenDigits(e) })}
+          <input className="form-input" type="tel" value={form.phone} inputMode="numeric"
+                 onChange={(e) => setForm({ ...form, phone: tenDigits(e.target.value) })}
                  placeholder="10-digit mobile" />
         </Field>
         <Field label="Role" icon={Scissors} hint={roleHint}>
@@ -604,18 +626,18 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
         </Field>
         {roleChoice === '__custom__' && (
           <Field label="Custom role" icon={Tag}>
-            <input className="form-input" value={customRole}
+            <input className="form-input" value={customRole} maxLength={50}
                    placeholder="e.g. Janitor, Cleaner, Helper"
                    onChange={(e) => { setCustomRole(e.target.value); setForm({ ...form, role: e.target.value }); }} />
           </Field>
         )}
         <Field label="Email for their login" icon={Mail}
                hint="Give an address and a password is generated and shown once.">
-          <input className="form-input" type="email" value={form.email} onChange={set('email')}
+          <input className="form-input" type="email" value={form.email} onChange={set('email')} maxLength={LIMITS.email}
                  placeholder="Leave blank for no login" />
         </Field>
         <Field label={form.role === 'Designer' ? 'Specialisation' : 'Specialty'} optional icon={Sparkles}>
-          <input className="form-input" value={form.specialty} onChange={set('specialty')}
+          <input className="form-input" value={form.specialty} onChange={set('specialty')} maxLength={100}
                  placeholder="Bridal blouses, lehenga…" />
         </Field>
         {editing && form.role !== 'Designer' && (
@@ -678,20 +700,22 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
           <div className="at-form-grid">
             <Field label="Document type" icon={FileText}>
               <select className="form-input" value={docForm.kind}
-                      onChange={(e) => setDocForm({ ...docForm, kind: e.target.value })}>
+                      onChange={(e) => setDocForm({ ...docForm, kind: e.target.value, number: cleanDocumentNumber(e.target.value, docForm.number) })}>
                 {DOCUMENT_KINDS.map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Document number" optional icon={Hash}>
-              <input className="form-input" value={docForm.number}
-                     onChange={(e) => setDocForm({ ...docForm, number: e.target.value })}
+            <Field label="Document number" optional icon={Hash} hint={docNumberProblem ? <span style={{ color: 'var(--danger-color)' }}>{docNumberProblem}</span> : undefined}>
+              <input className="form-input" value={docForm.number} maxLength={64}
+                     aria-invalid={Boolean(docNumberProblem)}
+                     style={docNumberProblem ? { borderColor: 'var(--danger-color)' } : undefined}
+                     onChange={(e) => setDocForm({ ...docForm, number: cleanDocumentNumber(docForm.kind, e.target.value) })}
                      placeholder="Enter document number" />
             </Field>
           </div>
           <Field label="Label / description" optional icon={Tag}>
-            <input className="form-input" value={docForm.label}
+            <input className="form-input" value={docForm.label} maxLength={120}
                    onChange={(e) => setDocForm({ ...docForm, label: e.target.value })}
                    placeholder="e.g. Aadhaar (front), 2026 contract…" />
           </Field>
@@ -708,10 +732,16 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
             <Dropzone compact camera accept="image/*,application/pdf"
                       title="Drag & drop a file here" subtitle="or choose from your device"
                       chooseLabel="Choose file" hint="JPG, PNG or PDF, up to 10MB"
-                      onFiles={(files) => setDocFile(files[0] || null)} />
+                      onFiles={(files) => {
+                        const file = files[0] || null;
+                        // The server refuses anything over 10 MB; say so before the save.
+                        const bad = file && file.size > 10 * 1024 * 1024 ? `${file.name} is larger than 10 MB.` : null;
+                        setError(bad);
+                        setDocFile(bad ? null : file);
+                      }} />
           )}
           <div>
-            <button type="button" className="btn-secondary at-btn-sm" onClick={addDocument} disabled={!docFile}>
+            <button type="button" className="btn-secondary at-btn-sm" onClick={addDocument} disabled={!docFile || Boolean(docNumberProblem)}>
               <Plus size={14} /> Add document
             </button>
           </div>

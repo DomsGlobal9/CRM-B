@@ -3,11 +3,14 @@ import ipaddress
 import logging
 from datetime import timedelta
 
-from django.forms import ModelForm
+from django.forms import ModelForm, ValidationError as FormValidationError
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from rest_framework.exceptions import ValidationError as DRFValidationError
+
+from core.validators import validate_email_address, validate_mobile, validate_name
 
 from .models import DemoRequest
 
@@ -17,6 +20,19 @@ MAX_PER_IP = 5
 RATE_WINDOW = timedelta(hours=1)
 
 HONEYPOT_FIELD = 'note_ref'
+
+
+def _rule(rule, value, **kwargs):
+    """Run one of core.validators' rules inside a Django form.
+
+    The shared rules speak DRF's ValidationError; a ModelForm listens for
+    Django's. Re-raising keeps one rule for a mobile number across the API and
+    this form, with the sentence intact.
+    """
+    try:
+        return rule(value, **kwargs)
+    except DRFValidationError as exc:
+        raise FormValidationError(' '.join(str(d) for d in exc.detail))
 
 
 class DemoRequestForm(ModelForm):
@@ -32,6 +48,20 @@ class DemoRequestForm(ModelForm):
             for key in data:
                 data[key] = data[key].replace('\r\n', '\n')
         super().__init__(data, **kwargs)
+
+    def clean_name(self):
+        return _rule(validate_name, self.cleaned_data.get('name'))
+
+    def clean_phone(self):
+        # Stored as the ten national digits, so '+91 90000 00001' and
+        # '9000000001' are one lead, not two.
+        phone = _rule(validate_mobile, self.cleaned_data.get('phone'))
+        if not phone:
+            raise FormValidationError('Enter a 10-digit mobile number.')
+        return phone
+
+    def clean_email(self):
+        return _rule(validate_email_address, self.cleaned_data.get('email'))
 
 
 def _client_ip(request):

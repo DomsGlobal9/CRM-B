@@ -4,6 +4,7 @@ import { api } from '../../services/api';
 import { formatDate as fmtDate, formatMoney } from '../../services/format';
 import { parseAdjustments } from './adjustments';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 
 /**
  * The alteration strip that lives inside an order card and a customer's order
@@ -48,6 +49,9 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
   const isPaid = form.alteration_type === 'PAID_CLIENT_REQUEST';
 
   const submit = async () => {
+    if (!form.issue_description.trim()) { setError('Say what is wrong with the garment.'); return; }
+    const chargeProblem = isPaid ? amountError(form.charge_amount, { label: 'Charge' }) : '';
+    if (chargeProblem) { setError(chargeProblem); return; }
     setBusy(true);
     setError(null);
     try {
@@ -153,19 +157,20 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
         <div className="form-grid-2" style={{ gap: '12px' }}>
         <div style={field}>
           <label style={label}>What is wrong?</label>
-          <VoiceTextarea className="form-control" rows={2} placeholder="The waist is loose…" value={form.issue_description} onChange={set('issue_description')} />
+          <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} placeholder="The waist is loose…" value={form.issue_description} onChange={set('issue_description')} />
         </div>
 
         <div style={field}>
           <label style={label}>Adjustments asked for — one per line, e.g. “waist: let out 1 inch”</label>
-          <VoiceTextarea className="form-control" rows={2} value={form.adjustments} onChange={set('adjustments')} />
+          <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} value={form.adjustments} onChange={set('adjustments')} />
         </div>
         </div>
 
         {isPaid && (
           <div style={field}>
             <label style={label}>Charge (optional now — it can be set after inspection)</label>
-            <input className="form-control" type="number" min="0" step="0.01" value={form.charge_amount} onChange={set('charge_amount')} />
+            <input className="form-control" inputMode="decimal" value={form.charge_amount}
+                   onChange={(e) => setForm((prev) => ({ ...prev, charge_amount: cleanAmount(e.target.value) }))} />
           </div>
         )}
 

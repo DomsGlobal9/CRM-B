@@ -811,3 +811,33 @@ class QCQueueIsolationTests(TransactionTestCase):
             rows = response.data if response.status_code == 200 else []
             rows = rows['results'] if isinstance(rows, dict) else rows
             self.assertNotIn('T2B-QD-1', str(rows))
+
+
+class DemoRequestInputValidationTests(TransactionTestCase):
+    """The marketing form is a public door; what comes through it is checked."""
+
+    URL = '/demo-request/'
+    VALID = DemoRequestIntakeTests.VALID
+
+    def setUp(self):
+        connection.set_schema_to_public()
+        DemoRequest.objects.all().delete()
+
+    def test_a_phone_with_more_than_ten_digits_is_refused(self):
+        response = Client().post(self.URL, dict(self.VALID, phone='98765432101234'))
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['errors']['phone'], ['Enter a 10-digit mobile number.'])
+        self.assertEqual(DemoRequest.objects.count(), 0)
+
+    def test_a_phone_is_stored_as_ten_national_digits(self):
+        response = Client().post(self.URL, dict(self.VALID, email='  Aarti@RaoCouture.TEST '))
+        self.assertEqual(response.status_code, 201, response.content)
+        lead = DemoRequest.objects.get()
+        self.assertEqual(lead.phone, '9000000001')
+        self.assertEqual(lead.email, 'aarti@raocouture.test')
+
+    def test_a_name_made_of_symbols_is_refused(self):
+        response = Client().post(self.URL, dict(self.VALID, name='<script>'))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('letters', response.json()['errors']['name'][0])
+        self.assertEqual(DemoRequest.objects.count(), 0)

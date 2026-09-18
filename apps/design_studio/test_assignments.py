@@ -373,7 +373,7 @@ class ReviewTests(AssignmentTestCase):
 
     def test_a_resubmission_after_changes_is_accepted(self):
         assignment, _ = self._submitted()
-        self._review(assignment.id, 'changes')
+        self._review(assignment.id, 'changes', note="Border too thin.")
         second = self._design_by(self.meera, "Second pass")
         response = self._submit(assignment.id, second, self.meera_client)
         self.assertEqual(response.status_code, 200, response.data)

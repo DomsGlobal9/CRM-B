@@ -2,6 +2,11 @@ import re
 
 from rest_framework import serializers
 
+from core.validators import (
+    MAX_NOTE, validate_amount, validate_email_address, validate_gstin, validate_hsn,
+    validate_percentage, validate_phone, validate_quantity, validate_text,
+)
+
 from .models import (
     BillOfMaterials, BomLine, CatalogItem, CatalogSection, Category,
     CustomerMaterial, CustomerMaterialMovement, DEFAULT_UNIT_BY_CATEGORY,
@@ -15,6 +20,28 @@ class SupplierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supplier
         fields = '__all__'
+
+    def validate_name(self, value):
+        return validate_text(value, label='Supplier name', max_length=150, required=True)
+
+    def validate_contact_person(self, value):
+        return validate_text(value, label='Contact person', max_length=150)
+
+    def validate_phone(self, value):
+        # A supplier's line is often a landline or an STD-coded office number.
+        return validate_phone(value, max_length=30)
+
+    def validate_email(self, value):
+        return validate_email_address(value)
+
+    def validate_gst_number(self, value):
+        return validate_gstin(value)
+
+    def validate_address(self, value):
+        return validate_text(value, label='Address', max_length=MAX_NOTE)
+
+    def validate_notes(self, value):
+        return validate_text(value, label='Notes', max_length=MAX_NOTE)
 
 
 class ItemPlacementSerializer(serializers.ModelSerializer):
@@ -77,6 +104,35 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Colour code must look like #1a2b3c.")
         return (value or '').lower()
 
+    def validate_name(self, value):
+        return validate_text(value, label='Item name', max_length=200, required=True)
+
+    def validate_item_code(self, value):
+        return validate_text(value, label='Item code', max_length=50)
+
+    def validate_hsn_code(self, value):
+        return validate_hsn(value)
+
+    def validate_purchase_price(self, value):
+        return validate_amount(value, label='Purchase price')
+
+    def validate_selling_price(self, value):
+        return validate_amount(value, label='Selling price')
+
+    def validate_gst_percent(self, value):
+        return validate_percentage(value, label='GST')
+
+    def validate_minimum_stock(self, value):
+        return validate_quantity(value, label='Minimum stock', allow_zero=True)
+
+    def validate_maximum_stock(self, value):
+        if value is None:
+            return None
+        return validate_quantity(value, label='Maximum stock', allow_zero=True)
+
+    def validate_reorder_level(self, value):
+        return validate_quantity(value, label='Reorder level', allow_zero=True)
+
     def validate(self, attrs):
         category = attrs.get('category') or getattr(self.instance, 'category', None)
         if category and not attrs.get('unit') and not self.instance:
@@ -102,7 +158,9 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             elif design is not None:
                 attrs['item_code'] = next_item_code('DSN')
             else:
-                raise serializers.ValidationError({'item_code': 'This field is required.'})
+                # Not from the catalogue or the library: the quick sheet only
+                # asks for a name, so the code is ours to issue here as well.
+                attrs['item_code'] = next_item_code('ITM')
 
         # The card and the picker read image_url; the gallery is the rest of
         # the shoot. The first photo is mirrored so neither has to know the
@@ -218,6 +276,12 @@ class PurchaseOrderLineSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['quantity_received']
 
+    def validate_quantity_ordered(self, value):
+        return validate_quantity(value, label='Quantity ordered')
+
+    def validate_unit_cost(self, value):
+        return validate_amount(value, label='Unit cost')
+
 
 class PurchaseOrderSerializer(serializers.ModelSerializer):
     lines = PurchaseOrderLineSerializer(many=True, required=False)
@@ -230,6 +294,15 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
         model = PurchaseOrder
         fields = '__all__'
         read_only_fields = ['status', 'received_date', 'order_date']
+
+    def validate_tax_amount(self, value):
+        return validate_amount(value, label='Tax amount')
+
+    def validate_invoice_number(self, value):
+        return validate_text(value, label='Invoice number', max_length=100)
+
+    def validate_notes(self, value):
+        return validate_text(value, label='Notes', max_length=MAX_NOTE)
 
     def create(self, validated_data):
         lines = validated_data.pop('lines', [])
@@ -262,7 +335,7 @@ class CatalogItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'item_type', 'item_type_display', 'default_unit',
             'legacy_category', 'is_active', 'is_stockable',
-            'doc', 'section_name', 'subsection', 'section_full_name', 'stocked_item_id',
+            'doc', 'section', 'section_name', 'subsection', 'section_full_name', 'stocked_item_id',
         ]
 
     def get_stocked_item_id(self, obj):
@@ -358,8 +431,18 @@ class BomLineSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class BomLineInSerializer(BomLineSerializer):
+    """A line as it arrives inside its recipe: the recipe is the parent."""
+
+    class Meta(BomLineSerializer.Meta):
+        extra_kwargs = {'bom': {'required': False}}
+
+
 class BillOfMaterialsSerializer(serializers.ModelSerializer):
-    lines = BomLineSerializer(many=True, read_only=True)
+    # Writable: the cookbook sheet saves a recipe and every material in one
+    # request. Lines sent on an update replace the recipe's lines; an update
+    # that leaves them out touches only the recipe's own fields.
+    lines = BomLineInSerializer(many=True, required=False)
     template_name = serializers.CharField(source='template.name', read_only=True, default=None)
     line_count = serializers.IntegerField(source='lines.count', read_only=True)
 
@@ -368,6 +451,26 @@ class BillOfMaterialsSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'template', 'template_name', 'design', 'version',
                   'is_active', 'notes', 'lines', 'line_count', 'created_at', 'updated_at']
         read_only_fields = ['version']
+
+    def _write_lines(self, bom, lines):
+        bom.lines.all().delete()
+        for sequence, line in enumerate(lines):
+            line.pop('bom', None)
+            BomLine.objects.create(bom=bom, sequence=sequence, **line)
+
+    def create(self, validated):
+        lines = validated.pop('lines', None)
+        bom = super().create(validated)
+        if lines:
+            self._write_lines(bom, lines)
+        return bom
+
+    def update(self, bom, validated):
+        lines = validated.pop('lines', None)
+        bom = super().update(bom, validated)
+        if lines is not None:
+            self._write_lines(bom, lines)
+        return bom
 
     def validate(self, attrs):
         merged = {**({} if self.instance is None else {
@@ -455,3 +558,12 @@ class CustomerMaterialSerializer(serializers.ModelSerializer):
                   'remaining_quantity', 'received_at', 'notes']
         read_only_fields = ['received_quantity', 'used_quantity', 'returned_quantity',
                             'damaged_quantity', 'remaining_quantity', 'received_at']
+
+    def validate_name(self, value):
+        return validate_text(value, label='Material name', max_length=200, required=True)
+
+    def validate_description(self, value):
+        return validate_text(value, label='Description', max_length=MAX_NOTE)
+
+    def validate_notes(self, value):
+        return validate_text(value, label='Notes', max_length=MAX_NOTE)

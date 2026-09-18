@@ -10,6 +10,16 @@ import DesignCataloguePicker from './DesignCataloguePicker';
 import { describePath, useDesignCatalogue } from './designCatalogue';
 import { getSection, pruneHidden } from '../../services/templates';
 import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
+import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+
+const MAX_STITCH_HOURS = 1000;
+/** A link the library can open: http(s) only, so plain text or javascript: never becomes an image_url. */
+const urlError = (value, label) => {
+  const v = String(value || '').trim();
+  if (!v) return '';
+  if (v.length > 500) return `${label} is limited to 500 characters.`;
+  return /^https?:\/\/\S+$/i.test(v) ? '' : `${label} must start with http:// or https://.`;
+};
 
 /**
  * Uploading a design into the library.
@@ -148,6 +158,11 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   const submit = async () => {
     if (inFlight.current) return;          
     if (!form.title.trim()) { setError('The design needs a name.'); return; }
+    const problem = amountError(form.estimated_price, { label: 'Price' })
+      || amountError(form.stitch_hours, { label: 'Stitch time', max: MAX_STITCH_HOURS })
+      || urlError(form.source_url, 'Reference URL')
+      || urlError(form.video_url, 'Video URL');
+    if (problem) { setError(problem); return; }
     
     const flatFiles = [];
     const flatParts = [];
@@ -169,9 +184,9 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
         estimated_price: form.estimated_price || 0,
         difficulty: form.difficulty,
         stitch_hours: form.stitch_hours,
-        video_url: form.video_url,
-        source_url: form.source_url,
-        image_url: totalFiles ? '' : form.source_url,
+        video_url: form.video_url.trim(),
+        source_url: form.source_url.trim(),
+        image_url: totalFiles ? '' : form.source_url.trim(),
         spec_tags: specTags,
         catalogue: cataloguePayload || undefined,
       }, flatFiles, flatParts);
@@ -244,7 +259,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           />
           <Field label="Design Name" required icon={Type}
             hint={!titleTouched && cataloguePayload ? 'Suggested from the catalogue — edit it as you like.' : undefined}>
-            <input className="form-control" value={form.title}
+            <input className="form-control" value={form.title} maxLength={200}
               onChange={(e) => { setTitleTouched(true); set('title')(e); }}
               placeholder="e.g. Hand-embroidered bridal lehenga" />
           </Field>
@@ -304,30 +319,30 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
             </select>
           </Field>
           <Field label="Price (₹)" icon={IndianRupee}>
-            <input className="form-control" type="number" value={form.estimated_price}
-              onChange={set('estimated_price')} placeholder="0" />
+            <input className="form-control" inputMode="decimal" value={form.estimated_price}
+              onChange={(e) => setForm({ ...form, estimated_price: cleanAmount(e.target.value) })} placeholder="0" />
           </Field>
           <Field label="Difficulty" icon={BarChart3}>
             {select('difficulty', [['SIMPLE', 'Simple'], ['MODERATE', 'Moderate'], ['COMPLEX', 'Complex']], 'Not set')}
           </Field>
           <Field label="Stitch Time (hours)" icon={Clock}>
-            <input className="form-control" type="number" step="0.5" value={form.stitch_hours}
-              onChange={set('stitch_hours')} placeholder="e.g. 18" />
+            <input className="form-control" inputMode="decimal" value={form.stitch_hours}
+              onChange={(e) => setForm({ ...form, stitch_hours: cleanAmount(e.target.value, { max: MAX_STITCH_HOURS, decimals: 1 }) })} placeholder="e.g. 18" />
           </Field>
           <Field label="Reference URL" icon={LinkIcon}>
-            <input className="form-control" value={form.source_url} onChange={set('source_url')}
-              placeholder="Pinterest / Google link" />
+            <input className="form-control" type="url" value={form.source_url} onChange={set('source_url')} maxLength={500}
+              placeholder="https://…" />
           </Field>
           <Field label="Video" icon={PlayCircle}>
-            <input className="form-control" value={form.video_url} onChange={set('video_url')}
-              placeholder="Optional video URL" />
+            <input className="form-control" type="url" value={form.video_url} onChange={set('video_url')} maxLength={500}
+              placeholder="Optional video URL (https://…)" />
           </Field>
         </div>
 
         {form.designer_ref && (
           <div className="at-field-inline">
             <div className="at-field-control" style={{ maxWidth: '260px', flex: '1 1 200px' }}>
-              <input className="form-control" value={newCollection} onChange={(e) => setNewCollection(e.target.value)}
+              <input className="form-control" value={newCollection} onChange={(e) => setNewCollection(e.target.value)} maxLength={150}
                 placeholder="New collection name" />
             </div>
             <button type="button" className="btn-secondary at-btn-sm"
@@ -341,10 +356,10 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
       <FormSection icon={FileText} tone="green" title="Description"
         subtitle="Add details about the design, fabric, work, or any other notes.">
         <div className="at-field-control">
-          <textarea className="form-control" rows={3} value={form.description} onChange={set('description')}
+          <textarea className="form-control" rows={3} maxLength={LIMITS.note} value={form.description} onChange={set('description')}
             placeholder="e.g. Hand-embroidered with gold thread, georgette base, traditional motif…" />
         </div>
-        <div className="at-field-counter">{form.description.length} characters</div>
+        <div className="at-field-counter">{form.description.length} / {LIMITS.note} characters</div>
       </FormSection>
 
       {/* The garment's own style options, straight from its template. */}

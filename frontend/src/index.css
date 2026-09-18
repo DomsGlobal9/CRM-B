@@ -1280,15 +1280,20 @@ textarea.form-input {
   width: 300px;
 }
 
-.search-input-wrapper input {
-  padding-left: 36px;
+/* input.form-control: the theme's later `.form-control { padding: 8px 14px }`
+   otherwise wins on specificity and puts the text under the icon. */
+.search-input-wrapper input,
+.search-input-wrapper input.form-control {
+  padding-left: 38px;
 }
 
 .search-input-wrapper svg {
   position: absolute;
   left: 12px;
-  top: 14px;
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--text-secondary);
+  pointer-events: none;
 }
 
 /* `.search-bar-container` / `.search-icon` / `.search-input` were used in the
@@ -4559,7 +4564,6 @@ table.data-table tbody tr:hover {
 .at-drop { border: 1.5px dashed var(--border-strong); border-radius: var(--radius-lg); background: var(--surface-2); padding: var(--space-5); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; min-height: 150px; transition: border-color .15s ease, background .15s ease; }
 .at-drop--over { border-color: var(--primary-color); background: var(--tone-green-bg); }
 .at-drop--compact { min-height: 0; padding: var(--space-4); }
-.at-drop-icon { color: var(--primary-color); }
 .at-drop-title { font-size: var(--text-base); font-weight: 600; color: var(--text-primary); }
 .at-drop-sub { font-size: var(--text-sm); color: var(--text-secondary); }
 .at-drop-actions { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: center; margin-top: var(--space-2); }

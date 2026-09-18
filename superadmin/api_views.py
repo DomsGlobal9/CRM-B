@@ -2,10 +2,12 @@
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core import modules as module_registry
+from core.validators import MAX_NOTE, MAX_REASON, validate_text
 from tenants.middleware import clear_platform_cache, clear_tenant_cache
 from tenants.models import BoutiqueTenant
 
@@ -28,6 +30,34 @@ def _int(value, default, low=1, high=None):
 
 def _tenant_or_404(schema_name):
     return _boutiques().filter(schema_name=schema_name).first()
+
+
+def _audit_reason(request, *, required=False):
+    """The sentence the audit trail keeps for this change.
+
+    The console's confirm dialog will not send a user action, a module change,
+    a flag deletion, maintenance mode or a resolved error without three
+    characters of reason; the server holds the same line so a script cannot
+    slip past it, and caps every reason so the trail stays a log rather than a
+    place to paste things. Raised as {'error': sentence} because that is the
+    shape the console reads.
+    """
+    try:
+        reason = validate_text(request.data.get('reason'), label='Reason',
+                               max_length=MAX_REASON, required=required)
+    except ValidationError as exc:
+        raise ValidationError({'error': exc.detail[0]})
+    if required and len(reason) < 3:
+        raise ValidationError({'error': 'Give a reason of at least 3 characters.'})
+    return reason
+
+
+def _console_note(value, label):
+    """Free text the console stores verbatim: trimmed, and with an end."""
+    try:
+        return validate_text(value, label=label, max_length=MAX_NOTE)
+    except ValidationError as exc:
+        raise ValidationError({'error': exc.detail[0]})
 
 
 class ConsoleView(APIView):
@@ -83,6 +113,7 @@ class UserActionView(ConsoleView):
             return Response({'error': 'No such boutique.'}, status=status.HTTP_404_NOT_FOUND)
 
         audit_action, run = entry
+        reason = _audit_reason(request, required=True)
         result = run(schema_name, username)
         ok, message = result[0], result[1]
         data = result[2] if len(result) > 2 else None
@@ -92,8 +123,7 @@ class UserActionView(ConsoleView):
             recorded['emailed'] = data.get('emailed', False)
             recorded['expires_minutes'] = data.get('expires_minutes')
         audit.record(request, audit_action, target=username, boutique=schema_name,
-                     after=recorded,
-                     reason=(request.data.get('reason') or '').strip())
+                     after=recorded, reason=reason)
 
         body = {'ok': ok, 'message': message}
         if data:
@@ -183,6 +213,7 @@ class BoutiqueModulesView(ConsoleView):
                 after_overrides[key] = bool(value)
         after_plan = plan if plan is not None else tenant.plan
         after = {'plan': after_plan, 'enabled_modules': after_overrides}
+        reason = _audit_reason(request, required=True)
 
         with transaction.atomic():
             BoutiqueTenant.objects.filter(pk=tenant.pk).update(
@@ -191,8 +222,7 @@ class BoutiqueModulesView(ConsoleView):
         clear_tenant_cache()
 
         audit.record(request, 'boutique.modules', target=schema_name,
-                     boutique=schema_name, before=before, after=after,
-                     reason=(request.data.get('reason') or '').strip())
+                     boutique=schema_name, before=before, after=after, reason=reason)
 
         return Response({
             'schema_name': schema_name,
@@ -229,14 +259,14 @@ class BoutiqueAppearanceView(ConsoleView):
 
         before = {'design_system': tenant.design_system, 'color_mode': tenant.color_mode}
         after = {'design_system': system, 'color_mode': mode}
+        reason = _audit_reason(request)
         with transaction.atomic():
             BoutiqueTenant.objects.filter(pk=tenant.pk).update(**after)
 
         clear_tenant_cache()
 
         audit.record(request, 'boutique.appearance', target=schema_name,
-                     boutique=schema_name, before=before, after=after,
-                     reason=(request.data.get('reason') or '').strip())
+                     boutique=schema_name, before=before, after=after, reason=reason)
 
         return Response({'schema_name': schema_name, **after})
 
@@ -263,7 +293,7 @@ class FlagsView(ConsoleView):
                                 status=status.HTTP_400_BAD_REQUEST)
             flag = FeatureFlag.objects.create(
                 key=key,
-                description=(request.data.get('description') or '').strip(),
+                description=_console_note(request.data.get('description'), 'Description'),
                 enabled=bool(request.data.get('enabled')),
                 created_by=request.user.username,
                 modified_by=request.user.username,
@@ -285,10 +315,11 @@ class FlagDetailView(ConsoleView):
             before = {'enabled': flag.enabled, 'enabled_for': list(flag.enabled_for or []),
                       'rollout_percent': flag.rollout_percent}
 
+            reason = _audit_reason(request)
             if 'enabled' in request.data:
                 flag.enabled = bool(request.data['enabled'])
             if 'description' in request.data:
-                flag.description = (request.data['description'] or '').strip()
+                flag.description = _console_note(request.data['description'], 'Description')
             if 'rollout_percent' in request.data:
                 flag.rollout_percent = _int(request.data['rollout_percent'], 0, low=0, high=100)
             if 'enabled_for' in request.data:
@@ -309,7 +340,7 @@ class FlagDetailView(ConsoleView):
                      'rollout_percent': flag.rollout_percent}
 
         audit.record(request, 'flag.change', target=key, before=before, after=after,
-                     reason=(request.data.get('reason') or '').strip())
+                     reason=reason)
         return Response(after)
 
     def delete(self, request, key=None):
@@ -317,11 +348,11 @@ class FlagDetailView(ConsoleView):
             flag = FeatureFlag.objects.filter(key=key).first()
             if flag is None:
                 return Response({'error': 'No such flag.'}, status=status.HTTP_404_NOT_FOUND)
+            reason = _audit_reason(request, required=True)
             before = {'enabled': flag.enabled, 'description': flag.description}
             flag.delete()
         audit.record(request, 'flag.change', target=key, before=before,
-                     after={'deleted': True},
-                     reason=(request.data.get('reason') or '').strip())
+                     after={'deleted': True}, reason=reason)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -362,12 +393,18 @@ class ConfigView(ConsoleView):
             return Response({'error': 'A setting needs a key.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
+        value = request.data.get('value')
+        # Locking every boutique out is the one setting the console's dialog
+        # insists on a reason for; the server insists too.
+        switching_on = key == 'maintenance_mode' and isinstance(value, dict) and bool(value.get('enabled'))
+        reason = _audit_reason(request, required=switching_on)
+
         with public_scope():
             setting, _created = PlatformSetting.objects.get_or_create(key=key)
             before = setting.value
-            setting.value = request.data.get('value')
+            setting.value = value
             if 'description' in request.data:
-                setting.description = (request.data['description'] or '').strip()
+                setting.description = _console_note(request.data['description'], 'Description')
             setting.updated_by = request.user.username
             setting.save()
             after = setting.value
@@ -375,7 +412,7 @@ class ConfigView(ConsoleView):
         clear_platform_cache()
 
         audit.record(request, 'setting.change', target=key, before=before, after=after,
-                     reason=(request.data.get('reason') or '').strip())
+                     reason=reason)
         return Response({'key': key, 'value': after,
                          'note': 'Other server workers apply this within 5 minutes.'})
 
@@ -504,6 +541,10 @@ class ErrorDetailView(ConsoleView):
                 if new_status not in self.ALLOWED:
                     return Response({'error': f"Status must be one of {sorted(self.ALLOWED)}."},
                                     status=status.HTTP_400_BAD_REQUEST)
+            # Taking a live problem off the feed is what needs explaining;
+            # acknowledging it or writing a note only says who is looking.
+            reason = _audit_reason(request, required=new_status in ('resolved', 'ignored'))
+            if new_status is not None:
                 event.status = new_status
                 if new_status == 'resolved':
                     event.resolved_by = request.user.username
@@ -512,7 +553,7 @@ class ErrorDetailView(ConsoleView):
                     event.resolved_by = ''
                     event.resolved_at = None
             if 'notes' in request.data:
-                event.notes = (request.data['notes'] or '').strip()
+                event.notes = _console_note(request.data['notes'], 'Notes')
             event.save()
             after = {'status': event.status, 'notes': event.notes}
 
@@ -520,7 +561,7 @@ class ErrorDetailView(ConsoleView):
             request,
             'error.resolve' if after['status'] == 'resolved' else 'error.acknowledge',
             target=f'error:{pk}', boutique=event.boutique, before=before, after=after,
-            reason=(request.data.get('reason') or '').strip())
+            reason=reason)
         return Response(after)
 
 

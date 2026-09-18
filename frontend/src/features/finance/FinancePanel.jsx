@@ -16,6 +16,7 @@ import { Calendar, FileText, IndianRupee, LayoutGrid, Lightbulb, PieChart, Plus,
 import { api } from '../../services/api';
 import { Dropzone, Field, FormModal, IconTile, InfoNote, PageHeader, SectionCard, StatCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { LIMITS, cleanAmount, amountError, todayIso } from '../../services/validate';
 
 const errorBox = {
   background: 'var(--danger-bg)',
@@ -69,8 +70,10 @@ function AddExpenseForm({ onCancel, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!(Number(form.amount) > 0)) { setError('Enter an amount greater than zero.'); return; }
-    if (!form.incurred_on) { setError('Pick the date this cost is for.'); return; }
+    const problem = amountError(form.amount, { label: 'Amount', allowZero: false, required: true })
+      || (!form.incurred_on ? 'Pick the date this cost is for.' : '')
+      || (form.incurred_on > todayIso() ? 'The cost date cannot be in the future.' : '');
+    if (problem) { setError(problem); return; }
     setBusy(true); setError(null);
     try {
       // FormData only when a receipt is attached; otherwise plain JSON keeps
@@ -116,21 +119,21 @@ function AddExpenseForm({ onCancel, onSaved }) {
             </select>
           </Field>
           <Field label="Amount (₹)" required icon={IndianRupee} hint="Enter the total amount paid.">
-            <input className="form-input" type="number" min="0" step="0.01"
-                   inputMode="decimal" value={form.amount} onChange={set('amount')}
+            <input className="form-input" inputMode="decimal" value={form.amount}
+                   onChange={(e) => setForm({ ...form, amount: cleanAmount(e.target.value) })}
                    placeholder="0.00" />
           </Field>
         </div>
         <Field label="Date this cost is for" required icon={Calendar}>
-          <input className="form-input" type="date" value={form.incurred_on}
+          <input className="form-input" type="date" value={form.incurred_on} max={todayIso()}
                  onChange={set('incurred_on')} />
         </Field>
         <Field label="Paid to" optional icon={User}>
-          <input className="form-input" value={form.paid_to} onChange={set('paid_to')}
+          <input className="form-input" value={form.paid_to} onChange={set('paid_to')} maxLength={150}
                  placeholder="Landlord, electricity board, supplier name…" />
         </Field>
         <Field label="Note" optional icon={FileText}>
-          <VoiceTextarea className="form-input" rows={3} value={form.note} onChange={set('note')}
+          <VoiceTextarea className="form-input" rows={3} maxLength={LIMITS.note} value={form.note} onChange={set('note')}
                     placeholder="Add any additional details about this expense…" />
         </Field>
         <div className="at-field">
@@ -150,7 +153,16 @@ function AddExpenseForm({ onCancel, onSaved }) {
                 accept="image/*,application/pdf"
                 title="Drag & drop a file here" subtitle="or choose from your device"
                 chooseLabel="Choose File" hint="Supported formats: JPG, PNG, PDF (Max 10MB)"
-                onFiles={(files) => setFile(files[0] || null)}
+                onFiles={(files) => {
+                  const chosen = files[0] || null;
+                  // The hint promises 10 MB and image/PDF; hold the form to it.
+                  const okType = chosen && ((chosen.type || '').startsWith('image/') || chosen.type === 'application/pdf');
+                  const bad = !chosen ? null
+                    : !okType ? `${chosen.name} is not an image or a PDF.`
+                      : chosen.size > 10 * 1024 * 1024 ? `${chosen.name} is larger than 10 MB.` : null;
+                  setError(bad);
+                  setFile(bad ? null : chosen);
+                }}
               />
             )}
             <InfoNote tone="green" icon={Shield} title="Keep your records organized"

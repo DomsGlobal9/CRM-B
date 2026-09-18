@@ -6,6 +6,7 @@ import { Dropzone, PhotoTile } from '../../components/ui/Atelier';
 import { resolveMediaUrl } from '../../services/media';
 import FabricPlacements from '../fabrics/FabricPlacements';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
+import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 
 /**
  * The inventory item form, shared by the inventory page ("New item", edit,
@@ -123,10 +124,22 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
 
   const submit = async (e) => {
     e.preventDefault();
+    const problem = amountError(form.purchase_price, { label: 'Purchase price' })
+      || amountError(form.selling_price, { label: 'Selling price' })
+      || amountError(form.reorder_level, { label: 'Reorder level', max: LIMITS.quantity })
+      || amountError(form.minimum_stock, { label: 'Minimum stock', max: LIMITS.quantity })
+      || amountError(form.opening_stock, { label: 'Opening stock', max: LIMITS.quantity });
+    if (problem) { setError(problem); return; }
     setError(null);
     setSaving(true);
     try {
-      const { opening_stock: openingStock, ...payload } = { ...form, unit: form.unit || unitForCategory || 'UNIT' };
+      const { opening_stock: openingStock, ...payload } = {
+        ...form,
+        // 'ABC ' and 'ABC' must not become two codes.
+        item_code: (form.item_code || '').trim().toUpperCase(),
+        name: (form.name || '').trim(),
+        unit: form.unit || unitForCategory || 'UNIT',
+      };
       ['purchase_price', 'selling_price', 'reorder_level', 'minimum_stock'].forEach((k) => {
         payload[k] = payload[k] === '' ? 0 : payload[k];
       });
@@ -149,9 +162,9 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
     <Modal title={isNew ? t('inventoryPage.newItemTitle', 'New inventory item') : `${t('inventoryPage.editTitle', 'Edit')} · ${item.name}`} onClose={onClose} width="760px">
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-          <Field label={t('inventoryPage.itemCode', 'Item code')} required={!linked} value={form.item_code} onChange={(v) => set('item_code', v)}
+          <Field label={t('inventoryPage.itemCode', 'Item code')} required={!linked} value={form.item_code} onChange={(v) => set('item_code', v)} maxLength={50}
             placeholder={linked ? t('inventoryPage.codeGenerated', 'Generated on save') : ''} />
-          <Field label={t('inventoryPage.itemName', 'Name')} required value={form.name} onChange={(v) => set('name', v)} />
+          <Field label={t('inventoryPage.itemName', 'Name')} required value={form.name} onChange={(v) => set('name', v)} maxLength={200} />
           <SelectField label={t('inventoryPage.category', 'Category')} value={form.category} onChange={(v) => { set('category', v); set('unit', ''); }}
             options={opts.categories} />
           <SelectField
@@ -161,8 +174,8 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
             options={opts.units}
             hint={!form.unit && unitForCategory ? t('inventoryPage.defaultForCategory', 'Default for this category') : ''}
           />
-          <Field label={t('inventoryPage.colour', 'Colour')} value={form.color} onChange={(v) => set('color', v)} />
-          <Field label={t('inventoryPage.materialType', 'Material')} value={form.material_type} onChange={(v) => set('material_type', v)} />
+          <Field label={t('inventoryPage.colour', 'Colour')} value={form.color} onChange={(v) => set('color', v)} maxLength={50} />
+          <Field label={t('inventoryPage.materialType', 'Material')} value={form.material_type} onChange={(v) => set('material_type', v)} maxLength={100} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.colourCode', 'Colour code')}</label>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -173,11 +186,11 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
                      onChange={(e) => { const v = e.target.value.trim(); set('color_hex', v && !v.startsWith('#') ? `#${v}` : v); }} />
             </div>
           </div>
-          <Field label={t('inventoryPage.rackLocation', 'Rack location')} value={form.rack_location} onChange={(v) => set('rack_location', v)} />
+          <Field label={t('inventoryPage.rackLocation', 'Rack location')} value={form.rack_location} onChange={(v) => set('rack_location', v)} maxLength={100} />
           <Field label={t('inventoryPage.purchasePrice', 'Purchase price')} type="number" value={form.purchase_price} onChange={(v) => set('purchase_price', v)} />
           <Field label={t('inventoryPage.sellingPrice', 'Selling price')} type="number" value={form.selling_price} onChange={(v) => set('selling_price', v)} />
-          <Field label={t('inventoryPage.reorderLevel', 'Reorder level')} type="number" value={form.reorder_level} onChange={(v) => set('reorder_level', v)} />
-          <Field label={t('inventoryPage.minimumStock', 'Minimum stock')} type="number" value={form.minimum_stock} onChange={(v) => set('minimum_stock', v)} />
+          <Field label={t('inventoryPage.reorderLevel', 'Reorder level')} type="number" decimals={3} max={LIMITS.quantity} value={form.reorder_level} onChange={(v) => set('reorder_level', v)} />
+          <Field label={t('inventoryPage.minimumStock', 'Minimum stock')} type="number" decimals={3} max={LIMITS.quantity} value={form.minimum_stock} onChange={(v) => set('minimum_stock', v)} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.supplier', 'Supplier')}</label>
             <select className="form-control" value={form.supplier || ''} onChange={(e) => set('supplier', e.target.value)}>
@@ -186,7 +199,7 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
             </select>
           </div>
           {isNew && (
-            <Field label={t('inventoryPage.openingStock', 'Opening stock (quantity on the shelf now)')} type="number"
+            <Field label={t('inventoryPage.openingStock', 'Opening stock (quantity on the shelf now)')} type="number" decimals={3} max={LIMITS.quantity}
                    value={form.opening_stock} onChange={(v) => set('opening_stock', v)} />
           )}
         </div>
@@ -238,13 +251,21 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
   );
 }
 
-export function Field({ label, value, onChange, type = 'text', required = false, placeholder = '' }) {
+/**
+ * A labelled input. Every `type="number"` here is a price or a quantity, so it
+ * is a decimal box that never holds a minus sign, a second dot or a value
+ * over `max` (cleanAmount) -- one place, every inventory form.
+ */
+export function Field({ label, value, onChange, type = 'text', required = false, placeholder = '', max, decimals = 2, ...rest }) {
+  const amount = type === 'number';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       <label style={{ fontSize: '12px', fontWeight: 600 }}>{label}{required && ' *'}</label>
       <input
-        type={type} step={type === 'number' ? '0.01' : undefined} required={required} placeholder={placeholder}
-        className="form-control" value={value} onChange={(e) => onChange(e.target.value)}
+        type={amount ? 'text' : type} inputMode={amount ? 'decimal' : undefined} required={required} placeholder={placeholder}
+        className="form-control" value={value}
+        onChange={(e) => onChange(amount ? cleanAmount(e.target.value, { max, decimals }) : e.target.value)}
+        {...rest}
       />
     </div>
   );

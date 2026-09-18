@@ -14,6 +14,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { LIMITS } from '../services/validate';
 import {
   AlertTriangle, Check, ChevronLeft, ChevronRight, Copy, Info, Lock, RefreshCw, Search, X,
 } from 'lucide-react';
@@ -249,7 +250,7 @@ export function Confirm({ open, title, body, confirmLabel = 'Confirm', danger, r
         {requireReason && (
           <div className="sa-field">
             <label htmlFor="sa-reason">Reason (recorded in the audit log)</label>
-            <input id="sa-reason" className="sa-input" value={reason} autoFocus
+            <input id="sa-reason" className="sa-input" value={reason} autoFocus maxLength={LIMITS.reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Why are you doing this?" />
           </div>

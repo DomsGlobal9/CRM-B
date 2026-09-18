@@ -26,6 +26,7 @@ import { Fragment, useCallback, useState } from 'react';
 import { AlertTriangle, Bug, ChevronDown, ChevronRight, ShieldCheck } from 'lucide-react';
 
 import { consoleApi } from '../api';
+import { LIMITS } from '../../services/validate';
 import {
   Async, Confirm, Empty, Pager, Pill, SearchBox, SectionHead, Select, Stat,
   count, moment, since, useApi, useToast,
@@ -360,7 +361,7 @@ export default function Errors({ route, onBadges }) {
                                       style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
                                       Internal notes
                                     </label>
-                                    <textarea id={`note-${e.id}`} className="sa-textarea"
+                                    <textarea id={`note-${e.id}`} className="sa-textarea" maxLength={LIMITS.note}
                                       defaultValue={e.notes} placeholder="What you found, what you tried…"
                                       // Saved on blur, not per keystroke: one
                                       // PATCH when the writer moves on.

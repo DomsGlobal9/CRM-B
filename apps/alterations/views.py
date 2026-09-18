@@ -38,6 +38,7 @@ from apps.alterations.serializers import (
     OutsideAlterationCreateSerializer,
 )
 from core.permissions import AlterationPermission
+from core.validators import validate_image_upload
 from core.roles import OWNER, resolve_user_role
 from domains.alterations import services
 from domains.alterations.workflow import SUPERVISOR_ROLES, TransitionError
@@ -215,6 +216,8 @@ class AlterationRequestViewSet(mixins.CreateModelMixin,
         photo_url = ''
         photo = request.FILES.get('intake_photo')
         if photo is not None:
+            # A ValidationError here is answered 400 by DRF, like _payload's.
+            validate_image_upload(photo, label='Intake photo')
             path = f"alteration_intake/{uuid.uuid4()}_{photo.name}"
             saved = default_storage.save(path, ContentFile(photo.read()))
             photo_url = request.build_absolute_uri(default_storage.url(saved))

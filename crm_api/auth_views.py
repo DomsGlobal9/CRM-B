@@ -6,11 +6,11 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
-from django.core.validators import validate_email
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.text import slugify
 from rest_framework import status, views
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authtoken.models import Token
@@ -23,6 +23,9 @@ from tenants.provision import provision_tenant
 from django_tenants.utils import schema_context
 from superadmin import signins
 from core.modules import DEFAULT_PLAN, MODULE_GROUP, effective_modules
+from core.validators import (
+    validate_email_address, validate_mobile, validate_name, validate_text,
+)
 from core.roles import OWNER, resolve_user_role
 from apps.email_service.services import EmailService
 
@@ -202,6 +205,9 @@ class LoginThrottle(AnonRateThrottle):
 class SignupView(views.APIView):
     permission_classes = [AllowAny]
 
+    #: The floor the sign-up form promises; Django's validators re-check it.
+    PASSWORD_MIN_LENGTH = 8
+
     def post(self, request):
         first_name = request.data.get('first_name')
         last_name = request.data.get('last_name')
@@ -209,24 +215,35 @@ class SignupView(views.APIView):
         mobile = request.data.get('mobile_number')
         password = request.data.get('password')
 
-        if email:
-            try:
-                validate_email(email)
-            except DjangoValidationError:
-                return Response({"error": "Enter a valid email address."},
-                                status=status.HTTP_400_BAD_REQUEST)
-        if password:
-            try:
-                validate_password(password)
-            except DjangoValidationError as exc:
-                return Response({"error": " ".join(exc.messages)},
-                                status=status.HTTP_400_BAD_REQUEST)
-
         if not email or not password or not first_name or not last_name:
             return Response(
                 {"error": "Please provide first_name, last_name, email_address and password"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # One rule set with the customer book and the staff roster: the name
+        # becomes the tenant's, the mobile the boutique's WhatsApp identity.
+        try:
+            first_name = validate_name(first_name, label='First name', max_length=150)
+            last_name = validate_name(last_name, label='Last name', max_length=150)
+            email = validate_email_address(email)
+            mobile = validate_mobile(mobile)
+            business_name = validate_text(request.data.get('business_name'),
+                                          label='Boutique name', max_length=100)
+            business_address = validate_text(request.data.get('business_address'),
+                                             label='Boutique address', max_length=500)
+        except ValidationError as exc:
+            return Response({"error": str(exc.detail[0])}, status=status.HTTP_400_BAD_REQUEST)
+
+        if len(password) < self.PASSWORD_MIN_LENGTH:
+            return Response(
+                {"error": f"Password needs at least {self.PASSWORD_MIN_LENGTH} characters."},
+                status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(password)
+        except DjangoValidationError as exc:
+            return Response({"error": " ".join(exc.messages)},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         if BoutiqueTenant.objects.filter(owner_email=email).exists():
             return Response(
@@ -244,8 +261,7 @@ class SignupView(views.APIView):
                 tenant = provision_tenant(
                     schema_name=schema_name,
                     owner_email=email,
-                    name=(request.data.get('business_name') or '').strip()
-                         or f"{first_name}'s Boutique",
+                    name=business_name or f"{first_name}'s Boutique",
                     # The business decision lives here, not in the column
                     # default: a boutique that signs up starts on the smallest
                     # plan and is moved up from the console.
@@ -267,8 +283,6 @@ class SignupView(views.APIView):
                 seed_tenant_defaults(demo=False)
 
                 from crm_api.models import BoutiqueSettings
-                business_name = (request.data.get('business_name') or '').strip()
-                business_address = (request.data.get('business_address') or '').strip()
                 BoutiqueSettings.objects.update_or_create(
                     id=1,
                     defaults={

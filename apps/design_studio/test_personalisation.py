@@ -49,7 +49,7 @@ class PersonalisationTestBase(TenantTestCase):
         return {
             'first_name': 'Deepa', 'last_name': 'Krishnan',
             'mobile_number': '919611022233', 'email_address': 'deepa@personal.test',
-            'customer_type': 'Women', 'occasion': 'Wedding',
+            'customer_type': 'Silver', 'occasion': 'Wedding',
             'neckline_style': 'Sweetheart', 'sleeve_style': 'Cap',
             'measurements': {'bust': '38', 'waist': '28', 'hips': '40'},
             'garments': [
@@ -94,7 +94,7 @@ class SubjectEquivalenceTests(PersonalisationTestBase):
     def test_a_draft_carries_the_typed_profile_and_measurements(self):
         context = build_context(subject_from_draft(self.new_customer_payload()))
         self.assertEqual(context.customer_name, 'Deepa Krishnan')
-        self.assertEqual(context.gender, 'Women')
+        self.assertEqual(context.gender, 'Silver')  # gender mirrors customer_type, which is the tier now
         self.assertEqual(context.measurements['bust'], '38')
         self.assertEqual(context.body_type, 'Hourglass')
 

@@ -19,6 +19,7 @@ from .providers.base import DesignCandidate
 from .serializers import DesignAssetSerializer
 from .providers.registry import source_status
 from . import services
+from core.test_images import JPEG
 
 
 class StudioTestCase(TenantTestCase):
@@ -873,7 +874,7 @@ class DesignUploadTests(StudioTestCase):
 
     def _image(self, name='shot.jpg'):
         from django.core.files.uploadedfile import SimpleUploadedFile
-        return SimpleUploadedFile(name, b'\xff\xd8\xff\xdb-not-really-a-jpeg', content_type='image/jpeg')
+        return SimpleUploadedFile(name, JPEG, content_type='image/jpeg')
 
     def test_uploading_stores_the_photograph_and_uses_it_as_the_cover(self):
         response = self.client.post('/api/design-studio/assets/', {

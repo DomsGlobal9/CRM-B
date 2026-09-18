@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
+import { inventoryImage } from './services/inventoryImages';
+import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
 import {
   formatMoney, formatDate as fmtDate, formatDateTime as fmtDateTime,
   formatTime as fmtTime, setBoutiqueTimeZone, orderRef,
@@ -56,7 +58,7 @@ import { ResponsiveCard } from './components/ui/ResponsiveCard';
 import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
-import VoiceTextarea, { SpeakButton, VoiceNotePlayer } from './components/ui/VoiceTextarea';
+import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceClipPreview } from './components/ui/VoiceTextarea';
 
 /** Placeholder shown while a lazily loaded screen arrives. */
 // Whole-rupee money for the dashboard, Indian digit grouping. Paise are
@@ -636,7 +638,7 @@ function GarmentGallery({ order, onChanged }) {
           </select>
           <AddPhotoButton camera className="btn-primary at-btn-sm" icon={Plus} disabled={busy}
                           label={busy ? 'Working…' : t('common.addPhoto', 'Add photo')}
-                          onFiles={([file]) => run(() => api.uploadGarmentImage(order.id, view, file))} />
+                          onFiles={([file]) => { const bad = imageFilesError([file]); if (bad) { alert(bad); return; } run(() => api.uploadGarmentImage(order.id, view, file)); }} />
         </div>
       </div>
 
@@ -804,11 +806,11 @@ function DeliveryCard({ order, canEdit, onSaved }) {
           </div>
           {courier && (
             <div className="form-grid-2" style={{ marginTop: 10 }}>
-              <input className="form-control" placeholder="Courier (e.g. DTDC, Blue Dart)" value={form.courier_service}
+              <input className="form-control" placeholder="Courier (e.g. DTDC, Blue Dart)" value={form.courier_service} maxLength={LIMITS.reference}
                      onChange={(e) => setForm({ ...form, courier_service: e.target.value })} />
-              <input className="form-control" placeholder="Tracking number" value={form.tracking_number}
+              <input className="form-control" placeholder="Tracking number" value={form.tracking_number} maxLength={LIMITS.reference}
                      onChange={(e) => setForm({ ...form, tracking_number: e.target.value })} />
-              <textarea className="form-control" rows={2} placeholder="Delivery address" style={{ gridColumn: 'span 2' }}
+              <textarea className="form-control" rows={2} placeholder="Delivery address" style={{ gridColumn: 'span 2' }} maxLength={LIMITS.address}
                         value={form.delivery_address} onChange={(e) => setForm({ ...form, delivery_address: e.target.value })} />
             </div>
           )}
@@ -973,12 +975,12 @@ function CuttingUsage({ orderId }) {
               {line.available_stock !== undefined && line.available_stock !== null ? ` · ${line.available_stock} on the shelf` : ''}
             </div>
           </div>
-          <input type="number" min="0" step="0.01" className="form-control" style={num} placeholder={`Used (${unit(line)})`}
+          <input type="number" min="0" max={LIMITS.quantity} step="0.001" inputMode="decimal" className="form-control" style={num} placeholder={`Used (${unit(line)})`}
                  value={draft[line.id]?.used ?? ''}
-                 onChange={(e) => setDraft((d) => ({ ...d, [line.id]: { ...(d[line.id] || {}), used: e.target.value } }))} />
-          <input type="number" min="0" step="0.01" className="form-control" style={num} placeholder="Waste"
+                 onChange={(e) => { const used = cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }); setDraft((d) => ({ ...d, [line.id]: { ...(d[line.id] || {}), used } })); }} />
+          <input type="number" min="0" max={LIMITS.quantity} step="0.001" inputMode="decimal" className="form-control" style={num} placeholder="Waste"
                  value={draft[line.id]?.wasted ?? ''}
-                 onChange={(e) => setDraft((d) => ({ ...d, [line.id]: { ...(d[line.id] || {}), wasted: e.target.value } }))} />
+                 onChange={(e) => { const wasted = cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }); setDraft((d) => ({ ...d, [line.id]: { ...(d[line.id] || {}), wasted } })); }} />
           <button type="button" className="btn-secondary" style={{ fontSize: '12px', padding: '6px 12px' }}
                   disabled={busyLineId === line.id} onClick={() => record(line)}>
             {busyLineId === line.id ? 'Recording…' : 'Record'}
@@ -1066,6 +1068,8 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
                 <AddPhotoButton camera className="btn-secondary" style={{ fontSize: '11px', padding: '3px 8px' }} iconSize={12}
                                 disabled={busyLineId === line.id}
                                 onFiles={([f]) => {
+                                  const bad = imageFilesError([f]);
+                                  if (bad) { alert(bad); return; }
                                   setBusyLineId(line.id);
                                   act(() => api.addMaterialLinePhoto(plan.id, line.id, f));
                                 }} />
@@ -1188,7 +1192,6 @@ const navSectionsFor = (user, t) => {
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
-        { tab: 'designWork', icon: PenTool, label: t('nav.designWork') },
       ] },
       // Fabrics used to sit apart from Inventory in one flat list of eleven,
       // and the roster apart from the employment screen that extends it, so
@@ -1210,12 +1213,11 @@ const navSectionsFor = (user, t) => {
       { key: 'master', items: [
         { tab: 'pendingTasks', icon: ClipboardList, label: t('nav.pendingTasks', 'Pending Tasks'), phone: true },
         { tab: 'closedTasks', icon: CheckCircle2, label: t('nav.closedTasks', 'Closed Tasks'), phone: true },
-        { tab: 'designWork', icon: PenTool, label: t('nav.designWork') },
+        { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
       ] },
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
-        { tab: 'designWork', icon: PenTool, label: t('nav.myWork'), phone: true },
-        { tab: 'designs', icon: Palette, label: t('nav.designStudio') },
+        { tab: 'designs', icon: Palette, label: t('nav.designStudio'), phone: true },
       ] },
     ] : [
       { key: 'production', items: [
@@ -1457,7 +1459,9 @@ function App() {
   const [garmentTemplatesError, setGarmentTemplatesError] = useState(null);
   // Bumped after any design write so the library refetches its counts and grid.
   const [designLibraryToken, setDesignLibraryToken] = useState(0);
-  const [designsView, setDesignsView] = useState('dashboard'); // 'dashboard' | 'library'
+  const [designsView, setDesignsView] = useState('dashboard'); // 'dashboard' | 'library' | 'requests'
+  // Design requests live inside the library page now; this is the one door.
+  const openDesignRequests = () => { setDesignsView('requests'); setDashboardTab('designs'); };
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Bumped whenever a sidebar item is picked, and used as the key of the main
   // pane: picking a section always lands on its front page, even from a
@@ -1911,7 +1915,7 @@ function App() {
   // Active Selected Dashboard Order for progress tracker
   const [selectedDashboardOrder, setSelectedDashboardOrder] = useState(null);
   const [updatingOrderStatusId, setUpdatingOrderStatusId] = useState(null);
-  const [expandedDna, setExpandedDna] = useState({});
+  const [styleNotesFor, setStyleNotesFor] = useState(null);
   const [selectedDirectoryCustomer, setSelectedDirectoryCustomer] = useState(null);
   // Which alteration the Alterations tab should open on. Set when somebody
   // follows one from an order card or a customer's file, cleared once the tab
@@ -2060,9 +2064,10 @@ function App() {
   const [stageReviewComments, setStageReviewComments] = useState('');
   // Up to five photographs of the work, going up with the transition.
   const [stageReviewImages, setStageReviewImages] = useState([]);
-  // URL of the recording behind the comment being written, uploaded the
-  // moment dictation stops and sent along with the transition.
-  const [stageReviewVoiceNote, setStageReviewVoiceNote] = useState('');
+  // The recording behind the comment being written, kept as a Blob until the
+  // transition is saved -- so cancelling the modal uploads nothing.
+  const [stageReviewVoiceClip, setStageReviewVoiceClip] = useState('');
+  const [stageReviewRecording, setStageReviewRecording] = useState(false);
   const [selectedStageObj, setSelectedStageObj] = useState(null);
   const [selectedPerformerId, setSelectedPerformerId] = useState('');
   const [stageTransitionBusy, setStageTransitionBusy] = useState(false);
@@ -2159,6 +2164,10 @@ function App() {
 
   const handleResetSubmit = async (e) => {
     if (e) e.preventDefault();
+    if (resetPassword.length < 8) {
+      setAuthError('The password needs at least 8 characters.');
+      return;
+    }
     if (resetPassword !== resetConfirm) {
       setAuthError('Those two passwords do not match.');
       return;
@@ -2198,7 +2207,7 @@ function App() {
           // check that does not exist server-side.
           // The queue, not the upload folder: what a designer signs in for is
           // what has been asked of them.
-          setDashboardTab('designWork');
+          openDesignRequests();
           return;
         }
         if (isProductionStaff(user.role)) {
@@ -2426,6 +2435,12 @@ function App() {
   const handleSaveAppointment = async (e) => {
     e.preventDefault();
     if (savingAppointment) return;
+    // A booking already on the calendar may sit in the past (marking it
+    // completed, say); only a new one must be today or later.
+    if (!editingAppointment && isPastDate((appointmentForm.scheduled_time || '').slice(0, 10))) {
+      alert('The appointment cannot be in the past.');
+      return;
+    }
     setSavingAppointment(true);
     try {
       const payload = {
@@ -2487,10 +2502,17 @@ function App() {
   const handleSaveDesign = async (e) => {
     e.preventDefault();
     if (designSaving) return;
+    const imageUrl = (designForm.image_url || '').trim();
+    const bad = amountError(designForm.price, { label: 'Catalog price' })
+      // Legacy catalogue rows hold a bare file name, so only a foreign scheme or whitespace is refused.
+      || (imageUrl && ((/^[a-z][a-z0-9+.-]*:/i.test(imageUrl) && !/^https?:/i.test(imageUrl)) || /\s/.test(imageUrl))
+        ? 'The image URL must be a web address (http:// or https://) or a catalogue file name.' : '');
+    if (bad) { alert(bad); return; }
     setDesignSaving(true);
     try {
       const payload = {
         ...designForm,
+        image_url: imageUrl,
         price: parseFloat(designForm.price) || 0.00,
         is_boutique: designForm.is_boutique === true || designForm.is_boutique === 'true',
         // Only a complete position is sent; a half-chosen one would be refused.
@@ -2552,7 +2574,7 @@ function App() {
       if (res.user.role === 'Designer') {
         // See the matching branch in checkAuthSession for why this skips
         // fetchDashboardAndConfig entirely rather than fetching and hiding.
-        setDashboardTab('designWork');
+        openDesignRequests();
         return;
       }
       if (isProductionStaff(res.user.role)) {
@@ -2579,6 +2601,14 @@ function App() {
       alert("Please enter all required signup fields.");
       return;
     }
+    // The server's own rules (core/validators.py), asked here so the owner
+    // hears about a bad number before the boutique is provisioned.
+    const bad = nameError(signupForm.first_name, { label: 'First name' })
+      || nameError(signupForm.last_name, { label: 'Last name' })
+      || emailError(signupForm.email_address, { required: true })
+      || mobileError(signupForm.mobile_number)
+      || (signupForm.password.length < 8 ? 'The password needs at least 8 characters.' : '');
+    if (bad) { alert(bad); return; }
     setSignupStep(2); // Boutique details
   };
 
@@ -2633,12 +2663,10 @@ function App() {
   // Start Order Creation Flows
   const pickCustomer = (cust) => {
     setCustomerId(cust.id);
-    // Older records carry the country code; the field is the 10 local digits.
-    const digits = String(cust.mobile_number || '').replace(/\D/g, '');
     setCustomerForm({
       ...DEFAULT_CUSTOMER_DATA,
       ...cust,
-      mobile_number: digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits,
+      mobile_number: displayMobile(cust.mobile_number),
       measurements: cust.measurements || DEFAULT_CUSTOMER_DATA.measurements,
     });
     setCustomerName(`${cust.first_name || ''} ${cust.last_name || ''}`.trim());
@@ -2861,6 +2889,12 @@ function App() {
     if (!candidate) { alert('Pick the garment first.'); return; }
     if (!alterationForm.issue.trim()) { alert('Say what needs changing.'); return; }
     const isPaid = alterationForm.type === 'PAID_CLIENT_REQUEST';
+    if (isPaid) {
+      const charge = parseFloat(alterationForm.charge || 0);
+      const bad = amountError(alterationForm.charge, { label: 'Charge' })
+        || amountError(alterationForm.paidNow, { label: 'Paid now', max: charge });
+      if (bad) { alert(charge ? bad : 'Enter the charge before recording a payment.'); return; }
+    }
     try {
       const created = await api.createAlteration({
         customer_id: customerId,
@@ -2889,21 +2923,22 @@ function App() {
   const performNext = async () => {
     try {
       if (wizardStepKey === 'who') {
-        if (!/^[6-9]\d{9}$/.test(customerForm.mobile_number.replace(/\D/g, ''))) {
-          alert('Enter a valid 10-digit mobile number.');
-          return;
-        }
+        const mobileBad = mobileError(customerForm.mobile_number);
+        if (mobileBad) { alert(mobileBad); return; }
         if (serviceType === 'alter') {
           if (!customerId) { alert('Pick the customer from the list: alterations are for garments we made.'); return; }
-        } else if (customerForm.first_name.trim().length < 2) {
-          alert('Enter the customer\u2019s name (at least 2 letters).');
-          return;
+        } else {
+          // A customer picked from the book keeps the name the book holds;
+          // only a name typed here is held to the letters-only rule.
+          const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
+          if (nameBad || customerForm.first_name.trim().length < 2) {
+            alert(nameBad || 'Enter the customer\u2019s name (at least 2 letters).');
+            return;
+          }
         }
         if (serviceType !== 'alter' && !customerForm.gender) { alert('Select the customer\u2019s gender.'); return; }
-        if (customerForm.email_address && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerForm.email_address.trim())) {
-          alert('Enter a valid email address, or leave it blank.');
-          return;
-        }
+        const emailBad = emailError(customerForm.email_address);
+        if (emailBad) { alert(`${emailBad} Or leave it blank.`); return; }
         if (serviceType !== 'alter') await persistDraft({ step: 2 });
         reachStep(2);
       } else if (wizardStepKey === 'what') {
@@ -2936,8 +2971,23 @@ function App() {
       } else if (wizardStepKey === 'money') {
         if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); reachStep(2); return; }
         if (!readyBy) { alert('Pick the ready-by date.'); return; }
+        if (isPastDate(readyBy)) { alert('The ready-by date cannot be in the past.'); return; }
         if (garmentJobs.some(j => j.values?.trial_date && j.values.trial_date > readyBy)) {
           alert('The trial date must be on or before the ready-by date.');
+          return;
+        }
+        // The boxes only take digits, so the two cross-field rules are all
+        // that is left: a discount within the goods, an advance within the total.
+        const goods = getSubtotal() + parseFloat(quotePrices.discount || 0);
+        if (parseFloat(quotePrices.discount || 0) > goods) {
+          setQuotePrices({ ...quotePrices, discount: String(goods) });
+          alert(`The discount cannot be more than the order subtotal, so it was set to ${inr(goods)}.`);
+          return;
+        }
+        const total = getTotalPrice();
+        if (Number(advancePaymentAmount || 0) > total) {
+          setAdvancePaymentAmount(String(total));
+          alert(`The advance cannot be more than the order total, so it was set to ${inr(total)}.`);
           return;
         }
         await submitOrderAndConfirm();
@@ -2997,12 +3047,21 @@ function App() {
   });
 
   const boutiqueFormRef = useRef(null);
+  // The sentence the server would send back, or ''. Save Changes alerts it;
+  // autosave simply waits, the way it does for an empty required field.
+  const boutiqueFormError = (form) =>
+    phoneError(form.boutiquePhone.value) || emailError(form.boutiqueEmail.value, { required: true });
+  const pickLogo = (file) => {
+    const bad = file ? imageFilesError([file]) : '';
+    if (bad) { alert(bad); return; }
+    setLogoFile(file);
+  };
   const saveBoutiqueForm = async (form) => {
     const formData = new FormData();
     formData.append('name', form.boutiqueName.value);
     formData.append('address', form.boutiqueAddress.value);
-    formData.append('phone', form.boutiquePhone.value);
-    formData.append('email', form.boutiqueEmail.value);
+    formData.append('phone', form.boutiquePhone.value.trim());
+    formData.append('email', cleanEmail(form.boutiqueEmail.value));
     if (logoFile) formData.append('logo', logoFile);
     formData.append('design_approval_required', form.designApprovalRequired.checked);
     const updated = await api.updateBoutiqueSettings(formData);
@@ -3014,7 +3073,7 @@ function App() {
     // required field still empty waits for the next tick rather than 400ing.
     getSnapshot: () => {
       const form = boutiqueFormRef.current;
-      if (!form || !form.checkValidity()) return null;
+      if (!form || !form.checkValidity() || boutiqueFormError(form)) return null;
       return JSON.stringify([[...new FormData(form).entries()].filter(([, v]) => typeof v === 'string'), logoFile?.name || null]);
     },
     save: () => saveBoutiqueForm(boutiqueFormRef.current),
@@ -3075,8 +3134,8 @@ function App() {
   const getPasswordStrength = () => {
     const len = signupForm.password.length;
     if (len === 0) return '';
-    if (len < 6) return 'weak';
-    if (len < 10) return 'medium';
+    if (len < 8) return 'weak';
+    if (len < 12) return 'medium';
     return 'strong';
   };
 
@@ -3159,6 +3218,8 @@ function App() {
   // Adds to what is already waiting rather than replacing it, so a photo
   // picked after removing one keeps the others. Five at most, in total.
   const pickCompletionPhotos = (orderId, files) => {
+    const bad = imageFilesError(files);
+    if (bad) { alert(bad); return; }
     setCompletionPicks(prev => {
       const current = prev[orderId] || [];
       const room = Math.max(0, 5 - current.length);
@@ -3336,9 +3397,10 @@ function App() {
     setActiveReviewStage(stage.stage_name);
     setActiveReviewOrder(order);
     setSelectedStageObj(stage);
-    setStageReviewComments(stage.comments || '');
+    setStageReviewComments('');  // a new note; the card above the box shows the latest one
+    setStageReviewRecording(false);
     setStageReviewImages([]);
-    setStageReviewVoiceNote('');
+    setStageReviewVoiceClip('');
     // A verifier opening a submitted stage: the worker who sent it gets a
     // "seen" tick and a notification. Only the first open counts, and only
     // from someone who can verify -- the server enforces both; this just
@@ -3677,7 +3739,8 @@ function App() {
                   autoFocus
                   value={resetPassword}
                   onChange={(e) => setResetPassword(e.target.value)}
-                  placeholder="New password"
+                  minLength={8}
+                  placeholder="New password (min 8 characters)"
                   style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '10px', boxSizing: 'border-box' }}
                 />
                 <input
@@ -3780,7 +3843,8 @@ function App() {
                         type="text" 
                         placeholder="Enter first name"
                         value={signupForm.first_name}
-                        onChange={(e) => setSignupForm({...signupForm, first_name: e.target.value})}
+                        maxLength={LIMITS.name}
+                        onChange={(e) => setSignupForm({...signupForm, first_name: cleanName(e.target.value)})}
                         required
                         className="form-control"
                       />
@@ -3791,7 +3855,8 @@ function App() {
                         type="text" 
                         placeholder="Enter last name"
                         value={signupForm.last_name}
-                        onChange={(e) => setSignupForm({...signupForm, last_name: e.target.value})}
+                        maxLength={LIMITS.name}
+                        onChange={(e) => setSignupForm({...signupForm, last_name: cleanName(e.target.value)})}
                         required
                         className="form-control"
                       />
@@ -3804,7 +3869,9 @@ function App() {
                       type="email" 
                       placeholder="Enter your email address"
                       value={signupForm.email_address}
+                      maxLength={LIMITS.email}
                       onChange={(e) => setSignupForm({...signupForm, email_address: e.target.value})}
+                      onBlur={(e) => setSignupForm({...signupForm, email_address: cleanEmail(e.target.value)})}
                       required
                       className="form-control"
                     />
@@ -3816,9 +3883,10 @@ function App() {
                       <span className="input-icon-left" style={{ left: '12px', fontSize: '14px' }}>+91</span>
                       <input 
                         type="tel" 
+                        inputMode="numeric"
                         placeholder="Enter mobile number"
                         value={signupForm.mobile_number}
-                        onChange={(e) => setSignupForm({...signupForm, mobile_number: e.target.value})}
+                        onChange={(e) => setSignupForm({...signupForm, mobile_number: tenDigits(e.target.value)})}
                         style={{ paddingLeft: '50px' }}
                         required
                       />
@@ -3829,8 +3897,9 @@ function App() {
                     <label className="form-label">Password</label>
                     <input 
                       type="password" 
-                      placeholder="Create a password (min 6 characters)"
+                      placeholder="Create a password (min 8 characters)"
                       value={signupForm.password}
+                      minLength={8}
                       onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
                       required
                       className="form-control"
@@ -3892,6 +3961,7 @@ function App() {
                       placeholder="e.g. Aditi's Atelier"
                       className="form-control"
                       value={boutiqueName}
+                      maxLength={LIMITS.name}
                       onChange={(e) => setBoutiqueName(e.target.value)}
                     />
                   </div>
@@ -3903,6 +3973,7 @@ function App() {
                       placeholder="Street, area, city, PIN"
                       className="form-control"
                       value={boutiqueAddress}
+                      maxLength={LIMITS.address}
                       onChange={(e) => setBoutiqueAddress(e.target.value)}
                     />
                   </div>
@@ -4422,6 +4493,7 @@ function App() {
                                       className="form-control"
                                       style={{ height: '70px', fontSize: '13px' }}
                                       placeholder="Enter stitching details, alterations made, or fabric remarks..."
+                                      maxLength={LIMITS.note}
                                       id={`comments-${order.id}`}
                                       defaultValue={order.tailor_comments || ''}
                                     />
@@ -4769,7 +4841,7 @@ function App() {
                             <span className="ui-badge ui-badge--warning">{inr(o.balance)} due</span>))}
                           {att.low_stock > 0 && row('stock', () => setDashboardTab('inventory'), null, 'Low stock',
                             <span className="ui-badge ui-badge--warning">{att.low_stock} item{att.low_stock === 1 ? '' : 's'}</span>)}
-                          {att.pending_designs > 0 && row('designs', () => setDashboardTab('designWork'), null, 'Designs awaiting review',
+                          {att.pending_designs > 0 && row('designs', openDesignRequests, null, 'Designs awaiting review',
                             <span className="ui-badge ui-badge--info">{att.pending_designs}</span>)}
                         </div>
                       );
@@ -4896,23 +4968,6 @@ function App() {
 
             {/* 4b. DESIGN WORK TAB -- assign, submit, review. One component for
                  both ends of the loop; see features/designStudio/DesignWork. */}
-            {dashboardTab === 'designWork' && (
-              <>
-                <PageHeader
-                  icon={PenTool} tone="neutral"
-                  title={t('designWorkPage.title', 'Design Work')}
-                  subtitle={currentUser?.role === 'Designer'
-                    ? t('designWorkPage.subtitleDesigner', 'The garments you have been asked to design.')
-                    : t('designWorkPage.subtitleSupervisor', 'Assign a garment to a designer, and review what comes back.')}
-                />
-                <div className="portal-content">
-                  <Suspense fallback={<ScreenLoading />}>
-                    <DesignWork currentUser={currentUser} />
-                  </Suspense>
-                </div>
-              </>
-            )}
-
             {/* 4. MANAGE DESIGNS TAB */}
             {dashboardTab === 'designs' && (
               <>
@@ -4963,10 +5018,16 @@ function App() {
                             onClick={() => setDesignsView('library')}>
                       Boutique Designs
                     </button>
+                    <button className={`tab-btn ${designsView === 'requests' ? 'active' : ''}`}
+                            onClick={() => setDesignsView('requests')}>
+                      {currentUser?.role === 'Designer' ? t('nav.myWork') : t('nav.designWork')}
+                    </button>
                   </div>
 
                   <Suspense fallback={<div className="content-card">Loading…</div>}>
-                    {designsView === 'dashboard' ? (
+                    {designsView === 'requests' ? (
+                      <DesignWork currentUser={currentUser} />
+                    ) : designsView === 'dashboard' ? (
                       <DesignDashboard
                         onOpenLibrary={() => setDesignsView('library')}
                         canManageDesigners={!currentUser?.role || currentUser.role === 'Owner'}
@@ -5293,7 +5354,7 @@ function App() {
                                   const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
                                   if (remark === null) return;
                                   if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
-                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, remark.trim()); fetchDashboardAndConfig(); }
+                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, remark.trim().slice(0, LIMITS.reason)); fetchDashboardAndConfig(); }
                                   catch (err) { alert(err.message); }
                                 };
                                 const clear = async (url) => {
@@ -5797,28 +5858,30 @@ function App() {
                                 type="button"
                                 className="at-link"
                                 style={{ marginTop: '6px', fontSize: 'var(--text-xs)', color: 'var(--accent-text)' }}
-                                onClick={(e) => { e.stopPropagation(); setExpandedDna(prev => ({ ...prev, [cust.id]: !prev[cust.id] })); }}
+                                onClick={(e) => { e.stopPropagation(); setStyleNotesFor(cust); }}
                               >
-                                <Sparkles size={12} /> {expandedDna[cust.id] ? t('common.cancel') : t('customersPage.viewStyleDna')}
+                                <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
                               </button>
                             </div>
 
                             <ChevronRight className="at-customer-chevron" size={18} style={{ color: 'var(--text-muted)' }} />
                           </div>
 
-                          {expandedDna[cust.id] && (
-                            <div style={{ borderTop: '1px solid var(--border-color)', padding: 'var(--space-4) var(--space-5)', display: 'flex', justifyContent: 'center' }}>
-                              <div style={{ width: '100%', maxWidth: '550px' }}>
-                                <StyleProfileCard customer={cust} />
-                              </div>
-                            </div>
-                          )}
                         </div>
                       );
                     })
                   )}
                 </div>
               </>
+            )}
+
+            {styleNotesFor && (
+              <FormModal icon={Sparkles} tone="amber" width="600px"
+                         title={`${styleNotesFor.first_name || ''} ${styleNotesFor.last_name || ''}`.trim()}
+                         subtitle={t('customersPage.bespokeProfile')}
+                         onClose={() => setStyleNotesFor(null)}>
+                <StyleProfileCard customer={styleNotesFor} />
+              </FormModal>
             )}
 
             {/* 5b. CUSTOMER DETAIL VIEW (Image 5/6 extension) */}
@@ -5840,6 +5903,7 @@ function App() {
                 setCustomerForm({
                   ...DEFAULT_CUSTOMER_DATA,
                   ...c,
+                  mobile_number: displayMobile(c.mobile_number),
                   measurements: c.measurements || DEFAULT_CUSTOMER_DATA.measurements
                 });
                 if (c.design_preferences?.length > 0) {
@@ -5853,6 +5917,7 @@ function App() {
                 setCustomerForm({
                   ...DEFAULT_CUSTOMER_DATA,
                   ...c,
+                  mobile_number: displayMobile(c.mobile_number),
                   measurements: c.measurements || DEFAULT_CUSTOMER_DATA.measurements
                 });
                 // Garment prices are per garment now and the dresses are
@@ -6237,9 +6302,11 @@ function App() {
                                   min="0"
                                   step="0.01"
                                   max={order.total_amount}
+                                  inputMode="decimal"
                                   defaultValue={parseFloat(order.amount_paid || 0)}
                                   disabled={savingPaymentId === order.id}
                                   aria-label={`Amount paid for invoice ${orderRef(order)}`}
+                                  onChange={(e) => { e.target.value = cleanAmount(e.target.value); }}
                                   onBlur={async (e) => {
                                     const next = parseFloat(e.target.value);
                                     const current = parseFloat(order.amount_paid || 0);
@@ -6249,6 +6316,8 @@ function App() {
                                       e.target.value = current;
                                       return;
                                     }
+                                    const bad = amountError(next, { label: 'Amount paid', max: Number(order.total_amount) || LIMITS.amount });
+                                    if (bad) { alert(bad); e.target.value = current; return; }
                                     setSavingPaymentId(order.id);
                                     try {
                                       await api.updateOrder(order.id, { amount_paid: next });
@@ -6547,6 +6616,8 @@ function App() {
                                onChange={async (e) => {
                                  const f = e.target.files?.[0];
                                  if (!f) return;
+                                 const bad = imageFilesError([f]);
+                                 if (bad) { alert(bad); return; }
                                  try {
                                    const updated = await api.updateMyPhoto(f);
                                    setCurrentUser(updated);
@@ -6611,6 +6682,8 @@ function App() {
                         onSubmit={async (e) => {
                           e.preventDefault();
                           if (settingsSaving) return;
+                          const bad = boutiqueFormError(e.target);
+                          if (bad) { alert(bad); return; }
                           setSettingsSaving(true);
                           try {
                             await saveBoutiqueForm(e.target);
@@ -6624,21 +6697,23 @@ function App() {
                         }}
                       >
                         <Field label={t('accountPage.boutiqueName', 'Boutique Name')} required icon={Building2}>
-                          <input type="text" name="boutiqueName" className="form-control"
+                          <input type="text" name="boutiqueName" className="form-control" maxLength={LIMITS.name}
                                  defaultValue={boutiqueSettings?.name || ''} placeholder="e.g. Aditi's Atelier" required />
                         </Field>
                         <Field label={t('accountPage.boutiqueAddress', 'Boutique Address')} required icon={MapPin}>
-                          <textarea name="boutiqueAddress" className="form-control" rows={3}
+                          <textarea name="boutiqueAddress" className="form-control" rows={3} maxLength={LIMITS.address}
                                     defaultValue={boutiqueSettings?.address || ''} placeholder="Street, area, city, PIN" required />
                         </Field>
                         <div className="at-form-grid">
                           <Field label={t('accountPage.boutiquePhone', 'Boutique Phone')} required icon={Phone}>
-                            <input type="text" name="boutiquePhone" className="form-control"
-                                   defaultValue={boutiqueSettings?.phone || ''} placeholder="+91 98765 43210" required />
+                            {/* The store phone printed on invoices: often a landline, so no mobile rule. */}
+                            <input type="text" name="boutiquePhone" className="form-control" inputMode="tel" maxLength={50}
+                                   defaultValue={boutiqueSettings?.phone || ''} placeholder="044-2345 6789" required />
                           </Field>
                           <Field label={t('accountPage.boutiqueEmail', 'Boutique Email')} required icon={Mail}>
-                            <input type="email" name="boutiqueEmail" className="form-control"
-                                   defaultValue={boutiqueSettings?.email || ''} placeholder="you@yourboutique.com" required />
+                            <input type="email" name="boutiqueEmail" className="form-control" maxLength={LIMITS.email}
+                                   defaultValue={boutiqueSettings?.email || ''} placeholder="you@yourboutique.com" required
+                                   onBlur={(e) => { e.target.value = cleanEmail(e.target.value); }} />
                           </Field>
                         </div>
 
@@ -6660,13 +6735,13 @@ function App() {
                                   <button type="button" className="btn-secondary at-btn-sm" onClick={() => setLogoFile(null)}>Remove</button>
                                 )}
                                 <input id="boutique-logo-file" type="file" accept="image/*" hidden
-                                       onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
+                                       onChange={(e) => pickLogo(e.target.files?.[0] || null)} />
                               </div>
                             ) : (
                               <Dropzone camera
                                         title="Drag & drop your logo here" subtitle="or choose a file from your device"
                                         chooseLabel="Choose file"
-                                        onFiles={(files) => setLogoFile(files[0] || null)} />
+                                        onFiles={(files) => pickLogo(files[0] || null)} />
                             )}
                             <InfoNote tone="green" icon={ShieldCheck} title="Logo Guidelines"
                                       items={['Recommended size: 512 × 512 px', 'Formats: PNG, JPG (Max 2MB)', 'Square image works best', 'This logo will appear on invoices and customer communication.']} />
@@ -6762,6 +6837,7 @@ function App() {
                   <div>
                     <label className="form-label">Date & time *</label>
                     <input className="form-control" type="datetime-local" required
+                           min={editingAppointment ? undefined : `${todayIso()}T00:00`}
                            value={appointmentForm.scheduled_time}
                            onChange={(e) => setAppointmentForm({ ...appointmentForm, scheduled_time: e.target.value })} />
                   </div>
@@ -6788,7 +6864,7 @@ function App() {
                   )}
                   <div>
                     <label className="form-label">Notes</label>
-                    <VoiceTextarea className="form-control" rows={2}
+                    <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note}
                               value={appointmentForm.notes}
                               onChange={(e) => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} />
                   </div>
@@ -6841,6 +6917,7 @@ function App() {
                     required
                     className="form-control"
                     placeholder="e.g. Royal Maroon Velvet Lehenga"
+                    maxLength={LIMITS.name}
                     value={designForm.name}
                     onChange={e => setDesignForm({...designForm, name: e.target.value})}
                   />
@@ -6903,6 +6980,7 @@ function App() {
                       type="text"
                       className="form-control"
                       placeholder="e.g. Sweetheart Neck"
+                      maxLength={LIMITS.name}
                       value={designForm.neckline_style}
                       onChange={e => setDesignForm({...designForm, neckline_style: e.target.value})}
                     />
@@ -6912,6 +6990,7 @@ function App() {
                       type="text"
                       className="form-control"
                       placeholder="e.g. Cap Sleeve"
+                      maxLength={LIMITS.name}
                       value={designForm.sleeve_style}
                       onChange={e => setDesignForm({...designForm, sleeve_style: e.target.value})}
                     />
@@ -6922,11 +7001,13 @@ function App() {
                   <input
                     type="number"
                     min="0"
+                    max={LIMITS.amount}
                     step="0.01"
+                    inputMode="decimal"
                     className="form-control"
                     placeholder="e.g. 45000"
                     value={designForm.price}
-                    onChange={e => setDesignForm({...designForm, price: e.target.value})}
+                    onChange={e => setDesignForm({...designForm, price: cleanAmount(e.target.value)})}
                     disabled={designForm.is_boutique === false || designForm.is_boutique === 'false'}
                   />
                 </Field>
@@ -6937,19 +7018,26 @@ function App() {
                     type="file"
                     accept="image/*"
                     className="form-control"
-                    onChange={e => setDesignImageFile(e.target.files?.[0] || null)}
+                    onChange={e => {
+                      const f = e.target.files?.[0] || null;
+                      const bad = f ? imageFilesError([f]) : '';
+                      if (bad) { alert(bad); e.target.value = ''; return; }
+                      setDesignImageFile(f);
+                    }}
                   />
                   <div style={{ marginTop: '8px' }}>
                     <CameraButton onFiles={([f]) => setDesignImageFile(f || null)} />
                   </div>
                 </Field>
 
+                {/* 255: the width of BoutiqueDesign.image_url on the server. */}
                 <Field label={t('designsPage.imageUrlOptional', 'Image URL (Optional)')} icon={LinkIcon}
                        hint="Add a link if the image is hosted online.">
                   <input
                     type="url"
                     className="form-control"
                     placeholder="e.g. https://images.unsplash.com/photo-..."
+                    maxLength={255}
                     value={designForm.image_url}
                     onChange={e => setDesignForm({...designForm, image_url: e.target.value})}
                   />
@@ -6960,11 +7048,12 @@ function App() {
                     className="form-control"
                     placeholder="e.g. Hand-embroidered with gold thread, georgette base..."
                     rows="3"
+                    maxLength={LIMITS.note}
                     value={designForm.description}
                     onChange={e => setDesignForm({...designForm, description: e.target.value})}
                   />
                 </Field>
-                <div className="at-field-counter" style={{ marginTop: '-8px' }}>{(designForm.description || '').length} characters</div>
+                <div className="at-field-counter" style={{ marginTop: '-8px' }}>{(designForm.description || '').length}/{LIMITS.note}</div>
 
                 <InfoNote tone="amber" title="Tip">
                   High quality images and detailed descriptions help showcase your designs better.
@@ -7249,8 +7338,7 @@ function App() {
                       <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
                       <input id="wz-mobile" type="tel" inputMode="numeric" autoFocus
                              value={customerForm.mobile_number}
-                             maxLength={10}
-                             onChange={(e) => { const digits = e.target.value.replace(/\D/g, '').slice(0, 10); setCustomerForm({ ...customerForm, mobile_number: digits }); if (customerId) clearPickedCustomer(digits); }}
+                             onChange={(e) => { const digits = cleanMobile(e.target.value); setCustomerForm({ ...customerForm, mobile_number: digits }); if (customerId) clearPickedCustomer(digits); }}
                              style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
                     </div>
                   </div>
@@ -7308,8 +7396,8 @@ function App() {
                         <div className="form-group" style={{ marginTop: '14px' }}>
                           <label className="form-label" htmlFor="wz-name">{t('wizard.customerName', 'Customer Name')} <span className="required">*</span></label>
                           <input id="wz-name" type="text" className="form-control" value={customerName}
-                                 maxLength={60}
-                                 onChange={(e) => setCustomerNameSplit(e.target.value.replace(/[^\p{L} .'-]/gu, ''))}
+                                 maxLength={LIMITS.name}
+                                 onChange={(e) => setCustomerNameSplit(cleanName(e.target.value))}
                                  placeholder={t('wizard.namePlaceholder', 'e.g. Amara Singh')} />
                         </div>
                       )}
@@ -7322,18 +7410,20 @@ function App() {
                       <div className="form-grid-2" style={{ marginTop: '12px' }}>
                         <div className="form-group">
                           <label className="form-label">{t('wizard.emailAddress', 'Email Address')}</label>
-                          <input type="email" className="form-control" value={customerForm.email_address || ''}
-                                 onChange={(e) => setCustomerForm({ ...customerForm, email_address: e.target.value })} placeholder="e.g. amara.s@example.com" />
+                          <input type="email" className="form-control" value={customerForm.email_address || ''} maxLength={LIMITS.email}
+                                 onChange={(e) => setCustomerForm({ ...customerForm, email_address: e.target.value })}
+                                 onBlur={(e) => setCustomerForm({ ...customerForm, email_address: cleanEmail(e.target.value) })}
+                                 placeholder="e.g. amara.s@example.com" />
                         </div>
                         <div className="form-group">
                           <label className="form-label">{t('wizard.cityRegion', 'City / Region')}</label>
-                          <input type="text" className="form-control" value={customerForm.city_region || ''}
+                          <input type="text" className="form-control" value={customerForm.city_region || ''} maxLength={LIMITS.name}
                                  onChange={(e) => setCustomerForm({ ...customerForm, city_region: e.target.value })} placeholder="e.g. New Delhi" />
                         </div>
                       </div>
                       <div className="form-group">
                         <label className="form-label">{t('wizard.address', 'Address')}</label>
-                        <input type="text" className="form-control" value={customerForm.address || ''}
+                        <input type="text" className="form-control" value={customerForm.address || ''} maxLength={LIMITS.address}
                                onChange={(e) => setCustomerForm({ ...customerForm, address: e.target.value })}
                                placeholder={t('wizard.addressPlaceholder', 'Street name, Apartment, City, State, PIN code')} />
                       </div>
@@ -7581,7 +7671,7 @@ function App() {
                   {garmentJobs.length > 0 && (
                     <div className="form-group" style={{ marginTop: '18px' }}>
                       <label className="form-label" htmlFor="wz-notes">{t('wizard.notesForTailor', 'Notes for the tailor')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
-                      <VoiceTextarea id="wz-notes" className="form-control" rows={3} value={specialInstructions}
+                      <VoiceTextarea id="wz-notes" className="form-control" rows={3} value={specialInstructions} maxLength={LIMITS.note}
                                 onChange={(e) => setSpecialInstructions(e.target.value)}
                                 placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
                     </div>
@@ -7616,7 +7706,7 @@ function App() {
                   )}
                   <div className="form-group">
                     <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
-                    <VoiceTextarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief}
+                    <VoiceTextarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
                               onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
                               placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
                   </div>
@@ -7841,9 +7931,9 @@ function App() {
                         <label htmlFor={`wz-price-${job.key}`} className="wz-money-label">{job.template.name}</label>
                         <div className="wz-money-input">
                           <span>₹</span>
-                          <input id={`wz-price-${job.key}`} type="number" min="0" step="1" inputMode="decimal" className="form-control"
+                          <input id={`wz-price-${job.key}`} type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control"
                                  value={job.pricing?.base ?? ''} placeholder={serviceType === 'design' ? t('wizard.quoteLater', 'quote later') : '0'}
-                                 onChange={(e) => setJobPrice(job.key, 'base', e.target.value)} />
+                                 onChange={(e) => setJobPrice(job.key, 'base', cleanAmount(e.target.value))} />
                         </div>
                       </div>
                     ))}
@@ -7854,9 +7944,9 @@ function App() {
                         </label>
                         <div className="wz-money-input">
                           <span>₹</span>
-                          <input id={`wz-extra-${job.key}-${key}`} type="number" min="0" step="1" inputMode="decimal" className="form-control"
+                          <input id={`wz-extra-${job.key}-${key}`} type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control"
                                  value={job.pricing?.extras?.[key] ?? ''} placeholder="0"
-                                 onChange={(e) => setJobExtra(job.key, key, e.target.value)} />
+                                 onChange={(e) => setJobExtra(job.key, key, cleanAmount(e.target.value))} />
                         </div>
                       </div>
                     )))}
@@ -7864,16 +7954,16 @@ function App() {
                       <label htmlFor="wz-packaging" className="wz-money-label">{t('wizard.packaging', 'Packaging & handling')}</label>
                       <div className="wz-money-input">
                         <span>₹</span>
-                        <input id="wz-packaging" type="number" min="0" step="1" inputMode="decimal" className="form-control"
-                               value={quotePrices.packaging ?? ''} onChange={(e) => setQuotePrices({ ...quotePrices, packaging: e.target.value })} />
+                        <input id="wz-packaging" type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control"
+                               value={quotePrices.packaging ?? ''} onChange={(e) => setQuotePrices({ ...quotePrices, packaging: cleanAmount(e.target.value) })} />
                       </div>
                     </div>
                     <div className="wz-money-row">
                       <label htmlFor="wz-discount" className="wz-money-label">{t('wizard.discount', 'Discount')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
                       <div className="wz-money-input">
                         <span>₹</span>
-                        <input id="wz-discount" type="number" min="0" step="1" inputMode="decimal" className="form-control"
-                               value={quotePrices.discount || ''} placeholder="0" onChange={(e) => setQuotePrices({ ...quotePrices, discount: e.target.value })} />
+                        <input id="wz-discount" type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control"
+                               value={quotePrices.discount || ''} placeholder="0" onChange={(e) => setQuotePrices({ ...quotePrices, discount: cleanAmount(e.target.value) })} />
                       </div>
                     </div>
                     <div className="wz-money-total">
@@ -7884,9 +7974,9 @@ function App() {
                       <label htmlFor="wz-advance" className="wz-money-label">{t('wizard.advanceNow', 'Advance paid now')}</label>
                       <div className="wz-money-input">
                         <span>₹</span>
-                        <input id="wz-advance" type="number" min="0" step="1" inputMode="decimal" className="form-control"
+                        <input id="wz-advance" type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control"
                                value={advancePaymentAmount || ''} placeholder="0"
-                               onChange={(e) => setAdvancePaymentAmount(parseFloat(e.target.value) || 0)} />
+                               onChange={(e) => setAdvancePaymentAmount(cleanAmount(e.target.value))} />
                       </div>
                     </div>
                     <div className="od-hint" style={{ textAlign: 'right' }}>
@@ -7955,7 +8045,7 @@ function App() {
                 <div className="content-card wz-card">
                   <div className="form-group">
                     <label className="form-label" htmlFor="wz-issue">{t('wizard.alterIssue', 'What is wrong')} <span className="required">*</span></label>
-                    <VoiceTextarea id="wz-issue" className="form-control" rows={4} value={alterationForm.issue}
+                    <VoiceTextarea id="wz-issue" className="form-control" rows={4} value={alterationForm.issue} maxLength={LIMITS.note}
                               onChange={(e) => setAlterationForm({ ...alterationForm, issue: e.target.value })}
                               placeholder={t('wizard.alterIssuePlaceholder', 'e.g. Waist too tight, let out by an inch. Sleeve length short.')} />
                   </div>
@@ -7976,13 +8066,13 @@ function App() {
                     <div className="form-grid-2">
                       <div className="form-group">
                         <label className="form-label" htmlFor="wz-charge">{t('wizard.alterCharge', 'Charge')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
-                        <input id="wz-charge" type="number" min="0" step="1" inputMode="decimal" className="form-control" value={alterationForm.charge}
-                               onChange={(e) => setAlterationForm({ ...alterationForm, charge: e.target.value })} placeholder="0" />
+                        <input id="wz-charge" type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control" value={alterationForm.charge}
+                               onChange={(e) => setAlterationForm({ ...alterationForm, charge: cleanAmount(e.target.value) })} placeholder="0" />
                       </div>
                       <div className="form-group">
                         <label className="form-label" htmlFor="wz-paidnow">{t('wizard.alterPaidNow', 'Paid now')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
-                        <input id="wz-paidnow" type="number" min="0" step="1" inputMode="decimal" className="form-control" value={alterationForm.paidNow}
-                               onChange={(e) => setAlterationForm({ ...alterationForm, paidNow: e.target.value })} placeholder="0" />
+                        <input id="wz-paidnow" type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control" value={alterationForm.paidNow}
+                               onChange={(e) => setAlterationForm({ ...alterationForm, paidNow: cleanAmount(e.target.value) })} placeholder="0" />
                       </div>
                     </div>
                   )}
@@ -8359,8 +8449,14 @@ function App() {
         // role, the prerequisites and the stage's own data allow it.
         const transition = async (status, okMessage, comments = stageReviewComments) => {
           if (stageTransitionBusy) return;
+          if (stageReviewRecording) { alert(t('ordersPage.stopRecordingFirst', 'Stop the recording first, then save.')); return; }
           setStageTransitionBusy(true);
           try {
+            let voiceNote = null;
+            if (stageReviewVoiceClip) {
+              try { voiceNote = await api.uploadVoiceNote(stageReviewVoiceClip); }
+              catch { alert(t('ordersPage.voiceNoteUploadFailed', 'Could not upload the voice note.')); return; }
+            }
             await api.transitionStage(
               activeReviewOrder.id,
               stage.stage_key,
@@ -8368,7 +8464,7 @@ function App() {
               comments,
               stageReviewImages,
               selectedPerformerId || null,
-              stageReviewVoiceNote || null
+              voiceNote
             );
             alert(okMessage);
             closeStage();
@@ -8395,6 +8491,13 @@ function App() {
             onClose={closeStage}
             footer={stage && (
               <>
+                {(stageReviewComments.trim() || stageReviewVoiceClip) && (
+                  <button className="btn-secondary" disabled={stageTransitionBusy}
+                          title={t('ordersPage.saveNoteHint', 'Leave this note on the stage without changing its status')}
+                          onClick={() => transition(stage.status, t('ordersPage.noteSaved', 'Note saved.'))}>
+                    <MessageSquare size={16} /> {t('ordersPage.saveNote', 'Save note')}
+                  </button>
+                )}
                 {(stage.status === 'NOT_STARTED' || stage.status === 'PAUSED') && (
                   <button className="btn-primary" disabled={stageTransitionBusy}
                           onClick={() => transition('IN_PROGRESS', 'Step started.')}>
@@ -8422,7 +8525,7 @@ function App() {
                     <button className="btn-secondary at-btn-warn" disabled={stageTransitionBusy}
                             onClick={() => {
                               const note = window.prompt('What needs to be redone? The worker will see this note.');
-                              if (note && note.trim()) transition('IN_PROGRESS', 'Sent back to the worker.', note.trim());
+                              if (note && note.trim()) transition('IN_PROGRESS', 'Sent back to the worker.', note.trim().slice(0, LIMITS.reason));
                             }}>
                       <X size={16} /> Send Back
                     </button>
@@ -8583,12 +8686,37 @@ function App() {
                 )}
               </InfoNote>
             )}
-            {stage && stage.comments && (
-              <InfoNote icon={FileText} tone="neutral" title="Active notes / logs">
-                &ldquo;{stage.comments}&rdquo;<SpeakButton text={stage.comments} />
+            {stage && (stage.comments || stage.voice_note) && (
+              <InfoNote icon={FileText} tone="neutral" title={t('ordersPage.latestNote', 'Latest note')}>
+                {stage.comments && <>&ldquo;{stage.comments}&rdquo;<SpeakButton text={stage.comments} /></>}
                 <VoiceNotePlayer src={stage.voice_note} />
               </InfoNote>
             )}
+            {stage && (() => {
+              // The thread the tailor and the owner talk through on this stage.
+              const notes = (activeReviewOrder.activities || [])
+                .filter((a) => (a.event_type === 'STAGE_TRANSITION' || a.event_type === 'STAGE_NOTE') && a.metadata?.stage_key === stage.stage_key
+                  && (a.metadata.comments || a.metadata.voice_note))
+                .slice(0, 20);
+              if (!notes.length) return null;
+              return (
+                <div className="at-field">
+                  <span className="at-field-label">{t('ordersPage.stageNotesThread', 'Notes on this stage')}</span>
+                  {notes.map((a, i) => (
+                    <div key={a.id || i} style={{ padding: '6px 0', fontSize: '13px',
+                                                   borderTop: i ? '1px solid var(--border-color)' : 'none' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                        {a.user_name || t('ordersPage.someone', 'Someone')}
+                        {' · '}
+                        {new Date(a.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      {a.metadata.comments && <div>{a.metadata.comments}</div>}
+                      <VoiceNotePlayer src={a.metadata.voice_note} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
 
             {stage && stage.attachments && stage.attachments.length > 0 && (
               <div className="at-field">
@@ -8624,7 +8752,7 @@ function App() {
                                         const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
                                         if (remark === null) return;
                                         if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
-                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, remark.trim()); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
+                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, remark.trim().slice(0, LIMITS.reason)); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
                                         catch (err) { alert(err.message); }
                                       }}><X size={11} /> Reject photo</button>
                         )}
@@ -8673,11 +8801,13 @@ function App() {
                   <VoiceTextarea
                     className="form-control"
                     placeholder="Enter notes, alterations details, or comments..."
+                    maxLength={LIMITS.note}
                     value={stageReviewComments}
                     onChange={(e) => setStageReviewComments(e.target.value)}
-                    onRecording={(blob) => api.uploadVoiceNote(blob).then(setStageReviewVoiceNote).catch(() => {})}
+                    onRecording={setStageReviewVoiceClip}
+                    onRecordingChange={setStageReviewRecording}
                   />
-                  <VoiceNotePlayer src={stageReviewVoiceNote} />
+                  <VoiceClipPreview blob={stageReviewVoiceClip || null} onRemove={() => setStageReviewVoiceClip('')} />
                 </Field>
                 <div className="at-field">
                   <span className="at-field-label">
@@ -8695,11 +8825,15 @@ function App() {
                     <Dropzone compact multiple camera
                               title="Drag & drop images here" subtitle="or choose from your device — several at once"
                               chooseLabel={stageReviewImages.length ? 'Add more' : 'Add photos'}
-                              onFiles={(files) => setStageReviewImages(prev => {
-                                const room = 5 - prev.length;
-                                if (files.length > room) alert(`Up to 5 photos. Only ${room} more ${room === 1 ? 'was' : 'were'} added.`);
-                                return [...prev, ...files.slice(0, room)];
-                              })} />
+                              onFiles={(files) => {
+                                const bad = imageFilesError(files);
+                                if (bad) { alert(bad); return; }
+                                setStageReviewImages(prev => {
+                                  const room = 5 - prev.length;
+                                  if (files.length > room) alert(`Up to 5 photos. Only ${room} more ${room === 1 ? 'was' : 'were'} added.`);
+                                  return [...prev, ...files.slice(0, room)];
+                                });
+                              }} />
                   )}
                 </div>
               </div>
@@ -8787,7 +8921,7 @@ function App() {
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Selected Fabric Swatch</span>
                 <div style={{ width: '100%', height: '180px', overflow: 'hidden', borderRadius: '6px' }}>
                   <img 
-                    src={resolveMediaUrl(selectedFabric.image_url, 'https://images.unsplash.com/photo-1574169208507-84376144848b?w=400')} 
+                    src={inventoryImage(selectedFabric)}
                     alt="Fabric Swatch" 
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                   />
@@ -8951,6 +9085,7 @@ function App() {
               rows={3}
               autoFocus
               placeholder={reversalPrompt.type === 'failqc' ? 'e.g. Hem is crooked on the left panel' : 'e.g. Completed on the wrong order'}
+              maxLength={LIMITS.reason}
               value={reversalReason}
               onChange={(e) => setReversalReason(e.target.value)}
               style={{ marginBottom: '16px' }}

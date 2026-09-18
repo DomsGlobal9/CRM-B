@@ -66,7 +66,7 @@ class PricingTestBase(TenantTestCase):
             'first_name': 'Lakshmi', 'last_name': 'Iyer',
             'mobile_number': f'91984501{2000 + len(customer_suffix)}{customer_suffix or "1"}'[:12],
             'email_address': f'lakshmi{customer_suffix}@pricing.test',
-            'address': '44 Church Street', 'customer_type': 'Women',
+            'address': '44 Church Street', 'customer_type': 'Silver',
             'prices': prices or {},
             'payment': payment or {'option': 'full'},
             'garments': garments,

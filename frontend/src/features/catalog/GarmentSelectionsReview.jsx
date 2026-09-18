@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Eye, Image as ImageIcon, Layers, Scissors, Sparkles } from 'lucide-react';
 
 import { resolveMediaUrl } from '../../services/media';
+import { inventoryImage } from '../../services/inventoryImages';
 import { ACCESSORY_OPTIONS, Lightbox } from '../designStudio/GarmentPartPicker';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 
@@ -225,7 +226,8 @@ export default function GarmentSelectionsReview({
                     qty > 0 ? `${qty} ${unitShort(f)} needed` : null,
                     price > 0 ? `₹${price.toLocaleString('en-IN')}/${unitShort(f)}` : null]
                 .filter(Boolean).join(' · ') || null,
-              image_url: f?.image_url,
+              // Inventory rows always have a picture: the photo, else the family tile.
+              image_url: f ? inventoryImage(f) : undefined,
             };
             (isAccessory ? accessoryRows : fabricRows).push(row);
           });

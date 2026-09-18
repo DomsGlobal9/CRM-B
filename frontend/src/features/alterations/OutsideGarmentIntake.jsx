@@ -4,6 +4,9 @@ import { api } from '../../services/api';
 import { Dropzone } from '../../components/ui/Atelier';
 import { parseAdjustments } from './adjustments';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import {
+  LIMITS, tenDigits, mobileError, cleanName, nameError, cleanAmount, amountError,
+} from '../../services/validate';
 
 /**
  * Taking in a garment that was stitched somewhere else.
@@ -45,12 +48,17 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
 
   const submit = async () => {
     if (!form.customer_id) { setError('Choose the customer, or add them as new.'); return; }
-    if (isNew && (!form.new_first_name.trim() || !form.new_mobile.trim())) {
-      setError('A new customer needs at least a first name and a mobile number.'); return;
+    if (isNew) {
+      const problem = nameError(form.new_first_name, { label: 'First name' })
+        || nameError(form.new_last_name, { label: 'Last name', required: false, min: 1 })
+        || mobileError(form.new_mobile);
+      if (problem) { setError(problem); return; }
     }
     if (!form.garment_template_id && !form.garment_note.trim()) {
       setError('Say what the garment is: pick a garment type or describe it.'); return;
     }
+    const chargeProblem = amountError(form.charge_amount, { label: 'Charge' });
+    if (chargeProblem) { setError(chargeProblem); return; }
     setBusy(true);
     setError(null);
     try {
@@ -58,7 +66,7 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
       if (isNew) {
         const row = await api.createCustomer({
           first_name: form.new_first_name.trim(), last_name: form.new_last_name.trim(),
-          mobile_number: form.new_mobile.trim(), source: 'Walk In',
+          mobile_number: tenDigits(form.new_mobile), source: 'Walk In',
         });
         customerId = row.id;
       }
@@ -129,13 +137,17 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
             <div style={field}>
               <label style={label}>New customer — name</label>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <input className="form-control" placeholder="First name" value={form.new_first_name} onChange={set('new_first_name')} />
-                <input className="form-control" placeholder="Last name" value={form.new_last_name} onChange={set('new_last_name')} />
+                <input className="form-control" placeholder="First name" maxLength={LIMITS.name} value={form.new_first_name}
+                       onChange={(e) => setForm((prev) => ({ ...prev, new_first_name: cleanName(e.target.value) }))} />
+                <input className="form-control" placeholder="Last name" maxLength={LIMITS.name} value={form.new_last_name}
+                       onChange={(e) => setForm((prev) => ({ ...prev, new_last_name: cleanName(e.target.value) }))} />
               </div>
             </div>
             <div style={field}>
               <label style={label}>New customer — mobile</label>
-              <input className="form-control" type="tel" placeholder="98765 43210" value={form.new_mobile} onChange={set('new_mobile')} />
+              {/* No maxLength: it would cut a pasted "+91 98765 43210" before tenDigits could strip the code. */}
+              <input className="form-control" type="tel" inputMode="numeric" placeholder="10-digit mobile" value={form.new_mobile}
+                     onChange={(e) => setForm((prev) => ({ ...prev, new_mobile: tenDigits(e.target.value) }))} />
             </div>
           </div>
         )}
@@ -177,22 +189,23 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
         <div className="form-grid-2" style={{ gap: '12px' }}>
           <div style={field}>
             <label style={label}>What does the customer want done?</label>
-            <VoiceTextarea className="form-control" rows={2} placeholder="The sleeves are too tight…" value={form.issue_description} onChange={set('issue_description')} />
+            <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} placeholder="The sleeves are too tight…" value={form.issue_description} onChange={set('issue_description')} />
           </div>
           <div style={field}>
             <label style={label}>Adjustments asked for — one per line, e.g. “sleeve: let out 1 inch”</label>
-            <VoiceTextarea className="form-control" rows={2} value={form.adjustments} onChange={set('adjustments')} />
+            <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} value={form.adjustments} onChange={set('adjustments')} />
           </div>
         </div>
 
         <div className="form-grid-2" style={{ gap: '12px' }}>
           <div style={field}>
             <label style={label}>Charge (optional now — it can be set after inspection)</label>
-            <input className="form-control" type="number" min="0" step="0.01" value={form.charge_amount} onChange={set('charge_amount')} />
+            <input className="form-control" inputMode="decimal" value={form.charge_amount}
+                   onChange={(e) => setForm((prev) => ({ ...prev, charge_amount: cleanAmount(e.target.value) }))} />
           </div>
           <div style={field}>
             <label style={label}>Notes (optional)</label>
-            <input className="form-control" value={form.notes} onChange={set('notes')} />
+            <input className="form-control" maxLength={LIMITS.note} value={form.notes} onChange={set('notes')} />
           </div>
         </div>
 

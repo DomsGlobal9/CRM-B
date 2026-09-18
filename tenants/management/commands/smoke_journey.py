@@ -419,7 +419,7 @@ class Command(BaseCommand):
         return {
             'first_name': 'Smoke', 'last_name': 'Client',
             'mobile_number': '919600000009', 'email_address': 'client@smoke.test',
-            'address': '1 Smoke Street', 'customer_type': 'Women',
+            'address': '1 Smoke Street', 'customer_type': 'Silver',
             'occasion': 'Wedding', 'neckline_style': 'Sweetheart',
             'measurements': {'bust': '38', 'waist': '28', 'hips': '40'},
             'prices': {'packaging': 500, 'discount': 2000},

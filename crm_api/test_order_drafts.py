@@ -61,7 +61,7 @@ class DraftTestBase(TenantTestCase):
     WIZARD = {
         'first_name': 'Lakshmi', 'last_name': 'Iyer',
         'mobile_number': '919845012345', 'email_address': 'lakshmi@drafts.test',
-        'address': '44 Church Street', 'customer_type': 'Women',
+        'address': '44 Church Street', 'customer_type': 'Silver',
         'garments': [{'template': 'blouse', 'measurements': {'chest': '36'}}],
     }
 
@@ -311,7 +311,7 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         payload = {
             'first_name': 'Lakshmi', 'last_name': 'Iyer',
             'mobile_number': '919845012345', 'email_address': 'lakshmi@drafts.test',
-            'address': '44 Church Street', 'customer_type': 'Women',
+            'address': '44 Church Street', 'customer_type': 'Silver',
             'measurements': {'bust': '36', 'waist': '30'},
             'prices': {'base': 5000},
             'staff': {'tailor_id': self.tailor.id},
@@ -541,7 +541,7 @@ class TwoGarmentConfirmTests(DraftTestBase):
         payload = {
             'first_name': 'Nandini', 'last_name': 'Krishnan',
             'mobile_number': '919845077788', 'email_address': 'nandini@drafts.test',
-            'address': '31 Cunningham Road', 'customer_type': 'Women',
+            'address': '31 Cunningham Road', 'customer_type': 'Silver',
             'measurements': {'bust': '35', 'waist': '', 'hips': ''},
             'prices': {'base': 15000, 'embroidery': 7500},
             'staff': {'tailor_id': self.tailor.id},

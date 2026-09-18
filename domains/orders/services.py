@@ -333,12 +333,56 @@ class OrderService:
         return order
 
     @staticmethod
-    @transaction.atomic
-    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None):
+    def _attach_stage_photos(order, order_stage, files, request=None):
         import uuid
-        from django.utils import timezone
         from django.core.files.storage import default_storage
         from django.core.files.base import ContentFile
+        if not files:
+            return
+        image_urls = list(order_stage.attachments)
+        for f in files:
+            path = f"stage_attachments/order_{order.id}/{uuid.uuid4()}_{f.name}"
+            saved_path = default_storage.save(path, ContentFile(f.read()))
+            if request:
+                image_urls.append(request.build_absolute_uri(default_storage.url(saved_path)))
+            else:
+                image_urls.append(default_storage.url(saved_path))
+        order_stage.attachments = image_urls
+
+    @staticmethod
+    def _note_stage(order, order_stage, comments, voice_note, user, files=None, request=None):
+        """A note on its own: the status stays, something is said.
+
+        This is how the two sides of a stage talk -- the owner leaving a
+        spoken correction on work in progress, the tailor answering on a
+        stage that is waiting to be verified -- without the status
+        side-effects, prerequisite checks and photo rules of a real move.
+        The role gate has already run; every note goes into the activity
+        thread, and the stage carries the latest one.
+        """
+        order_stage.comments = comments or ''
+        order_stage.voice_note = voice_note or ''
+        OrderService._attach_stage_photos(order, order_stage, files, request)
+        order_stage.save(update_fields=['comments', 'voice_note', 'attachments'])
+        OrderActivity.objects.create(
+            order=order,
+            event_type='STAGE_NOTE',
+            user=user if (user and user.is_authenticated) else None,
+            metadata={
+                "stage_key": order_stage.stage_key,
+                "stage_name": order_stage.stage_name,
+                "old_status": order_stage.status,
+                "new_status": order_stage.status,
+                "comments": comments or '',
+                "voice_note": voice_note or '',
+            },
+        )
+        return order
+
+    @staticmethod
+    @transaction.atomic
+    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None, voice_note=''):
+        from django.utils import timezone
 
         try:
             order_stage = order.stages.get(stage_key=stage_key)
@@ -358,6 +402,9 @@ class OrderService:
             role=user_role,
             owner_role=OWNER,
         )
+
+        if new_status == order_stage.status and (comments or voice_note):
+            return OrderService._note_stage(order, order_stage, comments, voice_note, user, files, request)
 
         if order_stage.status == 'COMPLETED' and new_status == 'COMPLETED':
             return order
@@ -382,8 +429,13 @@ class OrderService:
         if new_status == 'PENDING_VERIFICATION' and old_status != 'PENDING_VERIFICATION':
             order_stage.verification_seen_by = ''
             order_stage.verification_seen_at = None
-        if comments:
-            order_stage.comments = comments
+        # A new note, spoken or typed, replaces the whole of the old one: a
+        # recording left next to text it no longer matches (or the other way
+        # round) would mislead the tailor who listens instead of reading. The
+        # activity row below keeps every note, so nothing said is lost.
+        if comments or voice_note:
+            order_stage.comments = comments or ''
+            order_stage.voice_note = voice_note or ''
         if rejected:
             order_stage.verification_note = comments
         elif new_status == 'PENDING_VERIFICATION':
@@ -429,16 +481,7 @@ class OrderService:
             delta = order_stage.completed_at - order_stage.started_at
             order_stage.duration_seconds = int(delta.total_seconds())
 
-        if files:
-            image_urls = list(order_stage.attachments)
-            for f in files:
-                path = f"stage_attachments/order_{order.id}/{uuid.uuid4()}_{f.name}"
-                saved_path = default_storage.save(path, ContentFile(f.read()))
-                if request:
-                    image_urls.append(request.build_absolute_uri(default_storage.url(saved_path)))
-                else:
-                    image_urls.append(default_storage.url(saved_path))
-            order_stage.attachments = image_urls
+        OrderService._attach_stage_photos(order, order_stage, files, request)
 
         order_stage.save()
 
@@ -507,6 +550,7 @@ class OrderService:
                 "old_status": old_status,
                 "new_status": new_status,
                 "comments": comments,
+                "voice_note": voice_note or '',
                 **({"materials": _jsonable(material_report)} if material_report else {}),
             }
         )

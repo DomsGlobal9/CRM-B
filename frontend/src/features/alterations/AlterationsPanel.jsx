@@ -9,6 +9,7 @@ import { formatAdjustments, parseAdjustments } from './adjustments';
 import OutsideGarmentIntake from './OutsideGarmentIntake';
 import AdjustmentsTable from './AdjustmentsTable';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 
 /**
  * The alterations register and one alteration's whole file.
@@ -565,6 +566,8 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
     remarks: '',
   });
   const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }));
+  const setAmount = (key, opts) => (event) => setForm((prev) => ({ ...prev, [key]: cleanAmount(event.target.value, opts) }));
+  const outstanding = Number(alteration.outstanding_balance) || 0;
 
   const field = { width: '100%', marginBottom: '12px' };
   const label = { fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' };
@@ -577,7 +580,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
         <>
           <div style={field}>
             <label style={label}>Findings</label>
-            <VoiceTextarea className="form-control" rows={3} value={form.inspection_notes} onChange={set('inspection_notes')} />
+            <VoiceTextarea className="form-control" rows={3} maxLength={LIMITS.note} value={form.inspection_notes} onChange={set('inspection_notes')} />
           </div>
           <div style={field}>
             <label style={label}>Measurement / specification changes</label>
@@ -605,15 +608,16 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
           {alteration.alteration_type === 'PAID_CLIENT_REQUEST' && (
             <div style={field}>
               <label style={label}>Charge for this alteration</label>
-              <input className="form-control" type="number" min="0" step="0.01" value={form.charge_amount} onChange={set('charge_amount')} />
+              <input className="form-control" inputMode="decimal" value={form.charge_amount} onChange={setAmount('charge_amount')} />
             </div>
           )}
           <div style={field}>
             <label style={label}>Notes (optional)</label>
-            <VoiceTextarea className="form-control" rows={3} value={form.notes} onChange={set('notes')} />
+            <VoiceTextarea className="form-control" rows={3} maxLength={LIMITS.note} value={form.notes} onChange={set('notes')} />
           </div>
         </>
       ),
+      problem: amountError(form.charge_amount, { label: 'Charge' }),
       call: () => api.submitAlterationForApproval(alteration.id, {
         charge_amount: alteration.alteration_type === 'PAID_CLIENT_REQUEST' ? form.charge_amount : undefined,
         notes: form.notes,
@@ -636,11 +640,11 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
           </div>
           <div style={field}>
             <label style={label}>What needs doing</label>
-            <input className="form-control" value={form.title} onChange={set('title')} />
+            <input className="form-control" maxLength={200} value={form.title} onChange={set('title')} />
           </div>
           <div style={field}>
             <label style={label}>Notes for the tailor (optional)</label>
-            <VoiceTextarea className="form-control" rows={3} value={form.notes} onChange={set('notes')} />
+            <VoiceTextarea className="form-control" rows={3} maxLength={LIMITS.note} value={form.notes} onChange={set('notes')} />
           </div>
         </>
       ),
@@ -655,7 +659,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
       body: (
         <div style={field}>
           <label style={label}>What did they say is still wrong? (required)</label>
-          <VoiceTextarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
+          <VoiceTextarea className="form-control" rows={3} maxLength={LIMITS.reason} value={form.reason} onChange={set('reason')} />
         </div>
       ),
       call: () => api.alterationCustomerRejected(alteration.id, form.reason),
@@ -667,7 +671,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
       body: (
         <div style={field}>
           <label style={label}>What is wrong? (required)</label>
-          <VoiceTextarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
+          <VoiceTextarea className="form-control" rows={3} maxLength={LIMITS.reason} value={form.reason} onChange={set('reason')} />
         </div>
       ),
       call: () => api.failAlterationQC(alteration.id, form.reason),
@@ -679,7 +683,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
       body: (
         <div style={field}>
           <label style={label}>Why is it being cancelled? (required)</label>
-          <VoiceTextarea className="form-control" rows={3} value={form.reason} onChange={set('reason')} />
+          <VoiceTextarea className="form-control" rows={3} maxLength={LIMITS.reason} value={form.reason} onChange={set('reason')} />
         </div>
       ),
       call: () => api.cancelAlteration(alteration.id, form.reason),
@@ -694,7 +698,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
           )}
           <div style={field}>
             <label style={label}>Notes (optional)</label>
-            <VoiceTextarea className="form-control" rows={3} value={form.notes} onChange={set('notes')} />
+            <VoiceTextarea className="form-control" rows={3} maxLength={LIMITS.note} value={form.notes} onChange={set('notes')} />
           </div>
         </>
       ),
@@ -704,6 +708,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
       title: 'Record a payment',
       submit: 'Record payment',
       disabled: !form.amount,
+      problem: amountError(form.amount, { label: 'Amount', allowZero: false, max: outstanding }),
       body: (
         <>
           <div style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '12px' }}>
@@ -711,7 +716,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
           </div>
           <div style={field}>
             <label style={label}>Amount</label>
-            <input className="form-control" type="number" min="0" step="0.01" max={alteration.outstanding_balance} value={form.amount} onChange={set('amount')} />
+            <input className="form-control" inputMode="decimal" value={form.amount} onChange={setAmount('amount', { max: outstanding })} />
           </div>
           <div style={field}>
             <label style={label}>Method</label>
@@ -721,11 +726,11 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
           </div>
           <div style={field}>
             <label style={label}>Transaction reference (optional, but it prevents duplicates)</label>
-            <input className="form-control" value={form.transaction_reference} onChange={set('transaction_reference')} />
+            <input className="form-control" maxLength={LIMITS.reference} value={form.transaction_reference} onChange={set('transaction_reference')} />
           </div>
           <div style={field}>
             <label style={label}>Notes (optional)</label>
-            <input className="form-control" value={form.notes} onChange={set('notes')} />
+            <input className="form-control" maxLength={LIMITS.note} value={form.notes} onChange={set('notes')} />
           </div>
         </>
       ),
@@ -738,6 +743,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
       title: 'Record material used',
       submit: 'Record usage',
       disabled: !form.item_id || !form.quantity,
+      problem: amountError(form.quantity, { label: 'Quantity', allowZero: false, max: LIMITS.quantity }),
       body: (
         <>
           <div style={field}>
@@ -753,11 +759,11 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
           </div>
           <div style={field}>
             <label style={label}>Quantity</label>
-            <input className="form-control" type="number" min="0" step="0.001" value={form.quantity} onChange={set('quantity')} />
+            <input className="form-control" inputMode="decimal" value={form.quantity} onChange={setAmount('quantity', { max: LIMITS.quantity, decimals: 3 })} />
           </div>
           <div style={field}>
             <label style={label}>What it was for (optional)</label>
-            <input className="form-control" value={form.remarks} onChange={set('remarks')} />
+            <input className="form-control" maxLength={LIMITS.note} value={form.remarks} onChange={set('remarks')} />
           </div>
         </>
       ),
@@ -772,12 +778,13 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
   return (
     <Modal title={config.title} onClose={onClose}>
       {config.body}
+      {config.problem && <div style={{ color: 'var(--danger-color)', fontSize: '12.5px', marginBottom: '8px' }}>{config.problem}</div>}
       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '8px' }}>
         <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
         <button
           type="button"
           className="btn-primary"
-          disabled={busy || config.disabled}
+          disabled={busy || config.disabled || Boolean(config.problem)}
           onClick={() => onSubmit(dialog.kind, config.call)}
         >
           {busy ? 'Working…' : config.submit}

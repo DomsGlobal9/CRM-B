@@ -22,6 +22,7 @@ from apps.alterations.models import (
     PaymentMethod,
 )
 from apps.catalog.models import GarmentJob
+from core.validators import MAX_NOTE, MAX_REASON, validate_amount, validate_quantity
 from crm_api.models import Customer, Order
 
 
@@ -187,6 +188,23 @@ class AlterationRequestDetailSerializer(AlterationRequestListSerializer):
 # write payloads
 # ---------------------------------------------------------------------------
 
+def _money_field(label, **kwargs):
+    """A charge or a payment: two decimals, never negative, never a crore.
+
+    DRF's DecimalField already turns 'abc' into a sentence; the shared amount
+    rule adds the boutique's ceiling so the refusal is said here, field-keyed,
+    rather than by the service after the row has been built.
+    """
+    return serializers.DecimalField(
+        max_digits=10, decimal_places=2,
+        validators=[lambda value: validate_amount(value, label=label)], **kwargs)
+
+
+def _note_field(max_length=MAX_NOTE, **kwargs):
+    return serializers.CharField(required=False, allow_blank=True, default='',
+                                 trim_whitespace=True, max_length=max_length, **kwargs)
+
+
 class AlterationRequestCreateSerializer(serializers.Serializer):
     customer_id = serializers.UUIDField()
     #: Either the numeric pk or the human 'T2B-...' identifier.
@@ -194,69 +212,67 @@ class AlterationRequestCreateSerializer(serializers.Serializer):
     garment_job_id = serializers.UUIDField()
     alteration_type = serializers.ChoiceField(
         choices=AlterationType.choices, default=AlterationType.PAID_CLIENT_REQUEST)
-    issue_description = serializers.CharField(required=False, allow_blank=True, default='')
+    issue_description = _note_field()
     issue_scale = serializers.ChoiceField(
         choices=IssueScale.choices, required=False, allow_blank=True, default='')
     requested_adjustments = serializers.JSONField(required=False, default=dict)
-    charge_amount = serializers.DecimalField(
-        max_digits=10, decimal_places=2, required=False, default=Decimal('0.00'))
-    notes = serializers.CharField(required=False, allow_blank=True, default='')
+    charge_amount = _money_field('Charge amount', required=False, default=Decimal('0.00'))
+    notes = _note_field()
 
 
 class OutsideAlterationCreateSerializer(serializers.Serializer):
     """Intake for a garment stitched elsewhere: no order, no garment job."""
     customer_id = serializers.UUIDField()
     garment_template_id = serializers.UUIDField(required=False, allow_null=True)
-    garment_note = serializers.CharField(required=False, allow_blank=True, default='', max_length=200)
-    issue_description = serializers.CharField(required=False, allow_blank=True, default='')
+    garment_note = _note_field(max_length=200)
+    issue_description = _note_field()
     issue_scale = serializers.ChoiceField(
         choices=IssueScale.choices, required=False, allow_blank=True, default='')
     requested_adjustments = serializers.JSONField(required=False, default=dict)
-    charge_amount = serializers.DecimalField(
-        max_digits=10, decimal_places=2, required=False, default=Decimal('0.00'))
-    notes = serializers.CharField(required=False, allow_blank=True, default='')
+    charge_amount = _money_field('Charge amount', required=False, default=Decimal('0.00'))
+    notes = _note_field()
 
 
 class InspectionSerializer(serializers.Serializer):
-    inspection_notes = serializers.CharField(required=False, allow_blank=True, default='')
+    inspection_notes = _note_field()
     adjustments = serializers.JSONField(required=False, default=dict)
 
 
 class SubmitForApprovalSerializer(serializers.Serializer):
-    charge_amount = serializers.DecimalField(
-        max_digits=10, decimal_places=2, required=False, allow_null=True)
-    notes = serializers.CharField(required=False, allow_blank=True, default='')
+    charge_amount = _money_field('Charge amount', required=False, allow_null=True)
+    notes = _note_field()
 
 
 class AssignSerializer(serializers.Serializer):
     tailor_id = serializers.IntegerField()
-    title = serializers.CharField(required=False, allow_blank=True, default='')
-    stage_key = serializers.CharField(required=False, allow_blank=True, default='')
-    notes = serializers.CharField(required=False, allow_blank=True, default='')
+    title = _note_field(max_length=200)
+    stage_key = _note_field(max_length=100)
+    notes = _note_field()
 
 
 class NotesSerializer(serializers.Serializer):
-    notes = serializers.CharField(required=False, allow_blank=True, default='')
+    notes = _note_field()
     task_id = serializers.UUIDField(required=False, allow_null=True)
 
 
 class ReasonSerializer(serializers.Serializer):
     """QC failure and cancellation both refuse to proceed without a reason."""
 
-    reason = serializers.CharField(allow_blank=False)
+    reason = serializers.CharField(allow_blank=False, max_length=MAX_REASON)
 
 
 class RecordPaymentSerializer(serializers.Serializer):
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    amount = _money_field('Payment amount')
     payment_method = serializers.ChoiceField(
         choices=PaymentMethod.choices, default=PaymentMethod.CASH)
-    transaction_reference = serializers.CharField(
-        required=False, allow_blank=True, default='')
-    notes = serializers.CharField(required=False, allow_blank=True, default='')
+    transaction_reference = _note_field(max_length=100)
+    notes = _note_field()
 
 
 class RecordMaterialSerializer(serializers.Serializer):
     item_id = serializers.UUIDField()
-    quantity = serializers.DecimalField(max_digits=12, decimal_places=3)
-    unit = serializers.CharField(required=False, allow_blank=True, default='')
-    remarks = serializers.CharField(required=False, allow_blank=True, default='')
+    quantity = serializers.DecimalField(
+        max_digits=12, decimal_places=3,
+        validators=[lambda value: validate_quantity(value, label='Quantity')])
+    unit = _note_field(max_length=20)
+    remarks = _note_field()

@@ -12,10 +12,11 @@ from crm_api.models import (
     BoutiqueSettings, Customer, Measurement, Notification, Order, Tailor,
 )
 from domains.orders.services import OrderService
+from core.test_images import JPEG
 
 
 def work_photo():
-    return SimpleUploadedFile("work.jpg", b"jpeg-bytes", content_type="image/jpeg")
+    return SimpleUploadedFile("work.jpg", JPEG, content_type="image/jpeg")
 
 
 class QCDiscoveryTestBase(TenantTestCase):

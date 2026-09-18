@@ -20,6 +20,7 @@ import { useCallback, useState } from 'react';
 import { Flag, Plus, Trash2 } from 'lucide-react';
 
 import { consoleApi } from '../api';
+import { LIMITS } from '../../services/validate';
 import {
   Async, Confirm, Empty, Pill, SectionHead, Select, Table,
   day, moment, useApi, useToast,
@@ -208,13 +209,13 @@ export default function Flags() {
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 12 }}>
                 <div className="sa-field" style={{ marginBottom: 0, flex: '0 1 220px' }}>
                   <label htmlFor="sa-flag-key">Key</label>
-                  <input id="sa-flag-key" className="sa-input" value={draft.key}
+                  <input id="sa-flag-key" className="sa-input" value={draft.key} maxLength={80}
                     placeholder="new_order_wizard"
                     onChange={(e) => setDraft((d) => ({ ...d, key: e.target.value }))} />
                 </div>
                 <div className="sa-field" style={{ marginBottom: 0, flex: '1 1 320px' }}>
                   <label htmlFor="sa-flag-desc">What it does</label>
-                  <input id="sa-flag-desc" className="sa-input" value={draft.description}
+                  <input id="sa-flag-desc" className="sa-input" value={draft.description} maxLength={LIMITS.reason}
                     placeholder="Who reads this in six months, and what will they need to know?"
                     onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} />
                 </div>

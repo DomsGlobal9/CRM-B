@@ -74,11 +74,21 @@ DEFAULT_STAGE_KEY = 'alteration_work'
 # helpers
 # --------------------------------------------------------------------------
 
+#: The same ceiling core.validators applies at the API: a charge above it is a
+#: slip of the finger, and the service is the last place to catch one that
+#: arrived by another door (a shell, a script, a future caller).
+MAX_MONEY = Decimal('10000000')
+
+
 def _money(value, field):
     try:
         amount = Decimal(str(value))
     except (InvalidOperation, TypeError, ValueError):
         raise ValueError(f'{field} must be a number.')
+    if not amount.is_finite():
+        raise ValueError(f'{field} must be a number.')
+    if amount > MAX_MONEY:
+        raise ValueError(f'{field} cannot be more than {MAX_MONEY:,.0f}.')
     return amount.quantize(Decimal('0.01'))
 
 

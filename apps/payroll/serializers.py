@@ -14,6 +14,9 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from apps.staff.serializers import validate_employment_date
+from core.validators import validate_amount, validate_text
+
 from .models import Payout, PayrollPeriod, PayrollRecord, StaffAdvance, StaffLedgerEntry
 
 
@@ -192,12 +195,30 @@ class StaffAdvanceSerializer(serializers.ModelSerializer):
     def validate_amount(self, value):
         if value is None or value <= 0:
             raise serializers.ValidationError('An advance must be a positive amount.')
-        return value
+        return validate_amount(value, label='Advance amount')
 
     def validate_weekly_recovery(self, value):
         if value is not None and value < 0:
             raise serializers.ValidationError('Weekly recovery cannot be negative.')
-        return value
+        return validate_amount(value, label='Weekly recovery')
+
+    def validate_issued_on(self, value):
+        return validate_employment_date(value, label='Issue date')
+
+    def validate_reason(self, value):
+        return validate_text(value, label='Reason', max_length=255)
+
+    def validate(self, attrs):
+        # Recovering more per week than was advanced is a figure in the wrong
+        # box; the ledger would cap it silently, and a silent cap is a surprise
+        # on somebody's payslip. On update the stored amount is the one that
+        # counts: `update` below ignores a re-sent amount anyway.
+        amount = self.instance.amount if self.instance else attrs.get('amount')
+        weekly = attrs.get('weekly_recovery', getattr(self.instance, 'weekly_recovery', None))
+        if amount is not None and weekly is not None and weekly > amount:
+            raise serializers.ValidationError(
+                {'weekly_recovery': 'Weekly recovery cannot be more than the advance.'})
+        return attrs
 
     def update(self, instance, validated_data):
         """Only the repayment rule may change, and only for the future.

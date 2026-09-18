@@ -1,5 +1,10 @@
+from decimal import Decimal
+
 from rest_framework import serializers
-from core.validators import validate_mobile
+from core.validators import (
+    MAX_NOTE, MAX_URL, validate_amount, validate_email_address, validate_http_url, validate_mobile,
+    validate_not_past, validate_quantity, validate_text,
+)
 
 from .models import (
     Collection, Designer, DesignApproval, DesignAsset, DesignAssignment, DesignBoard,
@@ -23,6 +28,24 @@ class DesignerSerializer(serializers.ModelSerializer):
 
     def validate_phone(self, value):
         return validate_mobile(value)
+
+    def validate_email(self, value):
+        return validate_email_address(value)
+
+    def validate_employee_id(self, value):
+        return validate_text(value, label='Employee ID', max_length=50)
+
+    def validate_specialisation(self, value):
+        return validate_text(value, label='Specialisation', max_length=150)
+
+    def validate_bio(self, value):
+        return validate_text(value, label='Bio', max_length=MAX_NOTE)
+
+    def validate_experience_years(self, value):
+        if value in (None, ''):
+            return value
+        return validate_quantity(value, label='Experience', maximum=80,
+                                 allow_zero=True).quantize(Decimal('0.1'))
 
     def get_has_login(self, designer):
         return designer.user_id is not None
@@ -108,6 +131,33 @@ class DesignAssetSerializer(serializers.ModelSerializer):
     def get_inventory_item_id(self, asset):
         row = asset.stocked_as.all()[:1]
         return str(row[0].id) if row else None
+
+    def validate_title(self, value):
+        return validate_text(value, label='Title', max_length=200, required=True)
+
+    def validate_description(self, value):
+        return validate_text(value, label='Description', max_length=MAX_NOTE)
+
+    def validate_designer(self, value):
+        return validate_text(value, label='Designer', max_length=150)
+
+    def validate_estimated_price(self, value):
+        return validate_amount(value, label='Estimated price')
+
+    def validate_stitch_hours(self, value):
+        if value in (None, ''):
+            return value
+        return validate_quantity(value, label='Stitch hours', maximum=1000,
+                                 allow_zero=True).quantize(Decimal('0.01'))
+
+    def validate_image_url(self, value):
+        return validate_http_url(value, label='Image link')
+
+    def validate_source_url(self, value):
+        return validate_http_url(value, label='Source link')
+
+    def validate_video_url(self, value):
+        return validate_http_url(value, label='Video link')
 
     def validate(self, attrs):
         # A catalogue path is only meaningful against the garment it belongs
@@ -266,6 +316,12 @@ class DesignAssignmentSerializer(_AssignmentDesignMixin, serializers.ModelSerial
         customer = obj.garment_job.order.customer
         return f"{customer.first_name} {customer.last_name}".strip()
 
+    def validate_brief(self, value):
+        return validate_text(value, label='Brief', max_length=MAX_NOTE)
+
+    def validate_due_date(self, value):
+        return validate_not_past(value, label='Due date')
+
 
 class DesignerAssignmentSerializer(_AssignmentDesignMixin, serializers.ModelSerializer):
 
@@ -309,6 +365,12 @@ class CustomerDesignSerializer(serializers.ModelSerializer):
     def get_customer_name(self, obj):
         c = obj.customer
         return f"{c.first_name} {c.last_name}".strip() if c else ''
+
+    def validate_title(self, value):
+        return validate_text(value, label='Title', max_length=200, required=True)
+
+    def validate_notes(self, value):
+        return validate_text(value, label='Notes', max_length=MAX_NOTE)
 
     def validate(self, attrs):
         order = attrs.get('order')
