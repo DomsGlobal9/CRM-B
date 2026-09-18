@@ -506,8 +506,10 @@ export function CameraButton({ onFiles, multiple = false, label = 'Take photo', 
  * the input resets itself so the same file can be picked twice. `camera` adds
  * a "Take photo" button beside "Choose file" that opens the device camera
  * (a `capture` input), for the counter that photographs rather than browses.
+ * No icon above the title: the upload glyph already sits on the button, and
+ * twice on one card read as two controls.
  */
-export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title, subtitle, chooseLabel = 'Choose file', hint, compact = false, icon: Icon = UploadIcon, camera = false }) {
+export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title, subtitle, chooseLabel = 'Choose file', hint, compact = false, camera = false }) {
   const [over, setOver] = useState(false);
   const [problem, setProblem] = useState('');
   const [camOpen, setCamOpen] = useState(false);
@@ -530,7 +532,6 @@ export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title,
       onDragLeave={() => setOver(false)}
       onDrop={(e) => { e.preventDefault(); setOver(false); take(e.dataTransfer.files); }}
     >
-      <span className="at-drop-icon"><Icon size={compact ? 22 : 30} strokeWidth={1.5} /></span>
       <div className="at-drop-title">{title || (multiple ? 'Drag & drop photos here' : 'Drag & drop a file here')}</div>
       {subtitle !== null && <div className="at-drop-sub">{subtitle || 'or choose from your device'}</div>}
       <div className="at-drop-actions">

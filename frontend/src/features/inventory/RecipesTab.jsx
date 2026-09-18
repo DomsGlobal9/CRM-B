@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Calculator, Plus, Trash2 } from 'lucide-react';
+import { Calculator, Pencil, Plus, Trash2, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import { inventoryImage } from '../../services/inventoryImages';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
+import { Field, Modal } from './ItemFormModal';
 
 /**
- * Recipes: what each garment is made of.
+ * The boutique's cookbook: what goes into each garment they make.
  *
- * A line can carry a fixed quantity or a formula over the customer's own
- * measurements, plus a waste allowance. "Try it" evaluates the whole recipe
- * against measurements typed in here, which is the only honest way to check a
- * formula -- reading `0.15 * bust + 0.4` tells you nothing about whether it
- * produces a sane number of metres.
+ * A recipe is a name and a list of materials with quantities -- the fabric,
+ * the lining, the border, the buttons -- written in one sitting, on one
+ * sheet, and saved once. An order reserves stock against it. Lines can also
+ * carry a measurement formula (`0.15 * bust + 0.4`) and a waste allowance
+ * from the earlier line-by-line editor; those are kept and shown, and
+ * "Try it" still evaluates them, but the sheet asks for none of it.
  */
 
 const panel = {
@@ -22,13 +25,28 @@ const panel = {
   boxShadow: 'var(--shadow-sm)',
 };
 
-const ROLES = [
-  ['FABRIC', 'Fabric'], ['LINING', 'Lining'], ['INTERLINING', 'Interlining'],
-  ['EMBROIDERY', 'Embroidery'], ['THREAD', 'Thread'], ['ACCESSORY', 'Accessory'],
-  ['LABEL', 'Label'], ['PACKAGING', 'Packaging'], ['OTHER', 'Other'],
-];
-
 const qty = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
+
+// What a material is for, read off what it is: the recipe never asks.
+const ROLE_BY_CATEGORY = {
+  FABRIC: 'FABRIC', LINING: 'LINING', BORDER: 'ACCESSORY', EMBELLISHMENT: 'EMBROIDERY',
+  STITCHING: 'THREAD', PACKAGING: 'PACKAGING', MAGGAM: 'EMBROIDERY', DESIGN: 'OTHER', OTHER: 'OTHER',
+};
+const roleFor = (item) => {
+  const words = `${item?.name || ''} ${item?.sub_category || ''}`.toLowerCase();
+  if (/\b(button|zip|zipper|hook|elastic|lace|tassel)s?\b/.test(words)) return 'ACCESSORY';
+  if (/\b(interlining|fusing|canvas)\b/.test(words)) return 'INTERLINING';
+  if (/\blabel/.test(words)) return 'LABEL';
+  return ROLE_BY_CATEGORY[item?.category] || 'OTHER';
+};
+
+const blankLine = () => ({ key: Math.random().toString(36).slice(2), inventory_item: '', quantity: '', description: '', customer: false });
+
+const linesFrom = (bom) => (bom?.lines || []).map((l) => ({
+  key: l.id, id: l.id, inventory_item: l.inventory_item || '', quantity: String(l.quantity ?? ''),
+  description: l.description || '', customer: Boolean(l.is_customer_supplied),
+  quantity_formula: l.quantity_formula || '', waste_percent: l.waste_percent, is_optional: l.is_optional,
+}));
 
 export default function RecipesTab({ items, isOwner }) {
   const { t } = useLanguage();
@@ -36,7 +54,8 @@ export default function RecipesTab({ items, isOwner }) {
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState(null); // null | {} (new) | bom
+  const [trying, setTrying] = useState(false);
 
   const refresh = useCallback(async (keepId) => {
     setLoading(true);
@@ -51,9 +70,18 @@ export default function RecipesTab({ items, isOwner }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selected?.id]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { Promise.resolve().then(refresh); }, [refresh]);
+
+  const remove = async (bom) => {
+    if (!window.confirm(`${t('inventoryPage.removeRecipeConfirm', 'Remove this recipe?')} ${bom.name}`)) return;
+    try { await api.deleteBom(bom.id); refresh(null); }
+    catch (err) { setError(err.message); }
+  };
+
+  const byId = Object.fromEntries((items || []).map((i) => [i.id, i]));
+  const hasFormula = (bom) => (bom?.lines || []).some((l) => l.quantity_formula);
 
   return (
     <div style={{ marginTop: '20px' }}>
@@ -62,7 +90,7 @@ export default function RecipesTab({ items, isOwner }) {
           {t('inventoryPage.recipesSubtitle', 'What each garment is made of. An order reserves against the recipe.')}
         </div>
         {isOwner && (
-          <button type="button" className="btn-primary" style={{ fontSize: '13px' }} onClick={() => setCreating(true)}>
+          <button type="button" className="btn-primary" style={{ fontSize: '13px' }} onClick={() => setEditing({})}>
             <Plus size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} /> {t('inventoryPage.newRecipe', 'New recipe')}
           </button>
         )}
@@ -93,7 +121,7 @@ export default function RecipesTab({ items, isOwner }) {
                       }}>
                 <div style={{ fontSize: '13px', fontWeight: 600 }}>{bom.name}</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  v{bom.version} · {bom.line_count} line{bom.line_count === 1 ? '' : 's'}
+                  {bom.line_count} {bom.line_count === 1 ? t('inventoryPage.material', 'material') : t('inventoryPage.materials', 'materials')}
                   {bom.is_active ? '' : ' · superseded'}
                 </div>
               </button>
@@ -101,173 +129,121 @@ export default function RecipesTab({ items, isOwner }) {
           </div>
 
           {selected && (
-            <RecipeDetail
-              bom={selected}
-              items={items}
-              isOwner={isOwner}
-              onChanged={() => refresh(selected.id)}
-            />
+            <div style={{ ...panel, overflow: 'hidden' }}>
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 auto' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600 }}>{selected.name}</div>
+                  {selected.template_name && <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{selected.template_name}</div>}
+                </div>
+                {hasFormula(selected) && (
+                  <button type="button" className="btn-secondary" style={{ fontSize: '12px' }} onClick={() => setTrying(true)}>
+                    <Calculator size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> {t('inventoryPage.tryRecipe', 'Try it')}
+                  </button>
+                )}
+                {isOwner && (
+                  <>
+                    <button type="button" className="btn-secondary" style={{ fontSize: '12px' }} onClick={() => setEditing(selected)}>
+                      <Pencil size={13} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> {t('common.edit', 'Edit')}
+                    </button>
+                    <button type="button" className="btn-secondary" style={{ fontSize: '12px' }} title={t('inventoryPage.removeRecipe', 'Remove recipe')}
+                            aria-label={`${t('inventoryPage.removeRecipe', 'Remove recipe')} ${selected.name}`} onClick={() => remove(selected)}>
+                      <Trash2 size={13} />
+                    </button>
+                  </>
+                )}
+              </div>
+              {(selected.lines || []).length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  {t('inventoryPage.noLines', 'Nothing in this recipe yet.')}
+                </div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <tbody>
+                    {selected.lines.map((line) => {
+                      const item = byId[line.inventory_item];
+                      return (
+                        <tr key={line.id} style={{ borderTop: '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {line.is_customer_supplied
+                              ? <span style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--background-secondary)', display: 'inline-block', flexShrink: 0 }} />
+                              : <img src={inventoryImage(item || { category: 'OTHER', name: line.material_name })} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
+                            <span>
+                              {line.material_name || line.description}
+                              <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginLeft: '6px' }}>
+                                {line.is_customer_supplied ? t('inventoryPage.customerBrings', 'customer brings it') : line.role_display}
+                                {line.is_optional ? ` · ${t('inventoryPage.optional', 'optional')}` : ''}
+                              </span>
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                            {line.quantity_formula ? <code style={{ fontSize: '12px' }}>{line.quantity_formula}</code> : qty(line.quantity)} {line.unit_display}
+                            {Number(line.waste_percent) > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}> +{qty(line.waste_percent)}%</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           )}
         </div>
       )}
 
-      {creating && (
-        <NewRecipeModal
-          onClose={() => setCreating(false)}
-          onCreated={(bom) => { setCreating(false); refresh(bom.id); }}
-        />
+      {editing && (
+        <RecipeSheet bom={editing.id ? editing : null} items={items}
+                     onClose={() => setEditing(null)}
+                     onSaved={(bom) => { setEditing(null); refresh(bom.id); }} />
       )}
+      {trying && selected && <TryRecipeModal bom={selected} onClose={() => setTrying(false)} />}
     </div>
   );
 }
 
-function RecipeDetail({ bom, items, isOwner, onChanged }) {
-  const [adding, setAdding] = useState(false);
-  const [trying, setTrying] = useState(false);
-  const [error, setError] = useState(null);
-  const [deletingLineId, setDeletingLineId] = useState(null);
-
-  const remove = async (line) => {
-    if (deletingLineId) return;
-    setError(null);
-    setDeletingLineId(line.id);
-    try {
-      await api.deleteBomLine(line.id);
-      onChanged();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setDeletingLineId(null);
-    }
-  };
-
-  return (
-    <div style={{ ...panel, overflow: 'hidden' }}>
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-color)',
-                    display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-          <div style={{ fontSize: '14px', fontWeight: 600 }}>{bom.name}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            Version {bom.version}{bom.is_active ? ' · active' : ' · superseded'}
-          </div>
-        </div>
-        <button type="button" className="btn-secondary" style={{ fontSize: '11.5px', padding: '5px 11px' }}
-                onClick={() => setTrying(true)}>
-          <Calculator size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Try it
-        </button>
-        {isOwner && bom.is_active && (
-          <button type="button" className="btn-secondary" style={{ fontSize: '11.5px', padding: '5px 11px' }}
-                  onClick={() => setAdding(true)}>
-            <Plus size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} /> Add material
-          </button>
-        )}
-      </div>
-
-      {error && (
-        <div style={{ padding: '10px 16px', color: 'var(--danger-color)', fontSize: '12.5px' }}>{error}</div>
-      )}
-
-      {(bom.lines || []).length === 0 ? (
-        <div style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-          No materials yet.
-        </div>
-      ) : (
-        <div className="responsive-table-wrapper">
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                <th style={{ padding: '12px' }}>Material</th>
-                <th style={{ padding: '12px' }}>Role</th>
-                <th style={{ padding: '12px', textAlign: 'right' }}>Quantity</th>
-                <th style={{ padding: '12px', textAlign: 'right' }}>Waste</th>
-                <th style={{ padding: '12px' }} />
-              </tr>
-            </thead>
-            <tbody>
-              {(bom.lines || []).map((line) => (
-                <tr key={line.id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                  <td style={{ padding: '10px 12px' }}>
-                    <div style={{ fontWeight: 500 }}>{line.material_name}</div>
-                    {line.is_customer_supplied && (
-                      <div style={{ fontSize: '11px', color: 'var(--info-color)' }}>Customer brings this</div>
-                    )}
-                    {line.is_optional && (
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Optional</div>
-                    )}
-                  </td>
-                  <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>{line.role_display}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                    {line.quantity_formula
-                      ? <code style={{ fontSize: '11.5px' }}>{line.quantity_formula}</code>
-                      : qty(line.quantity)}
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '4px' }}>{line.unit_display}</span>
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                    {Number(line.waste_percent) ? `${Number(line.waste_percent)}%` : '—'}
-                  </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                    {isOwner && bom.is_active && (
-                      <button type="button" className="btn-secondary"
-                              style={{ fontSize: '11px', padding: '4px 8px' }}
-                              disabled={deletingLineId === line.id}
-                              onClick={() => remove(line)}>
-                        <Trash2 size={11} />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {adding && (
-        <AddLineModal
-          bom={bom} items={items}
-          onClose={() => setAdding(false)}
-          onAdded={() => { setAdding(false); onChanged(); }}
-        />
-      )}
-      {trying && <TryRecipeModal bom={bom} onClose={() => setTrying(false)} />}
-    </div>
-  );
-}
-
-function AddLineModal({ bom, items, onClose, onAdded }) {
-  const [form, setForm] = useState({
-    role: 'FABRIC', inventory_item: '', quantity: '1', quantity_formula: '',
-    unit: 'METER', waste_percent: '0', is_optional: false, is_customer_supplied: false,
-    description: '',
-  });
+/** The whole recipe on one sheet: a name, then material · quantity rows. */
+function RecipeSheet({ bom, items, onClose, onSaved }) {
+  const { t } = useLanguage();
+  const [name, setName] = useState(bom?.name || '');
+  const [lines, setLines] = useState(() => (bom ? linesFrom(bom) : [blankLine()]));
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const byId = Object.fromEntries((items || []).map((i) => [i.id, i]));
+  const unitOf = (line) => byId[line.inventory_item]?.unit_display || byId[line.inventory_item]?.unit || '';
 
-  const set = (key) => (e) => setForm({
-    ...form, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value,
-  });
+  const setLine = (key, patch) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  const dropLine = (key) => setLines((ls) => ls.filter((l) => l.key !== key));
+  const addLine = (customer = false) => setLines((ls) => [...ls, { ...blankLine(), customer }]);
 
-  const submit = async () => {
-    const problem = (form.quantity_formula ? '' : amountError(form.quantity, { label: 'Quantity', max: LIMITS.quantity, allowZero: false, required: true }))
-      || amountError(form.waste_percent, { label: 'Waste allowance', max: 100 })
-      || (form.is_customer_supplied && !form.description.trim() ? 'Say what the customer is bringing.' : '');
-    if (problem) { setError(problem); return; }
+  const submit = async (e) => {
+    e.preventDefault();
+    const clean = name.trim();
+    if (!clean) { setError(t('inventoryPage.recipeNameRequired', 'Give the recipe a name — the garment it makes.')); return; }
+    const kept = lines.filter((l) => l.customer ? l.description.trim() : l.inventory_item);
+    if (!kept.length) { setError(t('inventoryPage.recipeNeedsMaterial', 'Add at least one material.')); return; }
+    for (const l of kept) {
+      if (l.quantity_formula) continue;
+      const problem = amountError(l.quantity, { label: t('inventoryPage.quantity', 'Quantity'), max: LIMITS.quantity, allowZero: false, required: true });
+      if (problem) { setError(`${l.customer ? l.description : byId[l.inventory_item]?.name}: ${problem}`); return; }
+    }
     setError(null);
     setSaving(true);
     try {
-      await api.createBomLine({
-        bom: bom.id,
-        role: form.role,
-        inventory_item: form.is_customer_supplied ? null : (form.inventory_item || null),
-        description: form.is_customer_supplied ? form.description : null,
-        quantity: form.quantity_formula ? 0 : form.quantity,
-        quantity_formula: form.quantity_formula || null,
-        unit: form.unit,
-        waste_percent: form.waste_percent || 0,
-        is_optional: form.is_optional,
-        is_customer_supplied: form.is_customer_supplied,
-      });
-      onAdded();
+      const payload = {
+        name: clean,
+        lines: kept.map((l) => {
+          const item = byId[l.inventory_item];
+          return l.customer ? {
+            role: 'OTHER', inventory_item: null, description: l.description.trim(), is_customer_supplied: true,
+            quantity: l.quantity_formula ? 0 : l.quantity, quantity_formula: l.quantity_formula || null,
+            unit: 'PIECE', waste_percent: l.waste_percent || 0, is_optional: Boolean(l.is_optional),
+          } : {
+            role: roleFor(item), inventory_item: l.inventory_item, is_customer_supplied: false,
+            quantity: l.quantity_formula ? 0 : l.quantity, quantity_formula: l.quantity_formula || null,
+            unit: item?.unit || 'PIECE', waste_percent: l.waste_percent || 0, is_optional: Boolean(l.is_optional),
+          };
+        }),
+      };
+      onSaved(await api.saveBom(payload, bom?.id || null));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -275,223 +251,113 @@ function AddLineModal({ bom, items, onClose, onAdded }) {
     }
   };
 
-  const chosen = items.find((i) => i.id === form.inventory_item);
-
+  const row = { display: 'grid', gridTemplateColumns: '1fr 110px 28px', gap: '8px', alignItems: 'center' };
   return (
-    <Modal title="Add a material" onClose={onClose}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', marginBottom: '12px' }}>
-        <input type="checkbox" checked={form.is_customer_supplied} onChange={set('is_customer_supplied')} />
-        The customer brings this
-      </label>
+    <Modal title={bom ? `${t('common.edit', 'Edit')} · ${bom.name}` : t('inventoryPage.newRecipe', 'New recipe')} onClose={onClose} width="600px">
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <Field label={t('inventoryPage.recipeName', 'Garment this makes')} required value={name} onChange={setName} maxLength={150} autoFocus
+               placeholder={t('inventoryPage.recipeNamePlaceholder', 'e.g. Bridal blouse with maggam')} />
 
-      {form.is_customer_supplied ? (
-        <>
-          <Field label="What the customer is bringing">
-            <input className="form-control" value={form.description} onChange={set('description')} maxLength={200}
-                   placeholder="e.g. her own gold border" />
-          </Field>
-          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-            Customer material is never reserved from boutique stock. It is tracked
-            against the order separately.
-          </div>
-        </>
-      ) : (
-        <Field label="Material">
-          <select className="form-control" value={form.inventory_item} onChange={set('inventory_item')}>
-            <option value="">Choose from your inventory…</option>
-            {items.map((row) => (
-              <option key={row.id} value={row.id}>{row.name} ({row.item_code})</option>
+        <div className="at-field">
+          <span className="ui-eyebrow">{t('inventoryPage.whatGoesIn', 'What goes in')}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {lines.map((line) => (
+              <div key={line.key} style={row}>
+                {line.customer ? (
+                  <input className="form-control" value={line.description} maxLength={200}
+                         placeholder={t('inventoryPage.customerBringsPlaceholder', 'What the customer brings, e.g. her own gold border')}
+                         onChange={(e) => setLine(line.key, { description: e.target.value })} />
+                ) : (
+                  <select className="form-control" value={line.inventory_item} onChange={(e) => setLine(line.key, { inventory_item: e.target.value })}>
+                    <option value="">{t('inventoryPage.pickMaterial', 'Pick a material…')}</option>
+                    {(items || []).map((i) => <option key={i.id} value={i.id}>{i.name}{i.color ? ` · ${i.color}` : ''}</option>)}
+                  </select>
+                )}
+                {line.quantity_formula ? (
+                  <code title={t('inventoryPage.formulaKept', 'Measured by formula; edit it in Try it')} style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{line.quantity_formula}</code>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <input className="form-control" inputMode="decimal" value={line.quantity} placeholder={t('inventoryPage.qty', 'Qty')}
+                           onChange={(e) => setLine(line.key, { quantity: cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }) })}
+                           style={{ minWidth: 0 }} />
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{line.customer ? '' : unitOf(line)}</span>
+                  </div>
+                )}
+                <button type="button" onClick={() => dropLine(line.key)} aria-label={t('inventoryPage.removeLine', 'Remove')}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', padding: 0 }}>
+                  <X size={14} />
+                </button>
+              </div>
             ))}
-          </select>
-        </Field>
-      )}
-
-      <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-        <Field label="Role">
-          <select className="form-control" value={form.role} onChange={set('role')}>
-            {ROLES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
-        </Field>
-        <Field label="Unit">
-          <select className="form-control" value={form.unit} onChange={set('unit')}>
-            {['METER', 'PIECE', 'PAIR', 'ROLL', 'PACKET', 'BOX', 'SET', 'KILOGRAM', 'GRAM', 'STRING', 'UNIT']
-              .map((u) => <option key={u} value={u}>{u[0] + u.slice(1).toLowerCase()}</option>)}
-          </select>
-        </Field>
-      </div>
-
-      <Field label="Fixed quantity">
-        <input className="form-control" inputMode="decimal"
-               value={form.quantity} onChange={(e) => setForm({ ...form, quantity: cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }) })}
-               disabled={Boolean(form.quantity_formula)} />
-      </Field>
-
-      <Field label="…or a formula over the measurements">
-        <input className="form-control" value={form.quantity_formula} onChange={set('quantity_formula')} maxLength={200}
-               placeholder="e.g. 0.15 * bust + 0.4" />
-      </Field>
-      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '-6px', marginBottom: '12px' }}>
-        Arithmetic over the customer's measurements. A formula takes precedence
-        over the fixed quantity.
-      </div>
-
-      <Field label="Waste allowance (%)">
-        <input className="form-control" inputMode="decimal"
-               value={form.waste_percent} onChange={(e) => setForm({ ...form, waste_percent: cleanAmount(e.target.value, { max: 100 }) })} />
-      </Field>
-
-      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px' }}>
-        <input type="checkbox" checked={form.is_optional} onChange={set('is_optional')} />
-        Optional — only included when the order asks for it
-      </label>
-
-      {chosen && form.unit !== chosen.unit && (
-        <div style={{ fontSize: '11.5px', color: 'var(--warning-color)', marginTop: '10px' }}>
-          This line is in {form.unit} but {chosen.name} is stocked in {chosen.unit_display}.
-          A conversion has to exist on the item, or the recipe cannot be used.
+          </div>
+          <div style={{ display: 'flex', gap: '14px', marginTop: '8px', fontSize: '12.5px' }}>
+            <button type="button" className="at-link" onClick={() => addLine(false)} style={{ color: 'var(--accent-text)' }}>
+              <Plus size={12} /> {t('inventoryPage.addMaterial', 'Add a material')}
+            </button>
+            <button type="button" className="at-link" onClick={() => addLine(true)} style={{ color: 'var(--text-muted)' }}>
+              <Plus size={12} /> {t('inventoryPage.addCustomerMaterial', 'Something the customer brings')}
+            </button>
+          </div>
         </div>
-      )}
 
-      {error && <div style={{ color: 'var(--danger-color)', fontSize: '12.5px', marginTop: '12px', whiteSpace: 'pre-wrap' }}>{error}</div>}
-
-      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
-        <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-        <button type="button" className="btn-primary" onClick={submit} disabled={saving}>
-          {saving ? 'Adding…' : 'Add material'}
-        </button>
-      </div>
+        {error && <div style={{ color: 'var(--danger-color)', fontSize: '13px' }}>{error}</div>}
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn-secondary" onClick={onClose}>{t('common.cancel', 'Cancel')}</button>
+          <button type="submit" className="btn-primary" disabled={saving}>{saving ? '…' : t('common.save', 'Save')}</button>
+        </div>
+      </form>
     </Modal>
   );
 }
 
+/** Evaluates a recipe with formulas against measurements typed here. */
 function TryRecipeModal({ bom, onClose }) {
+  const { t } = useLanguage();
   const [raw, setRaw] = useState('bust=36\nwaist=30\nlength=42');
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const run = async () => {
-    setError(null);
-    setBusy(true);
-    // "bust=36" per line is what a person types; the API wants an object.
     const variables = {};
     raw.split('\n').forEach((line) => {
-      const [key, value] = line.split('=').map((part) => (part || '').trim());
-      if (key && value !== undefined && value !== '') variables[key] = value;
+      const [k, v] = line.split('=').map((s) => s.trim());
+      if (k && v !== undefined && v !== '') variables[k] = Number(v);
     });
+    setBusy(true);
+    setError(null);
     try {
       setResult(await api.getBomRequirements(bom.id, { variables, include_optional: true }));
     } catch (err) {
       setError(err.message);
-      setResult(null);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Modal title={`Try “${bom.name}”`} onClose={onClose} width="560px">
-      <Field label="Measurements, one per line">
-        <textarea className="form-control" rows={4} value={raw} onChange={(e) => setRaw(e.target.value)}
-                  style={{ fontFamily: 'monospace', fontSize: '12.5px' }} />
-      </Field>
-      <button type="button" className="btn-primary" onClick={run} disabled={busy} style={{ fontSize: '13px' }}>
-        {busy ? 'Working…' : 'Work out what it needs'}
-      </button>
-
-      {error && <div style={{ color: 'var(--danger-color)', fontSize: '12.5px', marginTop: '14px', whiteSpace: 'pre-wrap' }}>{error}</div>}
-
+    <Modal title={`${t('inventoryPage.tryRecipe', 'Try it')} · ${bom.name}`} onClose={onClose}>
+      <div className="at-field">
+        <label className="at-field-label">{t('inventoryPage.measurements', 'Measurements (one per line, name=value)')}</label>
+        <textarea className="form-control" rows={4} value={raw} onChange={(e) => setRaw(e.target.value)} />
+      </div>
+      {error && <div style={{ color: 'var(--danger-color)', fontSize: '13px', marginTop: '8px' }}>{error}</div>}
       {result && (
-        <div className="responsive-table-wrapper" style={{ marginTop: '16px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>
-                <th style={{ padding: '8px' }}>Material</th>
-                <th style={{ padding: '8px', textAlign: 'right' }}>Base</th>
-                <th style={{ padding: '8px', textAlign: 'right' }}>Needed</th>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginTop: '12px' }}>
+          <tbody>
+            {(result.requirements || []).map((r) => (
+              <tr key={r.line_id} style={{ borderTop: '1px solid var(--border-color)' }}>
+                <td style={{ padding: '8px 4px' }}>{r.material}</td>
+                <td style={{ padding: '8px 4px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{qty(r.required_quantity)} {r.unit}</td>
               </tr>
-            </thead>
-            <tbody>
-              {result.requirements.map((row) => (
-                <tr key={row.line_id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                  <td style={{ padding: '8px' }}>
-                    {row.material}
-                    {row.is_customer_supplied && (
-                      <span style={{ color: 'var(--info-color)', fontSize: '11px' }}> · customer</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '8px', textAlign: 'right', color: 'var(--text-muted)' }}>
-                    {qty(row.base_quantity)} {row.base_unit}
-                  </td>
-                  <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
-                    {qty(row.required_quantity)} {row.unit}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       )}
-    </Modal>
-  );
-}
-
-function NewRecipeModal({ onClose, onCreated }) {
-  const [name, setName] = useState('');
-  const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  const submit = async () => {
-    setError(null);
-    if (!name.trim()) { setError('Give the recipe a name.'); return; }
-    setSaving(true);
-    try {
-      onCreated(await api.createBom({ name: name.trim() }));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal title="New recipe" onClose={onClose}>
-      <Field label="Name">
-        <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} maxLength={150}
-               placeholder="e.g. Bridal blouse" />
-      </Field>
-      {error && <div style={{ color: 'var(--danger-color)', fontSize: '12.5px' }}>{error}</div>}
-      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '20px' }}>
-        <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-        <button type="button" className="btn-primary" onClick={submit} disabled={saving}>
-          {saving ? 'Creating…' : 'Create'}
-        </button>
+      <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '14px' }}>
+        <button type="button" className="btn-secondary" onClick={onClose}>{t('common.close', 'Close')}</button>
+        <button type="button" className="btn-primary" disabled={busy} onClick={run}>{busy ? '…' : t('inventoryPage.calculate', 'Calculate')}</button>
       </div>
     </Modal>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <label style={{ display: 'block', marginBottom: '12px' }}>
-      <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function Modal({ title, onClose, children, width = '480px' }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
-         onClick={onClose}>
-      <div className="search-modal-card"
-           style={{ ...panel, background: 'var(--surface-color)', width: '100%', maxWidth: width,
-                    padding: '22px', maxHeight: '88vh', overflowY: 'auto' }}
-           onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ margin: '0 0 16px', fontFamily: 'var(--font-serif)', fontSize: 'var(--text-xl)', fontWeight: 500, color: 'var(--text-primary)' }}>{title}</h3>
-        {children}
-      </div>
-    </div>
   );
 }

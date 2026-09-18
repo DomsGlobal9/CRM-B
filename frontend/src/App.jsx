@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
+import { inventoryImage } from './services/inventoryImages';
 import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
 import {
   formatMoney, formatDate as fmtDate, formatDateTime as fmtDateTime,
@@ -1189,7 +1190,6 @@ const navSectionsFor = (user, t) => {
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
-        { tab: 'designWork', icon: PenTool, label: t('nav.designWork') },
       ] },
       // Fabrics used to sit apart from Inventory in one flat list of eleven,
       // and the roster apart from the employment screen that extends it, so
@@ -1211,12 +1211,11 @@ const navSectionsFor = (user, t) => {
       { key: 'master', items: [
         { tab: 'pendingTasks', icon: ClipboardList, label: t('nav.pendingTasks', 'Pending Tasks'), phone: true },
         { tab: 'closedTasks', icon: CheckCircle2, label: t('nav.closedTasks', 'Closed Tasks'), phone: true },
-        { tab: 'designWork', icon: PenTool, label: t('nav.designWork') },
+        { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
       ] },
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
-        { tab: 'designWork', icon: PenTool, label: t('nav.myWork'), phone: true },
-        { tab: 'designs', icon: Palette, label: t('nav.designStudio') },
+        { tab: 'designs', icon: Palette, label: t('nav.designStudio'), phone: true },
       ] },
     ] : [
       { key: 'production', items: [
@@ -1453,7 +1452,9 @@ function App() {
   const [garmentTemplatesError, setGarmentTemplatesError] = useState(null);
   // Bumped after any design write so the library refetches its counts and grid.
   const [designLibraryToken, setDesignLibraryToken] = useState(0);
-  const [designsView, setDesignsView] = useState('dashboard'); // 'dashboard' | 'library'
+  const [designsView, setDesignsView] = useState('dashboard'); // 'dashboard' | 'library' | 'requests'
+  // Design requests live inside the library page now; this is the one door.
+  const openDesignRequests = () => { setDesignsView('requests'); setDashboardTab('designs'); };
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   // Bumped whenever a sidebar item is picked, and used as the key of the main
   // pane: picking a section always lands on its front page, even from a
@@ -1904,7 +1905,7 @@ function App() {
   // Active Selected Dashboard Order for progress tracker
   const [selectedDashboardOrder, setSelectedDashboardOrder] = useState(null);
   const [updatingOrderStatusId, setUpdatingOrderStatusId] = useState(null);
-  const [expandedDna, setExpandedDna] = useState({});
+  const [styleNotesFor, setStyleNotesFor] = useState(null);
   const [selectedDirectoryCustomer, setSelectedDirectoryCustomer] = useState(null);
   // Which alteration the Alterations tab should open on. Set when somebody
   // follows one from an order card or a customer's file, cleared once the tab
@@ -2196,7 +2197,7 @@ function App() {
           // check that does not exist server-side.
           // The queue, not the upload folder: what a designer signs in for is
           // what has been asked of them.
-          setDashboardTab('designWork');
+          openDesignRequests();
           return;
         }
         if (isProductionStaff(user.role)) {
@@ -2563,7 +2564,7 @@ function App() {
       if (res.user.role === 'Designer') {
         // See the matching branch in checkAuthSession for why this skips
         // fetchDashboardAndConfig entirely rather than fetching and hiding.
-        setDashboardTab('designWork');
+        openDesignRequests();
         return;
       }
       if (isProductionStaff(res.user.role)) {
@@ -4830,7 +4831,7 @@ function App() {
                             <span className="ui-badge ui-badge--warning">{inr(o.balance)} due</span>))}
                           {att.low_stock > 0 && row('stock', () => setDashboardTab('inventory'), null, 'Low stock',
                             <span className="ui-badge ui-badge--warning">{att.low_stock} item{att.low_stock === 1 ? '' : 's'}</span>)}
-                          {att.pending_designs > 0 && row('designs', () => setDashboardTab('designWork'), null, 'Designs awaiting review',
+                          {att.pending_designs > 0 && row('designs', openDesignRequests, null, 'Designs awaiting review',
                             <span className="ui-badge ui-badge--info">{att.pending_designs}</span>)}
                         </div>
                       );
@@ -4957,23 +4958,6 @@ function App() {
 
             {/* 4b. DESIGN WORK TAB -- assign, submit, review. One component for
                  both ends of the loop; see features/designStudio/DesignWork. */}
-            {dashboardTab === 'designWork' && (
-              <>
-                <PageHeader
-                  icon={PenTool} tone="neutral"
-                  title={t('designWorkPage.title', 'Design Work')}
-                  subtitle={currentUser?.role === 'Designer'
-                    ? t('designWorkPage.subtitleDesigner', 'The garments you have been asked to design.')
-                    : t('designWorkPage.subtitleSupervisor', 'Assign a garment to a designer, and review what comes back.')}
-                />
-                <div className="portal-content">
-                  <Suspense fallback={<ScreenLoading />}>
-                    <DesignWork currentUser={currentUser} />
-                  </Suspense>
-                </div>
-              </>
-            )}
-
             {/* 4. MANAGE DESIGNS TAB */}
             {dashboardTab === 'designs' && (
               <>
@@ -5024,10 +5008,16 @@ function App() {
                             onClick={() => setDesignsView('library')}>
                       Boutique Designs
                     </button>
+                    <button className={`tab-btn ${designsView === 'requests' ? 'active' : ''}`}
+                            onClick={() => setDesignsView('requests')}>
+                      {currentUser?.role === 'Designer' ? t('nav.myWork') : t('nav.designWork')}
+                    </button>
                   </div>
 
                   <Suspense fallback={<div className="content-card">Loading…</div>}>
-                    {designsView === 'dashboard' ? (
+                    {designsView === 'requests' ? (
+                      <DesignWork currentUser={currentUser} />
+                    ) : designsView === 'dashboard' ? (
                       <DesignDashboard
                         onOpenLibrary={() => setDesignsView('library')}
                         canManageDesigners={!currentUser?.role || currentUser.role === 'Owner'}
@@ -5858,28 +5848,30 @@ function App() {
                                 type="button"
                                 className="at-link"
                                 style={{ marginTop: '6px', fontSize: 'var(--text-xs)', color: 'var(--accent-text)' }}
-                                onClick={(e) => { e.stopPropagation(); setExpandedDna(prev => ({ ...prev, [cust.id]: !prev[cust.id] })); }}
+                                onClick={(e) => { e.stopPropagation(); setStyleNotesFor(cust); }}
                               >
-                                <Sparkles size={12} /> {expandedDna[cust.id] ? t('common.cancel') : t('customersPage.viewStyleDna')}
+                                <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
                               </button>
                             </div>
 
                             <ChevronRight className="at-customer-chevron" size={18} style={{ color: 'var(--text-muted)' }} />
                           </div>
 
-                          {expandedDna[cust.id] && (
-                            <div style={{ borderTop: '1px solid var(--border-color)', padding: 'var(--space-4) var(--space-5)', display: 'flex', justifyContent: 'center' }}>
-                              <div style={{ width: '100%', maxWidth: '550px' }}>
-                                <StyleProfileCard customer={cust} />
-                              </div>
-                            </div>
-                          )}
                         </div>
                       );
                     })
                   )}
                 </div>
               </>
+            )}
+
+            {styleNotesFor && (
+              <FormModal icon={Sparkles} tone="amber" width="600px"
+                         title={`${styleNotesFor.first_name || ''} ${styleNotesFor.last_name || ''}`.trim()}
+                         subtitle={t('customersPage.bespokeProfile')}
+                         onClose={() => setStyleNotesFor(null)}>
+                <StyleProfileCard customer={styleNotesFor} />
+              </FormModal>
             )}
 
             {/* 5b. CUSTOMER DETAIL VIEW (Image 5/6 extension) */}
@@ -8883,7 +8875,7 @@ function App() {
                 <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Selected Fabric Swatch</span>
                 <div style={{ width: '100%', height: '180px', overflow: 'hidden', borderRadius: '6px' }}>
                   <img 
-                    src={resolveMediaUrl(selectedFabric.image_url, 'https://images.unsplash.com/photo-1574169208507-84376144848b?w=400')} 
+                    src={inventoryImage(selectedFabric)}
                     alt="Fabric Swatch" 
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                   />

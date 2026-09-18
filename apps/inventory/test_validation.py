@@ -75,6 +75,14 @@ class InventoryItemValidationTests(InventoryTestBase):
         self.assertEqual(response.status_code, 400, response.data)
         self.assertIn('Reorder level cannot be negative.', _error_text(response))
 
+    def test_an_item_with_no_code_is_given_one(self):
+        # The quick stock sheet asks for a name and three numbers, nothing more.
+        first = self._post(item_code='', name='Loose thread', category=Category.OTHER, unit=Unit.UNIT)
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertEqual(first.data['item_code'], 'ITM-0001')
+        second = self._post(item_code='', name='Another', category=Category.OTHER, unit=Unit.UNIT)
+        self.assertEqual(second.data['item_code'], 'ITM-0002')
+
     def test_a_blank_name_is_refused(self):
         response = self._post(name='   ')
         self.assertEqual(response.status_code, 400, response.data)

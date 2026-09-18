@@ -1,7 +1,7 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
 import { Check, ChevronDown, Inbox, Layers, X } from 'lucide-react';
 
-import { resolveMediaUrl } from '../../services/media';
+import { inventoryImage, inventoryTile } from '../../services/inventoryImages';
 import { LIMITS, cleanAmount } from '../../services/validate';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 import { ACCESSORY_OPTIONS } from '../designStudio/GarmentPartPicker';
@@ -197,9 +197,6 @@ function AccessoryMultiSelectDropdown({
   );
 }
 
-const FABRIC_FALLBACK =
-  'https://images.unsplash.com/photo-1574169208507-84376144848b?w=400';
-
 /** Does one placement cover this garment, section and slot?
  *
  *  A placement narrows: naming only the garment means anywhere on it, which is
@@ -212,7 +209,7 @@ const placementCovers = (placement, garment, section, slot) =>
   && (!placement.slot || placement.slot === slot);
 
 function FabricCard({ fabric, picked, onToggle }) {
-  const image = resolveMediaUrl(fabric.image_url) || FABRIC_FALLBACK;
+  const image = inventoryImage(fabric);
   return (
     <div className={`fabric-card ${picked ? 'selected' : ''}`}
          role="button"
@@ -221,7 +218,7 @@ function FabricCard({ fabric, picked, onToggle }) {
          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}>
       <div className="fabric-image-container">
         <img src={image} alt={fabric.name}
-             onError={(e) => { e.currentTarget.src = FABRIC_FALLBACK; }} />
+             onError={(e) => { e.currentTarget.src = inventoryTile(fabric); }} />
         {picked && <div className="fabric-badge"><Check size={14} /></div>}
       </div>
       <div className="fabric-details">
@@ -326,9 +323,9 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
           </div>
           {fabrics.map((fabric) => (
             <div key={fabric.id} style={rowStyle}>
-              <img src={resolveMediaUrl(fabric.image_url) || FABRIC_FALLBACK} alt=""
+              <img src={inventoryImage(fabric)} alt=""
                    style={{ width: '30px', height: '30px', borderRadius: '5px', objectFit: 'cover' }}
-                   onError={(e) => { e.currentTarget.src = FABRIC_FALLBACK; }} />
+                   onError={(e) => { e.currentTarget.src = inventoryTile(fabric); }} />
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {fabric.name}

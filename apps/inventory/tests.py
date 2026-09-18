@@ -584,9 +584,11 @@ class CatalogApiTests(InventoryTestBase):
         self.assertEqual(refused.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('cannot hold stock', str(refused.data['catalog_item']))
 
+        # Not from the catalogue either: the quick sheet asks for a name only,
+        # so the server issues the code here too.
         bare = self.client.post('/api/inventory/items/', {'name': 'Loose thread', 'category': dabka.legacy_category}, format='json')
-        self.assertEqual(bare.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('item_code', bare.data)
+        self.assertEqual(bare.status_code, status.HTTP_201_CREATED, bare.data)
+        self.assertTrue(bare.data['item_code'].startswith('ITM-'), bare.data['item_code'])
 
     def test_a_library_design_can_be_filed_into_inventory(self):
         # "Add to inventory" on a design card: the same form, the design's id
@@ -623,8 +625,9 @@ class StockLocationTests(InventoryTestBase):
         super().setUp()
         from .models import StockLocation
         self.main = StockLocation.objects.get(is_default=True)
-        self.cutting = StockLocation.objects.get(kind=StockLocation.Kind.CUTTING_UNIT)
-        self.embroidery = StockLocation.objects.get(kind=StockLocation.Kind.EMBROIDERY_UNIT)
+        # Only Main Store is seeded; a boutique adds its own units.
+        self.cutting = StockLocation.objects.create(name='Cutting Unit', kind=StockLocation.Kind.CUTTING_UNIT, sequence=2)
+        self.embroidery = StockLocation.objects.create(name='Embroidery Unit', kind=StockLocation.Kind.EMBROIDERY_UNIT, sequence=3)
 
     def _breakdown(self, item):
         from .models import LocationStock
@@ -645,13 +648,10 @@ class StockLocationTests(InventoryTestBase):
             f"per-location total {total} != current_stock {item.current_stock}",
         )
 
-    def test_the_eight_locations_are_seeded(self):
+    def test_only_the_main_store_is_seeded(self):
         from .models import StockLocation
-        self.assertEqual(StockLocation.objects.count(), 8)
-        self.assertEqual(
-            set(StockLocation.objects.values_list('kind', flat=True)),
-            set(StockLocation.Kind.values),
-        )
+        seeded = StockLocation.objects.exclude(id__in=[self.cutting.id, self.embroidery.id])
+        self.assertEqual([l.name for l in seeded], ['Main Store'])
 
     def test_exactly_one_location_is_the_default(self):
         from .models import StockLocation
@@ -825,12 +825,12 @@ class LocationApiTests(InventoryTestBase):
         super().setUp()
         from .models import StockLocation
         self.main = StockLocation.objects.get(is_default=True)
-        self.cutting = StockLocation.objects.get(kind=StockLocation.Kind.CUTTING_UNIT)
+        self.cutting = StockLocation.objects.create(name='Cutting Unit', kind=StockLocation.Kind.CUTTING_UNIT, sequence=2)
 
     def test_locations_are_listed(self):
         response = self.client.get('/api/inventory/locations/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 8)
+        self.assertEqual(len(response.data), 2)
 
     def test_transfer_endpoint_moves_stock(self):
         item = self.make_item()
@@ -1140,6 +1140,38 @@ class BomApiTests(InventoryTestBase):
         BomLine.objects.create(bom=self.bom, role=BomLine.Role.FABRIC,
                                inventory_item=self.fabric, quantity_formula='0.2 * waist + 2',
                                unit=Unit.METER, waste_percent=Decimal('10'))
+
+    def test_a_recipe_is_saved_with_its_materials_in_one_request(self):
+        # The cookbook sheet: name plus lines, once; an update with lines replaces them.
+        from .models import BomLine
+        thread = self.make_item(item_code='THR-1', name='Cotton thread', unit=Unit.PIECE)
+        response = self.client.post('/api/inventory/boms/', {
+            'name': 'Bridal blouse',
+            'lines': [
+                {'role': 'FABRIC', 'inventory_item': str(self.fabric.id), 'quantity': '1.5', 'unit': Unit.METER},
+                {'role': 'THREAD', 'inventory_item': str(thread.id), 'quantity': '2', 'unit': Unit.PIECE},
+                {'role': 'OTHER', 'is_customer_supplied': True, 'description': 'her own gold border',
+                 'quantity': '1', 'unit': Unit.PIECE},
+            ],
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+        bom_id = response.data['id']
+        self.assertEqual([l['material_name'] or l['description'] for l in response.data['lines']],
+                         ['Banarasi Silk', 'Cotton thread', 'her own gold border'])
+        self.assertEqual([l['sequence'] for l in response.data['lines']], [0, 1, 2])
+
+        again = self.client.patch(f'/api/inventory/boms/{bom_id}/', {
+            'name': 'Bridal blouse',
+            'lines': [{'role': 'FABRIC', 'inventory_item': str(self.fabric.id), 'quantity': '2', 'unit': Unit.METER}],
+        }, format='json')
+        self.assertEqual(again.status_code, status.HTTP_200_OK, again.data)
+        self.assertEqual(BomLine.objects.filter(bom_id=bom_id).count(), 1)
+        self.assertEqual(str(BomLine.objects.get(bom_id=bom_id).quantity), '2.000')
+
+        # A rename alone leaves the materials as they are.
+        renamed = self.client.patch(f'/api/inventory/boms/{bom_id}/', {'name': 'Bridal blouse v2'}, format='json')
+        self.assertEqual(renamed.status_code, status.HTTP_200_OK, renamed.data)
+        self.assertEqual(BomLine.objects.filter(bom_id=bom_id).count(), 1)
 
     def test_requirements_endpoint_computes_from_measurements(self):
         response = self.client.post(

@@ -1645,12 +1645,37 @@ Object.assign(api, {
   // Locations and transfers
   getStockLocations: (params) => inventoryGet('locations/', params),
   getLocationStock: (id) => inventoryGet(`locations/${id}/stock/`),
+  createStockLocation: (payload) => inventoryPost('locations/', payload),
+  deleteStockLocation: async (id) => {
+    const res = await guardedFetch(inventoryUrl(`locations/${id}/`), { method: 'DELETE', headers: getHeaders() });
+    if (!res.ok) {
+      let data = null;
+      try { data = await res.json(); } catch { data = null; }
+      throw new Error(describeApiError(res, data));
+    }
+  },
   getItemLocations: (itemId) => inventoryGet(`items/${itemId}/locations/`),
   transferStock: (itemId, payload) => inventoryPost(`items/${itemId}/transfer/`, payload),
 
   // Recipes
   getBoms: (params) => inventoryGet('boms/', params),
   createBom: (payload) => inventoryPost('boms/', payload),
+  // One request for the whole recipe: its name and every material line.
+  async saveBom(payload, id = null) {
+    const res = await guardedFetch(inventoryUrl(id ? `boms/${id}/` : 'boms/'), {
+      method: id ? 'PATCH' : 'POST', headers: getHeaders(), body: JSON.stringify(payload),
+    });
+    const raw = await res.text();
+    let data = null;
+    try { data = raw ? JSON.parse(raw) : null; } catch { data = null; }
+    if (!res.ok) throw new Error(describeApiError(res, data));
+    return data;
+  },
+  async deleteBom(id) {
+    const res = await guardedFetch(inventoryUrl(`boms/${id}/`), { method: 'DELETE', headers: getHeaders() });
+    if (!res.ok && res.status !== 204) await failWith(res, 'Could not remove the recipe.');
+    return true;
+  },
   getBomRequirements: (id, payload) => inventoryPost(`boms/${id}/requirements/`, payload),
   newBomVersion: (id) => inventoryPost(`boms/${id}/new-version/`),
   createBomLine: (payload) => inventoryPost('bom-lines/', payload),

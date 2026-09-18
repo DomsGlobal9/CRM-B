@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, History, MapPin, Package, Plus, Scissors, Search, Truck, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, History, MapPin, Package, Plus, Scissors, Search, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { PageHeader, StatCard } from '../../components/ui/Atelier';
-import { resolveMediaUrl } from '../../services/media';
+import { inventoryImage } from '../../services/inventoryImages';
 import {
   LIMITS, cleanAmount, amountError, phoneError, emailError, cleanUpper, isGstin,
 } from '../../services/validate';
 import CatalogBrowser from './CatalogBrowser';
 import ItemFormModal, { Field, Modal } from './ItemFormModal';
+import StockItemSheet from './StockItemSheet';
 import LocationsTab from './LocationsTab';
 import RecipesTab from './RecipesTab';
 import ReportsTab from './ReportsTab';
@@ -77,7 +78,6 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
   const [summary, setSummary] = useState(null);
   const [options, setOptions] = useState({ categories: [], units: [], default_unit_by_category: {} });
   const [suppliers, setSuppliers] = useState([]);
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
@@ -89,27 +89,21 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
   const [ledgerItem, setLedgerItem] = useState(null);
   const [ledger, setLedger] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
+  // { catalogItem } while the stock sheet is open; catalogItem is null for "New item".
+  const [stocking, setStocking] = useState(null);
   const [catalogVersion, setCatalogVersion] = useState(0);
-  const [receivingPo, setReceivingPo] = useState(null);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
 
   const isOwner = currentUser?.role === 'Owner';
 
-  // "Stock this" on a catalogue row is the "New item" form with the row's
-  // details already in it; the row's id rides along so saving links the two.
-  const stockFromCatalog = (row) => setEditingItem({
-    name: row.name,
-    category: row.legacy_category,
-    unit: row.default_unit,
-    sub_category: row.section_full_name,
-    catalog_item: row.id,
-  });
+  // "Stock this" on a catalogue row opens the stock sheet on that row.
+  const stockFromCatalog = (row) => setStocking({ catalogItem: row });
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const [list, sum, opts, sup, pos] = await Promise.all([
+      const [list, sum, opts, sup] = await Promise.all([
         api.getInventoryItems({
           search: search || undefined,
           category: category || undefined,
@@ -118,13 +112,11 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
         api.getInventorySummary(),
         api.getInventoryOptions(),
         api.getSuppliers(),
-        api.getPurchaseOrders(),
       ]);
       setItems(list);
       setSummary(sum);
       setOptions(opts);
       setSuppliers(sup);
-      setPurchaseOrders(pos);
     } catch (err) {
       console.error('Inventory load failed', err);
       setLoadError(err.message || 'Could not load inventory.');
@@ -160,7 +152,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
         title={t('inventoryPage.title')}
         subtitle={t('inventoryPage.subtitle')}
         actions={isOwner && (
-          <button type="button" className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setEditingItem({})}>
+          <button type="button" className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setStocking({ catalogItem: null })}>
             <Plus size={16} />
             {t('inventoryPage.newItem')}
           </button>
@@ -188,7 +180,6 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
           { key: 'catalog', label: t('inventoryPage.catalog'), icon: BookOpen },
           { key: 'locations', label: t('inventoryPage.locations'), icon: MapPin },
           { key: 'recipes', label: t('inventoryPage.recipes'), icon: Scissors },
-          { key: 'purchase', label: t('inventoryPage.purchaseOrders'), icon: Truck },
           { key: 'suppliers', label: t('inventoryPage.suppliers'), icon: ClipboardList },
           { key: 'reports', label: t('inventoryPage.reports'), icon: BarChart3 },
         ].map(({ key, label, icon: Icon }) => {
@@ -238,17 +229,6 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
           onMove={setMovementItem}
           onLedger={openLedger}
           onEdit={setEditingItem}
-        />
-      )}
-
-      {!loadError && tab === 'purchase' && (
-        <PurchaseTab
-          purchaseOrders={purchaseOrders}
-          suppliers={suppliers}
-          items={items}
-          isOwner={isOwner}
-          onReceive={setReceivingPo}
-          onCreated={refresh}
         />
       )}
 
@@ -332,11 +312,13 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
         />
       )}
 
-      {receivingPo && (
-        <ReceiveModal
-          purchaseOrder={receivingPo}
-          onClose={() => setReceivingPo(null)}
-          onDone={() => { setReceivingPo(null); refresh(); }}
+      {stocking && (
+        <StockItemSheet
+          catalogItem={stocking.catalogItem}
+          options={options}
+          suppliers={suppliers}
+          onClose={() => setStocking(null)}
+          onSaved={(another) => { if (!another) setStocking(null); setCatalogVersion((v) => v + 1); refresh(); }}
         />
       )}
 
@@ -403,10 +385,8 @@ function ItemsTab({
                 <tr key={item.id} style={{ borderTop: '1px solid var(--border-color)' }}>
                   <td style={{ padding: '12px' }}>
                     <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {item.image_url && (
-                        <img src={resolveMediaUrl(item.image_url)} alt="" loading="lazy"
-                             style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-                      )}
+                      <img src={inventoryImage(item)} alt="" loading="lazy"
+                           style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
                       {item.name}
                       {item.needs_reorder && (
                         <span title="At or below reorder level" style={{ display: 'inline-flex', color: 'var(--warning-color)' }}>
@@ -588,215 +568,6 @@ function MovementModal({ item, onClose, onDone }) {
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Recording…' : 'Record movement'}</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function PurchaseTab({ purchaseOrders, suppliers, items, isOwner, onReceive, onCreated }) {
-  const { t } = useLanguage();
-  const [creating, setCreating] = useState(false);
-  return (
-    <>
-      {isOwner && (
-        <div style={{ marginTop: '20px' }}>
-          <button type="button" className="btn-secondary" onClick={() => setCreating(true)}>
-            <Plus size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />{t('inventoryPage.newPurchaseOrder', 'New purchase order')}
-          </button>
-        </div>
-      )}
-
-      {purchaseOrders.length === 0 ? (
-        <div style={{ ...panel, padding: '48px', textAlign: 'center', marginTop: '16px', color: 'var(--text-muted)' }}>
-          {t('inventoryPage.noPurchaseOrdersYet', 'No purchase orders yet.')}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
-          {purchaseOrders.map((po) => {
-            const outstanding = (po.lines || []).some((l) => Number(l.quantity_outstanding) > 0);
-            return (
-              <div key={po.id} style={{ ...panel, padding: '16px 18px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>{po.po_number} · {po.supplier_name}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      {po.status_display} · {(po.lines || []).length} line(s) · {money(po.total)}
-                    </div>
-                  </div>
-                  {isOwner && outstanding && (
-                    <button type="button" className="btn-secondary" style={{ fontSize: '12px' }} onClick={() => onReceive(po)}>
-                      {t('inventoryPage.receiveGoods', 'Receive goods')}
-                    </button>
-                  )}
-                </div>
-                {(po.lines || []).length > 0 && (
-                  <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {po.lines.map((l) => (
-                      <div key={l.id}>
-                        {l.item_name} — ordered {qty(l.quantity_ordered)}, received {qty(l.quantity_received)}
-                        {Number(l.quantity_outstanding) > 0 && (
-                          <span style={{ color: 'var(--warning-color)' }}> ({qty(l.quantity_outstanding)} outstanding)</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {creating && (
-        <CreatePurchaseOrderModal
-          suppliers={suppliers}
-          items={items}
-          onClose={() => setCreating(false)}
-          onSaved={() => { setCreating(false); onCreated(); }}
-        />
-      )}
-    </>
-  );
-}
-
-function CreatePurchaseOrderModal({ suppliers, items, onClose, onSaved }) {
-  const [poNumber, setPoNumber] = useState(`PO-${Date.now().toString().slice(-6)}`);
-  const [supplier, setSupplier] = useState(suppliers[0]?.id || '');
-  const [lines, setLines] = useState([{ item: items[0]?.id || '', quantity_ordered: '', unit_cost: '' }]);
-  const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  const setLine = (i, key, value) => setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, [key]: value } : l)));
-
-  const submit = async (e) => {
-    e.preventDefault();
-    const kept = lines.filter((l) => l.item && l.quantity_ordered !== '');
-    const problem = !poNumber.trim() ? 'Enter the PO number.'
-      : !kept.length ? 'Add at least one line with an item and a quantity.'
-        : kept.map((l) => amountError(l.quantity_ordered, { label: 'Quantity', max: LIMITS.quantity, allowZero: false })
-          || amountError(l.unit_cost, { label: 'Unit cost' })).find(Boolean) || '';
-    if (problem) { setError(problem); return; }
-    setError(null);
-    setSaving(true);
-    try {
-      await api.createPurchaseOrder({
-        po_number: poNumber.trim(),
-        supplier,
-        lines: kept.map((l) => ({ item: l.item, quantity_ordered: l.quantity_ordered, unit_cost: l.unit_cost || 0 })),
-      });
-      onSaved();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal title="New purchase order" onClose={onClose} width="640px">
-      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-          <Field label="PO number" required value={poNumber} onChange={setPoNumber} maxLength={50} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600 }}>Supplier *</label>
-            <select className="form-control" required value={supplier} onChange={(e) => setSupplier(e.target.value)}>
-              <option value="">Select…</option>
-              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <label style={{ fontSize: '12px', fontWeight: 600 }}>Lines</label>
-          {lines.map((line, i) => (
-            <div key={i} className="po-line-row" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '8px', alignItems: 'center' }}>
-              <select className="form-control" aria-label={`Item for line ${i + 1}`} value={line.item} onChange={(e) => setLine(i, 'item', e.target.value)}>
-                <option value="">Select item…</option>
-                {items.map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
-              </select>
-              <input inputMode="decimal" className="form-control" placeholder="Qty"
-                value={line.quantity_ordered} onChange={(e) => setLine(i, 'quantity_ordered', cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }))} />
-              <input inputMode="decimal" className="form-control" placeholder="Unit cost"
-                value={line.unit_cost} onChange={(e) => setLine(i, 'unit_cost', cleanAmount(e.target.value))} />
-              <button type="button" className="close-btn" onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))} aria-label="Remove line">
-                <X size={15} />
-              </button>
-            </div>
-          ))}
-          <button type="button" className="btn-secondary" style={{ fontSize: '12px', alignSelf: 'flex-start' }}
-            onClick={() => setLines((ls) => [...ls, { item: '', quantity_ordered: '', unit_cost: '' }])}>
-            Add line
-          </button>
-        </div>
-
-        {error && <div style={errorBox}>{error}</div>}
-
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Create order'}</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function ReceiveModal({ purchaseOrder, onClose, onDone }) {
-  const [quantities, setQuantities] = useState(() => {
-    const initial = {};
-    (purchaseOrder.lines || []).forEach((l) => { initial[l.id] = l.quantity_outstanding; });
-    return initial;
-  });
-  const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setSaving(true);
-    try {
-      const lines = Object.entries(quantities)
-        .filter(([, v]) => v && Number(v) > 0)
-        .map(([line_id, quantity]) => ({ line_id, quantity }));
-      if (lines.length === 0) throw new Error('Enter at least one received quantity.');
-      await api.receivePurchaseOrder(purchaseOrder.id, lines);
-      onDone();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal title={`Receive goods · ${purchaseOrder.po_number}`} onClose={onClose}>
-      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        {(purchaseOrder.lines || []).map((line) => (
-          <div key={line.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: '12px', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 600 }}>{line.item_name}</div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                {qty(line.quantity_outstanding)} outstanding of {qty(line.quantity_ordered)}
-              </div>
-            </div>
-            <input
-              inputMode="decimal" className="form-control"
-              aria-label={`Received quantity for ${line.item_name}`}
-              value={quantities[line.id] ?? ''}
-              onChange={(e) => setQuantities((q) => ({
-                ...q, [line.id]: cleanAmount(e.target.value, { max: Number(line.quantity_outstanding) || 0, decimals: 3 }),
-              }))}
-            />
-          </div>
-        ))}
-
-        {error && (
-          <div style={errorBox}>{error}</div>
-        )}
-
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Receiving…' : 'Receive into stock'}</button>
         </div>
       </form>
     </Modal>

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, MapPin } from 'lucide-react';
+import { ArrowRight, MapPin, Plus, Trash2 } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
+import { Field, Modal, SelectField } from './ItemFormModal';
 
 /**
  * Where stock physically is, and moving it between places.
@@ -33,15 +34,23 @@ export default function LocationsTab({ items, isOwner, onMoved }) {
   const [error, setError] = useState(null);
   const [transferring, setTransferring] = useState(false);
 
-  useEffect(() => {
-    api.getStockLocations({ active: 'true' })
-      .then((rows) => {
-        setLocations(rows || []);
-        setSelected((rows || []).find((l) => l.is_default) || (rows || [])[0] || null);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+  const [adding, setAdding] = useState(false);
+  const loadLocations = useCallback((keep) => api.getStockLocations({ active: 'true' })
+    .then((rows) => {
+      setLocations(rows || []);
+      setSelected((rows || []).find((l) => keep && l.id === keep) || (rows || []).find((l) => l.is_default) || (rows || [])[0] || null);
+    })
+    .catch((err) => setError(err.message))
+    .finally(() => setLoading(false)), []);
+  useEffect(() => { loadLocations(); }, [loadLocations]);
+
+  // Only Main Store is seeded; the boutique names its own places. One that
+  // still holds material, or is the default, cannot go -- the server says so.
+  const remove = async (location) => {
+    if (!window.confirm(`${t('inventoryPage.removeLocationConfirm', 'Remove this location?')} ${location.name}`)) return;
+    try { await api.deleteStockLocation(location.id); setError(null); loadLocations(); }
+    catch (err) { setError(err.message); }
+  };
 
   const loadHeld = useCallback((location) => {
     if (!location) { setHeld([]); return; }
@@ -59,6 +68,12 @@ export default function LocationsTab({ items, isOwner, onMoved }) {
           {t('inventoryPage.locationsSubtitle', 'Material moves between units as it is worked on. Every transfer is recorded.')}
         </div>
         {isOwner && (
+          <button type="button" className="btn-secondary" style={{ fontSize: '13px' }} onClick={() => setAdding(true)}>
+            <Plus size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+            {t('inventoryPage.addLocation', 'Add location')}
+          </button>
+        )}
+        {isOwner && locations.length > 1 && (
           <button type="button" className="btn-primary" style={{ fontSize: '13px' }}
                   onClick={() => setTransferring(true)}>
             <ArrowRight size={14} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
@@ -87,12 +102,26 @@ export default function LocationsTab({ items, isOwner, onMoved }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13.5px', fontWeight: 600 }}>
               <MapPin size={13} /> {location.name}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              {location.kind_display}{location.is_default ? ' · default' : ''}
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>{location.kind_display}{location.is_default ? ' · default' : ''}</span>
+              {isOwner && !location.is_default && (
+                <span role="button" tabIndex={0} title={t('inventoryPage.removeLocation', 'Remove location')}
+                      aria-label={`${t('inventoryPage.removeLocation', 'Remove location')} ${location.name}`}
+                      onClick={(e) => { e.stopPropagation(); remove(location); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); remove(location); } }}
+                      style={{ display: 'inline-flex', cursor: 'pointer', color: 'var(--text-muted)' }}>
+                  <Trash2 size={13} />
+                </span>
+              )}
             </div>
           </button>
         ))}
       </div>
+
+      {adding && (
+        <AddLocationModal onClose={() => setAdding(false)}
+                          onSaved={(row) => { setAdding(false); loadLocations(row.id); }} />
+      )}
 
       {selected && (
         <div style={{ ...panel, marginTop: '18px', overflow: 'hidden' }}>
@@ -143,6 +172,50 @@ export default function LocationsTab({ items, isOwner, onMoved }) {
         />
       )}
     </div>
+  );
+}
+
+/** A place of the boutique's own: a name and what sort of place it is. */
+const LOCATION_KINDS = [
+  ['MAIN_STORE', 'Store / shop'], ['WAREHOUSE', 'Warehouse / godown'], ['WORKSHOP', 'Workshop'],
+  ['CUTTING_UNIT', 'Cutting unit'], ['EMBROIDERY_UNIT', 'Embroidery unit'], ['TAILOR', 'Tailor / Master'],
+  ['FINISHING_UNIT', 'Finishing unit'], ['SHOWROOM', 'Showroom'],
+];
+
+function AddLocationModal({ onClose, onSaved }) {
+  const { t } = useLanguage();
+  const [name, setName] = useState('');
+  const [kind, setKind] = useState('MAIN_STORE');
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const submit = async (e) => {
+    e.preventDefault();
+    const clean = name.trim();
+    if (!clean) { setError(t('inventoryPage.locationNameRequired', 'Give the place a name.')); return; }
+    setSaving(true);
+    try {
+      const row = await api.createStockLocation({ name: clean, kind });
+      onSaved(row);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Modal title={t('inventoryPage.addLocation', 'Add location')} onClose={onClose} width="440px">
+      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <Field label={t('inventoryPage.locationName', 'Name')} required value={name} onChange={setName} maxLength={120} autoFocus
+               placeholder={t('inventoryPage.locationNamePlaceholder', 'e.g. Jubilee Hills shop, Godown 2')} />
+        <SelectField label={t('inventoryPage.locationKind', 'What kind of place')} value={kind} onChange={setKind}
+                     options={LOCATION_KINDS.map(([value, label]) => ({ value, label }))} />
+        {error && <div style={{ color: 'var(--danger-color)', fontSize: '13px' }}>{error}</div>}
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn-secondary" onClick={onClose}>{t('common.cancel', 'Cancel')}</button>
+          <button type="submit" className="btn-primary" disabled={saving}>{saving ? '…' : t('common.save', 'Save')}</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

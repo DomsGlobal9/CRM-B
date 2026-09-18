@@ -158,7 +158,9 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             elif design is not None:
                 attrs['item_code'] = next_item_code('DSN')
             else:
-                raise serializers.ValidationError({'item_code': 'This field is required.'})
+                # Not from the catalogue or the library: the quick sheet only
+                # asks for a name, so the code is ours to issue here as well.
+                attrs['item_code'] = next_item_code('ITM')
 
         # The card and the picker read image_url; the gallery is the rest of
         # the shoot. The first photo is mirrored so neither has to know the
@@ -333,7 +335,7 @@ class CatalogItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'item_type', 'item_type_display', 'default_unit',
             'legacy_category', 'is_active', 'is_stockable',
-            'doc', 'section_name', 'subsection', 'section_full_name', 'stocked_item_id',
+            'doc', 'section', 'section_name', 'subsection', 'section_full_name', 'stocked_item_id',
         ]
 
     def get_stocked_item_id(self, obj):
@@ -429,8 +431,18 @@ class BomLineSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class BomLineInSerializer(BomLineSerializer):
+    """A line as it arrives inside its recipe: the recipe is the parent."""
+
+    class Meta(BomLineSerializer.Meta):
+        extra_kwargs = {'bom': {'required': False}}
+
+
 class BillOfMaterialsSerializer(serializers.ModelSerializer):
-    lines = BomLineSerializer(many=True, read_only=True)
+    # Writable: the cookbook sheet saves a recipe and every material in one
+    # request. Lines sent on an update replace the recipe's lines; an update
+    # that leaves them out touches only the recipe's own fields.
+    lines = BomLineInSerializer(many=True, required=False)
     template_name = serializers.CharField(source='template.name', read_only=True, default=None)
     line_count = serializers.IntegerField(source='lines.count', read_only=True)
 
@@ -439,6 +451,26 @@ class BillOfMaterialsSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'template', 'template_name', 'design', 'version',
                   'is_active', 'notes', 'lines', 'line_count', 'created_at', 'updated_at']
         read_only_fields = ['version']
+
+    def _write_lines(self, bom, lines):
+        bom.lines.all().delete()
+        for sequence, line in enumerate(lines):
+            line.pop('bom', None)
+            BomLine.objects.create(bom=bom, sequence=sequence, **line)
+
+    def create(self, validated):
+        lines = validated.pop('lines', None)
+        bom = super().create(validated)
+        if lines:
+            self._write_lines(bom, lines)
+        return bom
+
+    def update(self, bom, validated):
+        lines = validated.pop('lines', None)
+        bom = super().update(bom, validated)
+        if lines is not None:
+            self._write_lines(bom, lines)
+        return bom
 
     def validate(self, attrs):
         merged = {**({} if self.instance is None else {
