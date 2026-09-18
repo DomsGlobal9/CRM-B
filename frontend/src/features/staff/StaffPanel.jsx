@@ -22,7 +22,7 @@ import { Check,
 
 import { api } from '../../services/api';
 import {
-  AvatarInitials, PageHeader, SearchBox, StatCard, FormModal, Field, Dropzone, InfoNote, FormSection, IconTile,
+  AvatarInitials, PageHeader, SearchBox, StatCard, FormModal, Field, Dropzone, InfoNote, FormSection, IconTile, CameraButton,
 } from '../../components/ui/Atelier';
 import { ASSIGNABLE_ROLES, DOCUMENT_KINDS } from '../../constants/roles';
 import Attendance from './Attendance';
@@ -572,6 +572,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
                   </span>
                   <input id="add-staff-photo" type="file" accept="image/*" hidden
                          onChange={(e) => setPhoto(e.target.files?.[0] || null)} />
+                  <CameraButton onFiles={([f]) => setPhoto(f || null)} />
                 </div>
                 <div className="at-field-hint" style={{ marginTop: '6px' }}>
                   Shows on their login. They can change it themselves from My Account.
@@ -704,7 +705,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
               <button type="button" className="btn-secondary at-btn-sm" onClick={() => setDocFile(null)}>Remove</button>
             </div>
           ) : (
-            <Dropzone compact accept="image/*,application/pdf"
+            <Dropzone compact camera accept="image/*,application/pdf"
                       title="Drag & drop a file here" subtitle="or choose from your device"
                       chooseLabel="Choose file" hint="JPG, PNG or PDF, up to 10MB"
                       onFiles={(files) => setDocFile(files[0] || null)} />

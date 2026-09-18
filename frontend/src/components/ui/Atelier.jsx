@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowRight, Search, X as CloseIcon, Upload as UploadIcon, Camera as CameraIcon,
   Lightbulb as LightbulbIcon, CheckCircle2 as CheckIcon,
@@ -206,17 +207,163 @@ export function Field({ label, required, optional, hint, icon: Icon, children, h
 }
 
 /**
+ * The live camera behind every "Take photo": getUserMedia into a <video>, one
+ * frame onto a canvas, out as a JPEG File through `onCapture`. The same path
+ * the garment part picker takes, and for the same reason -- a `capture`
+ * input is honoured by phones only; on a laptop it is just the file dialog,
+ * which is exactly what a boutique saw when it pressed Take photo. Where the
+ * camera cannot run (no permission, no camera, plain HTTP) `onUnavailable`
+ * fires and the caller falls back to its capture input, so a phone still gets
+ * its native camera and nothing is worse than before.
+ *
+ * Portalled to <body>: it is position:fixed, and a modal ancestor with a
+ * transform would otherwise trap it inside the modal's box.
+ */
+// Why the camera would not open, in words the counter can act on. The
+// browser's own names (NotAllowedError, NotFoundError...) mean nothing to a
+// boutique, and a silent fall-through to the file dialog looked like the
+// button was simply broken.
+const cameraProblem = (err) => {
+  if (typeof window !== 'undefined' && !window.isSecureContext) {
+    return 'The camera only works on a secure (https) address or on localhost. Open the app over https to use it.';
+  }
+  switch (err?.name) {
+    case 'NotAllowedError': case 'PermissionDeniedError': case 'SecurityError':
+      return 'Camera access is blocked for this site. Click the camera or lock icon in the address bar, allow the camera, then try again.';
+    case 'NotFoundError': case 'DevicesNotFoundError':
+      return 'No camera was found on this device.';
+    case 'NotReadableError': case 'TrackStartError':
+      return 'The camera is in use by another app. Close it and try again.';
+    default:
+      return 'The camera could not be opened.';
+  }
+};
+
+export function CameraCapture({ onCapture, onClose, onUnavailable, label = 'Capture' }) {
+  const [stream, setStream] = useState(null);
+  const [problem, setProblem] = useState(null);
+  const [attempt, setAttempt] = useState(0);
+  const videoRef = useRef(null);
+  useEffect(() => {
+    let live = null;
+    let cancelled = false;
+    setProblem(null);
+    if (!navigator.mediaDevices?.getUserMedia) { setProblem(cameraProblem(null)); return undefined; }
+    // The rear camera where there is one; a laptop webcam that refuses the
+    // facingMode hint gets a second, unconstrained ask before it counts as
+    // unavailable.
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .catch((first) => (first?.name === 'NotAllowedError' || first?.name === 'PermissionDeniedError'
+        ? Promise.reject(first)
+        : navigator.mediaDevices.getUserMedia({ video: true, audio: false })))
+      .then((s) => { if (cancelled) { s.getTracks().forEach((t) => t.stop()); return; } live = s; setStream(s); })
+      .catch((err) => { if (!cancelled) setProblem(cameraProblem(err)); });
+    // Every track stopped on the way out, or the camera light stays on.
+    return () => { cancelled = true; live?.getTracks().forEach((t) => t.stop()); };
+  }, [attempt]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  const capture = async () => {
+    const video = videoRef.current;
+    if (!video?.videoWidth) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const blob = await new Promise((done) => canvas.toBlob(done, 'image/jpeg', 0.92));
+    if (blob) onCapture(new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+    onClose();
+  };
+
+  if (problem) {
+    // Say why, and offer the two ways on: ask again (after the person has
+    // allowed the camera), or hand over to the file picker -- which on a
+    // phone is its native camera, and on a laptop the folder.
+    return createPortal(
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 20000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px' }}
+           onClick={onClose}>
+        <div style={{ background: 'var(--surface-color, #fff)', color: 'var(--text-primary, #111)', borderRadius: '12px',
+                      padding: '20px', maxWidth: '420px', width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}
+             onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+            <CameraIcon size={16} /> Camera not available
+          </div>
+          <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary, #555)' }}>{problem}</div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-secondary at-btn-sm" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn-secondary at-btn-sm" onClick={() => { onClose(); onUnavailable?.(); }}>
+              <UploadIcon size={14} /> Choose a file instead
+            </button>
+            <button type="button" className="btn-primary at-btn-sm" onClick={() => setAttempt((n) => n + 1)}>
+              <CameraIcon size={14} /> Try again
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+  if (!stream) {
+    // Asking. The browser's permission bar is easy to miss, so say what is
+    // being waited for rather than showing nothing until it is answered.
+    return createPortal(
+      <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 20000,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px' }}
+           onClick={onClose}>
+        <div style={{ background: 'var(--surface-color, #fff)', color: 'var(--text-primary, #111)', borderRadius: '12px',
+                      padding: '20px', maxWidth: '420px', width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}
+             onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+            <CameraIcon size={16} /> Opening camera…
+          </div>
+          <div style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-secondary, #555)' }}>
+            If the browser asks, choose <strong>Allow</strong> so the camera can be used here.
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-secondary at-btn-sm" onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 20000,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  justifyContent: 'center', gap: '14px', padding: '28px' }}
+         onClick={onClose}>
+      <video autoPlay playsInline muted
+             ref={(el) => { videoRef.current = el; if (el && el.srcObject !== stream) el.srcObject = stream; }}
+             onClick={(e) => e.stopPropagation()}
+             style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: '8px', background: '#000' }} />
+      <div style={{ display: 'flex', gap: '10px' }} onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="btn-primary" style={{ padding: '6px 16px', fontSize: '12px' }} onClick={capture}>
+          <CameraIcon size={13} /> {label}
+        </button>
+        <button type="button" className="btn-secondary" style={{ padding: '6px 14px', fontSize: '12px' }} onClick={onClose}>
+          <CloseIcon size={13} /> Cancel
+        </button>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
  * The one way to add a photo: a single button over a plain file input.
  *
- * No `capture` attribute and no second "Take photo" button. A phone's own
- * picker already asks camera or library when the input is left plain, and a
- * laptop has only the file dialog, so two buttons were two CTAs for one act.
- * Pass `onCamera` only where the screen has its own live camera (the garment
- * part picker); then the click asks which of the two.
+ * Pass `onCamera` where the screen has its own live camera (the garment part
+ * picker), or `camera` to open the shared live camera (CameraCapture), with the
+ * `capture` input as its fallback:
+ * either way the click asks "Take a photo" or "Choose from device". A phone
+ * opens its camera straight away for the first; a laptop with a webcam gets
+ * the browser's camera dialog. Without either prop it is one plain button.
  */
-export function AddPhotoButton({ onFiles, multiple = false, label = 'Add photo', onCamera, className = 'btn-secondary at-btn-sm',
+export function AddPhotoButton({ onFiles, multiple = false, label = 'Add photo', onCamera, camera = false,
+                                 className = 'btn-secondary at-btn-sm',
                                  style, disabled = false, icon: Icon = CameraIcon, iconSize = 14 }) {
   const ref = useRef(null);
+  const camRef = useRef(null);
   const [open, setOpen] = useState(false);
   const pick = (e) => {
     const files = [...(e.target.files || [])];
@@ -224,7 +371,20 @@ export function AddPhotoButton({ onFiles, multiple = false, label = 'Add photo',
     if (files.length) onFiles(multiple ? files : files.slice(0, 1));
   };
   const input = <input ref={ref} type="file" accept="image/*" multiple={multiple} hidden onChange={pick} />;
-  if (!onCamera) {
+  const [camOpen, setCamOpen] = useState(false);
+  const camInput = camera && !onCamera
+    ? (
+      <>
+        <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={pick} />
+        {camOpen && (
+          <CameraCapture onCapture={(file) => onFiles([file])} onClose={() => setCamOpen(false)}
+                         onUnavailable={() => { setCamOpen(false); camRef.current?.click(); }} />
+        )}
+      </>
+    )
+    : null;
+  const takePhoto = onCamera || (() => setCamOpen(true));
+  if (!onCamera && !camera) {
     return (
       <>
         <button type="button" className={className} style={style} disabled={disabled} onClick={() => ref.current?.click()}>
@@ -242,7 +402,7 @@ export function AddPhotoButton({ onFiles, multiple = false, label = 'Add photo',
       </button>
       {open && (
         <span className="at-menu" role="menu">
-          <button type="button" role="menuitem" onClick={() => { setOpen(false); onCamera(); }}>
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); takePhoto(); }}>
             <CameraIcon size={14} /> Take a photo
           </button>
           <button type="button" role="menuitem" onClick={() => { setOpen(false); ref.current?.click(); }}>
@@ -251,18 +411,45 @@ export function AddPhotoButton({ onFiles, multiple = false, label = 'Add photo',
         </span>
       )}
       {input}
+      {camInput}
     </span>
   );
 }
 
 /**
- * A drop area for files. Dropped or chosen files reach `onFiles` as an array;
- * the input resets itself so the same file can be picked twice. One button:
- * see AddPhotoButton for why there is no camera button beside it.
+ * A "Take photo" button on its own, for the forms that keep a plain
+ * <input type="file"> as their way in: the same `onFiles` the input feeds,
+ * reached through the device camera instead of the file dialog.
  */
-export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title, subtitle, chooseLabel = 'Choose file', hint, compact = false, icon: Icon = UploadIcon }) {
+export function CameraButton({ onFiles, multiple = false, label = 'Take photo', className = 'btn-secondary at-btn-sm', style, disabled = false }) {
+  const ref = useRef(null);
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className={className} style={style} disabled={disabled} onClick={() => setOpen(true)}>
+        <CameraIcon size={14} /> {label}
+      </button>
+      {open && (
+        <CameraCapture onCapture={(file) => onFiles([file])} onClose={() => setOpen(false)}
+                       onUnavailable={() => { setOpen(false); ref.current?.click(); }} />
+      )}
+      <input ref={ref} type="file" accept="image/*" capture="environment" multiple={multiple} hidden
+             onChange={(e) => { const files = [...(e.target.files || [])]; e.target.value = ''; if (files.length) onFiles(multiple ? files : files.slice(0, 1)); }} />
+    </>
+  );
+}
+
+/**
+ * A drop area for files. Dropped or chosen files reach `onFiles` as an array;
+ * the input resets itself so the same file can be picked twice. `camera` adds
+ * a "Take photo" button beside "Choose file" that opens the device camera
+ * (a `capture` input), for the counter that photographs rather than browses.
+ */
+export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title, subtitle, chooseLabel = 'Choose file', hint, compact = false, icon: Icon = UploadIcon, camera = false }) {
   const [over, setOver] = useState(false);
+  const [camOpen, setCamOpen] = useState(false);
   const fileRef = useRef(null);
+  const camRef = useRef(null);
   const take = (list) => {
     const files = [...(list || [])].filter(Boolean);
     if (files.length) onFiles(multiple ? files : files.slice(0, 1));
@@ -281,10 +468,23 @@ export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title,
         <button type="button" className="btn-secondary at-btn-sm" onClick={() => fileRef.current?.click()}>
           <UploadIcon size={14} /> {chooseLabel}
         </button>
+        {camera && (
+          <button type="button" className="btn-secondary at-btn-sm" onClick={() => setCamOpen(true)}>
+            <CameraIcon size={14} /> Take photo
+          </button>
+        )}
       </div>
       {hint && <div className="at-drop-hint">{hint}</div>}
       <input ref={fileRef} type="file" accept={accept} multiple={multiple} hidden
              onChange={(e) => { take(e.target.files); e.target.value = ''; }} />
+      {camera && (
+        <input ref={camRef} type="file" accept="image/*" capture="environment" multiple={multiple} hidden
+               onChange={(e) => { take(e.target.files); e.target.value = ''; }} />
+      )}
+      {camera && camOpen && (
+        <CameraCapture onCapture={(file) => take([file])} onClose={() => setCamOpen(false)}
+                       onUnavailable={() => { setCamOpen(false); camRef.current?.click(); }} />
+      )}
     </div>
   );
 }
