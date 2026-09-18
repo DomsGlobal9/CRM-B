@@ -17,7 +17,7 @@ from django_tenants.test.cases import TenantTestCase
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from .models import BoutiqueSettings, Customer, Order, OrderStage
+from .models import BoutiqueSettings, Customer, Order, OrderActivity, OrderStage, Tailor
 
 
 def jpeg(name='work.jpg', size=0):
@@ -256,6 +256,86 @@ class StageEndpointTests(ValidationTestBase):
             'stage_key': 'stitching_in_progress', 'status': 'IN_PROGRESS', 'comments': 'c' * 2001,
         }, format='json')
         self.assertIn('2000', self.error_of(response))
+
+    def test_a_voice_note_travels_with_the_stage_note_and_into_its_history(self):
+        # Stitching wants a tailor on the order; the note is the point here.
+        self.order.tailor = Tailor.objects.create(name='Rani', specialty='Blouse', role='Tailor')
+        self.order.save(update_fields=['tailor'])
+        url = reverse('order-transition-stage', args=[self.order.id])
+        clip = 'https://media.test/voice_notes/one.webm'
+        response = self.api.post(url, {
+            'stage_key': 'stitching_in_progress', 'status': 'IN_PROGRESS',
+            'comments': 'Pleats on the left', 'voice_note': clip,
+        }, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.stage.refresh_from_db()
+        self.assertEqual(self.stage.voice_note, clip)
+        activity = OrderActivity.objects.filter(order=self.order, event_type='STAGE_TRANSITION').first()
+        self.assertEqual(activity.metadata['voice_note'], clip, 'the thread keeps every clip')
+
+        # A voice-only note is a note too, and the next typed note replaces the clip.
+        response = self.api.post(url, {
+            'stage_key': 'stitching_in_progress', 'status': 'IN_PROGRESS',
+            'voice_note': 'https://media.test/voice_notes/two.webm',
+        }, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.stage.refresh_from_db()
+        self.assertEqual(self.stage.voice_note, 'https://media.test/voice_notes/two.webm')
+        response = self.api.post(url, {
+            'stage_key': 'stitching_in_progress', 'status': 'IN_PROGRESS', 'comments': 'Typed instead',
+        }, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.stage.refresh_from_db()
+        self.assertEqual(self.stage.voice_note, '', 'a clip that no longer matches the text is dropped')
+
+    def test_a_note_on_its_own_keeps_the_status_and_joins_the_thread(self):
+        self.order.tailor = Tailor.objects.create(name='Rani', specialty='Blouse', role='Tailor')
+        self.order.save(update_fields=['tailor'])
+        self.stage.status = 'IN_PROGRESS'
+        self.stage.save(update_fields=['status'])
+        url = reverse('order-transition-stage', args=[self.order.id])
+        # Same status, something said: a note, not a move.
+        response = self.api.post(url, {
+            'stage_key': 'stitching_in_progress', 'status': 'IN_PROGRESS',
+            'comments': 'Typed first', 'voice_note': 'https://media.test/voice_notes/one.webm',
+        }, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        note = OrderActivity.objects.filter(order=self.order).first()
+        self.assertEqual(note.event_type, 'STAGE_NOTE')
+        self.assertEqual(note.metadata['voice_note'], 'https://media.test/voice_notes/one.webm')
+        # A voice-only reply replaces the typed text too: the card never pairs
+        # a new clip with words from an older note.
+        response = self.api.post(url, {
+            'stage_key': 'stitching_in_progress', 'status': 'IN_PROGRESS',
+            'voice_note': 'https://media.test/voice_notes/two.webm',
+        }, format='json')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.stage.refresh_from_db()
+        self.assertEqual(self.stage.status, 'IN_PROGRESS')
+        self.assertEqual(self.stage.comments, '')
+        self.assertEqual(self.stage.voice_note, 'https://media.test/voice_notes/two.webm')
+        self.assertEqual(OrderActivity.objects.filter(order=self.order, event_type='STAGE_NOTE').count(), 2)
+
+    def test_any_signed_in_staff_member_may_upload_a_voice_note(self):
+        tailor_user = User.objects.create_user('rani', 'rani@x.test', 'pw12345678')
+        Tailor.objects.create(name='Rani', specialty='Blouse', role='Tailor', user=tailor_user)
+        api = APIClient()
+        api.credentials(HTTP_AUTHORIZATION='Token ' + Token.objects.create(user=tailor_user).key,
+                        HTTP_X_TENANT_ID=self.tenant.schema_name)
+        response = api.post(reverse('voice-note-upload'), {
+            'audio': SimpleUploadedFile('note.webm', b'RIFFfake', content_type='audio/webm;codecs=opus'),
+        }, format='multipart')
+        self.assertEqual(response.status_code, 201, response.content)
+        self.assertTrue(response.json()['url'].endswith('.webm'))
+
+    def test_a_voice_note_must_be_a_web_address(self):
+        response = self.api.post(reverse('order-transition-stage', args=[self.order.id]), {
+            'stage_key': 'stitching_in_progress', 'status': 'IN_PROGRESS',
+            'voice_note': 'javascript:alert(1)',
+        }, format='json')
+        self.assertIn('http', self.error_of(response))
+        self.stage.refresh_from_db()
+        self.assertEqual(self.stage.status, 'NOT_STARTED', 'nothing moved on a refusal')
 
     def test_reasons_and_remarks_have_an_end(self):
         response = self.api.post(reverse('order-reopen-stage', args=[self.order.id]),

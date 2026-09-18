@@ -55,7 +55,7 @@ import { ResponsiveCard } from './components/ui/ResponsiveCard';
 import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
-import VoiceTextarea, { SpeakButton, VoiceNotePlayer } from './components/ui/VoiceTextarea';
+import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceClipPreview } from './components/ui/VoiceTextarea';
 
 /** Placeholder shown while a lazily loaded screen arrives. */
 // Whole-rupee money for the dashboard, Indian digit grouping. Paise are
@@ -2053,9 +2053,10 @@ function App() {
   const [stageReviewComments, setStageReviewComments] = useState('');
   // Up to five photographs of the work, going up with the transition.
   const [stageReviewImages, setStageReviewImages] = useState([]);
-  // URL of the recording behind the comment being written, uploaded the
-  // moment dictation stops and sent along with the transition.
-  const [stageReviewVoiceNote, setStageReviewVoiceNote] = useState('');
+  // The recording behind the comment being written, kept as a Blob until the
+  // transition is saved -- so cancelling the modal uploads nothing.
+  const [stageReviewVoiceClip, setStageReviewVoiceClip] = useState('');
+  const [stageReviewRecording, setStageReviewRecording] = useState(false);
   const [selectedStageObj, setSelectedStageObj] = useState(null);
   const [selectedPerformerId, setSelectedPerformerId] = useState('');
   const [stageTransitionBusy, setStageTransitionBusy] = useState(false);
@@ -3385,9 +3386,10 @@ function App() {
     setActiveReviewStage(stage.stage_name);
     setActiveReviewOrder(order);
     setSelectedStageObj(stage);
-    setStageReviewComments(stage.comments || '');
+    setStageReviewComments('');  // a new note; the card above the box shows the latest one
+    setStageReviewRecording(false);
     setStageReviewImages([]);
-    setStageReviewVoiceNote('');
+    setStageReviewVoiceClip('');
   };
 
   // The directory list returns flat rows without orders or measurement history,
@@ -8395,8 +8397,14 @@ function App() {
         // role, the prerequisites and the stage's own data allow it.
         const transition = async (status, okMessage, comments = stageReviewComments) => {
           if (stageTransitionBusy) return;
+          if (stageReviewRecording) { alert(t('ordersPage.stopRecordingFirst', 'Stop the recording first, then save.')); return; }
           setStageTransitionBusy(true);
           try {
+            let voiceNote = null;
+            if (stageReviewVoiceClip) {
+              try { voiceNote = await api.uploadVoiceNote(stageReviewVoiceClip); }
+              catch { alert(t('ordersPage.voiceNoteUploadFailed', 'Could not upload the voice note.')); return; }
+            }
             await api.transitionStage(
               activeReviewOrder.id,
               stage.stage_key,
@@ -8404,7 +8412,7 @@ function App() {
               comments,
               stageReviewImages,
               selectedPerformerId || null,
-              stageReviewVoiceNote || null
+              voiceNote
             );
             alert(okMessage);
             closeStage();
@@ -8431,6 +8439,13 @@ function App() {
             onClose={closeStage}
             footer={stage && (
               <>
+                {(stageReviewComments.trim() || stageReviewVoiceClip) && (
+                  <button className="btn-secondary" disabled={stageTransitionBusy}
+                          title={t('ordersPage.saveNoteHint', 'Leave this note on the stage without changing its status')}
+                          onClick={() => transition(stage.status, t('ordersPage.noteSaved', 'Note saved.'))}>
+                    <MessageSquare size={16} /> {t('ordersPage.saveNote', 'Save note')}
+                  </button>
+                )}
                 {(stage.status === 'NOT_STARTED' || stage.status === 'PAUSED') && (
                   <button className="btn-primary" disabled={stageTransitionBusy}
                           onClick={() => transition('IN_PROGRESS', 'Step started.')}>
@@ -8613,12 +8628,37 @@ function App() {
                 {isSupervisor ? ', then verify it or send it back.' : '. The owner or Master will verify it.'}
               </InfoNote>
             )}
-            {stage && stage.comments && (
-              <InfoNote icon={FileText} tone="neutral" title="Active notes / logs">
-                &ldquo;{stage.comments}&rdquo;<SpeakButton text={stage.comments} />
+            {stage && (stage.comments || stage.voice_note) && (
+              <InfoNote icon={FileText} tone="neutral" title={t('ordersPage.latestNote', 'Latest note')}>
+                {stage.comments && <>&ldquo;{stage.comments}&rdquo;<SpeakButton text={stage.comments} /></>}
                 <VoiceNotePlayer src={stage.voice_note} />
               </InfoNote>
             )}
+            {stage && (() => {
+              // The thread the tailor and the owner talk through on this stage.
+              const notes = (activeReviewOrder.activities || [])
+                .filter((a) => (a.event_type === 'STAGE_TRANSITION' || a.event_type === 'STAGE_NOTE') && a.metadata?.stage_key === stage.stage_key
+                  && (a.metadata.comments || a.metadata.voice_note))
+                .slice(0, 20);
+              if (!notes.length) return null;
+              return (
+                <div className="at-field">
+                  <span className="at-field-label">{t('ordersPage.stageNotesThread', 'Notes on this stage')}</span>
+                  {notes.map((a, i) => (
+                    <div key={a.id || i} style={{ padding: '6px 0', fontSize: '13px',
+                                                   borderTop: i ? '1px solid var(--border-color)' : 'none' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                        {a.user_name || t('ordersPage.someone', 'Someone')}
+                        {' · '}
+                        {new Date(a.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      {a.metadata.comments && <div>{a.metadata.comments}</div>}
+                      <VoiceNotePlayer src={a.metadata.voice_note} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
 
             {stage && stage.attachments && stage.attachments.length > 0 && (
               <div className="at-field">
@@ -8706,9 +8746,10 @@ function App() {
                     maxLength={LIMITS.note}
                     value={stageReviewComments}
                     onChange={(e) => setStageReviewComments(e.target.value)}
-                    onRecording={(blob) => api.uploadVoiceNote(blob).then(setStageReviewVoiceNote).catch(() => {})}
+                    onRecording={setStageReviewVoiceClip}
+                    onRecordingChange={setStageReviewRecording}
                   />
-                  <VoiceNotePlayer src={stageReviewVoiceNote} />
+                  <VoiceClipPreview blob={stageReviewVoiceClip || null} onRemove={() => setStageReviewVoiceClip('')} />
                 </Field>
                 <div className="at-field">
                   <span className="at-field-label">

@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 from django.utils import timezone
 from django.contrib.auth.models import User
-from rest_framework import viewsets, status, views
+from rest_framework import permissions, viewsets, status, views
 from rest_framework.exceptions import ValidationError
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
@@ -19,7 +19,7 @@ from core.permissions import (
 from core.roles import OWNER, resolve_user_role
 from core.validators import (
     MAX_NOTE, MAX_REASON, validate_amount, validate_email_address, validate_image_upload,
-    validate_image_uploads, validate_mobile, validate_not_past, validate_phone, validate_text,
+    validate_http_url, validate_image_uploads, validate_mobile, validate_not_past, validate_phone, validate_text,
 )
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -874,6 +874,8 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         try:
             comments = validate_text(comments, label='Comments', max_length=MAX_NOTE)
+            # The recording behind the comment, uploaded first through VoiceNoteUploadView.
+            voice_note = validate_http_url(voice_note, label='Voice note')
             validate_image_uploads(request.FILES.getlist('images'), label='Progress photos')
         except ValidationError as exc:
             return _refused(exc)
@@ -887,13 +889,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                 performer_id=performer_id,
                 user=request.user,
                 files=request.FILES.getlist('images'),
-                request=request
+                request=request,
+                voice_note=voice_note,
             )
-            # The recording behind the comment, uploaded first through
-            # VoiceNoteUploadView. Written after the transition so a refused
-            # move leaves no stray audio on the stage.
-            if voice_note:
-                updated_order.stages.filter(stage_key=stage_key).update(voice_note=voice_note)
             # Re-read: `order` was loaded with its stages prefetched, so the
             # cache still holds the pre-transition rows and would serialise the
             # stage as unchanged even though the write succeeded.
@@ -1053,6 +1051,10 @@ class VoiceNoteUploadView(views.APIView):
     """
 
     MAX_BYTES = 8 * 1024 * 1024
+    # A plain APIView has no `action` for RolePermission to recognise, which
+    # left every role but the Owner with a 403 here. Anyone signed in may
+    # record; what the clip is attached to is gated where it is attached.
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         clip = request.FILES.get('audio')
@@ -1073,7 +1075,13 @@ class VoiceNoteUploadView(views.APIView):
         if 'cloudinary' in settings.STORAGES['default']['BACKEND']:
             from cloudinary_storage.storage import VideoMediaCloudinaryStorage
             storage = VideoMediaCloudinaryStorage()
-        path = storage.save(f'voice_notes/{uuid.uuid4()}.{ext}', clip)
+        try:
+            path = storage.save(f'voice_notes/{uuid.uuid4()}.{ext}', clip)
+        except Exception:
+            # Cloudinary decodes what it stores and refuses bytes that are not
+            # a playable clip; a refused upload is the caller's problem, not a crash.
+            return Response({'error': 'That recording could not be stored. Try recording it again.'},
+                            status=status.HTTP_400_BAD_REQUEST)
         url = storage.url(path)
         if url.startswith('/'):
             url = request.build_absolute_uri(url)

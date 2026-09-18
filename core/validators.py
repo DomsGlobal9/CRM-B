@@ -132,6 +132,22 @@ def validate_text(value, *, label='This field', max_length=MAX_NOTE, required=Fa
     return value
 
 
+MAX_URL = 500
+
+
+def validate_http_url(value, *, label='Link', max_length=MAX_URL):
+    """Blank, or an http(s) address that fits the column.
+
+    The scheme check is what matters: the value ends up in an <img src> or an
+    <audio src> on every screen that shows it, and a javascript: or file: link
+    there is not a picture or a clip. Anything else is the browser's problem.
+    """
+    value = validate_text(value, label=label, max_length=max_length)
+    if value and not value.lower().startswith(('http://', 'https://')):
+        raise serializers.ValidationError(f'{label} must start with http:// or https://.')
+    return value
+
+
 def validate_amount(value, *, label='Amount', minimum=Decimal('0'), maximum=MAX_AMOUNT, allow_zero=True):
     """A money figure: a number, not negative, and not more than the boutique could ever bill."""
     if value in (None, ''):

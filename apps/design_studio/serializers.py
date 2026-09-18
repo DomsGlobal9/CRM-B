@@ -2,24 +2,9 @@ from decimal import Decimal
 
 from rest_framework import serializers
 from core.validators import (
-    MAX_NOTE, validate_amount, validate_email_address, validate_mobile, validate_not_past,
-    validate_quantity, validate_text,
+    MAX_NOTE, MAX_URL, validate_amount, validate_email_address, validate_http_url, validate_mobile,
+    validate_not_past, validate_quantity, validate_text,
 )
-
-MAX_URL = 500
-
-
-def validate_http_url(value, *, label='Link'):
-    """Blank, or an http(s) address that fits the column.
-
-    The scheme check is what matters: image_url ends up in an <img src> on
-    every screen that shows the design, and a javascript: or file: link there
-    is not a picture. Anything else about the address is the browser's problem.
-    """
-    value = validate_text(value, label=label, max_length=MAX_URL)
-    if value and not value.lower().startswith(('http://', 'https://')):
-        raise serializers.ValidationError(f'{label} must start with http:// or https://.')
-    return value
 
 from .models import (
     Collection, Designer, DesignApproval, DesignAsset, DesignAssignment, DesignBoard,
