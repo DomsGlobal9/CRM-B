@@ -9,6 +9,7 @@ import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { LIMITS, todayIso } from '../../services/validate';
 
 const STATUS_STYLE = {
   ASSIGNED: { label: 'Assigned', tone: 'neutral', icon: ClipboardList },
@@ -61,6 +62,7 @@ function AssignPanel({ orders, designers, onAssigned, onError }) {
   const submit = async (event) => {
     event.preventDefault();
     if (!jobId || !designerId) return;
+    if (dueDate && dueDate < todayIso()) { onError('The due date cannot be in the past.'); return; }
     setBusy(true);
     try {
       await api.assignDesignWork({
@@ -103,15 +105,15 @@ function AssignPanel({ orders, designers, onAssigned, onError }) {
             </select>
           </Field>
           <Field label={t('designWorkPage.dueDate', 'Due date')} icon={Calendar}>
-            <input type="date" className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <input type="date" className="form-input" min={todayIso()} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </Field>
         </div>
         <Field label={t('designWorkPage.briefOptional', 'Brief / Notes (optional)')} icon={FileText}>
-          <VoiceTextarea className="form-input" rows={3} value={brief}
+          <VoiceTextarea className="form-input" rows={3} value={brief} maxLength={LIMITS.note}
                     placeholder={t('designWorkPage.briefPlaceholder', 'What are you asking for, beyond the spec?')}
                     onChange={(e) => setBrief(e.target.value)} />
         </Field>
-        <div className="at-field-counter" style={{ marginTop: '-8px' }}>{brief.length} characters</div>
+        <div className="at-field-counter" style={{ marginTop: '-8px' }}>{brief.length} / {LIMITS.note} characters</div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
           <button type="button" className="btn-secondary" onClick={reset} disabled={busy}>Reset</button>
           <button type="submit" className="btn-primary" disabled={busy || !jobId || !designerId}>
@@ -164,7 +166,7 @@ function SubmitPanel({ assignment, designs, onSubmitted, onError }) {
       </label>
       <label style={{ flex: '2 1 240px' }}>
         <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t('designWorkPage.noteOptional', 'Note (optional)')}</span>
-        <input className="form-input" value={note} onChange={(e) => setNote(e.target.value)}
+        <input className="form-input" value={note} maxLength={LIMITS.reason} onChange={(e) => setNote(e.target.value)}
                placeholder={t('designWorkPage.notePlaceholderDesigner', 'Anything the owner should know')} />
       </label>
       <button className="btn-primary" disabled={busy || !designId} onClick={submit}
@@ -182,6 +184,8 @@ function AssignmentCard({ assignment, isSupervisor, designs, onChanged, onError,
   const design = assignment.design_detail;
 
   const review = async (decision) => {
+    // A designer sent back with no reason cannot act on it.
+    if (decision === 'changes' && !note.trim()) { onError('Say what needs changing before sending it back.'); return; }
     setBusy(true);
     try {
       await api.reviewDesignAssignment(assignment.id, decision, note);
@@ -270,7 +274,7 @@ function AssignmentCard({ assignment, isSupervisor, designs, onChanged, onError,
         <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'flex-end' }}>
           <label style={{ flex: '1 1 240px' }}>
             <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{t('designWorkPage.noteOptional', 'Note (optional)')}</span>
-            <input className="form-input" value={note} onChange={(e) => setNote(e.target.value)}
+            <input className="form-input" value={note} maxLength={LIMITS.reason} onChange={(e) => setNote(e.target.value)}
                    placeholder={t('designWorkPage.notePlaceholderSupervisor', 'What needs changing?')} />
           </label>
           <button className="btn-primary" disabled={busy} onClick={() => review('approve')}

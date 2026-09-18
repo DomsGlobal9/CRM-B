@@ -312,3 +312,77 @@ class HealthCheckTests(TransactionTestCase):
             {'database', 'migrations', 'tenant_schemas', 'media_storage',
              'email', 'errors', 'whatsapp', 'payments',
              'background_jobs', 'sms', 'configuration', 'guardian', 'backups'})
+
+
+class AuditReasonTests(TransactionTestCase):
+    """The console's dialog insists on a reason; so does the server.
+
+    Lives beside the onboarding tests because the two share the console
+    fixture (a platform admin and a temporary boutique), not because a reason
+    is an onboarding step.
+    """
+
+    def setUp(self):
+        connection.set_schema_to_public()
+        from .models import ErrorEvent, FeatureFlag
+        ErrorEvent.objects.all().delete()
+        FeatureFlag.objects.all().delete()
+
+    def _admin(self):
+        from .tests import admin_client
+        return admin_client()
+
+    def test_a_module_change_without_a_reason_is_refused(self):
+        with temporary_tenant('reason_mod', 'owner@reason.test', 'Reasons') as tenant:
+            admin = self._admin()
+            url = f'/api/superadmin/boutiques/{tenant.schema_name}/modules/'
+            refused = admin.patch(url, {'plan': 'starter', 'reason': 'ok'}, format='json')
+            self.assertEqual(refused.status_code, 400, refused.content)
+            self.assertEqual(refused.json()['error'], 'Give a reason of at least 3 characters.')
+            tenant.refresh_from_db()
+            self.assertNotEqual(tenant.plan, 'starter')
+
+            missing = admin.patch(url, {'plan': 'starter'}, format='json')
+            self.assertEqual(missing.status_code, 400, missing.content)
+            self.assertEqual(missing.json()['error'], 'Reason is required.')
+
+    def test_a_reason_has_an_end(self):
+        with temporary_tenant('reason_len', 'owner@reasonlen.test', 'Reasons') as tenant:
+            admin = self._admin()
+            response = admin.patch(
+                f'/api/superadmin/boutiques/{tenant.schema_name}/modules/',
+                {'plan': 'starter', 'reason': 'r' * 501}, format='json')
+            self.assertEqual(response.status_code, 400, response.content)
+            self.assertEqual(response.json()['error'], 'Reason is limited to 500 characters.')
+
+    def test_resolving_an_error_needs_a_reason_but_acknowledging_does_not(self):
+        from .models import ErrorEvent
+        event = ErrorEvent.objects.create(
+            fingerprint='reason-fp-1', exception_type='ValueError', message='boom',
+            path='/api/orders/', method='POST', boutique='', severity='high', status='new')
+        admin = self._admin()
+        url = f'/api/superadmin/errors/{event.pk}/'
+
+        acknowledged = admin.patch(url, {'status': 'acknowledged'}, format='json')
+        self.assertEqual(acknowledged.status_code, 200, acknowledged.content)
+
+        refused = admin.patch(url, {'status': 'resolved'}, format='json')
+        self.assertEqual(refused.status_code, 400, refused.content)
+        self.assertEqual(refused.json()['error'], 'Reason is required.')
+
+        resolved = admin.patch(url, {'status': 'resolved', 'reason': '  fixed in 2a23fd3  '},
+                               format='json')
+        self.assertEqual(resolved.status_code, 200, resolved.content)
+        from .models import AuditLog
+        self.assertEqual(AuditLog.objects.filter(action='error.resolve').latest('pk').reason,
+                         'fixed in 2a23fd3')
+
+    def test_error_notes_have_an_end(self):
+        from .models import ErrorEvent
+        event = ErrorEvent.objects.create(
+            fingerprint='reason-fp-2', exception_type='ValueError', message='boom',
+            path='/api/orders/', method='POST', boutique='', severity='high', status='new')
+        response = self._admin().patch(
+            f'/api/superadmin/errors/{event.pk}/', {'notes': 'n' * 2001}, format='json')
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(response.json()['error'], 'Notes is limited to 2000 characters.')

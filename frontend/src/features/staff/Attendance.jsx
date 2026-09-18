@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Clock, LogIn, LogOut, Pencil, Plus, X } from 'lucide-react';
 
 import { api } from '../../services/api';
+import { LIMITS } from '../../services/validate';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -257,16 +258,27 @@ function MyDay({ onChanged }) {
   );
 }
 
+// datetime-local wants "YYYY-MM-DDTHH:mm" with no zone; the server reads a
+// naive value in the boutique's own timezone, which is what the person typing
+// it means.
+const forInput = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const nowForInput = () => forInput(new Date().toISOString());
+
+/** Times typed by hand: neither in the future, and out after in; '' when fine. */
+const timesError = (checkIn, checkOut) => {
+  const now = nowForInput();
+  if (checkIn && checkIn > now) return 'The check-in time cannot be in the future.';
+  if (checkOut && checkOut > now) return 'The check-out time cannot be in the future.';
+  if (checkIn && checkOut && checkOut < checkIn) return 'The check-out time must be after the check-in time.';
+  return '';
+};
+
 function CorrectionForm({ session, onCancel, onSaved }) {
-  // datetime-local wants "YYYY-MM-DDTHH:mm" with no zone; the server reads a
-  // naive value in the boutique's own timezone, which is what the person typing
-  // it means.
-  const forInput = (iso) => {
-    if (!iso) return '';
-    const d = new Date(iso);
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  };
 
   const [checkIn, setCheckIn] = useState(() => forInput(session.check_in));
   const [checkOut, setCheckOut] = useState(() => forInput(session.check_out));
@@ -276,6 +288,8 @@ function CorrectionForm({ session, onCancel, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    const problem = timesError(checkIn, checkOut) || (!reason.trim() ? 'Give a reason for the change.' : '');
+    if (problem) { setError(problem); return; }
     setBusy(true);
     setError(null);
     try {
@@ -303,18 +317,18 @@ function CorrectionForm({ session, onCancel, onSaved }) {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
           <label style={label} htmlFor="corr-in">Check in</label>
-          <input id="corr-in" type="datetime-local" value={checkIn}
+          <input id="corr-in" type="datetime-local" value={checkIn} max={nowForInput()}
                  onChange={(e) => setCheckIn(e.target.value)} required />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
           <label style={label} htmlFor="corr-out">Check out</label>
-          <input id="corr-out" type="datetime-local" value={checkOut}
+          <input id="corr-out" type="datetime-local" value={checkOut} min={checkIn || undefined} max={nowForInput()}
                  onChange={(e) => setCheckOut(e.target.value)} />
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '14px' }}>
         <label style={label} htmlFor="corr-reason">Reason for the change</label>
-        <input id="corr-reason" value={reason} onChange={(e) => setReason(e.target.value)}
+        <input id="corr-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={LIMITS.reason}
                placeholder="Forgot to check in" required />
       </div>
       <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '12px' }}>
@@ -340,6 +354,8 @@ function RecordForm({ roster, onCancel, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    const problem = timesError(checkIn, checkOut);
+    if (problem) { setError(problem); return; }
     setBusy(true);
     setError(null);
     try {
@@ -371,18 +387,18 @@ function RecordForm({ roster, onCancel, onSaved }) {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
           <label style={label} htmlFor="rec-in">Check in</label>
-          <input id="rec-in" type="datetime-local" value={checkIn}
+          <input id="rec-in" type="datetime-local" value={checkIn} max={nowForInput()}
                  onChange={(e) => setCheckIn(e.target.value)} required />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
           <label style={label} htmlFor="rec-out">Check out</label>
-          <input id="rec-out" type="datetime-local" value={checkOut}
+          <input id="rec-out" type="datetime-local" value={checkOut} min={checkIn || undefined} max={nowForInput()}
                  onChange={(e) => setCheckOut(e.target.value)} />
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '14px' }}>
         <label style={label} htmlFor="rec-note">Note</label>
-        <input id="rec-note" value={note} onChange={(e) => setNote(e.target.value)}
+        <input id="rec-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={LIMITS.note}
                placeholder="Manual entry" />
       </div>
       <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '12px' }}>

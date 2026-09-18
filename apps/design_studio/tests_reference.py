@@ -15,6 +15,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from crm_api.views import _part_items_from_draft
+from core.test_images import PNG
 
 
 class ReferenceUploadTests(TenantTestCase):
@@ -36,7 +37,7 @@ class ReferenceUploadTests(TenantTestCase):
                                 HTTP_X_TENANT_ID=self.tenant.schema_name)
 
     def test_upload_returns_a_url(self):
-        image = SimpleUploadedFile('pallu.png', b'\x89PNG\r\n\x1a\n', content_type='image/png')
+        image = SimpleUploadedFile('pallu.png', PNG, content_type='image/png')
         response = self.client.post('/api/design-studio/reference-upload/',
                                     {'image': image}, format='multipart')
         self.assertEqual(response.status_code, 201, response.content)

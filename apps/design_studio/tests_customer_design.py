@@ -12,10 +12,11 @@ from rest_framework.test import APIClient
 from apps.catalog.models import GarmentTemplate
 from apps.design_studio.models import CustomerDesign, DesignAsset
 from crm_api.models import Customer, Order
+from core.test_images import PNG
 
 
 def png(name='sketch.png'):
-    return SimpleUploadedFile(name, b'\x89PNG\r\n\x1a\n', content_type='image/png')
+    return SimpleUploadedFile(name, PNG, content_type='image/png')
 
 
 class CustomerDesignTests(TenantTestCase):

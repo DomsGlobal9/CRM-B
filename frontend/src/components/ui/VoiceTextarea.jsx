@@ -56,7 +56,11 @@ export default function VoiceTextarea({ value, defaultValue, onChange, style, on
 
   const append = (transcript) => {
     const current = value !== undefined ? (value || '') : (ref.current?.value || '');
-    const next = current ? `${current.replace(/\s+$/, '')} ${transcript}` : transcript;
+    let next = current ? `${current.replace(/\s+$/, '')} ${transcript}` : transcript;
+    // Browsers only apply maxLength to typing, not to a value set from code,
+    // so dictation has to respect the box's own limit here.
+    const limit = Number(rest.maxLength);
+    if (limit > 0 && next.length > limit) next = next.slice(0, limit);
     if (value === undefined && ref.current) ref.current.value = next;
     if (onChange) onChange({ target: { value: next } });
   };

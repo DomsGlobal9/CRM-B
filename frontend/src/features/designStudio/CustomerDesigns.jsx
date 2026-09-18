@@ -7,6 +7,7 @@ import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
 import { Dropzone, Field, FormModal } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { LIMITS, tenDigits, mobileError, cleanName, nameError, cleanEmail, emailError, imageFilesError } from '../../services/validate';
 
 /**
  * A customer's own designs, captured in the studio.
@@ -36,9 +37,22 @@ const NEW_CUSTOMER_KEYS = ['first_name', 'last_name', 'mobile_number', 'email_ad
                            'city_region', 'source', 'customer_type', 'gender', 'garment_type',
                            'occasion', 'pattern_style', 'custom_requirements', 'occupation',
                            'preferred_communication', 'notes'];
-const newCustomerFields = (form) => Object.fromEntries(
-  NEW_CUSTOMER_KEYS.filter((k) => form?.[k] !== undefined && form?.[k] !== null && form?.[k] !== '')
-                   .map((k) => [k, form[k]]));
+const newCustomerFields = (form) => {
+  const fields = Object.fromEntries(
+    NEW_CUSTOMER_KEYS.filter((k) => form?.[k] !== undefined && form?.[k] !== null && form?.[k] !== '')
+                     .map((k) => [k, form[k]]));
+  // The same shape the customer serializer wants, whatever the wizard held.
+  if (fields.mobile_number) fields.mobile_number = tenDigits(fields.mobile_number);
+  if (fields.first_name) fields.first_name = cleanName(fields.first_name).trim();
+  if (fields.last_name) fields.last_name = cleanName(fields.last_name).trim();
+  if (fields.email_address) fields.email_address = cleanEmail(fields.email_address);
+  return fields;
+};
+/** Why the wizard's new customer cannot be created yet; '' when they can. */
+const newCustomerError = (form) => mobileError(form?.mobile_number)
+  || nameError(form?.first_name, { label: 'First name' })
+  || nameError(form?.last_name, { label: 'Last name', required: false, min: 1 })
+  || emailError(form?.email_address);
 
 // ---------------------------------------------------------------------------
 // The sketch pad
@@ -243,7 +257,8 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
 
   const pick = ([chosen]) => {
     if (!chosen) return;
-    if (!chosen.type?.startsWith('image/')) { setError('Please choose an image file.'); return; }
+    const problem = imageFilesError([chosen]);
+    if (problem) { setError(problem); return; }
     setError(null);
     setFile(chosen);
     setPreview(URL.createObjectURL(chosen));
@@ -255,6 +270,10 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
     if (!form.customer) { setError('Choose the customer this design is for.'); return; }
     if (mode === 'upload' && !file) { setError('Add a photograph of the design.'); return; }
     if (mode === 'draw' && strokes.length === 0) { setError('Draw the design before saving.'); return; }
+    if (form.customer === NEW_CUSTOMER) {
+      const problem = newCustomerError(pendingNew);
+      if (problem) { setError(`${problem} Fix the customer at the top of this step first.`); return; }
+    }
     inFlight.current = true;
     setSaving(true);
     setError(null);
@@ -304,7 +323,7 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
           and never wider than the modal body. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 'var(--space-4)' }}>
         <Field label="Design name" required icon={Type}>
-          <input className="form-control" value={form.title} onChange={set('title')} autoFocus
+          <input className="form-control" value={form.title} onChange={set('title')} autoFocus maxLength={200}
                  placeholder="e.g. Bridal Blouse, Customer Neck Design" />
         </Field>
         <Field label="Customer" required icon={User}
@@ -365,7 +384,7 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
       )}
 
       <Field label="Notes" optional>
-        <VoiceTextarea className="form-control" rows={2} value={form.notes} onChange={set('notes')}
+        <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} value={form.notes} onChange={set('notes')}
                   placeholder='e.g. "Deep back neck with embroidery on sleeves."' />
       </Field>
 

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.validators import MAX_NOTE, validate_text
+
 from tenants.models import DemoRequest
 
 from .metrics import tenant_metrics
@@ -44,3 +46,6 @@ class LeadSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'name', 'boutique', 'email',
                             'phone', 'makes', 'orders_per_month', 'people',
                             'problem']
+
+    def validate_notes(self, value):
+        return validate_text(value, label='Note', max_length=MAX_NOTE)

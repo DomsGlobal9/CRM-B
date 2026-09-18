@@ -17,6 +17,9 @@ from rest_framework.response import Response
 
 from apps.activities.models import UniversalActivity
 from core.roles import DESIGNER, OWNER, resolve_user_role
+from core.validators import (
+    MAX_NOTE, validate_image_upload, validate_image_uploads, validate_text,
+)
 from crm_api.models import Customer, Order
 
 from . import services
@@ -369,7 +372,7 @@ class DesignAssetViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(asset).data, status=status.HTTP_201_CREATED)
 
     def _store_images(self, request):
-        files = request.FILES.getlist('images')
+        files = validate_image_uploads(request.FILES.getlist('images'), label='Photos')
         stored = []
         for f in files:
             path = f"design_library/{uuid.uuid4()}_{f.name}"
@@ -407,7 +410,7 @@ class DesignAssetViewSet(viewsets.ModelViewSet):
             design=asset,
             reviewer=request.user if request.user.is_authenticated else None,
             decision=decision,
-            note=request.data.get('note', ''),
+            note=validate_text(request.data.get('note'), label='Note', max_length=MAX_NOTE),
         )
 
         if decision == DesignApproval.Decision.APPROVED:
@@ -572,6 +575,10 @@ class ReferenceUploadView(views.APIView):
         if image is None:
             return Response({'error': 'No image was sent.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_image_upload(image, label='Reference picture')
+        except serializers.ValidationError as exc:
+            return Response({'error': exc.detail[0]}, status=status.HTTP_400_BAD_REQUEST)
 
         path = f"design_references/{uuid.uuid4()}_{image.name}"
         saved = default_storage.save(path, ContentFile(image.read()))
@@ -1017,7 +1024,8 @@ class DesignAssignmentViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN)
 
         assignment.design = design
-        assignment.submission_note = request.data.get('note', '')
+        assignment.submission_note = validate_text(
+            request.data.get('note'), label='Submission note', max_length=MAX_NOTE)
         assignment.status = DesignAssignment.Status.SUBMITTED
         assignment.submitted_at = timezone.now()
         assignment.save()
@@ -1047,9 +1055,13 @@ class DesignAssignmentViewSet(viewsets.ModelViewSet):
             return Response({'detail': "decision must be 'approve' or 'changes'."},
                             status=status.HTTP_400_BAD_REQUEST)
 
+        # Sending a design back without saying why sends the designer back
+        # to guessing; an approval can stand on its own.
         assignment.status = (DesignAssignment.Status.APPROVED if decision == 'APPROVE'
                              else DesignAssignment.Status.CHANGES_REQUESTED)
-        assignment.review_note = request.data.get('note', '')
+        assignment.review_note = validate_text(
+            request.data.get('note'), label='Review note', max_length=MAX_NOTE,
+            required=decision == 'CHANGES')
         assignment.reviewed_by = request.user if request.user.is_authenticated else None
         assignment.reviewed_at = timezone.now()
 
@@ -1135,6 +1147,7 @@ class CustomerDesignViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
         if image is None:
             return Response({'image': ['A picture of the design is required.']},
                             status=status.HTTP_400_BAD_REQUEST)
+        validate_image_upload(image, label='Design picture')
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         path = f"customer_designs/{uuid.uuid4()}_{image.name}"

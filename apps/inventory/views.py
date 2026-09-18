@@ -25,8 +25,18 @@ from .serializers import (
     StockMovementSerializer, SupplierSerializer,
 )
 from core.permissions import OwnerOnly
+from core.validators import MAX_NOTE, validate_image_upload, validate_text
 
 from .services import InventoryService
+
+
+def _remarks(request):
+    """The free-text remark on a stock movement, with an end.
+
+    Raises DRF's ValidationError, so a novel pasted into the remarks box is a
+    400 with a sentence rather than a row the ledger has to carry forever.
+    """
+    return validate_text(request.data.get('remarks'), label='Remarks', max_length=MAX_NOTE)
 
 
 def _as_bool(value):
@@ -180,7 +190,7 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
                 item,
                 request.data.get('quantity'),
                 user=request.user,
-                remarks=request.data.get('remarks', ''),
+                remarks=_remarks(request),
                 **extra,
             )
         except ValueError as exc:
@@ -263,7 +273,7 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
                 item, request.data.get('quantity'),
                 from_location=self._location(request, 'from_location', required=True),
                 to_location=self._location(request, 'to_location', required=True),
-                user=request.user, remarks=request.data.get('remarks', ''),
+                user=request.user, remarks=_remarks(request),
                 order=self._order(request),
             )
         except ValueError as exc:
@@ -302,7 +312,7 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
         try:
             InventoryService.adjust(
                 item, request.data.get('counted_quantity'),
-                user=request.user, remarks=request.data.get('remarks', ''),
+                user=request.user, remarks=_remarks(request),
                 from_location=self._location(request, 'from_location'),
             )
         except ValueError as exc:
@@ -758,6 +768,7 @@ class OrderMaterialPlanViewSet(viewsets.ReadOnlyModelViewSet):
         image = request.FILES.get('image')
         if image is None:
             raise ValidationError({'image': 'Attach the photograph as "image".'})
+        validate_image_upload(image, label='Photograph')
 
         path = (f'material_photos/order_{plan.order_id}/'
                 f'{uuid_module.uuid4()}_{image.name}')
@@ -922,9 +933,8 @@ class CustomerMaterialViewSet(viewsets.ModelViewSet):
 
         order = _get_or_400(Order, request.data.get('order'), 'order')
 
-        name = str(request.data.get('name') or '').strip()
-        if not name:
-            raise ValidationError({'name': 'This field is required.'})
+        name = validate_text(request.data.get('name'), label='Material name',
+                             max_length=200, required=True)
         unit = request.data.get('unit') or Unit.METER
         if unit not in Unit.values:
             raise ValidationError({'unit': f'{unit!r} is not a valid unit.'})
@@ -935,12 +945,14 @@ class CustomerMaterialViewSet(viewsets.ModelViewSet):
         try:
             material = order_materials.receive_customer_material(
                 order,
-                name=name[:200],
+                name=name,
                 quantity=request.data.get('received_quantity', 0),
                 unit=unit,
                 kind=kind,
-                description=request.data.get('description'),
-                notes=request.data.get('notes'),
+                description=validate_text(request.data.get('description'),
+                                          label='Description', max_length=MAX_NOTE),
+                notes=validate_text(request.data.get('notes'), label='Notes',
+                                    max_length=MAX_NOTE),
                 user=request.user,
             )
         except order_materials.MaterialPlanError as exc:
@@ -962,7 +974,7 @@ class CustomerMaterialViewSet(viewsets.ModelViewSet):
         try:
             material = order_materials.record_customer_material(
                 self.get_object(), movement_type, request.data.get('quantity', 0),
-                user=request.user, remarks=request.data.get('remarks', ''))
+                user=request.user, remarks=_remarks(request))
         except order_materials.MaterialPlanError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(CustomerMaterialSerializer(material).data)

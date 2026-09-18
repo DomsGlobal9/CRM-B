@@ -12,6 +12,7 @@ import { useCallback, useState } from 'react';
 import { Check, Mail } from 'lucide-react';
 
 import { consoleApi } from '../api';
+import { LIMITS } from '../../services/validate';
 import { Async, Empty, Pill, SectionHead, day, useApi, useToast } from '../ui';
 
 const STATUSES = ['NEW', 'CONTACTED', 'QUALIFIED', 'CONVERTED', 'DECLINED'];
@@ -100,7 +101,7 @@ export default function Leads() {
                         </div>
                       </td>
                       <td style={{ minWidth: 220 }}>
-                        <textarea className="sa-textarea" defaultValue={lead.notes}
+                        <textarea className="sa-textarea" defaultValue={lead.notes} maxLength={LIMITS.note}
                           disabled={saving === lead.id} placeholder="Add a note…"
                           // Saved on blur, not per keystroke: one PATCH when the
                           // administrator moves on, not one per character.

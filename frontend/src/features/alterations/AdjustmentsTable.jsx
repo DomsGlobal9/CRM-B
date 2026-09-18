@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
+import { MAX_LINES, MAX_LINE_LENGTH } from './adjustments';
 
 /**
  * Measurement changes as a table: one row per measurement, a column for the
@@ -35,7 +36,7 @@ export default function AdjustmentsTable({ value, onChange, measurementPlacehold
   const update = (next) => { setRows(next); onChange(toText(next)); };
   const edit = (i, key) => (e) => update(rows.map((r, j) => (j === i ? { ...r, [key]: e.target.value } : r)));
   const remove = (i) => update(rows.length === 1 ? [{ ...BLANK }] : rows.filter((_, j) => j !== i));
-  const add = () => update([...rows, { ...BLANK }]);
+  const add = () => { if (rows.length < MAX_LINES) update([...rows, { ...BLANK }]); };
 
   const cell = { padding: '4px 6px 4px 0' };
   const input = { width: '100%', margin: 0, padding: '7px 10px', fontSize: '13px', minHeight: 0 };
@@ -54,11 +55,11 @@ export default function AdjustmentsTable({ value, onChange, measurementPlacehold
           {rows.map((row, i) => (
             <tr key={i}>
               <td style={cell}>
-                <input className="form-control" style={input} placeholder={measurementPlaceholder}
+                <input className="form-control" style={input} placeholder={measurementPlaceholder} maxLength={60}
                        value={row.measurement} onChange={edit(i, 'measurement')} aria-label={`Measurement ${i + 1}`} />
               </td>
               <td style={cell}>
-                <input className="form-control" style={input} placeholder={changePlaceholder}
+                <input className="form-control" style={input} placeholder={changePlaceholder} maxLength={MAX_LINE_LENGTH}
                        value={row.change} onChange={edit(i, 'change')} aria-label={`Change ${i + 1}`}
                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (i === rows.length - 1) add(); } }} />
               </td>
@@ -72,7 +73,7 @@ export default function AdjustmentsTable({ value, onChange, measurementPlacehold
           ))}
         </tbody>
       </table>
-      <button type="button" onClick={add}
+      <button type="button" onClick={add} disabled={rows.length >= MAX_LINES}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px', padding: '4px 8px',
                        fontSize: '12px', fontWeight: 600, color: 'var(--primary-color, #107c41)', background: 'none',
                        border: 'none', cursor: 'pointer' }}>

@@ -13,6 +13,7 @@ from .models import (
     PurchaseOrderLine, StockMovement, Supplier, Unit,
 )
 from .services import InventoryService
+from core.test_images import JPEG
 
 
 class InventoryTestBase(TenantTestCase):
@@ -2530,7 +2531,7 @@ class GatheringChecklistTests(TenantTestCase):
             f"/api/inventory/material-plans/checklist/?order={order.id}").data["plan"]
         line_id = plan["lines"][0]["id"]
 
-        photo = SimpleUploadedFile("silk.jpg", b"notreallyajpeg", content_type="image/jpeg")
+        photo = SimpleUploadedFile("silk.jpg", JPEG, content_type="image/jpeg")
         res = self.client_for(self.master_user).post(
             f"/api/inventory/material-plans/{plan['id']}/line-photo/",
             {"line_id": line_id, "image": photo}, format="multipart")
@@ -2542,7 +2543,7 @@ class GatheringChecklistTests(TenantTestCase):
 
         refused = self.client_for(self.tailor_user).post(
             f"/api/inventory/material-plans/{plan['id']}/line-photo/",
-            {"line_id": line_id, "image": SimpleUploadedFile("x.jpg", b"z", content_type="image/jpeg")},
+            {"line_id": line_id, "image": SimpleUploadedFile("x.jpg", JPEG, content_type="image/jpeg")},
             format="multipart")
         self.assertEqual(refused.status_code, 403)
 

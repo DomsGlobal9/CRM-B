@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from apps.activities.models import UniversalActivity
 from core import formatting as core_formatting
 from core.permissions import OwnerOnly, SUPERVISOR_ROLES, StaffSelfOrOwner
+from core.validators import MAX_NOTE, MAX_REASON, validate_text
 from core.roles import OWNER, resolve_user_role
 from crm_api.models import Tailor
 
@@ -38,6 +39,35 @@ def _aware(moment):
     if moment is None or timezone.is_aware(moment):
         return moment
     return moment.replace(tzinfo=core_formatting.tenant_timezone())
+
+
+def _typed_times(request):
+    """The check-in / check-out pair an owner typed, or the sentence refusing it.
+
+    Both paths that take a human-supplied time -- recording a missed day and
+    correcting a stamped one -- share the traps: parse_datetime raises on an
+    impossible-but-well-formed timestamp ('2026-02-30T09:00'), and a shift in
+    the future is a shift that has not happened. Attendance is evidence of
+    work done; it cannot be written ahead.
+    """
+    try:
+        check_in_at = _aware(parse_datetime(request.data.get('check_in') or ''))
+        check_out_at = _aware(parse_datetime(request.data.get('check_out') or ''))
+    except ValueError:
+        return None, None, 'That is not a real time.'
+    now = timezone.now()
+    for moment in (check_in_at, check_out_at):
+        if moment is not None and moment > now:
+            return None, None, 'Attendance cannot be recorded for a time in the future.'
+    return check_in_at, check_out_at, None
+
+
+def _sentence(exc):
+    """One plain sentence out of either error type these actions raise."""
+    if isinstance(exc, DRFValidationError):
+        detail = exc.detail
+        return str(detail[0] if isinstance(detail, list) else detail)
+    return str(exc)
 
 
 class StaffProfileViewSet(viewsets.ModelViewSet):
@@ -303,9 +333,10 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_403_FORBIDDEN)
         try:
             session = attendance.check_in(
-                profile, user=request.user, note=request.data.get('note', ''))
-        except attendance.AttendanceError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+                profile, user=request.user,
+                note=validate_text(request.data.get('note'), label='Note', max_length=MAX_NOTE))
+        except (attendance.AttendanceError, DRFValidationError) as exc:
+            return Response({'error': _sentence(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         _log(request, 'CHECKED_IN', session, f'{profile.name} checked in',
              after={'check_in': str(session.check_in), 'source': session.source})
@@ -352,13 +383,9 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'error': 'Staff member not found.'},
                             status=status.HTTP_404_NOT_FOUND)
 
-        # parse_datetime raises on an impossible-but-well-formed timestamp
-        # ('2026-02-30T09:00:00'), the same trap parse_date sets.
-        try:
-            check_in_at = parse_datetime(request.data.get('check_in') or '')
-            check_out_at = parse_datetime(request.data.get('check_out') or '')
-        except ValueError:
-            check_in_at = check_out_at = None
+        check_in_at, check_out_at, refused = _typed_times(request)
+        if refused:
+            return Response({'error': refused}, status=status.HTTP_400_BAD_REQUEST)
         if check_in_at is None:
             return Response({'error': 'A valid check-in time is required.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -366,11 +393,11 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             session = attendance.record_for_staff(
                 staff, user=request.user,
-                check_in_at=_aware(check_in_at),
-                check_out_at=_aware(check_out_at),
-                note=request.data.get('note', ''))
-        except attendance.AttendanceError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+                check_in_at=check_in_at,
+                check_out_at=check_out_at,
+                note=validate_text(request.data.get('note'), label='Note', max_length=MAX_NOTE))
+        except (attendance.AttendanceError, DRFValidationError) as exc:
+            return Response({'error': _sentence(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         _log(request, 'ATTENDANCE_RECORDED', session,
              f'Attendance recorded for {staff.name}',
@@ -398,23 +425,18 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
         before = {'check_in': str(session.check_in),
                   'check_out': str(session.check_out),
                   'minutes': session.minutes}
-        # Same trap as `record` above: parse_datetime raises rather than
-        # returning None on an impossible-but-well-formed timestamp, and the
-        # except clause below catches AttendanceError only.
-        try:
-            corrected_in = parse_datetime(request.data.get('check_in') or '')
-            corrected_out = parse_datetime(request.data.get('check_out') or '')
-        except ValueError:
-            return Response({'error': 'That is not a real time.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        corrected_in, corrected_out, refused = _typed_times(request)
+        if refused:
+            return Response({'error': refused}, status=status.HTTP_400_BAD_REQUEST)
         try:
             session = attendance.correct(
                 session, user=request.user,
-                reason=request.data.get('reason', ''),
-                check_in_at=_aware(corrected_in),
-                check_out_at=_aware(corrected_out))
-        except attendance.AttendanceError as exc:
-            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+                reason=validate_text(request.data.get('reason'), label='Reason',
+                                     max_length=MAX_REASON),
+                check_in_at=corrected_in,
+                check_out_at=corrected_out)
+        except (attendance.AttendanceError, DRFValidationError) as exc:
+            return Response({'error': _sentence(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         _log(request, 'ATTENDANCE_CORRECTED', session,
              f'Attendance corrected for {session.staff_label}',

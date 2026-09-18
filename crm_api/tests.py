@@ -11,6 +11,7 @@ import datetime
 
 from apps.design_studio.models import DesignAsset
 from .models import Customer, Measurement, DesignPreference, FabricSelection, Tailor, Order, BoutiqueDesign, OrderStage, Notification
+from core.test_images import JPEG
 
 def settle_stages_before(order, stage_key):
     from crm_api.models import BoutiqueSettings, OrderStage
@@ -139,7 +140,7 @@ class BoutiqueCRMTests(TenantTestCase):
             "address": "123 Test St",
             "city_region": "New Delhi",
             "source": "Walk In",
-            "customer_type": "Women",
+            "customer_type": "Silver",
             "garment_type": "Lehenga",
             "measurements": {
                 "bust": 34.00,
@@ -397,7 +398,7 @@ class BoutiqueCRMTests(TenantTestCase):
         # parked for verification. The role check is what this test is for.
         OrderService.transition_order_stage(
             order=order, stage_key='master_quality_check', new_status='COMPLETED', user=qc_user,
-            files=[SimpleUploadedFile("work.jpg", b"jpeg", content_type="image/jpeg")],
+            files=[SimpleUploadedFile("work.jpg", JPEG, content_type="image/jpeg")],
         )
         stage.refresh_from_db()
         self.assertEqual(stage.status, 'PENDING_VERIFICATION')
@@ -494,7 +495,7 @@ class BoutiqueCRMTests(TenantTestCase):
 
             OrderService.transition_order_stage(
                 order=order, stage_key=key, new_status='COMPLETED', user=user,
-                files=[SimpleUploadedFile("work.jpg", b"jpeg", content_type="image/jpeg")],
+                files=[SimpleUploadedFile("work.jpg", JPEG, content_type="image/jpeg")],
             )
             self.assertEqual(order.stages.get(stage_key=key).status, lands_in)
 

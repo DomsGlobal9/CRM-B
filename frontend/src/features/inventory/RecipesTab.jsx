@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Calculator, Plus, Trash2 } from 'lucide-react';
 
 import { api } from '../../services/api';
+import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
 /**
@@ -247,6 +248,10 @@ function AddLineModal({ bom, items, onClose, onAdded }) {
   });
 
   const submit = async () => {
+    const problem = (form.quantity_formula ? '' : amountError(form.quantity, { label: 'Quantity', max: LIMITS.quantity, allowZero: false, required: true }))
+      || amountError(form.waste_percent, { label: 'Waste allowance', max: 100 })
+      || (form.is_customer_supplied && !form.description.trim() ? 'Say what the customer is bringing.' : '');
+    if (problem) { setError(problem); return; }
     setError(null);
     setSaving(true);
     try {
@@ -282,7 +287,7 @@ function AddLineModal({ bom, items, onClose, onAdded }) {
       {form.is_customer_supplied ? (
         <>
           <Field label="What the customer is bringing">
-            <input className="form-control" value={form.description} onChange={set('description')}
+            <input className="form-control" value={form.description} onChange={set('description')} maxLength={200}
                    placeholder="e.g. her own gold border" />
           </Field>
           <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '12px' }}>
@@ -316,13 +321,13 @@ function AddLineModal({ bom, items, onClose, onAdded }) {
       </div>
 
       <Field label="Fixed quantity">
-        <input className="form-control" type="number" step="0.001" min="0"
-               value={form.quantity} onChange={set('quantity')}
+        <input className="form-control" inputMode="decimal"
+               value={form.quantity} onChange={(e) => setForm({ ...form, quantity: cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }) })}
                disabled={Boolean(form.quantity_formula)} />
       </Field>
 
       <Field label="…or a formula over the measurements">
-        <input className="form-control" value={form.quantity_formula} onChange={set('quantity_formula')}
+        <input className="form-control" value={form.quantity_formula} onChange={set('quantity_formula')} maxLength={200}
                placeholder="e.g. 0.15 * bust + 0.4" />
       </Field>
       <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '-6px', marginBottom: '12px' }}>
@@ -331,8 +336,8 @@ function AddLineModal({ bom, items, onClose, onAdded }) {
       </div>
 
       <Field label="Waste allowance (%)">
-        <input className="form-control" type="number" step="0.01" min="0"
-               value={form.waste_percent} onChange={set('waste_percent')} />
+        <input className="form-control" inputMode="decimal"
+               value={form.waste_percent} onChange={(e) => setForm({ ...form, waste_percent: cleanAmount(e.target.value, { max: 100 }) })} />
       </Field>
 
       <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px' }}>
@@ -452,7 +457,7 @@ function NewRecipeModal({ onClose, onCreated }) {
   return (
     <Modal title="New recipe" onClose={onClose}>
       <Field label="Name">
-        <input className="form-control" value={name} onChange={(e) => setName(e.target.value)}
+        <input className="form-control" value={name} onChange={(e) => setName(e.target.value)} maxLength={150}
                placeholder="e.g. Bridal blouse" />
       </Field>
       {error && <div style={{ color: 'var(--danger-color)', fontSize: '12.5px' }}>{error}</div>}

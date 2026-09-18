@@ -1,9 +1,15 @@
+from datetime import date, timedelta
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from crm_api.models import Tailor
 
 from core.roles import OWNER, resolve_user_role
-from core.validators import validate_mobile
+from core.validators import (
+    MAX_NOTE, validate_amount, validate_document_number,
+    validate_mobile, validate_quantity, validate_text,
+)
 
 from .models import (
     AttendanceSession, DayMark, StaffDocument, StaffPerformanceReview,
@@ -26,6 +32,26 @@ CONFIDENTIAL_FIELDS = (
     'hourly_rate', 'weekly_hours', 'deposit_total', 'deposit_weekly',
     'employment_type',
 )
+
+#: No boutique pays a lakh an hour, and nobody works more hours than a week
+#: has. Ceilings, not business rules: a slip of the finger stops here.
+MAX_HOURLY_RATE = Decimal('10000')
+MAX_WEEKLY_HOURS = 168
+EARLIEST_EMPLOYMENT_DATE = date(1950, 1, 1)
+
+
+def validate_employment_date(value, *, label='Date'):
+    """A date on an employment record: not before 1950, not more than a year out.
+
+    Joining and leaving dates are typed, and a typed year is where 2026 becomes
+    0226 or 2062. Blank is allowed; the caller decides whether it is required.
+    """
+    if value in (None, ''):
+        return value
+    if value < EARLIEST_EMPLOYMENT_DATE or value > date.today() + timedelta(days=365):
+        raise serializers.ValidationError(
+            f'{label} must be between 1950 and a year from today.')
+    return value
 
 
 class StaffProfileSerializer(serializers.ModelSerializer):
@@ -59,6 +85,38 @@ class StaffProfileSerializer(serializers.ModelSerializer):
 
     def validate_phone(self, value):
         return validate_mobile(value)
+
+    def validate_emergency_contact(self, value):
+        # Free text: "Wife Lakshmi 9876543210, brother 9123456789" is two
+        # numbers and a name each, so no mobile rule fits. Only an end.
+        return validate_text(value, label='Emergency contact', max_length=150)
+
+    def validate_address(self, value):
+        return validate_text(value, label='Address', max_length=MAX_NOTE)
+
+    def validate_notes(self, value):
+        return validate_text(value, label='Notes', max_length=MAX_NOTE)
+
+    def validate_hourly_rate(self, value):
+        return validate_amount(value, label='Hourly rate', maximum=MAX_HOURLY_RATE)
+
+    def validate_weekly_hours(self, value):
+        if value in (None, ''):
+            return Decimal('0')
+        return validate_quantity(value, label='Weekly hours', maximum=MAX_WEEKLY_HOURS,
+                                 allow_zero=True).quantize(Decimal('0.01'))
+
+    def validate_deposit_total(self, value):
+        return validate_amount(value, label='Security deposit')
+
+    def validate_deposit_weekly(self, value):
+        return validate_amount(value, label='Weekly deduction')
+
+    def validate_joined_at(self, value):
+        return validate_employment_date(value, label='Joining date')
+
+    def validate_exit_date(self, value):
+        return validate_employment_date(value, label='Leaving date')
 
     def to_representation(self, instance):
         """Strip another person's terms before they leave the building.
@@ -106,6 +164,14 @@ class StaffProfileSerializer(serializers.ModelSerializer):
         if joined and exited and exited < joined:
             raise serializers.ValidationError(
                 {'exit_date': 'The leaving date cannot be before the joining date.'})
+
+        # Same shape for the deposit: a weekly recovery bigger than the whole
+        # deposit is a figure typed in the wrong box.
+        total = attrs.get('deposit_total', getattr(self.instance, 'deposit_total', None))
+        weekly = attrs.get('deposit_weekly', getattr(self.instance, 'deposit_weekly', None))
+        if total is not None and weekly is not None and weekly > total:
+            raise serializers.ValidationError(
+                {'deposit_weekly': 'The weekly deduction cannot be more than the deposit.'})
         return attrs
 
     def update(self, instance, validated_data):
@@ -210,6 +276,24 @@ class StaffPerformanceReviewSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
 
+    def validate_strengths(self, value):
+        return validate_text(value, label='Strengths', max_length=MAX_NOTE)
+
+    def validate_improvement_areas(self, value):
+        return validate_text(value, label='Areas to improve', max_length=MAX_NOTE)
+
+    def validate_goals(self, value):
+        return validate_text(value, label='Goals', max_length=MAX_NOTE)
+
+    def validate_manager_notes(self, value):
+        return validate_text(value, label='Notes', max_length=MAX_NOTE)
+
+    def validate_period_start(self, value):
+        return validate_employment_date(value, label='Period start')
+
+    def validate_period_end(self, value):
+        return validate_employment_date(value, label='Period end')
+
     def validate(self, attrs):
         """Periods that could not have happened, and edits to frozen history."""
         instance = self.instance
@@ -286,11 +370,18 @@ class StaffDocumentSerializer(serializers.ModelSerializer):
         holder = instance.holder
         return holder.name if holder else ''
 
+    def validate_label(self, value):
+        return validate_text(value, label='Label', max_length=120)
+
     def validate(self, attrs):
         """Exactly one holder, refused here as well as by the constraint.
 
         The database check is the guarantee; this is what turns it into a 400
         with a sentence in it instead of a 500 with an IntegrityError.
+
+        The number is checked here rather than in validate_number because its
+        rule depends on `kind`: twelve digits for an Aadhaar, AAAAA9999A for a
+        PAN, free text with an end for a certificate.
         """
         staff = attrs.get('staff', getattr(self.instance, 'staff', None))
         designer = attrs.get('designer', getattr(self.instance, 'designer', None))
@@ -298,6 +389,13 @@ class StaffDocumentSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 'A document belongs to exactly one person: send either staff '
                 'or designer, not both and not neither.')
+        if 'number' in attrs or 'kind' in attrs:
+            kind = attrs.get('kind', getattr(self.instance, 'kind', ''))
+            number = attrs.get('number', getattr(self.instance, 'number', ''))
+            try:
+                attrs['number'] = validate_document_number(kind, number)
+            except serializers.ValidationError as exc:
+                raise serializers.ValidationError({'number': exc.detail})
         return attrs
 
     def get_file_url(self, instance):
@@ -336,3 +434,6 @@ class DayMarkSerializer(serializers.ModelSerializer):
         # (staff, date) constraint: DayMarkViewSet.create upserts on that pair
         # on purpose, so a repeat post must reach the view, not 400 here.
         validators = []
+
+    def validate_note(self, value):
+        return validate_text(value, label='Note', max_length=MAX_NOTE)

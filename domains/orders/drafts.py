@@ -8,6 +8,18 @@ class DraftConflict(ValueError):
     pass
 
 
+def first_error(detail):
+    """The first sentence in a serializer's error tree.
+
+    The confirm view answers with one plain sentence, and a serializer's
+    errors are a {field: [messages]} map that may nest; the first leaf is
+    what the person at the counter needs to fix first.
+    """
+    while isinstance(detail, (dict, list)):
+        detail = next(iter(detail.values() if isinstance(detail, dict) else detail))
+    return str(detail)
+
+
 
 @transaction.atomic
 def save_draft(user, payload, *, draft_id=None, customer=None, current_step=1,
@@ -62,7 +74,10 @@ def confirm(user, draft_id, *, create_order):
 def _with_gender(customer, payload):
     # Customers from before the wizard asked for gender have none on file;
     # the first order that answers it fills the gap so nobody is asked twice.
+    from crm_api.serializers import GENDERS
     gender = payload.get('gender') or ''
+    if gender and gender not in GENDERS:
+        raise ValueError('Gender must be Female, Male or Other.')
     if gender and not customer.gender:
         customer.gender = gender
         customer.save(update_fields=['gender'])
@@ -91,4 +106,11 @@ def customer_for(draft, payload):
         'pattern_style', 'custom_requirements', 'occupation',
         'preferred_communication', 'notes',
     ) if payload.get(k) not in (None, '')}
-    return Customer.objects.create(**fields)
+    # The same rules the customer book applies: a draft is the one path that
+    # wrote straight to the table, and junk typed at step one used to reach
+    # the row (or fall over as a database error) only at confirm.
+    from crm_api.serializers import CustomerSerializer
+    serializer = CustomerSerializer(data=fields)
+    if not serializer.is_valid():
+        raise ValueError(first_error(serializer.errors))
+    return serializer.save()

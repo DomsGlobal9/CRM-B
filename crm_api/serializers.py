@@ -3,14 +3,18 @@ import hashlib
 
 from rest_framework import serializers
 
-from core.validators import validate_mobile
+from core.validators import (
+    MAX_NOTE, validate_amount, validate_email_address, validate_mobile, validate_name, validate_text,
+)
+
+CUSTOMER_MOBILE_ERROR = 'Enter a 10-digit mobile number, or a full international number starting with +.'
 
 from apps.design_studio.models import DesignAsset
 from .models import (
     Customer, CustomerMessage, GarmentImage, Measurement, DesignPreference,
     FabricSelection, Tailor, Order, BoutiqueDesign,
     Notification, OrderStageHistory, BoutiqueSettings, MeasurementHistory,
-    OrderStage, OrderActivity, whatsapp_number
+    OrderStage, OrderActivity, national_mobile, whatsapp_number
 )
 
 class BoutiqueSettingsSerializer(serializers.ModelSerializer):
@@ -113,6 +117,18 @@ class TailorSerializer(serializers.ModelSerializer):
     def validate_phone(self, value):
         return validate_mobile(value)
 
+    def validate_name(self, value):
+        return validate_name(value, label='Name')
+
+    def validate_specialty(self, value):
+        return validate_text(value, label='Specialty', max_length=100)
+
+    def validate_role(self, value):
+        return validate_text(value, label='Role', max_length=50, required=True)
+
+    def validate_email(self, value):
+        return validate_email_address(value) or None
+
     def _write_phone(self, tailor, phone):
         """Put the number on the employment record, creating one if needed.
 
@@ -183,6 +199,21 @@ class BoutiqueDesignSerializer(serializers.ModelSerializer):
             'image_url', 'is_boutique', 'description', 'price', 'catalogue',
         ]
         extra_kwargs = {'catalogue': {'required': False}}
+
+    def validate_price(self, value):
+        return validate_amount(value, label='Price')
+
+    def validate_image_url(self, value):
+        # A picture is fetched by the browser. Legacy catalogue rows hold a bare
+        # filename ('fabric_02.jpg') the frontend resolves itself, so only a
+        # non-web scheme (javascript:, file:, data:) is refused, not a path.
+        value = ('' if value is None else str(value)).strip()
+        if len(value) > 500:
+            raise serializers.ValidationError('Image URL is limited to 500 characters.')
+        scheme = re.match(r'^[a-z][a-z0-9+.-]*:', value, re.I)
+        if re.search(r'\s', value) or (scheme and scheme.group(0).lower() not in ('http:', 'https:')):
+            raise serializers.ValidationError('Image URL must start with http:// or https://.')
+        return value
 
     def _file_in_catalogue(self, asset, catalogue):
         """Resolve a catalogue position against the garment this form names.
@@ -257,10 +288,15 @@ class BoutiqueDesignSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+#: Inches on a person: nothing below zero, nothing past the tape.
+INCH_FIELDS = ('bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length')
+
+
 class MeasurementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Measurement
-        fields = ['bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length', 'additional_measurements']
+        fields = [*INCH_FIELDS, 'additional_measurements']
+        extra_kwargs = {f: {'min_value': 0, 'max_value': 120} for f in INCH_FIELDS}
 
 class MeasurementHistorySerializer(serializers.ModelSerializer):
     class Meta:
@@ -355,6 +391,28 @@ class OrderSerializer(serializers.ModelSerializer):
             'stages', 'activities', 'garment_images', 'garment_images_published',
             'garment_jobs', 'invoice_template', 'flow',
         ]
+        extra_kwargs = {
+            'delivery_address': {'max_length': 500},
+            'tailor_comments': {'max_length': MAX_NOTE},
+            'special_instructions': {'max_length': MAX_NOTE},
+        }
+
+    #: Every rupee column a PATCH can set: not negative, not absurd.
+    MONEY_FIELDS = (
+        'base_price', 'fabric_price', 'embroidery_price', 'customization_price',
+        'tailoring_charges', 'packaging_handling', 'discount', 'taxes',
+        'total_amount', 'advance_paid', 'amount_paid',
+    )
+
+    def validate(self, attrs):
+        for field in self.MONEY_FIELDS:
+            if field in attrs:
+                try:
+                    attrs[field] = validate_amount(
+                        attrs[field], label=field.replace('_', ' ').capitalize())
+                except serializers.ValidationError as exc:
+                    raise serializers.ValidationError({field: exc.detail})
+        return attrs
 
     def _get_lang(self):
         request = self.context.get('request')
@@ -534,8 +592,22 @@ def build_style_dna(obj, avg_price=None, last_order_date=None):
     }
 
 
+#: What the wizard offers. Reports and the garment picker key on these
+#: exact spellings, so a typo is refused rather than filed as a new bucket.
+GENDERS = ('Female', 'Male', 'Other')
+TIERS = ('Silver', 'Gold', 'Platinum')
+SOURCES = ('Walk In', 'Instagram', 'Referral', 'Website')
+
+
 class CustomerSerializer(serializers.ModelSerializer):
     measurements = MeasurementSerializer(required=False)
+    gender = serializers.ChoiceField(
+        choices=GENDERS, required=False, allow_blank=True,
+        error_messages={'invalid_choice': 'Gender must be Female, Male or Other.'})
+    customer_type = serializers.CharField(required=False, allow_blank=True)
+    source = serializers.ChoiceField(
+        choices=SOURCES, required=False,
+        error_messages={'invalid_choice': 'Source must be Walk In, Instagram, Referral or Website.'})
     measurement_history = MeasurementHistorySerializer(many=True, read_only=True)
     design_preferences = DesignPreferenceSerializer(many=True, read_only=True)
     fabric_selections = FabricSelectionSerializer(many=True, read_only=True)
@@ -556,6 +628,10 @@ class CustomerSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         raw = data.get('mobile_number') if hasattr(data, 'get') else None
+        # validate_mobile_number sees the canonical spelling, so the '+' that
+        # marks an international number is remembered here. str(): JSON may
+        # carry the number as a number.
+        raw = self._raw_mobile = '' if raw is None else str(raw).strip()
         if raw:
             canonical = whatsapp_number(raw)
             if canonical and canonical != raw:
@@ -564,14 +640,43 @@ class CustomerSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     def validate_mobile_number(self, value):
-        if not value:
+        # Editing a row without touching its number never fails on the number:
+        # rows from before this rule may hold a spelling it would refuse.
+        if self.instance is not None and value == self.instance.mobile_number:
             return value
-        canonical = whatsapp_number(value)
-        if not canonical:
-            raise serializers.ValidationError(
-                'Enter a mobile number the boutique can actually reach '
-                '-- 10 digits, or a full international number.')
-        return canonical
+        # A number typed with '+' and a foreign country code is kept as its
+        # digits (11-15). Everything else is ten national digits, stored the way
+        # Customer.save spells them (country code + number) so the unique index
+        # sees one person once.
+        raw = getattr(self, '_raw_mobile', '')
+        if raw.startswith('+') and not raw.startswith('+91'):
+            canonical = whatsapp_number(value)
+            if not canonical:
+                raise serializers.ValidationError(CUSTOMER_MOBILE_ERROR)
+            return canonical
+        national = national_mobile(value)
+        if not national:
+            raise serializers.ValidationError(CUSTOMER_MOBILE_ERROR)
+        return whatsapp_number(national)
+
+    def validate_customer_type(self, value):
+        # Rows and demo seeds from before the tiers hold 'Women'/'Men'; a
+        # legacy value edits through as Silver rather than blocking the save.
+        return value if value in TIERS else 'Silver'
+
+    def validate_first_name(self, value):
+        return validate_name(value, label='First name')
+
+    def validate_last_name(self, value):
+        # "Priya S": a one-letter initial is the whole last name here, so
+        # the two-character floor is waived for it; the character rule holds.
+        value = (value or '').strip()
+        if len(value) == 1 and value.isalpha():
+            return value
+        return validate_name(value, label='Last name', required=False)
+
+    def validate_email_address(self, value):
+        return validate_email_address(value)
 
     class Meta:
         model = Customer
@@ -585,6 +690,12 @@ class CustomerSerializer(serializers.ModelSerializer):
             'measurements', 'measurement_history', 'design_preferences', 'fabric_selections', 'orders',
             'style_dna', 'segment', 'total_spend', 'order_count', 'created_at', 'updated_at'
         ]
+        extra_kwargs = {
+            'last_name': {'required': False, 'allow_blank': True},
+            'address': {'max_length': 500},
+            'notes': {'max_length': MAX_NOTE},
+            'custom_requirements': {'max_length': MAX_NOTE},
+        }
 
     def get_total_spend(self, obj):
         return sum(float(o.total_amount) for o in obj.orders.all())

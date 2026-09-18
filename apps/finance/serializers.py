@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.validators import MAX_NOTE, validate_amount, validate_text
+
 from .models import Expense
 
 
@@ -26,7 +28,14 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
     def validate_amount(self, value):
         # A zero-rupee cost is a typo, not an expense; the model's check
-        # constraint stops negatives, this stops the meaningless zero.
+        # constraint stops negatives, this stops the meaningless zero. The
+        # shared rule adds the ceiling: no boutique pays a crore in rent.
         if value <= 0:
             raise serializers.ValidationError('Amount must be greater than zero.')
-        return value
+        return validate_amount(value, label='Amount', allow_zero=False)
+
+    def validate_paid_to(self, value):
+        return validate_text(value, label='Paid to', max_length=150)
+
+    def validate_note(self, value):
+        return validate_text(value, label='Note', max_length=MAX_NOTE)

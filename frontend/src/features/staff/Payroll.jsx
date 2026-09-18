@@ -16,6 +16,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Check, ChevronLeft, CheckCircle2, Lock, RefreshCw, X } from 'lucide-react';
 
 import { api } from '../../services/api';
+import { LIMITS } from '../../services/validate';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -148,7 +149,7 @@ function PayoutDialog({ record, busy, error, onCancel, onConfirm }) {
           <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }} htmlFor="po-ref">
             Reference
           </label>
-          <input id="po-ref" value={reference} onChange={(e) => setReference(e.target.value)}
+          <input id="po-ref" value={reference} maxLength={LIMITS.reference} onChange={(e) => setReference(e.target.value)}
                  placeholder={method === 'CASH' ? 'Voucher number' : 'UTR'} />
         </div>
       </div>

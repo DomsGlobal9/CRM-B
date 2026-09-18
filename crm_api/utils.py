@@ -179,10 +179,10 @@ def seed_tenant_defaults(demo=True):
         import datetime
     
         customers_data = [
-            {"first_name": "Priya", "last_name": "Patel", "mobile_number": "9876543210", "email_address": "priya@gmail.com", "city_region": "Mumbai", "customer_type": "Women", "garment_type": "Lehenga"},
-            {"first_name": "Aditi", "last_name": "Sharma", "mobile_number": "9876543211", "email_address": "aditi@gmail.com", "city_region": "Delhi", "customer_type": "Women", "garment_type": "Gown"},
+            {"first_name": "Priya", "last_name": "Patel", "mobile_number": "9876543210", "email_address": "priya@gmail.com", "city_region": "Mumbai", "customer_type": "Silver", "garment_type": "Lehenga"},
+            {"first_name": "Aditi", "last_name": "Sharma", "mobile_number": "9876543211", "email_address": "aditi@gmail.com", "city_region": "Delhi", "customer_type": "Gold", "garment_type": "Gown"},
             {"first_name": "Rohan", "last_name": "Gupta", "mobile_number": "9876543212", "email_address": "rohan@gmail.com", "city_region": "Bangalore", "customer_type": "Men", "garment_type": "Sherwani"},
-            {"first_name": "Meera", "last_name": "Nair", "mobile_number": "9876543213", "email_address": "meera@gmail.com", "city_region": "Chennai", "customer_type": "Women", "garment_type": "Saree"},
+            {"first_name": "Meera", "last_name": "Nair", "mobile_number": "9876543213", "email_address": "meera@gmail.com", "city_region": "Chennai", "customer_type": "Platinum", "garment_type": "Saree"},
             {"first_name": "Karan", "last_name": "Johar", "mobile_number": "9876543214", "email_address": "karan@gmail.com", "city_region": "Mumbai", "customer_type": "Men", "garment_type": "Suit"}
         ]
 

@@ -6,6 +6,7 @@ from rest_framework import status
 
 from apps.alterations.models import AlterationRequest
 from apps.alterations.testbase import AlterationTestCase
+from core.test_images import PNG
 
 BASE = '/api/alterations/'
 
@@ -37,7 +38,7 @@ class OutsideGarmentTests(AlterationTestCase):
         return res.data
 
     def test_intake_without_an_order_is_a_paid_outside_alteration(self):
-        data = self.intake(intake_photo=SimpleUploadedFile('as-received.png', b'\x89PNG\r\n\x1a\n',
+        data = self.intake(intake_photo=SimpleUploadedFile('as-received.png', PNG,
                                                            content_type='image/png'))
         self.assertTrue(data['alteration_number'].startswith('ALT-OUT-'))
         self.assertEqual((data['origin'], data['origin_display']), ('OUTSIDE', 'Brought from outside'))

@@ -5,6 +5,9 @@ import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { PageHeader, StatCard } from '../../components/ui/Atelier';
 import { resolveMediaUrl } from '../../services/media';
+import {
+  LIMITS, cleanAmount, amountError, phoneError, emailError, cleanUpper, isGstin,
+} from '../../services/validate';
 import CatalogBrowser from './CatalogBrowser';
 import ItemFormModal, { Field, Modal } from './ItemFormModal';
 import LocationsTab from './LocationsTab';
@@ -478,6 +481,9 @@ function MovementModal({ item, onClose, onDone }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    // A count can be zero (the shelf is empty); a movement cannot.
+    const problem = amountError(amount, { label: 'Quantity', max: LIMITS.quantity, required: true, allowZero: movement === 'adjust' });
+    if (problem) { setError(problem); return; }
     setError(null);
     setSaving(true);
     try {
@@ -523,9 +529,9 @@ function MovementModal({ item, onClose, onDone }) {
             {movement === 'adjust' ? `Counted total (${item.unit_display})` : `Quantity (${item.unit_display})`}
           </label>
           <input
-            type="number" step="0.001" min="0" required autoFocus
+            inputMode="decimal" required autoFocus
             className="form-control" value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => setAmount(cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }))}
           />
         </div>
 
@@ -562,7 +568,7 @@ function MovementModal({ item, onClose, onDone }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600 }}>Production stage (optional)</label>
             <input
-              type="text" className="form-control" placeholder="e.g. pattern_cutting"
+              type="text" className="form-control" placeholder="e.g. pattern_cutting" maxLength={100}
               value={stageKey} onChange={(e) => setStageKey(e.target.value)}
             />
           </div>
@@ -570,7 +576,7 @@ function MovementModal({ item, onClose, onDone }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <label style={{ fontSize: '12px', fontWeight: 600 }}>Remarks</label>
-          <input type="text" className="form-control" value={remarks} onChange={(e) => setRemarks(e.target.value)} />
+          <input type="text" className="form-control" maxLength={LIMITS.note} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
         </div>
 
         {error && (
@@ -665,15 +671,19 @@ function CreatePurchaseOrderModal({ suppliers, items, onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    const kept = lines.filter((l) => l.item && l.quantity_ordered !== '');
+    const problem = !poNumber.trim() ? 'Enter the PO number.'
+      : !kept.length ? 'Add at least one line with an item and a quantity.'
+        : kept.map((l) => amountError(l.quantity_ordered, { label: 'Quantity', max: LIMITS.quantity, allowZero: false })
+          || amountError(l.unit_cost, { label: 'Unit cost' })).find(Boolean) || '';
+    if (problem) { setError(problem); return; }
     setError(null);
     setSaving(true);
     try {
       await api.createPurchaseOrder({
-        po_number: poNumber,
+        po_number: poNumber.trim(),
         supplier,
-        lines: lines
-          .filter((l) => l.item && l.quantity_ordered)
-          .map((l) => ({ item: l.item, quantity_ordered: l.quantity_ordered, unit_cost: l.unit_cost || 0 })),
+        lines: kept.map((l) => ({ item: l.item, quantity_ordered: l.quantity_ordered, unit_cost: l.unit_cost || 0 })),
       });
       onSaved();
     } catch (err) {
@@ -687,7 +697,7 @@ function CreatePurchaseOrderModal({ suppliers, items, onClose, onSaved }) {
     <Modal title="New purchase order" onClose={onClose} width="640px">
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-          <Field label="PO number" required value={poNumber} onChange={setPoNumber} />
+          <Field label="PO number" required value={poNumber} onChange={setPoNumber} maxLength={50} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600 }}>Supplier *</label>
             <select className="form-control" required value={supplier} onChange={(e) => setSupplier(e.target.value)}>
@@ -705,10 +715,10 @@ function CreatePurchaseOrderModal({ suppliers, items, onClose, onSaved }) {
                 <option value="">Select item…</option>
                 {items.map((it) => <option key={it.id} value={it.id}>{it.name}</option>)}
               </select>
-              <input type="number" step="0.001" min="0" className="form-control" placeholder="Qty"
-                value={line.quantity_ordered} onChange={(e) => setLine(i, 'quantity_ordered', e.target.value)} />
-              <input type="number" step="0.01" min="0" className="form-control" placeholder="Unit cost"
-                value={line.unit_cost} onChange={(e) => setLine(i, 'unit_cost', e.target.value)} />
+              <input inputMode="decimal" className="form-control" placeholder="Qty"
+                value={line.quantity_ordered} onChange={(e) => setLine(i, 'quantity_ordered', cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }))} />
+              <input inputMode="decimal" className="form-control" placeholder="Unit cost"
+                value={line.unit_cost} onChange={(e) => setLine(i, 'unit_cost', cleanAmount(e.target.value))} />
               <button type="button" className="close-btn" onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))} aria-label="Remove line">
                 <X size={15} />
               </button>
@@ -770,10 +780,12 @@ function ReceiveModal({ purchaseOrder, onClose, onDone }) {
               </div>
             </div>
             <input
-              type="number" step="0.001" min="0" max={line.quantity_outstanding} className="form-control"
+              inputMode="decimal" className="form-control"
               aria-label={`Received quantity for ${line.item_name}`}
               value={quantities[line.id] ?? ''}
-              onChange={(e) => setQuantities((q) => ({ ...q, [line.id]: e.target.value }))}
+              onChange={(e) => setQuantities((q) => ({
+                ...q, [line.id]: cleanAmount(e.target.value, { max: Number(line.quantity_outstanding) || 0, decimals: 3 }),
+              }))}
             />
           </div>
         ))}
@@ -833,10 +845,15 @@ function SupplierFormModal({ onClose, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
+    const problem = (!form.name.trim() ? 'Enter the supplier name.' : '')
+      || phoneError(form.phone)
+      || emailError(form.email)
+      || (form.gst_number && !isGstin(form.gst_number) ? 'Enter a 15-character GSTIN like 29ABCDE1234F1Z5.' : '');
+    if (problem) { setError(problem); return; }
     setError(null);
     setSaving(true);
     try {
-      await api.createSupplier(form);
+      await api.createSupplier({ ...form, name: form.name.trim(), contact_person: form.contact_person.trim() });
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -848,13 +865,14 @@ function SupplierFormModal({ onClose, onSaved }) {
   return (
     <Modal title="New supplier" onClose={onClose}>
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <Field label="Name" required value={form.name} onChange={(v) => set('name', v)} />
-        <Field label="Contact person" value={form.contact_person} onChange={(v) => set('contact_person', v)} />
+        <Field label="Name" required value={form.name} onChange={(v) => set('name', v)} maxLength={150} />
+        <Field label="Contact person" value={form.contact_person} onChange={(v) => set('contact_person', v)} maxLength={150} />
         <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-          <Field label="Phone" value={form.phone} onChange={(v) => set('phone', v)} />
-          <Field label="Email" type="email" value={form.email} onChange={(v) => set('email', v)} />
+          {/* A supplier's phone is often a landline or an office board, so no mobile rule. */}
+          <Field label="Phone" type="tel" inputMode="tel" placeholder="044-2345 6789" value={form.phone} onChange={(v) => set('phone', v)} maxLength={30} />
+          <Field label="Email" type="email" value={form.email} onChange={(v) => set('email', v)} maxLength={LIMITS.email} />
         </div>
-        <Field label="GST number" value={form.gst_number} onChange={(v) => set('gst_number', v)} />
+        <Field label="GST number" placeholder="29ABCDE1234F1Z5" value={form.gst_number} onChange={(v) => set('gst_number', cleanUpper(v).slice(0, 15))} />
         {error && <div style={errorBox}>{error}</div>}
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>

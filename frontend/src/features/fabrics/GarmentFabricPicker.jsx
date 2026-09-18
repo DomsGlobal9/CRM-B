@@ -2,6 +2,7 @@ import { useMemo, useRef, useEffect, useState } from 'react';
 import { Check, ChevronDown, Inbox, Layers, X } from 'lucide-react';
 
 import { resolveMediaUrl } from '../../services/media';
+import { LIMITS, cleanAmount } from '../../services/validate';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 import { ACCESSORY_OPTIONS } from '../designStudio/GarmentPartPicker';
 
@@ -339,11 +340,11 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
               </div>
               {/* How much of it: the number the ledger reserves at Fabric
                   Confirmed and the cutting table later consumes. */}
-              <input type="number" min="0" step="0.01" className="form-control"
+              <input inputMode="decimal" className="form-control"
                      style={{ width: '76px', padding: '3px 6px', fontSize: '12px' }}
                      placeholder={accessoriesOnly ? 'Qty' : unitShort(fabric)}
                      value={quantities[`${key}:${fabric.id}`] ?? ''}
-                     onChange={(e) => onQuantity?.(key, String(fabric.id), e.target.value)} />
+                     onChange={(e) => onQuantity?.(key, String(fabric.id), cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }))} />
               <button type="button" onClick={() => onToggle(key, String(fabric.id))} title="Remove"
                       style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)',
                                cursor: 'pointer', padding: '2px', display: 'flex' }}>
@@ -566,6 +567,7 @@ export default function GarmentFabricPicker({
                               type="text"
                               className="form-control"
                               placeholder={currentAccOption.placeholder || 'Enter measurement or size...'}
+                              maxLength={100}
                               value={accessoryMeasurements[`${job.key}:${activeSlotKey}`] || ''}
                               onChange={(e) => {
                                 const val = e.target.value;

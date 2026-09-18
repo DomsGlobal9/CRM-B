@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User
 from rest_framework import viewsets, status, views
+from rest_framework.exceptions import ValidationError
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -16,6 +17,10 @@ from core.permissions import (
     OwnerOnly, OwnNotifications, SUPERVISOR_ROLES, visible_customers, visible_orders,
 )
 from core.roles import OWNER, resolve_user_role
+from core.validators import (
+    MAX_NOTE, MAX_REASON, validate_amount, validate_email_address, validate_image_upload,
+    validate_image_uploads, validate_mobile, validate_not_past, validate_phone, validate_text,
+)
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
@@ -53,6 +58,12 @@ from domains.orders.services import (
     OrderService, fail_quality_check, refresh_staff_availability, reopen_order_stage,
 )
 
+def _refused(exc):
+    """A validator's sentence in the {'error': ...} shape these views answer with."""
+    return Response({'error': drafts.first_error(exc.detail)},
+                    status=status.HTTP_400_BAD_REQUEST)
+
+
 class CustomerViewSet(viewsets.ModelViewSet):
     serializer_class = CustomerSerializer
 
@@ -76,15 +87,18 @@ class CustomerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['POST'], url_path='design-preferences')
     def save_design_preferences(self, request, pk=None):
         customer = self.get_object()
-        notes = request.data.get('notes', '')
-        
+        try:
+            notes = validate_text(request.data.get('notes', ''), label='Notes', max_length=MAX_NOTE)
+            files = validate_image_uploads(request.FILES.getlist('images'), label='Reference photos')
+        except ValidationError as exc:
+            return _refused(exc)
+
         selected_urls = request.data.get('selected_urls', '[]')
         try:
             image_urls = json.loads(selected_urls)
         except Exception:
             image_urls = []
-            
-        files = request.FILES.getlist('images')
+
         for f in files:
             path = f"design_references/cust_{customer.id}/{uuid.uuid4()}_{f.name}"
             saved_path = default_storage.save(path, ContentFile(f.read()))
@@ -166,15 +180,15 @@ class CustomerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['POST'], url_path='fabric-selections')
     def save_fabric_selection(self, request, pk=None):
         customer = self.get_object()
-        is_boutique_fabric = request.data.get('is_boutique_fabric', 'true').lower() == 'true'
-        fabric_name = request.data.get('fabric_name', '')
+        is_boutique_fabric = str(request.data.get('is_boutique_fabric', 'true')).lower() == 'true'
         try:
-            fabric_price = float(request.data.get('fabric_price', 0.0))
-        except (ValueError, TypeError):
-            fabric_price = 0.0
+            fabric_name = validate_text(request.data.get('fabric_name', ''), label='Fabric name', max_length=150)
+            fabric_price = validate_amount(request.data.get('fabric_price', 0), label='Fabric price')
+            files = validate_image_uploads(request.FILES.getlist('images'), label='Fabric photos')
+        except ValidationError as exc:
+            return _refused(exc)
 
         image_urls = []
-        files = request.FILES.getlist('images')
         for f in files:
             path = f"fabrics/cust_{customer.id}/{uuid.uuid4()}_{f.name}"
             saved_path = default_storage.save(path, ContentFile(f.read()))
@@ -403,6 +417,10 @@ class BoutiqueDesignViewSet(viewsets.ModelViewSet):
         image = request.FILES.get('image')
         if image is None:
             return Response({'error': 'No image was sent.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_image_upload(image, label='Design photo')
+        except ValidationError as exc:
+            return _refused(exc)
         path = f"design_library/{uuid.uuid4()}_{image.name}"
         saved = default_storage.save(path, ContentFile(image.read()))
         return Response({'image_url': request.build_absolute_uri(default_storage.url(saved))},
@@ -582,6 +600,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         if 'image' not in request.FILES:
             return Response({'error': 'No image was uploaded.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_image_upload(request.FILES['image'], label='Garment photo')
+        except ValidationError as exc:
+            return _refused(exc)
 
         serializer = GarmentImageSerializer(
             data={'view': view, 'image': request.FILES['image']}
@@ -686,9 +708,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         images = request.FILES.getlist('completed_garment_images') or (
             [request.FILES['completed_garment_image']]
             if 'completed_garment_image' in request.FILES else [])
-        if len(images) > 5:
-            return Response({'error': 'Upload at most 5 photos.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_image_uploads(images, label='Completed garment photos')
+            if comments is not None:
+                comments = validate_text(comments, label='Comments', max_length=MAX_NOTE)
+        except ValidationError as exc:
+            return _refused(exc)
         image = images[0] if images else None
 
         if comments is not None:
@@ -748,6 +773,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         if not stage:
             return Response({'error': 'stage is required'},
                             status=status.HTTP_400_BAD_REQUEST)
+        try:
+            comments = validate_text(comments, label='Comments', max_length=MAX_NOTE)
+            if image is not None:
+                validate_image_upload(image, label='Photo')
+        except ValidationError as exc:
+            return _refused(exc)
 
         if not order.stages.filter(stage_key=stage).exists():
             return Response({'error': f"This order has no stage '{stage}'."},
@@ -842,6 +873,12 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({'error': 'stage_key and status are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
+            comments = validate_text(comments, label='Comments', max_length=MAX_NOTE)
+            validate_image_uploads(request.FILES.getlist('images'), label='Progress photos')
+        except ValidationError as exc:
+            return _refused(exc)
+
+        try:
             updated_order = OrderService.transition_order_stage(
                 order=order,
                 stage_key=stage_key,
@@ -903,6 +940,10 @@ class OrderViewSet(viewsets.ModelViewSet):
             if not remark:
                 return Response({'error': 'Say what is wrong with the photo.'},
                                 status=status.HTTP_400_BAD_REQUEST)
+            try:
+                validate_text(remark, label='Remark', max_length=MAX_REASON)
+            except ValidationError as exc:
+                return _refused(exc)
             reviews[url] = {
                 'status': 'REJECTED', 'remark': remark,
                 'by': request.user.get_full_name() or request.user.username,
@@ -928,9 +969,12 @@ class OrderViewSet(viewsets.ModelViewSet):
                 order,
                 request.data.get('stage_key'),
                 user=request.user,
-                reason=request.data.get('reason'),
+                reason=validate_text(request.data.get('reason'), label='Reason',
+                                     max_length=MAX_REASON),
                 request=request,
             )
+        except ValidationError as exc:
+            return _refused(exc)
         except PermissionError as pe:
             return Response({'error': str(pe)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as ve:
@@ -951,9 +995,12 @@ class OrderViewSet(viewsets.ModelViewSet):
             fail_quality_check(
                 order,
                 user=request.user,
-                reason=request.data.get('reason'),
+                reason=validate_text(request.data.get('reason'), label='Reason',
+                                     max_length=MAX_REASON),
                 request=request,
             )
+        except ValidationError as exc:
+            return _refused(exc)
         except PermissionError as pe:
             return Response({'error': str(pe)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as ve:
@@ -1200,16 +1247,23 @@ class BoutiqueSettingsViewSet(viewsets.ViewSet):
         email = request.data.get('email')
         logo = request.FILES.get('logo')
 
-        if name is not None:
-            config.name = name
-        if address is not None:
-            config.address = address
-        if phone is not None:
-            config.phone = phone
-        if email is not None:
-            config.email = email
-        if logo is not None:
-            config.logo = logo
+        # The name goes on every invoice and the phone is the WhatsApp
+        # sender: refused with a sentence rather than trusted from the form.
+        try:
+            if name is not None:
+                config.name = validate_text(name, label='Boutique name', max_length=255)
+            if address is not None:
+                config.address = validate_text(address, label='Address', max_length=500)
+            if phone is not None:
+                # The store line printed on invoices: a landline, an STD code,
+                # not the ten-digit mobile rule.
+                config.phone = validate_phone(phone)
+            if email is not None:
+                config.email = validate_email_address(email)
+            if logo is not None:
+                config.logo = validate_image_upload(logo, label='Logo')
+        except ValidationError as exc:
+            return _refused(exc)
         if 'design_approval_required' in request.data:
             config.design_approval_required = str(
                 request.data.get('design_approval_required')).lower() in ('true', '1')
@@ -1632,8 +1686,13 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 if value not in (None, '')
             }
             if measurements:
+                # The same inch bounds the customer book applies; raised as
+                # the sentence, since this table is written straight below.
+                sheet = MeasurementSerializer(data=measurements, partial=True)
+                if not sheet.is_valid():
+                    raise ValueError(drafts.first_error(sheet.errors))
                 Measurement.objects.update_or_create(
-                    customer=customer, defaults=measurements)
+                    customer=customer, defaults=sheet.validated_data)
 
             prices = payload.get('prices') or {}
             staff = payload.get('staff') or {}
@@ -1665,12 +1724,18 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 }
             else:
                 component_totals = {key: money(prices.get(key)) for key in component_keys}
-            advance = money(payment.get('advance'))
+            advance = float(validate_amount(payment.get('advance'), label='Advance'))
             # Older drafts carry option 'full' and no amount; treat that as
             # paying whatever the order comes to.
             full_payment = payment.get('option') == 'full'
 
             ready_by = _iso_date(payload.get('ready_by'))
+            if payload.get('ready_by') and ready_by is None:
+                raise ValueError('Ready by must be a date like 2026-10-30.')
+            validate_not_past(ready_by, label='Ready by')
+            special_instructions = validate_text(
+                payload.get('special_instructions') or payload.get('custom_requirements'),
+                label='Notes for the tailor', max_length=MAX_NOTE)
             due = sorted(
                 d for d in ((g.get('values') or {}).get('delivery_date')
                             for g in (payload.get('garments') or []))
@@ -1690,8 +1755,7 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 'discount': money(prices.get('discount')),
                 # Neutral: apply_advance decides once the total is final.
                 'payment_status': 'Pending',
-                'custom_requirements': payload.get('special_instructions')
-                                       or payload.get('custom_requirements') or '',
+                'custom_requirements': special_instructions,
                 'estimated_delivery': ready_by or (due[0] if due else None),
                 'delivery_method': delivery.get('method') or 'Direct Pickup',
                 'courier_service': delivery.get('courier'),
@@ -1765,6 +1829,8 @@ class OrderDraftViewSet(viewsets.ViewSet):
 
         try:
             order = drafts.confirm(request.user, pk, create_order=build)
+        except ValidationError as exc:
+            return _refused(exc)
         except (ValueError, Exception) as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         if order is None:

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, MapPin } from 'lucide-react';
 
 import { api } from '../../services/api';
+import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
 /**
@@ -166,6 +167,11 @@ function TransferModal({ items, locations, onClose, onDone }) {
       setError('Choose a material, both locations and a quantity.');
       return;
     }
+    const problem = amountError(quantity, { label: 'Quantity', max: LIMITS.quantity, allowZero: false });
+    if (problem) {
+      setError(problem);
+      return;
+    }
     if (from === to) {
       setError('The source and the destination are the same place.');
       return;
@@ -222,8 +228,8 @@ function TransferModal({ items, locations, onClose, onDone }) {
         </div>
 
         <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>{t('inventoryPage.tableQuantity', 'Quantity')}</label>
-        <input className="form-control" type="number" step="0.001" min="0" value={quantity}
-               onChange={(e) => setQuantity(e.target.value)} placeholder="e.g. 12.5" />
+        <input className="form-control" inputMode="decimal" value={quantity}
+               onChange={(e) => setQuantity(cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }))} placeholder="e.g. 12.5" />
 
         {error && <div style={{ color: 'var(--danger-color)', fontSize: '12.5px', marginTop: '12px' }}>{error}</div>}
 

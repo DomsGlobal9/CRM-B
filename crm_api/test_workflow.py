@@ -14,6 +14,7 @@ from crm_api.models import (
 )
 from domains.orders.repositories import OrderRepository
 from domains.orders.services import OrderService
+from core.test_images import JPEG
 
 
 class WorkflowTestBase(TenantTestCase):
@@ -116,7 +117,7 @@ class WorkflowTestBase(TenantTestCase):
     @staticmethod
     def work_photo():
         from django.core.files.uploadedfile import SimpleUploadedFile
-        return SimpleUploadedFile("work.jpg", b"jpeg-bytes", content_type="image/jpeg")
+        return SimpleUploadedFile("work.jpg", JPEG, content_type="image/jpeg")
 
     def reach(self, order, key):
         from domains.orders import workflow
@@ -1878,7 +1879,7 @@ class ReversalTests(WorkflowTestBase):
         from django.core.files.uploadedfile import SimpleUploadedFile
         order = self.make_order()
         self.reach(order, "stitching_in_progress")
-        photos = [SimpleUploadedFile(f"shot{i}.jpg", b"jpeg", content_type="image/jpeg")
+        photos = [SimpleUploadedFile(f"shot{i}.jpg", JPEG, content_type="image/jpeg")
                   for i in range(3)]
         res = self.api(self.tailor_user).patch(
             f"/api/orders/{order.id}/submit-completion/",
@@ -1895,7 +1896,7 @@ class ReversalTests(WorkflowTestBase):
         from django.core.files.uploadedfile import SimpleUploadedFile
         order = self.make_order()
         self.reach(order, "stitching_in_progress")
-        shots = [SimpleUploadedFile(f"s{i}.jpg", b"jpeg", content_type="image/jpeg") for i in range(2)]
+        shots = [SimpleUploadedFile(f"s{i}.jpg", JPEG, content_type="image/jpeg") for i in range(2)]
         self.api(self.tailor_user).patch(
             f"/api/orders/{order.id}/submit-completion/",
             {"completed_garment_images": shots}, format="multipart")
@@ -1924,7 +1925,7 @@ class ReversalTests(WorkflowTestBase):
             user=self.master_user, comments="retake the front")
         self.api(self.tailor_user).patch(
             f"/api/orders/{order.id}/submit-completion/",
-            {"completed_garment_images": [SimpleUploadedFile("s3.jpg", b"jpeg", content_type="image/jpeg")]},
+            {"completed_garment_images": [SimpleUploadedFile("s3.jpg", JPEG, content_type="image/jpeg")]},
             format="multipart")
         stage = self.stage(order, "stitching_in_progress")
         self.assertNotIn(bad, stage.attachments)
@@ -1936,7 +1937,7 @@ class ReversalTests(WorkflowTestBase):
         from django.core.files.uploadedfile import SimpleUploadedFile
         order = self.make_order()
         self.reach(order, "stitching_in_progress")
-        photos = [SimpleUploadedFile(f"shot{i}.jpg", b"jpeg", content_type="image/jpeg")
+        photos = [SimpleUploadedFile(f"shot{i}.jpg", JPEG, content_type="image/jpeg")
                   for i in range(6)]
         res = self.api(self.tailor_user).patch(
             f"/api/orders/{order.id}/submit-completion/",
