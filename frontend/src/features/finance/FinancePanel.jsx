@@ -149,7 +149,7 @@ function AddExpenseForm({ onCancel, onSaved }) {
                 <button type="button" className="btn-secondary at-btn-sm" onClick={() => setFile(null)}>Remove</button>
               </div>
             ) : (
-              <Dropzone
+              <Dropzone camera
                 accept="image/*,application/pdf"
                 title="Drag & drop a file here" subtitle="or choose from your device"
                 chooseLabel="Choose File" hint="Supported formats: JPG, PNG, PDF (Max 10MB)"

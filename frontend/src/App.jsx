@@ -43,7 +43,7 @@ import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import useAutosave from './hooks/useAutosave';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
-import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton } from './components/ui/Atelier';
+import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
 import LanguageSelector from './components/LanguageSelector.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
@@ -633,7 +633,7 @@ function GarmentGallery({ order, onChanged }) {
               <option key={value} value={value}>{label}{have.has(value) ? ' (replace)' : ''}</option>
             ))}
           </select>
-          <AddPhotoButton className="btn-primary at-btn-sm" icon={Plus} disabled={busy}
+          <AddPhotoButton camera className="btn-primary at-btn-sm" icon={Plus} disabled={busy}
                           label={busy ? 'Working…' : t('common.addPhoto', 'Add photo')}
                           onFiles={([file]) => { const bad = imageFilesError([file]); if (bad) { alert(bad); return; } run(() => api.uploadGarmentImage(order.id, view, file)); }} />
         </div>
@@ -1062,7 +1062,7 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
                 </span>
               </label>
               {canEdit && (
-                <AddPhotoButton className="btn-secondary" style={{ fontSize: '11px', padding: '3px 8px' }} iconSize={12}
+                <AddPhotoButton camera className="btn-secondary" style={{ fontSize: '11px', padding: '3px 8px' }} iconSize={12}
                                 disabled={busyLineId === line.id}
                                 onFiles={([f]) => {
                                   const bad = imageFilesError([f]);
@@ -4504,8 +4504,9 @@ function App() {
                                         e.target.value = '';
                                       }}
                                     />
-                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                                      Select several at once — hold Ctrl (or ⌘) while choosing. Up to 5 photos.
+                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                      <CameraButton onFiles={(files) => pickCompletionPhotos(order.id, files)} />
+                                      <span>Select several at once — hold Ctrl (or ⌘) while choosing. Up to 5 photos.</span>
                                     </div>
                                     {(() => {
                                       // What is about to go up, then what already went up: the
@@ -6609,7 +6610,7 @@ function App() {
                           per-user (UserAvatar), so the owner can set theirs too. */}
                       <label className="at-account-camera" title="Change photo">
                         <Camera size={16} />
-                        <input type="file" accept="image/*" hidden
+                        <input type="file" accept="image/*" capture="environment" hidden
                                onChange={async (e) => {
                                  const f = e.target.files?.[0];
                                  if (!f) return;
@@ -6735,7 +6736,7 @@ function App() {
                                        onChange={(e) => pickLogo(e.target.files?.[0] || null)} />
                               </div>
                             ) : (
-                              <Dropzone
+                              <Dropzone camera
                                         title="Drag & drop your logo here" subtitle="or choose a file from your device"
                                         chooseLabel="Choose file"
                                         onFiles={(files) => pickLogo(files[0] || null)} />
@@ -7022,6 +7023,9 @@ function App() {
                       setDesignImageFile(f);
                     }}
                   />
+                  <div style={{ marginTop: '8px' }}>
+                    <CameraButton onFiles={([f]) => setDesignImageFile(f || null)} />
+                  </div>
                 </Field>
 
                 {/* 255: the width of BoutiqueDesign.image_url on the server. */}
@@ -8780,7 +8784,7 @@ function App() {
                     </div>
                   )}
                   {stageReviewImages.length < 5 && (
-                    <Dropzone compact multiple
+                    <Dropzone compact multiple camera
                               title="Drag & drop images here" subtitle="or choose from your device — several at once"
                               chooseLabel={stageReviewImages.length ? 'Add more' : 'Add photos'}
                               onFiles={(files) => {
