@@ -163,6 +163,9 @@ class RolePermission(ModuleAccess):
         'assign_stage', 'upload_garment_image', 'delete_garment_image',
         'publish_garment_images',
         'master_verification', 'review_photo', 'set_flow',
+        # Opening a submitted stage is the verifier's act; the tick it leaves
+        # is what the worker reads, so a worker cannot leave it themselves.
+        'stage_seen',
         # What the cutting table actually used, and what became offcuts, is
         # recorded by the Master standing at it.
         'consume',

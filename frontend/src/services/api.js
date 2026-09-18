@@ -459,6 +459,17 @@ export const api = {
   },
 
   // Nominate who should perform a stage. Pass tailorId null to clear it.
+  // A verifier opened a submitted stage. Idempotent on the server: the
+  // first open leaves the "seen" tick and tells the worker, later ones do
+  // nothing, so this is safe to call on every open.
+  async markStageSeen(orderId, stageKey) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/stage-seen/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify({ stage_key: stageKey }),
+    });
+    if (!res.ok) await failWith(res, 'Could not mark the stage as seen');
+    return res.json();
+  },
+
   async assignStage(orderId, stageKey, tailorId) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/assign-stage/`, {
       method: 'POST',

@@ -379,6 +379,9 @@ class OrderService:
 
         old_status = order_stage.status
         order_stage.status = new_status
+        if new_status == 'PENDING_VERIFICATION' and old_status != 'PENDING_VERIFICATION':
+            order_stage.verification_seen_by = ''
+            order_stage.verification_seen_at = None
         if comments:
             order_stage.comments = comments
         if rejected:

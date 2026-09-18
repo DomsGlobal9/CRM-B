@@ -1279,6 +1279,48 @@ class VerificationTests(WorkflowTestBase):
         self.assertTrue(Notification.objects.filter(
             recipient_role="Master", title__startswith="Verify").exists())
 
+    def _client(self, user):
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Token " + Token.objects.create(user=user).key,
+                           HTTP_X_TENANT_ID=self.tenant.schema_name)
+        return client
+
+    def test_the_master_opening_a_submission_ticks_it_and_tells_the_tailor(self):
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+        self._submit(order, "stitching_in_progress", files=[self.work_photo()])
+        url = reverse("order-stage-seen", args=[order.id])
+
+        # The tailor opening their own submission is not it being seen.
+        r = self._client(self.tailor_user).post(url, {"stage_key": "stitching_in_progress"}, format="json")
+        self.assertEqual(r.status_code, 403, r.data)
+        self.assertIsNone(self.stage(order, "stitching_in_progress").verification_seen_at)
+
+        r = self._client(self.master_user).post(url, {"stage_key": "stitching_in_progress"}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(r.data["verification_seen_by"], "Rohit Mehra")
+        first_seen = r.data["verification_seen_at"]
+        self.assertIsNotNone(first_seen)
+        pings = Notification.objects.filter(recipient_role="Tailor", title__contains="opened your")
+        self.assertEqual(pings.count(), 1)
+        self.assertIn("Rohit Mehra", pings.get().title)
+
+        # Opening it again is the same "seen": no second stamp, no second ping.
+        r = self._client(self.owner).post(url, {"stage_key": "stitching_in_progress"}, format="json")
+        self.assertEqual(r.data["verification_seen_at"], first_seen)
+        self.assertEqual(r.data["verification_seen_by"], "Rohit Mehra")
+        self.assertEqual(pings.count(), 1)
+
+        # Sent back and resubmitted: a fresh submission, a fresh tick.
+        OrderService.transition_order_stage(
+            order=order, stage_key="stitching_in_progress", new_status="IN_PROGRESS",
+            user=self.master_user, comments="Hem is crooked")
+        self._submit(order, "stitching_in_progress", files=[self.work_photo()])
+        stage = self.stage(order, "stitching_in_progress")
+        self.assertEqual(stage.status, "PENDING_VERIFICATION")
+        self.assertIsNone(stage.verification_seen_at)
+        self.assertEqual(stage.verification_seen_by, "")
+
     def test_the_photo_is_mandatory(self):
         order = self.make_order()
         self.reach(order, "stitching_in_progress")
