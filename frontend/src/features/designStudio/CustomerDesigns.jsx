@@ -359,7 +359,7 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
           </div>
         </div>
       ) : (
-        <Dropzone onFiles={pick} title="Drag & drop the sketch here"
+        <Dropzone camera onFiles={pick} title="Drag & drop the sketch here"
                   chooseLabel="Add photo"
                   hint="A clear photograph of the paper drawing. JPG, PNG or any image." />
       )}

@@ -14,9 +14,27 @@
       "port": 8000
     },
     {
+      "name": "django-backend-win",
+      "runtimeExecutable": "venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "manage.py",
+        "runserver",
+        "8000"
+      ],
+      "port": 8000
+    },
+    {
       "name": "vite-preview-prod",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "run", "preview", "--", "--port", "4173"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "preview",
+        "--",
+        "--port",
+        "4173"
+      ],
       "port": 4173
     },
     {
