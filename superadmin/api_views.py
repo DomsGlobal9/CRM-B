@@ -9,7 +9,7 @@ from core import modules as module_registry
 from tenants.middleware import clear_platform_cache, clear_tenant_cache
 from tenants.models import BoutiqueTenant
 
-from . import audit, health, onboarding, search as search_module, users as users_module
+from . import audit, health, onboarding, search as search_module, users as users_module, signins
 from .metrics import operational_metrics, tenant_metrics
 from .models import AuditLog, ErrorEvent, FeatureFlag, PlatformSetting
 from .permissions import IsPlatformAdmin
@@ -139,7 +139,8 @@ class ModulesView(ConsoleView):
             **module_registry.catalogue(),
             'boutiques': [
                 {'schema_name': t.schema_name, 'name': t.name, 'is_active': t.is_active,
-                 'enabled_modules': t.enabled_modules or {}}
+                 'plan': t.plan, 'enabled_modules': t.enabled_modules or {},
+                 'entitled': module_registry.entitled_modules(t.plan, t.enabled_modules)}
                 for t in _boutiques()
             ],
         })
@@ -153,25 +154,39 @@ class BoutiqueModulesView(ConsoleView):
             return Response({'error': 'No such boutique.'}, status=status.HTTP_404_NOT_FOUND)
 
         requested = request.data.get('modules')
-        if not isinstance(requested, dict) or not requested:
+        plan = request.data.get('plan')
+        if plan is None and (not isinstance(requested, dict) or not requested):
             return Response(
-                {'error': 'Send {"modules": {"<key>": true|false, ...}}.'},
+                {'error': 'Send {"plan": "<key>"} and/or {"modules": {"<key>": true|false|null, ...}}.'},
                 status=status.HTTP_400_BAD_REQUEST)
+        if plan is not None and plan not in module_registry.PLANS:
+            return Response({'error': f'No such plan: {plan}.',
+                             'plans': sorted(module_registry.PLANS)},
+                            status=status.HTTP_400_BAD_REQUEST)
 
-        unknown = sorted(set(requested) - set(module_registry.MODULES))
+        requested = requested if isinstance(requested, dict) else {}
+        switchable = set(module_registry.MODULES) - module_registry.INFRASTRUCTURE
+        unknown = sorted(set(requested) - switchable)
         if unknown:
             return Response(
                 {'error': f"Not switchable modules: {', '.join(unknown)}.",
-                 'switchable': sorted(module_registry.MODULES)},
+                 'switchable': sorted(switchable)},
                 status=status.HTTP_400_BAD_REQUEST)
 
-        before = dict(tenant.enabled_modules or {})
-        after = dict(before)
+        before = {'plan': tenant.plan, 'enabled_modules': dict(tenant.enabled_modules or {})}
+        after_overrides = dict(before['enabled_modules'])
         for key, value in requested.items():
-            after[key] = bool(value)
+            # null clears an override so the module follows the plan again.
+            if value is None:
+                after_overrides.pop(key, None)
+            else:
+                after_overrides[key] = bool(value)
+        after_plan = plan if plan is not None else tenant.plan
+        after = {'plan': after_plan, 'enabled_modules': after_overrides}
 
         with transaction.atomic():
-            BoutiqueTenant.objects.filter(pk=tenant.pk).update(enabled_modules=after)
+            BoutiqueTenant.objects.filter(pk=tenant.pk).update(
+                plan=after_plan, enabled_modules=after_overrides)
 
         clear_tenant_cache()
 
@@ -181,7 +196,8 @@ class BoutiqueModulesView(ConsoleView):
 
         return Response({
             'schema_name': schema_name,
-            'enabled_modules': after,
+            **after,
+            'entitled': module_registry.entitled_modules(after_plan, after_overrides),
             'note': 'Other server workers apply this within 5 minutes.',
         })
 
@@ -332,6 +348,8 @@ class ConfigView(ConsoleView):
             'credentials': {
                 'email_host': bool(getattr(django_settings, 'EMAIL_HOST', '')),
                 'supabase': bool(django_settings.SUPABASE_URL and django_settings.SUPABASE_KEY),
+                'cloudinary': bool(django_settings.CLOUDINARY_URL),
+                'guardian_whatsapp_number': bool(django_settings.GUARDIAN_WHATSAPP_NUMBER),
                 'customer_message_backend': bool(django_settings.CUSTOMER_MESSAGE_BACKEND),
                 'design_studio_pinterest': bool(django_settings.DESIGN_STUDIO_PINTEREST_TOKEN),
                 'design_studio_google': bool(django_settings.DESIGN_STUDIO_GOOGLE_API_KEY),
@@ -507,6 +525,13 @@ class ErrorDetailView(ConsoleView):
 
 
 
+class SigninsView(ConsoleView):
+
+    def get(self, request):
+        with public_scope():
+            return Response(signins.summary())
+
+
 class AuditView(ConsoleView):
 
     def get(self, request):
@@ -616,7 +641,9 @@ class SupportView(ConsoleView):
                 'schema_name': tenant.schema_name, 'name': tenant.name,
                 'owner_email': tenant.owner_email, 'created_on': tenant.created_on,
                 'is_active': tenant.is_active,
+                'plan': tenant.plan,
                 'enabled_modules': tenant.enabled_modules or {},
+                'entitled': module_registry.entitled_modules(tenant.plan, tenant.enabled_modules),
                 'design_system': tenant.design_system,
                 'color_mode': tenant.color_mode,
             },

@@ -44,7 +44,7 @@ export default function Leads() {
     <>
       <SectionHead
         title="Demo requests"
-        subtitle="From the form on scaleezy.com. Status and notes are yours; everything else is what they typed."
+        subtitle="People who asked for a demo on scaleezy.com. Status and notes are yours to edit."
       />
 
       <Async

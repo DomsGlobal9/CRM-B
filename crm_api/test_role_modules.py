@@ -196,7 +196,7 @@ class UnconfiguredBoutiqueTests(RoleModuleBase):
 
         self.assertEqual(response.data['role_modules'], {})
         self.assertEqual(response.data['effective'],
-                         {role: effective_modules({}, {}, role) for role in ALL_ROLES})
+                         {role: effective_modules('atelier', {}, {}, role) for role in ALL_ROLES})
 
 
 class EntitlementTests(RoleModuleBase):

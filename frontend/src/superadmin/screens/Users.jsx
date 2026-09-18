@@ -158,10 +158,8 @@ export default function Users({ route }) {
   return (
     <>
       <SectionHead
-        title="Users"
-        subtitle="Staff accounts, read live from every boutique's own schema. This product
-                  keeps no sign-in history — nothing writes last_login — so that column says
-                  not tracked rather than claiming nobody has ever signed in."
+        title="Staff accounts"
+        subtitle="Every staff account on every boutique. Deactivate, sign out everywhere, or send a one-time sign-in link. The product does not record last sign-in, so that column says not recorded."
       >
         <SearchBox value={filters.q} onChange={set('q')} placeholder="Name, username or email…" />
         <Select value={filters.boutique} onChange={set('boutique')} label="Boutique"

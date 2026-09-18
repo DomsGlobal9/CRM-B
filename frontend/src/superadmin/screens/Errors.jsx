@@ -168,9 +168,8 @@ export default function Errors({ route, onBadges }) {
   return (
     <>
       <SectionHead
-        title="Error Center"
-        subtitle="Unhandled server exceptions — the ones nothing caught. Everything the
-                  product handled is under Error Handling."
+        title="Crashes"
+        subtitle="Requests that failed outright and showed someone an error. Everything the product recovered from is under Other errors."
       >
         <SearchBox value={filters.q} onChange={(q) => set({ q })}
           placeholder="Exception, message or path…" />
@@ -199,9 +198,9 @@ export default function Errors({ route, onBadges }) {
                     and its in-project stack frames. An empty feed means there is nothing to
                     capture, not that nothing is watching — but it is not a clean bill of
                     health either: a failure the code caught and carried on from never
-                    reaches this screen. Those are under Error Handling."
+                    reaches this screen. Those are under Other errors."
             action={<button className="sa-btn" onClick={() => route.go('handling')}>
-              Open Error Handling
+              Open Other errors
             </button>}
           />
         )}

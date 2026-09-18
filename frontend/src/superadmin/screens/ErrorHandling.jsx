@@ -61,10 +61,10 @@ const KINDS = [
   {
     key: 'handled',
     noun: 'a swallowed failure',
-    label: 'Handled',
+    label: 'Recovered from',
     icon: PackageX,
     resolvable: true,
-    title: 'Failures the code caught and carried on from',
+    title: 'Things that failed quietly while the product carried on',
     blurb: 'Each row is a place the product decided it could continue. That decision is '
       + 'usually right — an order should not fail to save because its confirmation email '
       + 'did not send — but the failure is real and the customer was never told. These are '
@@ -96,10 +96,10 @@ const KINDS = [
   {
     key: 'refusal',
     noun: 'a refusal',
-    label: 'Refusals',
+    label: 'Blocked on purpose',
     icon: Ban,
     resolvable: false,
-    title: 'Your own controls, saying no',
+    title: 'Requests your own controls turned away (suspension, switched-off features)',
     blurb: 'Not defects — the platform working as you configured it. This is the feedback '
       + 'loop the console was missing: a module you switched off, a boutique you suspended '
       + 'and maintenance mode all produce refusals, and until now none of them left a '
@@ -133,10 +133,10 @@ const KINDS = [
   {
     key: 'client',
     noun: 'a deliberate 4xx',
-    label: 'Client 4xx',
+    label: 'Bad requests',
     icon: MessageSquareWarning,
     resolvable: false,
-    title: 'Requests the API refused on purpose',
+    title: 'Requests the product rejected as invalid — mostly form validation',
     blurb: 'Mostly validation, and mostly the system working. Read this tab in aggregate, '
       + 'never row by row: one endpoint rejecting the same boutique hundreds of times is a '
       + 'screen that is asking people for something they cannot give, and that is a product '
@@ -168,10 +168,10 @@ const KINDS = [
   {
     key: 'frontend',
     noun: 'a browser crash',
-    label: 'Frontend',
+    label: 'Browser crashes',
     icon: MonitorX,
     resolvable: true,
-    title: 'Crashes in the browser',
+    title: 'Screens that went blank in the browser',
     blurb: 'The server answered every one of these requests correctly. The screen still went '
       + 'blank. Reported by the error boundary around the boutique workspace, so the stack '
       + 'below is a React component stack, not this project’s Python.',
@@ -342,7 +342,7 @@ export default function ErrorHandling({ route, onBadges }) {
 
   return (
     <>
-      <SectionHead title="Error Handling" subtitle={kind.title}>
+      <SectionHead title="Other errors" subtitle={kind.title}>
         <SearchBox value={filters.q} onChange={(q) => set({ q })}
           placeholder="Exception, message or path…" />
         <Select value={filters.status} onChange={(status) => set({ status })}
@@ -399,7 +399,7 @@ export default function ErrorHandling({ route, onBadges }) {
                   crash count is the number they must not be added to. */}
               <Stat label="Unresolved crashes" value={count(data.summary.unresolved)}
                 tone={data.summary.unresolved > 0 ? 'warn' : undefined}
-                note="The Error Center, not this screen"
+                note="Under Crashes, not this screen"
                 onClick={() => route.go('errors')} />
             </div>
 

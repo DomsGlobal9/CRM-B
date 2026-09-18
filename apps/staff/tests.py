@@ -316,8 +316,8 @@ class StaffModuleGateTests(StaffProfileTestCase):
     def test_the_staff_module_is_on_for_a_boutique_that_has_no_opinion(self):
         """Absent means enabled -- or shipping this would switch it off for all."""
         from core.modules import default_enabled, is_enabled
-        self.assertTrue(is_enabled({}, 'staff'))
-        self.assertTrue(is_enabled({'inventory': False}, 'staff'))
+        self.assertTrue(is_enabled('atelier', {}, 'staff'))
+        self.assertTrue(is_enabled('atelier', {'inventory': False}, 'staff'))
         self.assertIs(default_enabled()['staff'], True)
 
     def test_gating_staff_does_not_gate_the_roster(self):

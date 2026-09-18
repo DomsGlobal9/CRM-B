@@ -730,7 +730,9 @@ class TemplateBackfillTests(StudioTestCase):
             attributes={'sleeve': 'Elbow', 'neck': 'Something Bespoke'})
         self._run()
         asset.refresh_from_db()
-        self.assertEqual(asset.spec_tags, {'sleeve_length': 'elbow', 'occasion': 'wedding'})
+        # Occasion left the order form in 62162e5, so it is no longer a tag
+        # the form can offer -- same rule that drops the bespoke neck.
+        self.assertEqual(asset.spec_tags, {'sleeve_length': 'elbow'})
 
     def test_existing_tags_are_not_overwritten(self):
         asset = DesignAsset.objects.create(

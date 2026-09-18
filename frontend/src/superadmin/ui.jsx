@@ -71,9 +71,25 @@ export const TONES = {
   not_configured: 'muted', not_tracked: 'muted', ignored: 'muted', unknown: 'muted',
 };
 
+/** Plain words for the statuses the server speaks in. Anything not listed is
+ * shown as-is with underscores turned to spaces. */
+export const WORDS = {
+  healthy: 'working', ok: 'ok', warning: 'keep an eye on', degraded: 'partly working',
+  critical: 'needs action', offline: 'down', not_configured: 'not set up',
+  not_tracked: 'not recorded', unreadable: 'cannot be read',
+  new: 'new', acknowledged: 'being looked at', resolved: 'fixed', ignored: 'ignored',
+  crash: 'crash', handled: 'handled', refusal: 'refused on purpose', client: 'bad request',
+  frontend: 'browser crash', high: 'serious', medium: 'moderate', low: 'minor',
+};
+
+export const wordFor = (value) => {
+  const key = String(value).toLowerCase();
+  return WORDS[key] ?? key.replace(/_/g, ' ');
+};
+
 export function Pill({ value, label, tone }) {
   const resolved = tone || TONES[String(value).toLowerCase()] || 'info';
-  return <span className={`sa-pill ${resolved}`}>{label ?? String(value).replace(/_/g, ' ')}</span>;
+  return <span className={`sa-pill ${resolved}`}>{label ?? wordFor(value)}</span>;
 }
 
 /* ---------------------------------------------------------------- toast */

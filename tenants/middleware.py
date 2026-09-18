@@ -52,7 +52,7 @@ def clear_tenant_cache():
     _tenant_cache.clear()
 
 
-_CONTROL_COLUMNS = ('is_active', 'enabled_modules')
+_CONTROL_COLUMNS = ('is_active', 'plan', 'enabled_modules')
 
 
 class TenantGone(Exception):
@@ -183,7 +183,7 @@ class TenantHeaderMiddleware(TenantMainMiddleware):
             except domain_model.DoesNotExist:
                 tenant = _get_tenant_by_schema(tenant_model, public_schema_name)
 
-        control = {'is_active': True, 'enabled_modules': {}}
+        control = {'is_active': True, 'plan': 'atelier', 'enabled_modules': {}}
         if tenant is not None and tenant.schema_name != public_schema_name:
             try:
                 control = _control_state(tenant_model, tenant)
@@ -212,7 +212,7 @@ class TenantHeaderMiddleware(TenantMainMiddleware):
 
         if tenant is not None:
             module = module_for_path(request.path)
-            if module is not None and not is_enabled(control['enabled_modules'], module):
+            if module is not None and not is_enabled(control['plan'], control['enabled_modules'], module):
                 # The module goes in the reason, not just the message, so the
                 # console shows one row per switched-off module rather than one
                 # row for "a module was off" that keeps rewriting itself.

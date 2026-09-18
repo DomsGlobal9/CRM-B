@@ -21,7 +21,8 @@ from django.db import connection, transaction
 from tenants.models import BoutiqueTenant, Domain
 from tenants.provision import provision_tenant
 from django_tenants.utils import schema_context
-from core.modules import MODULE_GROUP, effective_modules
+from superadmin import signins
+from core.modules import DEFAULT_PLAN, MODULE_GROUP, effective_modules
 from core.roles import OWNER, resolve_user_role
 from apps.email_service.services import EmailService
 
@@ -117,8 +118,10 @@ def user_payload(user, role=None):
     # off can linger in the navigation for that long. The gate itself reads a
     # fresh row every request, so the stale case is a dead nav item that 403s,
     # not access. Read the control row here too if that becomes a support call.
+    tenant = getattr(connection, 'tenant', None)
     modules = effective_modules(
-        getattr(getattr(connection, 'tenant', None), 'enabled_modules', None),
+        getattr(tenant, 'plan', None),
+        getattr(tenant, 'enabled_modules', None),
         _role_modules(),
         role,
     )
@@ -242,7 +245,11 @@ class SignupView(views.APIView):
                     schema_name=schema_name,
                     owner_email=email,
                     name=(request.data.get('business_name') or '').strip()
-                         or f"{first_name}'s Boutique"
+                         or f"{first_name}'s Boutique",
+                    # The business decision lives here, not in the column
+                    # default: a boutique that signs up starts on the smallest
+                    # plan and is moved up from the console.
+                    plan=DEFAULT_PLAN,
                 )
             
                 Domain.objects.create(
@@ -335,12 +342,14 @@ class LoginView(views.APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
             LoginThrottle.record_failure(request)
+            signins.record(request, 'login', username_or_email, ok=False)
             return Response(
                 {"error": "Invalid login credentials. Please try again."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         tenant, user = authenticated
+        signins.record(request, 'login', user.username, ok=True, boutique=tenant.schema_name)
         connection.set_tenant(tenant)
 
         try:
@@ -442,6 +451,8 @@ class PasswordResetRequestView(views.APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         tenant = find_tenant_for_account(email)
+        signins.record(request, 'reset', email, ok=bool(tenant),
+                       boutique=tenant.schema_name if tenant else '')
         if not tenant:
             return Response(self.ANSWER, status=status.HTTP_200_OK)
 

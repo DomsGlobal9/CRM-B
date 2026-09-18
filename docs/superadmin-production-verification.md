@@ -1,3 +1,4 @@
+# Super Admin — controlled production verification
 
 **FINAL STATUS: PRODUCTION BLOCKED**
 
@@ -11,6 +12,7 @@ gathered against a local database.
 
 ---
 
+## 1. The finding that governs this phase
 
 Every branch — `main`, `TEST`, `DEV`, and `origin/MSK-CL` — points at
 `337a1fe97f3428e69db792e906c018658bd32539`. All of the hardening work is
@@ -27,6 +29,7 @@ So the deployed build contains none of it: no `/admin/` pin, no global
 schema-switch guard, no data-browser related-object fix, no audit additions, no
 mobile or focus fixes.
 
+### Confirmed live against the production service
 
 `https://crm-b-sitt.onrender.com` is up and answering. A single unauthenticated
 GET, using a tenant id that does not exist so that nothing real is touched:
@@ -61,6 +64,7 @@ main` → deploy → then re-run this gate.
 
 ---
 
+## 2. Environment
 
 | | |
 |---|---|
@@ -73,6 +77,7 @@ main` → deploy → then re-run this gate.
 | Local verification DB | PostgreSQL `boutique_crm`, 8 boutiques |
 | Workers | verified locally at the deployment configuration (gunicorn, 2 × 4 gthread); production worker count not observable from here |
 
+### Production database access
 
 ```
 .env DB_PORT = 6543   <-- the TRANSACTION pooler, which settings.py documents
@@ -88,6 +93,7 @@ configuration variants rather than trying further combinations. **Nothing in
 
 ---
 
+## 3. Code freeze (§1)
 
 | Check | Result |
 |---|---|
@@ -102,6 +108,7 @@ configuration variants rather than trying further combinations. **Nothing in
 | No hardcoded production credentials | **FAIL — see below** |
 | No temporary logging exposing sensitive data | PASS for this changeset; one **pre-existing** issue below |
 
+### FAIL — a live GitHub token is stored in the git remote
 
 `.git/config` carries a personal access token embedded in the `origin` URL
 (`https://ghp_…@github.com/sanjaydoms/CRM-B.git`). It is not committed — `.git/config`
@@ -118,6 +125,7 @@ git remote set-url origin git@github.com:sanjaydoms/CRM-B.git
 I have not done this, because rotating a credential and changing how the
 repository authenticates is your decision, not a verification step.
 
+### Pre-existing, worth knowing before deploy
 
 * `crm_api/auth_views.py:546` logs the **password-reset link** when mail delivery
   fails. On a deployment with no `EMAIL_HOST` the console backend never raises,
@@ -130,6 +138,7 @@ repository authenticates is your decision, not a verification step.
 
 ---
 
+## 4. What was and was not verified in production
 
 | § | Check | Result |
 |---|---|---|
@@ -161,6 +170,7 @@ its CRM. That choice is yours to name.
 
 ---
 
+## 5. The pre-deploy check that still matters most
 
 `superadmin/schemas.py:schema_exists()` now delegates to django-tenants'
 `pg_catalog.pg_namespace` lookup, replacing `information_schema.schemata`, which
@@ -191,6 +201,7 @@ necessary rather than cosmetic.
 
 ---
 
+## 6. Evidence gathered (controlled environment)
 
 Recorded honestly as **controlled-environment** evidence, not production.
 
@@ -231,6 +242,7 @@ No password, token or secret appears in any audit row.
 
 ---
 
+## 7. State restoration (§15)
 
 | Check | Result |
 |---|---|
@@ -245,6 +257,7 @@ No password, token or secret appears in any audit row.
 
 ---
 
+## 8. Remaining risks
 
 **P0**
 * **The Django-admin privilege escalation is live in production.** Confirmed by
@@ -291,6 +304,7 @@ O(tenants) console pages — revisit at 50 boutiques.
 
 ---
 
+## 9. What has to happen next
 
 1. **Revoke the GitHub token** in `.git/config` and re-point the remote.
 2. **Commit** the changeset on `MSK-CL`.

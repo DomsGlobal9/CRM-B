@@ -1,5 +1,6 @@
 
 from django.contrib.auth.models import User
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.urls import reverse
 from django_tenants.test.cases import TenantTestCase
@@ -11,6 +12,10 @@ from crm_api.models import (
     BoutiqueSettings, Customer, Measurement, Notification, Order, Tailor,
 )
 from domains.orders.services import OrderService
+
+
+def work_photo():
+    return SimpleUploadedFile("work.jpg", b"jpeg-bytes", content_type="image/jpeg")
 
 
 class QCDiscoveryTestBase(TenantTestCase):
@@ -116,10 +121,17 @@ class QCQueueTests(QCDiscoveryTestBase):
         order = self.reach(self.make_order(), 'master_quality_check')
         self.assertIn(order.order_id, self.visible_ids(self.qc.user))
 
+        # QC submits with a photo; the stage sits in their queue, pending,
+        # until the Master verifies it. Only then is the work done.
         OrderService.transition_order_stage(
             order=order, stage_key='master_quality_check',
-            new_status='COMPLETED', user=self.qc.user)
+            new_status='COMPLETED', user=self.qc.user, files=[work_photo()])
+        self.assertIn(order.order_id, self.visible_ids(self.qc.user),
+                      'submitted work is still theirs until it is verified')
 
+        OrderService.transition_order_stage(
+            order=order, stage_key='master_quality_check',
+            new_status='COMPLETED', user=self.master.user)
         self.assertNotIn(order.order_id, self.visible_ids(self.qc.user),
                          'finished work is not still waiting')
 
@@ -172,7 +184,15 @@ class QCInspectionTests(QCDiscoveryTestBase):
         response = self.qc_client.post(
             reverse('order-transition-stage', args=[order.id]),
             {'stage_key': 'master_quality_check', 'status': 'COMPLETED',
-             'comments': 'Hem even, beading secure.'}, format='json')
+             'comments': 'Hem even, beading secure.', 'images': work_photo()},
+            format='multipart')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(order.stages.get(stage_key='master_quality_check').status,
+                         'PENDING_VERIFICATION')
+
+        response = self.master_client.post(
+            reverse('order-transition-stage', args=[order.id]),
+            {'stage_key': 'master_quality_check', 'status': 'COMPLETED'}, format='json')
         self.assertEqual(response.status_code, 200, response.data)
 
         order.refresh_from_db()
@@ -255,4 +275,4 @@ class QueueNotificationTests(QCDiscoveryTestBase):
         OrderService.transition_order_stage(
             order=order, stage_key='pressing', new_status='COMPLETED', user=self.owner)
         note = Notification.objects.get(recipient_role='QC Staff')
-        self.assertIn('Master Quality Check', note.title)
+        self.assertIn('Master quality check', note.title)
