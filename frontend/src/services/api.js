@@ -650,13 +650,16 @@ export const api = {
     return res.json();
   },
 
-  async transitionStage(orderId, stageKey, status, comments, imageFiles = [], performedById = null, voiceNote = null) {
+  async transitionStage(orderId, stageKey, status, comments, imageFiles = [], performedById = null, voiceNote = null, clearVoiceNote = false) {
     const formData = new FormData();
     formData.append('stage_key', stageKey);
     formData.append('status', status);
     if (comments) formData.append('comments', comments);
     if (performedById) formData.append('performed_by_id', performedById);
     if (voiceNote) formData.append('voice_note', voiceNote);
+    // Deleting a sent recording: a note with no clip and possibly no text,
+    // which the server otherwise treats as nothing to save.
+    if (clearVoiceNote) formData.append('voice_note_clear', '1');
     
     if (imageFiles && imageFiles.length > 0) {
       imageFiles.forEach(file => {

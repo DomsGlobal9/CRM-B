@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mic, Square, Volume2 } from 'lucide-react';
+import { Mic, Square, Volume2, Send, Trash2 } from 'lucide-react';
 
 /**
  * Voice on the update boxes, with nothing behind it but the browser.
@@ -230,6 +230,160 @@ export function VoiceClipPreview({ blob, url, onRemove }) {
           Remove
         </button>
       )}
+    </div>
+  );
+}
+
+
+/**
+ * A voice note on its own: record, hear it back, send it or throw it away.
+ *
+ * Separate from the dictation mic on the textarea. Here nothing is
+ * transcribed -- what the other person gets is the recording, under the name
+ * of whoever sent it -- and nothing leaves the browser until Send is pressed.
+ * While recording, a pulsing dot and bars show the mic is live; the clip stops
+ * itself at MAX_SECONDS.
+ *
+ * `sent` is the recording already on the record ({url, by, at}); `onSend(blob)`
+ * uploads and saves and resolves when the note is stored; `onDelete()` removes
+ * the stored one. Both may throw; the button then just says so.
+ */
+const RECORDER_KEYFRAMES = `
+@keyframes vn-pulse { 0%,100% { transform: scale(1); opacity: 1 } 50% { transform: scale(1.6); opacity: .45 } }
+@keyframes vn-bar { 0%,100% { transform: scaleY(.3) } 50% { transform: scaleY(1) } }
+`;
+
+export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label = 'Record voice note', onRecordingChange }) {
+  const [phase, setPhase] = useState('idle');   // idle | recording | preview | sending | deleting
+  const [blob, setBlob] = useState(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [error, setError] = useState('');
+  const mediaRef = useRef(null);
+  const timerRef = useRef(null);
+
+  useEffect(() => () => {
+    clearInterval(timerRef.current);
+    try { mediaRef.current?.stop(); } catch { /* not recording */ }
+  }, []);
+  useEffect(() => { onRecordingChange?.(phase === 'recording'); }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const stop = () => {
+    clearInterval(timerRef.current);
+    const recorder = mediaRef.current;
+    mediaRef.current = null;
+    if (recorder && recorder.state !== 'inactive') { try { recorder.stop(); } catch { /* noop */ } }
+  };
+
+  const start = async () => {
+    setError('');
+    if (!canRecord()) { setError('This browser cannot record audio.'); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg']
+        .find((t) => MediaRecorder.isTypeSupported(t)) || '';
+      const recorder = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        if (chunks.length) { setBlob(new Blob(chunks, { type: recorder.mimeType || type || 'audio/webm' })); setPhase('preview'); }
+        else setPhase('idle');
+      };
+      recorder.start();
+      mediaRef.current = recorder;
+      setPhase('recording');
+      setElapsed(0);
+      const startedAt = Date.now();
+      timerRef.current = setInterval(() => {
+        const s = Math.floor((Date.now() - startedAt) / 1000);
+        setElapsed(s);
+        if (s >= MAX_SECONDS) stop();
+      }, 500);
+    } catch {
+      setError('The microphone could not be opened. Allow it in the browser, then try again.');
+    }
+  };
+
+  const discard = () => { setBlob(null); setPhase('idle'); setElapsed(0); };
+
+  const send = async () => {
+    if (!blob) return;
+    setPhase('sending'); setError('');
+    try { await onSend(blob); setBlob(null); setPhase('idle'); }
+    catch (err) { setError(err?.message || 'Could not send the voice note.'); setPhase('preview'); }
+  };
+
+  const remove = async () => {
+    if (!onDelete) return;
+    setPhase('deleting'); setError('');
+    try { await onDelete(); setPhase('idle'); }
+    catch (err) { setError(err?.message || 'Could not delete the voice note.'); setPhase('idle'); }
+  };
+
+  const when = sent?.at ? new Date(sent.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+  const small = { padding: '4px 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' };
+
+  return (
+    <div className="voice-recorder" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <style>{RECORDER_KEYFRAMES}</style>
+
+      {phase === 'idle' && sent?.url && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <VoiceNotePlayer src={sent.url} style={{ flex: '1 1 200px', marginTop: 0 }} />
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary, #555)' }}>
+            Voice note from <strong>{sent.by || 'someone'}</strong>{when ? ` · ${when}` : ''}
+          </span>
+          {onDelete && (
+            <button type="button" className="btn-secondary" style={small} disabled={disabled} onClick={remove}
+                    title="Delete this voice note">
+              <Trash2 size={13} /> Delete
+            </button>
+          )}
+        </div>
+      )}
+
+      {phase === 'idle' && (
+        <div>
+          <button type="button" className="btn-secondary" style={small} disabled={disabled || !canRecord()} onClick={start}>
+            <Mic size={13} /> {sent?.url ? 'Record a new voice note' : label}
+          </button>
+        </div>
+      )}
+
+      {phase === 'recording' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', borderRadius: '10px',
+                      background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.35)' }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#dc2626', display: 'inline-block',
+                         animation: 'vn-pulse 1s ease-in-out infinite' }} />
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, height: 18 }} aria-hidden="true">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <span key={i} style={{ width: 3, height: 18, background: '#dc2626', borderRadius: 2, transformOrigin: 'center',
+                                     animation: `vn-bar ${0.7 + i * 0.13}s ease-in-out ${i * 0.1}s infinite` }} />
+            ))}
+          </span>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#dc2626', fontVariantNumeric: 'tabular-nums' }}>
+            Recording {mmss(elapsed)}
+          </span>
+          <button type="button" className="btn-primary" style={{ ...small, marginLeft: 'auto', background: '#dc2626', border: 'none' }} onClick={stop}>
+            <Square size={12} /> Stop
+          </button>
+        </div>
+      )}
+
+      {(phase === 'preview' || phase === 'sending') && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <VoiceClipPreview blob={blob} />
+          <button type="button" className="btn-primary" style={small} disabled={phase === 'sending'} onClick={send}>
+            <Send size={13} /> {phase === 'sending' ? 'Sending…' : 'Send'}
+          </button>
+          <button type="button" className="btn-secondary" style={small} disabled={phase === 'sending'} onClick={discard}>
+            <Trash2 size={13} /> Delete
+          </button>
+        </div>
+      )}
+
+      {phase === 'deleting' && <span style={{ fontSize: '12px', color: 'var(--text-secondary, #555)' }}>Deleting…</span>}
+      {error && <span style={{ fontSize: '12px', color: 'var(--danger-color, #b91c1c)' }}>{error}</span>}
     </div>
   );
 }

@@ -197,6 +197,48 @@ def notify_next_stage_owners(order):
         )
 
 
+def notify_voice_note(order, stage, sender_user, *, sender_name=''):
+    """A voice note was left: tell the people the order is in the hands of.
+
+    Personal rows for the tailor, the master and whoever the stage is assigned
+    to or performed by; one row each to the owner and every Master, since they
+    supervise the whole floor. The sender is skipped -- nobody needs telling
+    what they just said. `stage` None means the note is on the order's special
+    instructions rather than a stage. Title carries the order and the stage so
+    the bell says exactly where to listen.
+    """
+    from crm_api.models import Tailor
+    from core.roles import OWNER, resolve_user_role
+
+    where = stage.stage_name if stage is not None else 'Special instructions'
+    who = sender_name or 'Someone'
+    title = f"Voice note on {order.reference} · {where}"
+    message = f"{who} left a voice note on {where} of order {order.reference}. Open the stage to listen."
+
+    sender_profile = getattr(sender_user, 'tailor_profile', None) if sender_user else None
+    sender_role = resolve_user_role(sender_user) if sender_user else None
+
+    people = [order.tailor, order.master]
+    if stage is not None:
+        people += [stage.assigned_to, stage.performed_by]
+    people += list(Tailor.objects.filter(role='Master'))
+    seen = set()
+    for person in people:
+        if person is None or person.pk in seen:
+            continue
+        seen.add(person.pk)
+        if sender_profile is not None and person.pk == sender_profile.pk:
+            continue
+        email = person.email or (person.user.email if person.user_id else '')
+        if not email:
+            continue
+        Notification.objects.create(
+            title=title, message=message, recipient_role=person.role, recipient_email=email)
+
+    if sender_role != OWNER:
+        Notification.objects.create(title=title, message=message, recipient_role='Owner')
+
+
 def notify_verification(order, stage, *, submitted):
     """Submitted: tell the owner and Master there is work to verify.
     Sent back: tell the worker who did it, with the supervisor's note."""

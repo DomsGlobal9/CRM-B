@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../../services/api';
 import GarmentSummary from './GarmentSummary';
+import { SpeakButton, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 
 /**
  * "What to make", for a garment that has already been ordered.
@@ -30,7 +31,7 @@ const fallbackTemplate = (job) => ({
   ],
 });
 
-export default function OrderGarmentBrief({ jobs, specialInstructions }) {
+export default function OrderGarmentBrief({ jobs, specialInstructions, voiceNote, voiceNoteBy, voiceNoteAt }) {
   const [templates, setTemplates] = useState({});
 
   const keys = [...new Set((jobs || []).map((j) => j.template_key).filter(Boolean))];
@@ -79,10 +80,24 @@ export default function OrderGarmentBrief({ jobs, specialInstructions }) {
         {loading && <span className="ui-badge ui-badge--neutral">Loading details…</span>}
       </div>
       <GarmentSummary jobs={shaped} inventoryNames={inventoryNames} measurementsAsTable />
-      {specialInstructions && (
+      {(specialInstructions || voiceNote) && (
         <div className="garment-instructions">
           <div className="ui-eyebrow garment-section-title">Special instructions</div>
-          <div className="garment-instructions-text">{specialInstructions}</div>
+          {/* The words, read aloud on request, and the recording behind them
+              with who left it -- the tailor hears the owner, not a synthetic
+              voice, where there is one. */}
+          {specialInstructions && (
+            <div className="garment-instructions-text">
+              {specialInstructions}<SpeakButton text={specialInstructions} />
+            </div>
+          )}
+          <VoiceNotePlayer src={voiceNote} />
+          {voiceNote && (
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              Voice note from <strong>{voiceNoteBy || 'someone'}</strong>
+              {voiceNoteAt ? ` · ${new Date(voiceNoteAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
+            </div>
+          )}
         </div>
       )}
     </div>

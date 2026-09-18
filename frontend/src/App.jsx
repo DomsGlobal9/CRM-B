@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown, Mic } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { inventoryImage } from './services/inventoryImages';
@@ -58,7 +58,7 @@ import { ResponsiveCard } from './components/ui/ResponsiveCard';
 import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
-import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceClipPreview } from './components/ui/VoiceTextarea';
+import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceClipPreview, VoiceRecorder } from './components/ui/VoiceTextarea';
 
 /** Placeholder shown while a lazily loaded screen arrives. */
 // Whole-rupee money for the dashboard, Indian digit grouping. Paise are
@@ -675,7 +675,12 @@ function GarmentGallery({ order, onChanged }) {
   );
 }
 
-function StageTimeline({ stages, onSelectStage }) {
+// Which stages carry a voice note worth pointing at. Default: any stage with
+// a recording. Callers that know who is looking pass a narrower test, so a
+// person is not pointed at their own note.
+const anyVoiceNote = (stage) => Boolean(stage.voice_note);
+
+function StageTimeline({ stages, onSelectStage, hasVoiceNote = anyVoiceNote }) {
   const { t } = useLanguage();
   // Fifteen steps in a strip about four steps wide: opening an order on a
   // phone put "Created" on screen and whatever actually needs doing several
@@ -719,24 +724,34 @@ function StageTimeline({ stages, onSelectStage }) {
         const note = tone === 'live' ? STEP_LABEL.live
           : isCompleted && stage.completed_at ? shortDate(stage.completed_at) : '';
         const Icon = STAGE_ICONS[stage.stage_key] || Clock;
+        // A stage with a voice note on it is marked so the person the note
+        // is for can find it without opening every step.
+        const voiced = hasVoiceNote(stage);
         return (
           <div
             key={stage.id || stage.stage_key}
             ref={idx === activeIndex ? activeRef : null}
             role="listitem"
             tabIndex={0}
-            title={`${stage.stage_name} — ${STEP_LABEL[tone].toLowerCase()}`}
+            title={`${stage.stage_name} — ${STEP_LABEL[tone].toLowerCase()}${voiced ? ` · voice note from ${stage.voice_note_by || 'someone'}` : ''}`}
             className={`od-stage od-stage--${tone}${idx === 0 ? ' od-stage--first' : ''}${idx === arr.length - 1 ? ' od-stage--last' : ''}`}
             onClick={() => onSelectStage(stage)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectStage(stage); } }}
           >
             <div className="od-stage-row">
-              <span className="od-node">
+              <span className="od-node" style={voiced ? { boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.28)', borderColor: '#2563eb' } : undefined}>
                 <Icon size={16} />
                 {isCompleted && <span className="od-node-check"><Check size={9} strokeWidth={3} /></span>}
+                {voiced && (
+                  <span aria-label="Voice note" style={{
+                    position: 'absolute', top: '-5px', left: '-5px', width: '16px', height: '16px', borderRadius: '50%',
+                    background: '#2563eb', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    border: '2px solid var(--surface-color)',
+                  }}><Mic size={9} strokeWidth={3} /></span>
+                )}
               </span>
             </div>
-            <span className="od-stage-name">{stage.stage_name}</span>
+            <span className="od-stage-name" style={voiced ? { color: '#2563eb', fontWeight: 600 } : undefined}>{stage.stage_name}</span>
             {note && <span className={`od-stage-note od-stage-note--${tone}`}>{note}</span>}
           </div>
         );
@@ -837,14 +852,21 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
   const savedRef = useRef(order.special_instructions || '');
   // The recording behind a dictated note, saved the moment dictation stops --
   // separately from the text autosave, which keeps its own diffing.
-  const [voiceNote, setVoiceNote] = useState(order.instructions_voice_note || '');
-  const keepRecording = async (blob) => {
-    try {
-      const url = await api.uploadVoiceNote(blob);
-      await api.updateOrder(order.id, { instructions_voice_note: url });
-      setVoiceNote(url);
-      if (onSaved) onSaved();
-    } catch { /* the words were kept; only the clip was lost */ }
+  const [voiceNote, setVoiceNote] = useState({
+    url: order.instructions_voice_note || '', by: order.instructions_voice_note_by || '', at: order.instructions_voice_note_at || null,
+  });
+  // Send uploads then saves; the server stamps who sent it and when, and
+  // hands both back on the order, so the label here is the server's.
+  const sendVoice = async (blob) => {
+    const url = await api.uploadVoiceNote(blob);
+    const updated = await api.updateOrder(order.id, { instructions_voice_note: url });
+    setVoiceNote({ url, by: updated?.instructions_voice_note_by || '', at: updated?.instructions_voice_note_at || null });
+    if (onSaved) onSaved();
+  };
+  const deleteVoice = async () => {
+    await api.updateOrder(order.id, { instructions_voice_note: '' });
+    setVoiceNote({ url: '', by: '', at: null });
+    if (onSaved) onSaved();
   };
 
   const save = async () => {
@@ -878,9 +900,8 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
           <VoiceTextarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
                     placeholder="Anything the workroom should know about this order…"
                     onChange={(e) => { setText(e.target.value); setState('idle'); }}
-                    onBlur={() => save().catch(() => {})}
-                    onRecording={keepRecording} />
-          <VoiceNotePlayer src={voiceNote} />
+                    onBlur={() => save().catch(() => {})} />
+          <VoiceRecorder sent={voiceNote.url ? voiceNote : null} onSend={sendVoice} onDelete={deleteVoice} />
           <div className="od-notes-foot">
             <span className={state === 'error' ? 'od-error' : 'od-hint'}>
               {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : state === 'error' ? 'Could not save, will retry' : 'Saves on its own'}
@@ -891,7 +912,13 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
       ) : (
         <>
           <p className="od-notes-text">{text}</p>
-          <VoiceNotePlayer src={voiceNote} />
+          <VoiceNotePlayer src={voiceNote.url} />
+          {voiceNote.url && (
+            <div className="od-hint" style={{ marginTop: '4px' }}>
+              Voice note from <strong>{voiceNote.by || 'someone'}</strong>
+              {voiceNote.at ? ` · ${new Date(voiceNote.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
+            </div>
+          )}
         </>
       )}
     </section>
@@ -3328,6 +3355,11 @@ function App() {
   };
 
   const isMyAssignment = (order) => {
+    // The owner and every Master supervise the whole floor: every order is
+    // their task, pending or finished, whoever it is assigned to -- the same
+    // scope the server gives them in visible_orders. A voice note left on any
+    // stage is therefore reachable from their Pending / Finished work lists.
+    if (currentUser?.role === 'Owner' || currentUser?.role === 'Master') return true;
     const me = currentUser?.tailor_id;
     if (!me) return false;
     if (order.master === me
@@ -3345,12 +3377,8 @@ function App() {
     // eligibleStaffForStage already reads here. One declaration, so this
     // cannot drift from what the API will actually allow.
     //
-    // Owner and Master are excluded deliberately: every stage names them, so
-    // including them would put the entire boutique under "My Assignments".
-    // They see the floor through the order list, and their assignments stay
-    // the work that is personally theirs -- which mirrors the server, where
-    // supervisors return early and never consult the queue at all.
-    if (currentUser?.role === 'Owner' || currentUser?.role === 'Master') return false;
+    // Owner and Master returned true above; this clause is for the roles
+    // whose work is queued rather than assigned by name.
     const live = liveStage(order);
     return !!live && (live.roles || []).includes(currentUser?.role);
   };
@@ -3374,6 +3402,21 @@ function App() {
   };
   const closedTasksView = dashboardTab === 'closedTasks';
   const taskOrders = ordersList.filter(o => isMyAssignment(o) && isClosedForMe(o) === closedTasksView);
+  // Voice notes left for this person -- on a stage, or on the order's special
+  // instructions -- by somebody else. Their own recordings are not news to
+  // them. The names compared are the ones the server stamps (staff profile
+  // name, else the account's full name / username).
+  const myNames = new Set([
+    currentUser?.name, currentUserName, currentUser?.username, currentUser?.email,
+    `${currentUser?.first_name || ''} ${currentUser?.last_name || ''}`.trim(),
+  ].filter(Boolean).map((n) => n.toLowerCase()));
+  const voiceFromOthers = (by) => Boolean(by) && !myNames.has(String(by).toLowerCase());
+  const stageHasVoiceForMe = (stage) => Boolean(stage.voice_note) && voiceFromOthers(stage.voice_note_by);
+  const voiceNotesFor = (order) => {
+    const stages = (order.stages || []).filter(stageHasVoiceForMe).map((s) => s.stage_name);
+    if (order.instructions_voice_note && voiceFromOthers(order.instructions_voice_note_by)) stages.unshift('Special instructions');
+    return stages;
+  };
   // One line per task, read the way the owner's order registry reads: where
   // the order stands, and which stage it is standing on.
   const taskRowStatus = (order) => {
@@ -4194,10 +4237,22 @@ function App() {
                         {taskOrders.map(order => {
                           const isOpen = openTaskRowId === order.id;
                           const row = taskRowStatus(order);
+                          const voiced = voiceNotesFor(order);
                           return (
                           <React.Fragment key={order.id}>
-                          <tr>
-                            <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
+                          <tr style={voiced.length ? { background: 'rgba(37, 99, 235, 0.06)', boxShadow: 'inset 3px 0 0 #2563eb' } : undefined}>
+                            <td style={{ fontWeight: 'var(--weight-bold)' }}>
+                              {orderRef(order)}
+                              {voiced.length > 0 && (
+                                <span title={`Voice note on ${voiced.join(', ')}`} style={{
+                                  marginLeft: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  fontSize: '11px', fontWeight: 600, color: '#fff', background: '#2563eb',
+                                  borderRadius: '10px', padding: '1px 7px', verticalAlign: 'middle',
+                                }}>
+                                  <Mic size={10} strokeWidth={3} /> {voiced[0]}{voiced.length > 1 ? ` +${voiced.length - 1}` : ''}
+                                </span>
+                              )}
+                            </td>
                             <td>{orderGarmentLabel(order) || 'Stitching'}</td>
                             <td>{order.customer_name}</td>
                             <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
@@ -4380,6 +4435,7 @@ function App() {
                               </div>
                               <StageTimeline
                                 stages={order.stages}
+                                hasVoiceNote={stageHasVoiceForMe}
                                 onSelectStage={(stage) => openStageReview(order, stage)}
                               />
                             </div>
@@ -8447,13 +8503,16 @@ function App() {
           || SUPERVISOR_ROLES.includes(currentUser.role);
         // One path for every forward move; the server decides whether the
         // role, the prerequisites and the stage's own data allow it.
-        const transition = async (status, okMessage, comments = stageReviewComments) => {
+        // `sentVoiceNote`: a recording the voice recorder has already
+        // uploaded (Send); `clearVoiceNote`: the recorder deleting the one
+        // on the stage. Either is a note saved in place, status unchanged.
+        const transition = async (status, okMessage, comments = stageReviewComments, sentVoiceNote = null, clearVoiceNote = false) => {
           if (stageTransitionBusy) return;
           if (stageReviewRecording) { alert(t('ordersPage.stopRecordingFirst', 'Stop the recording first, then save.')); return; }
           setStageTransitionBusy(true);
           try {
-            let voiceNote = null;
-            if (stageReviewVoiceClip) {
+            let voiceNote = sentVoiceNote;
+            if (!voiceNote && stageReviewVoiceClip) {
               try { voiceNote = await api.uploadVoiceNote(stageReviewVoiceClip); }
               catch { alert(t('ordersPage.voiceNoteUploadFailed', 'Could not upload the voice note.')); return; }
             }
@@ -8464,7 +8523,8 @@ function App() {
               comments,
               stageReviewImages,
               selectedPerformerId || null,
-              voiceNote
+              voiceNote,
+              clearVoiceNote
             );
             alert(okMessage);
             closeStage();
@@ -8632,7 +8692,26 @@ function App() {
               <OrderGarmentBrief
                 jobs={jobs}
                 specialInstructions={activeReviewOrder.special_instructions}
+                voiceNote={activeReviewOrder.instructions_voice_note}
+                voiceNoteBy={activeReviewOrder.instructions_voice_note_by}
+                voiceNoteAt={activeReviewOrder.instructions_voice_note_at}
               />
+            )}
+            {/* An order with no garment lines still carries its instructions;
+                without the brief they had nowhere to show, so the person doing
+                the work never saw or heard them. */}
+            {jobs.length === 0 && (activeReviewOrder.special_instructions || activeReviewOrder.instructions_voice_note) && (
+              <InfoNote icon={FileText} tone="warning" title="Special instructions">
+                {activeReviewOrder.special_instructions && (
+                  <>&ldquo;{activeReviewOrder.special_instructions}&rdquo;<SpeakButton text={activeReviewOrder.special_instructions} /></>
+                )}
+                <VoiceNotePlayer src={activeReviewOrder.instructions_voice_note} />
+                {activeReviewOrder.instructions_voice_note && (
+                  <div className="od-hint" style={{ marginTop: '4px' }}>
+                    Voice note from <strong>{activeReviewOrder.instructions_voice_note_by || t('ordersPage.someone', 'Someone')}</strong>
+                  </div>
+                )}
+              </InfoNote>
             )}
 
             {/* The designs, fabrics and accessories chosen for each garment,
@@ -8690,6 +8769,12 @@ function App() {
               <InfoNote icon={FileText} tone="neutral" title={t('ordersPage.latestNote', 'Latest note')}>
                 {stage.comments && <>&ldquo;{stage.comments}&rdquo;<SpeakButton text={stage.comments} /></>}
                 <VoiceNotePlayer src={stage.voice_note} />
+                {stage.voice_note && (
+                  <div className="od-hint" style={{ marginTop: '4px' }}>
+                    Voice note from <strong>{stage.voice_note_by || t('ordersPage.someone', 'Someone')}</strong>
+                    {stage.voice_note_at ? ` · ${new Date(stage.voice_note_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
+                  </div>
+                )}
               </InfoNote>
             )}
             {stage && (() => {
@@ -8804,10 +8889,21 @@ function App() {
                     maxLength={LIMITS.note}
                     value={stageReviewComments}
                     onChange={(e) => setStageReviewComments(e.target.value)}
-                    onRecording={setStageReviewVoiceClip}
-                    onRecordingChange={setStageReviewRecording}
                   />
-                  <VoiceClipPreview blob={stageReviewVoiceClip || null} onRemove={() => setStageReviewVoiceClip('')} />
+                  {/* The voice note proper: recorded on its own (nothing is
+                      transcribed into the box), heard back, then Send saves
+                      it on the stage under the sender's name -- with whatever
+                      text is in the box -- or Delete throws it away. */}
+                  <VoiceRecorder
+                    disabled={stageTransitionBusy}
+                    onRecordingChange={setStageReviewRecording}
+                    sent={stage.voice_note ? { url: stage.voice_note, by: stage.voice_note_by, at: stage.voice_note_at } : null}
+                    onSend={async (blob) => {
+                      const url = await api.uploadVoiceNote(blob);
+                      await transition(stage.status, t('ordersPage.voiceNoteSent', 'Voice note sent.'), stageReviewComments, url);
+                    }}
+                    onDelete={() => transition(stage.status, t('ordersPage.voiceNoteDeleted', 'Voice note deleted.'), stageReviewComments, null, true)}
+                  />
                 </Field>
                 <div className="at-field">
                   <span className="at-field-label">
