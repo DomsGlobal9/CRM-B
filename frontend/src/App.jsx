@@ -64,20 +64,25 @@ import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceClipPreview } from '.
 // noise at a glance; the detail screens keep them.
 /** The order wizard's screens, per service. A step key names the screen. */
 const WIZARD_STEPS = {
+  // The counter talks about the garment first and the customer last, but the
+  // customer comes before measurements so a known customer's sheet pre-fills.
   stitch: [
+    { key: 'type', label: 'Garment', sub: 'What we are making' },
+    { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
+    { key: 'design', label: 'Design', sub: 'The look' },
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
-    { key: 'what', label: 'Garments', sub: 'What we are making' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
-    { key: 'money', label: 'Money', sub: 'Price and place the order' },
+    { key: 'money', label: 'Place order', sub: 'Ready by & payment' },
   ],
   design: [
+    { key: 'type', label: 'Garment', sub: 'What we are making' },
+    { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
+    { key: 'design', label: 'Design', sub: 'The look' },
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
-    { key: 'what', label: 'Garments', sub: 'What we are making' },
-    { key: 'designer', label: 'Designer', sub: 'Who designs it' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
-    { key: 'money', label: 'Money', sub: 'Price and place the order' },
+    { key: 'money', label: 'Place order', sub: 'Ready by & payment' },
   ],
   alter: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
@@ -1864,7 +1869,10 @@ function App() {
     setGarmentErrors({});
     // A draft written by the six-step wizard resumes on the last screen the
     // new one has; the money screen is where everything it had ends up.
-    const step = Math.min(draft.current_step || 1, WIZARD_STEPS[kind].length);
+    let step = Math.min(draft.current_step || 1, WIZARD_STEPS[kind].length);
+    // Nothing to make yet (an older draft parked past the customer screen):
+    // the garment step is the only one that can go anywhere.
+    if (kind !== 'alter' && !(draft.payload?.garments || []).length) step = 1;
     setMaxStepReached(step);
     reachStep(step);
     setView('wizard');
@@ -2788,8 +2796,8 @@ function App() {
     });
     setCustomerForm(prev => ({ ...prev, measurements: body }));
   };
-  /** After the garments (or the designer): measurements when any is needed, else money. */
-  const stepAfterGarments = () => {
+  /** After the customer: measurements when any is needed, else review. */
+  const stepAfterCustomer = () => {
     const measureIdx = wizardSteps.findIndex(step => step.key === 'measure');
     return measureIdx + (needsMeasurements() ? 1 : 2);
   };
@@ -2927,27 +2935,28 @@ function App() {
             return;
           }
         }
-        if (serviceType !== 'alter' && !customerForm.gender) { alert('Select the customer\u2019s gender.'); return; }
         const emailBad = emailError(customerForm.email_address);
         if (emailBad) { alert(`${emailBad} Or leave it blank.`); return; }
-        if (serviceType !== 'alter') await persistDraft({ step: 2 });
-        reachStep(2);
-      } else if (wizardStepKey === 'what') {
+        if (serviceType === 'alter') { reachStep(currentStep + 1); return; }
+        const target = stepAfterCustomer();
+        await persistDraft({ step: target });
+        if (wizardSteps[target - 1]?.key === 'measure') prefillMeasurements();
+        reachStep(target);
+      } else if (wizardStepKey === 'type') {
         if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); return; }
         if (!validateGarments({ sections: ['basic', 'style'] })) {
           alert('Say what each garment needs \u2014 see the highlighted fields.');
           return;
         }
-        const target = serviceType === 'design' ? currentStep + 1 : stepAfterGarments();
-        await persistDraft({ step: target });
-        if (wizardSteps[target - 1]?.key === 'measure') prefillMeasurements();
-        reachStep(target);
-      } else if (wizardStepKey === 'designer') {
-        if (!designRequest.designer) { alert('Pick the designer.'); return; }
-        const target = stepAfterGarments();
-        await persistDraft({ step: target });
-        if (wizardSteps[target - 1]?.key === 'measure') prefillMeasurements();
-        reachStep(target);
+        await persistDraft({ step: currentStep + 1 });
+        reachStep(currentStep + 1);
+      } else if (wizardStepKey === 'fabric') {
+        await persistDraft({ step: currentStep + 1 });
+        reachStep(currentStep + 1);
+      } else if (wizardStepKey === 'design') {
+        if (serviceType === 'design' && !designRequest.designer) { alert('Pick the designer.'); return; }
+        await persistDraft({ step: currentStep + 1 });
+        reachStep(currentStep + 1);
       } else if (wizardStepKey === 'measure') {
         if (!validateGarments({ sections: ['measurements'] })) {
           alert('Some measurements are missing or invalid \u2014 see the highlighted fields.');
@@ -2960,7 +2969,7 @@ function App() {
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'money') {
-        if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); reachStep(2); return; }
+        if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); reachStep(wizardSteps.findIndex(st => st.key === 'type') + 1); return; }
         if (!readyBy) { alert('Pick the ready-by date.'); return; }
         if (isPastDate(readyBy)) { alert('The ready-by date cannot be in the past.'); return; }
         if (garmentJobs.some(j => j.values?.trial_date && j.values.trial_date > readyBy)) {
@@ -5325,33 +5334,19 @@ function App() {
               // the customer, and RolePermission refuses partial_update for
               // anyone but the Owner -- so the buttons are the owner's.
               const goExisting = () => {
-                setCustomerId(c.id);
-                setCustomerForm({
-                  ...DEFAULT_CUSTOMER_DATA,
-                  ...c,
-                  mobile_number: displayMobile(c.mobile_number),
-                  measurements: c.measurements || DEFAULT_CUSTOMER_DATA.measurements
-                });
+                // A clean stitch order with the customer already picked: the
+                // wizard starts on the garment step like any other.
+                startService('stitch', c);
                 if (c.design_preferences?.length > 0) {
                   setDesignNotes(c.design_preferences[0].notes || '');
                 }
-                reachStep(3);
-                setView('wizard');
               };
               const reorder = (order) => {
-                setCustomerId(c.id);
-                setCustomerForm({
-                  ...DEFAULT_CUSTOMER_DATA,
-                  ...c,
-                  mobile_number: displayMobile(c.mobile_number),
-                  measurements: c.measurements || DEFAULT_CUSTOMER_DATA.measurements
-                });
                 // Garment prices are per garment now and the dresses are
-                // re-added on step 3, so they re-quote there; only the
-                // order-level money carries over.
+                // re-added on the garment step, so they re-quote there; only
+                // the order-level money carries over.
+                startService('stitch', c);
                 setQuotePrices({ packaging: order.packaging_handling, discount: order.discount || 0 });
-                reachStep(3);
-                setView('wizard');
               };
               const statusTone = (st) => st === 'Delivered' ? 'success' : st === 'Cancelled' ? 'neutral' : 'warning';
               return (
@@ -6590,10 +6585,12 @@ function App() {
                                                      paddingTop: '10px' }}>
                           <div style={{ flex: '1 1 260px' }}>
                             <div style={{ fontWeight: 600 }}>
-                              {draft.customer_name || t('entry.unnamedCustomer', 'Unnamed customer')}
+                              {draft.customer_name || (garments.length ? garments.join(', ') : t('entry.unnamedCustomer', 'Unnamed customer'))}
                             </div>
                             <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                              {garments.length ? garments.join(', ') : t('wizard.noGarmentChosen', 'No garment chosen yet')}
+                              {draft.customer_name
+                                ? (garments.length ? garments.join(', ') : t('wizard.noGarmentChosen', 'No garment chosen yet'))
+                                : t('entry.customerNotYet', 'Customer not added yet')}
                               {' · '}{(() => { const total = WIZARD_STEPS[draft.payload?.service === 'design' ? 'design' : 'stitch'].length; return t('entry.stepXofY', 'Step {step} of {total}', { step: Math.min(draft.current_step, total), total }); })()}
                               {' · '}{t('entry.lastSaved', 'last saved')} {new Date(draft.updated_at).toLocaleString()}
                             </div>
@@ -6769,12 +6766,12 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Gender, right after the number and required: the garment
-                      list on the next screen is filtered by it. Alterations
-                      skip it -- their garments come from past orders. */}
+                  {/* Gender is kept on the customer's record; the garments were
+                      chosen before we got here, so it filters nothing now.
+                      Alterations skip it -- their garments come from past orders. */}
                   {serviceType !== 'alter' && (
                     <div className="form-group">
-                      <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="required">*</span></label>
+                      <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
                       <select id="wz-gender" className="form-control" value={customerForm.gender || ''}
                               onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
                         <option value="">{t('wizard.selectGender', 'Select Gender')}</option>
@@ -6876,19 +6873,41 @@ function App() {
                       </div>
                     </details>
                   )}
+
+                  {/* Customer Designs: a design the customer described, captured
+                      by the studio -- a photograph of a paper sketch, or drawn
+                      here. Order-level, as its tab on the old Design Studio
+                      screen was; its own rows kept for the customer, nothing on
+                      the draft. */}
+                  <details className="wz-more" style={{ marginTop: '18px' }}>
+                    <summary><PenTool size={14} /> {t('wizard.sheetCustomerDesigns', 'Customer Designs')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                    <Suspense fallback={<ScreenLoading />}>
+                      <CustomerDesigns
+                        customerId={customerId}
+                        customers={allCustomers}
+                        orders={ordersList}
+                        garmentTemplates={garmentTemplates}
+                        newCustomer={customerForm}
+                        onCustomerCreated={(row) => {
+                          // The walk-in is now a customer: the draft carries
+                          // the id, so confirm updates them rather than
+                          // creating a second row for the same mobile.
+                          setCustomerId(row.id);
+                          setAllCustomers((prev) => [row, ...prev]);
+                        }}
+                      />
+                    </Suspense>
+                  </details>
                 </div>
               </>
             )}
 
-            {/* WHAT: the garments, and for each one only what its cut needs.
-                Photos, catalogue picks and fabric from stock are there for
-                the counter that has them, folded away for the one that does
-                not. */}
-            {wizardStepKey === 'what' && (
+            {/* TYPE: the garments, and for each one only what its cut needs. */}
+            {wizardStepKey === 'type' && (
               <>
                 <div className="page-title-group">
-                  <h1 className="page-title">{t('wizard.whatTitle', 'What are we making?')}</h1>
-                  <p className="page-subtitle">{t('wizard.whatSubtitle', 'Add each garment and answer only what it asks. Photos, catalogue looks and fabric are optional here.')}</p>
+                  <h1 className="page-title">{t('wizard.typeTitle', 'What are we making?')}</h1>
+                  <p className="page-subtitle">{t('wizard.typeSubtitle', 'Add each garment and answer only what it asks.')}</p>
                 </div>
 
                 <div className="content-card wz-card">
@@ -6945,31 +6964,31 @@ function App() {
                             ))}
                           </details>
                         )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
-                        <details className="wz-more">
-                          <summary><Camera size={14} /> {t('wizard.sheetPhotos', 'Photos & references from the customer')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker ownOnly
-                                               garmentKey={job.template?.key || job.key}
-                                               garmentName={job.template?.name || job.key}
-                                               references={partReferences[job.key] || {}}
-                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
-                          </Suspense>
-                        </details>
+            {/* FABRIC: from stock, or what the customer brought, per garment. */}
+            {wizardStepKey === 'fabric' && (
+              <>
+                <div className="page-title-group">
+                  <h1 className="page-title">{t('wizard.fabricTitle', 'Fabric')}</h1>
+                  <p className="page-subtitle">{t('wizard.fabricSubtitle', 'From our stock, or what the customer brings. Skip if it is decided later.')}</p>
+                </div>
 
-                        <details className="wz-more">
-                          <summary><Sparkles size={14} /> {t('wizard.sheetCatalogue', 'Pick a look from our catalogue')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker
-                              garmentKey={job.template?.key || job.key}
-                              garmentName={job.template?.name || job.key}
-                              selection={partSelection[job.key] || {}}
-                              onChange={(next) => handlePartSelection(job.key, next)} />
-                          </Suspense>
-                        </details>
+                <div className="content-card wz-card">
+                  {garmentJobs.map((job, idx) => (
+                      <div key={job.key} className="wz-garment">
+                        <div className="wz-garment-head">
+                          <span className="wz-garment-num">{idx + 1}</span>
+                          <div><div className="wz-garment-name">{job.template.name}</div></div>
+                        </div>
 
                         {canSeeTab(currentUser, 'inventory') && (
-                          <details className="wz-more">
+                          <details className="wz-more" open>
                             <summary><Layers size={14} /> {t('wizard.sheetFabric', 'Fabric from our stock')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                             <Suspense fallback={<ScreenLoading />}>
                               {fabrics.length === 0 ? (
@@ -6992,15 +7011,8 @@ function App() {
                           </details>
                         )}
 
-                        {/* The three sections the order-flow rewrite dropped
-                            from the old Fabric Selection screen -- Customer
-                            Fabrics, Boutique Accessories, Customer Accessories
-                            -- folded away per garment like the ones above.
-                            Same pickers, same partReferences / fabricSelection
-                            slots, so the draft and the workroom brief read them
-                            exactly as before. */}
-                        <details className="wz-more">
-                          <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer Fabrics (My Fabrics)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                        <details className="wz-more" open>
+                          <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer fabrics (they bring it)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                           <Suspense fallback={<ScreenLoading />}>
                             <GarmentPartPicker ownOnly isFabric
                                                garmentKey={job.template?.key || job.key}
@@ -7011,62 +7023,109 @@ function App() {
                           </Suspense>
                         </details>
 
-                        {canSeeTab(currentUser, 'inventory') && (
-                          <details className="wz-more">
-                            <summary><Package size={14} /> {t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                        <details className="wz-more">
+                          <summary><Package size={14} /> {t('wizard.sheetTrims', 'Trims & accessories')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          {canSeeTab(currentUser, 'inventory') && (
+                            <details className="wz-more" open>
+                              <summary><Package size={14} /> {t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                              <Suspense fallback={<ScreenLoading />}>
+                                <GarmentFabricPicker
+                                  garmentJobs={[job]}
+                                  fabrics={fabrics}
+                                  taxonomy={fabricTaxonomy}
+                                  selection={fabricSelection}
+                                  onChange={handleFabricSelection}
+                                  quantities={fabricQuantities}
+                                  onQuantityChange={handleFabricQuantity}
+                                  accessoriesOnly />
+                              </Suspense>
+                            </details>
+                          )}
+                          <details className="wz-more" open>
+                            <summary><Package size={14} /> {t('wizard.sheetCustomerAccessories', 'Customer Accessories (My Accessories)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                             <Suspense fallback={<ScreenLoading />}>
-                              <GarmentFabricPicker
-                                garmentJobs={[job]}
-                                fabrics={fabrics}
-                                taxonomy={fabricTaxonomy}
-                                selection={fabricSelection}
-                                onChange={handleFabricSelection}
-                                quantities={fabricQuantities}
-                                onQuantityChange={handleFabricQuantity}
-                                accessoriesOnly />
+                              <GarmentPartPicker ownOnly isFabric accessoriesOnly
+                                                 garmentKey={job.template?.key || job.key}
+                                                 garmentName={job.template?.name || job.key}
+                                                 taxonomy={fabricTaxonomy}
+                                                 references={partReferences[job.key] || {}}
+                                                 onReferencesChange={(next) => handlePartReferences(job.key, next)} />
                             </Suspense>
                           </details>
-                        )}
+                        </details>
+                      </div>
+                  ))}
+                </div>
+              </>
+            )}
 
-                        <details className="wz-more">
-                          <summary><Package size={14} /> {t('wizard.sheetCustomerAccessories', 'Customer Accessories (My Accessories)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+            {/* DESIGN: a look from the catalogue or a photo the customer brought;
+                for a design order, the designer and the brief. */}
+            {wizardStepKey === 'design' && (
+              <>
+                <div className="page-title-group">
+                  <h1 className="page-title">{t('wizard.designTitle', 'The look')}</h1>
+                  <p className="page-subtitle">{t('wizard.designSubtitle', 'A look from our catalogue, or a photo the customer brought. Skip for a plain garment.')}</p>
+                </div>
+
+                <div className="content-card wz-card">
+                  {garmentJobs.map((job, idx) => (
+                      <div key={job.key} className="wz-garment">
+                        <div className="wz-garment-head">
+                          <span className="wz-garment-num">{idx + 1}</span>
+                          <div><div className="wz-garment-name">{job.template.name}</div></div>
+                        </div>
+
+                        <details className="wz-more" open>
+                          <summary><Sparkles size={14} /> {t('wizard.sheetCatalogue', 'Pick a look from our catalogue')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                           <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker ownOnly isFabric accessoriesOnly
+                            <GarmentPartPicker
+                              garmentKey={job.template?.key || job.key}
+                              garmentName={job.template?.name || job.key}
+                              selection={partSelection[job.key] || {}}
+                              onChange={(next) => handlePartSelection(job.key, next)} />
+                          </Suspense>
+                        </details>
+
+                        <details className="wz-more" open>
+                          <summary><Camera size={14} /> {t('wizard.sheetPhotos', 'Photos & references from the customer')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker ownOnly
                                                garmentKey={job.template?.key || job.key}
                                                garmentName={job.template?.name || job.key}
-                                               taxonomy={fabricTaxonomy}
                                                references={partReferences[job.key] || {}}
                                                onReferencesChange={(next) => handlePartReferences(job.key, next)} />
                           </Suspense>
                         </details>
                       </div>
-                    );
-                  })}
+                  ))}
 
-                  {/* Customer Designs: a design the customer described, captured
-                      by the studio -- a photograph of a paper sketch, or drawn
-                      here. Order-level, as its tab on the old Design Studio
-                      screen was; its own rows kept for the customer, nothing on
-                      the draft. */}
-                  <details className="wz-more" style={{ marginTop: '18px' }}>
-                    <summary><PenTool size={14} /> {t('wizard.sheetCustomerDesigns', 'Customer Designs')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                    <Suspense fallback={<ScreenLoading />}>
-                      <CustomerDesigns
-                        customerId={customerId}
-                        customers={allCustomers}
-                        orders={ordersList}
-                        garmentTemplates={garmentTemplates}
-                        newCustomer={customerForm}
-                        onCustomerCreated={(row) => {
-                          // The walk-in is now a customer: the draft carries
-                          // the id, so confirm updates them rather than
-                          // creating a second row for the same mobile.
-                          setCustomerId(row.id);
-                          setAllCustomers((prev) => [row, ...prev]);
-                        }}
-                      />
-                    </Suspense>
-                  </details>
+
+                  {serviceType === 'design' && (
+                    <div className="wz-garment" style={{ marginTop: '18px' }}>
+                      <div className="wz-garment-head"><div className="wz-garment-name">{t('wizard.designerTitle', 'Who designs it?')}</div></div>
+                      {designers.length === 0 ? (
+                        <div className="od-empty" style={{ textAlign: 'left' }}>
+                          {t('wizard.noDesigners', 'No designer on the team yet. Add one under Team, or go back and pick a look from the catalogue instead.')}
+                        </div>
+                      ) : (
+                        <div className="form-group">
+                          <label className="form-label" htmlFor="wz-designer">{t('wizard.designer', 'Designer')} <span className="required">*</span></label>
+                          <select id="wz-designer" className="form-control" value={designRequest.designer}
+                                  onChange={(e) => setDesignRequest({ ...designRequest, designer: e.target.value })}>
+                            <option value="">{t('wizard.pickDesigner', 'Pick a designer')}</option>
+                            {designers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.specialisation ? ` · ${d.specialisation}` : ''}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
+                        <VoiceTextarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
+                                  onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
+                                  placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
+                      </div>
+                    </div>
+                  )}
 
                   {garmentJobs.length > 0 && (
                     <div className="form-group" style={{ marginTop: '18px' }}>
@@ -7076,40 +7135,6 @@ function App() {
                                 placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
                     </div>
                   )}
-                </div>
-              </>
-            )}
-
-            {/* DESIGNER: for a design the boutique's own designer will draw.
-                One designer and one brief for the order; the sketches the
-                customer brought were added on the previous screen. */}
-            {wizardStepKey === 'designer' && (
-              <>
-                <div className="page-title-group">
-                  <h1 className="page-title">{t('wizard.designerTitle', 'Who designs it?')}</h1>
-                  <p className="page-subtitle">{t('wizard.designerSubtitle', 'Pick the designer and say what the customer wants. They will get it as a design request.')}</p>
-                </div>
-                <div className="content-card wz-card">
-                  {designers.length === 0 ? (
-                    <div className="od-empty" style={{ textAlign: 'left' }}>
-                      {t('wizard.noDesigners', 'No designer on the team yet. Add one under Team, or go back and pick a look from the catalogue instead.')}
-                    </div>
-                  ) : (
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="wz-designer">{t('wizard.designer', 'Designer')} <span className="required">*</span></label>
-                      <select id="wz-designer" className="form-control" value={designRequest.designer}
-                              onChange={(e) => setDesignRequest({ ...designRequest, designer: e.target.value })}>
-                        <option value="">{t('wizard.pickDesigner', 'Pick a designer')}</option>
-                        {designers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.specialisation ? ` · ${d.specialisation}` : ''}</option>)}
-                      </select>
-                    </div>
-                  )}
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
-                    <VoiceTextarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
-                              onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
-                              placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
-                  </div>
                 </div>
               </>
             )}
@@ -7236,7 +7261,7 @@ function App() {
                     </div>
                   ))}
 
-                  {card(t('wizard.step.what', 'Garments'), stepOf('what'), (
+                  {card(t('wizard.step.type', 'Garment'), stepOf('type'), (
                     <>
                       <div className={`ui-badge ${isMaggamOrder() ? 'ui-badge--warning' : 'ui-badge--neutral'}`} style={{ marginBottom: '10px' }}>
                         {isMaggamOrder()
@@ -7247,7 +7272,7 @@ function App() {
                     </>
                   ))}
 
-                  {groups.length > 0 && card(t('wizard.reviewPhotos', 'Photos & references'), stepOf('what'), (
+                  {groups.length > 0 && card(t('wizard.reviewPhotos', 'Photos & references'), stepOf('design'), (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {groups.map(group => (
                         <section key={group.key}>
@@ -7269,7 +7294,7 @@ function App() {
                     </Suspense>
                   )}
 
-                  {fabricLines.length > 0 && card(t('wizard.sheetFabric', 'Fabric from our stock'), stepOf('what'), (
+                  {fabricLines.length > 0 && card(t('wizard.sheetFabric', 'Fabric from our stock'), stepOf('fabric'), (
                     <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
                       <tbody>
                         {fabricLines.map(line => (
@@ -7283,7 +7308,7 @@ function App() {
                     </table>
                   ))}
 
-                  {serviceType === 'design' && card(t('wizard.step.designer', 'Designer'), stepOf('designer'), (
+                  {serviceType === 'design' && card(t('wizard.designerTitle', 'Who designs it?'), stepOf('design'), (
                     <div style={{ fontSize: '14px' }}>
                       {designers.find(d => String(d.id) === String(designRequest.designer))?.name || designRequest.designer || <span className="od-hint">Not picked</span>}
                       {designRequest.brief && <div className="od-hint" style={{ marginTop: '4px' }}>{designRequest.brief}</div>}
@@ -7297,7 +7322,7 @@ function App() {
             {wizardStepKey === 'money' && (
               <>
                 <div className="page-title-group">
-                  <h1 className="page-title">{t('wizard.moneyTitle', 'Price and place the order')}</h1>
+                  <h1 className="page-title">{t('wizard.moneyTitle', 'Ready by & payment')}</h1>
                   <p className="page-subtitle">{t('wizard.moneySubtitle', 'A price per garment, the date it is promised for, and anything paid now.')}</p>
                 </div>
 
