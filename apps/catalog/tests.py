@@ -47,6 +47,41 @@ class TemplateSeedTests(CatalogTestCase):
             self.assertIn('special_instructions', keys)
             self.assertIn('urgency', keys)
 
+    def test_free_text_closes_the_basic_and_measurement_sections(self):
+        # The customer's "anything else" and the fit notes come last on every
+        # garment, after whatever the template itself asks.
+        for template in GarmentTemplate.objects.all():
+            basic = [f.key for f in template.sections.get(key='basic').fields.all()]
+            measurements = [
+                f.key for f in template.sections.get(key='measurements').fields.all()]
+            self.assertEqual(basic[-1], 'garment_notes', f"{template.key} basic")
+            self.assertEqual(measurements[-1], 'measurement_notes', f"{template.key} measurements")
+
+    def test_fabric_source_leads_the_materials_section(self):
+        for template in GarmentTemplate.objects.all():
+            first = template.sections.get(key='materials').fields.all()[0]
+            self.assertEqual(first.key, 'fabric_source', template.key)
+            self.assertEqual(first.default, 'inventory')
+            self.assertEqual(
+                [(o.value, o.label) for o in first.options.all()],
+                [('inventory', 'From our inventory'), ('customer', 'Customer will provide'),
+                 ('buy', 'Need to buy')],
+            )
+
+    def test_hand_work_reads_as_design(self):
+        style = GarmentTemplate.resolve('lehenga').sections.get(key='style')
+        labels = {f.key: f.label for f in style.fields.all()}
+        self.assertEqual(labels['hand_work'], 'Type of Design')
+        self.assertEqual(labels['hand_work_parts'], 'Design Required On')
+
+    def test_measurements_are_in_inches_spelled_out(self):
+        waist = GarmentTemplate.resolve('blouse').sections.get(key='measurements') \
+            .fields.get(key='waist')
+        self.assertEqual(waist.unit, 'Inches')
+        self.assertNotIn('in', {
+            f.unit for t in GarmentTemplate.objects.all()
+            for s in t.sections.all() for f in s.fields.all()})
+
     def test_field_keys_are_unique_within_a_template(self):
         for template in GarmentTemplate.objects.all():
             keys = [f.key for s in template.sections.all() for f in s.fields.all()]

@@ -31,7 +31,8 @@ def field(key, label, field_type, **kw):
 def measurement(key, label, **kw):
 
     kw.setdefault('validation', {'min': 0, 'max': 120, 'step': 0.25})
-    return field(key, label, 'number', unit='in', **kw)
+    # 'Inches' rather than 'in': the unit is shown verbatim next to the input.
+    return field(key, label, 'number', unit='Inches', **kw)
 
 
 def material(key, label, category, **kw):
@@ -64,6 +65,26 @@ COMMON_BASIC = [
     field('trial_date', 'Trial Date', 'date', when=eq('trial_required', True)),
     field('delivery_date', 'Delivery Date', 'date'),
     field('urgency', 'Urgency', 'select', options=['Normal', 'Express'], default='normal'),
+    field('garment_notes', 'Anything else about this garment', 'textarea',
+          help_text='What the options above did not cover.',
+          validation={'max_length': 500}),
+]
+
+# (15) Asked after the numbers on every garment; the voice note lands here too.
+COMMON_MEASUREMENTS = [
+    field('measurement_notes', 'Notes on the measurements', 'textarea',
+          help_text='Fit preferences, posture, anything the numbers do not say.',
+          validation={'max_length': 500}),
+]
+
+#: Where the cloth comes from. Prepended so it leads the materials section
+#: on every garment (COMMON_MATERIALS is appended after the garment's own).
+FABRIC_SOURCE = [
+    field('fabric_source', 'Fabric', 'select', options=[
+        ('inventory', 'From our inventory'),
+        ('customer', 'Customer will provide'),
+        ('buy', 'Need to buy'),
+    ], default='inventory'),
 ]
 
 COMMON_MATERIALS = [
@@ -186,7 +207,7 @@ TEMPLATES = [
                 field('backing_size', 'Backing Size', 'select', options=[
                     'Small Size', 'Same as Border Size', 'Inches Backing'],
                       when=eq('backing', 'with_backing')),
-                field('backing_inches', 'Backing (inches)', 'number', unit='in',
+                field('backing_inches', 'Backing (inches)', 'number', unit='Inches',
                       validation={'min': 0, 'max': 60, 'step': 0.25},
                       when=eq('backing_size', 'inches_backing')),
                 field('fall_type', 'Fall', 'select', options=['Big Fall', 'Small Fall'],
@@ -1160,6 +1181,7 @@ SECTION_TITLES = [
 
 COMMON_BY_SECTION = {
     'basic': COMMON_BASIC,
+    'measurements': COMMON_MEASUREMENTS,
     'materials': COMMON_MATERIALS,
     'production': COMMON_PRODUCTION,
 }
@@ -1187,7 +1209,7 @@ def hand_work_fields(definition):
                     if not any(w in p['key'] for w in skip)]
     has_work = one_of('hand_work', HAND_WORK_WANTED)
     fields = [
-        field('hand_work', 'Maggam / Hand Work', 'select', options=HAND_WORK_KINDS, default='none'),
+        field('hand_work', 'Type of Design', 'select', options=HAND_WORK_KINDS, default='none'),
         field('hand_work_density', 'Work Coverage', 'select',
               options=['Light', 'Medium', 'Heavy'], when=has_work),
         field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
@@ -1195,7 +1217,7 @@ def hand_work_fields(definition):
               validation={'max_length': 500}, when=has_work),
     ]
     if part_options:
-        fields.insert(1, field('hand_work_parts', 'Work On', 'multiselect',
+        fields.insert(1, field('hand_work_parts', 'Design Required On', 'multiselect',
                                options=part_options, when=has_work))
     return fields
 
@@ -1213,7 +1235,7 @@ def build(definition):
         if key == 'style':
             fields = fields + hand_work_fields(definition)
         elif key == 'materials':
-            fields = fields + HAND_WORK_MATERIALS
+            fields = FABRIC_SOURCE + fields + HAND_WORK_MATERIALS
         sections.append({
             'key': key,
             'title': title,

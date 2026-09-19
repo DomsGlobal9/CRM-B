@@ -1224,7 +1224,29 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
         );
       })()}
 
-      {!loading && ownOnly && openPart && allRefs.length > 0 && (
+      {/* Fabric and accessory sections keep the list but not the picture
+          grid: the boutique asked for the "selected design image" preview to
+          go from those two, so a kept photo there is a chip with its × and
+          nothing else. The design (catalogue look) mode still shows the grid. */}
+      {!loading && ownOnly && (isFabric || accessoriesOnly) && openPart && allRefs.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+          {allRefs.map((ref) => (
+            <span key={`${ref.part}:${ref.id}`}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 6px 3px 10px',
+                           borderRadius: '999px', fontSize: '11.5px', fontWeight: 600,
+                           border: '1px solid var(--border-color)', background: 'var(--surface-inset, #f3f4f6)' }}>
+              {partLabels[ref.part] || ref.part.replace(/_/g, ' ')} · {ref.design_title}
+              <button type="button" title="Remove this reference" onClick={() => removeRef(ref.id, ref.part)}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0,
+                               display: 'flex', color: 'var(--text-secondary)' }}>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {!loading && ownOnly && !isFabric && !accessoriesOnly && openPart && allRefs.length > 0 && (
         <>
         <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
                       color: 'var(--text-secondary)', margin: '4px 0 10px' }}>

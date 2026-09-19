@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import { getSection, isVisible, pruneHidden } from '../../services/templates';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { cleanAmount } from '../../services/validate';
 import { CameraButton } from '../../components/ui/Atelier';
 
 /**
@@ -72,13 +73,15 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       break;
 
     case 'number':
+      // Digits and at most two decimals: the sheet's columns hold 999.99, and
+      // a value pre-filled as "12.00" with "12" typed after it must not become
+      // 12.0012 -- it becomes 12.00 and the typist sees it did.
       control = (
         <input
           {...common}
-          type="number"
-          step={field.validation?.step || 0.25}
-          min={field.validation?.min}
-          max={field.validation?.max}
+          type="text"
+          inputMode="decimal"
+          onChange={(e) => onChange(field.key, cleanAmount(e.target.value, { max: field.validation?.max ?? 999.99, decimals: 2 }))}
           placeholder="0.00"
         />
       );
@@ -322,7 +325,9 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
     <div className="form-group">
       <label className="form-label" htmlFor={`tf-${field.key}`}>
         {field.label}
-        {field.unit ? ` (${field.unit})` : ''}
+        {/* Older template rows still carry 'in'; the definitions now say
+            'Inches', and the label reads the same either way. */}
+        {field.unit ? ` (${field.unit === 'in' ? 'Inches' : field.unit})` : ''}
         {field.is_required && <span className="required"> *</span>}
       </label>
       {control}

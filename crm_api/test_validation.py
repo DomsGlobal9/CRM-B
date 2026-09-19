@@ -151,6 +151,18 @@ class CustomerBookTests(ValidationTestBase):
         self.assertEqual(customer.fabric_selections.get().fabric_name, 'Kanchi silk')
 
 
+class MeasurementRoundingTests(ValidationTestBase):
+    def test_a_stray_third_decimal_is_rounded_not_refused(self):
+        from .serializers import MeasurementSerializer
+        # "12.00" pre-filled with "12" typed after it; the column holds 999.99.
+        ser = MeasurementSerializer(data={'shoulder': '12.0012', 'bust': '36', 'waist': ''})
+        self.assertTrue(ser.is_valid(), ser.errors)
+        self.assertEqual(str(ser.validated_data['shoulder']), '12.00')
+        self.assertEqual(str(ser.validated_data['bust']), '36.00')
+        too_big = MeasurementSerializer(data={'shoulder': '1200'})
+        self.assertFalse(too_big.is_valid())
+
+
 class DraftConfirmTests(ValidationTestBase):
     def setUp(self):
         super().setUp()

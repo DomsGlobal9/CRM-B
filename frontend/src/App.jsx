@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
-import { inventoryImage } from './services/inventoryImages';
+// Model display parked — see task 16
+// import { inventoryImage } from './services/inventoryImages';
 import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
 import {
   formatMoney, formatDate as fmtDate, formatDateTime as fmtDateTime,
@@ -67,22 +68,22 @@ const WIZARD_STEPS = {
   // The counter talks about the garment first and the customer last, but the
   // customer comes before measurements so a known customer's sheet pre-fills.
   stitch: [
-    { key: 'type', label: 'Garment', sub: 'What we are making' },
+    { key: 'type', label: 'Apparel', sub: 'What we are making' },
     { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
     { key: 'design', label: 'Design', sub: 'The look' },
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
-    { key: 'money', label: 'Place order', sub: 'Ready by & payment' },
+    { key: 'money', label: 'Complete the order', sub: 'Invoice & payment' },
   ],
   design: [
-    { key: 'type', label: 'Garment', sub: 'What we are making' },
+    { key: 'type', label: 'Apparel', sub: 'What we are making' },
     { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
     { key: 'design', label: 'Design', sub: 'The look' },
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
-    { key: 'money', label: 'Place order', sub: 'Ready by & payment' },
+    { key: 'money', label: 'Complete the order', sub: 'Invoice & payment' },
   ],
   alter: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
@@ -158,15 +159,11 @@ const orderStageKey = (order) => {
 const StyleProfileCard = ({ customer }) => {
   const dna = customer?.style_dna || {};
   const rows = [
-    ['Budget', dna.budget, Wallet], ['Colours', dna.colors, Palette], ['Style', dna.style, Shirt],
-    ['Size', dna.size, Ruler], ['Visit pattern', dna.visit_pattern, CalendarDays],
+    ['Revenue from this client', dna.budget, Wallet], ['Style preferences', dna.style, Shirt],
+    ['Measurement version', dna.size, Ruler], ['Visit pattern', dna.visit_pattern, CalendarDays],
   ].filter(([, v]) => v);
   const riskColor = dna.risk_level === 'danger' ? 'var(--danger-color)'
     : dna.risk_level === 'warning' ? 'var(--warning-color)' : 'var(--success-color)';
-  // "Dusty Rose 60% Ivory 30% Gold 10%" -> a swatch per named colour, read
-  // through the same name-to-shade map the fabric cards use.
-  const swatches = typeof dna.colors === 'string'
-    ? dna.colors.split(/\d+%/).map((n) => n.trim()).filter(Boolean) : [];
   const hasAny = rows.length || dna.risk_status || dna.next_action;
   return (
     <SectionCard icon={Sparkles} tone="amber"
@@ -177,14 +174,7 @@ const StyleProfileCard = ({ customer }) => {
       {rows.map(([label, value, Icon]) => (
         <div key={label} className="at-dna-row">
           <span className="at-dna-label"><Icon size={16} /> {label}</span>
-          <strong>
-            {label === 'Colours' && swatches.length > 0 && (
-              <span className="at-swatches">
-                {swatches.map((name) => <i key={name} title={name} style={{ background: getColorCircleStyle(name) }} />)}
-              </span>
-            )}
-            {value}
-          </strong>
+          <strong>{value}</strong>
         </div>
       ))}
       {dna.risk_status && (
@@ -411,19 +401,6 @@ const DEFAULT_CUSTOMER_DATA = {
     neck: '',
     length: ''
   }
-};
-
-const getColorCircleStyle = (colorName) => {
-  if (!colorName) return '#fbeedb';
-  const name = colorName.toLowerCase();
-  if (name.includes('rose') || name.includes('pink')) return '#e2a3a1';
-  if (name.includes('gold')) return '#d4af37';
-  if (name.includes('black') || name.includes('charcoal')) return '#2e2e2e';
-  if (name.includes('blue')) return '#4169e1';
-  if (name.includes('green') || name.includes('olive')) return '#556b2f';
-  if (name.includes('maroon') || name.includes('red')) return '#800000';
-  if (name.includes('white') || name.includes('cream')) return 'var(--surface-2)';
-  return '#fbeedb';
 };
 
 // A garment template key as a person reads it: blouse_length -> "Blouse length".
@@ -1396,6 +1373,10 @@ function App() {
     password: ''
   });
   const [signupBusy, setSignupBusy] = useState(false);
+  // A brand-new owner has never been here, so "Welcome back" reads as a
+  // mix-up. Set by registration, cleared at logout: the greeting is theirs for
+  // the first session.
+  const [justRegistered, setJustRegistered] = useState(false); // set at signup, read once by the first dashboard paint
   const [signupError, setSignupError] = useState(null);
   const [boutiqueName, setBoutiqueName] = useState('');
   const [boutiqueAddress, setBoutiqueAddress] = useState('');
@@ -1413,6 +1394,8 @@ function App() {
   // Which garment tile is fetching its template right now: the load takes
   // seconds against the remote database, and a silent tile invites re-clicks.
   const [addingGarmentKey, setAddingGarmentKey] = useState(null);
+  // Garments stack one under the other; the picker only comes back when asked.
+  const [showGarmentPicker, setShowGarmentPicker] = useState(false);
 
   // A wizard step lands read from the top, not wherever the previous step's
   // Next button happened to leave the scroll.
@@ -1481,7 +1464,8 @@ function App() {
   const [advancePaymentAmount, setAdvancePaymentAmount] = useState(0);
   const [specialInstructions, setSpecialInstructions] = useState('');
 
-  const [selectedFabric, setSelectedFabric] = useState(null);
+  // Model display parked — see task 16
+  // const [selectedFabric, setSelectedFabric] = useState(null);
   // Order-level money only. Everything garment-shaped -- base, fabric,
   // embroidery, customization, tailoring -- lives on each entry in
   // garmentJobs.pricing now, because one flat set is exactly how a Blouse +
@@ -2053,10 +2037,11 @@ function App() {
   const [boutiqueSettings, setBoutiqueSettings] = useState(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
-  const [drapingLoading, setDrapingLoading] = useState(false);
-  const [drapingCompleted, setDrapingCompleted] = useState(false);
-  const [drapedImage, setDrapedImage] = useState('');
-  const [showDrapingModal, setShowDrapingModal] = useState(false);
+  // Model display parked — see task 16
+  // const [drapingLoading, setDrapingLoading] = useState(false);
+  // const [drapingCompleted, setDrapingCompleted] = useState(false);
+  // const [drapedImage, setDrapedImage] = useState('');
+  // const [showDrapingModal, setShowDrapingModal] = useState(false);
   
   const [activeReviewStage, setActiveReviewStage] = useState(null);
   const [activeReviewOrder, setActiveReviewOrder] = useState(null);
@@ -2223,25 +2208,26 @@ function App() {
     }
   };
 
-  const getDrapedPreviewImage = (fabric, designUrl) => {
-    const color = fabric?.color?.toLowerCase() || '';
-    if (color.includes('rose') || color.includes('pink')) {
-      return 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600';
-    }
-    if (color.includes('gold') || color.includes('yellow')) {
-      return 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=600';
-    }
-    if (color.includes('black') || color.includes('charcoal')) {
-      return 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600';
-    }
-    if (color.includes('blue')) {
-      return 'https://images.unsplash.com/photo-1539008835657-9e8e62c8425b?w=600';
-    }
-    if (color.includes('green') || color.includes('olive')) {
-      return 'https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?w=600';
-    }
-    return 'https://images.unsplash.com/photo-1518049368264-7a13d7825d19?w=600';
-  };
+  // Model display parked — see task 16
+  // const getDrapedPreviewImage = (fabric, designUrl) => {
+  // const color = fabric?.color?.toLowerCase() || '';
+  // if (color.includes('rose') || color.includes('pink')) {
+  // return 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600';
+  // }
+  // if (color.includes('gold') || color.includes('yellow')) {
+  // return 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=600';
+  // }
+  // if (color.includes('black') || color.includes('charcoal')) {
+  // return 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600';
+  // }
+  // if (color.includes('blue')) {
+  // return 'https://images.unsplash.com/photo-1539008835657-9e8e62c8425b?w=600';
+  // }
+  // if (color.includes('green') || color.includes('olive')) {
+  // return 'https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?w=600';
+  // }
+  // return 'https://images.unsplash.com/photo-1518049368264-7a13d7825d19?w=600';
+  // };
 
   // Each collection paints as soon as its own request lands rather than waiting on
   // the slowest one, and a failed request is reported instead of leaving the panel
@@ -2629,6 +2615,9 @@ function App() {
         business_name: boutiqueName,
         business_address: boutiqueAddress
       });
+      setJustRegistered(true);
+      // No session back means signup is verification-gated: sign in first.
+      if (!res.token) { setView('login'); return; }
       setCurrentUser(res.user);
       setSignupStep(3);
       setTimeout(() => {
@@ -2652,6 +2641,7 @@ function App() {
     try {
       await api.logout();
       setCurrentUser(null);
+      setJustRegistered(false);
       setView('login');
       setShowLogoutConfirm(false);
     } finally {
@@ -2695,10 +2685,11 @@ function App() {
     setDesignNotes('');
     setDesignFiles([]);
     setSelectedDesignTemplates([]);
-    setSelectedFabric(null);
-    setDrapingCompleted(false);
-    setDrapingLoading(false);
-    setShowDrapingModal(false);
+    // setSelectedFabric(null);
+    // Model display parked — see task 16
+    // setDrapingCompleted(false);
+    // setDrapingLoading(false);
+    // setShowDrapingModal(false);
     setGarmentJobs([]);
     setGarmentErrors({});
     setQuotePrices({ packaging: 500, discount: 0 });
@@ -2781,7 +2772,8 @@ function App() {
       const own = new Set(((job.template?.sections || []).find(sec => sec.key === 'measurements')?.fields || []).map(f => f.key));
       const values = { ...(job.values || {}) };
       Object.entries(MEASURE_KEYS).forEach(([key, sheetKey]) => {
-        if (own.has(key) && (values[key] === undefined || values[key] === '') && sheet[sheetKey]) values[key] = sheet[sheetKey];
+        // "12.00" on the sheet reads as "12" in the box.
+        if (own.has(key) && (values[key] === undefined || values[key] === '') && sheet[sheetKey]) values[key] = String(Number(sheet[sheetKey]));
       });
       return { ...job, values };
     }));
@@ -3486,8 +3478,8 @@ function App() {
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
           <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>Welcome back 👋</h2>
-            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 32px 0' }}>Login to continue your custom creation journey.</p>
+            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>{justRegistered ? 'Your boutique is ready 🎉' : 'Welcome back 👋'}</h2>
+            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 32px 0' }}>{justRegistered ? 'Sign in with the email and password you just created.' : 'Login to continue your custom creation journey.'}</p>
             
             <form onSubmit={handleLoginSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -4065,7 +4057,8 @@ function App() {
             {dashboardTab === 'overview' && (
               <>
                 <PageHeader
-                  title={t('dashboard.welcomeBackUser', `Welcome back, ${currentUserName}! 👋`, { name: currentUserName })}
+                  title={justRegistered && dashboardTab === 'overview' && !ordersList.length ? t('dashboard.welcomeNewUser', `Welcome, ${currentUserName}! 🎉`, { name: currentUserName })
+                    : t('dashboard.welcomeBackUser', `Welcome back, ${currentUserName}! 👋`, { name: currentUserName })}
                   subtitle={t('dashboard.subtitle')}
                   meta={<HeaderClock />}
                   aside={(
@@ -6911,25 +6904,15 @@ function App() {
                 </div>
 
                 <div className="content-card wz-card">
-                  <DressesDropdown
-                    title={t('wizard.dressesInOrder', 'Dresses in this Order')}
-                    subtitle={t('wizard.dressesSubtitle', 'Pick every garment being made.')}
-                    garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
-                    garmentJobs={garmentJobs}
-                    addingGarmentKey={addingGarmentKey}
-                    garmentTemplatesError={garmentTemplatesError}
-                    loadGarmentTemplates={loadGarmentTemplates}
-                    addGarment={addGarment}
-                    removeGarment={removeGarment}
-                  />
-
                   {garmentJobs.map((job, idx) => {
                     const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
                     // Ready by (the Money screen) owns the delivery date; asking it
                     // per garment here would only be overwritten. Fields a rule
-                    // reveals stay beside the answer that reveals them.
-                    const upFront = (f) => f.key !== 'delivery_date' && (f.is_required || Boolean(f.visible_when));
-                    const foldedAway = (f) => f.key !== 'delivery_date' && !f.is_required && !f.visible_when;
+                    // reveals stay beside the answer that reveals them, and the
+                    // free-text note is the catch-all for what the options miss,
+                    // so it is asked up front rather than folded away.
+                    const upFront = (f) => f.key !== 'delivery_date' && (f.is_required || Boolean(f.visible_when) || f.key === 'garment_notes');
+                    const foldedAway = (f) => f.key !== 'delivery_date' && !upFront(f);
                     const hasOptional = sections.some((k) => (job.template.sections.find((sec) => sec.key === k)?.fields || []).some((f) => foldedAway(f) && f.field_type !== 'file'));
                     return (
                       <div key={job.key} className="wz-garment">
@@ -6967,6 +6950,27 @@ function App() {
                       </div>
                     );
                   })}
+
+                  {/* The picker sits under the last garment: with none yet it is
+                      the whole screen, afterwards it hides behind the question. */}
+                  {garmentJobs.length > 0 && !showGarmentPicker ? (
+                    <button type="button" className="btn-secondary" style={{ width: '100%', justifyContent: 'center' }}
+                            onClick={() => setShowGarmentPicker(true)}>
+                      <Plus size={14} /> {t('wizard.addAnotherGarment', 'Do you need to add another garment?')}
+                    </button>
+                  ) : (
+                    <DressesDropdown
+                      title={t('wizard.dressesInOrder', 'Dresses in this Order')}
+                      subtitle={t('wizard.dressesSubtitle', 'Pick every garment being made.')}
+                      garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
+                      garmentJobs={garmentJobs}
+                      addingGarmentKey={addingGarmentKey}
+                      garmentTemplatesError={garmentTemplatesError}
+                      loadGarmentTemplates={loadGarmentTemplates}
+                      addGarment={(key) => { setShowGarmentPicker(false); addGarment(key); }}
+                      removeGarment={removeGarment}
+                    />
+                  )}
                 </div>
               </>
             )}
@@ -6987,7 +6991,17 @@ function App() {
                           <div><div className="wz-garment-name">{job.template.name}</div></div>
                         </div>
 
-                        {canSeeTab(currentUser, 'inventory') && (
+                        {/* Where the cloth comes from -- the template's own
+                            fabric_source field, so it travels with the garment. */}
+                        {job.template.sections.some((sec) => sec.key === 'materials') && (
+                          <div className="wz-garment-section">
+                            <TemplateForm template={job.template} section="materials" values={job.values}
+                                          errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'fabric_source'}
+                                          onChange={(values) => updateGarmentValues(job.key, values)} />
+                          </div>
+                        )}
+
+                        {canSeeTab(currentUser, 'inventory') && (job.values?.fabric_source || 'inventory') === 'inventory' && (
                           <details className="wz-more" open>
                             <summary><Layers size={14} /> {t('wizard.sheetFabric', 'Fabric from our stock')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                             <Suspense fallback={<ScreenLoading />}>
@@ -7011,7 +7025,12 @@ function App() {
                           </details>
                         )}
 
-                        <details className="wz-more" open>
+                        {(job.values?.fabric_source || 'inventory') === 'buy' && (
+                          <p className="od-hint" style={{ margin: '4px 0 10px' }}>
+                            {t('wizard.fabricToBuy', 'To be bought for this order. Note what and how much under Trims & accessories, or in the notes for the tailor.')}
+                          </p>
+                        )}
+                        <details className="wz-more" open={(job.values?.fabric_source || 'inventory') === 'customer'}>
                           <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer fabrics (they bring it)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                           <Suspense fallback={<ScreenLoading />}>
                             <GarmentPartPicker ownOnly isFabric
@@ -7154,9 +7173,17 @@ function App() {
                       <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Scissors size={20} /> {job.template.name}
                       </div>
-                      <TemplateForm template={job.template} section="measurements" values={job.values}
-                                    errors={garmentErrors[job.key] || {}}
-                                    onChange={(values) => updateGarmentValues(job.key, values)} />
+                      {/* Numbers first, then the extra checklist, then the note
+                          (spoken or typed) for whatever the numbers cannot say. */}
+                      {[
+                        (f) => f.field_type === 'number',
+                        (f) => f.field_type !== 'number' && f.key !== 'measurement_notes',
+                        (f) => f.key === 'measurement_notes',
+                      ].map((only, i) => (
+                        <TemplateForm key={i} template={job.template} section="measurements" values={job.values}
+                                      errors={garmentErrors[job.key] || {}} only={only}
+                                      onChange={(values) => updateGarmentValues(job.key, values)} />
+                      ))}
                     </div>
                   );
                 })}
@@ -7261,7 +7288,7 @@ function App() {
                     </div>
                   ))}
 
-                  {card(t('wizard.step.type', 'Garment'), stepOf('type'), (
+                  {card(t('wizard.step.type', 'Apparel'), stepOf('type'), (
                     <>
                       <div className={`ui-badge ${isMaggamOrder() ? 'ui-badge--warning' : 'ui-badge--neutral'}`} style={{ marginBottom: '10px' }}>
                         {isMaggamOrder()
@@ -7322,7 +7349,7 @@ function App() {
             {wizardStepKey === 'money' && (
               <>
                 <div className="page-title-group">
-                  <h1 className="page-title">{t('wizard.moneyTitle', 'Ready by & payment')}</h1>
+                  <h1 className="page-title">{t('wizard.moneyTitle', 'Complete the order & invoice')}</h1>
                   <p className="page-subtitle">{t('wizard.moneySubtitle', 'A price per garment, the date it is promised for, and anything paid now.')}</p>
                 </div>
 
@@ -7668,7 +7695,7 @@ function App() {
             )}
             <button className="btn-primary" onClick={handleNext} disabled={ctaBusy} style={{ opacity: ctaBusy ? 0.6 : 1 }}>
               {ctaBusy ? t('wizard.working', 'Working\u2026')
-                : wizardStepKey === 'money' ? <>{t('wizard.placeOrder', 'Place order')} <Check size={16} /></>
+                : wizardStepKey === 'money' ? <>{t('wizard.completeOrder', 'Complete the order')} <Check size={16} /></>
                 : wizardStepKey === 'issue' ? <>{t('wizard.createAlteration', 'Create alteration')} <Check size={16} /></>
                 : <>{t('common.next', 'Next')} <ArrowRight size={16} /></>}
             </button>
@@ -8257,183 +8284,184 @@ function App() {
         );
       })()}
 
-      {/* AI Draping Modal */}
-      {showDrapingModal && selectedFabric && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'rgba(0,0,0,0.75)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1200,
-          backdropFilter: 'blur(4px)'
-        }}>
-          <div style={{
-            backgroundColor: '#0d0d0d',
-            borderRadius: '16px',
-            border: '1px solid rgba(212, 175, 55, 0.25)',
-            width: '800px',
-            maxWidth: '95%',
-            padding: '24px',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-            color: '#fff'
-          }}>
-            <style>{`
-              @keyframes modalSpin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-            `}</style>
+      {// Model display parked — see task 16
+      // {showDrapingModal && selectedFabric && (
+      // <div style={{
+      // position: 'fixed',
+      // top: 0,
+      // left: 0,
+      // width: '100%',
+      // height: '100%',
+      // backgroundColor: 'rgba(0,0,0,0.75)',
+      // display: 'flex',
+      // justifyContent: 'center',
+      // alignItems: 'center',
+      // zIndex: 1200,
+      // backdropFilter: 'blur(4px)'
+      // }}>
+      // <div style={{
+      // backgroundColor: '#0d0d0d',
+      // borderRadius: '16px',
+      // border: '1px solid rgba(212, 175, 55, 0.25)',
+      // width: '800px',
+      // maxWidth: '95%',
+      // padding: '24px',
+      // boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+      // display: 'flex',
+      // flexDirection: 'column',
+      // gap: '20px',
+      // color: '#fff'
+      // }}>
+      // <style>{`
+      // @keyframes modalSpin {
+      // 0% { transform: rotate(0deg); }
+      // 100% { transform: rotate(360deg); }
+      // }
+      // `}</style>
             
-            {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                <Sparkles size={20} style={{ color: 'var(--accent-text, #b07c40)', flexShrink: 0 }} />
-                <h3 style={{ fontSize: 'clamp(14px, 4.2vw, 18px)', fontWeight: 700, margin: 0, letterSpacing: '0.5px' }}>Scaleezy Live Visualizer: Interactive Fabric Draping</h3>
-              </div>
-              <button 
-                type="button"
-                aria-label="Close visualizer"
-                onClick={() => { setShowDrapingModal(false); }}
-                style={{ background: 'none', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer', outline: 'none', flexShrink: 0, minWidth: '44px', minHeight: '44px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                &times;
-              </button>
-            </div>
+      // {/* Modal Header */}
+      // <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px' }}>
+      // <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+      // <Sparkles size={20} style={{ color: 'var(--accent-text, #b07c40)', flexShrink: 0 }} />
+      // <h3 style={{ fontSize: 'clamp(14px, 4.2vw, 18px)', fontWeight: 700, margin: 0, letterSpacing: '0.5px' }}>Scaleezy Live Visualizer: Interactive Fabric Draping</h3>
+      // </div>
+      // <button 
+      // type="button"
+      // aria-label="Close visualizer"
+      // onClick={() => { setShowDrapingModal(false); }}
+      // style={{ background: 'none', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer', outline: 'none', flexShrink: 0, minWidth: '44px', minHeight: '44px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+      // >
+      // &times;
+      // </button>
+      // </div>
 
-            {/* Modal Content Grid */}
-            {/* `repeat(auto-fit, minmax(min(190px, 100%), 1fr))`, not a fixed
-                `1.2fr 1.2fr 1.6fr`: three fixed columns put the third panel --
-                the one carrying the Try On explanation -- 70px past the right
-                edge of a 320px screen, where it was clipped and unreadable.
-                auto-fit keeps all three side by side wherever they fit and
-                stacks them when they do not. */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(190px, 100%), 1fr))', gap: '20px', alignItems: 'stretch' }}>
-              {/* Left Column: Style Sketch */}
-              <div style={{ background: '#141414', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Selected Style Sketch</span>
-                {selectedDesignTemplates.length > 0 ? (
-                  <div style={{ width: '100%', height: '180px', overflow: 'hidden', borderRadius: '6px' }}>
-                    <img src={selectedDesignTemplates[0]} alt="Design Sketch" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-                ) : (
-                  <div style={{ width: '100%', height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No sketch selected</span>
-                  </div>
-                )}
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{customerForm.garment_type || "Bespoke Cut"}</span>
-              </div>
+      // {/* Modal Content Grid */}
+      // {/* `repeat(auto-fit, minmax(min(190px, 100%), 1fr))`, not a fixed
+      // `1.2fr 1.2fr 1.6fr`: three fixed columns put the third panel --
+      // the one carrying the Try On explanation -- 70px past the right
+      // edge of a 320px screen, where it was clipped and unreadable.
+      // auto-fit keeps all three side by side wherever they fit and
+      // stacks them when they do not. */}
+      // <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(190px, 100%), 1fr))', gap: '20px', alignItems: 'stretch' }}>
+      // {/* Left Column: Style Sketch */}
+      // <div style={{ background: '#141414', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
+      // <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Selected Style Sketch</span>
+      // {selectedDesignTemplates.length > 0 ? (
+      // <div style={{ width: '100%', height: '180px', overflow: 'hidden', borderRadius: '6px' }}>
+      // <img src={selectedDesignTemplates[0]} alt="Design Sketch" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      // </div>
+      // ) : (
+      // <div style={{ width: '100%', height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+      // <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No sketch selected</span>
+      // </div>
+      // )}
+      // <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{customerForm.garment_type || "Bespoke Cut"}</span>
+      // </div>
 
-              {/* Middle Column: Fabric Swatch */}
-              <div style={{ background: '#141414', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Selected Fabric Swatch</span>
-                <div style={{ width: '100%', height: '180px', overflow: 'hidden', borderRadius: '6px' }}>
-                  <img 
-                    src={inventoryImage(selectedFabric)}
-                    alt="Fabric Swatch" 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                  />
-                </div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{selectedFabric.name} ({selectedFabric.color})</span>
-              </div>
+      // {/* Middle Column: Fabric Swatch */}
+      // <div style={{ background: '#141414', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
+      // <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Selected Fabric Swatch</span>
+      // <div style={{ width: '100%', height: '180px', overflow: 'hidden', borderRadius: '6px' }}>
+      // <img 
+      // src={inventoryImage(selectedFabric)}
+      // alt="Fabric Swatch" 
+      // style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+      // />
+      // </div>
+      // <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{selectedFabric.name} ({selectedFabric.color})</span>
+      // </div>
 
-              {/* Right Column: Draped Mannequin View */}
-              <div style={{ background: '#181818', border: '1px solid rgba(212, 175, 55, 0.15)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: '260px' }}>
-                {!drapingCompleted && !drapingLoading ? (
-                  <div style={{ textAlign: 'center', padding: '20px' }}>
-                    <div style={{ color: 'var(--accent-text, #b07c40)', marginBottom: '12px' }}><Sparkles size={36} /></div>
-                    <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>Ready to Drape</h4>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px', maxWidth: '220px', margin: '0 auto 16px' }}>
-                      Click "Start Try On" to simulate draping this fabric onto the mannequin.
-                    </p>
-                  </div>
-                ) : drapingLoading ? (
-                  <div style={{ textAlign: 'center', padding: '20px' }}>
-                    <div className="spinner" style={{ border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid var(--accent-text, #b07c40)', borderRadius: '50%', width: '40px', height: '40px', animation: 'modalSpin 1s linear infinite', margin: '0 auto 16px' }} />
-                    <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>Simulating Try On...</h4>
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Mapping coordinates onto sketch layers</p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--accent-text, #b07c40)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>✨ 3D Mannequin Draped View</span>
-                    <div style={{ width: '100%', height: '200px', overflow: 'hidden', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                      <img src={drapedImage} alt="Draped Mannequin Mockup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+      // {/* Right Column: Draped Mannequin View */}
+      // <div style={{ background: '#181818', border: '1px solid rgba(212, 175, 55, 0.15)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: '260px' }}>
+      // {!drapingCompleted && !drapingLoading ? (
+      // <div style={{ textAlign: 'center', padding: '20px' }}>
+      // <div style={{ color: 'var(--accent-text, #b07c40)', marginBottom: '12px' }}><Sparkles size={36} /></div>
+      // <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>Ready to Drape</h4>
+      // <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px', maxWidth: '220px', margin: '0 auto 16px' }}>
+      // Click "Start Try On" to simulate draping this fabric onto the mannequin.
+      // </p>
+      // </div>
+      // ) : drapingLoading ? (
+      // <div style={{ textAlign: 'center', padding: '20px' }}>
+      // <div className="spinner" style={{ border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid var(--accent-text, #b07c40)', borderRadius: '50%', width: '40px', height: '40px', animation: 'modalSpin 1s linear infinite', margin: '0 auto 16px' }} />
+      // <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>Simulating Try On...</h4>
+      // <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Mapping coordinates onto sketch layers</p>
+      // </div>
+      // ) : (
+      // <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%' }}>
+      // <span style={{ fontSize: '11px', color: 'var(--accent-text, #b07c40)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>✨ 3D Mannequin Draped View</span>
+      // <div style={{ width: '100%', height: '200px', overflow: 'hidden', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
+      // <img src={drapedImage} alt="Draped Mannequin Mockup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      // </div>
+      // </div>
+      // )}
+      // </div>
+      // </div>
 
-            {/* Modal Disclaimer */}
-            <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', fontStyle: 'italic', textAlign: 'left', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '10px' }}>
-              ⚠️ Reference Simulation Only — actual handcrafting details may vary depending on tailoring cuts and fabric stretch.
-            </div>
+      // {/* Modal Disclaimer */}
+      // <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', fontStyle: 'italic', textAlign: 'left', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '10px' }}>
+      // ⚠️ Reference Simulation Only — actual handcrafting details may vary depending on tailoring cuts and fabric stretch.
+      // </div>
 
-            {/* Modal Actions Footer */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
-              <button 
-                type="button" 
-                className="btn-secondary" 
-                style={{ padding: '8px 16px', fontSize: '12px' }}
-                onClick={() => { setShowDrapingModal(false); }}
-              >
-                Cancel
-              </button>
+      // {/* Modal Actions Footer */}
+      // <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
+      // <button 
+      // type="button" 
+      // className="btn-secondary" 
+      // style={{ padding: '8px 16px', fontSize: '12px' }}
+      // onClick={() => { setShowDrapingModal(false); }}
+      // >
+      // Cancel
+      // </button>
               
-              {!drapingCompleted && !drapingLoading && (
-                <button 
-                  type="button" 
-                  className="btn-primary" 
-                  style={{ padding: '8px 16px', fontSize: '12px', background: 'linear-gradient(135deg, #d35400, #e67e22)', border: 'none' }}
-                  onClick={() => {
-                    setDrapingLoading(true);
-                    setTimeout(() => {
-                      setDrapedImage(getDrapedPreviewImage(selectedFabric, selectedDesignTemplates[0] || ''));
-                      setDrapingLoading(false);
-                      setDrapingCompleted(true);
-                    }, 2000);
-                  }}
-                >
-                  Start Try On
-                </button>
-              )}
+      // {!drapingCompleted && !drapingLoading && (
+      // <button 
+      // type="button" 
+      // className="btn-primary" 
+      // style={{ padding: '8px 16px', fontSize: '12px', background: 'linear-gradient(135deg, #d35400, #e67e22)', border: 'none' }}
+      // onClick={() => {
+      // setDrapingLoading(true);
+      // setTimeout(() => {
+      // setDrapedImage(getDrapedPreviewImage(selectedFabric, selectedDesignTemplates[0] || ''));
+      // setDrapingLoading(false);
+      // setDrapingCompleted(true);
+      // }, 2000);
+      // }}
+      // >
+      // Start Try On
+      // </button>
+      // )}
 
-              {drapingCompleted && (
-                <>
-                  <button 
-                    type="button" 
-                    className="btn-secondary" 
-                    style={{ padding: '8px 16px', fontSize: '12px', border: '1px dashed rgba(255, 255, 255, 0.2)' }}
-                    onClick={() => {
-                      setDrapingCompleted(false);
-                    }}
-                  >
-                    Re-try / Change
-                  </button>
-                  <button 
-                    type="button" 
-                    className="btn-primary" 
-                    style={{ padding: '8px 16px', fontSize: '12px', backgroundColor: 'var(--primary-color)' }}
-                    onClick={() => {
-                      setShowDrapingModal(false);
-                    }}
-                  >
-                    Confirm & Save
-                  </button>
-                </>
-              )}
-            </div>
+      // {drapingCompleted && (
+      // <>
+      // <button 
+      // type="button" 
+      // className="btn-secondary" 
+      // style={{ padding: '8px 16px', fontSize: '12px', border: '1px dashed rgba(255, 255, 255, 0.2)' }}
+      // onClick={() => {
+      // setDrapingCompleted(false);
+      // }}
+      // >
+      // Re-try / Change
+      // </button>
+      // <button 
+      // type="button" 
+      // className="btn-primary" 
+      // style={{ padding: '8px 16px', fontSize: '12px', backgroundColor: 'var(--primary-color)' }}
+      // onClick={() => {
+      // setShowDrapingModal(false);
+      // }}
+      // >
+      // Confirm & Save
+      // </button>
+      // </>
+      // )}
+      // </div>
 
-          </div>
-        </div>
-      )}
+      // </div>
+      // </div>
+      // )}
+      }
 
       <NetworkActivityBar />
       {reviewView && view !== 'wizard' && (

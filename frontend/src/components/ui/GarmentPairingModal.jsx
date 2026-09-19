@@ -13,9 +13,12 @@ export const GARMENT_PAIR_MAP = {
   },
   lehenga: {
     primaryName: 'Lehenga',
-    prompt: 'Would you like to select a matching Blouse (Choli) and Dupatta?',
-    pairKeys: ['blouse', 'dupatta'],
-    pairLabels: ['Blouse (Choli)', 'Dupatta'],
+    prompt: 'Would you like to select a matching Lehenga Blouse and Dupatta?',
+    // 'lehenga_blouse', not 'blouse': a saree and a lehenga on the same order
+    // carry different blouses, and the saree's 'blouse' template is a
+    // separate garment from the lehenga's own.
+    pairKeys: ['lehenga_blouse', 'dupatta'],
+    pairLabels: ['Lehenga Blouse', 'Dupatta'],
   },
   kurti: {
     primaryName: 'Kurti',
@@ -78,6 +81,10 @@ export const GARMENT_PAIR_MAP = {
  * Finds the pairing configuration for a given garment key or name.
  */
 export function getGarmentPairConfig(garmentKey = '', garmentName = '') {
+  // Exact key first; a piece that is itself offered by a prompt (lehenga_blouse,
+  // dupatta, petticoat...) never opens one, however its name reads.
+  if (garmentKey && GARMENT_PAIR_MAP[garmentKey]) return GARMENT_PAIR_MAP[garmentKey];
+  if (garmentKey && Object.values(GARMENT_PAIR_MAP).some((c) => c.pairKeys.includes(garmentKey))) return null;
   const normalizedKey = (garmentKey || garmentName || '').toLowerCase().replace(/[^a-z]/g, '');
   
   for (const [key, config] of Object.entries(GARMENT_PAIR_MAP)) {
@@ -123,6 +130,11 @@ export default function GarmentPairingModal({
 
   // Helper to match pairKey (e.g., 'blouse') to actual template in garmentTemplates
   function findMatchingTemplate(pairKey, templates) {
+    // An exact template key wins outright: the fuzzy match below resolved
+    // 'lehenga_blouse' to the saree's 'blouse' (substring), so the lehenga's
+    // pieces never showed once a saree was on the order.
+    const exact = templates.find(t => t.key === pairKey);
+    if (exact) return exact;
     const target = pairKey.toLowerCase().replace(/[^a-z]/g, '');
     return templates.find(t => {
       const k = (t.key || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -249,6 +261,19 @@ export default function GarmentPairingModal({
           >
             {pairConfig.prompt}
           </p>
+          {(() => {
+            // A template key sits on an order once, so a dupatta the saree
+            // already brought cannot be offered to the lehenga again.
+            const already = pairConfig.pairKeys
+              .map((pk, i) => ({ t: findMatchingTemplate(pk, garmentTemplates), label: pairConfig.pairLabels[i] || pk }))
+              .filter(({ t }) => t && garmentJobs.some(j => j.key === t.key))
+              .map(({ label }) => label);
+            return already.length > 0 && (
+              <p style={{ fontSize: '12.5px', color: 'var(--text-secondary, #64748b)', margin: '-8px 0 16px 0' }}>
+                {already.join(' and ')} {already.length === 1 ? 'is' : 'are'} already on this order and will be shared, so {already.length === 1 ? 'it is' : 'they are'} not offered again.
+              </p>
+            );
+          })()}
 
           {/* If pair items available */}
           {pairConfig.pairKeys && (

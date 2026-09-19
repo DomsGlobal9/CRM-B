@@ -56,6 +56,11 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
     e.preventDefault();
   };
 
+  const tabs = [...parts, ...(allLabel ? [{ key: null, label: allLabel }] : [])];
+  // The tab after the open one; nothing after the last, so the strip has an end.
+  const activeIndex = tabs.findIndex((p) => p.key === active);
+  const next = activeIndex === -1 ? null : (tabs[activeIndex + 1] || null);
+
   return (
     <>
       {/* One row, never wrapped: an eleven-part anarkali would otherwise stack
@@ -111,11 +116,17 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           background: rgba(0, 0, 0, 0.05);
           color: var(--text-primary, #0f172a);
         }
+        .at-part-tabs .tab-next {
+          margin-left: auto;
+          padding-left: 14px;
+          font-weight: 600;
+          color: var(--text-primary, #0f172a);
+        }
       `}</style>
       <div className="at-part-tabs" ref={strip} onWheel={onWheel} role="tablist">
         {/* allLabel null means there is no view behind these tabs other than
             the parts themselves, so the strip is parts alone. */}
-        {[...parts, ...(allLabel ? [{ key: null, label: allLabel }] : [])].map((part) => (
+        {tabs.map((part) => (
           <button
             key={part.key || '__all__'}
             type="button"
@@ -125,8 +136,22 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
             onClick={() => onChange(part.key)}
           >
             {part.label}
+            {/* The arrow on the open tab points at the one to fill in next, so
+                a form with eight parts says where to go rather than leaving the
+                customer to guess. */}
+            {active === part.key && next ? ' →' : ''}
           </button>
         ))}
+        {next && (
+          <button
+            type="button"
+            className="tab-btn tab-next"
+            aria-label={`Next: ${next.label}`}
+            onClick={() => onChange(next.key)}
+          >
+            Next: {next.label} →
+          </button>
+        )}
       </div>
     </>
   );

@@ -298,6 +298,22 @@ class MeasurementSerializer(serializers.ModelSerializer):
         fields = [*INCH_FIELDS, 'additional_measurements']
         extra_kwargs = {f: {'min_value': 0, 'max_value': 120} for f in INCH_FIELDS}
 
+    def to_internal_value(self, data):
+        # An inch figure with a stray third decimal ("12.0012" from typing
+        # after a pre-filled 12.00) is rounded to the column's two places
+        # rather than refused with a sentence about digits.
+        if hasattr(data, 'items'):
+            cleaned = {}
+            for key, value in data.items():
+                if key in INCH_FIELDS and value not in (None, ''):
+                    try:
+                        value = str(round(float(value), 2))
+                    except (TypeError, ValueError):
+                        pass
+                cleaned[key] = value
+            data = cleaned
+        return super().to_internal_value(data)
+
 class MeasurementHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = MeasurementHistory

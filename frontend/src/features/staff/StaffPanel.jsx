@@ -14,8 +14,8 @@
  * staff id, which is also what keeps rates off the roster response.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Check,
+import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
+import { Check, ChevronDown,
   Plus, Clock, Wallet, TrendingUp, Users, FileText, ClipboardList, Trash2, Phone, Calendar, Briefcase, UserCheck,
   User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil,
 } from 'lucide-react';
@@ -753,6 +753,8 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
 
 function Roster({ isOwner, canSeeTeam }) {
   const [roster, setRoster] = useState([]);
+  // Which row's employment, pay and advances are unfolded under it.
+  const [open, setOpen] = useState(null);
   const [designers, setDesigners] = useState([]);
   const [terms, setTerms] = useState([]);
   const [attendanceToday, setAttendanceToday] = useState([]);
@@ -982,67 +984,68 @@ function Roster({ isOwner, canSeeTeam }) {
             : 'Your employment details have not been set up yet. Your boutique owner can add them.'}
         </div>
       ) : (
-        // Cards, not a table: a roster row is a name plus a few values, and it
-        // reads correctly at 320px without a horizontal scroller.
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        // A table, as the boutique asked: one row per person, with pay,
+        // deposit and advances behind a chevron so the six columns stay
+        // scannable. Scrolls sideways on a phone like the order book.
+        <div className="at-table-wrap">
+          <table className="at-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Specialty</th>
+                <th>Mobile</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
           {rows.map(({ member, terms: t }) => (
-            <div key={member.id} className="ui-card" style={{ padding: 'var(--space-4) var(--space-5)' }}>
-              <div className="at-staff" style={{ padding: 0 }}>
+            <Fragment key={member.id}>
+            <tr>
+              <td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
-                  <AvatarInitials name={member.name} size={44} />
+                  <AvatarInitials name={member.name} size={32} />
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                      {isOwner ? (
-                        <button
-                          type="button"
-                          onClick={() => setPerson(member)}
-                          title="Edit details, employment and documents"
-                          style={{
-                            fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-md)',
-                            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                            color: 'var(--text-primary)', textAlign: 'left', fontFamily: 'inherit',
-                          }}
-                        >{member.name}</button>
-                      ) : (
-                        <div style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-md)',
-                                      color: 'var(--text-primary)' }}>{member.name}</div>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {member.role}
-                      {member.isDesigner && ` · ${member.design_count ?? 0} design(s)${member.has_login ? '' : ' · no login yet'}`}
-                    </div>
-                    {member.phone && (
-                      <div className="at-contact"><span><Phone size={12} /> {member.phone}</span></div>
+                    {isOwner ? (
+                      <button
+                        type="button"
+                        onClick={() => setPerson(member)}
+                        title="Edit details, employment and documents"
+                        style={{
+                          fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-sm)',
+                          background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                          color: 'var(--text-primary)', textAlign: 'left', fontFamily: 'inherit',
+                        }}
+                      >{member.name}</button>
+                    ) : (
+                      <div style={{ fontWeight: 'var(--weight-semibold)' }}>{member.name}</div>
                     )}
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                      {member.isDesigner
+                        ? `${member.design_count ?? 0} design(s)${member.has_login ? '' : ' · no login yet'}`
+                        : t ? employmentLabel(t.employment_type) : 'No employment details yet'}
+                    </div>
                   </div>
                 </div>
-
-                <div>
-                  {member.status ? (
-                    <span className={`ui-badge ui-badge--${member.status === 'Available' ? 'success' : member.status === 'Busy' ? 'warning' : 'neutral'}`}>
-                      ● {member.status}
-                    </span>
-                  ) : member.isDesigner ? (
-                    <span className="ui-badge ui-badge--neutral">Designer</span>
-                  ) : null}
-                </div>
-
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <Calendar size={12} /> Joined {t?.joined_at
-                      ? new Date(t.joined_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-                      : '—'}
+              </td>
+              <td>{member.role}</td>
+              <td>{member.specialty || member.specialisation || '—'}</td>
+              <td>{member.phone ? <span style={{ whiteSpace: 'nowrap' }}><Phone size={12} /> {member.phone}</span> : '—'}</td>
+              <td>
+                {member.status ? (
+                  <span className={`ui-badge ui-badge--${member.status === 'Available' ? 'success' : member.status === 'Busy' ? 'warning' : 'neutral'}`}>
+                    ● {member.status}
                   </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <Briefcase size={12} /> {t ? employmentLabel(t.employment_type) : 'Not set'}
-                  </span>
-                </div>
-
-                {isOwner && (
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                    {/* One door: details, employment and documents are all
-                        behind it. Primary until employment is set up. */}
+                ) : member.isDesigner ? (
+                  <span className="ui-badge ui-badge--neutral">Designer</span>
+                ) : '—'}
+              </td>
+              <td>
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  {isOwner && (
+                    // One door: details, employment and documents are all
+                    // behind it. Primary until employment is set up.
                     <button
                       type="button"
                       className={`${t || member.isDesigner ? 'btn-secondary' : 'btn-primary'} at-btn-sm`}
@@ -1051,8 +1054,39 @@ function Roster({ isOwner, canSeeTeam }) {
                     >
                       <Pencil size={14} /> Edit
                     </button>
-                  </div>
-                )}
+                  )}
+                  {isOwner && t && showsPay(t) && (
+                    <button type="button" className="btn-secondary at-btn-sm" onClick={() => setIssuingFor(member)}>
+                      <Plus size={12} /> Advance
+                    </button>
+                  )}
+                  {/* Designers have no terms, so there is nothing to unfold. */}
+                  {!member.isDesigner && (
+                    <button
+                      type="button"
+                      className="btn-secondary at-btn-sm"
+                      aria-expanded={open === member.id}
+                      aria-label={open === member.id ? 'Hide employment details' : 'Show employment details'}
+                      onClick={() => setOpen(open === member.id ? null : member.id)}
+                    >
+                      <ChevronDown size={14} style={{ transform: open === member.id ? 'rotate(180deg)' : 'none' }} />
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+            {open === member.id && !member.isDesigner && (
+            <tr>
+            <td colSpan={6} style={{ background: 'var(--surface-inset)' }}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Calendar size={12} /> Joined {t?.joined_at
+                    ? new Date(t.joined_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '—'}
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Briefcase size={12} /> {t ? employmentLabel(t.employment_type) : 'Not set'}
+                </span>
               </div>
 
               {t && showsPay(t) && (
@@ -1123,17 +1157,8 @@ function Roster({ isOwner, canSeeTeam }) {
                   marginTop: '12px', paddingTop: '12px',
                   borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))',
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between',
-                                alignItems: 'center', marginBottom: '8px' }}>
-                    <div className="ui-eyebrow">
-                      Advances
-                    </div>
-                    <button type="button" className="btn-secondary"
-                            onClick={() => setIssuingFor(member)}
-                            style={{ minHeight: '34px', fontSize: '12px',
-                                     display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Plus size={12} /> Issue advance
-                    </button>
+                  <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>
+                    Advances
                   </div>
                   {(advancesByStaff.get(String(member.id)) || []).length === 0 ? (
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
@@ -1181,8 +1206,13 @@ function Roster({ isOwner, canSeeTeam }) {
                   No employment details yet — this person works exactly as before.
                 </div>
               )}
-            </div>
+            </td>
+            </tr>
+            )}
+            </Fragment>
           ))}
+            </tbody>
+          </table>
         </div>
       )}
 

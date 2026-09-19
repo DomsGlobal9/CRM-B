@@ -329,7 +329,7 @@ function JobScreen({ order, stage, mode, isSupervisor, fabricTaxonomy, onClose, 
             <details className="wk-details" open>
               <summary>{garmentLabel(order, t)}</summary>
               <div className="wk-details-body">
-                {all.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}{Number.isFinite(Number(v)) ? ` ${t('workPage.inch', 'in')}` : ''}</span></div>)}
+                {all.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}{Number.isFinite(Number(v)) ? ` ${t('workPage.inch', 'Inches')}` : ''}</span></div>)}
               </div>
             </details>
           );
@@ -342,7 +342,7 @@ function JobScreen({ order, stage, mode, isSupervisor, fabricTaxonomy, onClose, 
               <summary>{j.template_name || t('workPage.customGarment', 'Custom garment')}</summary>
               <div className="wk-details-body">
                 {m.length === 0 && s.length === 0 && <div className="wk-quiet">{t('workPage.noMeasurements', 'No measurements recorded.')}</div>}
-                {m.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}{Number.isFinite(Number(v)) ? ` ${t('workPage.inch', 'in')}` : ''}</span></div>)}
+                {m.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}{Number.isFinite(Number(v)) ? ` ${t('workPage.inch', 'Inches')}` : ''}</span></div>)}
                 {s.length > 0 && <div className="wk-sub">{t('workPage.style', 'Style')}</div>}
                 {s.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}</span></div>)}
               </div>
