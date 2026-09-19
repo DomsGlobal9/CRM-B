@@ -597,6 +597,36 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.refresh_from_db()
         return Response({'status': 'status updated', 'order_status': order.order_status})
 
+    @action(detail=True, methods=['POST'], url_path='complete-all')
+    def complete_all(self, request, pk=None):
+        """The owner finishes the whole journey at once.
+
+        Every unsettled stage is completed in order, in one transaction, through
+        the same transition_order_stage every click goes through -- so every
+        rule (prerequisites, measurements, stock) still applies, and a refusal
+        names the stage and leaves nothing half-done. Owner only:
+        RolePermission admits no other role to an action outside its two
+        lists. The customer is told once, about the final status, not about
+        each stage passed on the way.
+        """
+        order = self.get_object()
+        from domains.orders import workflow
+        config = workflow.for_order(
+            BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, order)
+        live = dict(order.stages.values_list('stage_key', 'status'))
+        pending = [s for s in config if live.get(s['key']) not in ('COMPLETED', 'SKIPPED')]
+        try:
+            with transaction.atomic():
+                for s in pending:
+                    OrderService.transition_order_stage(
+                        order=order, stage_key=s['key'],
+                        new_status='SKIPPED' if s.get('optional') else 'COMPLETED',
+                        user=request.user, notify=s is pending[-1])
+        except ValueError as ve:
+            return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data)
+
     @action(detail=True, methods=['POST'], url_path='garment-images')
     def upload_garment_image(self, request, pk=None):
         order = self.get_object()

@@ -478,3 +478,41 @@ class DropMeasurementAndFabricStagesMigrationTests(StateMachineTestBase):
         self.assertEqual(list(order.production_tasks.values_list('stage_key', flat=True)), ['pattern_cutting'])
         order.refresh_from_db()
         self.assertEqual(order.current_stage_key, 'created')
+
+
+class CompleteAllStagesTests(OwnerDropdownLiveRegressionTests):
+    """POST /orders/{id}/complete-all/: the one-person boutique's shortcut."""
+
+    def url(self):
+        return f'/api/orders/{self.order.id}/complete-all/'
+
+    def test_the_owner_finishes_the_whole_journey(self):
+        r = self.api.post(self.url())
+
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(
+            set(self.order.stages.values_list('status', flat=True)), {'COMPLETED'})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.order_status, 'Delivered')
+        self.assertEqual(self.order.production_status, 'COMPLETED')
+        # The customer hears about the outcome once, not about every stage
+        # passed through on the way to it.
+        self.assertEqual(CustomerMessage.objects.filter(order=self.order).count(), 1)
+
+    def test_staff_or_none_makes_no_difference(self):
+        self.order.tailor = self.order.master = None
+        self.order.save(update_fields=['tailor', 'master'])
+        Tailor.objects.all().delete()
+        r = self.api.post(self.url())
+        self.assertEqual(r.status_code, 200, r.data)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.order_status, 'Delivered')
+
+    def test_a_tailor_account_may_not_use_it(self):
+        Tailor.objects.exclude(id=self.tailor.id).delete()
+        from rest_framework.authtoken.models import Token
+        token, _ = Token.objects.get_or_create(user=self.tailor_user)
+        self.api.credentials(HTTP_AUTHORIZATION=f'Token {token.key}',
+                             HTTP_X_TENANT_ID=self.tenant.schema_name)
+        r = self.api.post(self.url())
+        self.assertEqual(r.status_code, 403)

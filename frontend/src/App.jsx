@@ -2005,6 +2005,7 @@ function App() {
   // Backend fetched collections
   const [dashboardData, setDashboardData] = useState(null);
   const [tailors, setTailors] = useState([]);
+  const [completingAllOrderId, setCompletingAllOrderId] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [appointmentForm, setAppointmentForm] = useState({
@@ -5258,6 +5259,21 @@ function App() {
                       </div>
                       {stages.length > 0 && (
                         <div className="od-head-actions">
+                          {/* The owner's shortcut: the whole journey in one go,
+                              for work already done off the record. */}
+                          {currentUser.role === 'Owner' && !allDone && (
+                            <button type="button" className="btn-primary" style={{ padding: '6px 14px', minHeight: '32px', fontSize: '12.5px' }}
+                                    disabled={completingAllOrderId === order.id}
+                                    onClick={async () => {
+                                      if (!window.confirm('Complete every remaining stage and mark this order Delivered?')) return;
+                                      setCompletingAllOrderId(order.id);
+                                      try { await api.completeAllStages(order.id); await fetchDashboardAndConfig(); }
+                                      catch (err) { alert(err.message); }
+                                      finally { setCompletingAllOrderId(null); }
+                                    }}>
+                              <CheckCircle2 size={14} /> {completingAllOrderId === order.id ? 'Completing…' : 'Complete all stages'}
+                            </button>
+                          )}
                           <span className="od-chip">{stepChip}</span>
                           <span className={`ui-badge ui-badge--${journeyBadge[0]}`}>{journeyBadge[1]}</span>
                         </div>

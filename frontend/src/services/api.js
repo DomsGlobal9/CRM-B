@@ -559,6 +559,15 @@ export const api = {
     return res.json();
   },
 
+  /** Owner of a staff-less boutique completes every remaining stage at once. */
+  async completeAllStages(orderId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/complete-all/`, {
+      method: 'POST', headers: getHeaders(),
+    });
+    if (!res.ok) await failWith(res, 'Could not complete the stages');
+    return res.json();
+  },
+
   /** Owner/Master moves an order onto the other path through the workroom. */
   async setOrderFlow(orderId, flow) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/set-flow/`, {

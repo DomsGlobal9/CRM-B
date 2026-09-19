@@ -374,7 +374,7 @@ class OrderService:
 
     @staticmethod
     @transaction.atomic
-    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None, voice_note='', clear_voice_note=False):
+    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None, voice_note='', clear_voice_note=False, notify=True):
         from django.utils import timezone
 
         try:
@@ -574,7 +574,10 @@ class OrderService:
         elif rejected:
             notify_verification(order, order_stage, submitted=False)
 
-        if new_status in ('COMPLETED', 'SKIPPED'):
+        # `notify=False` is complete_all's: it walks a dozen stages in one
+        # transaction, and the customer should hear "Delivered" once, not
+        # every intermediate status in the same second.
+        if notify and new_status in ('COMPLETED', 'SKIPPED'):
             create_order_notifications(
                 order,
                 created=False,
