@@ -76,7 +76,8 @@ export default function Modules() {
     const { boutique, module, plan, next, bundle } = pending;
     setBusy(true);
     try {
-      const body = bundle
+      // A plan change carries no module: build the switch body only for one.
+      const body = plan ? null : bundle
         ? Object.fromEntries(bundle.features.map((k) => [k, next]))
         : { [module.key]: next };
       const result = plan

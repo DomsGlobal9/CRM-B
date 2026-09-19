@@ -32,6 +32,7 @@ const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const AlterationsPanel = lazy(() => import('./features/alterations/AlterationsPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
+const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
 import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview';
@@ -1140,8 +1141,9 @@ const NAV_MODULE = {
   orders: null,
   alterations: 'alterations',
   customers: null,
-  pendingTasks: null,
-  closedTasks: null,
+  work: null,
+  check: null,
+  done: null,
   invoices: null,
   analytics: null,
   account: null,
@@ -1209,8 +1211,9 @@ const navSectionsFor = (user, t) => {
       ] },
     ] : role === 'Master' ? [
       { key: 'master', items: [
-        { tab: 'pendingTasks', icon: ClipboardList, label: t('nav.pendingTasks', 'Pending Tasks'), phone: true },
-        { tab: 'closedTasks', icon: CheckCircle2, label: t('nav.closedTasks', 'Closed Tasks'), phone: true },
+        { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
+        { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
+        { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
       ] },
     ] : role === 'Designer' ? [
@@ -1219,8 +1222,8 @@ const navSectionsFor = (user, t) => {
       ] },
     ] : [
       { key: 'production', items: [
-        { tab: 'pendingTasks', icon: ClipboardList, label: t('nav.pendingTasks', 'Pending Tasks'), phone: true },
-        { tab: 'closedTasks', icon: CheckCircle2, label: t('nav.closedTasks', 'Closed Tasks'), phone: true },
+        { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
+        { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
         // Production staff record their own hours here. Labelled for what it
         // is to them -- the screen opens on Attendance and shows only their
         // own record. Without this entry a tailor cannot check in at all.
@@ -1942,11 +1945,9 @@ function App() {
   const [expandedCustomerOrderId, setExpandedCustomerOrderId] = useState(null);
   // Manage Orders table: the row whose full card is open under it.
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
-  const [openTaskRowId, setOpenTaskRowId] = useState(null);
   // Alterations sit in the same register as orders, told apart by a Type column.
   const [alterationsList, setAlterationsList] = useState([]);
   const [approvingDesignId, setApprovingDesignId] = useState(null);
-  const [submittingCompletionId, setSubmittingCompletionId] = useState(null);
   const [assigningStageKey, setAssigningStageKey] = useState(null);
 
   // Backend fetched collections
@@ -2201,7 +2202,7 @@ function App() {
           return;
         }
         if (isProductionStaff(user.role)) {
-          setDashboardTab('pendingTasks');
+          setDashboardTab('work');
         } else {
           setDashboardTab('overview');
         }
@@ -2568,7 +2569,7 @@ function App() {
         return;
       }
       if (isProductionStaff(res.user.role)) {
-        setDashboardTab('pendingTasks');
+        setDashboardTab('work');
       } else {
         setDashboardTab('overview');
       }
@@ -3202,32 +3203,6 @@ function App() {
   const [stockPrompt, setStockPrompt] = useState(null);      // { fabric, proceed }
   // The review screen's picture viewer: which group is open, and where in it.
   const [reviewView, setReviewView] = useState(null);        // { items, index }
-  // Photographs the tailor has picked but not yet submitted, per order, as
-  // object URLs for the thumbnails. Revoked when replaced.
-  const [completionPicks, setCompletionPicks] = useState({});  // { [orderId]: [{ file, url }] }
-  // Adds to what is already waiting rather than replacing it, so a photo
-  // picked after removing one keeps the others. Five at most, in total.
-  const pickCompletionPhotos = (orderId, files) => {
-    const bad = imageFilesError(files);
-    if (bad) { alert(bad); return; }
-    setCompletionPicks(prev => {
-      const current = prev[orderId] || [];
-      const room = Math.max(0, 5 - current.length);
-      if (files.length > room) alert(`You can upload up to 5 photos. ${room ? `Only ${room} more will be added.` : 'Remove one first.'}`);
-      const added = files.slice(0, room).map(file => ({ file, url: URL.createObjectURL(file) }));
-      return { ...prev, [orderId]: [...current, ...added] };
-    });
-  };
-  const clearCompletionPhotos = (orderId) => {
-    setCompletionPicks(prev => {
-      (prev[orderId] || []).forEach(p => URL.revokeObjectURL(p.url));
-      return { ...prev, [orderId]: [] };
-    });
-  };
-  const dropCompletionPhoto = (orderId, url) => {
-    URL.revokeObjectURL(url);
-    setCompletionPicks(prev => ({ ...prev, [orderId]: (prev[orderId] || []).filter(p => p.url !== url) }));
-  };
   const [restockTrip, setRestockTrip] = useState(null);      // { fabric, draftId? }
   useEffect(() => {
     if (!restockTrip || restockTrip.draftId) return;
@@ -3303,83 +3278,6 @@ function App() {
     setGarmentJobs(prev => prev.map(job => job.key === garmentKey
       ? { ...job, design: { ...(job.design || {}), part_refs: next } }
       : job));
-  };
-
-  /** The stage this order is actually sitting on: the first one nobody has
-   *  finished with, in the workflow's own declared order. */
-  const liveStage = (order) => {
-    const config = boutiqueSettings?.workflow_config || [];
-    const status = Object.fromEntries(
-      (order.stages || []).map(s => [s.stage_key, s.status]));
-    // Only the stages this order carries: a plain stitching order has no
-    // embroidery stage to be "not started" on.
-    return config.find(
-      s => s.key in status && !['COMPLETED', 'SKIPPED'].includes(status[s.key])) || null;
-  };
-
-  const isMyAssignment = (order) => {
-    const me = currentUser?.tailor_id;
-    if (!me) return false;
-    if (order.master === me
-        || order.tailor === me
-        || (order.stages || []).some(s => s.assigned_to === me)) return true;
-
-    // Work that has reached a stage this role performs, which nobody had to
-    // hand over first. The three clauses above are all personal attachment: a
-    // QC Staff is never order.tailor (the stitcher) or order.master (the
-    // supervisor), so before this the dashboard re-filtered the server's queue
-    // straight back out and showed them nothing.
-    //
-    // Reads the stage's own `roles` -- the same list the server checks in
-    // visible_orders and check_transition, and the same one
-    // eligibleStaffForStage already reads here. One declaration, so this
-    // cannot drift from what the API will actually allow.
-    //
-    // Owner and Master are excluded deliberately: every stage names them, so
-    // including them would put the entire boutique under "My Assignments".
-    // They see the floor through the order list, and their assignments stay
-    // the work that is personally theirs -- which mirrors the server, where
-    // supervisors return early and never consult the queue at all.
-    if (currentUser?.role === 'Owner' || currentUser?.role === 'Master') return false;
-    const live = liveStage(order);
-    return !!live && (live.roles || []).includes(currentUser?.role);
-  };
-
-  // A task is closed for this person once the order is over, or once every
-  // stage that was theirs -- handed to them by name, or one their role
-  // performs -- is off their bench. For a worker that includes work they
-  // have submitted and are waiting to have verified: their part is done.
-  // A Master (or the owner) supervises every stage, so for them the task is
-  // the whole order, and work waiting for their verification is open work.
-  const isClosedForMe = (order) => {
-    if (['Delivered', 'Cancelled'].includes(order.order_status) || !liveStage(order)) return true;
-    if (currentUser?.role === 'Owner' || currentUser?.role === 'Master') return false;
-    const config = boutiqueSettings?.workflow_config || [];
-    const rolesFor = (key) => (config.find(s => s.key === key)?.roles) || [];
-    const me = currentUser?.tailor_id;
-    const mine = (order.stages || []).filter(s =>
-      s.assigned_to === me || rolesFor(s.stage_key).includes(currentUser?.role));
-    return mine.length > 0
-      && mine.every(s => ['COMPLETED', 'SKIPPED', 'PENDING_VERIFICATION'].includes(s.status));
-  };
-  const closedTasksView = dashboardTab === 'closedTasks';
-  const taskOrders = ordersList.filter(o => isMyAssignment(o) && isClosedForMe(o) === closedTasksView);
-  // One line per task, read the way the owner's order registry reads: where
-  // the order stands, and which stage it is standing on.
-  const taskRowStatus = (order) => {
-    const stages = order.stages || [];
-    if (order.order_status === 'Delivered') return { tone: 'success', label: 'Delivered', stage: '' };
-    if (order.order_status === 'Cancelled') return { tone: 'neutral', label: 'Cancelled', stage: '' };
-    const verifying = stages.some(st => st.status === 'PENDING_VERIFICATION');
-    const current = stages.find(st => st.status === 'PENDING_VERIFICATION')
-      || stages.find(st => st.status === 'IN_PROGRESS')
-      || stages.find(st => st.status !== 'COMPLETED');
-    const done = stages.filter(st => st.status === 'COMPLETED').length;
-    return {
-      tone: verifying ? 'info' : 'warning',
-      label: verifying ? 'Pending verification' : 'Pending',
-      stage: current ? `${current.stage_name} (${done}/${stages.length})` : '',
-    };
   };
 
   // Opens the stage review panel for a given order and stage.
@@ -4022,7 +3920,11 @@ function App() {
               dashboardTab === 'tailors' ? 'nav.manageTailors' :
               dashboardTab === 'designs' ? 'nav.manageDesigns' :
               dashboardTab === 'staff' ? 'nav.staffManagement' :
+              dashboardTab === 'work' ? 'nav.myWork' :
+              dashboardTab === 'check' ? 'nav.toCheck' :
+              dashboardTab === 'done' ? 'nav.doneWork' :
               `nav.${dashboardTab}`,
+              dashboardTab === 'work' ? 'My work' : dashboardTab === 'check' ? 'To check' : dashboardTab === 'done' ? 'Done' :
               dashboardTab.charAt(0).toUpperCase() + dashboardTab.slice(1)
             )}
             currentUser={currentUser}
@@ -4113,7 +4015,6 @@ function App() {
                   // cleared by hand; everything inside resets with the key.
                   setSelectedDirectoryCustomer(null);
                   setOpenOrdersRowId(null);
-                  setOpenTaskRowId(null);
                   setOpenAlterationId(null);
                   setSelectedDashboardOrder(null);
                   setSectionVisit(n => n + 1);
@@ -4129,491 +4030,26 @@ function App() {
 
           {/* Main Content Area */}
           <main className="portal-main" key={`${dashboardTab}:${sectionVisit}`}>
-            {(dashboardTab === 'pendingTasks' || dashboardTab === 'closedTasks') && (
+            {(dashboardTab === 'work' || dashboardTab === 'done' || dashboardTab === 'check') && (
               <>
-                <header className="portal-header">
-                  <div className="portal-header-left">
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', fontWeight: 400 }}>
-                        {closedTasksView ? 'Closed Tasks' : 'Pending Tasks'}
-                      </h1>
-                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        Logged in as {currentUserName} ({currentUser.role}). {closedTasksView ? 'Work you have finished.' : 'View and manage your active orders.'}
-                      </p>
-                    </div>
+                <PageHeader
+                  title={dashboardTab === 'work' ? t('nav.myWork', 'My work') : dashboardTab === 'check' ? t('nav.toCheck', 'To check') : t('nav.doneWork', 'Done')}
+                  subtitle={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
+                />
+                <Suspense fallback={<ScreenLoading />}>
+                  <WorkPanel view={dashboardTab === 'work' ? 'open' : dashboardTab} orders={ordersList} currentUser={currentUser} workflowConfig={boutiqueSettings?.workflow_config || []} tailors={tailors} fabricTaxonomy={fabricTaxonomy} onChanged={fetchDashboardAndConfig} />
+                </Suspense>
+                {/* The tailor's alteration queue: a separate job against a
+                    delivered order, so it stays its own list under My work. */}
+                {dashboardTab === 'work' && (
+                  <div style={{ marginTop: '20px' }}>
+                    <AlterationList
+                      title={t('alterations.mine', 'My Alterations')}
+                      params={{ assigned_to_me: '1', open: '1' }}
+                      onOpenAlteration={openAlteration}
+                    />
                   </div>
-                  <div className="portal-header-right">
-                    <div className="user-profile-widget">
-                      <div className="user-avatar-circle">
-                        <img src={`https://api.dicebear.com/7.x/initials/svg?backgroundColor=e6f1c8&textColor=1f2a06&seed=${encodeURIComponent(currentUserName)}`} alt="Avatar" />
-                      </div>
-                      <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                    </div>
-                  </div>
-                </header>
-
-                <div className="tailor-manager-content" style={{ marginTop: '24px' }}>
-                  <div style={{
-                    background: 'var(--surface-color)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '12px',
-                    padding: '24px'
-                  }}>
-                    <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-                      {closedTasksView ? 'Closed Tasks' : 'Pending Tasks'}
-                    </h3>
-                    
-                    {taskOrders.length === 0 ? (
-                      <p style={{ color: 'var(--text-muted)', padding: '16px 0', textAlign: 'center', fontSize: '13px' }}>
-                        {closedTasksView ? 'Nothing you worked on is closed yet.' : 'No active orders are assigned to you at the moment.'}
-                      </p>
-                    ) : (
-                    <div className="at-table-wrap">
-                    <table className="at-table">
-                      <thead>
-                        <tr>
-                          <th>Order ID</th>
-                          <th>Type</th>
-                          <th>Customer Name</th>
-                          <th>Est. Delivery Date</th>
-                          <th>Status</th>
-                          <th style={{ textAlign: 'right' }}>Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {taskOrders.map(order => {
-                          const isOpen = openTaskRowId === order.id;
-                          const row = taskRowStatus(order);
-                          return (
-                          <React.Fragment key={order.id}>
-                          <tr>
-                            <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
-                            <td>{orderGarmentLabel(order) || 'Stitching'}</td>
-                            <td>{order.customer_name}</td>
-                            <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
-                            <td>
-                              <span className={`ui-badge ui-badge--${row.tone}`}>{row.label}</span>
-                              {row.stage && (
-                                <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                  {row.stage}
-                                </span>
-                              )}
-                            </td>
-                            <td style={{ whiteSpace: 'nowrap' }}>
-                              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                <button type="button" className="btn-secondary at-btn-sm"
-                                        onClick={() => setOpenTaskRowId(isOpen ? null : order.id)}>
-                                  <Eye size={12} /> {isOpen ? 'Hide' : 'View'}
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                          {isOpen && (
-                          <tr>
-                          <td colSpan={6} style={{ padding: 0, background: 'var(--surface-2)' }}>
-                          {/* width:0 + min-width:100%: the card takes the table's
-                              width instead of setting it, so the stage strip
-                              scrolls inside itself, not the table. */}
-                          <div style={{ width: 0, minWidth: '100%' }}>
-                          <div style={{
-                            background: 'var(--surface-color)',
-                            borderTop: '1px solid var(--border-color)',
-                            padding: '20px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '12px'
-                          }}>
-                            {/* Order Header */}
-                            <div className="assignment-card-header">
-                              <div>
-                                <span style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text-primary)' }}>Order ID: {orderRef(order)}</span>
-                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                                  Client: {order.customer_name} | Est. Delivery: {order.estimated_delivery ? fmtDate(order.estimated_delivery) : 'TBD'}
-                                </div>
-                              </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                                <span className={`order-row-badge ${order.order_status.toLowerCase().replace(/ & /g, '_').replace(/ /g, '_')}`} style={{ fontSize: '11px', padding: '3px 10px' }}>
-                                  {order.order_status}
-                                </span>
-                                <select
-                                  className="form-control"
-                                  style={{ fontSize: '12px', padding: '4px 10px', width: '160px', margin: 0 }}
-                                  value={order.order_status}
-                                  disabled={updatingStatusOrderId === order.id}
-                                  onChange={(e) => {
-                                    if (updatingStatusOrderId) return;
-                                    setUpdatingStatusOrderId(order.id);
-                                    api.updateOrderStatus(order.id, e.target.value)
-                                      .then(() => fetchDashboardAndConfig())
-                                      .catch(err => alert("Failed to update status: " + err.message))
-                                      .finally(() => setUpdatingStatusOrderId(null));
-                                  }}
-                                >
-                                  <option value="Received">Received</option>
-                                  <option value="Confirmed">Confirmed</option>
-                                  <option value="Stylist Review">Stylist Review</option>
-                                  <option value="Design & Creation">Design & Creation</option>
-                                  <option value="Quality Check">Quality Check</option>
-                                  <option value="Ready for Dispatch">Ready for Dispatch</option>
-                                  <option value="Shipped">Shipped</option>
-                                  <option value="Delivered">Delivered</option>
-                                </select>
-                              </div>
-                            </div>
-                            
-                            {/* Price / Scope */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--surface-color)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                              <div className="assignment-card-sub-info" style={{ borderBottom: (!isProductionStaff(currentUser.role) || order.customer_measurements || (order.garment_jobs || []).length > 0) ? '1px solid var(--border-color)' : 'none', paddingBottom: '10px', fontSize: '13px' }}>
-                                {!isProductionStaff(currentUser.role) && <div>Total Value: <span style={{ fontWeight: 600 }}>₹{parseFloat(order.total_amount).toLocaleString()}</span></div>}
-                                <div>Assigned Supervising Master: <span style={{ fontWeight: 600, color: 'var(--accent-text, #b07c40)' }}>{order.master_name || 'Unassigned'}</span></div>
-                                <div>Assigned Stitching Tailor: <span style={{ fontWeight: 600 }}>{order.tailor_name || 'Unassigned'}</span></div>
-                              </div>
-
-                              {/* What this order is for, per garment.
-                                  This panel used to print order.customer_garment_type and the
-                                  customer-level Measurement row. Both are single-valued and the
-                                  order is not: a blouse-and-lehenga order named one garment, and
-                                  the roll-up that fed the numbers keeps whichever dress was
-                                  entered last -- so the tailor was shown the lehenga's waist for
-                                  the blouse, and blouse length, upper chest, armhole and floor
-                                  length were absent entirely because they are not rolled up.
-                                  Read the garment jobs, which hold exactly what was ordered. */}
-                              {(order.garment_jobs || []).length > 0 ? (
-                                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                  <div className="assignment-card-blueprint-header" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    <span>
-                                      {order.garment_jobs.length > 1 ? 'Garments' : 'Garment'}:{' '}
-                                      <span style={{ color: 'var(--accent-text, #b07c40)' }}>{orderGarmentLabel(order)}</span>
-                                    </span>
-                                    <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>📏 Measurements as ordered</span>
-                                  </div>
-                                  {order.garment_jobs.map(job => {
-                                    const entries = Object.entries(job.measurements || {})
-                                      .filter(([, v]) => v !== '' && v !== null && v !== undefined);
-                                    return (
-                                      <div key={job.id}>
-                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                                          {job.template_name || job.template_key}
-                                        </div>
-                                        {entries.length > 0 ? (
-                                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px', background: 'rgba(0,0,0,0.015)', padding: '8px', borderRadius: '6px' }}>
-                                            {entries.map(([k, v]) => (
-                                              <div key={k}>{humaniseSpecKey(k)}: <strong>{String(v)} in</strong></div>
-                                            ))}
-                                          </div>
-                                        ) : (
-                                          <div style={{ padding: '8px', background: 'rgba(0,0,0,0.015)', borderRadius: '6px' }}>
-                                            No measurements were captured for this garment.
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              ) : order.customer_measurements && (
-                                /* Orders written before garment jobs existed. Nine of the ten
-                                   orders already in the database are in this state, so the old
-                                   panel stays reachable rather than showing them nothing. */
-                                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                                  <div className="assignment-card-blueprint-header" style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                                    <span>
-                                      Dress / Garment Type: <span style={{ color: 'var(--accent-text, #b07c40)' }}>{orderGarmentLabel(order)}</span>
-                                      {(() => {
-                                        const parts = order.customer_measurements.additional_measurements?.stitch_parts || [];
-                                        return parts.length > 0 && ` (${parts.join(', ')})`;
-                                      })()}
-                                    </span>
-                                    <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>📍 Customer measurements on file</span>
-                                  </div>
-                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '8px', background: 'rgba(0,0,0,0.015)', padding: '8px', borderRadius: '6px' }}>
-                                    {(() => {
-                                      const parts = order.customer_measurements.additional_measurements?.stitch_parts || [];
-                                      const visible = getVisibleMeasurementFields(parts);
-                                      return (
-                                        <>
-                                          {visible.includes('bust') && <div>Bust: <strong>{order.customer_measurements.bust || '—'} in</strong></div>}
-                                          {visible.includes('waist') && <div>Waist: <strong>{order.customer_measurements.waist || '—'} in</strong></div>}
-                                          {visible.includes('hips') && <div>Hips: <strong>{order.customer_measurements.hips || '—'} in</strong></div>}
-                                          {visible.includes('shoulder') && <div>Shoulder: <strong>{order.customer_measurements.shoulder || '—'} in</strong></div>}
-                                          {visible.includes('arm_length') && <div>Arm: <strong>{order.customer_measurements.arm_length || '—'} in</strong></div>}
-                                          {visible.includes('neck') && <div>Neck: <strong>{order.customer_measurements.neck || '—'} in</strong></div>}
-                                          {visible.includes('length') && <div>Length: <strong>{order.customer_measurements.length || '—'} in</strong></div>}
-                                        </>
-                                      );
-                                    })()}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Production stages -- a master runs most of the
-                                workflow, so the tracker belongs on the screen
-                                they land on, not only on the order registry. */}
-                            {/* Everyone who works the floor, not just supervisors.
-                                stitching_in_progress is one of only two stages a
-                                Tailor is authorised on, and this gate was the
-                                reason no screen in the product let them touch it:
-                                their nav offers only My Assignments and My
-                                Account, and the timeline is the sole control that
-                                posts a transition. Their stage never left
-                                NOT_STARTED, so the record said the garment was
-                                finished without ever being started, and the order
-                                stayed IN_PROGRESS after delivery until an Owner
-                                unstuck it. Opening the panel is safe for any
-                                role: transition_order_stage refuses every stage
-                                their role does not list, and the modal's Assign
-                                and Record-performer selects carry their own
-                                supervisor gates. */}
-                            <div>
-                              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
-                                Production Stages — select a stage to update
-                              </div>
-                              <StageTimeline
-                                stages={order.stages}
-                                onSelectStage={(stage) => openStageReview(order, stage)}
-                              />
-                            </div>
-
-                             {/* Delivery Information */}
-                            <div style={{ fontSize: '13px', background: 'rgba(0,0,0,0.01)', padding: '12px', borderRadius: '8px', border: '1px dashed var(--border-color)', marginTop: '4px' }}>
-                              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Delivery Method: {order.delivery_method}</div>
-                              {order.delivery_method === 'Courier' && (
-                                <div style={{ color: 'var(--text-secondary)' }}>
-                                  <strong>Courier Service:</strong> {order.courier_service || 'TBD'} | 
-                                  <strong> Tracking #:</strong> {order.tracking_number || 'TBD'}
-                                  {order.delivery_address && (
-                                    <div style={{ marginTop: '4px' }}><strong>Shipping Address:</strong> {order.delivery_address}</div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* The same gathering checklist, on the card the
-                                Master actually works from. Only when the order
-                                names any material at all. */}
-                            {hasMaterials(order) && (
-                            <div style={{ marginTop: '12px', padding: '14px 16px', border: '1px solid var(--border-color)', borderRadius: '8px', textAlign: 'left' }}>
-                              <h4 style={{ fontSize: '13px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                🧵 Raw Materials Checklist
-                              </h4>
-                              <MaterialsChecklist orderId={order.id} role={currentUser.role} />
-                            </div>
-                            )}
-
-                            {/* Master Verification Checklist */}
-                            {currentUser.role === 'Master' && (
-                              <div style={{
-                                marginTop: '12px',
-                                padding: '16px',
-                                background: 'rgba(212,175,55,0.03)',
-                                border: '1px solid rgba(212,175,55,0.15)',
-                                borderRadius: '8px',
-                                textAlign: 'left'
-                              }}>
-                                <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  👑 Master Production Verification Checklist
-                                </h4>
-                                
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px 16px' }}>
-                                  {[
-                                    { key: 'dress_cutting', label: 'Dress & Pattern Cutting' },
-                                    { key: 'thread', label: 'Matching Thread & Accents' },
-                                    { key: 'hemming', label: 'Hemming & Seam Finishes' },
-                                    // Any saree on the order needs fall & pico, not just an
-                                    // order whose customer record happens to say 'Saree'.
-                                    ...(orderGarmentNames(order).includes('Saree') ? [{ key: 'fall_pico', label: 'Fall & Pico / Peack' }] : []),
-                                    { key: 'hook_buttons', label: 'Hook or Buttons Closure' },
-                                    { key: 'pressing', label: 'Garment Steam Pressing' },
-                                    { key: 'dispatch_trial', label: 'Dispatch or Fit Trial Ready' }
-                                  ].map(item => {
-                                    const isChecked = order.master_verification?.[item.key] || false;
-                                    return (
-                                      <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                                        <input
-                                          type="checkbox"
-                                          checked={isChecked}
-                                          disabled={savingVerificationOrderId === order.id}
-                                          onChange={async (e) => {
-                                            if (savingVerificationOrderId) return;
-                                            const updatedVerification = {
-                                              ...(order.master_verification || {}),
-                                              [item.key]: e.target.checked
-                                            };
-                                            setSavingVerificationOrderId(order.id);
-                                            try {
-                                              await api.saveMasterVerification(order.id, updatedVerification);
-                                              fetchDashboardAndConfig();
-                                            } catch (err) {
-                                              alert("Failed to update verification check: " + err.message);
-                                            } finally {
-                                              setSavingVerificationOrderId(null);
-                                            }
-                                          }}
-                                        />
-                                        <span style={{ textDecoration: isChecked ? 'line-through' : 'none', color: isChecked ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                                          {item.label}
-                                        </span>
-                                      </label>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Submit Completion Section */}
-                            {currentUser.role === 'Tailor' && (
-                              <div style={{
-                                marginTop: '12px',
-                                padding: '16px',
-                                background: 'rgba(15,41,30,0.02)',
-                                border: '1px solid rgba(15,41,30,0.1)',
-                                borderRadius: '8px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '12px'
-                              }}>
-                                <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                                  Submit Stitching Completion & Photos
-                                </h4>
-                                
-                                <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                  <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Tailor Completion Comments</label>
-                                    <VoiceTextarea 
-                                      className="form-control"
-                                      style={{ height: '70px', fontSize: '13px' }}
-                                      placeholder="Enter stitching details, alterations made, or fabric remarks..."
-                                      maxLength={LIMITS.note}
-                                      id={`comments-${order.id}`}
-                                      defaultValue={order.tailor_comments || ''}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
-                                      Upload Completed Garment Photos <span style={{ color: 'var(--text-muted)' }}>(up to 5)</span>
-                                    </label>
-                                    <input
-                                      type="file"
-                                      className="form-control"
-                                      style={{ fontSize: '13px' }}
-                                      id={`image-${order.id}`}
-                                      accept="image/*"
-                                      multiple
-                                      onChange={(e) => {
-                                        pickCompletionPhotos(order.id, [...e.target.files]);
-                                        // The strip is the list; the input is only the way in.
-                                        e.target.value = '';
-                                      }}
-                                    />
-                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                      <CameraButton onFiles={(files) => pickCompletionPhotos(order.id, files)} />
-                                      <span>Select several at once — hold Ctrl (or ⌘) while choosing. Up to 5 photos.</span>
-                                    </div>
-                                    {(() => {
-                                      // What is about to go up, then what already went up: the
-                                      // stitching stage's attachments, with the cover shot as a
-                                      // fallback for orders from before several were kept.
-                                      const picked = completionPicks[order.id] || [];
-                                      const stitching = (order.stages || []).find(st => st.stage_key === 'stitching_in_progress');
-                                      const uploaded = (stitching?.attachments?.length ? stitching.attachments
-                                        : (order.completed_garment_image ? [order.completed_garment_image] : []));
-                                      const verdicts = stitching?.attachment_reviews || {};
-                                      const strip = (title, items, onRemove) => items.length > 0 && (
-                                        <div style={{ marginTop: '8px' }}>
-                                          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--brand-link)', marginBottom: '4px' }}>{title}</div>
-                                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                            {items.map((it, i) => (
-                                              <div key={it.image_url} style={{ position: 'relative', width: '64px', height: it.rejected ? 'auto' : '64px' }}>
-                                                <img src={it.image_url} alt="" title={it.rejected || undefined}
-                                                     style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block',
-                                                              border: it.rejected ? '2px solid var(--danger-color)' : '1px solid var(--border-color)' }} />
-                                                {it.rejected && <div style={{ fontSize: '10px', color: 'var(--danger-color)', lineHeight: 1.2, marginTop: '2px' }}>✕ {it.rejected}</div>}
-                                                <button type="button" title="View" aria-label="View photo"
-                                                        onClick={() => setReviewView({ items, index: i })}
-                                                        style={{ position: 'absolute', top: 0, left: 0, width: '64px', height: '64px', background: 'rgba(0,0,0,0.35)', border: 'none', borderRadius: '6px',
-                                                                 color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.85 }}>
-                                                  <Eye size={16} />
-                                                </button>
-                                                {onRemove && (
-                                                  <button type="button" title="Remove" aria-label="Remove photo"
-                                                          onClick={() => onRemove(it)}
-                                                          style={{ position: 'absolute', top: '-6px', right: '-6px', width: '20px', height: '20px', borderRadius: '50%',
-                                                                   background: 'var(--surface-color)', border: '1px solid var(--border-strong)', color: 'var(--text-primary)',
-                                                                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-                                                    <X size={12} />
-                                                  </button>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      );
-                                      return (
-                                        <>
-                                          {strip(`Ready to upload · ${picked.length}`, picked.map((p, i) => ({ image_url: p.url, label: `Photo ${i + 1}` })),
-                                                 (it) => dropCompletionPhoto(order.id, it.image_url))}
-                                          {picked.length === 0 && strip(
-                                                 Object.keys(verdicts).length
-                                                   ? `${Object.keys(verdicts).length} photo${Object.keys(verdicts).length === 1 ? '' : 's'} rejected — upload replacements`
-                                                   : `✓ ${uploaded.length} photo${uploaded.length === 1 ? '' : 's'} uploaded`,
-                                                 uploaded.map((u, i) => ({ image_url: u, label: `Uploaded photo ${i + 1}`, rejected: verdicts[u]?.remark })))}
-                                        </>
-                                      );
-                                    })()}
-                                  </div>
-                                </div>
-
-                                <button
-                                  className="btn-primary"
-                                  style={{ alignSelf: 'flex-end', padding: '6px 16px', fontSize: '12px' }}
-                                  disabled={submittingCompletionId === order.id}
-                                  onClick={async () => {
-                                    if (submittingCompletionId) return;
-                                    const commentVal = document.getElementById(`comments-${order.id}`).value;
-                                    const files = (completionPicks[order.id] || []).map(p => p.file).slice(0, 5);
-
-                                    setSubmittingCompletionId(order.id);
-                                    try {
-                                      await api.submitCompletion(order.id, commentVal, files);
-                                      clearCompletionPhotos(order.id);
-                                      alert("Completion report submitted successfully!");
-                                      fetchDashboardAndConfig();
-                                    } catch (err) {
-                                      alert("Submission failed: " + err.message);
-                                    } finally {
-                                      setSubmittingCompletionId(null);
-                                    }
-                                  }}
-                                >
-                                  {submittingCompletionId === order.id ? 'Submitting…' : 'Submit & Send for Quality Check'}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          </div>
-                          </td>
-                          </tr>
-                          )}
-                          </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* The tailor's alteration queue. A list of its own, not rows
-                    smuggled into the order registry: an alteration is a
-                    separate job against a delivered order. */}
-                <div style={{ marginTop: '20px' }}>
-                  <AlterationList
-                    title="My Alterations"
-                    params={{ assigned_to_me: '1', open: '1' }}
-                    onOpenAlteration={openAlteration}
-                  />
-                </div>
+                )}
               </>
             )}
 
