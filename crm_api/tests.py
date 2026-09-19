@@ -275,7 +275,7 @@ class BoutiqueCRMTests(TenantTestCase):
         self.assertEqual(row['total_spend'], 30000.00)
         self.assertEqual(row['segment'], 'HVC')
         self.assertEqual(row['measurements']['bust'], '36.00')
-        self.assertIn('30,000', row['style_dna']['budget'])
+        self.assertEqual(row['style_dna']['revenue'], '₹30,000')
         self.assertIn('risk_level', row['style_dna'])
 
     def test_customer_detail_still_returns_full_orders(self):

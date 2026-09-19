@@ -57,7 +57,7 @@ class ProductionTaskTests(ModuleTestBase):
 
     def test_task_update_writes_an_activity_entry(self):
         task = ProductionTask.objects.create(
-            order=self.order, title="Finishing", stage_key="stitching_completed", sequence=2)
+            order=self.order, title="Finishing", stage_key="finishing", sequence=2)
         self.client.patch(
             reverse("production-task-detail", args=[task.id]),
             {"status": "IN_PROGRESS"}, format="json",

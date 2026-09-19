@@ -8,12 +8,7 @@ import {
   formatMoney, formatDate as fmtDate, formatDateTime as fmtDateTime,
   formatTime as fmtTime, setBoutiqueTimeZone, orderRef,
 } from './services/format';
-// The inventory panel and the design studio are whole screens behind their own
-// tabs, and together they are a sixth of the bundle. Loading them eagerly made
-// every first paint -- including the login screen -- wait on code most sessions
-// never open, so they are fetched when their tab is first shown instead.
-// TemplateForm stays eager: it renders inline in the order wizard, where a
-// loading flicker mid-form would be worse than its few KB.
+
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
 const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
@@ -22,8 +17,7 @@ import { PartTabStrip } from './features/designStudio/GarmentPartTabs';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
 import { fabricMatchesColour } from './features/fabrics/colour';
-// Named export off the same module, so it arrives with the chunk the
-// pickers already load rather than costing a second request.
+
 const InventoryPanel = lazy(() => import('./features/inventory/InventoryPanel'));
 const DesignLibrary = lazy(() => import('./features/designStudio/DesignLibrary'));
 const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
@@ -61,10 +55,7 @@ import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceClipPreview, VoiceRecorder } from './components/ui/VoiceTextarea';
 
-/** Placeholder shown while a lazily loaded screen arrives. */
-// Whole-rupee money for the dashboard, Indian digit grouping. Paise are
-// noise at a glance; the detail screens keep them.
-/** The order wizard's screens, per service. A step key names the screen. */
+
 const WIZARD_STEPS = {
   stitch: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
@@ -96,9 +87,7 @@ const plusDaysIso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); r
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
-// One avatar for every user surface. Shows the person's uploaded photo when
-// they have one, otherwise their initial on a filled circle -- never the stock
-// stranger that used to be hardcoded here. Fills whatever circle wraps it.
+
 const UserAvatar = ({ user, size }) => {
   const url = resolveMediaUrl(user?.profile_photo || '');
   const initial = (user?.first_name || user?.name || user?.email || 'U').trim().charAt(0).toUpperCase();
@@ -150,20 +139,16 @@ const orderStageKey = (order) => {
 // Was two near-identical dark (#141414/#0d0d0d) blocks, one on the directory
 // card and one on the profile detail; now one component. Shows only fields the
 // AI actually filled -- the old detail card printed fabricated demo figures
-// ("premium designer", "Charcoal Black 90%") for every customer with no
-// style_dna, which read as real client data.
+// ("premium designer") for every customer with no style_dna, which read as
+// real client data.
 const StyleProfileCard = ({ customer }) => {
   const dna = customer?.style_dna || {};
   const rows = [
-    ['Budget', dna.budget, Wallet], ['Colours', dna.colors, Palette], ['Style', dna.style, Shirt],
+    ['Revenue from this client', dna.revenue, Wallet], ['Style', dna.style, Shirt],
     ['Size', dna.size, Ruler], ['Visit pattern', dna.visit_pattern, CalendarDays],
   ].filter(([, v]) => v);
   const riskColor = dna.risk_level === 'danger' ? 'var(--danger-color)'
     : dna.risk_level === 'warning' ? 'var(--warning-color)' : 'var(--success-color)';
-  // "Dusty Rose 60% Ivory 30% Gold 10%" -> a swatch per named colour, read
-  // through the same name-to-shade map the fabric cards use.
-  const swatches = typeof dna.colors === 'string'
-    ? dna.colors.split(/\d+%/).map((n) => n.trim()).filter(Boolean) : [];
   const hasAny = rows.length || dna.risk_status || dna.next_action;
   return (
     <SectionCard icon={Sparkles} tone="amber"
@@ -174,14 +159,7 @@ const StyleProfileCard = ({ customer }) => {
       {rows.map(([label, value, Icon]) => (
         <div key={label} className="at-dna-row">
           <span className="at-dna-label"><Icon size={16} /> {label}</span>
-          <strong>
-            {label === 'Colours' && swatches.length > 0 && (
-              <span className="at-swatches">
-                {swatches.map((name) => <i key={name} title={name} style={{ background: getColorCircleStyle(name) }} />)}
-              </span>
-            )}
-            {value}
-          </strong>
+          <strong>{value}</strong>
         </div>
       ))}
       {dna.risk_status && (
@@ -269,7 +247,7 @@ const STEP_TONE = { done: 'success', live: 'info', next: 'neutral' };
 const STAGE_ICONS = {
   created: FileText, measurements_completed: Ruler, fabric_confirmed: Layers, pattern_cutting: Scissors,
   paper_cutting: FileText, maggam_work: PenTool, maggam_handwork: Hand, maggam_verification: ShieldCheck,
-  fabric_cutting: Scissors, assigned_to_tailor: User, stitching_in_progress: Shirt, stitching_completed: CheckCircle2,
+  fabric_cutting: Scissors, stitching_in_progress: Shirt,
   finishing: Sparkles, pressing: Flame, master_quality_check: ShieldCheck, trial_scheduled: CalendarClock,
   trial_completed: UserCheck, ready_for_delivery: PackageCheck, delivered: Truck,
 };

@@ -29,7 +29,6 @@ def seed_schema(schema_name):
                     tasks = [
                         ProductionTask(order=order, title="Pattern Cutting & Drafting", stage_key="pattern_cutting", assigned_to=master, sequence=3, status="IN_PROGRESS", priority="HIGH"),
                         ProductionTask(order=order, title="Garment Assembly & Stitching", stage_key="stitching_in_progress", assigned_to=tailor, sequence=4, status="PENDING", priority="URGENT"),
-                        ProductionTask(order=order, title="Embellishment & Finishing", stage_key="stitching_completed", assigned_to=tailor, sequence=5, status="PENDING", priority="MEDIUM"),
                         ProductionTask(order=order, title="Master Quality Control Inspection", stage_key="master_quality_check", assigned_to=master, sequence=6, status="PENDING", priority="HIGH"),
                         ProductionTask(order=order, title="Customer Fitting Trial", stage_key="trial_scheduled", assigned_to=master, sequence=7, status="PENDING", priority="MEDIUM"),
                         ProductionTask(order=order, title="Final Packaging & Dispatch Preparation", stage_key="ready_for_delivery", assigned_to=master or tailor, sequence=8, status="PENDING", priority="MEDIUM"),

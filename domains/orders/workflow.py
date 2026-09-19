@@ -100,9 +100,10 @@ def _requires_a_tailor(order, stage, *, supervisor):
     return 'No tailor is assigned to this order.'
 
 
+# Stitching is where the numbers and the stitcher are both needed. The
+# measurements rule used to sit on a Handover stage, which is gone.
 REQUIRED_DATA = {
-    'assigned_to_tailor': _requires_measurements,
-    'stitching_in_progress': _requires_a_tailor,
+    'stitching_in_progress': (_requires_measurements, _requires_a_tailor),
 }
 
 
@@ -218,12 +219,12 @@ def check_transition(order, stage, new_status, *, config, role, owner_role):
                 f'Cannot move to {label} yet: {names} '
                 f'{"is" if len(outstanding) == 1 else "are"} not completed.')
 
-    validator = REQUIRED_DATA.get(stage_key)
-    if validator is not None and new_status in ('IN_PROGRESS', 'COMPLETED', 'PENDING_VERIFICATION'):
-        problem = validator(order, stage,
-                            supervisor=role == owner_role or role in SUPERVISOR_ROLES)
-        if problem:
-            raise TransitionError(f'Cannot move to {label}. {problem}')
+    if new_status in ('IN_PROGRESS', 'COMPLETED', 'PENDING_VERIFICATION'):
+        for validator in REQUIRED_DATA.get(stage_key, ()):
+            problem = validator(order, stage,
+                                supervisor=role == owner_role or role in SUPERVISOR_ROLES)
+            if problem:
+                raise TransitionError(f'Cannot move to {label}. {problem}')
 
 
 #: Who may reverse settled work. The owner runs the boutique; the Master runs

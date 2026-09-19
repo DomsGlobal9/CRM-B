@@ -220,7 +220,7 @@ class CustomerMessageTests(TrackingTestBase):
 
     def test_repeated_stages_with_one_customer_status_send_one_message(self):
         owner = self._owner()
-        for stage in ['pattern_cutting', 'maggam_work', 'assigned_to_tailor', 'stitching_in_progress']:
+        for stage in ['pattern_cutting', 'stitching_in_progress']:
             OrderService.transition_order_stage(self.order, stage, 'COMPLETED', user=owner)
 
         bodies = list(
@@ -258,11 +258,10 @@ class CustomerMessageTests(TrackingTestBase):
         Measurement.objects.create(customer=self.order.customer, bust=36, waist=28, hips=38)
 
         # Prerequisite intermediate stages
-        for stage in ['pattern_cutting', 'assigned_to_tailor', 'stitching_in_progress']:
-            OrderService.transition_order_stage(self.order, stage, 'COMPLETED', user=owner)
+        OrderService.transition_order_stage(self.order, 'pattern_cutting', 'COMPLETED', user=owner)
 
         # 2. Product ready
-        OrderService.transition_order_stage(self.order, 'stitching_completed', 'COMPLETED', user=owner)
+        OrderService.transition_order_stage(self.order, 'stitching_in_progress', 'COMPLETED', user=owner)
         self.assertTrue(CustomerMessage.objects.filter(order=self.order, template_key='product_ready').exists())
 
         for stage in ['finishing', 'pressing']:
