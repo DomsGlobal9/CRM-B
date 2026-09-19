@@ -1186,10 +1186,10 @@ def hand_work_fields(definition):
                     for p in definition.get('design_parts', [])
                     if not any(w in p['key'] for w in skip)]
     has_work = one_of('hand_work', HAND_WORK_WANTED)
-    # The lehenga counter talks about the design on it, not the work. Same
+    # The counter talks about the design on the garment, not the work. Same
     # keys and options, so nothing that reads the answers changes.
     kind_label, parts_label = HAND_WORK_LABELS.get(
-        definition['key'], ('Type of Work', 'Work On'))
+        definition['key'], ('Type of Design', 'Work On'))
     fields = [
         field('hand_work', 'Maggam / Hand Work', 'select', required=True, default='none',
               options=[('none', 'Without Work'), ('with_work', 'With Work')]),
