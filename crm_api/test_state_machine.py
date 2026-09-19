@@ -18,7 +18,7 @@ from domains.orders.services import OrderService
 # The plain stitching path. Every order here is placed on it; the maggam
 # path and the legacy line are FlowTests' business.
 SEQUENCE = [
-    'created', 'measurements_completed', 'fabric_confirmed', 'pattern_cutting',
+    'created', 'pattern_cutting',
     'assigned_to_tailor', 'stitching_in_progress',
     'stitching_completed', 'finishing', 'pressing', 'master_quality_check',
     'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'delivered',
@@ -86,6 +86,13 @@ class StateMachineTestBase(TenantTestCase):
                 quantity=Decimal('2'), unit=Unit.METER,
                 source=JobMaterial.Source.STORE)
         return order
+
+    def reserve_fabric(self, order=None):
+        # The order-confirm view reserves the chosen fabric the moment the
+        # order is taken; there is no Fabric stage to do it later.
+        from apps.inventory import order_materials
+        return order_materials.sync_order_materials(
+            order or self.order, 'created', 'COMPLETED', user=self.owner)
 
     def move(self, stage_key, status='COMPLETED', user=None, order=None):
         return OrderService.transition_order_stage(
@@ -171,8 +178,9 @@ class InvalidTransitionTests(StateMachineTestBase):
         self.assertEqual(self.snapshot(), before, 'a refusal must change nothing')
 
     def test_a_refused_transition_leaves_absolutely_everything_alone(self):
-        self.advance_to('fabric_confirmed')
-        self.move('fabric_confirmed')           # reserves material
+        self.reserve_fabric()
+        self.advance_to('pattern_cutting')
+        self.move('pattern_cutting')
         before = self.snapshot()
         self.assertGreater(before['reserved'], 0, 'precondition: something is reserved')
 
@@ -195,8 +203,7 @@ class InvalidTransitionTests(StateMachineTestBase):
         order = self._order(order_id="T2B-SM-M")
         from domains.orders.services import set_order_flow
         set_order_flow(order, 'maggam', self.owner)
-        for key in ('created', 'measurements_completed', 'fabric_confirmed',
-                    'paper_cutting'):
+        for key in ('created', 'paper_cutting'):
             self.move(key, order=order)
         with self.assertRaises(ValueError) as caught:
             self.move('maggam_work', 'SKIPPED', order=order)
@@ -211,18 +218,18 @@ class InvalidTransitionTests(StateMachineTestBase):
     def test_an_invalid_status_is_refused(self):
         before = self.snapshot()
         with self.assertRaises(ValueError) as caught:
-            self.move('fabric_confirmed', 'BANANA')
+            self.move('pattern_cutting', 'BANANA')
         self.assertIn('Invalid stage status', str(caught.exception))
         self.assertEqual(self.snapshot(), before)
 
     def test_a_completed_stage_cannot_be_reopened(self):
 
-        self.advance_to('fabric_confirmed')
-        self.move('fabric_confirmed')
+        self.advance_to('pattern_cutting')
+        self.move('pattern_cutting')
         before = self.snapshot()
 
         with self.assertRaises(ValueError) as caught:
-            self.move('fabric_confirmed', 'IN_PROGRESS')
+            self.move('pattern_cutting', 'IN_PROGRESS')
 
         self.assertIn('already completed', str(caught.exception))
         self.assertEqual(self.snapshot(), before)
@@ -298,26 +305,27 @@ class ValidSequenceTests(StateMachineTestBase):
 
     def test_a_successful_transition_writes_exactly_one_activity_event(self):
         before = OrderActivity.objects.filter(order=self.order).count()
-        self.advance_to('fabric_confirmed')
-        self.move('fabric_confirmed')
+        self.advance_to('pattern_cutting')
+        self.move('pattern_cutting')
         after = OrderActivity.objects.filter(order=self.order).count()
-        self.assertEqual(after - before, 3)
+        self.assertEqual(after - before, 2)
 
 
 class IdempotencyTests(StateMachineTestBase):
 
     def test_repeating_a_completed_transition_changes_nothing_further(self):
 
-        self.advance_to('fabric_confirmed')
-        self.move('fabric_confirmed')
+        self.reserve_fabric()
+        self.advance_to('pattern_cutting')
+        self.move('pattern_cutting')
         after_first = self.snapshot()
         self.assertGreater(after_first['reserved'], 0)
 
         for _ in range(3):
-            self.move('fabric_confirmed')
+            self.move('pattern_cutting')
 
         self.assertEqual(self.snapshot(), after_first,
-                         'a retry must not reserve, log or message again')
+                         'a retry must not log or message again')
 
     def test_repeating_stitching_completed_does_not_consume_twice(self):
 
@@ -371,7 +379,7 @@ class OwnerDropdownLiveRegressionTests(StateMachineTestBase):
                              f'{value} should be reachable in turn')
 
         mid = self.snapshot()
-        self.assertEqual(mid['stages']['fabric_confirmed'], 'COMPLETED')
+        self.assertEqual(mid['order_status'], 'Design & Creation')
         self.assertEqual(mid['stages']['stitching_completed'], 'COMPLETED')
         self.assertGreater(mid['movements'], 0, 'materials followed production')
 
@@ -400,27 +408,29 @@ class OwnerDropdownLiveRegressionTests(StateMachineTestBase):
 class AtomicityTests(StateMachineTestBase):
 
     def test_a_failing_side_effect_rolls_the_whole_transition_back(self):
-        self.advance_to('fabric_confirmed')
+        self.advance_to('stitching_completed')
         before = self.snapshot()
 
         with mock.patch(
             'apps.inventory.order_materials.sync_order_materials',
-            side_effect=RuntimeError('reservation exploded'),
+            side_effect=RuntimeError('consumption exploded'),
         ):
             with self.assertRaises(RuntimeError):
-                self.move('fabric_confirmed')
+                self.move('stitching_completed')
 
         self.assertEqual(self.snapshot(), before,
                          'a failed side effect must take the stage back with it')
 
     def test_a_successful_transition_commits_state_stock_and_audit_together(self):
-        self.advance_to('fabric_confirmed')
+        self.reserve_fabric()
+        self.advance_to('stitching_completed')
         before = self.snapshot()
+        self.assertEqual(before['reserved'], Decimal('2.000'))
 
-        self.move('fabric_confirmed')
+        self.move('stitching_completed')
 
         after = self.snapshot()
-        self.assertEqual(after['stages']['fabric_confirmed'], 'COMPLETED')
-        self.assertEqual(after['reserved'], Decimal('2.000'))
+        self.assertEqual(after['stages']['stitching_completed'], 'COMPLETED')
+        self.assertEqual(after['reserved'], Decimal('0.000'))
+        self.assertEqual(after['stock'], before['stock'] - Decimal('2.000'))
         self.assertEqual(after['activities'], before['activities'] + 1)
-        self.assertEqual(after['stock'], before['stock'], 'reserving deducts nothing')

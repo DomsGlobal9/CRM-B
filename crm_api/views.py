@@ -515,7 +515,6 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     STATUS_TO_STAGE = {
         'Received': 'created',
-        'Confirmed': 'fabric_confirmed',
         'Design & Creation': 'stitching_completed',
         'Quality Check': 'master_quality_check',
         'Ready for Dispatch': 'ready_for_delivery',
@@ -1874,12 +1873,12 @@ class OrderDraftViewSet(viewsets.ViewSet):
             from domains.orders.services import apply_advance
             apply_advance(order, order.total_amount if full_payment else advance)
 
-            # Now that the dresses are attached, the workflow can tell whether
-            # any of them asks for a measurement. A saree with no petticoat
-            # asks for none, and its Measurements stage is skipped rather than
-            # left blocking the order forever.
-            from domains.orders.services import settle_measurement_stage
-            settle_measurement_stage(order)
+            # The fabric was chosen while the order was written up, so it is
+            # reserved from stock now that the dresses (and their material
+            # lines) are attached. This used to wait for a Fabric stage that
+            # only restated a decision already made.
+            from apps.inventory import order_materials
+            order_materials.sync_order_materials(order, 'created', 'COMPLETED', user=request.user)
 
             create_order_notifications(order, created=True)
             return order

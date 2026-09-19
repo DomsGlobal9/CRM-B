@@ -99,6 +99,11 @@ def validate_spec(template, spec, *, partial=False):
             continue  # hidden: not required, not stored
 
         raw = spec.get(key)
+        # A question with a declared default is answered by it (hand work:
+        # "Without Work"), the same as frontend withDefaults does before a
+        # submit -- so a required-with-default field is never "missing".
+        if raw in (None, '', [], {}) and field.default not in (None, ''):
+            raw = field.default
         if raw in (None, '', [], {}):
             if field.is_required and not partial:
                 errors[key] = f"{field.label} is required."

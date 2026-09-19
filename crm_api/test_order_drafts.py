@@ -381,24 +381,19 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         panel = response.data['garment_jobs'][0]['selections']
         self.assertEqual(panel['fabric_items'][0]['color'], 'Maroon')
 
-    def test_the_material_lifecycle_only_begins_after_confirmation(self):
+    def test_the_material_lifecycle_begins_at_confirmation(self):
+        # A draft holds nothing; the order, with its fabric chosen, reserves
+        # it the moment it is taken.
         draft_id = self.a_draft()
-        self.brocade.refresh_from_db()
-        self.assertEqual(self.brocade.reserved_stock, Decimal('0.000'))
-
-        self.api.post(reverse('order-draft-confirm', args=[draft_id]))
-
         self.brocade.refresh_from_db()
         self.assertEqual(self.brocade.reserved_stock, Decimal('0.000'))
         self.assertEqual(OrderMaterialPlan.objects.count(), 0)
 
-        order = Order.objects.get()
-        from domains.orders.services import OrderService
-        for key in ('created', 'measurements_completed', 'fabric_confirmed'):
-            OrderService.transition_order_stage(
-                order=order, stage_key=key, new_status='COMPLETED', user=self.owner)
+        self.api.post(reverse('order-draft-confirm', args=[draft_id]))
+
         self.brocade.refresh_from_db()
         self.assertEqual(self.brocade.reserved_stock, Decimal('2.000'))
+        self.assertEqual(OrderMaterialPlan.objects.count(), 1)
 
     def test_confirming_twice_makes_one_order_not_two(self):
 

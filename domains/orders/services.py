@@ -91,28 +91,6 @@ def order_needs_measurements(order):
     return False
 
 
-def settle_measurement_stage(order):
-    """Mark Measurements Completed as SKIPPED when nothing asks for one.
-
-    Called once the garment jobs exist -- the stages are seeded with the order,
-    which happens before the dresses are attached, so at seed time there is
-    nothing yet to ask. SKIPPED rather than COMPLETED because no measurement was
-    taken and the record should not claim one was; prerequisites() treats both
-    as settled, so the order moves on either way.
-
-    Only ever touches a stage still sitting at NOT_STARTED, so a boutique that
-    has already worked the stage keeps whatever it recorded.
-    """
-    from django.utils import timezone
-
-    if order_needs_measurements(order):
-        return False
-    updated = order.stages.filter(
-        stage_key='measurements_completed', status='NOT_STARTED',
-    ).update(status='SKIPPED', completed_at=timezone.now())
-    return bool(updated)
-
-
 def apply_advance(order, advance):
     """Set the payment fields from what was actually collected.
 
@@ -218,8 +196,6 @@ class OrderService:
         config, _ = BoutiqueSettings.objects.get_or_create(id=1)
         boutique_template = getattr(config, 'invoice_template', 'classic') or 'classic'
 
-        has_measurements = customer_has_measurements(customer)
-
         order = Order.objects.create(
             order_id=order_id,
             order_number=order_number,
@@ -245,7 +221,7 @@ class OrderService:
             special_instructions=data.get('custom_requirements') or '',
             advance_paid=advance_paid,
             amount_paid=amount_paid,
-            current_stage_key='measurements_completed' if has_measurements else 'created',
+            current_stage_key='created',
             production_status='IN_PROGRESS',
             invoice_template=data.get('invoice_template') or boutique_template,
             flow=data.get('flow') if data.get('flow') in ('stitching', 'maggam') else 'stitching',
@@ -263,10 +239,6 @@ class OrderService:
             completed_at = None
 
             if s_key == 'created':
-                s_status = 'COMPLETED'
-                started_at = timezone.now()
-                completed_at = timezone.now()
-            elif s_key == 'measurements_completed' and has_measurements:
                 s_status = 'COMPLETED'
                 started_at = timezone.now()
                 completed_at = timezone.now()
@@ -297,7 +269,7 @@ class OrderService:
                 assigned_to=tailor if s_conf['key'] in tailor_stages else (master or tailor),
                 sequence=index,
                 priority='URGENT' if s_conf['key'] == 'stitching_in_progress'
-                         else 'HIGH' if s_conf['key'] in ('measurements_completed', 'pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
+                         else 'HIGH' if s_conf['key'] in ('pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
                          else 'MEDIUM')
             for index, s_conf in enumerate(workflow_stages, start=1)
             if s_conf['key'] not in ('created', 'delivered')
@@ -858,8 +830,7 @@ def set_order_flow(order, flow, user):
         raise workflow.TransitionError(f'Unknown flow "{flow}".')
     if order.flow == flow:
         return order
-    shared = {'created', 'measurements_completed', 'fabric_confirmed'}
-    begun = order.stages.exclude(stage_key__in=shared).exclude(status='NOT_STARTED')
+    begun = order.stages.exclude(stage_key='created').exclude(status='NOT_STARTED')
     if begun.exists():
         names = ', '.join(begun.values_list('stage_name', flat=True))
         raise workflow.TransitionError(

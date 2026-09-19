@@ -504,9 +504,12 @@ def get_default_workflow():
     the thing being done. Keys are the workflow's identity and never change.
     """
     return [
+        # No Measurements or Fabric stage: both are taken while the order is
+        # being written up (the wizard measures the customer and picks the
+        # fabric), so they arrive settled and had nothing to do on the
+        # journey but be clicked through. Fabric is reserved from stock the
+        # moment the order is taken instead (crm_api.views confirm_draft).
         {"key": "created", "name": "Order taken", "sla_hours": 12, "roles": ["Owner", "Master"]},
-        {"key": "measurements_completed", "name": "Measurements", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "fabric_confirmed", "name": "Fabric", "sla_hours": 24, "roles": ["Owner", "Master"]},
         # The two paths through the workroom part here. A stage with `flows`
         # is only on the orders of those flows; one without is on every order.
         # Plain stitching: cut, then stitch.
