@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown, Mic, Hand } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown, Mic, Hand } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { inventoryImage } from './services/inventoryImages';
@@ -1407,20 +1407,31 @@ function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
 
-  // Signup Wizard State
-  const [signupStep, setSignupStep] = useState(1); // 1: Account, 2: Verify, 3: Profile, 4: Prefs, 5: Complete
+  // Signup: one form, then the "done" card. 1: Form, 2: Complete
+  const [signupStep, setSignupStep] = useState(1);
 
   const [signupForm, setSignupForm] = useState({
     first_name: '',
     last_name: '',
     email_address: '',
     mobile_number: '',
-    password: ''
+    password: '',
+    confirm_password: '',
+    terms: false
   });
   const [signupBusy, setSignupBusy] = useState(false);
   const [signupError, setSignupError] = useState(null);
   const [boutiqueName, setBoutiqueName] = useState('');
   const [boutiqueAddress, setBoutiqueAddress] = useState('');
+  // Create Account stays disabled until every box is filled and the two
+  // passwords agree; the exact-format checks (valid email, 10-digit mobile)
+  // still run on submit so the owner gets one plain message, not a red form.
+  const passwordMismatch = !!signupForm.confirm_password && signupForm.confirm_password !== signupForm.password;
+  const signupReady = !!(boutiqueName.trim() && boutiqueAddress.trim()
+    && signupForm.first_name.trim() && signupForm.last_name.trim()
+    && signupForm.email_address.trim() && signupForm.mobile_number
+    && signupForm.password.length >= 8 && signupForm.confirm_password === signupForm.password
+    && signupForm.terms);
 
   // Customer/Order Wizard State
   const [currentStep, setCurrentStep] = useState(1);
@@ -2625,22 +2636,14 @@ function App() {
 
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
-    if (!signupForm.first_name || !signupForm.last_name || !signupForm.email_address || !signupForm.password) {
-      alert("Please enter all required signup fields.");
-      return;
-    }
+    if (!signupReady) return;
     // The server's own rules (core/validators.py), asked here so the owner
     // hears about a bad number before the boutique is provisioned.
     const bad = nameError(signupForm.first_name, { label: 'First name' })
       || nameError(signupForm.last_name, { label: 'Last name' })
       || emailError(signupForm.email_address, { required: true })
-      || mobileError(signupForm.mobile_number)
-      || (signupForm.password.length < 8 ? 'The password needs at least 8 characters.' : '');
-    if (bad) { alert(bad); return; }
-    setSignupStep(2); // Boutique details
-  };
-
-  const handleCompleteRegistration = async () => {
+      || mobileError(signupForm.mobile_number);
+    if (bad) { setSignupError(bad); return; }
     // Signup creates a Postgres schema and runs every migration into it, which
     // takes seconds rather than milliseconds -- long enough that an owner who
     // hears nothing back presses the button again. The second press used to
@@ -2648,6 +2651,7 @@ function App() {
     // answered.
     if (signupBusy) return;
     setSignupBusy(true);
+    setSignupError(null);
     try {
       const res = await api.signup({
         first_name: signupForm.first_name,
@@ -2659,16 +2663,15 @@ function App() {
         business_address: boutiqueAddress
       });
       setCurrentUser(res.user);
-      setSignupStep(3);
+      setSignupStep(2);
       setTimeout(() => {
         setView('dashboard');
         fetchDashboardAndConfig(res.user);
       }, 1500);
     } catch (err) {
-      // Stays on this step and says so in the card. It used to alert() and
-      // throw the owner back to step 1, so "that email is already registered"
-      // -- much the commonest failure here -- read as the form having been
-      // wiped for no stated reason.
+      // Stays on the form and says so in the card, so "that email is already
+      // registered" -- much the commonest failure here -- does not read as
+      // the form having been wiped for no stated reason.
       setSignupError(err.message || 'Registration failed.');
     } finally {
       setSignupBusy(false);
@@ -3812,7 +3815,7 @@ function App() {
       )}
 
       {view === 'signup' && (
-        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+        <div className="auth-page auth-page--signup" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)' }}>
           
           {/* Back to Home Button */}
           <button 
@@ -3843,161 +3846,22 @@ function App() {
           </button>
 
           <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
+          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '16px' }}>YOUR VISION. OUR CRAFT.</div>
 
-          {/* Auth Steps Tracker */}
-          <div className="auth-steps-tracker">
-            {/* Was five steps, two of which were scenery.
-                "Verify" showed an OTP box under "We have sent a 6-digit OTP
-                code to +91 <number>". Nothing was ever sent -- no SMS
-                provider exists in this product -- and handleVerifyOTP checked
-                only that the field was non-empty, so any six characters, or
-                any one character, walked through. It taught a new owner that
-                the number they typed had been confirmed when it had not.
-                "Preferences" listed six style tags as plain <span>s: no
-                onClick, no state, nothing saved anywhere, and a heading
-                asking the owner to select from them.
-                Both are gone rather than implemented. Real mobile
-                verification is an SMS provider, a cost per message and a
-                resend/expiry flow; style tags are a feature nothing in the
-                product reads yet. Neither is a fix for a fake step. */}
-            {[
-              { step: 1, label: 'Account' },
-              { step: 2, label: 'Boutique' },
-              { step: 3, label: 'Complete' }
-            ].map(item => (
-              <div key={item.step} className={`auth-step-item ${signupStep === item.step ? 'active' : ''}`}>
-                <div className="auth-step-num">{item.step}</div>
-                <span className="auth-step-label">{item.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="auth-card">
+          {/* One card, no steps. It used to be a two-tab wizard (owner on
+              tab 1, boutique on tab 2) with a step tracker above it; owners
+              lost their place between the tabs. Everything is on one screen
+              now, sized to fit a laptop viewport without scrolling. */}
+          <div className="auth-card auth-card--signup">
             {signupStep === 1 && (
-              <>
-                <h2 className="auth-title">Create your account</h2>
-                <p className="auth-subtitle">Join Scaleezy and start your custom creation journey.</p>
-                
-                <form onSubmit={handleSignupSubmit} className="auth-form">
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label className="form-label">First Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="Enter first name"
-                        value={signupForm.first_name}
-                        maxLength={LIMITS.name}
-                        onChange={(e) => setSignupForm({...signupForm, first_name: cleanName(e.target.value)})}
-                        required
-                        className="form-control"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Last Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="Enter last name"
-                        value={signupForm.last_name}
-                        maxLength={LIMITS.name}
-                        onChange={(e) => setSignupForm({...signupForm, last_name: cleanName(e.target.value)})}
-                        required
-                        className="form-control"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Email Address</label>
-                    <input 
-                      type="email" 
-                      placeholder="Enter your email address"
-                      value={signupForm.email_address}
-                      maxLength={LIMITS.email}
-                      onChange={(e) => setSignupForm({...signupForm, email_address: e.target.value})}
-                      onBlur={(e) => setSignupForm({...signupForm, email_address: cleanEmail(e.target.value)})}
-                      required
-                      className="form-control"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Mobile Number</label>
-                    <div className="input-wrapper">
-                      <span className="input-icon-left" style={{ left: '12px', fontSize: '14px' }}>+91</span>
-                      <input 
-                        type="tel" 
-                        inputMode="numeric"
-                        placeholder="Enter mobile number"
-                        value={signupForm.mobile_number}
-                        onChange={(e) => setSignupForm({...signupForm, mobile_number: tenDigits(e.target.value)})}
-                        style={{ paddingLeft: '50px' }}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Password</label>
-                    <input 
-                      type="password" 
-                      placeholder="Create a password (min 8 characters)"
-                      value={signupForm.password}
-                      minLength={8}
-                      onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
-                      required
-                      className="form-control"
-                    />
-                    {signupForm.password && (
-                      <div className="password-strength-meter">
-                        <div className="password-strength-bar">
-                          <div className={`password-strength-fill ${getPasswordStrength()}`}></div>
-                        </div>
-                        <span className="password-strength-text">
-                          Password strength: <span>{getPasswordStrength()}</span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <label className="remember-me-checkbox" style={{ fontSize: '12px' }}>
-                    <input type="checkbox" required />
-                    I agree to the Terms & Conditions and Privacy Policy
-                  </label>
-
-                  <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '12px' }}>
-                    <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setView('login')}>
-                      Login
-                    </button>
-                    <button type="submit" className="btn-primary" style={{ justifyContent: 'center' }}>
-                      Create Account
-                    </button>
-                  </div>
-                </form>
-
-                <div className="divider-container">OR CONTINUE WITH</div>
-                <div className="social-icons-row">
-                  <div className="social-icon-circle"><Compass size={18} /></div>
-                  <div className="social-icon-circle"><User size={18} /></div>
-                  <div className="social-icon-circle"><MessageSquare size={18} /></div>
+              <form onSubmit={handleSignupSubmit} className="auth-form" style={{ gap: '10px' }}>
+                <div>
+                  <h2 className="auth-title" style={{ fontSize: '24px' }}>Create your boutique account</h2>
+                  <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>Fill in the boxes below. The button lights up when everything is filled.</p>
                 </div>
-              </>
-            )}
 
-            {signupStep === 2 && (
-              <>
-                <h2 className="auth-title">Your Boutique</h2>
-                <p className="auth-subtitle">This is what your customers see on invoices and messages.</p>
-
-                {/* This step used to ask for an occupation and a preferred
-                    communication channel. Neither was read by anything -- the
-                    signup view bound one of them and never mentioned it again
-                    -- while the two fields the product genuinely prints on
-                    every invoice, the boutique's name and address, were never
-                    asked for at all and fell back to "123 Atelier Way, Fashion
-                    District". Same step, same number of fields, now feeding
-                    BoutiqueSettings. */}
-                <div className="auth-form">
+                <div className="signup-section-title"><span className="signup-section-num">1</span>Your boutique</div>
+                <div className="form-grid-2 signup-grid">
                   <div className="form-group">
                     <label className="form-label">Boutique name</label>
                     <input
@@ -4007,9 +3871,10 @@ function App() {
                       value={boutiqueName}
                       maxLength={LIMITS.name}
                       onChange={(e) => setBoutiqueName(e.target.value)}
+                      required
+                      autoFocus
                     />
                   </div>
-
                   <div className="form-group">
                     <label className="form-label">Boutique address</label>
                     <input
@@ -4019,49 +3884,143 @@ function App() {
                       value={boutiqueAddress}
                       maxLength={LIMITS.address}
                       onChange={(e) => setBoutiqueAddress(e.target.value)}
+                      required
                     />
                   </div>
+                </div>
 
-                  {signupError && (
-                    <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '4px', whiteSpace: 'pre-wrap' }}>
-                      {signupError}
+                <div className="signup-section-title"><span className="signup-section-num">2</span>About you (the owner)</div>
+                <div className="form-grid-2 signup-grid">
+                  <div className="form-group">
+                    <label className="form-label">First name</label>
+                    <input
+                      type="text"
+                      placeholder="Enter first name"
+                      value={signupForm.first_name}
+                      maxLength={LIMITS.name}
+                      onChange={(e) => setSignupForm({...signupForm, first_name: cleanName(e.target.value)})}
+                      required
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Last name</label>
+                    <input
+                      type="text"
+                      placeholder="Enter last name"
+                      value={signupForm.last_name}
+                      maxLength={LIMITS.name}
+                      onChange={(e) => setSignupForm({...signupForm, last_name: cleanName(e.target.value)})}
+                      required
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Email address</label>
+                    <input
+                      type="email"
+                      placeholder="name@example.com"
+                      value={signupForm.email_address}
+                      maxLength={LIMITS.email}
+                      onChange={(e) => setSignupForm({...signupForm, email_address: e.target.value})}
+                      onBlur={(e) => setSignupForm({...signupForm, email_address: cleanEmail(e.target.value)})}
+                      required
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Mobile number</label>
+                    <div className="input-wrapper">
+                      <span className="input-icon-left" style={{ left: '12px', fontSize: '14px' }}>+91</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="10-digit mobile number"
+                        value={signupForm.mobile_number}
+                        onChange={(e) => setSignupForm({...signupForm, mobile_number: tenDigits(e.target.value)})}
+                        style={{ paddingLeft: '50px' }}
+                        required
+                      />
                     </div>
-                  )}
-                  <button className="btn-primary" style={{ justifyContent: 'center' }} disabled={signupBusy} onClick={handleCompleteRegistration}>
-                    {signupBusy ? 'Creating your boutique…' : 'Create my boutique'}
+                  </div>
+                  <div className="form-group">
+                    <div className="signup-label-row">
+                      <label className="form-label">Password</label>
+                      <span className="password-strength-text">
+                        {signupForm.password ? <>Strength: <span>{getPasswordStrength()}</span></> : '8 or more characters'}
+                      </span>
+                    </div>
+                    <input
+                      type="password"
+                      placeholder="At least 8 characters"
+                      value={signupForm.password}
+                      minLength={8}
+                      onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
+                      required
+                      className="form-control"
+                    />
+                    {/* Always rendered, so typing the first character does
+                        not push the row below it down. */}
+                    <div className="password-strength-bar">
+                      <div className={`password-strength-fill ${getPasswordStrength()}`}></div>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <div className="signup-label-row">
+                      <label className="form-label">Type the password again</label>
+                      <span className="password-strength-text" style={passwordMismatch ? { color: '#ba1a1a' } : undefined}>
+                        {passwordMismatch ? 'Not the same' : signupForm.confirm_password ? 'Matches' : 'Same as the first'}
+                      </span>
+                    </div>
+                    <input
+                      type="password"
+                      placeholder="Same password once more"
+                      value={signupForm.confirm_password}
+                      onChange={(e) => setSignupForm({...signupForm, confirm_password: e.target.value})}
+                      required
+                      className="form-control"
+                      style={passwordMismatch ? { borderColor: '#ba1a1a' } : undefined}
+                    />
+                    <div className="password-strength-bar">
+                      <div className={`password-strength-fill ${signupForm.confirm_password ? (passwordMismatch ? 'weak' : 'strong') : ''}`}></div>
+                    </div>
+                  </div>
+                </div>
+
+                {signupError && (
+                  <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', whiteSpace: 'pre-wrap' }}>
+                    {signupError}
+                  </div>
+                )}
+
+                <div className="mobile-stack-grid signup-footer">
+                  <label className="remember-me-checkbox" style={{ fontSize: '12.5px' }}>
+                    <input type="checkbox" checked={signupForm.terms} onChange={(e) => setSignupForm({...signupForm, terms: e.target.checked})} />
+                    I agree to the Terms & Conditions and Privacy Policy
+                  </label>
+                  <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setView('login')}>
+                    Log in instead
                   </button>
-                  <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setSignupStep(1)}>
-                    Back
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={!signupReady || signupBusy}
+                    title={signupReady ? undefined : 'Fill every box above to continue'}
+                    style={{ justifyContent: 'center', opacity: signupReady ? 1 : 0.5, cursor: signupReady ? 'pointer' : 'not-allowed' }}
+                  >
+                    {signupBusy ? 'Creating your boutique…' : 'Create Account'}
                   </button>
                 </div>
-              </>
+              </form>
             )}
 
-            {signupStep === 3 && (
+            {signupStep === 2 && (
               <div style={{ textAlign: 'center', padding: '32px' }}>
                 <div className="success-circle" style={{ margin: '0 auto 20px' }}><Check size={36} /></div>
                 <h2 className="auth-title">Registration Complete!</h2>
                 <p style={{ color: 'var(--text-secondary)' }}>Welcome to Scaleezy. Redirecting you to the portal workspace...</p>
               </div>
             )}
-          </div>
-
-          <div className="auth-badge-info-grid">
-            <div className="auth-badge-card">
-              <Lock className="auth-badge-icon" size={24} />
-              <h4>Secure & Encrypted</h4>
-              <p>Your data is protected with enterprise-tier bank level security standards.</p>
-            </div>
-            <div className="auth-badge-card">
-              <Compass className="auth-badge-icon" size={24} />
-              <h4>Personalized Experience</h4>
-              <p>Tailored custom order builders matching style flows perfectly.</p>
-            </div>
-            <div className="auth-badge-card">
-              <Star className="auth-badge-icon" size={24} />
-              <h4>Expert Support</h4>
-              <p>Boutique assistance is available 24/7 at the click of a button.</p>
-            </div>
           </div>
         </div>
       )}
