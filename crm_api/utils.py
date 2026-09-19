@@ -220,14 +220,12 @@ def seed_tenant_defaults(demo=True):
             {"order_id": "T2B-260702-1002", "customer": db_customers[1] if len(db_customers) > 1 else None, "status": "Ready for Dispatch", "stage_key": "ready_for_delivery", "prod_status": "NOT_STARTED"},
             {"order_id": "T2B-260703-1003", "customer": db_customers[2] if len(db_customers) > 2 else None, "status": "Quality Check", "stage_key": "master_quality_check", "prod_status": "IN_PROGRESS"},
             {"order_id": "T2B-260704-1004", "customer": db_customers[3] if len(db_customers) > 3 else None, "status": "Design & Creation", "stage_key": "stitching_in_progress", "prod_status": "IN_PROGRESS"},
-            {"order_id": "T2B-260705-1005", "customer": db_customers[4] if len(db_customers) > 4 else None, "status": "Confirmed", "stage_key": "fabric_confirmed", "prod_status": "COMPLETED"},
+            {"order_id": "T2B-260705-1005", "customer": db_customers[4] if len(db_customers) > 4 else None, "status": "Design & Creation", "stage_key": "pattern_cutting", "prod_status": "IN_PROGRESS"},
             {"order_id": "T2B-260706-1006", "customer": db_customers[0] if len(db_customers) > 0 else None, "status": "Received", "stage_key": "created", "prod_status": "COMPLETED"},
         ]
 
         stages_config = [
             {"key": "created", "name": "Order taken", "sla": 24},
-            {"key": "measurements_completed", "name": "Measurements", "sla": 24},
-            {"key": "fabric_confirmed", "name": "Fabric", "sla": 48},
             {"key": "pattern_cutting", "name": "Pattern cutting", "sla": 48},
             {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla": 24},
             {"key": "stitching_in_progress", "name": "Stitching", "sla": 72},

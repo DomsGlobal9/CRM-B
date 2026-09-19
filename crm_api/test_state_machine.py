@@ -3,6 +3,7 @@ from decimal import Decimal
 from unittest import mock
 
 from django.contrib.auth.models import User
+from django.db import models
 from django_tenants.test.cases import TenantTestCase
 
 from apps.catalog.models import GarmentJob, GarmentTemplate, JobMaterial
@@ -434,3 +435,46 @@ class AtomicityTests(StateMachineTestBase):
         self.assertEqual(after['reserved'], Decimal('0.000'))
         self.assertEqual(after['stock'], before['stock'] - Decimal('2.000'))
         self.assertEqual(after['activities'], before['activities'] + 1)
+
+
+class DropMeasurementAndFabricStagesMigrationTests(StateMachineTestBase):
+    """Migration 0054 against a boutique that still carries the two stages."""
+
+    def _old_shape(self):
+        from django.utils import timezone
+        old = [
+            {"key": "measurements_completed", "name": "Measurements", "sla_hours": 24, "roles": ["Owner", "Master"]},
+            {"key": "fabric_confirmed", "name": "Fabric", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        ]
+        settings = BoutiqueSettings.objects.get(id=1)
+        settings.workflow_config = [settings.workflow_config[0], *old, *settings.workflow_config[1:]]
+        settings.save(update_fields=['workflow_config'])
+
+        order = self._order(order_id="T2B-SM-OLD")
+        order.stages.filter(sequence__gte=1).update(sequence=models.F('sequence') + 2)
+        OrderStage.objects.create(order=order, stage_key='measurements_completed', stage_name='Measurements',
+                                  sequence=1, status='COMPLETED', completed_at=timezone.now())
+        OrderStage.objects.create(order=order, stage_key='fabric_confirmed', stage_name='Fabric', sequence=2)
+        from apps.production.models import ProductionTask
+        ProductionTask.objects.create(order=order, title='Fabric', stage_key='fabric_confirmed', sequence=2)
+        ProductionTask.objects.create(order=order, title='Cutting', stage_key='pattern_cutting', sequence=3)
+        order.current_stage_key = 'measurements_completed'
+        order.save(update_fields=['current_stage_key'])
+        return order
+
+    def test_the_stages_leave_the_workflow_and_every_order(self):
+        from importlib import import_module
+        from django.apps import apps
+        order = self._old_shape()
+
+        import_module('crm_api.migrations.0054_drop_measurement_and_fabric_stages').forwards(apps, None)
+
+        keys = [s['key'] for s in BoutiqueSettings.objects.get(id=1).workflow_config]
+        self.assertNotIn('measurements_completed', keys)
+        self.assertNotIn('fabric_confirmed', keys)
+        rows = list(order.stages.order_by('sequence').values_list('stage_key', 'sequence'))
+        self.assertEqual([k for k, _ in rows], SEQUENCE)
+        self.assertEqual([s for _, s in rows], list(range(len(SEQUENCE))))
+        self.assertEqual(list(order.production_tasks.values_list('stage_key', flat=True)), ['pattern_cutting'])
+        order.refresh_from_db()
+        self.assertEqual(order.current_stage_key, 'created')
