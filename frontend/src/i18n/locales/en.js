@@ -149,6 +149,7 @@ const en = {
     title: "Your boutique today",
     subtitle: "Orders in the workroom, money to collect, and customers to call back.",
     welcomeBackUser: "Welcome back, {name}! 👋",
+    welcomeNewUser: "Welcome {name} to Scaleezy! 👋",
     hiUser: "Hi, {name}",
     startCustomOrder: "Take a new order",
     manageStaff: "Your team",

@@ -365,10 +365,13 @@ def ensure_plan(order, *, user=None):
 def sync_order_materials(order, stage_key, new_status, *, user=None):
     if new_status != 'COMPLETED':
         return None
-    if stage_key not in ('fabric_confirmed', 'stitching_completed', 'delivered'):
+    if stage_key not in ('created', 'fabric_confirmed', 'stitching_completed', 'delivered'):
         return None
 
-    if stage_key == 'fabric_confirmed':
+    # 'created': the order is taken with its fabric chosen, so the materials
+    # are reserved then. 'fabric_confirmed' stays for a boutique whose saved
+    # workflow still has the stage.
+    if stage_key in ('created', 'fabric_confirmed'):
         plan, skipped = ensure_plan(order, user=user)
         if plan is None:
             return {'stage': stage_key, 'planned': 0, 'skipped': skipped}

@@ -49,6 +49,8 @@ Anything else that moves a settled stage backwards is still refused.
 #: PENDING_VERIFICATION: a worker has submitted the stage with a photo and an
 #: owner or Master has yet to verify it. Not settled -- the order does not move
 #: on until they do -- but it satisfies the same prerequisites as COMPLETED.
+from core.permissions import SUPERVISOR_ROLES
+
 VALID_STATUSES = ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED', 'PAUSED',
                   'PENDING_VERIFICATION')
 
@@ -62,7 +64,7 @@ class TransitionError(ValueError):
     pass
 
 
-def _requires_measurements(order, stage):
+def _requires_measurements(order, stage, *, supervisor):
 
     from domains.orders.services import (
         customer_has_measurements, order_needs_measurements)
@@ -89,8 +91,11 @@ def _requires_measurements(order, stage):
     return 'Measurements are not completed for this customer.'
 
 
-def _requires_a_tailor(order, stage):
-    if order.tailor_id or stage.assigned_to_id:
+def _requires_a_tailor(order, stage, *, supervisor):
+    # A supervisor who starts the stitching is the stitcher. The owner of a
+    # one-person boutique has nobody to hand it to, and a Master does every
+    # job; this rule used to stop both of them dead at this stage.
+    if supervisor or order.tailor_id or stage.assigned_to_id:
         return None
     return 'No tailor is assigned to this order.'
 
@@ -215,7 +220,8 @@ def check_transition(order, stage, new_status, *, config, role, owner_role):
 
     validator = REQUIRED_DATA.get(stage_key)
     if validator is not None and new_status in ('IN_PROGRESS', 'COMPLETED', 'PENDING_VERIFICATION'):
-        problem = validator(order, stage)
+        problem = validator(order, stage,
+                            supervisor=role == owner_role or role in SUPERVISOR_ROLES)
         if problem:
             raise TransitionError(f'Cannot move to {label}. {problem}')
 

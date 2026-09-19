@@ -515,7 +515,6 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     STATUS_TO_STAGE = {
         'Received': 'created',
-        'Confirmed': 'fabric_confirmed',
         'Design & Creation': 'stitching_completed',
         'Quality Check': 'master_quality_check',
         'Ready for Dispatch': 'ready_for_delivery',
@@ -597,6 +596,36 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         order.refresh_from_db()
         return Response({'status': 'status updated', 'order_status': order.order_status})
+
+    @action(detail=True, methods=['POST'], url_path='complete-all')
+    def complete_all(self, request, pk=None):
+        """The owner finishes the whole journey at once.
+
+        Every unsettled stage is completed in order, in one transaction, through
+        the same transition_order_stage every click goes through -- so every
+        rule (prerequisites, measurements, stock) still applies, and a refusal
+        names the stage and leaves nothing half-done. Owner only:
+        RolePermission admits no other role to an action outside its two
+        lists. The customer is told once, about the final status, not about
+        each stage passed on the way.
+        """
+        order = self.get_object()
+        from domains.orders import workflow
+        config = workflow.for_order(
+            BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, order)
+        live = dict(order.stages.values_list('stage_key', 'status'))
+        pending = [s for s in config if live.get(s['key']) not in ('COMPLETED', 'SKIPPED')]
+        try:
+            with transaction.atomic():
+                for s in pending:
+                    OrderService.transition_order_stage(
+                        order=order, stage_key=s['key'],
+                        new_status='SKIPPED' if s.get('optional') else 'COMPLETED',
+                        user=request.user, notify=s is pending[-1])
+        except ValueError as ve:
+            return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data)
 
     @action(detail=True, methods=['POST'], url_path='garment-images')
     def upload_garment_image(self, request, pk=None):
@@ -1874,12 +1903,12 @@ class OrderDraftViewSet(viewsets.ViewSet):
             from domains.orders.services import apply_advance
             apply_advance(order, order.total_amount if full_payment else advance)
 
-            # Now that the dresses are attached, the workflow can tell whether
-            # any of them asks for a measurement. A saree with no petticoat
-            # asks for none, and its Measurements stage is skipped rather than
-            # left blocking the order forever.
-            from domains.orders.services import settle_measurement_stage
-            settle_measurement_stage(order)
+            # The fabric was chosen while the order was written up, so it is
+            # reserved from stock now that the dresses (and their material
+            # lines) are attached. This used to wait for a Fabric stage that
+            # only restated a decision already made.
+            from apps.inventory import order_materials
+            order_materials.sync_order_materials(order, 'created', 'COMPLETED', user=request.user)
 
             create_order_notifications(order, created=True)
             return order

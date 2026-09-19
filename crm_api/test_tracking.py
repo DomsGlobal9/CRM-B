@@ -184,7 +184,7 @@ class CustomerMessageTests(TrackingTestBase):
     def test_stage_transition_logs_a_message(self):
         before = CustomerMessage.objects.filter(order=self.order).count()
         OrderService.transition_order_stage(
-            self.order, 'measurements_completed', 'COMPLETED',
+            self.order, 'pattern_cutting', 'COMPLETED',
             user=self._owner(),
         )
         self.assertEqual(CustomerMessage.objects.filter(order=self.order).count(), before + 1)
@@ -220,7 +220,7 @@ class CustomerMessageTests(TrackingTestBase):
 
     def test_repeated_stages_with_one_customer_status_send_one_message(self):
         owner = self._owner()
-        for stage in ['measurements_completed', 'fabric_confirmed', 'pattern_cutting', 'maggam_work']:
+        for stage in ['pattern_cutting', 'maggam_work', 'assigned_to_tailor', 'stitching_in_progress']:
             OrderService.transition_order_stage(self.order, stage, 'COMPLETED', user=owner)
 
         bodies = list(
@@ -253,14 +253,12 @@ class CustomerMessageTests(TrackingTestBase):
         self.order.tailor = tailor
         self.order.save()
 
-        # 1. Measurement completed -- the customer is measured at this step, and
-        # the workflow will not hand the garment to a tailor without it.
+        # The customer is measured while the order is taken; the workflow
+        # will not hand the garment to a tailor without it.
         Measurement.objects.create(customer=self.order.customer, bust=36, waist=28, hips=38)
-        OrderService.transition_order_stage(self.order, 'measurements_completed', 'COMPLETED', user=owner)
-        self.assertTrue(CustomerMessage.objects.filter(order=self.order, template_key='measurement_completed').exists())
 
         # Prerequisite intermediate stages
-        for stage in ['fabric_confirmed', 'pattern_cutting', 'assigned_to_tailor', 'stitching_in_progress']:
+        for stage in ['pattern_cutting', 'assigned_to_tailor', 'stitching_in_progress']:
             OrderService.transition_order_stage(self.order, stage, 'COMPLETED', user=owner)
 
         # 2. Product ready

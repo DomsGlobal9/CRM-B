@@ -504,9 +504,12 @@ def get_default_workflow():
     the thing being done. Keys are the workflow's identity and never change.
     """
     return [
+        # No Measurements or Fabric stage: both are taken while the order is
+        # being written up (the wizard measures the customer and picks the
+        # fabric), so they arrive settled and had nothing to do on the
+        # journey but be clicked through. Fabric is reserved from stock the
+        # moment the order is taken instead (crm_api.views confirm_draft).
         {"key": "created", "name": "Order taken", "sla_hours": 12, "roles": ["Owner", "Master"]},
-        {"key": "measurements_completed", "name": "Measurements", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "fabric_confirmed", "name": "Fabric", "sla_hours": 24, "roles": ["Owner", "Master"]},
         # The two paths through the workroom part here. A stage with `flows`
         # is only on the orders of those flows; one without is on every order.
         # Plain stitching: cut, then stitch.
@@ -523,8 +526,11 @@ def get_default_workflow():
         {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"]},
         {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
         {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},
-        {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Tailor"]},
-        {"key": "stitching_completed", "name": "Stitching check", "sla_hours": 12, "roles": ["Owner", "Tailor"]},
+        # The Master is on both stitching stages: the generalist in a small
+        # boutique stitches as well as supervises, and the assign picker
+        # reads this list, so leaving them off hid them from it.
+        {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Master", "Tailor"]},
+        {"key": "stitching_completed", "name": "Stitching check", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},
         {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"]},
         {"key": "master_quality_check", "name": "Master quality check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"]},

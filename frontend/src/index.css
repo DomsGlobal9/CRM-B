@@ -5126,3 +5126,78 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 @media (min-width: 1025px) {
   .nav-collapsed .portal-wordmark { display: none; }
 }
+
+/* Signup: one wide card instead of a two-tab wizard. Wider so the owner's
+   details sit two to a row, tighter so the whole thing fits a laptop
+   viewport (~650px tall) without scrolling. Phones scroll; that is fine. */
+.auth-page--signup {
+  padding: 24px 16px;
+}
+@media (max-width: 768px) {
+  /* Keep clear of the absolutely-positioned "Back to Home" pill. */
+  .auth-page--signup {
+    padding: 88px 16px 40px;
+  }
+}
+.auth-page--signup .auth-logo-sub {
+  margin-bottom: 12px !important;
+}
+.auth-card--signup {
+  max-width: 720px;
+  padding: clamp(18px, 3vw, 24px);
+}
+.auth-card--signup .signup-grid {
+  gap: 8px 20px;
+}
+.auth-card--signup .form-group {
+  gap: 4px;
+}
+.auth-card--signup .form-label {
+  line-height: 1.2;
+}
+.auth-card--signup .form-control,
+.auth-card--signup .input-wrapper input {
+  min-height: 40px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.signup-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.signup-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+.signup-section-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #231e1c;
+  color: #fff;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.signup-footer {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding-top: 4px;
+}
+@media (max-width: 768px) {
+  .signup-footer {
+    grid-template-columns: 1fr;
+  }
+}
