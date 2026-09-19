@@ -244,3 +244,26 @@ class GarmentJobTests(CatalogTestCase):
         for key in ('lehenga', 'blouse', 'dupatta'):
             GarmentJob.objects.create(order=order, template=GarmentTemplate.resolve(key))
         self.assertEqual(order.garment_jobs.count(), 3)
+
+
+class TypedOtherOptionTests(CatalogTestCase):
+    """A dropdown with no fitting option takes "other:<text>" in its own key."""
+
+    def setUp(self):
+        super().setUp()
+        self.saree = GarmentTemplate.resolve('saree')
+        self.valid = {'saree_type': 'silk', 'services': ['fall_pico'], 'delivery_date': '2026-09-01'}
+
+    def test_typed_other_is_kept_verbatim(self):
+        cleaned = validate_spec(self.saree, {**self.valid, 'saree_type': 'other:Banarasi'})
+        self.assertEqual(cleaned['saree_type'], 'other:Banarasi')
+
+    def test_blank_other_is_refused(self):
+        with self.assertRaises(SpecValidationError) as caught:
+            validate_spec(self.saree, {**self.valid, 'saree_type': 'other:  '})
+        self.assertIn('saree_type', caught.exception.errors)
+
+    def test_multiselect_does_not_take_other(self):
+        with self.assertRaises(SpecValidationError) as caught:
+            validate_spec(self.saree, {**self.valid, 'services': ['other:x']})
+        self.assertIn('services', caught.exception.errors)

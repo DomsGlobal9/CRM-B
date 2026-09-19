@@ -70,7 +70,21 @@ def _clean_number(field, raw, errors):
     return str(number)
 
 
+#: A dropdown answer the boutique typed because no option fit: "other:Banarasi".
+#: Stored verbatim in the select's own key, so drafts, the spec and the brief
+#: need no second field. Mirrored in frontend/src/services/templates.js.
+OTHER_PREFIX = 'other:'
+OTHER_MAX_LENGTH = 200
+
+
+def _is_typed_other(raw):
+    return (isinstance(raw, str) and raw.startswith(OTHER_PREFIX)
+            and 0 < len(raw[len(OTHER_PREFIX):].strip()) <= OTHER_MAX_LENGTH)
+
+
 def _clean_choice(field, raw, errors, multi):
+    if not multi and _is_typed_other(raw):
+        return raw
     allowed = {o.value for o in field.options.all() if o.is_active}
     chosen = _as_list(raw) if multi else [raw]
     unknown = [c for c in chosen if c not in allowed]

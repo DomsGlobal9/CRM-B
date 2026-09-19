@@ -3,6 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import { getSection, isVisible, pruneHidden } from '../../services/templates';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import { OTHER_PREFIX, OTHER_MAX_LENGTH, isTypedOther, typedOtherText } from '../../services/templates';
+
+// Dropdowns that steer the order rather than describe the garment: an answer
+// nobody listed would send the job down no path at all.
+const NO_OTHER = new Set(['hand_work', 'urgency']);
 import { CameraButton } from '../../components/ui/Atelier';
 
 /**
@@ -104,18 +109,35 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       );
       break;
 
-    case 'select':
+    case 'select': {
+      // "Other" keeps the select's own key: the typed text is stored as
+      // "other:<text>", so nothing else about the spec changes shape.
+      // Skipped where the template already lists an Other option with its
+      // own "Specify" text field (saree, shirt, kurta...): that pair stays.
+      const other = !NO_OTHER.has(field.key) && !field.options.some((o) => o.value === 'other');
+      const typed = other && isTypedOther(value);
       control = (
-        <select {...common}>
-          <option value="">Select</option>
-          {field.options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <>
+          <select {...common} value={typed ? OTHER_PREFIX : (value ?? '')}
+                  onChange={(e) => onChange(field.key, e.target.value === OTHER_PREFIX ? OTHER_PREFIX : e.target.value)}>
+            <option value="">Select</option>
+            {field.options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+            {other && <option value={OTHER_PREFIX}>Other (type it)</option>}
+          </select>
+          {typed && (
+            <input className="form-control" type="text" style={{ marginTop: '8px' }} autoFocus
+                   maxLength={OTHER_MAX_LENGTH} value={typedOtherText(value)}
+                   placeholder={`Type the ${field.label.toLowerCase()} you want`}
+                   onChange={(e) => onChange(field.key, OTHER_PREFIX + e.target.value)} />
+          )}
+        </>
       );
       break;
+    }
 
     case 'multiselect': {
       const chosen = Array.isArray(value) ? value : [];

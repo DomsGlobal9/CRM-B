@@ -7590,6 +7590,20 @@ function App() {
                           </div>
                         ))}
 
+                        {/* Anything the options above have no box for, in the
+                            customer's own words. The template's own
+                            special_instructions field (Production Notes), so it
+                            is validated and stored with the garment's spec and
+                            the tailor reads it on the garment's brief. */}
+                        <div className="wz-garment-section">
+                          <div className="od-hint" style={{ marginBottom: '6px' }}>
+                            {t('wizard.garmentNoteHint', 'Anything the options above don’t cover? Write it here.')}
+                          </div>
+                          <TemplateForm template={job.template} section="production" values={job.values}
+                                        errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'special_instructions'}
+                                        onChange={(values) => updateGarmentValues(job.key, values)} />
+                        </div>
+
                         {hasOptional && (
                           <details className="wz-more">
                             <summary>{t('wizard.moreDetails', 'More details')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
