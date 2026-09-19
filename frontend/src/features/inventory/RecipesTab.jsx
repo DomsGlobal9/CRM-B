@@ -165,7 +165,7 @@ export default function RecipesTab({ items, isOwner }) {
                         <tr key={line.id} style={{ borderTop: '1px solid var(--border-color)' }}>
                           <td style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                             {line.is_customer_supplied
-                              ? <span style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--background-secondary)', display: 'inline-block', flexShrink: 0 }} />
+                              ? <span style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--surface-inset)', display: 'inline-block', flexShrink: 0 }} />
                               : <img src={inventoryImage(item || { category: 'OTHER', name: line.material_name })} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
                             <span>
                               {line.material_name || line.description}

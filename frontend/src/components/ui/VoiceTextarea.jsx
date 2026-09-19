@@ -189,7 +189,7 @@ export default function VoiceTextarea({ value, defaultValue, onChange, style, on
                 position: 'absolute', top: '8px', right: '8px', width: '28px', height: '28px',
                 border: 'none', borderRadius: '50%', cursor: 'pointer',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: listening ? '#dc2626' : 'var(--background-secondary, #f1f5f9)',
+                background: listening ? '#dc2626' : 'var(--surface-inset, #f1f5f9)',
                 color: listening ? '#fff' : 'var(--text-secondary, #475569)',
               }}>
         {listening ? <Square size={12} /> : <Mic size={14} />}
