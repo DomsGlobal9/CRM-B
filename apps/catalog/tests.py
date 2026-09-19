@@ -278,3 +278,15 @@ class PetticoatHandWorkTests(CatalogTestCase):
         # Everything else still asks.
         blouse = {f.key for s in GarmentTemplate.resolve('blouse').sections.all() for f in s.fields.all()}
         self.assertIn('hand_work', blouse)
+
+
+class SpecifyTypeTests(CatalogTestCase):
+    def test_other_demands_the_typed_type(self):
+        saree = GarmentTemplate.resolve('saree')
+        base = {'services': ['fall_pico'], 'hand_work': 'none', 'delivery_date': '2026-09-01'}
+        with self.assertRaises(SpecValidationError) as caught:
+            validate_spec(saree, {**base, 'saree_type': 'other'})
+        self.assertIn('saree_type_other', caught.exception.errors)
+        validate_spec(saree, {**base, 'saree_type': 'other', 'saree_type_other': 'Paithani'})
+        # Not asked, so not demanded, when a listed type is picked.
+        validate_spec(saree, {**base, 'saree_type': 'silk'})

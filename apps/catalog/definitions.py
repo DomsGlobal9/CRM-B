@@ -152,7 +152,7 @@ TEMPLATES = [
                 field('saree_type', 'Saree Type', 'select', required=True, options=[
                     'Silk', 'Cotton', 'Georgette', 'Chiffon', 'Linen', 'Organza',
                     'Tissue', 'Banarasi', 'Kanchipuram', 'Other']),
-                field('saree_type_other', 'Specify Type', 'text',
+                field('saree_type_other', 'Specify Type', 'text', required=True,
                       when=eq('saree_type', 'other')),
                 field('fabric_length', 'Fabric Length', 'number', unit='m',
                       validation={'min': 0, 'max': 20, 'step': 0.25}),
@@ -477,7 +477,7 @@ TEMPLATES = [
                 field('bottom_type', 'Bottom Type', 'select', required=True, options=[
                     'Salwar', 'Churidar', 'Palazzo', 'Sharara', 'Patiala',
                     'Cigarette Pant', 'Dhoti', 'Other']),
-                field('bottom_type_other', 'Specify Type', 'text',
+                field('bottom_type_other', 'Specify Type', 'text', required=True,
                       when=eq('bottom_type', 'other')),
             ],
             'measurements': [
@@ -689,7 +689,7 @@ TEMPLATES = [
                 field('shirt_type', 'Shirt Type', 'select', required=True, options=[
                     'Formal', 'Casual', 'Dress', 'Oxford', 'Linen', 'Denim', 'Printed',
                     'Checked', 'Striped', 'Short Kurta Shirt', 'Other']),
-                field('shirt_type_other', 'Specify Type', 'text',
+                field('shirt_type_other', 'Specify Type', 'text', required=True,
                       when=eq('shirt_type', 'other')),
                 field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Oversized']),
             ],
@@ -734,7 +734,7 @@ TEMPLATES = [
                 field('tshirt_type', 'T-Shirt Type', 'select', required=True, options=[
                     'Crew Neck', 'V-Neck', 'Polo', 'Henley', 'Round Neck', 'Oversized',
                     'Graphic', 'Printed', 'Tank Top', 'Sports', 'Other']),
-                field('tshirt_type_other', 'Specify Type', 'text',
+                field('tshirt_type_other', 'Specify Type', 'text', required=True,
                       when=eq('tshirt_type', 'other')),
                 field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Oversized']),
             ],
@@ -770,7 +770,7 @@ TEMPLATES = [
                 field('kurta_type', 'Kurta Type', 'select', required=True, options=[
                     'Straight', 'Short', 'Long', 'Pathani', 'Asymmetric', 'Angrakha',
                     'Lucknowi', 'Other']),
-                field('kurta_type_other', 'Specify Type', 'text',
+                field('kurta_type_other', 'Specify Type', 'text', required=True,
                       when=eq('kurta_type', 'other')),
                 field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Relaxed Fit']),
             ],
@@ -919,7 +919,7 @@ TEMPLATES = [
                 field('trouser_type', 'Trouser Type', 'select', required=True, options=[
                     'Formal', 'Dress', 'Chinos', 'Casual', 'Linen', 'Cotton', 'Cargo',
                     'Utility', 'Other']),
-                field('trouser_type_other', 'Specify Type', 'text',
+                field('trouser_type_other', 'Specify Type', 'text', required=True,
                       when=eq('trouser_type', 'other')),
                 field('fit', 'Fit', 'select', options=[
                     'Straight Fit', 'Slim Fit', 'Regular Fit', 'Tapered', 'Wide Leg']),
@@ -1032,7 +1032,7 @@ TEMPLATES = [
                 field('bottom_type', 'Bottom Type', 'select', required=True, options=[
                     'Churidar', 'Pajama', 'Pathani Pajama', 'Salwar', 'Dhoti', 'Dhoti Pants',
                     'Afghani Pants', 'Patiala Pajama', 'Pleated Dhoti Pants', 'Other']),
-                field('bottom_type_other', 'Specify Type', 'text',
+                field('bottom_type_other', 'Specify Type', 'text', required=True,
                       when=eq('bottom_type', 'other')),
             ],
             'measurements': [

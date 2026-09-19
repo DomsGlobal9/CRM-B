@@ -7539,23 +7539,66 @@ function App() {
                     const openKey = garmentJobs.some(j => j.key === activeGarmentKey) ? activeGarmentKey : garmentJobs[0].key;
                     return (
                       <div style={{ marginTop: '16px' }}>
-                        {/* A tick once every required question this step asks is
-                            answered -- the same check Next runs -- and a dot
-                            while Next has found something missing. */}
-                        <PartTabStrip allLabel={null} active={openKey} onChange={setActiveGarmentKey}
-                          parts={garmentJobs.map((job, idx) => {
-                            const complete = Object.keys(validateSpec(job.template, job.values, { sections: ['basic', 'style'] })).length === 0;
-                            return {
-                              key: job.key,
-                              label: (
-                                <>
-                                  {idx + 1}. {job.template?.name || job.key}
-                                  {complete && <Check size={13} style={{ marginLeft: '6px', color: 'var(--success-color, #16a34a)', verticalAlign: '-2px' }} />}
-                                  {!complete && garmentErrors[job.key] && <span style={{ marginLeft: '6px', color: 'var(--danger-color, #b91c1c)' }}>•</span>}
-                                </>
-                              ),
-                            };
-                          })} />
+                        {/* The same stepper the wizard draws across the top, one
+                            circle per garment: a tick once every required
+                            question this step asks is answered -- the same
+                            check Next runs -- the open one filled, the rest
+                            numbered. Clicking a circle opens that garment. */}
+                        <div className="stepper-progress-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px 0' }}>
+                          {garmentJobs.map((job, idx) => {
+                            const valid = Object.keys(validateSpec(job.template, job.values, { sections: ['basic', 'style'] })).length === 0;
+                            const isActive = job.key === openKey;
+                            // Answered by hand: at least one of this step's own questions
+                            // holds something the template did not fill in itself. A
+                            // garment with no required question (a petticoat) is valid the
+                            // moment it is added, and must not read Done before anyone has
+                            // answered anything on it. Only the template's current fields
+                            // count, so an answer a draft kept for a question since removed
+                            // (hand work on a petticoat) does not.
+                            const touched = (job.template?.sections || [])
+                              .filter((sec) => sec.key === 'basic' || sec.key === 'style')
+                              .some((sec) => sec.fields.some((f) => {
+                                const v = job.values?.[f.key];
+                                return f.key !== 'delivery_date' && v !== '' && v != null && !(Array.isArray(v) && !v.length)
+                                  && !(f.default != null && v === f.default);
+                              }));
+                            const complete = valid && touched && !isActive;
+                            const missing = !valid && Boolean(garmentErrors[job.key]);
+                            return (
+                              <React.Fragment key={job.key}>
+                                <div className="stepper-step stepper-step--link" role="button" tabIndex={0}
+                                     aria-current={isActive ? 'step' : undefined}
+                                     title={`Go to ${job.template?.name || job.key}`}
+                                     onClick={() => setActiveGarmentKey(job.key)}
+                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveGarmentKey(job.key); } }}
+                                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, position: 'relative', zIndex: 2, cursor: 'pointer' }}>
+                                  <div style={{
+                                    width: '28px', height: '28px', borderRadius: '50%',
+                                    backgroundColor: complete ? 'var(--primary-color)' : (isActive ? 'var(--selected-bg)' : 'var(--surface-inset)'),
+                                    color: complete ? 'var(--primary-foreground)' : isActive ? 'var(--selected-fg)' : 'var(--text-secondary)',
+                                    border: isActive ? '2px solid var(--primary-color)' : missing ? '2px solid var(--danger-color, #b91c1c)' : 'none',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '12px', fontWeight: 600, marginBottom: '8px',
+                                  }}>
+                                    {complete ? <Check size={14} /> : idx + 1}
+                                  </div>
+                                  <span style={{ fontSize: '11px', fontWeight: isActive || complete ? 600 : 500, color: isActive || complete ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                                    {job.template?.name || job.key}
+                                  </span>
+                                  <span style={{ fontSize: '9px', color: missing ? 'var(--danger-color, #b91c1c)' : 'var(--text-secondary)', marginTop: '2px' }}>
+                                    {complete ? t('wizard.completed', 'Done') : missing ? t('wizard.garmentMissing', 'Something missing') : isActive ? t('wizard.garmentNow', 'Fill in now') : t('wizard.garmentNext', 'Up next')}
+                                  </span>
+                                </div>
+                                {idx < garmentJobs.length - 1 && (
+                                  <div style={{ display: 'flex', alignItems: 'center', flex: 1, margin: '0 -20px', transform: 'translateY(-20px)', zIndex: 1, color: complete ? 'var(--primary-color)' : 'var(--border-color)' }}>
+                                    <div style={{ height: '2px', flex: 1, backgroundColor: 'currentColor' }}></div>
+                                    <ArrowRight size={16} style={{ marginLeft: '-4px', flexShrink: 0 }} />
+                                  </div>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
                       </div>
                     );
                   })()}
