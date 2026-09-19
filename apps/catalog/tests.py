@@ -141,7 +141,7 @@ class ValidationTests(CatalogTestCase):
         # type, so the style section shows only its own fields here.
         self.assertEqual(visible(['fall_pico']), {'services', 'fall_type', 'pico_type'})
         self.assertEqual(
-            visible(['stitching']), {'services', 'border', 'backing', 'petticoat_required'}
+            visible(['stitching']), {'services', 'border', 'backing'}
         )
         self.assertIn('tassels', visible(['tassel_work']))
         self.assertNotIn('tassels', visible(['stitching']))

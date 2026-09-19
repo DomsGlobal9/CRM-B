@@ -157,12 +157,9 @@ TEMPLATES = [
                 field('fabric_length', 'Fabric Length', 'number', unit='m',
                       validation={'min': 0, 'max': 20, 'step': 0.25}),
             ],
-            'measurements': [
-                measurement('petticoat_length', 'Petticoat Length',
-                            when=eq('petticoat_required', True)),
-                measurement('petticoat_waist', 'Petticoat Waist',
-                            when=eq('petticoat_required', True)),
-            ],
+            # A petticoat is its own garment on the order (key 'petticoat'),
+            # so the saree no longer asks whether one is required.
+            'measurements': [],
             'style': [
                 field('services', 'Services Required', 'multiselect', required=True, options=[
                     'Stitching', 'Fall', 'Pico', ('fall_pico', 'Fall + Pico'),
@@ -196,10 +193,6 @@ TEMPLATES = [
                 field('tassels', 'Tassels', 'select', options=[
                     'Hand Made', 'Readymade', 'Knot Style'],
                       when=one_of('services', ['tassel_work'])),
-                field('petticoat_required', 'Petticoat Required', 'boolean',
-                      when=one_of('services', ['stitching'])),
-                field('petticoat_waist_finish', 'Petticoat Waist Finish', 'multiselect',
-                      options=WAIST_FINISH, when=eq('petticoat_required', True)),
             ],
             'materials': [
                 material('fabric_used', 'Fabric Used', Inv.FABRIC),
