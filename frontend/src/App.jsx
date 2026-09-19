@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown, Hand } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { inventoryImage } from './services/inventoryImages';
@@ -243,7 +243,7 @@ const SUPERVISOR_ROLES = ['Master'];
 // contain, and shown an order's money that the permission matrix says
 // production staff must not see.
 const PRODUCTION_ROLES = [
-  'Tailor', 'Master', 'Maggam Master', 'Karigar', 'Packaging Staff', 'QC Staff',
+  'Tailor', 'Master', 'Maggam Master', 'Karigar', 'Maggam Karigar', 'Packaging Staff', 'QC Staff',
 ];
 const isProductionStaff = (role) => PRODUCTION_ROLES.includes(role);
 
@@ -267,7 +267,7 @@ const STEP_TONE = { done: 'success', live: 'info', next: 'neutral' };
 /** One icon per workroom step, keyed by the workflow's stage_key. */
 const STAGE_ICONS = {
   created: FileText, measurements_completed: Ruler, fabric_confirmed: Layers, pattern_cutting: Scissors,
-  paper_cutting: FileText, maggam_work: PenTool, maggam_verification: ShieldCheck,
+  paper_cutting: FileText, maggam_work: PenTool, maggam_handwork: Hand, maggam_verification: ShieldCheck,
   fabric_cutting: Scissors, assigned_to_tailor: User, stitching_in_progress: Shirt, stitching_completed: CheckCircle2,
   finishing: Sparkles, pressing: Flame, master_quality_check: ShieldCheck, trial_scheduled: CalendarClock,
   trial_completed: UserCheck, ready_for_delivery: PackageCheck, delivered: Truck,
@@ -332,6 +332,7 @@ const STAFF_ROLES = [
   { value: 'Master', label: 'Master Tailor (generalist)', hint: 'Can work on every stage.' },
   { value: 'Maggam Master', label: 'Maggam Master', hint: 'Runs embroidery before stitching.' },
   { value: 'Karigar', label: 'Karigar', hint: 'Handwork on the frame, alongside the Maggam Master.' },
+  { value: 'Maggam Karigar', label: 'Maggam Karigar', hint: 'Frame work on the finished design, after the Maggam Master.' },
   { value: 'Packaging Staff', label: 'Packaging Staff', hint: 'Packs the garment before dispatch.' },
   { value: 'QC Staff', label: 'QC Staff', hint: 'Runs the quality inspection.' },
 ];

@@ -237,6 +237,7 @@ class Tailor(models.Model):
         ('Tailor', 'Tailor'),
         ('Maggam Master', 'Maggam Master'),
         ('Karigar', 'Karigar'),
+        ('Maggam Karigar', 'Maggam Karigar'),
         ('Packaging Staff', 'Packaging Staff'),
         ('QC Staff', 'QC Staff'),
     ]
@@ -508,6 +509,10 @@ def get_default_workflow():
         # it, and only then the fabric is cut.
         {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
         {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar"], "flows": ["maggam"]},
+        # The Maggam Karigar picks up once the design is finished: the frame
+        # work is its own stage so it cannot start before the master's design
+        # is settled, and the Master's sign-off below sees the finished work.
+        {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar"], "flows": ["maggam"]},
         {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"]},
         {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
         {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},

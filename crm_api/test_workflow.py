@@ -79,7 +79,7 @@ class WorkflowTestBase(TenantTestCase):
         order = self.make_order(**kwargs)
         config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
         line = [s for s in config if s["key"] not in
-                ("paper_cutting", "maggam_verification", "fabric_cutting")]
+                ("paper_cutting", "maggam_handwork", "maggam_verification", "fabric_cutting")]
         maggam = next(s for s in line if s["key"] == "maggam_work")
         line = [s for s in line if s["key"] != "maggam_work"]
         line.insert(next(i for i, s in enumerate(line) if s["key"] == "pattern_cutting") + 1, maggam)
@@ -2030,7 +2030,7 @@ class FlowTests(WorkflowTestBase):
     verification -> fabric cutting, and only then to the tailor. Each order
     carries only its own path's stages, and is judged against those alone."""
 
-    MAGGAM_ONLY = ["paper_cutting", "maggam_work",
+    MAGGAM_ONLY = ["paper_cutting", "maggam_work", "maggam_handwork",
                    "maggam_verification", "fabric_cutting"]
 
     def keys(self, order):
@@ -2068,6 +2068,27 @@ class FlowTests(WorkflowTestBase):
         task_keys = set(ProductionTask.objects.filter(order=order).values_list("stage_key", flat=True))
         self.assertIn("maggam_work", task_keys)
         self.assertNotIn("pattern_cutting", task_keys)
+
+    def test_the_karigar_works_only_after_the_design_is_finished(self):
+        """Maggam handwork is the Maggam Karigar's stage, and it sits behind
+        the design: the karigar cannot start on a design the master has not
+        finished, and the Master's verification waits for the handwork."""
+        from domains.orders.workflow import TransitionError
+        order = self.make_order(flow="maggam")
+        stage = next(s for s in BoutiqueSettings.objects.get(id=1).workflow_config
+                     if s["key"] == "maggam_handwork")
+        self.assertEqual(stage["roles"], ["Owner", "Master", "Maggam Karigar"])
+        self.reach(order, "maggam_work")
+        with self.assertRaises((TransitionError, ValueError)):
+            self.step(order, "maggam_handwork", status="IN_PROGRESS")
+        self.step(order, "maggam_work", status="IN_PROGRESS")
+        self.step(order, "maggam_work", status="COMPLETED")
+        with self.assertRaises((TransitionError, ValueError)):
+            self.step(order, "maggam_verification", status="IN_PROGRESS")
+        self.step(order, "maggam_handwork", status="IN_PROGRESS")
+        self.step(order, "maggam_handwork", status="COMPLETED")
+        self.step(order, "maggam_verification", status="IN_PROGRESS")
+        self.assertEqual(self.stage(order, "maggam_verification").status, "IN_PROGRESS")
 
     def test_hand_work_on_any_garment_picks_the_maggam_flow(self):
         from domains.orders.services import flow_for_garments
