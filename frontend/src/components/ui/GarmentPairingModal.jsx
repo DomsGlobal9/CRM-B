@@ -113,7 +113,7 @@ export default function GarmentPairingModal({
       const availablePairKeys = pairConfig.pairKeys.filter(pairKey => {
         const matchingTemplate = findMatchingTemplate(pairKey, garmentTemplates);
         if (!matchingTemplate) return false;
-        return !garmentJobs.some(job => job.key === matchingTemplate.key);
+        return !garmentJobs.some(job => (job.template?.key || job.key) === matchingTemplate.key);
       });
       setSelectedPairKeys(availablePairKeys);
     } else {
@@ -262,13 +262,16 @@ export default function GarmentPairingModal({
               {pairConfig.pairKeys.map((pairKey, idx) => {
                 const label = pairConfig.pairLabels[idx] || pairKey;
                 const template = findMatchingTemplate(pairKey, garmentTemplates);
-                const isAlreadyAdded = template && garmentJobs.some(j => j.key === template.key);
-                const isChecked = selectedPairKeys.includes(pairKey) || isAlreadyAdded;
+                // Already on the order (by template, so a second copy counts too).
+                // Not pre-ticked, but still tickable: a lehenga added after a
+                // saree wants its own dupatta, not the saree's.
+                const isAlreadyAdded = template && garmentJobs.some(j => (j.template?.key || j.key) === template.key);
+                const isChecked = selectedPairKeys.includes(pairKey);
 
                 return (
                   <div
                     key={pairKey}
-                    onClick={() => !isAlreadyAdded && handleTogglePairKey(pairKey)}
+                    onClick={() => handleTogglePairKey(pairKey)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -277,7 +280,7 @@ export default function GarmentPairingModal({
                       borderRadius: '10px',
                       border: isChecked ? '1.5px solid #18181b' : '1px solid var(--border-color, #e2e8f0)',
                       background: isChecked ? 'rgba(24, 24, 27, 0.03)' : 'var(--surface-inset, #f8f9fa)',
-                      cursor: isAlreadyAdded ? 'default' : 'pointer',
+                      cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
                   >
@@ -303,7 +306,7 @@ export default function GarmentPairingModal({
 
                     {isAlreadyAdded ? (
                       <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '10px' }}>
-                        Added
+                        {isChecked ? 'Adding another' : 'Already on order · tick to add another'}
                       </span>
                     ) : (
                       <span style={{ fontSize: '12px', color: 'var(--text-secondary, #64748b)' }}>

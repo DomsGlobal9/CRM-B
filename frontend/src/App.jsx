@@ -1591,20 +1591,26 @@ function App() {
     loadGarmentTemplates();
   }, [currentUser, loadGarmentTemplates]);
 
-  const addGarment = async (key, skipPairingPrompt = false) => {
-    if (garmentJobs.some(job => job.key === key)) return;
+  const addGarment = async (key, skipPairingPrompt = false, allowAnother = false) => {
+    const taken = garmentJobs.some(job => job.key === key);
+    if (taken && !allowAnother) return;
     if (addingGarmentKey) return;
     setAddingGarmentKey(key);
     try {
       const template = await api.getGarmentTemplate(key);
+      // A pairing may add a garment the order already has -- the lehenga's
+      // own dupatta beside the saree's. The job then gets its own key; the
+      // template key stays on job.template, which is what every reader of
+      // the template uses (job.template?.key || job.key).
+      const jobKey = taken ? `${key}#${Date.now().toString(36)}` : key;
       setGarmentJobs(prev => [...prev, {
-        key, template, values: withDefaults(template), quantities: {}, sources: {}, brought: {},
+        key: jobKey, template, values: withDefaults(template), quantities: {}, sources: {}, brought: {},
         pricing: { base: GARMENT_PRICES[template.name] || 15000, fabric: 0,
                    embroidery: 0, customization: 0, tailoring: 0 },
       }]);
       // Saree asks after its blouse and petticoat, lehenga after its choli
       // and dupatta. Paired adds skip the prompt so it cannot chain.
-      setActiveGarmentKey(key);
+      setActiveGarmentKey(jobKey);
       if (!skipPairingPrompt && getGarmentPairConfig(key, template.name)) {
         setActivePairingGarment({ key, name: template.name });
       }
@@ -1618,7 +1624,7 @@ function App() {
 
   const handleAddPairedGarments = async (pairKeys) => {
     for (const pairKey of pairKeys) {
-      await addGarment(pairKey, true);
+      await addGarment(pairKey, true, true);
     }
   };
 
