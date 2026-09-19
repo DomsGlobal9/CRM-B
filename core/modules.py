@@ -390,6 +390,7 @@ PRODUCTION_ROLES = (
     'Tailor',
     'Maggam Master',
     'Karigar',
+    'Maggam Karigar',
     'Packaging Staff',
     'QC Staff',
 )

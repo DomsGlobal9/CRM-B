@@ -297,7 +297,7 @@ class OrderService:
                 assigned_to=tailor if s_conf['key'] in tailor_stages else (master or tailor),
                 sequence=index,
                 priority='URGENT' if s_conf['key'] == 'stitching_in_progress'
-                         else 'HIGH' if s_conf['key'] in ('measurements_completed', 'pattern_cutting', 'fabric_cutting', 'maggam_work', 'master_quality_check')
+                         else 'HIGH' if s_conf['key'] in ('measurements_completed', 'pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
                          else 'MEDIUM')
             for index, s_conf in enumerate(workflow_stages, start=1)
             if s_conf['key'] not in ('created', 'delivered')
@@ -546,6 +546,7 @@ class OrderService:
             'pattern_cutting': 'Design & Creation',
             'paper_cutting': 'Design & Creation',
             'maggam_work': 'Design & Creation',
+            'maggam_handwork': 'Design & Creation',
             'maggam_verification': 'Design & Creation',
             'fabric_cutting': 'Design & Creation',
             'assigned_to_tailor': 'Design & Creation',
@@ -647,6 +648,7 @@ CLIENT_STATUS_WHEN_SETTLED = {
     'pattern_cutting': 'Design & Creation',
     'paper_cutting': 'Design & Creation',
     'maggam_work': 'Design & Creation',
+    'maggam_handwork': 'Design & Creation',
     'maggam_verification': 'Design & Creation',
     'fabric_cutting': 'Design & Creation',
     'assigned_to_tailor': 'Design & Creation',
