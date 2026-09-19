@@ -475,7 +475,7 @@ const en = {
     outOfStock: "Run out",
     reorderDue: "Running low",
     deadStock: "Untouched stock",
-    items: "Materials",
+    items: "Inventory",
     catalog: "Catalogue",
     locations: "Shelves & racks",
     recipes: "Garment needs",
