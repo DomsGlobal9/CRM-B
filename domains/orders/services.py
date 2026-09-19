@@ -350,6 +350,24 @@ class OrderService:
         order_stage.attachments = image_urls
 
     @staticmethod
+    def _voice_sender(user):
+        """The name a voice note is shown under: the staff profile's, else the account's."""
+        if not (user and getattr(user, 'is_authenticated', False)):
+            return ''
+        profile = getattr(user, 'tailor_profile', None)
+        if profile is not None and profile.name:
+            return profile.name
+        return user.get_full_name() or user.username
+
+    @staticmethod
+    def _stamp_voice(order_stage, voice_note, user):
+        """Set or clear the recording and who left it, together."""
+        from django.utils import timezone
+        order_stage.voice_note = voice_note or ''
+        order_stage.voice_note_by = OrderService._voice_sender(user) if voice_note else ''
+        order_stage.voice_note_at = timezone.now() if voice_note else None
+
+    @staticmethod
     def _note_stage(order, order_stage, comments, voice_note, user, files=None, request=None):
         """A note on its own: the status stays, something is said.
 
@@ -361,9 +379,12 @@ class OrderService:
         thread, and the stage carries the latest one.
         """
         order_stage.comments = comments or ''
-        order_stage.voice_note = voice_note or ''
+        OrderService._stamp_voice(order_stage, voice_note, user)
         OrderService._attach_stage_photos(order, order_stage, files, request)
-        order_stage.save(update_fields=['comments', 'voice_note', 'attachments'])
+        order_stage.save(update_fields=['comments', 'voice_note', 'voice_note_by', 'voice_note_at', 'attachments'])
+        if voice_note:
+            from domains.orders.notifications import notify_voice_note
+            notify_voice_note(order, order_stage, user, sender_name=order_stage.voice_note_by)
         OrderActivity.objects.create(
             order=order,
             event_type='STAGE_NOTE',
@@ -381,7 +402,7 @@ class OrderService:
 
     @staticmethod
     @transaction.atomic
-    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None, voice_note=''):
+    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None, voice_note='', clear_voice_note=False):
         from django.utils import timezone
 
         try:
@@ -396,15 +417,28 @@ class OrderService:
         if user_role is None:
             raise ValueError('Sign in to update this order.')
 
+        # A note is not a move. `clear_voice_note`: the person deleting a
+        # recording they sent -- the text stays; the clip and its sender go.
+        # A note with neither text nor clip is otherwise not a note, so the
+        # flag says this one is meant. Only the role gate applies: the owner
+        # leaving a voice note on a stage nobody has started yet, or one that
+        # is skipped, is exactly the point, and the prerequisite and skip rules
+        # of a real transition would refuse it.
+        if new_status == order_stage.status and (comments or voice_note or clear_voice_note):
+            declared = next((s for s in workflow.ordered_stages(workflow_stages) if s['key'] == stage_key), None)
+            allowed_roles = declared.get('roles', []) if declared else []
+            verifying = order_stage.status == 'PENDING_VERIFICATION' and user_role in ('Owner', 'Master')
+            if user_role != OWNER and allowed_roles and user_role not in allowed_roles and not verifying:
+                raise workflow.TransitionError(
+                    f'Role {user_role} is not authorized to update {order_stage.stage_name or stage_key}')
+            return OrderService._note_stage(order, order_stage, comments, voice_note, user, files, request)
+
         workflow.check_transition(
             order, order_stage, new_status,
             config=workflow_stages,
             role=user_role,
             owner_role=OWNER,
         )
-
-        if new_status == order_stage.status and (comments or voice_note):
-            return OrderService._note_stage(order, order_stage, comments, voice_note, user, files, request)
 
         if order_stage.status == 'COMPLETED' and new_status == 'COMPLETED':
             return order
@@ -435,7 +469,10 @@ class OrderService:
         # activity row below keeps every note, so nothing said is lost.
         if comments or voice_note:
             order_stage.comments = comments or ''
-            order_stage.voice_note = voice_note or ''
+            OrderService._stamp_voice(order_stage, voice_note, user)
+            if voice_note:
+                from domains.orders.notifications import notify_voice_note
+                notify_voice_note(order, order_stage, user, sender_name=order_stage.voice_note_by)
         if rejected:
             order_stage.verification_note = comments
         elif new_status == 'PENDING_VERIFICATION':

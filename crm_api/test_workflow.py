@@ -1322,6 +1322,34 @@ class VerificationTests(WorkflowTestBase):
         self.assertIsNone(stage.verification_seen_at)
         self.assertEqual(stage.verification_seen_by, "")
 
+    def test_a_voice_note_tells_the_people_on_the_order_where_to_listen(self):
+        """Owner leaves a clip on a stage: the tailor and the Master each get a
+        bell row naming the order and the stage; the owner (the sender) does not."""
+        order = self.make_order()
+        Notification.objects.all().delete()
+        current = self.stage(order, "measurements_completed").status
+        OrderService.transition_order_stage(
+            order=order, stage_key="measurements_completed", new_status=current,
+            user=self.owner, comments="", voice_note="https://cdn.test/clip.webm")
+        rows = list(Notification.objects.filter(title__startswith="Voice note on"))
+        self.assertTrue(rows, "no voice-note notification was created")
+        title = rows[0].title
+        self.assertIn(order.reference, title)
+        self.assertIn("Measurements", title)
+        audience = {(r.recipient_role, r.recipient_email or "") for r in rows}
+        self.assertIn(("Tailor", "tailor@workflow.test"), audience)
+        self.assertIn(("Master", "master@workflow.test"), audience)
+        self.assertFalse(any(r.recipient_role == "Owner" for r in rows), "the sender was notified")
+
+        # The Master sending one: the owner hears about it, the Master does not.
+        Notification.objects.all().delete()
+        OrderService.transition_order_stage(
+            order=order, stage_key="measurements_completed", new_status=current,
+            user=self.master_user, comments="", voice_note="https://cdn.test/clip2.webm")
+        rows = list(Notification.objects.filter(title__startswith="Voice note on"))
+        self.assertTrue(any(r.recipient_role == "Owner" for r in rows))
+        self.assertFalse(any(r.recipient_email == "master@workflow.test" for r in rows))
+
     def test_the_photo_is_mandatory(self):
         order = self.make_order()
         self.reach(order, "stitching_in_progress")

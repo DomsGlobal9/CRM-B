@@ -439,7 +439,18 @@ class OrderViewSet(viewsets.ModelViewSet):
         old_tailor = serializer.instance.tailor
         old_master = serializer.instance.master
 
+        # A recording on the instructions carries who left it. Stamped here,
+        # not trusted from the body, and cleared when the recording is.
+        if 'instructions_voice_note' in serializer.validated_data:
+            from domains.orders.services import OrderService
+            has_clip = bool(serializer.validated_data.get('instructions_voice_note'))
+            serializer.validated_data['instructions_voice_note_by'] = (
+                OrderService._voice_sender(self.request.user) if has_clip else '')
+            serializer.validated_data['instructions_voice_note_at'] = timezone.now() if has_clip else None
         order = serializer.save()
+        if serializer.validated_data.get('instructions_voice_note'):
+            from domains.orders.notifications import notify_voice_note
+            notify_voice_note(order, None, self.request.user, sender_name=order.instructions_voice_note_by)
         self._reconcile_payment(order, serializer.validated_data)
 
         if old_status != order.order_status:
@@ -903,6 +914,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         new_status = request.data.get('status')
         comments = request.data.get('comments', '')
         voice_note = (request.data.get('voice_note') or '').strip()
+        clear_voice_note = str(request.data.get('voice_note_clear', '')).lower() in ('1', 'true', 'yes')
         performer_id = request.data.get('performed_by_id')
 
         if not stage_key or not new_status:
@@ -927,6 +939,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 files=request.FILES.getlist('images'),
                 request=request,
                 voice_note=voice_note,
+                clear_voice_note=clear_voice_note,
             )
             # Re-read: `order` was loaded with its stages prefetched, so the
             # cache still holds the pre-transition rows and would serialise the

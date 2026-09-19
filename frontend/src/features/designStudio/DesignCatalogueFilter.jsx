@@ -36,7 +36,7 @@ export default function DesignCatalogueFilter({ garmentKey, value = {}, onChange
     <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px',
                   padding: '6px 8px 6px 12px', marginBottom: '10px', borderRadius: '10px',
                   border: '1px solid var(--border-color, #e4e4e7)',
-                  background: 'var(--background-secondary, #f4f4f5)' }}>
+                  background: 'var(--surface-inset, #f4f4f5)' }}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px',
                      fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
                      color: 'var(--text-secondary)', flex: '0 0 auto' }}>

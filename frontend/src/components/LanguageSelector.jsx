@@ -15,7 +15,7 @@ export const LanguageSelector = () => {
         fontWeight: 600,
         borderRadius: '20px',
         border: '1px solid var(--border-color, #e2e8f0)',
-        backgroundColor: 'var(--bg-secondary, #f8fafc)',
+        backgroundColor: 'var(--surface-inset, #f8fafc)',
         color: 'var(--text-primary, #0f172a)',
         boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
       }}
@@ -26,7 +26,9 @@ export const LanguageSelector = () => {
         onChange={(e) => setLanguage(e.target.value)}
         aria-label="Select Language"
         style={{
-          background: 'transparent',
+          // Opaque: the native option list takes its colours from the select,
+          // and a transparent one on a dark theme opened a white list.
+          background: 'var(--surface-inset, #f8fafc)',
           border: 'none',
           outline: 'none',
           color: 'var(--text-primary, #0f172a)',

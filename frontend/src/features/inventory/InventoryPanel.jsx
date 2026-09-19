@@ -332,14 +332,60 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
   );
 }
 
+// The Materials tab in sections, so a roll of silk is not listed between a
+// packet of hooks and a gift box. Keyed by InventoryItem.category; a category
+// not named here (a new one, say) lands under Other rather than vanishing.
+const MATERIAL_GROUPS = [
+  { key: 'all', label: 'All', categories: null },
+  { key: 'fabrics', label: 'Fabrics', categories: ['FABRIC', 'LINING'] },
+  { key: 'accessories', label: 'Accessories & Trims', categories: ['BORDER', 'EMBELLISHMENT', 'STITCHING', 'MAGGAM'] },
+  { key: 'packaging', label: 'Packaging', categories: ['PACKAGING'] },
+  { key: 'other', label: 'Other', categories: ['DESIGN', 'OTHER'] },
+];
+const NAMED_CATEGORIES = new Set(MATERIAL_GROUPS.flatMap((g) => g.categories || []));
+const inGroup = (item, group) => (
+  group.categories === null
+    ? true
+    : group.key === 'other'
+      ? group.categories.includes(item.category) || !NAMED_CATEGORIES.has(item.category)
+      : group.categories.includes(item.category)
+);
+
 function ItemsTab({
   items, loading, search, setSearch, category, setCategory, reorderOnly, setReorderOnly,
   categories, categoryLabel, isOwner, onMove, onLedger, onEdit,
 }) {
   const { t } = useLanguage();
+  // Which section is open. Purely a view of the rows already loaded: the
+  // search, category and reorder filters keep working exactly as before,
+  // this only decides which of their results are shown.
+  const [groupKey, setGroupKey] = useState('all');
+  const group = MATERIAL_GROUPS.find((g) => g.key === groupKey) || MATERIAL_GROUPS[0];
+  const shown = items.filter((item) => inGroup(item, group));
+  const groupCategories = group.categories === null
+    ? categories
+    : categories.filter((c) => inGroup({ category: c.value }, group));
   return (
     <>
-      <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '20px', flexWrap: 'wrap' }}>
+        {MATERIAL_GROUPS.map((g) => {
+          const count = items.filter((item) => inGroup(item, g)).length;
+          const active = g.key === groupKey;
+          return (
+            <button key={g.key} type="button"
+                    className={active ? 'btn-primary' : 'btn-secondary'}
+                    style={{ padding: '6px 14px', fontSize: '12.5px', borderRadius: '20px', fontWeight: 600 }}
+                    onClick={() => {
+                      setGroupKey(g.key);
+                      // A category picked under one section means nothing under another.
+                      if (category && !inGroup({ category }, g)) setCategory('');
+                    }}>
+              {g.label}{count > 0 && <span style={{ opacity: 0.7, marginLeft: '6px' }}>{count}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
         <div className="search-input-wrapper" style={{ margin: 0, flex: '1 1 220px' }}>
           <Search size={18} />
           <input
@@ -352,7 +398,7 @@ function ItemsTab({
         </div>
         <select className="form-control" style={{ maxWidth: '200px' }} value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="">{t('inventoryPage.allCategories', 'All categories')}</option>
-          {categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+          {groupCategories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
         </select>
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', cursor: 'pointer' }}>
           <input type="checkbox" checked={reorderOnly} onChange={(e) => setReorderOnly(e.target.checked)} />
@@ -362,7 +408,7 @@ function ItemsTab({
 
       {loading && items.length === 0 ? (
         <div style={{ ...panel, padding: '48px', textAlign: 'center', marginTop: '20px', color: 'var(--text-muted)' }}>{t('inventoryPage.loadingInventory', 'Loading inventory…')}</div>
-      ) : items.length === 0 ? (
+      ) : shown.length === 0 ? (
         <div style={{ ...panel, padding: '48px', textAlign: 'center', marginTop: '20px', color: 'var(--text-muted)' }}>
           {t('inventoryPage.noMatchingItems', 'No items match these filters.')}
         </div>
@@ -381,7 +427,7 @@ function ItemsTab({
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {shown.map((item) => (
                 <tr key={item.id} style={{ borderTop: '1px solid var(--border-color)' }}>
                   <td style={{ padding: '12px' }}>
                     <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
