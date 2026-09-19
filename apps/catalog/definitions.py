@@ -1209,16 +1209,21 @@ HAND_WORK_MATERIALS = [
 ]
 
 
+#: Garments nobody embroiders: the hand-work question is not asked, and its
+#: absence reads as "Without Work" everywhere the gate is checked.
+NO_HAND_WORK = {'petticoat'}
+
+
 def build(definition):
     sections = []
     for index, (key, title) in enumerate(SECTION_TITLES):
         fields = list(definition['sections'].get(key, []))
         # Hand work sits with the garment's own basics, right after its type,
         # and ahead of the common trial/urgency questions that fold away.
-        if key == 'basic':
+        if key == 'basic' and definition['key'] not in NO_HAND_WORK:
             fields = fields + hand_work_fields(definition)
         fields = fields + COMMON_BY_SECTION.get(key, [])
-        if key == 'materials':
+        if key == 'materials' and definition['key'] not in NO_HAND_WORK:
             fields = fields + HAND_WORK_MATERIALS
         sections.append({
             'key': key,

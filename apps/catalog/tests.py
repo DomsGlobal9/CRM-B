@@ -252,7 +252,8 @@ class TypedOtherOptionTests(CatalogTestCase):
     def setUp(self):
         super().setUp()
         self.saree = GarmentTemplate.resolve('saree')
-        self.valid = {'saree_type': 'silk', 'services': ['fall_pico'], 'delivery_date': '2026-09-01'}
+        self.valid = {'saree_type': 'silk', 'services': ['fall_pico'], 'hand_work': 'none',
+                      'delivery_date': '2026-09-01'}
 
     def test_typed_other_is_kept_verbatim(self):
         cleaned = validate_spec(self.saree, {**self.valid, 'saree_type': 'other:Banarasi'})
@@ -267,3 +268,13 @@ class TypedOtherOptionTests(CatalogTestCase):
         with self.assertRaises(SpecValidationError) as caught:
             validate_spec(self.saree, {**self.valid, 'services': ['other:x']})
         self.assertIn('services', caught.exception.errors)
+
+
+class PetticoatHandWorkTests(CatalogTestCase):
+    def test_petticoat_is_not_asked_about_hand_work(self):
+        keys = {f.key for s in GarmentTemplate.resolve('petticoat').sections.all() for f in s.fields.all()}
+        self.assertNotIn('hand_work', keys)
+        self.assertNotIn('hand_work_material', keys)
+        # Everything else still asks.
+        blouse = {f.key for s in GarmentTemplate.resolve('blouse').sections.all() for f in s.fields.all()}
+        self.assertIn('hand_work', blouse)
