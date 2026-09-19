@@ -1168,6 +1168,12 @@ HAND_WORK_KINDS = [
 HAND_WORK_WANTED = ['with_work']
 
 
+#: Per-garment wording for the hand-work questions: (type label, parts label).
+HAND_WORK_LABELS = {
+    'lehenga': ('Type of Design', 'Design Required On'),
+}
+
+
 def hand_work_fields(definition):
     """The hand-work question every garment gets, beside its type on the
     order form: with or without work; and when with, which work, on which of
@@ -1180,10 +1186,14 @@ def hand_work_fields(definition):
                     for p in definition.get('design_parts', [])
                     if not any(w in p['key'] for w in skip)]
     has_work = one_of('hand_work', HAND_WORK_WANTED)
+    # The lehenga counter talks about the design on it, not the work. Same
+    # keys and options, so nothing that reads the answers changes.
+    kind_label, parts_label = HAND_WORK_LABELS.get(
+        definition['key'], ('Type of Work', 'Work On'))
     fields = [
         field('hand_work', 'Maggam / Hand Work', 'select', required=True, default='none',
               options=[('none', 'Without Work'), ('with_work', 'With Work')]),
-        field('hand_work_kind', 'Type of Work', 'select', options=HAND_WORK_KINDS, when=has_work),
+        field('hand_work_kind', kind_label, 'select', options=HAND_WORK_KINDS, when=has_work),
         field('hand_work_density', 'Work Coverage', 'select',
               options=['Light', 'Medium', 'Heavy'], when=has_work),
         field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
@@ -1191,7 +1201,7 @@ def hand_work_fields(definition):
               validation={'max_length': 500}, when=has_work),
     ]
     if part_options:
-        fields.insert(2, field('hand_work_parts', 'Work On', 'multiselect',
+        fields.insert(2, field('hand_work_parts', parts_label, 'multiselect',
                                options=part_options, when=has_work))
     return fields
 

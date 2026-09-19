@@ -71,7 +71,7 @@ const WIZARD_STEPS = {
     { key: 'what', label: 'Garments', sub: 'What we are making' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
-    { key: 'money', label: 'Money', sub: 'Price and place the order' },
+    { key: 'money', label: 'Money', sub: 'Complete the Order & Invoice' },
   ],
   design: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
@@ -79,7 +79,7 @@ const WIZARD_STEPS = {
     { key: 'designer', label: 'Designer', sub: 'Who designs it' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
-    { key: 'money', label: 'Money', sub: 'Price and place the order' },
+    { key: 'money', label: 'Money', sub: 'Complete the Order & Invoice' },
   ],
   alter: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
@@ -7410,7 +7410,7 @@ function App() {
             {wizardStepKey === 'money' && (
               <>
                 <div className="page-title-group">
-                  <h1 className="page-title">{t('wizard.moneyTitle', 'Price and place the order')}</h1>
+                  <h1 className="page-title">{t('wizard.moneyTitle', 'Complete the Order & Invoice')}</h1>
                   <p className="page-subtitle">{t('wizard.moneySubtitle', 'A price per garment, the date it is promised for, and anything paid now.')}</p>
                 </div>
 

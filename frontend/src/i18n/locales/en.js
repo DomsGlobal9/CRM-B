@@ -662,7 +662,7 @@ const en = {
     kids: "Kids",
     dressesInOrder: "Garments on this order",
     step: { who: "Customer", what: "Garments", designer: "Designer", measure: "Measurements", money: "Money", garment: "Garment", issue: "Details" },
-    stepSub: { who: "Who it is for", what: "What we are making", designer: "Who designs it", measure: "Body measurements", money: "Price and place the order", garment: "Which one we made", issue: "What needs changing" },
+    stepSub: { who: "Who it is for", what: "What we are making", designer: "Who designs it", measure: "Body measurements", money: "Complete the Order & Invoice", garment: "Which one we made", issue: "What needs changing" },
     dressesInOrderSub: "Add every garment being stitched. Each gets its own measurements and details.",
     noGarmentChosen: "No garment added yet.",
     patternStyle: "Pattern",
