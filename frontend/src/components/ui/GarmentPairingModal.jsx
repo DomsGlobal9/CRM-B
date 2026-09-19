@@ -14,7 +14,9 @@ export const GARMENT_PAIR_MAP = {
   lehenga: {
     primaryName: 'Lehenga',
     prompt: 'Would you like to select a matching Blouse (Choli) and Dupatta?',
-    pairKeys: ['blouse', 'dupatta'],
+    // Its own choli template, not the saree's blouse: a saree and a lehenga
+    // on one order each get their own blouse.
+    pairKeys: ['lehenga_blouse', 'dupatta'],
     pairLabels: ['Blouse (Choli)', 'Dupatta'],
   },
   kurti: {
@@ -123,6 +125,10 @@ export default function GarmentPairingModal({
 
   // Helper to match pairKey (e.g., 'blouse') to actual template in garmentTemplates
   function findMatchingTemplate(pairKey, templates) {
+    // A pair key that names a template exactly wins: the loose match below
+    // would otherwise hand 'lehenga_blouse' to the lehenga itself.
+    const exact = templates.find(t => t.key === pairKey);
+    if (exact) return exact;
     const target = pairKey.toLowerCase().replace(/[^a-z]/g, '');
     return templates.find(t => {
       const k = (t.key || '').toLowerCase().replace(/[^a-z]/g, '');
