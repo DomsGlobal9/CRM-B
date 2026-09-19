@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown, Mic, Hand } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 // Model display parked — see task 16
@@ -17,6 +17,7 @@ import {
 // loading flicker mid-form would be worse than its few KB.
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
+const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
@@ -58,7 +59,7 @@ import { ResponsiveCard } from './components/ui/ResponsiveCard';
 import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
-import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceClipPreview } from './components/ui/VoiceTextarea';
+import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
 
 /** Placeholder shown while a lazily loaded screen arrives. */
 // Whole-rupee money for the dashboard, Indian digit grouping. Paise are
@@ -221,7 +222,7 @@ const HeaderClock = () => {
 const ScreenLoading = () => (
   <div style={{ padding: '48px', textAlign: 'center', color: '#8a8a8a' }}>Loading...</div>
 );
-import { isVisible, splitSpec, validateSpec } from './services/templates';
+import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 
 // Mirrors core/permissions.py SUPERVISOR_ROLES. Roles that run the floor and
 // may hand work to someone else. A list rather than a bare === 'Master' check
@@ -237,7 +238,7 @@ const SUPERVISOR_ROLES = ['Master'];
 // contain, and shown an order's money that the permission matrix says
 // production staff must not see.
 const PRODUCTION_ROLES = [
-  'Tailor', 'Master', 'Maggam Master', 'Karigar', 'Packaging Staff', 'QC Staff',
+  'Tailor', 'Master', 'Maggam Master', 'Karigar', 'Maggam Karigar', 'Packaging Staff', 'QC Staff',
 ];
 const isProductionStaff = (role) => PRODUCTION_ROLES.includes(role);
 
@@ -261,7 +262,7 @@ const STEP_TONE = { done: 'success', live: 'info', next: 'neutral' };
 /** One icon per workroom step, keyed by the workflow's stage_key. */
 const STAGE_ICONS = {
   created: FileText, measurements_completed: Ruler, fabric_confirmed: Layers, pattern_cutting: Scissors,
-  paper_cutting: FileText, maggam_work: PenTool, maggam_verification: ShieldCheck,
+  paper_cutting: FileText, maggam_work: PenTool, maggam_handwork: Hand, maggam_verification: ShieldCheck,
   fabric_cutting: Scissors, assigned_to_tailor: User, stitching_in_progress: Shirt, stitching_completed: CheckCircle2,
   finishing: Sparkles, pressing: Flame, master_quality_check: ShieldCheck, trial_scheduled: CalendarClock,
   trial_completed: UserCheck, ready_for_delivery: PackageCheck, delivered: Truck,
@@ -326,6 +327,7 @@ const STAFF_ROLES = [
   { value: 'Master', label: 'Master Tailor (generalist)', hint: 'Can work on every stage.' },
   { value: 'Maggam Master', label: 'Maggam Master', hint: 'Runs embroidery before stitching.' },
   { value: 'Karigar', label: 'Karigar', hint: 'Handwork on the frame, alongside the Maggam Master.' },
+  { value: 'Maggam Karigar', label: 'Maggam Karigar', hint: 'Frame work on the finished design, after the Maggam Master.' },
   { value: 'Packaging Staff', label: 'Packaging Staff', hint: 'Packs the garment before dispatch.' },
   { value: 'QC Staff', label: 'QC Staff', hint: 'Runs the quality inspection.' },
 ];
@@ -656,7 +658,12 @@ function GarmentGallery({ order, onChanged }) {
   );
 }
 
-function StageTimeline({ stages, onSelectStage }) {
+// Which stages carry a voice note worth pointing at. Default: any stage with
+// a recording. Callers that know who is looking pass a narrower test, so a
+// person is not pointed at their own note.
+const anyVoiceNote = (stage) => Boolean(stage.voice_note);
+
+function StageTimeline({ stages, onSelectStage, hasVoiceNote = anyVoiceNote }) {
   const { t } = useLanguage();
   // Fifteen steps in a strip about four steps wide: opening an order on a
   // phone put "Created" on screen and whatever actually needs doing several
@@ -700,24 +707,34 @@ function StageTimeline({ stages, onSelectStage }) {
         const note = tone === 'live' ? STEP_LABEL.live
           : isCompleted && stage.completed_at ? shortDate(stage.completed_at) : '';
         const Icon = STAGE_ICONS[stage.stage_key] || Clock;
+        // A stage with a voice note on it is marked so the person the note
+        // is for can find it without opening every step.
+        const voiced = hasVoiceNote(stage);
         return (
           <div
             key={stage.id || stage.stage_key}
             ref={idx === activeIndex ? activeRef : null}
             role="listitem"
             tabIndex={0}
-            title={`${stage.stage_name} — ${STEP_LABEL[tone].toLowerCase()}`}
+            title={`${stage.stage_name} — ${STEP_LABEL[tone].toLowerCase()}${voiced ? ` · voice note from ${stage.voice_note_by || 'someone'}` : ''}`}
             className={`od-stage od-stage--${tone}${idx === 0 ? ' od-stage--first' : ''}${idx === arr.length - 1 ? ' od-stage--last' : ''}`}
             onClick={() => onSelectStage(stage)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectStage(stage); } }}
           >
             <div className="od-stage-row">
-              <span className="od-node">
+              <span className="od-node" style={voiced ? { boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.28)', borderColor: '#2563eb' } : undefined}>
                 <Icon size={16} />
                 {isCompleted && <span className="od-node-check"><Check size={9} strokeWidth={3} /></span>}
+                {voiced && (
+                  <span aria-label="Voice note" style={{
+                    position: 'absolute', top: '-5px', left: '-5px', width: '16px', height: '16px', borderRadius: '50%',
+                    background: '#2563eb', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    border: '2px solid var(--surface-color)',
+                  }}><Mic size={9} strokeWidth={3} /></span>
+                )}
               </span>
             </div>
-            <span className="od-stage-name">{stage.stage_name}</span>
+            <span className="od-stage-name" style={voiced ? { color: '#2563eb', fontWeight: 600 } : undefined}>{stage.stage_name}</span>
             {note && <span className={`od-stage-note od-stage-note--${tone}`}>{note}</span>}
           </div>
         );
@@ -818,14 +835,21 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
   const savedRef = useRef(order.special_instructions || '');
   // The recording behind a dictated note, saved the moment dictation stops --
   // separately from the text autosave, which keeps its own diffing.
-  const [voiceNote, setVoiceNote] = useState(order.instructions_voice_note || '');
-  const keepRecording = async (blob) => {
-    try {
-      const url = await api.uploadVoiceNote(blob);
-      await api.updateOrder(order.id, { instructions_voice_note: url });
-      setVoiceNote(url);
-      if (onSaved) onSaved();
-    } catch { /* the words were kept; only the clip was lost */ }
+  const [voiceNote, setVoiceNote] = useState({
+    url: order.instructions_voice_note || '', by: order.instructions_voice_note_by || '', at: order.instructions_voice_note_at || null,
+  });
+  // Send uploads then saves; the server stamps who sent it and when, and
+  // hands both back on the order, so the label here is the server's.
+  const sendVoice = async (blob) => {
+    const url = await api.uploadVoiceNote(blob);
+    const updated = await api.updateOrder(order.id, { instructions_voice_note: url });
+    setVoiceNote({ url, by: updated?.instructions_voice_note_by || '', at: updated?.instructions_voice_note_at || null });
+    if (onSaved) onSaved();
+  };
+  const deleteVoice = async () => {
+    await api.updateOrder(order.id, { instructions_voice_note: '' });
+    setVoiceNote({ url: '', by: '', at: null });
+    if (onSaved) onSaved();
   };
 
   const save = async () => {
@@ -859,9 +883,8 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
           <VoiceTextarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
                     placeholder="Anything the workroom should know about this order…"
                     onChange={(e) => { setText(e.target.value); setState('idle'); }}
-                    onBlur={() => save().catch(() => {})}
-                    onRecording={keepRecording} />
-          <VoiceNotePlayer src={voiceNote} />
+                    onBlur={() => save().catch(() => {})} />
+          <VoiceRecorder sent={voiceNote.url ? voiceNote : null} onSend={sendVoice} onDelete={deleteVoice} />
           <div className="od-notes-foot">
             <span className={state === 'error' ? 'od-error' : 'od-hint'}>
               {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : state === 'error' ? 'Could not save, will retry' : 'Saves on its own'}
@@ -872,7 +895,13 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
       ) : (
         <>
           <p className="od-notes-text">{text}</p>
-          <VoiceNotePlayer src={voiceNote} />
+          <VoiceNotePlayer src={voiceNote.url} />
+          {voiceNote.url && (
+            <div className="od-hint" style={{ marginTop: '4px' }}>
+              Voice note from <strong>{voiceNote.by || 'someone'}</strong>
+              {voiceNote.at ? ` · ${new Date(voiceNote.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
+            </div>
+          )}
         </>
       )}
     </section>
@@ -1423,6 +1452,10 @@ function App() {
   // lehenga, its blouse and a dupatta, so this is a list, not a single value.
   const [garmentTemplates, setGarmentTemplates] = useState([]);
   const [garmentJobs, setGarmentJobs] = useState([]);
+  // Which garment's form is open on the Garments step. One at a time, in
+  // tabs: two garments stacked meant scrolling past the whole saree form to
+  // reach the blouse. Derived at render so a removed garment falls back to
+  // the first rather than leaving an empty step.
   const [activePairingGarment, setActivePairingGarment] = useState(null);
   // The order being written lives on the server as an OrderDraft; this is a
   // cache of it. Refreshing, following the step-4 empty-state button, or
@@ -1537,12 +1570,13 @@ function App() {
     try {
       const template = await api.getGarmentTemplate(key);
       setGarmentJobs(prev => [...prev, {
-        key, template, values: {}, quantities: {}, sources: {}, brought: {},
+        key, template, values: withDefaults(template), quantities: {}, sources: {}, brought: {},
         pricing: { base: GARMENT_PRICES[template.name] || 15000, fabric: 0,
                    embroidery: 0, customization: 0, tailoring: 0 },
       }]);
       // Saree asks after its blouse and petticoat, lehenga after its choli
       // and dupatta. Paired adds skip the prompt so it cannot chain.
+      setActiveGarmentKey(key);
       if (!skipPairingPrompt && getGarmentPairConfig(key, template.name)) {
         setActivePairingGarment({ key, name: template.name });
       }
@@ -1687,6 +1721,8 @@ function App() {
       if (Object.keys(jobQuantityErrors).length) quantityErrors[job.key] = jobQuantityErrors;
     });
     setGarmentErrors(errors);
+    const failed = Object.keys({ ...errors, ...quantityErrors })[0];
+    if (failed) setActiveGarmentKey(failed);
     return Object.keys(errors).length === 0 && Object.keys(quantityErrors).length === 0;
   };
 
@@ -1811,7 +1847,7 @@ function App() {
         rebuilt.push({
           key: garment.key || garment.template_key,
           template,
-          values: garment.values || {},
+          values: withDefaults(template, garment.values),
           quantities: garment.quantities || {},
           sources: garment.sources || {},
           brought: garment.brought || {},
@@ -2050,7 +2086,6 @@ function App() {
   const [stageReviewImages, setStageReviewImages] = useState([]);
   // The recording behind the comment being written, kept as a Blob until the
   // transition is saved -- so cancelling the modal uploads nothing.
-  const [stageReviewVoiceClip, setStageReviewVoiceClip] = useState('');
   const [stageReviewRecording, setStageReviewRecording] = useState(false);
   const [selectedStageObj, setSelectedStageObj] = useState(null);
   const [selectedPerformerId, setSelectedPerformerId] = useState('');
@@ -3289,7 +3324,6 @@ function App() {
     setStageReviewComments('');  // a new note; the card above the box shows the latest one
     setStageReviewRecording(false);
     setStageReviewImages([]);
-    setStageReviewVoiceClip('');
     // A verifier opening a submitted stage: the worker who sent it gets a
     // "seen" tick and a notification. Only the first open counts, and only
     // from someone who can verify -- the server enforces both; this just
@@ -6935,6 +6969,20 @@ function App() {
                           </div>
                         ))}
 
+                        {/* Anything the options above have no box for, in the
+                            customer's own words. The template's own
+                            special_instructions field (Production Notes), so it
+                            is validated and stored with the garment's spec and
+                            the tailor reads it on the garment's brief. */}
+                        <div className="wz-garment-section">
+                          <div className="od-hint" style={{ marginBottom: '6px' }}>
+                            {t('wizard.garmentNoteHint', 'Anything the options above don’t cover? Write it here.')}
+                          </div>
+                          <TemplateForm template={job.template} section="production" values={job.values}
+                                        errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'special_instructions'}
+                                        onChange={(values) => updateGarmentValues(job.key, values)} />
+                        </div>
+
                         {hasOptional && (
                           <details className="wz-more">
                             <summary>{t('wizard.moreDetails', 'More details')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
@@ -7313,6 +7361,16 @@ function App() {
                       ))}
                     </div>
                   ))}
+                  {/* The garment drawn on a model, from the designs and rolls
+                      above. Renders nothing where the vendor is not set up or
+                      no garment has a design. The photograph lands on
+                      job.design.preview and confirms with the rest. */}
+                  <Suspense fallback={null}>
+                    <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
+                      onPreview={(jobKey, url) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                        ? { ...j, design: { ...(j.design || {}), preview: url } } : j))}
+                      onView={(url, label) => setReviewView({ items: [{ key: 'preview', image_url: url, label }], index: 0 })} />
+                  </Suspense>
                   {reviewView && (
                     <Suspense fallback={null}>
                       <ReviewLightbox items={reviewView.items} index={reviewView.index}
@@ -7889,16 +7947,15 @@ function App() {
           || SUPERVISOR_ROLES.includes(currentUser.role);
         // One path for every forward move; the server decides whether the
         // role, the prerequisites and the stage's own data allow it.
-        const transition = async (status, okMessage, comments = stageReviewComments) => {
+        // `sentVoiceNote`: a recording the voice recorder has already
+        // uploaded (Send); `clearVoiceNote`: the recorder deleting the one
+        // on the stage. Either is a note saved in place, status unchanged.
+        const transition = async (status, okMessage, comments = stageReviewComments, sentVoiceNote = null, clearVoiceNote = false) => {
           if (stageTransitionBusy) return;
           if (stageReviewRecording) { alert(t('ordersPage.stopRecordingFirst', 'Stop the recording first, then save.')); return; }
           setStageTransitionBusy(true);
           try {
-            let voiceNote = null;
-            if (stageReviewVoiceClip) {
-              try { voiceNote = await api.uploadVoiceNote(stageReviewVoiceClip); }
-              catch { alert(t('ordersPage.voiceNoteUploadFailed', 'Could not upload the voice note.')); return; }
-            }
+            const voiceNote = sentVoiceNote;
             await api.transitionStage(
               activeReviewOrder.id,
               stage.stage_key,
@@ -7906,7 +7963,8 @@ function App() {
               comments,
               stageReviewImages,
               selectedPerformerId || null,
-              voiceNote
+              voiceNote,
+              clearVoiceNote
             );
             alert(okMessage);
             closeStage();
@@ -7933,7 +7991,7 @@ function App() {
             onClose={closeStage}
             footer={stage && (
               <>
-                {(stageReviewComments.trim() || stageReviewVoiceClip) && (
+                {stageReviewComments.trim() && (
                   <button className="btn-secondary" disabled={stageTransitionBusy}
                           title={t('ordersPage.saveNoteHint', 'Leave this note on the stage without changing its status')}
                           onClick={() => transition(stage.status, t('ordersPage.noteSaved', 'Note saved.'))}>
@@ -8074,7 +8132,26 @@ function App() {
               <OrderGarmentBrief
                 jobs={jobs}
                 specialInstructions={activeReviewOrder.special_instructions}
+                voiceNote={activeReviewOrder.instructions_voice_note}
+                voiceNoteBy={activeReviewOrder.instructions_voice_note_by}
+                voiceNoteAt={activeReviewOrder.instructions_voice_note_at}
               />
+            )}
+            {/* An order with no garment lines still carries its instructions;
+                without the brief they had nowhere to show, so the person doing
+                the work never saw or heard them. */}
+            {jobs.length === 0 && (activeReviewOrder.special_instructions || activeReviewOrder.instructions_voice_note) && (
+              <InfoNote icon={FileText} tone="warning" title="Special instructions">
+                {activeReviewOrder.special_instructions && (
+                  <>&ldquo;{activeReviewOrder.special_instructions}&rdquo;<SpeakButton text={activeReviewOrder.special_instructions} /></>
+                )}
+                <VoiceNotePlayer src={activeReviewOrder.instructions_voice_note} />
+                {activeReviewOrder.instructions_voice_note && (
+                  <div className="od-hint" style={{ marginTop: '4px' }}>
+                    Voice note from <strong>{activeReviewOrder.instructions_voice_note_by || t('ordersPage.someone', 'Someone')}</strong>
+                  </div>
+                )}
+              </InfoNote>
             )}
 
             {/* The designs, fabrics and accessories chosen for each garment,
@@ -8132,6 +8209,12 @@ function App() {
               <InfoNote icon={FileText} tone="neutral" title={t('ordersPage.latestNote', 'Latest note')}>
                 {stage.comments && <>&ldquo;{stage.comments}&rdquo;<SpeakButton text={stage.comments} /></>}
                 <VoiceNotePlayer src={stage.voice_note} />
+                {stage.voice_note && (
+                  <div className="od-hint" style={{ marginTop: '4px' }}>
+                    Voice note from <strong>{stage.voice_note_by || t('ordersPage.someone', 'Someone')}</strong>
+                    {stage.voice_note_at ? ` · ${new Date(stage.voice_note_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
+                  </div>
+                )}
               </InfoNote>
             )}
             {stage && (() => {
@@ -8246,10 +8329,21 @@ function App() {
                     maxLength={LIMITS.note}
                     value={stageReviewComments}
                     onChange={(e) => setStageReviewComments(e.target.value)}
-                    onRecording={setStageReviewVoiceClip}
-                    onRecordingChange={setStageReviewRecording}
                   />
-                  <VoiceClipPreview blob={stageReviewVoiceClip || null} onRemove={() => setStageReviewVoiceClip('')} />
+                  {/* The voice note proper: recorded on its own (nothing is
+                      transcribed into the box), heard back, then Send saves
+                      it on the stage under the sender's name -- with whatever
+                      text is in the box -- or Delete throws it away. */}
+                  <VoiceRecorder
+                    disabled={stageTransitionBusy}
+                    onRecordingChange={setStageReviewRecording}
+                    sent={stage.voice_note ? { url: stage.voice_note, by: stage.voice_note_by, at: stage.voice_note_at } : null}
+                    onSend={async (blob) => {
+                      const url = await api.uploadVoiceNote(blob);
+                      await transition(stage.status, t('ordersPage.voiceNoteSent', 'Voice note sent.'), stageReviewComments, url);
+                    }}
+                    onDelete={() => transition(stage.status, t('ordersPage.voiceNoteDeleted', 'Voice note deleted.'), stageReviewComments, null, true)}
+                  />
                 </Field>
                 <div className="at-field">
                   <span className="at-field-label">

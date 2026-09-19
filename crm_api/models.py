@@ -237,6 +237,7 @@ class Tailor(models.Model):
         ('Tailor', 'Tailor'),
         ('Maggam Master', 'Maggam Master'),
         ('Karigar', 'Karigar'),
+        ('Maggam Karigar', 'Maggam Karigar'),
         ('Packaging Staff', 'Packaging Staff'),
         ('QC Staff', 'QC Staff'),
     ]
@@ -327,6 +328,10 @@ class Order(models.Model):
     # URL into media storage (see VoiceNoteUploadView). Text stays the record
     # every report reads; this is for the tailor who would rather listen.
     instructions_voice_note = models.URLField(max_length=500, blank=True, default='')
+    # Who recorded it and when -- a voice note without a voice behind it is
+    # just a file. Stamped by the server from the signed-in user.
+    instructions_voice_note_by = models.CharField(max_length=150, blank=True, default='')
+    instructions_voice_note_at = models.DateTimeField(null=True, blank=True)
     current_stage_key = models.CharField(max_length=100, default="created", db_index=True)
     production_status = models.CharField(max_length=50, default="NOT_STARTED", db_index=True) # NOT_STARTED, IN_PROGRESS, COMPLETED, PAUSED, SKIPPED
     invoice_template = models.CharField(max_length=50, default="classic", blank=True, null=True)
@@ -365,6 +370,9 @@ class OrderStage(models.Model):
     # The recording behind `comments` when they were dictated -- same idea as
     # Order.instructions_voice_note. Empty when the note was typed.
     voice_note = models.URLField(max_length=500, blank=True, default='')
+    # Who recorded that note and when, stamped by the server. Cleared with it.
+    voice_note_by = models.CharField(max_length=150, blank=True, default='')
+    voice_note_at = models.DateTimeField(null=True, blank=True)
     # The "seen" tick on a submission: who first opened this stage while it
     # was waiting for verification, and when. Cleared on every new submission,
     # so a resubmitted piece of work gets its own tick. Read by the worker who
@@ -508,6 +516,10 @@ def get_default_workflow():
         # it, and only then the fabric is cut.
         {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
         {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar"], "flows": ["maggam"]},
+        # The Maggam Karigar picks up once the design is finished: the frame
+        # work is its own stage so it cannot start before the master's design
+        # is settled, and the Master's sign-off below sees the finished work.
+        {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar"], "flows": ["maggam"]},
         {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"]},
         {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
         {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},

@@ -4,6 +4,7 @@ import { Eye, Image as ImageIcon, Layers, Scissors, Sparkles } from 'lucide-reac
 import { resolveMediaUrl } from '../../services/media';
 import { inventoryImage } from '../../services/inventoryImages';
 import { ACCESSORY_OPTIONS, Lightbox } from '../designStudio/GarmentPartPicker';
+import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 
 /**
  * Everything chosen for an order, dress by dress, before it is placed.
@@ -138,6 +139,11 @@ export default function GarmentSelectionsReview({
     () => Object.fromEntries((fabrics || []).map((f) => [String(f.id), f])), [fabrics]);
   // Which garment's designs are open in the lightbox, and which one is showing.
   const [viewing, setViewing] = useState(null); // { rows, index }
+  // One garment at a time, in tabs: stacked, the blouse sat below the whole
+  // saree card and had to be scrolled to. Derived at render, so a job list
+  // that changes under us falls back to the first tab rather than an empty
+  // panel.
+  const [openKey, setOpenKey] = useState(null);
 
   // Slot labels per garment, from the same taxonomy the fabric step reads.
   const slotLabels = useMemo(() => {
@@ -156,9 +162,15 @@ export default function GarmentSelectionsReview({
     return <Empty>No garment was added to this order.</Empty>;
   }
 
+  const activeKey = jobs.some((j) => j.key === openKey) ? openKey : jobs[0].key;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3, 12px)' }}>
-      {jobs.map((job) => {
+      {jobs.length > 1 && (
+        <PartTabStrip allLabel={null} active={activeKey} onChange={setOpenKey}
+                      parts={jobs.map((job, i) => ({ key: job.key, label: `${i + 1}. ${job.template?.name || job.key}` }))} />
+      )}
+      {jobs.filter((job) => job.key === activeKey).map((job) => {
         const garmentKey = job.template?.key || job.key;
         const garmentName = job.template?.name || job.key;
 
@@ -253,6 +265,27 @@ export default function GarmentSelectionsReview({
                 <DesignGrid rows={designRows}
                             onView={(index) => setViewing({ rows: designRows, index })} />
               )}
+              {/* The garment drawn on a model at the review step, when one was made. */}
+              {job.design?.preview && (() => {
+                const previewRow = { key: `${job.key}:preview`, image_url: job.design.preview,
+                                     label: `${garmentName} · Preview on a model` };
+                return (
+                  <Row label="Preview on a model" value="Drawn from these designs and fabrics"
+                       thumb={
+                         <span style={{ position: 'relative', display: 'inline-block', flexShrink: 0 }}>
+                           <Thumb src={job.design.preview} alt="Garment preview" size={72} />
+                           <button type="button" title="View full size" aria-label="View full size"
+                                   onClick={() => setViewing({ rows: [previewRow], index: 0 })}
+                                   style={{ position: 'absolute', top: '4px', right: '4px', width: '22px', height: '22px',
+                                            padding: 0, border: 'none', borderRadius: '6px', cursor: 'pointer',
+                                            background: 'rgba(0,0,0,0.55)', color: '#fff',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                             <Eye size={12} />
+                           </button>
+                         </span>
+                       } />
+                );
+              })()}
             </Group>
 
             <Group icon={Layers} title="Fabrics" count={fabricRows.length}>

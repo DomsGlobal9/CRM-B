@@ -79,7 +79,7 @@ class WorkflowTestBase(TenantTestCase):
         order = self.make_order(**kwargs)
         config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
         line = [s for s in config if s["key"] not in
-                ("paper_cutting", "maggam_verification", "fabric_cutting")]
+                ("paper_cutting", "maggam_handwork", "maggam_verification", "fabric_cutting")]
         maggam = next(s for s in line if s["key"] == "maggam_work")
         line = [s for s in line if s["key"] != "maggam_work"]
         line.insert(next(i for i, s in enumerate(line) if s["key"] == "pattern_cutting") + 1, maggam)
@@ -1322,6 +1322,34 @@ class VerificationTests(WorkflowTestBase):
         self.assertIsNone(stage.verification_seen_at)
         self.assertEqual(stage.verification_seen_by, "")
 
+    def test_a_voice_note_tells_the_people_on_the_order_where_to_listen(self):
+        """Owner leaves a clip on a stage: the tailor and the Master each get a
+        bell row naming the order and the stage; the owner (the sender) does not."""
+        order = self.make_order()
+        Notification.objects.all().delete()
+        current = self.stage(order, "measurements_completed").status
+        OrderService.transition_order_stage(
+            order=order, stage_key="measurements_completed", new_status=current,
+            user=self.owner, comments="", voice_note="https://cdn.test/clip.webm")
+        rows = list(Notification.objects.filter(title__startswith="Voice note on"))
+        self.assertTrue(rows, "no voice-note notification was created")
+        title = rows[0].title
+        self.assertIn(order.reference, title)
+        self.assertIn("Measurements", title)
+        audience = {(r.recipient_role, r.recipient_email or "") for r in rows}
+        self.assertIn(("Tailor", "tailor@workflow.test"), audience)
+        self.assertIn(("Master", "master@workflow.test"), audience)
+        self.assertFalse(any(r.recipient_role == "Owner" for r in rows), "the sender was notified")
+
+        # The Master sending one: the owner hears about it, the Master does not.
+        Notification.objects.all().delete()
+        OrderService.transition_order_stage(
+            order=order, stage_key="measurements_completed", new_status=current,
+            user=self.master_user, comments="", voice_note="https://cdn.test/clip2.webm")
+        rows = list(Notification.objects.filter(title__startswith="Voice note on"))
+        self.assertTrue(any(r.recipient_role == "Owner" for r in rows))
+        self.assertFalse(any(r.recipient_email == "master@workflow.test" for r in rows))
+
     def test_the_photo_is_mandatory(self):
         order = self.make_order()
         self.reach(order, "stitching_in_progress")
@@ -2030,7 +2058,7 @@ class FlowTests(WorkflowTestBase):
     verification -> fabric cutting, and only then to the tailor. Each order
     carries only its own path's stages, and is judged against those alone."""
 
-    MAGGAM_ONLY = ["paper_cutting", "maggam_work",
+    MAGGAM_ONLY = ["paper_cutting", "maggam_work", "maggam_handwork",
                    "maggam_verification", "fabric_cutting"]
 
     def keys(self, order):
@@ -2069,10 +2097,31 @@ class FlowTests(WorkflowTestBase):
         self.assertIn("maggam_work", task_keys)
         self.assertNotIn("pattern_cutting", task_keys)
 
+    def test_the_karigar_works_only_after_the_design_is_finished(self):
+        """Maggam handwork is the Maggam Karigar's stage, and it sits behind
+        the design: the karigar cannot start on a design the master has not
+        finished, and the Master's verification waits for the handwork."""
+        from domains.orders.workflow import TransitionError
+        order = self.make_order(flow="maggam")
+        stage = next(s for s in BoutiqueSettings.objects.get(id=1).workflow_config
+                     if s["key"] == "maggam_handwork")
+        self.assertEqual(stage["roles"], ["Owner", "Master", "Maggam Karigar"])
+        self.reach(order, "maggam_work")
+        with self.assertRaises((TransitionError, ValueError)):
+            self.step(order, "maggam_handwork", status="IN_PROGRESS")
+        self.step(order, "maggam_work", status="IN_PROGRESS")
+        self.step(order, "maggam_work", status="COMPLETED")
+        with self.assertRaises((TransitionError, ValueError)):
+            self.step(order, "maggam_verification", status="IN_PROGRESS")
+        self.step(order, "maggam_handwork", status="IN_PROGRESS")
+        self.step(order, "maggam_handwork", status="COMPLETED")
+        self.step(order, "maggam_verification", status="IN_PROGRESS")
+        self.assertEqual(self.stage(order, "maggam_verification").status, "IN_PROGRESS")
+
     def test_hand_work_on_any_garment_picks_the_maggam_flow(self):
         from domains.orders.services import flow_for_garments
         self.assertEqual(flow_for_garments([{"spec": {"hand_work": "none"}}]), "stitching")
-        self.assertEqual(flow_for_garments([{"spec": {}}, {"spec": {"hand_work": "zardozi"}}]), "maggam")
+        self.assertEqual(flow_for_garments([{"spec": {}}, {"spec": {"hand_work": "with_work"}}]), "maggam")
         self.assertEqual(flow_for_garments([]), "stitching")
 
     def test_owner_switches_the_path_until_work_begins(self):

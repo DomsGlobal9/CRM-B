@@ -403,6 +403,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_method', 'delivery_method_display', 'courier_service', 'tracking_number', 'delivery_address',
             'advance_paid', 'amount_paid', 'tailor_comments', 'completed_garment_image',
             'special_instructions', 'instructions_voice_note',
+            'instructions_voice_note_by', 'instructions_voice_note_at',
             'master_verification', 'stage_histories', 'current_stage_key', 'production_status',
             'stages', 'activities', 'garment_images', 'garment_images_published',
             'garment_jobs', 'invoice_template', 'flow',
@@ -411,6 +412,9 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_address': {'max_length': 500},
             'tailor_comments': {'max_length': MAX_NOTE},
             'special_instructions': {'max_length': MAX_NOTE},
+            # Stamped by the server (OrderViewSet.perform_update), never taken from the body.
+            'instructions_voice_note_by': {'read_only': True},
+            'instructions_voice_note_at': {'read_only': True},
         }
 
     #: Every rupee column a PATCH can set: not negative, not absurd.

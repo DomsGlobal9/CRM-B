@@ -69,9 +69,9 @@ class TemplateSeedTests(CatalogTestCase):
             )
 
     def test_hand_work_reads_as_design(self):
-        style = GarmentTemplate.resolve('lehenga').sections.get(key='style')
-        labels = {f.key: f.label for f in style.fields.all()}
-        self.assertEqual(labels['hand_work'], 'Type of Design')
+        template = GarmentTemplate.resolve('lehenga')
+        labels = {f.key: f.label for sec in template.sections.all() for f in sec.fields.all()}
+        self.assertEqual(labels['hand_work_kind'], 'Type of Design')
         self.assertEqual(labels['hand_work_parts'], 'Design Required On')
 
     def test_measurements_are_in_inches_spelled_out(self):
@@ -172,11 +172,11 @@ class ValidationTests(CatalogTestCase):
             f.key for f in style.fields.all() if is_visible(f, {'services': services})
         }
 
-        # `hand_work` is on every garment and asked unconditionally; its
-        # follow-ups only once work is wanted.
-        self.assertEqual(visible(['fall_pico']), {'services', 'fall_type', 'pico_type', 'hand_work'})
+        # `hand_work` lives in the basic section now, beside the garment's
+        # type, so the style section shows only its own fields here.
+        self.assertEqual(visible(['fall_pico']), {'services', 'fall_type', 'pico_type'})
         self.assertEqual(
-            visible(['stitching']), {'services', 'border', 'backing', 'petticoat_required', 'hand_work'}
+            visible(['stitching']), {'services', 'border', 'backing'}
         )
         self.assertIn('tassels', visible(['tassel_work']))
         self.assertNotIn('tassels', visible(['stitching']))
@@ -279,3 +279,37 @@ class GarmentJobTests(CatalogTestCase):
         for key in ('lehenga', 'blouse', 'dupatta'):
             GarmentJob.objects.create(order=order, template=GarmentTemplate.resolve(key))
         self.assertEqual(order.garment_jobs.count(), 3)
+
+
+class TypedOtherOptionTests(CatalogTestCase):
+    """A dropdown with no fitting option takes "other:<text>" in its own key."""
+
+    def setUp(self):
+        super().setUp()
+        self.saree = GarmentTemplate.resolve('saree')
+        self.valid = {'saree_type': 'silk', 'services': ['fall_pico'], 'hand_work': 'none',
+                      'delivery_date': '2026-09-01'}
+
+    def test_typed_other_is_kept_verbatim(self):
+        cleaned = validate_spec(self.saree, {**self.valid, 'saree_type': 'other:Banarasi'})
+        self.assertEqual(cleaned['saree_type'], 'other:Banarasi')
+
+    def test_blank_other_is_refused(self):
+        with self.assertRaises(SpecValidationError) as caught:
+            validate_spec(self.saree, {**self.valid, 'saree_type': 'other:  '})
+        self.assertIn('saree_type', caught.exception.errors)
+
+    def test_multiselect_does_not_take_other(self):
+        with self.assertRaises(SpecValidationError) as caught:
+            validate_spec(self.saree, {**self.valid, 'services': ['other:x']})
+        self.assertIn('services', caught.exception.errors)
+
+
+class PetticoatHandWorkTests(CatalogTestCase):
+    def test_petticoat_is_not_asked_about_hand_work(self):
+        keys = {f.key for s in GarmentTemplate.resolve('petticoat').sections.all() for f in s.fields.all()}
+        self.assertNotIn('hand_work', keys)
+        self.assertNotIn('hand_work_material', keys)
+        # Everything else still asks.
+        blouse = {f.key for s in GarmentTemplate.resolve('blouse').sections.all() for f in s.fields.all()}
+        self.assertIn('hand_work', blouse)

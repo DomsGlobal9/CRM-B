@@ -532,11 +532,18 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
     );
   }
 
-  const roleHint = editing
-    ? 'A person cannot be moved between the production floor and the Design Studio -- they are different records.'
+  // The one role that cannot change: a designer is a design_studio.Designer
+  // row, not a roster row, so there is no record to move them onto. Every
+  // production role is a value on the same row and the owner may change it
+  // freely -- the server's role gates and stage lists read the new value on
+  // the next request.
+  const roleLocked = editing && isDesigner;
+  const roleHint = roleLocked
+    ? 'A designer cannot be moved to the production floor -- they are a different record.'
     : roleChoice === '__custom__'
       ? 'A custom role gets the same access as floor staff -- attendance and their own assignments.'
-      : ASSIGNABLE_ROLES.find((r) => r.value === roleChoice)?.hint;
+      : (editing ? 'Changing the role changes which stages they can be given and what they see. ' : '')
+        + (ASSIGNABLE_ROLES.find((r) => r.value === roleChoice)?.hint || '');
 
   return (
     <Modal
@@ -609,13 +616,16 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
                  placeholder="10-digit mobile" />
         </Field>
         <Field label="Role" icon={Scissors} hint={roleHint}>
-          <select className="form-input" value={roleChoice} disabled={editing}
+          <select className="form-input" value={roleChoice} disabled={roleLocked}
                   onChange={(e) => {
                     const v = e.target.value;
                     setRoleChoice(v);
                     setForm({ ...form, role: v === '__custom__' ? customRole : v });
                   }}>
-            {ASSIGNABLE_ROLES.map(({ value, label }) => (
+            {/* Designer is offered only when adding: an existing floor member
+                cannot become one (see roleLocked), and a designer's own select
+                is locked with Designer already chosen. */}
+            {ASSIGNABLE_ROLES.filter(({ value }) => !(editing && !isDesigner && value === 'Designer')).map(({ value, label }) => (
               <option key={value} value={value}>{label}</option>
             ))}
             {reusable.map((r) => (

@@ -178,12 +178,9 @@ TEMPLATES = [
                 field('fabric_length', 'Fabric Length', 'number', unit='m',
                       validation={'min': 0, 'max': 20, 'step': 0.25}),
             ],
-            'measurements': [
-                measurement('petticoat_length', 'Petticoat Length',
-                            when=eq('petticoat_required', True)),
-                measurement('petticoat_waist', 'Petticoat Waist',
-                            when=eq('petticoat_required', True)),
-            ],
+            # A petticoat is its own garment on the order (key 'petticoat'),
+            # so the saree no longer asks whether one is required.
+            'measurements': [],
             'style': [
                 field('services', 'Services Required', 'multiselect', required=True, options=[
                     'Stitching', 'Fall', 'Pico', ('fall_pico', 'Fall + Pico'),
@@ -217,10 +214,6 @@ TEMPLATES = [
                 field('tassels', 'Tassels', 'select', options=[
                     'Hand Made', 'Readymade', 'Knot Style'],
                       when=one_of('services', ['tassel_work'])),
-                field('petticoat_required', 'Petticoat Required', 'boolean',
-                      when=one_of('services', ['stitching'])),
-                field('petticoat_waist_finish', 'Petticoat Waist Finish', 'multiselect',
-                      options=WAIST_FINISH, when=eq('petticoat_required', True)),
             ],
             'materials': [
                 material('fabric_used', 'Fabric Used', Inv.FABRIC),
@@ -1188,19 +1181,20 @@ COMMON_BY_SECTION = {
 
 
 HAND_WORK_KINDS = [
-    'None', ('maggam', 'Maggam (Aari)'), 'Zardozi', 'Thread Embroidery',
+    ('maggam', 'Maggam (Aari)'), 'Zardozi', 'Thread Embroidery',
     ('mirror_sequin', 'Mirror / Sequin'), ('bead_pearl', 'Bead / Pearl'), 'Cutwork',
 ]
-#: The answers that mean work is wanted. Matched with `in` rather than
-#: "not none" so an unanswered question reveals nothing.
-HAND_WORK_WANTED = [k if isinstance(k, str) else k[0] for k in HAND_WORK_KINDS][1:]
-HAND_WORK_WANTED = [_slug(k) for k in HAND_WORK_WANTED]
+#: The answer that means work is wanted. `hand_work` is the with/without
+#: gate; anything but 'none' puts the order on the maggam path, which is
+#: what every reader of it tests (flow_for_garments, isMaggamOrder).
+HAND_WORK_WANTED = ['with_work']
 
 
 def hand_work_fields(definition):
-    """The hand-work question every garment gets: which work, on which of its
-    own parts, how dense, and a word for the maggam master. Any answer but
-    None puts the order on the maggam path through the workroom."""
+    """The hand-work question every garment gets, beside its type on the
+    order form: with or without work; and when with, which work, on which of
+    its own parts, how dense, and a word for the maggam master. Required, so
+    it is asked up front rather than folded under "More details"."""
     # The garment's own pieces (pallu, border, sleeves...), not the photo
     # categories that share the list (print, embroidery, the overall shot).
     skip = ('overall', 'print', 'embroidery', 'work', 'tassel', 'latkan')
@@ -1209,7 +1203,9 @@ def hand_work_fields(definition):
                     if not any(w in p['key'] for w in skip)]
     has_work = one_of('hand_work', HAND_WORK_WANTED)
     fields = [
-        field('hand_work', 'Type of Design', 'select', options=HAND_WORK_KINDS, default='none'),
+        field('hand_work', 'Maggam / Hand Work', 'select', required=True, default='none',
+              options=[('none', 'Without Work'), ('with_work', 'With Work')]),
+        field('hand_work_kind', 'Type of Design', 'select', options=HAND_WORK_KINDS, when=has_work),
         field('hand_work_density', 'Work Coverage', 'select',
               options=['Light', 'Medium', 'Heavy'], when=has_work),
         field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
@@ -1217,7 +1213,7 @@ def hand_work_fields(definition):
               validation={'max_length': 500}, when=has_work),
     ]
     if part_options:
-        fields.insert(1, field('hand_work_parts', 'Design Required On', 'multiselect',
+        fields.insert(2, field('hand_work_parts', 'Design Required On', 'multiselect',
                                options=part_options, when=has_work))
     return fields
 
@@ -1228,14 +1224,24 @@ HAND_WORK_MATERIALS = [
 ]
 
 
+#: Garments nobody embroiders: the hand-work question is not asked, and its
+#: absence reads as "Without Work" everywhere the gate is checked.
+NO_HAND_WORK = {'petticoat'}
+
+
 def build(definition):
     sections = []
     for index, (key, title) in enumerate(SECTION_TITLES):
-        fields = list(definition['sections'].get(key, [])) + COMMON_BY_SECTION.get(key, [])
-        if key == 'style':
+        fields = list(definition['sections'].get(key, []))
+        # Hand work sits with the garment's own basics, right after its type,
+        # and ahead of the common trial/urgency questions that fold away.
+        if key == 'basic' and definition['key'] not in NO_HAND_WORK:
             fields = fields + hand_work_fields(definition)
-        elif key == 'materials':
-            fields = FABRIC_SOURCE + fields + HAND_WORK_MATERIALS
+        fields = fields + COMMON_BY_SECTION.get(key, [])
+        if key == 'materials':
+            fields = FABRIC_SOURCE + fields
+            if definition['key'] not in NO_HAND_WORK:
+                fields = fields + HAND_WORK_MATERIALS
         sections.append({
             'key': key,
             'title': title,

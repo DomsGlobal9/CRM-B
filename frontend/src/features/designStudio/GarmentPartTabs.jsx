@@ -81,7 +81,7 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
           -ms-overflow-style: none;
-          background: var(--background-secondary, #f4f4f5);
+          background: var(--surface-inset, #f4f4f5);
           border: 1px solid var(--border-color, #e4e4e7);
           padding: 5px;
           border-radius: 10px;

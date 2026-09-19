@@ -108,7 +108,7 @@ const PAYMENT_METHODS = [
 ];
 
 const panel = {
-  background: 'var(--card-bg, rgba(255,255,255,0.03))',
+  background: 'var(--surface-color, rgba(255,255,255,0.03))',
   border: '1px solid var(--border-color, rgba(255,255,255,0.08))',
   borderRadius: '12px',
 };

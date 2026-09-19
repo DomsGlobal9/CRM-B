@@ -4546,6 +4546,16 @@ table.data-table tbody tr:hover {
 .at-field-control > textarea { min-height: 88px; resize: vertical; }
 .at-field-control > select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23545e58' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important; background-repeat: no-repeat !important; background-position: right 14px center !important; padding-right: 36px; }
 .at-field-control > input::placeholder, .at-field-control > textarea::placeholder { color: var(--text-muted); }
+/* VoiceTextarea wraps its textarea in a div to place the mic. Inside a
+   control, the wrapper fills it and the textarea reads as the control's own
+   -- otherwise the textarea kept its .form-control border: a box in a box. */
+.at-field-control > .voice-textarea { flex: 1; min-width: 0; display: flex; }
+.at-field-control > .voice-textarea > textarea {
+  flex: 1; min-width: 0; min-height: 88px; resize: vertical; border: none !important; background: transparent !important;
+  box-shadow: none !important; outline: none; padding: 12px 14px; font: inherit; font-size: var(--text-base);
+  color: var(--text-primary); margin: 0; border-radius: 0;
+}
+.at-field-control > .voice-textarea > textarea::placeholder { color: var(--text-muted); }
 .at-field-control--disabled { opacity: .6; }
 .at-field-hint { font-size: var(--text-xs); color: var(--text-secondary); }
 .at-field-counter { font-size: var(--text-2xs); color: var(--text-muted); text-align: right; }

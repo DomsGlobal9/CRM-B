@@ -202,7 +202,7 @@ export default function GarmentPairingModal({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            background: 'var(--background-secondary, #f8f9fa)',
+            background: 'var(--surface-inset, #f8f9fa)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -295,7 +295,7 @@ export default function GarmentPairingModal({
                       padding: '12px 14px',
                       borderRadius: '10px',
                       border: isChecked ? '1.5px solid #18181b' : '1px solid var(--border-color, #e2e8f0)',
-                      background: isChecked ? 'rgba(24, 24, 27, 0.03)' : 'var(--background-secondary, #f8f9fa)',
+                      background: isChecked ? 'rgba(24, 24, 27, 0.03)' : 'var(--surface-inset, #f8f9fa)',
                       cursor: isAlreadyAdded ? 'default' : 'pointer',
                       transition: 'all 0.15s ease',
                     }}
@@ -346,7 +346,7 @@ export default function GarmentPairingModal({
             alignItems: 'center',
             justifyContent: 'flex-end',
             gap: '10px',
-            background: 'var(--background-secondary, #f8f9fa)',
+            background: 'var(--surface-inset, #f8f9fa)',
           }}
         >
           <button

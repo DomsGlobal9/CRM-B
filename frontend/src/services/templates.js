@@ -42,6 +42,13 @@ export function evaluateRule(rule, values) {
 
 export const isVisible = (field, values) => evaluateRule(field.visible_when, values);
 
+// A dropdown answer typed in because no option fit, stored in the select's own
+// key as "other:<text>". Mirrors OTHER_PREFIX in core/templates.py.
+export const OTHER_PREFIX = 'other:';
+export const OTHER_MAX_LENGTH = 200;
+export const isTypedOther = (raw) => typeof raw === 'string' && raw.startsWith(OTHER_PREFIX);
+export const typedOtherText = (raw) => (isTypedOther(raw) ? raw.slice(OTHER_PREFIX.length) : '');
+
 /** Every field of a section that currently applies, in render order. */
 export function visibleFields(section, values) {
   if (!section) return [];
@@ -71,6 +78,20 @@ export function pruneHidden(template, values) {
 }
 
 /** Returns {field_key: message}; empty when the spec is good. */
+/** The template's declared defaults under the values already answered.
+ *  A required question with a default (hand work: "Without Work") is then
+ *  answered the moment the garment is added, and a draft written before the
+ *  question existed resumes with it answered too. */
+export function withDefaults(template, values = {}) {
+  const out = { ...values };
+  (template?.sections || []).forEach((section) => section.fields.forEach((field) => {
+    if (field.default != null && (out[field.key] === undefined || out[field.key] === null || out[field.key] === '')) {
+      out[field.key] = field.default;
+    }
+  }));
+  return out;
+}
+
 export function validateSpec(template, values, { partial = false, sections = null } = {}) {
   const errors = {};
 
@@ -99,6 +120,10 @@ export function validateSpec(template, values, { partial = false, sections = nul
         } else if (rules.max !== undefined && number > rules.max) {
           errors[field.key] = `${field.label} cannot exceed ${rules.max}.`;
         }
+      } else if (field.field_type === 'select' && isTypedOther(raw)) {
+        const text = typedOtherText(raw).trim();
+        if (!text) errors[field.key] = `${field.label}: type the option you want.`;
+        else if (text.length > OTHER_MAX_LENGTH) errors[field.key] = `${field.label} is limited to ${OTHER_MAX_LENGTH} characters.`;
       } else if (field.field_type === 'select' || field.field_type === 'multiselect') {
         const allowed = new Set((field.options || []).map((o) => o.value));
         const unknown = asList(raw).filter((v) => !allowed.has(v));

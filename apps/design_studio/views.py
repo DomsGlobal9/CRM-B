@@ -657,6 +657,70 @@ class WebDesignKeepView(views.APIView):
             status=status.HTTP_201_CREATED)
 
 
+class GarmentPreviewView(views.APIView):
+    """One photograph of the garment the wizard put together, on a model.
+
+    GET says whether the vendor is set up, so the review step shows the
+    button only where it works. POST takes the job's own maps -- the design
+    per part, the roll per slot -- exactly as the draft holds them, resolves
+    the rolls to their stock rows here (the browser only has ids), and waits
+    for the vendor's stream to finish. Synchronous on purpose: 30-95 s is
+    what the vendor measured, and a wait the counter can watch beats a job
+    queue this product does not have. The photograph is copied into our
+    storage and answered as a URL, so the draft carries it as it carries any
+    other picture.
+
+    clientId is the tenant plus the person: the vendor cancels a running
+    generation when the same clientId starts another, and two counters
+    working two orders must not cancel each other.
+    """
+
+    permission_classes = [DesignStudioPermission]
+
+    def get(self, request):
+        from . import generate
+        return Response({'available': generate.available()})
+
+    def post(self, request):
+        from django.db import connection
+        from apps.inventory.models import InventoryItem
+        from crm_api.fabric_taxonomy import GARMENTS
+        from . import generate
+        from .web_search import DiscoveryError
+
+        data = request.data or {}
+        garment_key = str(data.get('garment_key') or '')
+        fabrics = data.get('fabrics') if isinstance(data.get('fabrics'), dict) else {}
+        keys = []
+        for ids in fabrics.values():
+            for value in (ids if isinstance(ids, list) else [ids]):
+                try:
+                    keys.append(uuid.UUID(str(value)))
+                except ValueError:
+                    continue
+        items = {str(row['id']): row for row in InventoryItem.objects.filter(pk__in=keys).values(
+            'id', 'name', 'material_type', 'color', 'color_hex', 'image_url', 'item_code')}
+        slots = {slot for section in ((GARMENTS.get(garment_key) or {}).get('sections') or {}).values()
+                 for slot in section}
+        try:
+            payload = generate.build_payload(
+                client_id=f'{connection.schema_name}:{request.user.id}',
+                garment_key=garment_key,
+                parts=data.get('parts') if isinstance(data.get('parts'), dict) else {},
+                part_refs=data.get('part_refs') if isinstance(data.get('part_refs'), dict) else {},
+                fabrics=fabrics, fabric_items=items, fabric_slots=slots,
+                notes=str(data.get('notes') or ''),
+                product_name=str(data.get('product_name') or ''),
+                model_image=str(data.get('model_image') or ''),
+            )
+            result = generate.generate(generate.resolve_images(payload))
+            saved = generate.keep(result.pop('image'))
+        except DiscoveryError as exc:
+            return Response({'error': str(exc)}, status=exc.status)
+        result['image_url'] = request.build_absolute_uri(default_storage.url(saved))
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
 class DesignCatalogueView(views.APIView):
     """The design catalogue tree for one garment, or for every garment that has one.
 

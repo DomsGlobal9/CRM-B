@@ -650,13 +650,16 @@ export const api = {
     return res.json();
   },
 
-  async transitionStage(orderId, stageKey, status, comments, imageFiles = [], performedById = null, voiceNote = null) {
+  async transitionStage(orderId, stageKey, status, comments, imageFiles = [], performedById = null, voiceNote = null, clearVoiceNote = false) {
     const formData = new FormData();
     formData.append('stage_key', stageKey);
     formData.append('status', status);
     if (comments) formData.append('comments', comments);
     if (performedById) formData.append('performed_by_id', performedById);
     if (voiceNote) formData.append('voice_note', voiceNote);
+    // Deleting a sent recording: a note with no clip and possibly no text,
+    // which the server otherwise treats as nothing to save.
+    if (clearVoiceNote) formData.append('voice_note_clear', '1');
     
     if (imageFiles && imageFiles.length > 0) {
       imageFiles.forEach(file => {
@@ -1223,6 +1226,21 @@ export const api = {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || describeApiError(res, data) || 'Could not keep that picture.');
+    return data;
+  },
+  // Garment preview: the vendor draws the garment the wizard put together,
+  // on a model. 30-95 s live; the server waits it out and answers a URL.
+  async garmentPreviewAvailable() {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/preview/`, { headers: getHeaders() });
+    if (!res.ok) return false;
+    return !!(await res.json()).available;
+  },
+  async generateGarmentPreview(payload) {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/preview/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data) || 'The preview could not be made.');
     return data;
   },
   async uploadReferenceImage(file) {

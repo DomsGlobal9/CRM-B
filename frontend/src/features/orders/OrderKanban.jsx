@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Calendar, CheckCircle2, ClipboardList, Package, PackageCheck, PenTool, Ruler, Scissors,
+  Calendar, CheckCircle2, ClipboardList, Hand, Package, PackageCheck, PenTool, Ruler, Scissors,
   Shirt, ShieldCheck, Sparkles, Truck, User,
 } from 'lucide-react';
 import { api } from '../../services/api';
@@ -43,6 +43,7 @@ const STAGE_LOOK = {
   pattern_cutting:       ['blue',    Scissors,     'Cutting in progress'],
   paper_cutting:         ['blue',    Scissors,     'Paper pattern for the embroiderer'],
   maggam_work:           ['violet',  PenTool,      'Embroidery in progress'],
+  maggam_handwork:       ['violet',  Hand,         'Frame work on the finished design'],
   maggam_verification:   ['violet',  ShieldCheck,  'Embroidery awaiting sign-off'],
   fabric_cutting:        ['blue',    Scissors,     'Cutting after embroidery'],
   assigned_to_tailor:    ['blue',    User,         'Handed to the stitcher'],

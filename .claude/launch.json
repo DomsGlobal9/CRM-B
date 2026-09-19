@@ -47,6 +47,21 @@
         "dev"
       ],
       "port": 5173
+    },
+    {
+      "name": "vite-frontend-5174",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "port": 5174
     }
   ]
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '../../services/api';
-import { isVisible } from '../../services/templates';
+import { isVisible, isTypedOther, typedOtherText } from '../../services/templates';
 
 /**
  * Read-only recap of every dress on an order.
@@ -50,6 +50,7 @@ function displayValue(field, value, inventoryNames) {
   if (field.field_type === 'boolean') return value ? 'Yes' : 'No';
 
   if (field.field_type === 'select') {
+    if (isTypedOther(value)) return typedOtherText(value);
     return field.options.find((o) => o.value === value)?.label ?? value;
   }
 
