@@ -258,8 +258,19 @@ class InvalidTransitionTests(StateMachineTestBase):
         self.advance_to('stitching_in_progress', order=order)
 
         with self.assertRaises(ValueError) as caught:
-            self.move('stitching_in_progress', 'IN_PROGRESS', order=order)
+            self.move('stitching_in_progress', 'IN_PROGRESS', order=order, user=self.tailor_user)
         self.assertIn('No tailor is assigned', str(caught.exception))
+
+    def test_a_supervisor_stitches_without_naming_a_tailor(self):
+        # The owner of a one-person boutique, or the Master, is the stitcher.
+        order = self._order(order_id="T2B-SM-SOLO")
+        order.tailor = None
+        order.save(update_fields=['tailor'])
+        self.advance_to('stitching_in_progress', order=order)
+        for user in (self.owner, self.master_user):
+            self.move('stitching_in_progress', 'IN_PROGRESS', order=order, user=user)
+        self.move('stitching_in_progress', 'COMPLETED', order=order, user=self.master_user)
+        self.assertEqual(order.stages.get(stage_key='stitching_in_progress').status, 'COMPLETED')
 
 
 class ValidSequenceTests(StateMachineTestBase):

@@ -1017,13 +1017,14 @@ class MasterJourneyTests(WorkflowTestBase):
 
         self.assertEqual(self.stage(order, "master_quality_check").status, "COMPLETED")
 
-    def test_a_master_cannot_do_the_tailors_stitching(self):
+    def test_a_master_can_do_the_stitching_too(self):
+        # The generalist in a small boutique stitches as well as supervises.
         order = self.make_order()
+        self.reach(order, "stitching_completed")
 
-        with self.assertRaises(ValueError) as ctx:
-            self.complete(order, "stitching_completed", user=self.master_user)
+        self.complete(order, "stitching_completed", user=self.master_user)
 
-        self.assertIn("not authorized", str(ctx.exception).lower())
+        self.assertEqual(self.stage(order, "stitching_completed").status, "COMPLETED")
 
     def test_a_master_can_take_a_stitched_garment_all_the_way_to_delivered(self):
 

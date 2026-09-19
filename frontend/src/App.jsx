@@ -1421,6 +1421,10 @@ function App() {
   });
   const [signupBusy, setSignupBusy] = useState(false);
   const [signupError, setSignupError] = useState(null);
+  // True only for the session that created the boutique: the dashboard says
+  // "Welcome ... to Scaleezy" instead of "Welcome back". Any later login
+  // (or a reload) is a return visit.
+  const [justRegistered, setJustRegistered] = useState(false);
   const [boutiqueName, setBoutiqueName] = useState('');
   const [boutiqueAddress, setBoutiqueAddress] = useState('');
   // Create Account stays disabled until every box is filled and the two
@@ -2608,6 +2612,7 @@ function App() {
     setAuthBusy(true);
     try {
       const res = await api.login(loginEmail, loginPassword);
+      setJustRegistered(false);
       setCurrentUser(res.user);
       setView('dashboard');
       if (res.user.role === 'Designer') {
@@ -2663,6 +2668,7 @@ function App() {
         business_address: boutiqueAddress
       });
       setCurrentUser(res.user);
+      setJustRegistered(true);
       setSignupStep(2);
       setTimeout(() => {
         setView('dashboard');
@@ -4646,7 +4652,9 @@ function App() {
             {dashboardTab === 'overview' && (
               <>
                 <PageHeader
-                  title={t('dashboard.welcomeBackUser', `Welcome back, ${currentUserName}! 👋`, { name: currentUserName })}
+                  title={justRegistered
+                    ? t('dashboard.welcomeNewUser', `Welcome ${currentUserName} to Scaleezy! 👋`, { name: currentUserName })
+                    : t('dashboard.welcomeBackUser', `Welcome back, ${currentUserName}! 👋`, { name: currentUserName })}
                   subtitle={t('dashboard.subtitle')}
                   meta={<HeaderClock />}
                   aside={(
