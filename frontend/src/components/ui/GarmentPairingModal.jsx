@@ -98,6 +98,7 @@ export default function GarmentPairingModal({
   onClose,
   primaryGarmentKey,
   primaryGarmentName,
+  primaryJobKey,
   garmentTemplates = [],
   garmentJobs = [],
   onAddPairedGarments,
@@ -105,6 +106,8 @@ export default function GarmentPairingModal({
   const [selectedPairKeys, setSelectedPairKeys] = useState([]);
 
   const pairConfig = getGarmentPairConfig(primaryGarmentKey, primaryGarmentName);
+  // Only this primary's own pieces count: the saree's blouse is not the lehenga's.
+  const groupJobs = primaryJobKey ? garmentJobs.filter(j => j.pairedWith === primaryJobKey) : garmentJobs;
 
   // Initialize selected pair keys when modal opens
   useEffect(() => {
@@ -113,13 +116,13 @@ export default function GarmentPairingModal({
       const availablePairKeys = pairConfig.pairKeys.filter(pairKey => {
         const matchingTemplate = findMatchingTemplate(pairKey, garmentTemplates);
         if (!matchingTemplate) return false;
-        return !garmentJobs.some(job => (job.template?.key || job.key) === matchingTemplate.key);
+        return !groupJobs.some(job => (job.template?.key || job.key) === matchingTemplate.key);
       });
       setSelectedPairKeys(availablePairKeys);
     } else {
       setSelectedPairKeys([]);
     }
-  }, [isOpen, primaryGarmentKey, primaryGarmentName, garmentTemplates, garmentJobs]);
+  }, [isOpen, primaryGarmentKey, primaryGarmentName, primaryJobKey, garmentTemplates, garmentJobs]);
 
   if (!isOpen || !pairConfig) return null;
 
@@ -265,7 +268,7 @@ export default function GarmentPairingModal({
                 // Already on the order (by template, so a second copy counts too).
                 // Not pre-ticked, but still tickable: a lehenga added after a
                 // saree wants its own dupatta, not the saree's.
-                const isAlreadyAdded = template && garmentJobs.some(j => (j.template?.key || j.key) === template.key);
+                const isAlreadyAdded = template && groupJobs.some(j => (j.template?.key || j.key) === template.key);
                 const isChecked = selectedPairKeys.includes(pairKey);
 
                 return (

@@ -415,8 +415,8 @@ class OrderCreationTests(WorkflowTestBase):
         from apps.production.models import ProductionTask
         order = self.make_order()
         tasks = ProductionTask.objects.filter(order=order)
-        # One per workroom stage, less Order taken and Delivery.
-        self.assertEqual(tasks.count(), order.stages.count() - 2)
+        # One per workroom stage, less Order taken, Payment and Delivery.
+        self.assertEqual(tasks.count(), order.stages.count() - 3)
         stitching = tasks.get(stage_key="stitching_in_progress")
         self.assertEqual(stitching.assigned_to, self.tailor)
         cutting = tasks.get(stage_key="pattern_cutting")

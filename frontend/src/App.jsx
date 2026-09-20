@@ -52,6 +52,7 @@ import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
 import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
+import { groupGarmentJobs } from './features/catalog/garmentGroups';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceClipPreview, VoiceRecorder } from './components/ui/VoiceTextarea';
 
@@ -1569,7 +1570,7 @@ function App() {
     loadGarmentTemplates();
   }, [currentUser, loadGarmentTemplates]);
 
-  const addGarment = async (key, skipPairingPrompt = false, allowAnother = false) => {
+  const addGarment = async (key, skipPairingPrompt = false, allowAnother = false, pairedWith = null) => {
     const taken = garmentJobs.some(job => job.key === key);
     if (taken && !allowAnother) return;
     if (addingGarmentKey) return;
@@ -1582,7 +1583,7 @@ function App() {
       // the template uses (job.template?.key || job.key).
       const jobKey = taken ? `${key}#${Date.now().toString(36)}` : key;
       setGarmentJobs(prev => [...prev, {
-        key: jobKey, template, values: withDefaults(template), quantities: {}, sources: {}, brought: {},
+        key: jobKey, template, values: withDefaults(template), quantities: {}, sources: {}, brought: {}, pairedWith,
         pricing: { base: GARMENT_PRICES[template.name] || 15000, fabric: 0,
                    embroidery: 0, customization: 0, tailoring: 0 },
       }]);
@@ -1590,7 +1591,7 @@ function App() {
       // and dupatta. Paired adds skip the prompt so it cannot chain.
       setActiveGarmentKey(jobKey);
       if (!skipPairingPrompt && getGarmentPairConfig(key, template.name)) {
-        setActivePairingGarment({ key, name: template.name });
+        setActivePairingGarment({ key, name: template.name, jobKey });
       }
     } catch (err) {
       console.error(err);
@@ -1602,7 +1603,7 @@ function App() {
 
   const handleAddPairedGarments = async (pairKeys) => {
     for (const pairKey of pairKeys) {
-      await addGarment(pairKey, true, true);
+      await addGarment(pairKey, true, true, activePairingGarment?.jobKey || null);
     }
   };
 
@@ -1624,10 +1625,11 @@ function App() {
   }, [garmentJobs]);
 
   const removeGarment = (key) => {
-    setGarmentJobs(prev => prev.filter(job => job.key !== key));
+    const gone = new Set([key, ...garmentJobs.filter(job => job.pairedWith === key).map(job => job.key)]);
+    setGarmentJobs(prev => prev.filter(job => !gone.has(job.key)));
     setGarmentErrors(prev => {
       const next = { ...prev };
-      delete next[key];
+      gone.forEach(k => { delete next[k]; });
       return next;
     });
   };
@@ -1798,6 +1800,7 @@ function App() {
         const wantsDesigner = serviceType === 'design' && designRequest.designer;
         return {
           key: job.key,
+          paired_with: job.pairedWith || null,
           template: job.template?.id,
           template_key: job.template?.key || job.key,
           spec: splitSpec(job.template, values).spec,
@@ -1858,6 +1861,7 @@ function App() {
         const template = await api.getGarmentTemplate(garment.template_key);
         rebuilt.push({
           key: garment.key || garment.template_key,
+          pairedWith: garment.paired_with || null,
           template,
           values: withDefaults(template, garment.values),
           quantities: garment.quantities || {},
@@ -6912,15 +6916,23 @@ function App() {
 
                   {garmentJobs.length > 1 && (() => {
                     const openKey = garmentJobs.some(j => j.key === activeGarmentKey) ? activeGarmentKey : garmentJobs[0].key;
+                    const groups = groupGarmentJobs(garmentJobs);
                     return (
                       <div style={{ marginTop: '16px' }}>
                         {/* The same stepper the wizard draws across the top, one
                             circle per garment: a tick once every required
                             question this step asks is answered -- the same
                             check Next runs -- the open one filled, the rest
-                            numbered. Clicking a circle opens that garment. */}
+                            numbered. Clicking a circle opens that garment.
+                            One row per primary garment, its paired pieces
+                            beside it. */}
+                        {groups.map((group) => (
+                        <div key={group.primary.key}>
+                        {groups.length > 1 && (
+                          <div className="stat-label" style={{ padding: '8px 12px 0' }}>{group.primary.template?.name || group.primary.key}</div>
+                        )}
                         <div className="stepper-progress-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px 0' }}>
-                          {garmentJobs.map((job, idx) => {
+                          {group.jobs.map((job, idx) => {
                             const valid = Object.keys(validateSpec(job.template, job.values, { sections: ['basic', 'style'] })).length === 0;
                             const isActive = job.key === openKey;
                             // Answered by hand: at least one of this step's own questions
@@ -6964,7 +6976,7 @@ function App() {
                                     {complete ? t('wizard.completed', 'Done') : missing ? t('wizard.garmentMissing', 'Something missing') : isActive ? t('wizard.garmentNow', 'Fill in now') : t('wizard.garmentNext', 'Up next')}
                                   </span>
                                 </div>
-                                {idx < garmentJobs.length - 1 && (
+                                {idx < group.jobs.length - 1 && (
                                   <div style={{ display: 'flex', alignItems: 'center', flex: 1, margin: '0 -20px', transform: 'translateY(-20px)', zIndex: 1, color: complete ? 'var(--primary-color)' : 'var(--border-color)' }}>
                                     <div style={{ height: '2px', flex: 1, backgroundColor: 'currentColor' }}></div>
                                     <ArrowRight size={16} style={{ marginLeft: '-4px', flexShrink: 0 }} />
@@ -6974,6 +6986,8 @@ function App() {
                             );
                           })}
                         </div>
+                        </div>
+                        ))}
                       </div>
                     );
                   })()}
@@ -8690,6 +8704,7 @@ Complete the Payment stage with this partial payment?`)) return;
         onClose={() => setActivePairingGarment(null)}
         primaryGarmentKey={activePairingGarment?.key}
         primaryGarmentName={activePairingGarment?.name}
+        primaryJobKey={activePairingGarment?.jobKey}
         garmentTemplates={garmentTemplates}
         garmentJobs={garmentJobs}
         onAddPairedGarments={handleAddPairedGarments}
