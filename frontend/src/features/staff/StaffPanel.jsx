@@ -14,10 +14,10 @@
  * staff id, which is also what keeps rates off the roster response.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import { Check,
   Plus, Clock, Wallet, TrendingUp, Users, FileText, ClipboardList, Trash2, Phone, Calendar, Briefcase, UserCheck,
-  User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil,
+  User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil, ChevronDown, ChevronUp,
 } from 'lucide-react';
 
 import { api } from '../../services/api';
@@ -771,6 +771,8 @@ function Roster({ isOwner, canSeeTeam }) {
   const [deposits, setDeposits] = useState([]);
   const [advances, setAdvances] = useState([]);
   const [issuingFor, setIssuingFor] = useState(null);
+  // Roster rows whose pay / deposit / advance detail is open.
+  const [expanded, setExpanded] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [search, setSearch] = useState('');
@@ -992,43 +994,73 @@ function Roster({ isOwner, canSeeTeam }) {
             : 'Your employment details have not been set up yet. Your boutique owner can add them.'}
         </div>
       ) : (
-        // Cards, not a table: a roster row is a name plus a few values, and it
-        // reads correctly at 320px without a horizontal scroller.
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {rows.map(({ member, terms: t }) => (
-            <div key={member.id} className="ui-card" style={{ padding: 'var(--space-4) var(--space-5)' }}>
-              <div className="at-staff" style={{ padding: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
-                  <AvatarInitials name={member.name} size={44} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+        // A dense roster: one line per person with the money summarised
+        // inline, and the full pay / deposit / advance detail behind a
+        // chevron. Money columns only appear when someone on the list has
+        // pay set up, so a roster with no employment yet stays short.
+        (() => {
+          const showPay = isOwner && rows.some(({ terms }) => terms && showsPay(terms));
+          const cols = 4 + (showPay ? 2 : 0) + (isOwner ? 1 : 0);
+          const toggle = (id) => setExpanded((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+          });
+          const cell = { fontSize: 'var(--text-sm)', color: 'var(--text-primary)' };
+          const sub = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' };
+          const muted = <span style={{ color: 'var(--text-muted)' }}>—</span>;
+          return (
+        <div className="at-table-wrap">
+          <table className="at-table">
+            <thead>
+              <tr>
+                <th>Team member</th>
+                <th>Status</th>
+                <th>Contact</th>
+                <th>Employment</th>
+                {showPay && <th>Pay</th>}
+                {showPay && <th>Advances</th>}
+                {isOwner && <th style={{ textAlign: 'right' }}>Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+          {rows.map(({ member, terms: t }) => {
+            const hasDetail = Boolean(t && showsPay(t));
+            const open = expanded.has(member.id);
+            const deposit = depositByStaff.get(String(member.id));
+            const advances = advancesByStaff.get(String(member.id)) || [];
+            const outstanding = advances.reduce((n, a) => n + Number(a.outstanding || 0), 0);
+            return (
+            <Fragment key={member.id}>
+              <tr style={open ? { background: 'var(--surface-2)' } : undefined}>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
+                    <AvatarInitials name={member.name} size={36} />
+                    <div style={{ minWidth: 0 }}>
                       {isOwner ? (
                         <button
                           type="button"
                           onClick={() => setPerson(member)}
                           title="Edit details, employment and documents"
                           style={{
-                            fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-md)',
+                            fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-sm)',
                             background: 'none', border: 'none', padding: 0, cursor: 'pointer',
                             color: 'var(--text-primary)', textAlign: 'left', fontFamily: 'inherit',
                           }}
                         >{member.name}</button>
                       ) : (
-                        <div style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-md)',
+                        <div style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-sm)',
                                       color: 'var(--text-primary)' }}>{member.name}</div>
                       )}
+                      <div style={sub}>
+                        {member.role}
+                        {member.isDesigner && ` · ${member.design_count ?? 0} design(s)${member.has_login ? '' : ' · no login yet'}`}
+                      </div>
                     </div>
-                    <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {member.role}
-                      {member.isDesigner && ` · ${member.design_count ?? 0} design(s)${member.has_login ? '' : ' · no login yet'}`}
-                    </div>
-                    {member.phone && (
-                      <div className="at-contact"><span><Phone size={12} /> {member.phone}</span></div>
-                    )}
                   </div>
-                </div>
+                </td>
 
-                <div>
+                <td>
                   {member.status ? (
                     <span className={`ui-badge ui-badge--${member.status === 'Available' ? 'success' : member.status === 'Busy' ? 'warning' : 'neutral'}`}>
                       ● {member.status}
@@ -1036,35 +1068,96 @@ function Roster({ isOwner, canSeeTeam }) {
                   ) : member.isDesigner ? (
                     <span className="ui-badge ui-badge--neutral">Designer</span>
                   ) : null}
-                </div>
+                </td>
 
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <Calendar size={12} /> Joined {t?.joined_at
-                      ? new Date(t.joined_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-                      : '—'}
-                  </span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <Briefcase size={12} /> {t ? employmentLabel(t.employment_type) : 'Not set'}
-                  </span>
-                </div>
+                <td style={cell}>
+                  {member.phone
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Phone size={12} /> {member.phone}</span>
+                    : muted}
+                </td>
+
+                <td style={cell}>
+                  {t ? (
+                    <>
+                      <div>{employmentLabel(t.employment_type)}</div>
+                      <div style={sub}>
+                        {t.joined_at
+                          ? `Joined ${new Date(t.joined_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
+                          : 'Joining date not set'}
+                      </div>
+                    </>
+                  ) : member.isDesigner ? muted : (
+                    // Only a roster row can have employment terms -- StaffProfile's
+                    // FK points at Tailor -- so a designer is never "not set up".
+                    <span style={{ color: 'var(--text-muted)' }}
+                          title="No employment details yet — this person works exactly as before.">
+                      Not set up
+                    </span>
+                  )}
+                </td>
+
+                {showPay && (
+                  <td style={cell}>
+                    {t && showsPay(t) ? (
+                      <>
+                        <div>{money(t.hourly_rate)}<span style={{ color: 'var(--text-muted)' }}>/hr</span></div>
+                        <div style={sub}>
+                          {deposit
+                            ? (deposit.fully_recovered ? 'Deposit recovered' : `Deposit ${money(deposit.remaining)} left`)
+                            : `Deposit ${money(t.deposit_total)}`}
+                        </div>
+                      </>
+                    ) : muted}
+                  </td>
+                )}
+
+                {showPay && (
+                  <td style={cell}>
+                    {t && showsPay(t) ? (
+                      <>
+                        <div>{outstanding > 0 ? money(outstanding) : <span style={{ color: 'var(--text-muted)' }}>None</span>}</div>
+                        {outstanding > 0 && <div style={sub}>{advances.length} outstanding</div>}
+                      </>
+                    ) : muted}
+                  </td>
+                )}
 
                 {isOwner && (
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                    {/* One door: details, employment and documents are all
-                        behind it. Primary until employment is set up. */}
-                    <button
-                      type="button"
-                      className={`${t || member.isDesigner ? 'btn-secondary' : 'btn-primary'} at-btn-sm`}
-                      onClick={() => setPerson(member)}
-                      title="Edit details, employment and documents"
-                    >
-                      <Pencil size={14} /> Edit
-                    </button>
-                  </div>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                      {t && showsPay(t) && (
+                        <button type="button" className="btn-secondary at-btn-sm"
+                                onClick={() => setIssuingFor(member)} title="Issue an advance">
+                          <Plus size={14} /> Advance
+                        </button>
+                      )}
+                      {/* One door: details, employment and documents are all
+                          behind it. Primary until employment is set up. */}
+                      <button
+                        type="button"
+                        className={`${t || member.isDesigner ? 'btn-secondary' : 'btn-primary'} at-btn-sm`}
+                        onClick={() => setPerson(member)}
+                        title="Edit details, employment and documents"
+                      >
+                        <Pencil size={14} /> Edit
+                      </button>
+                      {hasDetail && (
+                        <button type="button" className="btn-secondary at-btn-sm"
+                                onClick={() => toggle(member.id)}
+                                aria-expanded={open}
+                                title={open ? 'Hide pay and advances' : 'Show pay and advances'}
+                                style={{ padding: '0 8px' }}>
+                          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 )}
-              </div>
+              </tr>
 
+              {hasDetail && open && (
+              <tr>
+              <td colSpan={cols} style={{ paddingTop: 0, background: 'var(--surface-2)' }}>
               {t && showsPay(t) && (
                 <div
                   className="mobile-stack-grid"
@@ -1177,23 +1270,17 @@ function Roster({ isOwner, canSeeTeam }) {
                 </div>
               )}
 
-              {t && !showsPay(t) && (
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '10px' }}>
-                  Employment set up. Pay details are visible to the boutique owner only.
-                </div>
+              </td>
+              </tr>
               )}
-
-              {/* Only a roster row can have employment terms -- StaffProfile's
-                  FK points at Tailor -- so telling a designer theirs are
-                  missing describes a state they can never leave. */}
-              {!t && !member.isDesigner && (
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '10px' }}>
-                  No employment details yet — this person works exactly as before.
-                </div>
-              )}
-            </div>
-          ))}
+            </Fragment>
+            );
+          })}
+            </tbody>
+          </table>
         </div>
+          );
+        })()
       )}
 
       {issuingFor && (
