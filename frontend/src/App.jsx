@@ -1587,6 +1587,11 @@ function App() {
   const [designLinks, setDesignLinks] = useState('');
   const [advancePaymentAmount, setAdvancePaymentAmount] = useState(0);
   const [specialInstructions, setSpecialInstructions] = useState('');
+  // A voice note recorded on the Measurements step: { url, by, at } once
+  // sent. Uploaded at once, carried on the draft, and set on the order as
+  // its instructions voice note at confirm -- so the tailor hears it wherever
+  // an order's voice note already plays.
+  const [measureVoiceNote, setMeasureVoiceNote] = useState(null);
 
   const [selectedFabric, setSelectedFabric] = useState(null);
   // Order-level money only. Everything garment-shaped -- base, fabric,
@@ -1912,6 +1917,9 @@ function App() {
       // for older readers of the draft.
       payment: { option: total > 0 && advance >= total ? 'full' : 'partial', advance },
       special_instructions: specialInstructions,
+      instructions_voice_note: measureVoiceNote?.url || '',
+      instructions_voice_note_by: measureVoiceNote?.by || '',
+      instructions_voice_note_at: measureVoiceNote?.at || null,
     };
   };
 
@@ -1983,6 +1991,9 @@ function App() {
                                  discount: prices.discount ?? 0 });
     if (payment.advance !== undefined) setAdvancePaymentAmount(payment.advance);
     setSpecialInstructions(payload.special_instructions || '');
+    setMeasureVoiceNote(payload.instructions_voice_note
+      ? { url: payload.instructions_voice_note, by: payload.instructions_voice_note_by || '', at: payload.instructions_voice_note_at || null }
+      : null);
     setWizardError(null);
     setDraftSaveState('idle');
     setGarmentErrors({});
@@ -2815,6 +2826,7 @@ function App() {
     setQuotePrices({ packaging: 500, discount: 0 });
     setAdvancePaymentAmount(0);
     setSpecialInstructions('');
+    setMeasureVoiceNote(null);
     setReadyBy(plusDaysIso(15));
     setDesignRequest({ designer: '', brief: '' });
     setAlterationForm(EMPTY_ALTERATION);
@@ -7361,6 +7373,24 @@ function App() {
                 {!needsMeasurements() && (
                   <div className="content-card wz-card od-hint">{t('wizard.nothingToMeasure', 'Nothing to measure for these garments.')}</div>
                 )}
+
+                {/* The same recorder the workflow's stage review uses: record,
+                    hear it back, Send keeps it under the sender's name, Delete
+                    throws it away. Sent here means uploaded and held on the
+                    draft; it lands on the order at confirm. */}
+                <div className="content-card wz-card">
+                  <Field label={t('wizard.measurementVoiceNote', 'Voice note for the tailor')}>
+                    <VoiceRecorder
+                      sent={measureVoiceNote}
+                      onSend={async (blob) => {
+                        const url = await api.uploadVoiceNote(blob);
+                        const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
+                        setMeasureVoiceNote({ url, by, at: new Date().toISOString() });
+                      }}
+                      onDelete={() => setMeasureVoiceNote(null)}
+                    />
+                  </Field>
+                </div>
               </>
             )}
 
