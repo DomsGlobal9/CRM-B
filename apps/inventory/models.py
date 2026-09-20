@@ -742,6 +742,70 @@ class OrderMaterialLine(models.Model):
         return f"{self.material_name} x{self.required_quantity} {self.unit}"
 
 
+class OrderPurchase(models.Model):
+    """Something a customer asked for that the boutique does not stock, bought
+    for that one order: the pink zari for this saree's pallu.
+
+    Not an InventoryItem -- nothing is reserved or deducted from stock, and
+    what arrives is this order's, traced from the shop receipt to the garment
+    it went into. Adding a leftover to general stock is a separate, explicit
+    act. The row is anchored to the garment and the template field it
+    answers (the saree's Work Materials), so two orders for the same customer
+    keep separate purchases.
+    """
+
+    class Status(models.TextChoices):
+        TO_PURCHASE = 'TO_PURCHASE', 'To purchase'
+        PURCHASED = 'PURCHASED', 'Purchased'
+        RECEIVED = 'RECEIVED', 'Received'
+        USED = 'USED', 'Used'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='purchases')
+    garment_job = models.ForeignKey(
+        'catalog.GarmentJob', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='purchases')
+    job_material = models.OneToOneField(
+        'catalog.JobMaterial', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='purchase')
+    field_key = models.CharField(max_length=60, blank=True, default='')
+    garment_name = models.CharField(max_length=150, blank=True, default='')
+    name = models.CharField(max_length=200)
+    notes = models.TextField(blank=True, default='')
+    quantity = models.DecimalField(
+        max_digits=12, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))])
+    unit = models.CharField(max_length=20, choices=Unit.choices, default=Unit.PIECE)
+    estimated_cost = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(Decimal('0'))])
+    actual_cost = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal('0'))])
+    supplier = models.ForeignKey(
+        Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='order_purchases')
+    invoice_reference = models.CharField(max_length=100, blank=True, default='')
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.TO_PURCHASE, db_index=True)
+    required_by = models.DateField(null=True, blank=True)
+    purchased_at = models.DateField(null=True, blank=True)
+    received_at = models.DateTimeField(null=True, blank=True)
+    received_quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    used_quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['required_by', 'created_at']
+
+    @property
+    def remaining_quantity(self):
+        return self.received_quantity - self.used_quantity
+
+    def __str__(self):
+        return f"{self.name} for {self.order.order_id} ({self.get_status_display()})"
+
+
 class CustomerMaterial(models.Model):
 
     class Kind(models.TextChoices):

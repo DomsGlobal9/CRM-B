@@ -1577,6 +1577,35 @@ def _collect_customer_materials(basket, template, job):
         entry['fields'].append(f"{template.name} · {line.field_key}")
 
 
+def _record_order_purchases(order, job, materials, user, purchases=()):
+    """Each 'buy for this order' line on the garment becomes a purchase to
+    make, anchored to that garment. `purchases` are the wizard's own rows
+    (the garment card's list); `materials` lines with source PURCHASE are the
+    per-field form. The cost and date live only on the draft line, so they
+    are read from the payload, not the JobMaterial."""
+    from apps.catalog.models import JobMaterial
+    from apps.inventory import order_materials
+
+    for raw in purchases:
+        if not isinstance(raw, dict) or not (raw.get('name') or '').strip():
+            continue
+        order_materials.create_order_purchase(
+            order, garment_job=job, name=raw['name'], quantity=raw.get('quantity') or 0,
+            field_key=(raw.get('field_key') or '')[:60],
+            unit=raw.get('unit') or 'METER', estimated_cost=raw.get('estimated_cost') or 0,
+            required_by=raw.get('required_by') or None, notes=raw.get('notes') or '', user=user)
+
+    extras = {m.get('field_key'): m for m in materials if isinstance(m, dict)}
+    for line in job.materials.filter(source=JobMaterial.Source.PURCHASE):
+        raw = extras.get(line.field_key) or {}
+        order_materials.create_order_purchase(
+            order, garment_job=job, job_material=line, field_key=line.field_key,
+            name=line.free_text or line.field_key, quantity=line.quantity or 0,
+            unit=line.unit or 'PIECE', estimated_cost=raw.get('estimated_cost') or 0,
+            required_by=raw.get('required_by') or None, notes=raw.get('notes') or line.notes or '',
+            user=user)
+
+
 def _receive_customer_materials(order, basket, user):
     from apps.inventory import order_materials
 
@@ -1899,6 +1928,8 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 job.selections = _selections_from_draft(garment, template)
                 job.save(update_fields=['selections'])
                 _collect_customer_materials(brought, template, job)
+                _record_order_purchases(order, job, garment.get('materials') or [],
+                                        request.user, garment.get('purchases') or [])
 
                 design = garment.get('design') or {}
                 # `items` is the old whole-design shortlist; `parts` is what the

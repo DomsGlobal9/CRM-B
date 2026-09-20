@@ -368,6 +368,7 @@ class OrderSerializer(serializers.ModelSerializer):
     activities = OrderActivitySerializer(many=True, read_only=True)
     garment_images = GarmentImageSerializer(many=True, read_only=True)
     garment_jobs = serializers.SerializerMethodField()
+    purchases = serializers.SerializerMethodField()
     garments = serializers.SerializerMethodField()
     garment_label = serializers.SerializerMethodField()
     order_status_display = serializers.SerializerMethodField()
@@ -391,7 +392,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'instructions_voice_note_by', 'instructions_voice_note_at',
             'master_verification', 'stage_histories', 'current_stage_key', 'production_status',
             'stages', 'activities', 'garment_images', 'garment_images_published',
-            'garment_jobs', 'invoice_template', 'flow',
+            'garment_jobs', 'purchases', 'invoice_template', 'flow',
         ]
         extra_kwargs = {
             'delivery_address': {'max_length': 500},
@@ -483,6 +484,10 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_garment_jobs(self, obj):
         from apps.catalog.serializers import GarmentJobSerializer
         return GarmentJobSerializer(obj.garment_jobs.all(), many=True).data
+
+    def get_purchases(self, obj):
+        from apps.inventory.serializers import OrderPurchaseSerializer
+        return OrderPurchaseSerializer(obj.purchases.all(), many=True).data
 
     def get_garments(self, obj):
         from domains.orders.garments import garment_names

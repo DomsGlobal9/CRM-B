@@ -482,6 +482,7 @@ const en = {
     recipes: "Garment needs",
     purchaseOrders: "Supplier orders",
     suppliers: "Suppliers",
+    orderPurchases: "To buy for orders",
     reports: "Reports",
     itemsTracked: "materials on the shelves",
     noMovement90Days: "Not touched in 90 days",

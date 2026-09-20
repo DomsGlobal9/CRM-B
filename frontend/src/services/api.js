@@ -1750,6 +1750,19 @@ Object.assign(api, {
   recordCustomerMaterial: (id, action, payload) =>
     inventoryPost(`customer-materials/${id}/${action}/`, payload),
 
+  // Things bought for one order (not stock). `step`: purchased | received | use | cancel.
+  getOrderPurchases: (params) => inventoryGet('order-purchases/', params),
+  createOrderPurchase: (payload) => inventoryPost('order-purchases/', payload),
+  updateOrderPurchase: async (id, payload) => {
+    const res = await guardedFetch(inventoryUrl(`order-purchases/${id}/`), {
+      method: 'PATCH', headers: getHeaders(), body: JSON.stringify(payload || {}),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(describeApiError(res, data));
+    return data;
+  },
+  stepOrderPurchase: (id, step, payload) => inventoryPost(`order-purchases/${id}/${step}/`, payload),
+
   // Reports
   getInventoryReport: (name, params) => inventoryGet(`reports/${name}/`, params),
 });
