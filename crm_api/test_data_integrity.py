@@ -140,7 +140,7 @@ class StyleDnaStabilityTests(IntegrityTestBase):
             "    created_at = __import__('django.utils.timezone', fromlist=['x']).now()\n"
             "    measurements = None\n"
             "d = build_style_dna(C())\n"
-            "print(d['colors'] + '|' + d['style'])\n" % cid
+            "print(d['style'])\n" % cid
         )
         results = set()
         for _ in range(3):

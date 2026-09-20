@@ -688,7 +688,7 @@ def run_production(page):
 
 TAILOR_STAGES = ["Stitching", "Stitching check"]
 MASTER_STAGES_LATE = ["Hemming & finishing", "Pressing", "Master quality check",
-                      "Trial booking", "Trial", "Delivery prep"]
+                      "Trial booking", "Trial", "Delivery prep", "Payment"]
 
 
 def advance(page, role, stages, folder, shots=()):

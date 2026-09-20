@@ -365,7 +365,7 @@ def ensure_plan(order, *, user=None):
 def sync_order_materials(order, stage_key, new_status, *, user=None):
     if new_status != 'COMPLETED':
         return None
-    if stage_key not in ('created', 'fabric_confirmed', 'stitching_completed', 'delivered'):
+    if stage_key not in ('created', 'fabric_confirmed', 'stitching_in_progress', 'delivered'):
         return None
 
     # 'created': the order is taken with its fabric chosen, so the materials
@@ -382,7 +382,8 @@ def sync_order_materials(order, stage_key, new_status, *, user=None):
 
     plan = live_plan(order)
 
-    if stage_key == 'stitching_completed':
+    # Stitching done: the fabric on the plan has been used.
+    if stage_key == 'stitching_in_progress':
         if plan is None:
             plan, _ = ensure_plan(order, user=user)
             if plan is None:
@@ -391,7 +392,7 @@ def sync_order_materials(order, stage_key, new_status, *, user=None):
     if plan is None:
         return None
 
-    if stage_key == 'stitching_completed':
+    if stage_key == 'stitching_in_progress':
         consumed, short = [], []
         for line in plan.lines.select_related('item', 'garment_job'):
             if line.is_customer_supplied or line.item is None:

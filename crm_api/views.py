@@ -515,7 +515,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     STATUS_TO_STAGE = {
         'Received': 'created',
-        'Design & Creation': 'stitching_completed',
+        'Design & Creation': 'stitching_in_progress',
         'Quality Check': 'master_quality_check',
         'Ready for Dispatch': 'ready_for_delivery',
         'Delivered': 'delivered',
@@ -765,7 +765,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         # A tailor's report is a submission, not a completion: the stitching
         # stage goes to the owner/Master for verification with the photo, and
         # only their verification settles it. A supervisor filing the report
-        # themselves still closes both stitching stages as before.
+        # themselves completes the stage outright.
         from core.roles import OWNER, resolve_user_role
         from core.permissions import SUPERVISOR_ROLES
         role = resolve_user_role(request.user)
@@ -773,7 +773,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             steps = (
                 ('stitching_in_progress', 'IN_PROGRESS'),
                 ('stitching_in_progress', 'COMPLETED'),
-                ('stitching_completed', 'COMPLETED'),
             )
         else:
             steps = (

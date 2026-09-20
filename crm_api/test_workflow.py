@@ -183,7 +183,7 @@ class RoleGatingTests(WorkflowTestBase):
 
     def test_master_can_run_quality_check(self):
         order = self.make_order()
-        self.complete(order, "stitching_completed", user=self.tailor_user)
+        self.complete(order, "stitching_in_progress", user=self.tailor_user)
         self.reach(order, "master_quality_check")
         OrderService.transition_order_stage(
             order=order, stage_key="master_quality_check",
@@ -211,7 +211,7 @@ class SequencingGuardTests(WorkflowTestBase):
 
     def test_can_deliver_once_quality_check_is_complete(self):
         order = self.make_order()
-        self.complete(order, "stitching_completed")
+        self.complete(order, "stitching_in_progress")
         self.complete(order, "master_quality_check")
         self.complete(order, "delivered")
         self.assertEqual(self.stage(order, "delivered").status, "COMPLETED")
@@ -225,12 +225,12 @@ class SequencingGuardTests(WorkflowTestBase):
             )
         self.assertIn("tailor", str(ctx.exception).lower())
 
-    def test_cannot_assign_tailor_without_measurements(self):
+    def test_cannot_start_stitching_without_measurements(self):
         customer = self.make_customer(mobile="9800000009", with_measurements=False)
         order = self.make_order(customer=customer)
-        self.reach(order, "assigned_to_tailor")
+        self.reach(order, "stitching_in_progress")
         with self.assertRaises(ValueError) as ctx:
-            self.step(order, "assigned_to_tailor")
+            self.step(order, "stitching_in_progress")
         self.assertIn("measurements", str(ctx.exception).lower())
 
     def test_cannot_schedule_trial_before_stitching_completes(self):
@@ -283,7 +283,7 @@ class StageBookkeepingTests(WorkflowTestBase):
 
     def test_quality_check_completion_moves_order_to_ready_for_dispatch(self):
         order = self.make_order()
-        self.complete(order, "stitching_completed")
+        self.complete(order, "stitching_in_progress")
         self.complete(order, "master_quality_check")
         order.refresh_from_db()
         self.assertEqual(order.order_status, "Ready for Dispatch")
@@ -349,13 +349,13 @@ class StaffAvailabilityTests(WorkflowTestBase):
         self.tailor.refresh_from_db()
         self.assertEqual(self.tailor.status, "Busy")
 
-        self.complete(order, "stitching_completed", user=self.tailor_user)
+        self.complete(order, "stitching_in_progress", user=self.tailor_user)
         self.tailor.refresh_from_db()
         self.assertEqual(self.tailor.status, "Available")
 
     def test_master_is_freed_on_delivery(self):
         order = self.make_order()
-        self.complete(order, "stitching_completed")
+        self.complete(order, "stitching_in_progress")
         self.complete(order, "master_quality_check")
         self.complete(order, "delivered")
         self.master.refresh_from_db()
@@ -510,7 +510,6 @@ class MasterJourneyTests(WorkflowTestBase):
         order = self.make_order()
 
         self.assertEqual(self._transition(order, "pattern_cutting").status_code, 200)
-        self.assertEqual(self._transition(order, "assigned_to_tailor").status_code, 200)
 
         blocked = self._transition(order, "stitching_in_progress", "IN_PROGRESS")
         self.assertEqual(blocked.status_code, 400)
@@ -520,18 +519,14 @@ class MasterJourneyTests(WorkflowTestBase):
         self.assertEqual(early.status_code, 400)
         self.assertIn("quality check", early.json()["error"].lower())
 
-        for stage_key in ["stitching_in_progress", "stitching_completed"]:
-            OrderService.transition_order_stage(
-                order=order, stage_key=stage_key,
-                new_status="COMPLETED", user=self.tailor_user,
-            )
+        self.step(order, "stitching_in_progress", user=self.tailor_user)
         for stage_key in ["master_quality_check", "trial_scheduled", "trial_completed",
-                          "ready_for_delivery", "delivered"]:
+                          "ready_for_delivery", "payment", "delivered"]:
             self.assertEqual(self._transition(order, stage_key).status_code, 200, stage_key)
 
         order.refresh_from_db()
         self.assertEqual(order.order_status, "Delivered")
-        self.assertEqual(order.stages.filter(status="COMPLETED").count(), 12)
+        self.assertEqual(order.stages.filter(status="COMPLETED").count(), 11)
 
     def test_master_work_is_attributed_to_them(self):
         order = self.make_order()
@@ -542,10 +537,7 @@ class MasterJourneyTests(WorkflowTestBase):
         order = self.make_order()
         self.master.status = "Busy"
         self.master.save()
-        OrderService.transition_order_stage(
-            order=order, stage_key="stitching_completed",
-            new_status="COMPLETED", user=self.tailor_user,
-        )
+        self.step(order, "stitching_in_progress", user=self.tailor_user)
         self._transition(order, "master_quality_check")
         self._transition(order, "delivered")
         self.master.refresh_from_db()
@@ -607,7 +599,7 @@ class TransitionEndpointTests(WorkflowTestBase):
             {"status": "Design & Creation"}, format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(self.stage(order, "stitching_completed").status, "COMPLETED")
+        self.assertEqual(self.stage(order, "stitching_in_progress").status, "COMPLETED")
 
     def test_update_status_confirmed_moves_no_stage(self):
         # Measurements and fabric are settled when the order is taken, so
@@ -635,7 +627,7 @@ class TransitionEndpointTests(WorkflowTestBase):
         order.refresh_from_db()
         self.assertEqual(order.order_status, "Delivered")
         self.assertEqual(self.stage(order, "delivered").status, "COMPLETED")
-        self.assertEqual(self.stage(order, "stitching_completed").status, "COMPLETED")
+        self.assertEqual(self.stage(order, "stitching_in_progress").status, "COMPLETED")
 
     def test_tailor_cannot_use_update_status_to_reach_a_master_stage(self):
         order = self.make_order()
@@ -768,7 +760,7 @@ class StatusDropdownTests(WorkflowTestBase):
         order = self.make_order(
             delivery_method="Courier", courier_service="BlueDart",
             tracking_number="BD123456789")
-        self.complete(order, "stitching_completed")
+        self.complete(order, "stitching_in_progress")
         self.complete(order, "master_quality_check")
 
         response = self._set(order, "Shipped")
@@ -893,7 +885,7 @@ class StaffAvailabilityAcrossOrdersTests(WorkflowTestBase):
         first = self.make_order()
         second = self.make_order(customer=self.make_customer(mobile="9800000041"))
 
-        self.complete(first, "stitching_completed", user=self.tailor_user)
+        self.complete(first, "stitching_in_progress", user=self.tailor_user)
 
         self.tailor.refresh_from_db()
         self.assertEqual(self.tailor.status, "Busy")
@@ -902,8 +894,8 @@ class StaffAvailabilityAcrossOrdersTests(WorkflowTestBase):
         first = self.make_order()
         second = self.make_order(customer=self.make_customer(mobile="9800000042"))
 
-        self.complete(first, "stitching_completed", user=self.tailor_user)
-        self.complete(second, "stitching_completed", user=self.tailor_user)
+        self.complete(first, "stitching_in_progress", user=self.tailor_user)
+        self.complete(second, "stitching_in_progress", user=self.tailor_user)
 
         self.tailor.refresh_from_db()
         self.assertEqual(self.tailor.status, "Available")
@@ -1014,7 +1006,7 @@ class MasterJourneyTests(WorkflowTestBase):
 
     def test_quality_check_passes_once_the_garment_is_stitched(self):
         order = self.make_order()
-        self.complete(order, "stitching_completed", user=self.tailor_user)
+        self.complete(order, "stitching_in_progress", user=self.tailor_user)
 
         self.complete(order, "master_quality_check", user=self.master_user)
 
@@ -1022,7 +1014,7 @@ class MasterJourneyTests(WorkflowTestBase):
 
     def test_a_skipped_stitching_stage_still_allows_quality_check(self):
         order = self.make_order()
-        stage = self.stage(order, "stitching_completed")
+        stage = self.stage(order, "stitching_in_progress")
         stage.status = "SKIPPED"
         stage.save()
 
@@ -1033,20 +1025,20 @@ class MasterJourneyTests(WorkflowTestBase):
     def test_a_master_can_do_the_stitching_too(self):
         # The generalist in a small boutique stitches as well as supervises.
         order = self.make_order()
-        self.reach(order, "stitching_completed")
+        self.reach(order, "stitching_in_progress")
 
-        self.complete(order, "stitching_completed", user=self.master_user)
+        self.complete(order, "stitching_in_progress", user=self.master_user)
 
-        self.assertEqual(self.stage(order, "stitching_completed").status, "COMPLETED")
+        self.assertEqual(self.stage(order, "stitching_in_progress").status, "COMPLETED")
 
     def test_a_master_can_take_a_stitched_garment_all_the_way_to_delivered(self):
 
         order = self.make_order()
-        self.complete(order, "stitching_completed", user=self.tailor_user)
+        self.complete(order, "stitching_in_progress", user=self.tailor_user)
 
         for key in ["finishing", "pressing", "master_quality_check",
                     "trial_scheduled", "trial_completed", "ready_for_delivery",
-                    "delivered"]:
+                    "payment", "delivered"]:
             self.complete(order, key, user=self.master_user)
 
         order.refresh_from_db()
@@ -1182,7 +1174,7 @@ class AssignStageTests(WorkflowTestBase):
 
         self._client_for(self.master_user).post(
             reverse("order-assign-stage", args=[order.id]),
-            {'stage_key': 'stitching_completed', 'tailor_id': self.tailor.id}, format='json')
+            {'stage_key': 'stitching_in_progress', 'tailor_id': self.tailor.id}, format='json')
 
         self.assertEqual(Notification.objects.count(), before + 1)
         self.assertTrue(order.activities.filter(event_type='ASSIGNMENT').exists())
@@ -1203,7 +1195,7 @@ class AssignStageTests(WorkflowTestBase):
 
         response = self._client_for(self.master_user).post(
             reverse("order-assign-stage", args=[order.id]),
-            {'stage_key': 'stitching_completed', 'tailor_id': 'not-a-number'}, format='json')
+            {'stage_key': 'stitching_in_progress', 'tailor_id': 'not-a-number'}, format='json')
 
         self.assertEqual(response.status_code, 400)
 
@@ -1212,7 +1204,7 @@ class AssignStageTests(WorkflowTestBase):
 
         response = self._client_for(self.tailor_user).post(
             reverse("order-assign-stage", args=[order.id]),
-            {'stage_key': 'stitching_completed', 'tailor_id': self.tailor.id}, format='json')
+            {'stage_key': 'stitching_in_progress', 'tailor_id': self.tailor.id}, format='json')
 
         self.assertEqual(response.status_code, 403)
 
@@ -1270,7 +1262,7 @@ class UpdateStatusAuthorityTests(WorkflowTestBase):
 
         self.assertEqual(response.status_code, 400, response.data)
         self.assertIn("photo", response.data["error"])
-        self.assertNotEqual(self.stage(order, "stitching_completed").status, "COMPLETED")
+        self.assertNotEqual(self.stage(order, "stitching_in_progress").status, "COMPLETED")
 
 
 class VerificationTests(WorkflowTestBase):
@@ -1516,8 +1508,7 @@ class DeliveryGateTests(WorkflowTestBase):
 
     def _order_at_delivery(self):
         order = self.make_order()
-        for key in ('created', 'pattern_cutting', 'assigned_to_tailor',
-                    'stitching_in_progress', 'stitching_completed'):
+        for key in ('created', 'pattern_cutting', 'stitching_in_progress'):
             stage = order.stages.filter(stage_key=key).first()
             if stage:
                 self.complete(order, key)
@@ -1616,15 +1607,15 @@ class SareeMeasurementTests(WorkflowTestBase):
             measurements={'petticoat_length': 40, 'petticoat_waist': 30},
         )
         self.complete(order, 'created')
-        self.complete(order, 'assigned_to_tailor')
-        self.assertEqual(self.stage(order, 'assigned_to_tailor').status, 'COMPLETED')
+        self.complete(order, 'stitching_in_progress')
+        self.assertEqual(self.stage(order, 'stitching_in_progress').status, 'COMPLETED')
 
     def test_an_order_with_nothing_measured_anywhere_is_still_refused(self):
         customer = self.make_customer(mobile="9800000078", with_measurements=False)
         order = self.make_order(customer=customer)
-        self.reach(order, 'assigned_to_tailor')
+        self.reach(order, 'stitching_in_progress')
         with self.assertRaises(ValueError):
-            self.step(order, 'assigned_to_tailor')
+            self.step(order, 'stitching_in_progress')
 
 
 class CustomerSpendAggregateTests(WorkflowTestBase):
@@ -1830,21 +1821,21 @@ class ReversalTests(WorkflowTestBase):
 
     def test_reopening_an_earlier_stage_resets_the_later_work(self):
         order = self.make_order()
-        self.complete(order, "assigned_to_tailor")
+        self.complete(order, "stitching_in_progress")
         self.reopen(order, "pattern_cutting")
         self.assertEqual(
             self.stage(order, "pattern_cutting").status, "IN_PROGRESS")
-        # The handover was made on cutting that is now unfinished, so it goes
+        # The stitching was done on cutting that is now unfinished, so it goes
         # back to the starting line -- and the record says so.
-        handover = self.stage(order, "assigned_to_tailor")
-        self.assertEqual(handover.status, "NOT_STARTED")
-        self.assertIsNone(handover.completed_at)
+        stitching = self.stage(order, "stitching_in_progress")
+        self.assertEqual(stitching.status, "NOT_STARTED")
+        self.assertIsNone(stitching.completed_at)
         order.refresh_from_db()
         self.assertEqual(order.current_stage_key, "pattern_cutting")
         from crm_api.models import OrderActivity
         event = OrderActivity.objects.filter(
             order=order, event_type="STAGE_REOPENED").latest("timestamp")
-        self.assertEqual(event.metadata["reset_stages"], ["assigned_to_tailor"])
+        self.assertEqual(event.metadata["reset_stages"], ["stitching_in_progress"])
 
     def test_reopen_drops_client_status_to_what_remains_true(self):
         order = self.make_order()
@@ -1857,7 +1848,7 @@ class ReversalTests(WorkflowTestBase):
 
     def test_reopened_skipped_stage_returns_to_not_started(self):
         order = self.make_legacy_order()
-        self.reach(order, "assigned_to_tailor")
+        self.reach(order, "stitching_in_progress")
         self.assertEqual(self.stage(order, "maggam_work").status, "SKIPPED")
         self.reopen(order, "maggam_work")
         self.assertEqual(self.stage(order, "maggam_work").status, "NOT_STARTED")
@@ -1872,8 +1863,6 @@ class ReversalTests(WorkflowTestBase):
         self.fail_qc(order)
         self.assertEqual(
             self.stage(order, "stitching_in_progress").status, "IN_PROGRESS")
-        self.assertEqual(
-            self.stage(order, "stitching_completed").status, "NOT_STARTED")
         self.assertEqual(self.stage(order, "finishing").status, "NOT_STARTED")
         self.assertEqual(self.stage(order, "pressing").status, "NOT_STARTED")
         qc = self.stage(order, "master_quality_check")
@@ -2042,7 +2031,7 @@ class ReversalTests(WorkflowTestBase):
         """The /transition/ route cannot reverse a settled stage -- not even for
         the owner. That door is reopen-stage, which demands a reason."""
         order = self.make_legacy_order()
-        self.reach(order, "assigned_to_tailor")
+        self.reach(order, "stitching_in_progress")
         self.assertEqual(self.stage(order, "maggam_work").status, "SKIPPED")
         from domains.orders.workflow import TransitionError
         for actor in (self.owner, self.master_user, self.tailor_user):
@@ -2093,8 +2082,7 @@ class FlowTests(WorkflowTestBase):
         order = self.make_order(flow="maggam")
         keys = self.keys(order)
         self.assertNotIn("pattern_cutting", keys)
-        expected = ["created", "pattern_cutting", "pattern_cutting",
-                    *self.MAGGAM_ONLY, "assigned_to_tailor"]
+        expected = ["created", *self.MAGGAM_ONLY, "stitching_in_progress"]
         self.assertEqual(keys[:len(expected)], expected)
         # Fabric cutting waits on the verification, which waits on the work.
         self.reach(order, "maggam_work")
@@ -2163,8 +2151,8 @@ class FlowTests(WorkflowTestBase):
         order = self.make_legacy_order()
         config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
         mine = workflow.for_order(config, order)
-        self.assertEqual([s["key"] for s in mine][3:6],
-                         ["pattern_cutting", "maggam_work", "assigned_to_tailor"])
+        self.assertEqual([s["key"] for s in mine][1:4],
+                         ["pattern_cutting", "maggam_work", "stitching_in_progress"])
         self.assertTrue(next(s for s in mine if s["key"] == "maggam_work").get("optional"))
         self.reach(order, "maggam_work")
         self.step(order, "maggam_work", status="SKIPPED")

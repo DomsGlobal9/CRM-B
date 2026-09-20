@@ -78,7 +78,7 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
             msg_template = 'measurement_completed'
             cust_msg = f"Your measurements for order {order.reference} have been completed successfully! Our studio is now proceeding with crafting your outfit."
         # Step 2: Product ready (stitching completed / quality check)
-        elif s_key in ('stitching_completed', 'master_quality_check') or s_name in ('stitching completed', 'master quality check'):
+        elif s_key in ('stitching_in_progress', 'master_quality_check') or s_name in ('stitching', 'master quality check'):
             msg_template = 'product_ready'
             cust_msg = f"Your outfit for order {order.reference} is ready! Stitching and quality inspection are completed."
         # Step 3: TryOn step (trial scheduled / completed)

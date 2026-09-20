@@ -525,18 +525,27 @@ def get_default_workflow():
         {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar"], "flows": ["maggam"]},
         {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"]},
         {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
-        {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},
+        # No Handover stage: whoever stitches -- owner, Master or the assigned
+        # tailor -- is already named on the order or the stage, so a step
+        # that only said "hand it to them" was a click and nothing else.
         # The Master is on both stitching stages: the generalist in a small
         # boutique stitches as well as supervises, and the assign picker
         # reads this list, so leaving them off hid them from it.
         {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Master", "Tailor"]},
-        {"key": "stitching_completed", "name": "Stitching check", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},
+        # No separate Stitching check either: a tailor's completion already
+        # goes to the owner/Master as PENDING_VERIFICATION, and their sign-off
+        # completes Stitching. Fabric is consumed and the customer status
+        # moves to Quality Check when Stitching completes.
         {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"]},
         {"key": "master_quality_check", "name": "Master quality check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"]},
         {"key": "trial_scheduled", "name": "Trial booking", "sla_hours": 48, "roles": ["Owner", "Master"]},
         {"key": "trial_completed", "name": "Trial", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "ready_for_delivery", "name": "Delivery prep", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        # Money before handover. Not a rule the server enforces: the owner may
+        # complete it on a partial payment (the balance is chased at Delivery)
+        # after the screen asks them to say so.
+        {"key": "payment", "name": "Payment", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "delivered", "name": "Delivery", "sla_hours": 12, "roles": ["Owner", "Master"]}
     ]
 

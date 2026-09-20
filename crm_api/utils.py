@@ -227,13 +227,12 @@ def seed_tenant_defaults(demo=True):
         stages_config = [
             {"key": "created", "name": "Order taken", "sla": 24},
             {"key": "pattern_cutting", "name": "Pattern cutting", "sla": 48},
-            {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla": 24},
             {"key": "stitching_in_progress", "name": "Stitching", "sla": 72},
-            {"key": "stitching_completed", "name": "Stitching check", "sla": 24},
             {"key": "master_quality_check", "name": "Master quality check", "sla": 24},
             {"key": "trial_scheduled", "name": "Trial booking", "sla": 48},
             {"key": "trial_completed", "name": "Trial", "sla": 24},
             {"key": "ready_for_delivery", "name": "Delivery prep", "sla": 24},
+            {"key": "payment", "name": "Payment", "sla": 24},
             {"key": "delivered", "name": "Delivery", "sla": 24},
         ]
 

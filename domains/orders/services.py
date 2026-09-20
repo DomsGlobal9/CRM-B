@@ -54,7 +54,7 @@ def refresh_staff_availability(*staff):
 
         live = Order.objects.exclude(order_status__in=_SETTLED_ORDER_STATUSES)
         finished = OrderStage.objects.filter(
-            stage_key='stitching_completed', status='COMPLETED',
+            stage_key='stitching_in_progress', status='COMPLETED',
         ).values('order_id')
         stitching = live.filter(tailor=person).exclude(pk__in=finished).exists()
         supervising = live.filter(master=person).exists()
@@ -262,7 +262,7 @@ class OrderService:
         # One task per workroom stage the order has, named for the stage, so
         # a maggam order's task list is the maggam path and a plain one's is
         # not padded with embroidery it will never do.
-        tailor_stages = {'stitching_in_progress', 'stitching_completed', 'finishing'}
+        tailor_stages = {'stitching_in_progress', 'finishing'}
         tasks_to_create = [
             ProductionTask(
                 order=order, title=s_conf['name'], stage_key=s_conf['key'],
@@ -272,7 +272,7 @@ class OrderService:
                          else 'HIGH' if s_conf['key'] in ('pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
                          else 'MEDIUM')
             for index, s_conf in enumerate(workflow_stages, start=1)
-            if s_conf['key'] not in ('created', 'delivered')
+            if s_conf['key'] not in ('created', 'payment', 'delivered')
         ]
         ProductionTask.objects.bulk_create(tasks_to_create)
 
@@ -521,15 +521,14 @@ class OrderService:
             'maggam_handwork': 'Design & Creation',
             'maggam_verification': 'Design & Creation',
             'fabric_cutting': 'Design & Creation',
-            'assigned_to_tailor': 'Design & Creation',
-            'stitching_in_progress': 'Design & Creation',
-            'stitching_completed': 'Quality Check',
+            'stitching_in_progress': 'Quality Check' if new_status == 'COMPLETED' else 'Design & Creation',
             'finishing': 'Quality Check',
             'pressing': 'Quality Check',
             'master_quality_check': 'Ready for Dispatch' if new_status == 'COMPLETED' else 'Quality Check',
             'trial_scheduled': 'Ready for Dispatch',
             'trial_completed': 'Ready for Dispatch',
             'ready_for_delivery': 'Ready for Dispatch',
+            'payment': 'Ready for Dispatch',
             'delivered': 'Delivered' if new_status == 'COMPLETED' else order.order_status,
         }
         previous_order_status = order.order_status
@@ -565,7 +564,7 @@ class OrderService:
             }
         )
 
-        if stage_key in ('stitching_in_progress', 'stitching_completed', 'delivered'):
+        if stage_key in ('stitching_in_progress', 'delivered'):
             refresh_staff_availability(order.tailor, order.master)
 
         from domains.orders.notifications import notify_verification
@@ -626,15 +625,14 @@ CLIENT_STATUS_WHEN_SETTLED = {
     'maggam_handwork': 'Design & Creation',
     'maggam_verification': 'Design & Creation',
     'fabric_cutting': 'Design & Creation',
-    'assigned_to_tailor': 'Design & Creation',
-    'stitching_in_progress': 'Design & Creation',
-    'stitching_completed': 'Quality Check',
+    'stitching_in_progress': 'Quality Check',
     'finishing': 'Quality Check',
     'pressing': 'Quality Check',
     'master_quality_check': 'Ready for Dispatch',
     'trial_scheduled': 'Ready for Dispatch',
     'trial_completed': 'Ready for Dispatch',
     'ready_for_delivery': 'Ready for Dispatch',
+    'payment': 'Ready for Dispatch',
     'delivered': 'Delivered',
 }
 
@@ -764,7 +762,7 @@ def fail_quality_check(order, user, reason, request=None):
             'This quality check has already passed. Reopen it first if that '
             'was a mistake.')
     stitching_settled = order.stages.filter(
-        stage_key='stitching_completed',
+        stage_key='stitching_in_progress',
         status__in=workflow.SETTLED_STATUSES).exists()
     if not stitching_settled:
         raise workflow.TransitionError(
@@ -854,7 +852,7 @@ def set_order_flow(order, flow, user):
             OrderStage.objects.create(
                 order=order, stage_key=s_conf['key'], stage_name=s_conf['name'],
                 status='NOT_STARTED', sequence=index, sla_hours=s_conf.get('sla_hours', 24))
-            if s_conf['key'] not in ('created', 'delivered'):
+            if s_conf['key'] not in ('created', 'payment', 'delivered'):
                 ProductionTask.objects.create(
                     order=order, title=s_conf['name'], stage_key=s_conf['key'],
                     assigned_to=order.master or order.tailor, sequence=index + 1, priority='MEDIUM')
