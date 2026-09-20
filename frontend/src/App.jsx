@@ -52,7 +52,6 @@ import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
 import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
-import { groupGarmentJobs } from './features/catalog/garmentGroups';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceClipPreview, VoiceRecorder } from './components/ui/VoiceTextarea';
 
@@ -6902,7 +6901,10 @@ function App() {
                 </div>
 
                 <div className="content-card wz-card">
-                  <DressesDropdown
+                  {/* Picks the first garment only. Once one is on the order the
+                      next is added from the prompt under the last section, so
+                      garments are filled in one after another, not all at once. */}
+                  {garmentJobs.length === 0 && <DressesDropdown
                     title={t('wizard.dressesInOrder', 'Dresses in this Order')}
                     subtitle={t('wizard.dressesSubtitle', 'Pick every garment being made.')}
                     garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
@@ -6912,27 +6914,19 @@ function App() {
                     loadGarmentTemplates={loadGarmentTemplates}
                     addGarment={addGarment}
                     removeGarment={removeGarment}
-                  />
+                  />}
 
                   {garmentJobs.length > 1 && (() => {
                     const openKey = garmentJobs.some(j => j.key === activeGarmentKey) ? activeGarmentKey : garmentJobs[0].key;
-                    const groups = groupGarmentJobs(garmentJobs);
                     return (
                       <div style={{ marginTop: '16px' }}>
                         {/* The same stepper the wizard draws across the top, one
                             circle per garment: a tick once every required
                             question this step asks is answered -- the same
                             check Next runs -- the open one filled, the rest
-                            numbered. Clicking a circle opens that garment.
-                            One row per primary garment, its paired pieces
-                            beside it. */}
-                        {groups.map((group) => (
-                        <div key={group.primary.key}>
-                        {groups.length > 1 && (
-                          <div className="stat-label" style={{ padding: '8px 12px 0' }}>{group.primary.template?.name || group.primary.key}</div>
-                        )}
+                            numbered. Clicking a circle scrolls to that garment. */}
                         <div className="stepper-progress-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px 0' }}>
-                          {group.jobs.map((job, idx) => {
+                          {garmentJobs.map((job, idx) => {
                             const valid = Object.keys(validateSpec(job.template, job.values, { sections: ['basic', 'style'] })).length === 0;
                             const isActive = job.key === openKey;
                             // Answered by hand: at least one of this step's own questions
@@ -6951,13 +6945,18 @@ function App() {
                               }));
                             const complete = valid && touched && !isActive;
                             const missing = !valid && Boolean(garmentErrors[job.key]);
+                            // Sections are stacked below, so a circle scrolls to its garment.
+                            const goTo = () => {
+                              setActiveGarmentKey(job.key);
+                              document.getElementById(`wz-garment-${job.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            };
                             return (
                               <React.Fragment key={job.key}>
                                 <div className="stepper-step stepper-step--link" role="button" tabIndex={0}
                                      aria-current={isActive ? 'step' : undefined}
                                      title={`Go to ${job.template?.name || job.key}`}
-                                     onClick={() => setActiveGarmentKey(job.key)}
-                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveGarmentKey(job.key); } }}
+                                     onClick={goTo}
+                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(); } }}
                                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, position: 'relative', zIndex: 2, cursor: 'pointer' }}>
                                   <div style={{
                                     width: '28px', height: '28px', borderRadius: '50%',
@@ -6976,7 +6975,7 @@ function App() {
                                     {complete ? t('wizard.completed', 'Done') : missing ? t('wizard.garmentMissing', 'Something missing') : isActive ? t('wizard.garmentNow', 'Fill in now') : t('wizard.garmentNext', 'Up next')}
                                   </span>
                                 </div>
-                                {idx < group.jobs.length - 1 && (
+                                {idx < garmentJobs.length - 1 && (
                                   <div style={{ display: 'flex', alignItems: 'center', flex: 1, margin: '0 -20px', transform: 'translateY(-20px)', zIndex: 1, color: complete ? 'var(--primary-color)' : 'var(--border-color)' }}>
                                     <div style={{ height: '2px', flex: 1, backgroundColor: 'currentColor' }}></div>
                                     <ArrowRight size={16} style={{ marginLeft: '-4px', flexShrink: 0 }} />
@@ -6986,14 +6985,10 @@ function App() {
                             );
                           })}
                         </div>
-                        </div>
-                        ))}
                       </div>
                     );
                   })()}
                   {garmentJobs.map((job, idx) => {
-                    const openKey = garmentJobs.some(j => j.key === activeGarmentKey) ? activeGarmentKey : garmentJobs[0]?.key;
-                    if (job.key !== openKey) return null;
                     const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
                     // Ready by (the Money screen) owns the delivery date; asking it
                     // per garment here would only be overwritten. Fields a rule
@@ -7002,7 +6997,7 @@ function App() {
                     const foldedAway = (f) => f.key !== 'delivery_date' && !f.is_required && !f.visible_when;
                     const hasOptional = sections.some((k) => (job.template.sections.find((sec) => sec.key === k)?.fields || []).some((f) => foldedAway(f) && f.field_type !== 'file'));
                     return (
-                      <div key={job.key} className="wz-garment">
+                      <div key={job.key} id={`wz-garment-${job.key}`} className="wz-garment">
                         <div className="wz-garment-head">
                           <span className="wz-garment-num">{idx + 1}</span>
                           <div>
@@ -7142,6 +7137,27 @@ function App() {
                                                onReferencesChange={(next) => handlePartReferences(job.key, next)} />
                           </Suspense>
                         </details>
+
+                        {/* Sections stack one under another, so the prompt to
+                            add the next garment sits after the last one. Same
+                            list and same addGarment as the dropdown above; the
+                            new garment renders right below this. */}
+                        {idx === garmentJobs.length - 1 && (
+                          <details className="wz-more">
+                            <summary><Plus size={14} /> {t('wizard.addAnotherGarment', 'Do you need to add another garment?')}</summary>
+                            <select className="form-control" value="" disabled={!!addingGarmentKey} style={{ marginTop: '8px' }}
+                                    onChange={(e) => {
+                                      if (!e.target.value) return;
+                                      e.target.closest('details').open = false;
+                                      addGarment(e.target.value);
+                                    }}>
+                              <option value="">{addingGarmentKey ? t('common.loading', 'Loading…') : t('wizard.selectGarment', 'Select Garment')}</option>
+                              {garmentsForGender(garmentTemplates, customerForm.gender)
+                                .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key))
+                                .map((tpl) => <option key={tpl.key} value={tpl.key}>{tpl.name}</option>)}
+                            </select>
+                          </details>
+                        )}
                       </div>
                     );
                   })}
