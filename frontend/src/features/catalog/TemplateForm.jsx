@@ -47,6 +47,10 @@ function useInventoryOptions(categories) {
   return byCategory;
 }
 
+// How a template field's unit reads on its label; the stored value ('in') is
+// what validation and the summary keep using.
+const UNIT_NAMES = { in: 'Inches' };
+
 // Mirrors Unit and DEFAULT_UNIT_BY_CATEGORY in apps/inventory/models.py. A
 // customer's own cloth has no stock row to read a unit off, so the form has to
 // offer the same vocabulary the ledger stores.
@@ -344,7 +348,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
     <div className="form-group">
       <label className="form-label" htmlFor={`tf-${field.key}`}>
         {field.label}
-        {field.unit ? ` (${field.unit})` : ''}
+        {field.unit ? ` (${UNIT_NAMES[field.unit] || field.unit})` : ''}
         {field.is_required && <span className="required"> *</span>}
       </label>
       {control}
