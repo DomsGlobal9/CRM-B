@@ -88,7 +88,9 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
         # Step 4: Ready for Delivery section
         elif s_key in ('ready_for_delivery', 'ready_for_dispatch') or s_name == 'ready for delivery' or status == 'Ready for Dispatch':
             msg_template = 'ready_for_delivery'
-            passed_qc = order.stages.filter(stage_key='master_quality_check', status='COMPLETED').exists()
+            passed_qc = (order.stages.filter(stage_key='master_quality_check').exists()
+                         and not order.stages.filter(stage_key='master_quality_check')
+                         .exclude(status='COMPLETED').exists())
             if passed_qc:
                 cust_msg = f"Your garment for order {order.reference} has passed quality checks and is Ready for Delivery!"
             else:
@@ -173,7 +175,7 @@ def notify_next_stage_owners(order):
 
     from domains.orders import workflow
     config, _ = BoutiqueSettings.objects.get_or_create(id=1)
-    settled = dict(order.stages.values_list('stage_key', 'status'))
+    settled = workflow.rollup(order)
 
     live = next(
         (s for s in workflow.for_order(config.workflow_config, order)

@@ -356,6 +356,14 @@ class Order(models.Model):
 
 class OrderStage(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='stages')
+    # The garment this row tracks, for a workroom stage (`scope: garment` in
+    # the workflow): a saree, its blouse and its petticoat are each cut and
+    # stitched, so each has its own Cutting and Stitching. Null on an
+    # order-level stage (Order taken, Trial, Delivery...), and on a workroom
+    # stage of an order that has no garment jobs at all.
+    garment_job = models.ForeignKey(
+        'catalog.GarmentJob', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='stages')
     stage_key = models.CharField(max_length=100)
     stage_name = models.CharField(max_length=100)
     status = models.CharField(max_length=50, default="NOT_STARTED") # NOT_STARTED, IN_PROGRESS, COMPLETED, SKIPPED
@@ -392,7 +400,7 @@ class OrderStage(models.Model):
     sla_hours = models.IntegerField(default=24)
 
     class Meta:
-        ordering = ['sequence']
+        ordering = ['sequence', 'garment_job__sequence', 'id']
 
     def __str__(self):
         return f"{self.order.order_id} - {self.stage_name} ({self.status})"
@@ -513,32 +521,35 @@ def get_default_workflow():
         # The two paths through the workroom part here. A stage with `flows`
         # is only on the orders of those flows; one without is on every order.
         # Plain stitching: cut, then stitch.
-        {"key": "pattern_cutting", "name": "Cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["stitching"]},
+        # `scope: garment`: one row of this stage per garment on the order --
+        # the saree and its blouse are cut and stitched separately. A stage
+        # without it is one row for the whole order.
+        {"key": "pattern_cutting", "name": "Cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["stitching"], "scope": "garment"},
         # Maggam: paper pattern for the embroiderer, the work (handed to the
         # maggam master from its own stage panel), the Master's sign-off on
         # it, and only then the fabric is cut.
-        {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
-        {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar"], "flows": ["maggam"]},
+        {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
+        {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar"], "flows": ["maggam"], "scope": "garment"},
         # The Maggam Karigar picks up once the design is finished: the frame
         # work is its own stage so it cannot start before the master's design
         # is settled, and the Master's sign-off below sees the finished work.
-        {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar"], "flows": ["maggam"]},
-        {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"]},
-        {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"]},
+        {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar"], "flows": ["maggam"], "scope": "garment"},
+        {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"], "scope": "garment"},
+        {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
         # No Handover stage: whoever stitches -- owner, Master or the assigned
         # tailor -- is already named on the order or the stage, so a step
         # that only said "hand it to them" was a click and nothing else.
         # The Master is on both stitching stages: the generalist in a small
         # boutique stitches as well as supervises, and the assign picker
         # reads this list, so leaving them off hid them from it.
-        {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Master", "Tailor"]},
+        {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Master", "Tailor"], "scope": "garment"},
         # No separate Stitching check either: a tailor's completion already
         # goes to the owner/Master as PENDING_VERIFICATION, and their sign-off
         # completes Stitching. Fabric is consumed and the customer status
         # moves to Quality Check when Stitching completes.
-        {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"]},
-        {"key": "master_quality_check", "name": "Master quality check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"]},
+        {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master"], "scope": "garment"},
+        {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"], "scope": "garment"},
+        {"key": "master_quality_check", "name": "Master quality check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"], "scope": "garment"},
         {"key": "trial_scheduled", "name": "Trial booking", "sla_hours": 48, "roles": ["Owner", "Master"]},
         {"key": "trial_completed", "name": "Trial", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "ready_for_delivery", "name": "Delivery prep", "sla_hours": 24, "roles": ["Owner", "Master"]},

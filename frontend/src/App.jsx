@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown, Mic, Hand } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { inventoryImage } from './services/inventoryImages';
@@ -243,15 +243,6 @@ const STEP_STATE = (status) =>
     : 'next';
 const STEP_LABEL = { done: 'Completed', live: 'In progress', next: 'Not started' };
 const STEP_TONE = { done: 'success', live: 'info', next: 'neutral' };
-
-/** One icon per workroom step, keyed by the workflow's stage_key. */
-const STAGE_ICONS = {
-  created: FileText, measurements_completed: Ruler, fabric_confirmed: Layers, pattern_cutting: Scissors,
-  paper_cutting: FileText, maggam_work: PenTool, maggam_handwork: Hand, maggam_verification: ShieldCheck,
-  fabric_cutting: Scissors, stitching_in_progress: Shirt,
-  finishing: Sparkles, pressing: Flame, master_quality_check: ShieldCheck, trial_scheduled: CalendarClock,
-  trial_completed: UserCheck, ready_for_delivery: PackageCheck, payment: IndianRupee, delivered: Truck,
-};
 
 /**
  * A stored mobile number, written the way its owner would recognise it.
@@ -661,31 +652,104 @@ function GarmentGallery({ order, onChanged }) {
 // person is not pointed at their own note.
 const anyVoiceNote = (stage) => Boolean(stage.voice_note);
 
+/** One status per stage key across its rows: a per-garment stage is done
+ *  once every garment's row is, live while any has begun. The order-level
+ *  view the header counts and the kanban use. */
+const rollupStages = (stages) => {
+  const out = [];
+  const seen = new Map();
+  (stages || []).forEach((s) => {
+    const cur = seen.get(s.stage_key);
+    if (!cur) { const row = { ...s, garment_job: null, garment_name: null }; seen.set(s.stage_key, row); out.push(row); return; }
+    const a = STEP_STATE(cur.status), b = STEP_STATE(s.status);
+    if (a === 'done' && b !== 'done') cur.status = b === 'live' ? s.status : 'IN_PROGRESS';
+    else if (a === 'next' && b !== 'next') cur.status = 'IN_PROGRESS';
+    else if (a === 'done' && b === 'done' && s.completed_at && (!cur.completed_at || s.completed_at > cur.completed_at)) cur.completed_at = s.completed_at;
+  });
+  return out;
+};
+
+/** The journey in plain parts: the order-level steps before the workroom,
+ *  one garment per card for the per-garment steps, then the order-level
+ *  steps after. A stage with no garment on an order with no garment rows
+ *  (an older order) goes in the head, so it still reads top to bottom. */
+const stageLanes = (stages) => {
+  const rows = stages || [];
+  const garments = [];
+  rows.forEach((s) => {
+    if (!s.garment_job) return;
+    let lane = garments.find((l) => l.key === s.garment_job);
+    if (!lane) { lane = { key: s.garment_job, label: s.garment_name || 'Garment', stages: [] }; garments.push(lane); }
+    lane.stages.push(s);
+  });
+  const shared = rows.filter((s) => !s.garment_job);
+  if (!garments.length) return { head: shared, garments, tail: [] };
+  const firstSeq = Math.min(...garments.map((l) => l.stages[0].sequence));
+  return {
+    head: shared.filter((s) => s.sequence < firstSeq),
+    garments,
+    tail: shared.filter((s) => s.sequence >= firstSeq),
+  };
+};
+
+const isSettled = (s) => s.status === 'COMPLETED' || s.status === 'SKIPPED';
+const isLive = (s) => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(s.status);
+/** The one row to do now: the one in hand, else the first not yet done. */
+const currentRow = (rows) => rows.find(isLive) || rows.find((s) => !isSettled(s)) || null;
+
+/** One task line: a plain mark, the name, and what state it is in, in words. */
+function JourneyTask({ stage, current, onSelect, hasVoiceNote }) {
+  const { t } = useLanguage();
+  const done = isSettled(stage);
+  const live = isLive(stage);
+  const words = stage.status === 'COMPLETED' ? t('ordersPage.taskDone', 'Completed')
+    : stage.status === 'SKIPPED' ? t('ordersPage.taskSkipped', 'Skipped')
+    : stage.status === 'PENDING_VERIFICATION' ? t('ordersPage.taskWaitingCheck', 'Waiting for check')
+    : stage.status === 'PAUSED' ? t('ordersPage.taskPaused', 'Paused')
+    : live ? t('ordersPage.taskLive', 'In progress')
+    : t('ordersPage.taskNotStarted', 'Not started');
+  const shortDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return (
+    <button type="button" className={`oj-task${done ? ' oj-task--done' : ''}${current ? ' oj-task--current' : ''}`}
+            onClick={() => onSelect(stage)}
+            title={`${stage.stage_name} — ${words}`}>
+      <span className="oj-mark" aria-hidden="true">{done ? '✓' : live ? '●' : '○'}</span>
+      <span className="oj-task-name">
+        {stage.stage_name}
+        {hasVoiceNote(stage) && <Mic size={12} className="oj-mic" aria-label="Voice note" />}
+      </span>
+      <span className="oj-task-state">
+        {words}{stage.status === 'COMPLETED' && stage.completed_at ? ` · ${shortDate(stage.completed_at)}` : ''}
+      </span>
+      {current && <span className="oj-task-now">← {t('ordersPage.currentTask', 'Current task')}</span>}
+    </button>
+  );
+}
+
+function JourneyTaskList({ rows, onSelectStage, hasVoiceNote }) {
+  const now = currentRow(rows);
+  return (
+    <div className="oj-tasks" role="list">
+      {rows.map((stage) => (
+        <JourneyTask key={stage.id || stage.stage_key} stage={stage} current={now === stage}
+                     onSelect={onSelectStage} hasVoiceNote={hasVoiceNote} />
+      ))}
+    </div>
+  );
+}
+
+/** One garment, folded to a line -- its name and how far along it is -- and
+ *  opened to its task list. Only one garment is open at a time, so the
+ *  person reads one job, not every job on the order. */
 function StageTimeline({ stages, onSelectStage, hasVoiceNote = anyVoiceNote }) {
   const { t } = useLanguage();
-  // Fifteen steps in a strip about four steps wide: opening an order on a
-  // phone put "Created" on screen and whatever actually needs doing several
-  // swipes away. Centre the live step (or the last one finished) so the strip
-  // opens where the work is.
-  const activeRef = React.useRef(null);
-  const scrollerRef = React.useRef(null);
-  React.useEffect(() => {
-    const el = activeRef.current, box = scrollerRef.current;
-    if (!el || !box) return;
-    // Not scrollIntoView: it would also scroll the page vertically to reach a
-    // strip the user may not have scrolled to yet.
-    box.scrollLeft = el.offsetLeft - (box.clientWidth - el.offsetWidth) / 2;
-  }, [stages]);
-
-  const activeIndex = (() => {
-    if (!stages || !stages.length) return -1;
-    const running = stages.findIndex(
-      (s) => s.status === 'IN_PROGRESS' || s.status === 'PAUSED' || s.status === 'PENDING_VERIFICATION');
-    if (running !== -1) return running;
-    let last = -1;
-    stages.forEach((s, i) => { if (s.status === 'COMPLETED') last = i; });
-    return last;
-  })();
+  const { head, garments, tail } = stageLanes(stages);
+  // Open where the work is: the garment with a task in hand, else the first
+  // garment still to do. Clicking another card moves the open one.
+  const autoKey = (garments.find((g) => g.stages.some(isLive)) || garments.find((g) => g.stages.some((s) => !isSettled(s))))?.key || null;
+  const [pick, setPick] = React.useState();
+  const openKey = pick === undefined ? autoKey : pick;
+  const setOpenKey = setPick;
 
   if (!stages || stages.length === 0) {
     return (
@@ -694,49 +758,49 @@ function StageTimeline({ stages, onSelectStage, hasVoiceNote = anyVoiceNote }) {
       </div>
     );
   }
-
-  const shortDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const allGarmentsDone = garments.every((g) => g.stages.every(isSettled));
 
   return (
-    <div ref={scrollerRef} className="od-timeline" role="list">
-      {stages.map((stage, idx, arr) => {
-        const tone = STEP_STATE(stage.status);
-        const isCompleted = tone === 'done';
-        const note = tone === 'live' ? STEP_LABEL.live
-          : isCompleted && stage.completed_at ? shortDate(stage.completed_at) : '';
-        const Icon = STAGE_ICONS[stage.stage_key] || Clock;
-        // A stage with a voice note on it is marked so the person the note
-        // is for can find it without opening every step.
-        const voiced = hasVoiceNote(stage);
-        return (
-          <div
-            key={stage.id || stage.stage_key}
-            ref={idx === activeIndex ? activeRef : null}
-            role="listitem"
-            tabIndex={0}
-            title={`${stage.stage_name} — ${STEP_LABEL[tone].toLowerCase()}${voiced ? ` · voice note from ${stage.voice_note_by || 'someone'}` : ''}`}
-            className={`od-stage od-stage--${tone}${idx === 0 ? ' od-stage--first' : ''}${idx === arr.length - 1 ? ' od-stage--last' : ''}`}
-            onClick={() => onSelectStage(stage)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectStage(stage); } }}
-          >
-            <div className="od-stage-row">
-              <span className="od-node" style={voiced ? { boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.28)', borderColor: '#2563eb' } : undefined}>
-                <Icon size={16} />
-                {isCompleted && <span className="od-node-check"><Check size={9} strokeWidth={3} /></span>}
-                {voiced && (
-                  <span aria-label="Voice note" style={{
-                    position: 'absolute', top: '-5px', left: '-5px', width: '16px', height: '16px', borderRadius: '50%',
-                    background: '#2563eb', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    border: '2px solid var(--surface-color)',
-                  }}><Mic size={9} strokeWidth={3} /></span>
-                )}
-              </span>
-            </div>
-            <span className="od-stage-name" style={voiced ? { color: '#2563eb', fontWeight: 600 } : undefined}>{stage.stage_name}</span>
-            {note && <span className={`od-stage-note od-stage-note--${tone}`}>{note}</span>}
-          </div>
-        );
-      })}
+    <div className="oj">
+      {head.length > 0 && <JourneyTaskList rows={head} onSelectStage={onSelectStage} hasVoiceNote={hasVoiceNote} />}
+
+      {garments.length > 0 && (
+        <div className="oj-section">
+          <div className="stat-label">{t('ordersPage.garmentsToMake', 'Garments to make')}</div>
+          {garments.map((g) => {
+            const done = g.stages.filter(isSettled).length;
+            const finished = done === g.stages.length;
+            const open = g.key === openKey;
+            const now = currentRow(g.stages);
+            return (
+              <div key={g.key} className={`oj-garment${finished ? ' oj-garment--done' : ''}${open ? ' oj-garment--open' : ''}`}>
+                <button type="button" className="oj-garment-head" aria-expanded={open}
+                        onClick={() => setOpenKey(open ? null : g.key)}>
+                  <span className="oj-mark" aria-hidden="true">{finished ? '✓' : now && isLive(now) ? '●' : '○'}</span>
+                  <span className="oj-garment-name">{g.label}</span>
+                  <span className="oj-garment-progress">
+                    <span>{t('ordersPage.garmentProgress', '{done} of {total} completed').replace('{done}', done).replace('{total}', g.stages.length)}</span>
+                    <span className="oj-bar" aria-hidden="true"><span style={{ width: `${(done / g.stages.length) * 100}%` }} /></span>
+                  </span>
+                  {!finished && now && !open && <span className="oj-garment-next">{t('ordersPage.nextUp', 'Now')}: {now.stage_name}</span>}
+                  <ChevronDown size={16} className="oj-chevron" />
+                </button>
+                {open && <JourneyTaskList rows={g.stages} onSelectStage={onSelectStage} hasVoiceNote={hasVoiceNote} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {tail.length > 0 && (
+        <div className="oj-section">
+          <div className="stat-label">{t('ordersPage.orderCompletion', 'Order completion')}</div>
+          {garments.length > 0 && !allGarmentsDone && (
+            <div className="oj-hint">{t('ordersPage.afterGarments', 'Starts once every garment above is finished.')}</div>
+          )}
+          <JourneyTaskList rows={tail} onSelectStage={onSelectStage} hasVoiceNote={hasVoiceNote} />
+        </div>
+      )}
     </div>
   );
 }
@@ -3331,8 +3395,8 @@ function App() {
     // avoids a pointless round trip for everyone else.
     const canVerify = !currentUser?.role || currentUser.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser.role);
     if (stage.status === 'PENDING_VERIFICATION' && !stage.verification_seen_at && canVerify) {
-      api.markStageSeen(order.id, stage.stage_key)
-        .then((seen) => setSelectedStageObj((prev) => (prev && prev.stage_key === seen.stage_key ? { ...prev, ...seen } : prev)))
+      api.markStageSeen(order.id, stage.stage_key, stage.garment_job || null)
+        .then((seen) => setSelectedStageObj((prev) => (prev && prev.id === seen.id ? { ...prev, ...seen } : prev)))
         .catch(() => {});
     }
   };
@@ -3399,10 +3463,10 @@ function App() {
 
   // Nominate who should perform a stage. The server refuses a role the stage does
   // not permit, so the error is surfaced rather than swallowed.
-  const handleAssignStage = async (orderId, stageKey, tailorId) => {
+  const handleAssignStage = async (orderId, stageKey, tailorId, garmentJob = null) => {
     setAssigningStageKey(stageKey);
     try {
-      await api.assignStage(orderId, stageKey, tailorId || null);
+      await api.assignStage(orderId, stageKey, tailorId || null, garmentJob);
       await fetchDashboardAndConfig();
     } catch (err) {
       alert(err.message || 'Could not assign this stage.');
@@ -4498,15 +4562,17 @@ function App() {
             {dashboardTab === 'orders' && openOrder && (() => {
               const order = openOrder;
               const stages = order.stages || [];
-              const liveIdx = stages.findIndex(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status));
-              const live = liveIdx !== -1 ? stages[liveIdx] : null;
-              const doneCount = stages.filter(st => st.status === 'COMPLETED').length;
+              // Counted by step, not by row: a per-garment step is one step.
+              const steps = rollupStages(stages);
+              const live = steps.find(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status)) || null;
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
               const journeyBadge = allDone ? ['success', STEP_LABEL.done]
                 : live ? ['info', STEP_LABEL.live] : ['neutral', STEP_LABEL.next];
-              const stepChip = allDone ? `${stages.length} of ${stages.length} done`
-                : `Step ${(live ? liveIdx : doneCount) + 1} of ${stages.length}`;
-              const briefStage = live || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || stages[0];
+              const tasksDone = stages.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
+              const stepChip = `${tasksDone} of ${stages.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
+              // The row to open: the first unsettled one, garment rows included.
+              const briefStage = stages.find(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status))
+                || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || stages[0];
               const preview = (order.garment_images || [])[0]?.image || order.completed_garment_image;
               const garmentName = order.garment_label || orderGarmentNames(order).join(', ') || order.customer_garment_type;
               const verification = order.master_verification || {};
@@ -4790,11 +4856,11 @@ function App() {
                                   const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
                                   if (remark === null) return;
                                   if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
-                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, remark.trim().slice(0, LIMITS.reason)); fetchDashboardAndConfig(); }
+                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, remark.trim().slice(0, LIMITS.reason), 'REJECTED', stitching?.garment_job || null); fetchDashboardAndConfig(); }
                                   catch (err) { alert(err.message); }
                                 };
                                 const clear = async (url) => {
-                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, '', 'CLEAR'); fetchDashboardAndConfig(); }
+                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, '', 'CLEAR', stitching?.garment_job || null); fetchDashboardAndConfig(); }
                                   catch (err) { alert(err.message); }
                                 };
                                 return photos.length > 0 && (
@@ -5516,8 +5582,8 @@ function App() {
                                 {stages.length > 0 && (
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '8px', marginTop: '12px' }}>
                                     {stages.map(stage => (
-                                      <div key={stage.stage_key} style={{ fontSize: 'var(--text-2xs)', padding: '8px 10px', borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)', border: '1px solid var(--border-color)' }}>
-                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{stage.stage_name}</div>
+                                      <div key={stage.id || stage.stage_key} style={{ fontSize: 'var(--text-2xs)', padding: '8px 10px', borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)', border: '1px solid var(--border-color)' }}>
+                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{stage.stage_name}{stage.garment_name ? ` · ${stage.garment_name}` : ''}</div>
                                         <div style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
                                           {STEP_LABEL[STEP_STATE(stage.status)].toLowerCase()}
                                           {stage.assigned_to_name ? ` · ${stage.assigned_to_name}` : ''}
@@ -7980,7 +8046,8 @@ Complete the Payment stage with this partial payment?`)) return;
               stageReviewImages,
               selectedPerformerId || null,
               voiceNote,
-              clearVoiceNote
+              clearVoiceNote,
+              stage.garment_job || null
             );
             alert(okMessage);
             closeStage();
@@ -8002,7 +8069,7 @@ Complete the Payment stage with this partial payment?`)) return;
         return (
           <FormModal
             icon={Scissors} tone="green" width="1000px" zIndex={1100}
-            title={stage ? `Production Stage: ${stage.stage_name}` : `Stage Review: ${activeReviewStage}`}
+            title={stage ? `Production Stage: ${stage.stage_name}${stage.garment_name ? ` · ${stage.garment_name}` : ''}` : `Stage Review: ${activeReviewStage}`}
             subtitle={`Order ID: ${orderRef(activeReviewOrder)}${activeReviewOrder.customer_name ? ` · ${activeReviewOrder.customer_name}` : ''}`}
             onClose={closeStage}
             footer={stage && (
@@ -8285,7 +8352,7 @@ Complete the Payment stage with this partial payment?`)) return;
                           verdict
                             ? <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px' }}
                                       onClick={async () => {
-                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, '', 'CLEAR'); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
+                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, '', 'CLEAR', stage.garment_job || null); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.id === stage.id)); fetchDashboardAndConfig(); }
                                         catch (err) { alert(err.message); }
                                       }}>Undo rejection</button>
                             : <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px', color: 'var(--danger-color)' }}
@@ -8293,7 +8360,7 @@ Complete the Payment stage with this partial payment?`)) return;
                                         const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
                                         if (remark === null) return;
                                         if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
-                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, remark.trim().slice(0, LIMITS.reason)); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
+                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, remark.trim().slice(0, LIMITS.reason), 'REJECTED', stage.garment_job || null); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.id === stage.id)); fetchDashboardAndConfig(); }
                                         catch (err) { alert(err.message); }
                                       }}><X size={11} /> Reject photo</button>
                         )}
@@ -8315,7 +8382,7 @@ Complete the Payment stage with this partial payment?`)) return;
                       className="form-control"
                       value={stage.assigned_to || ''}
                       disabled={assigningStageKey === stage.stage_key}
-                      onChange={(e) => handleAssignStage(activeReviewOrder.id, stage.stage_key, e.target.value)}
+                      onChange={(e) => handleAssignStage(activeReviewOrder.id, stage.stage_key, e.target.value, stage.garment_job || null)}
                     >
                       <option value="">Unassigned</option>
                       {eligibleStaffForStage(stage.stage_key).map(t => (
@@ -8618,8 +8685,10 @@ Complete the Payment stage with this partial payment?`)) return;
             {reversalPrompt.type === 'reopen' && (() => {
               // Later work is reset with it: the server does this, the
               // warning just makes sure nobody is surprised.
-              const stages = activeReviewOrder?.stages || [];
-              const at = stages.findIndex(s => s.stage_key === selectedStageObj?.stage_key);
+              // Only this garment's later rows and the order-level ones, as the server does.
+              const mine = (s) => !s.garment_job || !selectedStageObj?.garment_job || s.garment_job === selectedStageObj.garment_job;
+              const stages = (activeReviewOrder?.stages || []).filter(mine);
+              const at = stages.findIndex(s => s.id === selectedStageObj?.id);
               const reset = at === -1 ? [] : stages.slice(at + 1).filter(s => s.status !== 'NOT_STARTED');
               return reset.length > 0 && (
                 <div role="alert" style={{ display: 'flex', gap: '8px', padding: '10px 12px', marginBottom: '12px', borderRadius: '10px',
@@ -8653,9 +8722,9 @@ Complete the Payment stage with this partial payment?`)) return;
                   setReversalBusy(true);
                   try {
                     if (reversalPrompt.type === 'failqc') {
-                      await api.failQualityCheck(activeReviewOrder.id, reversalReason.trim());
+                      await api.failQualityCheck(activeReviewOrder.id, reversalReason.trim(), selectedStageObj?.garment_job || null);
                     } else {
-                      await api.reopenStage(activeReviewOrder.id, selectedStageObj.stage_key, reversalReason.trim());
+                      await api.reopenStage(activeReviewOrder.id, selectedStageObj.stage_key, reversalReason.trim(), selectedStageObj.garment_job || null);
                     }
                     setReversalPrompt(null);
                     setActiveReviewStage(null);

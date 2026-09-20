@@ -37,7 +37,8 @@ const statusLabel = (status, t) => { const [k, d] = STATUS_LABELS[status] || [];
 const garmentLabel = (order, t) =>
   (order.garment_jobs || []).map((j) => j.template_name).filter(Boolean).join(', ')
   || order.customer_garment_type || t('workPage.customGarment', 'Custom garment');
-const jobTitle = (order, stage, t) => `${garmentLabel(order, t)} · ${stage.stage_name || humanise(stage.stage_key)}`;
+// A per-garment stage names its garment; an order-level one names them all.
+const jobTitle = (order, stage, t) => `${stage.garment_name || garmentLabel(order, t)} · ${stage.stage_name || humanise(stage.stage_key)}`;
 
 // '5 min' / '2 h' / '3 d' since a timestamp.
 function ago(ts, t) {
@@ -49,22 +50,24 @@ function ago(ts, t) {
 }
 
 // Activities arrive newest first.
-const stageActivities = (order, stageKey) =>
-  (order.activities || []).filter((a) => a.metadata?.stage_key === stageKey);
+// This row's own: on a per-garment stage, the activity names the garment.
+const stageActivities = (order, stage) =>
+  (order.activities || []).filter((a) => a.metadata?.stage_key === stage.stage_key
+    && (!stage.garment_job || !a.metadata?.garment_job || a.metadata.garment_job === stage.garment_job));
 const submittedAt = (order, stage) =>
-  stageActivities(order, stage.stage_key).find((a) => a.metadata?.new_status === 'PENDING_VERIFICATION')?.timestamp
-  || stageActivities(order, stage.stage_key)[0]?.timestamp || stage.started_at;
-const sentBackCount = (order, stageKey) =>
-  stageActivities(order, stageKey).filter((a) => a.metadata?.old_status === 'PENDING_VERIFICATION' && a.metadata?.new_status === 'IN_PROGRESS').length;
-const approvedBy = (order, stageKey) =>
-  stageActivities(order, stageKey).find((a) => a.event_type === 'STAGE_TRANSITION' && a.metadata?.new_status === 'COMPLETED')?.user_name;
+  stageActivities(order, stage).find((a) => a.metadata?.new_status === 'PENDING_VERIFICATION')?.timestamp
+  || stageActivities(order, stage)[0]?.timestamp || stage.started_at;
+const sentBackCount = (order, stage) =>
+  stageActivities(order, stage).filter((a) => a.metadata?.old_status === 'PENDING_VERIFICATION' && a.metadata?.new_status === 'IN_PROGRESS').length;
+const approvedBy = (order, stage) =>
+  stageActivities(order, stage).find((a) => a.event_type === 'STAGE_TRANSITION' && a.metadata?.new_status === 'COMPLETED')?.user_name;
 // The worker's latest word. stage.comments holds whoever wrote last, the
 // master's send-back reason included, so it cannot be shown as the worker's.
 // ponytail: activities carry no role, so a master's plain note on a waiting stage would pass too; add a role to the activity if that ever bites.
-const workerNote = (order, stageKey) =>
-  stageActivities(order, stageKey).find((a) => a.metadata?.new_status === 'PENDING_VERIFICATION');
-const noteThread = (order, stageKey) =>
-  stageActivities(order, stageKey).filter((a) =>
+const workerNote = (order, stage) =>
+  stageActivities(order, stage).find((a) => a.metadata?.new_status === 'PENDING_VERIFICATION');
+const noteThread = (order, stage) =>
+  stageActivities(order, stage).filter((a) =>
     (a.event_type === 'STAGE_TRANSITION' || a.event_type === 'STAGE_NOTE') && (a.metadata.comments || a.metadata.voice_note)).slice(0, 20);
 
 const entries = (obj) => Object.entries(obj || {}).filter(([, v]) => v !== '' && v != null && typeof v !== 'object');
@@ -88,15 +91,17 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   // A supervisor opening a submitted stage leaves the "seen" tick.
   useEffect(() => {
     if (view !== 'check' || !open) return;
-    const key = `${open.orderId}:${open.stageKey}`;
-    api.markStageSeen(open.orderId, open.stageKey).then(() => setSeen((s) => new Set(s).add(key))).catch(() => {});
+    const key = `${open.orderId}:${open.stageId}`;
+    api.markStageSeen(open.orderId, open.stageKey, open.garmentJob || null).then(() => setSeen((s) => new Set(s).add(key))).catch(() => {});
   }, [view, open]);
 
   const rolesFor = (key) => workflowConfig.find((s) => s.key === key)?.roles || [];
   const isMine = (order, s) => s.assigned_to === me
     || (rolesFor(s.stage_key).includes(currentUser?.role) && s.assigned_to == null
         && (order.tailor === me || order.master === me || currentUser?.role !== 'Tailor'));
-  const isReady = (order, s) => (order.stages || []).every((o) => o.sequence >= s.sequence || FINISHED.includes(o.status));
+  // Earlier work on this garment (and the order-level stages) must be finished.
+  const isReady = (order, s) => (order.stages || []).every((o) => o.sequence >= s.sequence || FINISHED.includes(o.status)
+    || (o.garment_job && s.garment_job && o.garment_job !== s.garment_job));
 
   // Every (order, stage) pair this view lists, already sorted.
   const { items, later } = useMemo(() => {
@@ -126,14 +131,14 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   // The open job re-reads from the fresh orders after each refetch.
   const current = open && (() => {
     const order = orders.find((o) => o.id === open.orderId);
-    const stage = order?.stages?.find((s) => s.stage_key === open.stageKey);
+    const stage = order?.stages?.find((s) => s.id === open.stageId);
     return order && stage ? { order, stage } : null;
   })();
 
   const done = (msg) => { setOpen(null); setToast(msg); onChanged?.(); };
 
   const card = ({ order, stage }, extra) => (
-    <button type="button" key={`${order.id}-${stage.stage_key}`} className="wk-card" onClick={() => setOpen({ orderId: order.id, stageKey: stage.stage_key })}>
+    <button type="button" key={`${order.id}-${stage.id}`} className="wk-card" onClick={() => setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null })}>
       <div className="wk-card-head">
         <div className="wk-card-title">{jobTitle(order, stage, t)}</div>
         {extra.chip}
@@ -191,8 +196,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     body = items.length === 0
       ? <div className="wk-empty">{t('workPage.emptyDone', 'Nothing finished yet.')}</div>
       : items.map((it) => {
-        const back = sentBackCount(it.order, it.stage.stage_key);
-        const who = approvedBy(it.order, it.stage.stage_key);
+        const back = sentBackCount(it.order, it.stage);
+        const who = approvedBy(it.order, it.stage);
         return card(it, {
           chip: it.stage.status === 'COMPLETED'
             ? <span className="ui-badge ui-badge--success">✓ {who ? t('workPage.checkedBy', 'Checked by {who}', { who }) : t('workPage.checked', 'Checked')}</span>
@@ -205,7 +210,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     body = items.length === 0
       ? <div className="wk-empty">{t('workPage.emptyCheck', 'Nothing waiting for a check.')}</div>
       : items.map((it) => card(it, {
-        chip: !it.stage.verification_seen_at && !seen.has(`${it.order.id}:${it.stage.stage_key}`)
+        chip: !it.stage.verification_seen_at && !seen.has(`${it.order.id}:${it.stage.id}`)
           && <span className="wk-dot" aria-label={t('workPage.new', 'new')} />,
         meta: <>
           <span>{it.stage.performed_by_name || it.stage.assigned_to_name || t('workPage.someone', 'Someone')}</span>
@@ -267,7 +272,7 @@ function JobScreen({ order, stage, mode, isSupervisor, fabricTaxonomy, onClose, 
     setBusy(true); setError('');
     try {
       const voiceUrl = blob ? await api.uploadVoiceNote(blob) : null;
-      await api.transitionStage(order.id, stage.stage_key, status, text || '', files || [], null, voiceUrl);
+      await api.transitionStage(order.id, stage.stage_key, status, text || '', files || [], null, voiceUrl, false, stage.garment_job || null);
       onDone(okMsg);
     } catch (e) {
       setError(e?.message || t('workPage.saveFailed', 'Could not save. Please try again.'));
@@ -278,8 +283,8 @@ function JobScreen({ order, stage, mode, isSupervisor, fabricTaxonomy, onClose, 
   const attachments = (stage.attachments || []).map((u) => resolveMediaUrl(u));
   const lightboxItems = attachments.map((u, i) => ({ image_url: u, label: `${t('workPage.photo', 'Photo')} ${i + 1}` }));
   const rejected = Object.entries(stage.attachment_reviews || {}).filter(([, r]) => r?.status === 'REJECTED');
-  const note = workerNote(order, stage.stage_key);
-  const thread = noteThread(order, stage.stage_key);
+  const note = workerNote(order, stage);
+  const thread = noteThread(order, stage);
   const rest = thread.filter((a) => a !== note);
 
   const noteBlock = note && (note.metadata.comments || note.metadata.voice_note) && (

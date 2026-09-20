@@ -325,6 +325,7 @@ class OrderStageHistorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class OrderStageSerializer(serializers.ModelSerializer):
+    garment_name = serializers.CharField(source='garment_job.template.name', read_only=True, default=None)
     performed_by_name = serializers.CharField(source='performed_by.name', read_only=True)
     assigned_to_name = serializers.CharField(source='assigned_to.name', read_only=True)
     assigned_to_role = serializers.CharField(source='assigned_to.role', read_only=True)
