@@ -63,6 +63,7 @@ const WIZARD_STEPS = {
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'what', label: 'Garments', sub: 'What we are making' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
+    { key: 'personal', label: 'Personalization', sub: 'Extras, if any' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Money', sub: 'Complete the Order & Invoice' },
   ],
@@ -71,6 +72,7 @@ const WIZARD_STEPS = {
     { key: 'what', label: 'Garments', sub: 'What we are making' },
     { key: 'designer', label: 'Designer', sub: 'Who designs it' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
+    { key: 'personal', label: 'Personalization', sub: 'Extras, if any' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Money', sub: 'Complete the Order & Invoice' },
   ],
@@ -3127,6 +3129,15 @@ function App() {
           return;
         }
         rememberMeasurements();
+        await persistDraft({ step: currentStep + 1 });
+        reachStep(currentStep + 1);
+      } else if (wizardStepKey === 'personal') {
+        // Everything here is optional; a typed value is still checked so a
+        // bad number does not reach the review unremarked.
+        if (!validateGarments({ sections: ['basic', 'style'] })) {
+          alert('Something on this screen is not valid — see the highlighted fields.');
+          return;
+        }
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'review') {
@@ -7149,8 +7160,7 @@ function App() {
                     // per garment here would only be overwritten. Fields a rule
                     // reveals stay beside the answer that reveals them.
                     const upFront = (f) => f.key !== 'delivery_date' && (f.is_required || Boolean(f.visible_when));
-                    const foldedAway = (f) => f.key !== 'delivery_date' && !f.is_required && !f.visible_when;
-                    const hasOptional = sections.some((k) => (job.template.sections.find((sec) => sec.key === k)?.fields || []).some((f) => foldedAway(f) && f.field_type !== 'file'));
+                    // The optional questions (foldedAway) now sit on the Personalization step.
                     return (
                       <div key={job.key} id={`wz-garment-${job.key}`} className="wz-garment">
                         <div className="wz-garment-head">
@@ -7172,64 +7182,6 @@ function App() {
                                           onChange={(values) => updateGarmentValues(job.key, values)} />
                           </div>
                         ))}
-
-                        {/* Anything the options above have no box for, in the
-                            customer's own words. The template's own
-                            special_instructions field (Production Notes), so it
-                            is validated and stored with the garment's spec and
-                            the tailor reads it on the garment's brief. */}
-                        <div className="wz-garment-section">
-                          <div className="od-hint" style={{ marginBottom: '6px' }}>
-                            {t('wizard.garmentNoteHint', 'Anything the options above don’t cover? Write it here.')}
-                          </div>
-                          <TemplateForm template={job.template} section="production" values={job.values}
-                                        errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'special_instructions'}
-                                        onChange={(values) => updateGarmentValues(job.key, values)} />
-                        </div>
-
-                        {/* Something the customer wants that the shelf does not
-                            hold: bought for this order, tracked in Inventory →
-                            To buy for orders. Never stock. */}
-                        <div className="wz-garment-section">
-                          <GarmentPurchases rows={job.purchases || []}
-                                            onChange={(rows) => setGarmentJobs(prev => prev.map(j => (j.key === job.key ? { ...j, purchases: rows } : j)))} />
-                        </div>
-
-                        {hasOptional && (
-                          <details className="wz-more">
-                            <summary>{t('wizard.moreDetails', 'More details')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                            {sections.map((sectionKey) => (
-                              <div key={sectionKey} className="wz-garment-section">
-                                <TemplateForm template={job.template} section={sectionKey} values={job.values}
-                                              errors={garmentErrors[job.key] || {}} only={foldedAway}
-                                              purchases={job.purchases || []} onPurchaseChange={(fieldKey, row) => updateGarmentPurchase(job.key, fieldKey, row)}
-                                              onChange={(values) => updateGarmentValues(job.key, values)} />
-                              </div>
-                            ))}
-                          </details>
-                        )}
-
-                        <details className="wz-more">
-                          <summary><Camera size={14} /> {t('wizard.sheetPhotos', 'Photos & references from the customer')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker ownOnly
-                                               garmentKey={job.template?.key || job.key}
-                                               garmentName={job.template?.name || job.key}
-                                               references={partReferences[job.key] || {}}
-                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
-                          </Suspense>
-                        </details>
-
-                        <details className="wz-more">
-                          <summary><Sparkles size={14} /> {t('wizard.sheetCatalogue', 'Pick a look from our catalogue')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker
-                              garmentKey={job.template?.key || job.key}
-                              garmentName={job.template?.name || job.key}
-                              selection={partSelection[job.key] || {}}
-                              onChange={(next) => handlePartSelection(job.key, next)} />
-                          </Suspense>
-                        </details>
 
                         {canSeeTab(currentUser, 'inventory') && (
                           <details className="wz-more">
@@ -7303,6 +7255,36 @@ function App() {
                           </Suspense>
                         </details>
 
+                        {/* Something the customer wants that the shelf does not
+                            hold: bought for this order, tracked in Inventory →
+                            To buy for orders. Never stock. */}
+                        <div className="wz-garment-section">
+                          <GarmentPurchases rows={job.purchases || []}
+                                            onChange={(rows) => setGarmentJobs(prev => prev.map(j => (j.key === job.key ? { ...j, purchases: rows } : j)))} />
+                        </div>
+
+                        <details className="wz-more">
+                          <summary><Camera size={14} /> {t('wizard.sheetPhotos', 'Photos & references from the customer')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker ownOnly
+                                               garmentKey={job.template?.key || job.key}
+                                               garmentName={job.template?.name || job.key}
+                                               references={partReferences[job.key] || {}}
+                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                          </Suspense>
+                        </details>
+
+                        <details className="wz-more">
+                          <summary><Sparkles size={14} /> {t('wizard.sheetCatalogue', 'Pick a look from our catalogue')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker
+                              garmentKey={job.template?.key || job.key}
+                              garmentName={job.template?.name || job.key}
+                              selection={partSelection[job.key] || {}}
+                              onChange={(next) => handlePartSelection(job.key, next)} />
+                          </Suspense>
+                        </details>
+
                         {/* Sections stack one under another, so the prompt to
                             add the next garment sits after the last one. Same
                             list and same addGarment as the dropdown above; the
@@ -7352,14 +7334,6 @@ function App() {
                     </Suspense>
                   </details>
 
-                  {garmentJobs.length > 0 && (
-                    <div className="form-group" style={{ marginTop: '18px' }}>
-                      <label className="form-label" htmlFor="wz-notes">{t('wizard.notesForTailor', 'Notes for the tailor')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
-                      <VoiceTextarea id="wz-notes" className="form-control" rows={3} value={specialInstructions} maxLength={LIMITS.note}
-                                onChange={(e) => setSpecialInstructions(e.target.value)}
-                                placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
-                    </div>
-                  )}
                 </div>
               </>
             )}
@@ -7460,6 +7434,74 @@ function App() {
                       onDelete={() => setMeasureVoiceNote(null)}
                     />
                   </Field>
+                </div>
+              </>
+            )}
+
+            {/* PERSONALIZATION: the optional extras per garment -- the
+                questions its cut does not insist on, and anything in the
+                customer's own words -- after the measurements are taken. */}
+            {wizardStepKey === 'personal' && (
+              <>
+                <div className="page-title-group">
+                  <h1 className="page-title">{t('wizard.personalTitle', 'Anything extra?')}</h1>
+                  <p className="page-subtitle">{t('wizard.personalSubtitle', 'Optional details per garment, and notes for the tailor. Skip what does not apply.')}</p>
+                </div>
+                <div className="content-card wz-card">
+                  {garmentJobs.map((job, idx) => {
+                    const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
+                    const foldedAway = (f) => f.key !== 'delivery_date' && !f.is_required && !f.visible_when;
+                    const hasOptional = sections.some((k) => (job.template.sections.find((sec) => sec.key === k)?.fields || []).some((f) => foldedAway(f) && f.field_type !== 'file'));
+                    return (
+                      <div key={job.key} className="wz-garment">
+                        <div className="wz-garment-head">
+                          <span className="wz-garment-num">{idx + 1}</span>
+                          <div>
+                            <div className="wz-garment-name">{job.template.name}</div>
+                            <div className="wz-garment-sub">{t('wizard.personalSub', 'Optional')}</div>
+                          </div>
+                        </div>
+
+                        {/* Anything the options above have no box for, in the
+                            customer's own words. The template's own
+                            special_instructions field (Production Notes), so it
+                            is validated and stored with the garment's spec and
+                            the tailor reads it on the garment's brief. */}
+                        <div className="wz-garment-section">
+                          <div className="od-hint" style={{ marginBottom: '6px' }}>
+                            {t('wizard.garmentNoteHint', 'Anything the options above don’t cover? Write it here.')}
+                          </div>
+                          <TemplateForm template={job.template} section="production" values={job.values}
+                                        errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'special_instructions'}
+                                        onChange={(values) => updateGarmentValues(job.key, values)} />
+                        </div>
+
+                        {hasOptional && (
+                          <details className="wz-more">
+                            <summary>{t('wizard.moreDetails', 'More details')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                            {sections.map((sectionKey) => (
+                              <div key={sectionKey} className="wz-garment-section">
+                                <TemplateForm template={job.template} section={sectionKey} values={job.values}
+                                              errors={garmentErrors[job.key] || {}} only={foldedAway}
+                                              purchases={job.purchases || []} onPurchaseChange={(fieldKey, row) => updateGarmentPurchase(job.key, fieldKey, row)}
+                                              onChange={(values) => updateGarmentValues(job.key, values)} />
+                              </div>
+                            ))}
+                          </details>
+                        )}
+
+                      </div>
+                    );
+                  })}
+
+                  {garmentJobs.length > 0 && (
+                    <div className="form-group" style={{ marginTop: '18px' }}>
+                      <label className="form-label" htmlFor="wz-notes">{t('wizard.notesForTailor', 'Notes for the tailor')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <VoiceTextarea id="wz-notes" className="form-control" rows={3} value={specialInstructions} maxLength={LIMITS.note}
+                                onChange={(e) => setSpecialInstructions(e.target.value)}
+                                placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
+                    </div>
+                  )}
                 </div>
               </>
             )}
