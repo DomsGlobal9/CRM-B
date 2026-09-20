@@ -7347,13 +7347,14 @@ function App() {
                   {/* The garment drawn on a model, from the designs and rolls
                       above. Renders nothing where the vendor is not set up or
                       no garment has a design. The photograph lands on
-                      job.design.preview and confirms with the rest. */}
-                  <Suspense fallback={null}>
+                      job.design.preview and confirms with the rest.
+                      Switched off for now; uncomment to bring it back. */}
+                  {/* <Suspense fallback={null}>
                     <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
                       onPreview={(jobKey, url) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
                         ? { ...j, design: { ...(j.design || {}), preview: url } } : j))}
                       onView={(url, label) => setReviewView({ items: [{ key: 'preview', image_url: url, label }], index: 0 })} />
-                  </Suspense>
+                  </Suspense> */}
                   {reviewView && (
                     <Suspense fallback={null}>
                       <ReviewLightbox items={reviewView.items} index={reviewView.index}
