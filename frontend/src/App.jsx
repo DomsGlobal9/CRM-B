@@ -80,7 +80,27 @@ const WIZARD_STEPS = {
 };
 const EMPTY_ALTERATION = { orderId: '', garmentJobId: '', issue: '', type: 'PAID_CLIENT_REQUEST', charge: '', paidNow: '' };
 /** Garment measurement keys that are also on the customer's saved sheet. */
-const MEASURE_KEYS = { chest: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck' };
+// The master body sheet, taken once per customer and reused across garments:
+// garment field key -> sheet key. Several garment keys name the same
+// measurement (chest and bust, bicep and upper arm, crotch and rise, the
+// lehenga's floor length and waist-to-floor), so they share a sheet key.
+// bust/waist/hips/shoulder/neck are columns on the Measurement row; the rest
+// live in its additional_measurements JSON.
+const MEASURE_KEYS = {
+  chest: 'bust', bust: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck',
+  height: 'height', underbust: 'underbust', high_waist: 'high_waist', armhole: 'armhole',
+  upper_arm: 'upper_arm', bicep: 'upper_arm', elbow: 'elbow', wrist: 'wrist',
+  shoulder_to_bust: 'shoulder_to_bust', shoulder_to_waist: 'shoulder_to_waist',
+  waist_to_hip: 'waist_to_hip', waist_to_floor: 'waist_to_floor', floor_length: 'waist_to_floor',
+  crotch: 'rise', thigh: 'thigh', knee: 'knee', calf: 'calf', ankle: 'ankle',
+  inseam: 'inseam', outseam: 'outseam',
+};
+const SHEET_COLUMNS = new Set(['bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length']);
+const sheetGet = (sheet, key) => (SHEET_COLUMNS.has(key) ? sheet[key] : sheet.additional_measurements?.[key]);
+const sheetSet = (sheet, key, value) => {
+  if (SHEET_COLUMNS.has(key)) sheet[key] = value;
+  else sheet.additional_measurements = { ...(sheet.additional_measurements || {}), [key]: value };
+};
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const todayIso = () => isoDay(new Date());
 const plusDaysIso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return isoDay(d); };
@@ -2872,7 +2892,8 @@ function App() {
       const own = new Set(((job.template?.sections || []).find(sec => sec.key === 'measurements')?.fields || []).map(f => f.key));
       const values = { ...(job.values || {}) };
       Object.entries(MEASURE_KEYS).forEach(([key, sheetKey]) => {
-        if (own.has(key) && (values[key] === undefined || values[key] === '') && sheet[sheetKey]) values[key] = sheet[sheetKey];
+        const kept = sheetGet(sheet, sheetKey);
+        if (own.has(key) && (values[key] === undefined || values[key] === '') && kept) values[key] = kept;
       });
       return { ...job, values };
     }));
@@ -2882,7 +2903,7 @@ function App() {
     const body = { ...(customerForm.measurements || {}) };
     garmentJobs.forEach(job => {
       Object.entries(MEASURE_KEYS).forEach(([key, sheetKey]) => {
-        if (job.values?.[key] !== undefined && job.values[key] !== '') body[sheetKey] = job.values[key];
+        if (job.values?.[key] !== undefined && job.values[key] !== '') sheetSet(body, sheetKey, job.values[key]);
       });
     });
     setCustomerForm(prev => ({ ...prev, measurements: body }));
