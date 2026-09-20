@@ -12,14 +12,14 @@ from rest_framework.response import Response
 from .models import (
     BillOfMaterials, BomLine, CatalogItem, CatalogSection, Category, CustomerMaterial,
     CustomerMaterialMovement, InventoryItem, LocationStock, OrderMaterialLine,
-    OrderMaterialPlan, PurchaseOrder, StockLocation, StockMovement, Supplier, Unit,
-    UnitConversion, DEFAULT_UNIT_BY_CATEGORY, STOCKABLE_ITEM_TYPES,
+    OrderMaterialPlan, OrderPurchase, PurchaseOrder, StockLocation, StockMovement, Supplier,
+    Unit, UnitConversion, DEFAULT_UNIT_BY_CATEGORY, STOCKABLE_ITEM_TYPES,
 )
 from .serializers import (
     BillOfMaterialsSerializer, BomLineSerializer, CatalogItemSerializer,
     CatalogSectionSerializer, CustomerMaterialMovementSerializer,
     CustomerMaterialSerializer, LocationStockSerializer, OrderMaterialLineSerializer,
-    OrderMaterialPlanSerializer,
+    OrderMaterialPlanSerializer, OrderPurchaseSerializer,
     StockLocationSerializer, UnitConversionSerializer,
     InventoryItemSerializer, InventoryItemSummarySerializer, PurchaseOrderSerializer,
     StockMovementSerializer, SupplierSerializer,
@@ -995,6 +995,101 @@ class CustomerMaterialViewSet(viewsets.ModelViewSet):
     def movements(self, request, pk=None):
         rows = self.get_object().movements.all()[:100]
         return Response(CustomerMaterialMovementSerializer(rows, many=True).data)
+
+
+class OrderPurchaseViewSet(viewsets.ModelViewSet):
+    """Things bought for one order. Editable while still to buy; after that
+    the purchase steps (purchased, received, used) write the record."""
+
+    serializer_class = OrderPurchaseSerializer
+    http_method_names = ['get', 'post', 'patch', 'head', 'options']
+
+    def get_queryset(self):
+        from core.permissions import visible_orders
+        from crm_api.models import Order
+        queryset = OrderPurchase.objects.select_related(
+            'order', 'order__customer', 'supplier', 'garment_job__template'
+        ).filter(order__in=visible_orders(Order.objects.all(), self.request.user))
+        if order := self.request.query_params.get('order'):
+            try:
+                queryset = queryset.filter(order_id=order)
+            except (ValueError, TypeError, DjangoValidationError):
+                raise ValidationError({'order': f'{order!r} is not a valid order id.'})
+        if status_ := self.request.query_params.get('status'):
+            queryset = queryset.filter(status__in=status_.split(','))
+        elif self.request.query_params.get('open') in ('1', 'true'):
+            queryset = queryset.exclude(status__in=(OrderPurchase.Status.USED,
+                                                    OrderPurchase.Status.CANCELLED))
+        return queryset
+
+    def create(self, request, *args, **kwargs):
+        from crm_api.models import Order
+        from apps.catalog.models import GarmentJob
+        from . import order_materials
+        order = _get_or_400(Order, request.data.get('order'), 'order')
+        job = None
+        if request.data.get('garment_job'):
+            job = _get_or_400(GarmentJob, request.data.get('garment_job'), 'garment_job')
+            if job.order_id != order.id:
+                raise ValidationError({'garment_job': 'That garment is not on this order.'})
+        try:
+            purchase = order_materials.create_order_purchase(
+                order, garment_job=job,
+                name=validate_text(request.data.get('name'), label='Item', max_length=200, required=True),
+                quantity=request.data.get('quantity', 0),
+                unit=request.data.get('unit') or Unit.PIECE,
+                field_key=(request.data.get('field_key') or '')[:60],
+                estimated_cost=request.data.get('estimated_cost') or 0,
+                required_by=request.data.get('required_by') or None,
+                notes=validate_text(request.data.get('notes'), label='Notes', max_length=MAX_NOTE),
+                user=request.user)
+        except order_materials.MaterialPlanError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(OrderPurchaseSerializer(purchase).data, status=status.HTTP_201_CREATED)
+
+    def perform_update(self, serializer):
+        if serializer.instance.status != OrderPurchase.Status.TO_PURCHASE:
+            raise ValidationError({'status': (
+                'Only a purchase still to be made can be edited; what was bought is on record.')})
+        serializer.save()
+
+    def _step(self, request, fn, **kwargs):
+        from . import order_materials
+        try:
+            purchase = fn(self.get_object(), user=request.user, **kwargs)
+        except order_materials.MaterialPlanError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(OrderPurchaseSerializer(purchase).data)
+
+    @action(detail=True, methods=['POST'], url_path='purchased')
+    def purchased(self, request, pk=None):
+        from . import order_materials
+        supplier = None
+        if request.data.get('supplier'):
+            supplier = _get_or_400(Supplier, request.data.get('supplier'), 'supplier')
+        return self._step(
+            request, order_materials.mark_purchased,
+            actual_cost=request.data.get('actual_cost', 0), supplier=supplier,
+            purchased_at=request.data.get('purchased_at') or None,
+            invoice_reference=validate_text(request.data.get('invoice_reference'),
+                                            label='Invoice / reference', max_length=100) or '')
+
+    @action(detail=True, methods=['POST'], url_path='received')
+    def received(self, request, pk=None):
+        from . import order_materials
+        return self._step(request, order_materials.receive_purchase,
+                          quantity=request.data.get('quantity'))
+
+    @action(detail=True, methods=['POST'], url_path='use')
+    def use(self, request, pk=None):
+        from . import order_materials
+        return self._step(request, order_materials.use_purchase,
+                          quantity=request.data.get('quantity', 0))
+
+    @action(detail=True, methods=['POST'], url_path='cancel')
+    def cancel(self, request, pk=None):
+        from . import order_materials
+        return self._step(request, order_materials.cancel_purchase)
 
 
 def _get_or_400(model, pk, field):

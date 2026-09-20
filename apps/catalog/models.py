@@ -179,6 +179,9 @@ class JobMaterial(models.Model):
     class Source(models.TextChoices):
         STORE = 'STORE', 'Store inventory'
         CUSTOMER = 'CUSTOMER', 'Customer provided'
+        # Not in stock: bought for this one order (inventory.OrderPurchase),
+        # never reserved from or deducted against boutique stock.
+        PURCHASE = 'PURCHASE', 'Bought for this order'
 
     job = models.ForeignKey(GarmentJob, on_delete=models.CASCADE, related_name='materials')
     field_key = models.CharField(max_length=60)

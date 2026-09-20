@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, History, MapPin, Package, Plus, Scissors, Search, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, History, MapPin, Package, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -14,6 +14,7 @@ import StockItemSheet from './StockItemSheet';
 import LocationsTab from './LocationsTab';
 import RecipesTab from './RecipesTab';
 import ReportsTab from './ReportsTab';
+import OrderPurchasesTab from './OrderPurchasesTab';
 
 
 // Movement types the UI offers, in the order an item actually travels.
@@ -181,6 +182,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
           { key: 'locations', label: t('inventoryPage.locations'), icon: MapPin },
           { key: 'recipes', label: t('inventoryPage.recipes'), icon: Scissors },
           { key: 'suppliers', label: t('inventoryPage.suppliers'), icon: ClipboardList },
+          { key: 'purchases', label: t('inventoryPage.orderPurchases', 'To buy for orders'), icon: ShoppingCart },
           { key: 'reports', label: t('inventoryPage.reports'), icon: BarChart3 },
         ].map(({ key, label, icon: Icon }) => {
           const active = tab === key;
@@ -247,6 +249,8 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       {!loadError && tab === 'recipes' && (
         <RecipesTab items={items} isOwner={isOwner} />
       )}
+
+      {!loadError && tab === 'purchases' && <OrderPurchasesTab suppliers={suppliers} isOwner={isOwner} />}
 
       {!loadError && tab === 'reports' && <ReportsTab />}
 

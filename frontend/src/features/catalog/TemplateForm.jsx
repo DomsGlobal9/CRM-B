@@ -9,6 +9,13 @@ import { OTHER_PREFIX, OTHER_MAX_LENGTH, isTypedOther, typedOtherText } from '..
 // nobody listed would send the job down no path at all.
 const NO_OTHER = new Set(['hand_work', 'urgency']);
 import { CameraButton } from '../../components/ui/Atelier';
+import { UNITS, purchaseError } from './materials';
+import { PurchaseDetails } from './GarmentPurchases';
+
+// A select's own "buy it" choice, never stored: the answer is kept as
+// "other:<name>" like any typed option, and the purchase row beside it says
+// it must be bought. Mirrors nothing on the server on purpose.
+const BUY_OPTION = '__buy__';
 
 /**
  * Renders one section of a garment template.
@@ -54,11 +61,6 @@ const UNIT_NAMES = { in: 'Inches' };
 // Mirrors Unit and DEFAULT_UNIT_BY_CATEGORY in apps/inventory/models.py. A
 // customer's own cloth has no stock row to read a unit off, so the form has to
 // offer the same vocabulary the ledger stores.
-const UNITS = [
-  ['METER', 'Meter'], ['PIECE', 'Piece'], ['PAIR', 'Pair'], ['ROLL', 'Roll'],
-  ['PACKET', 'Packet'], ['BOX', 'Box'], ['SET', 'Set'], ['KILOGRAM', 'Kilogram'],
-  ['GRAM', 'Gram'], ['STRING', 'String'], ['UNIT', 'Unit'],
-];
 
 const DEFAULT_UNIT = {
   FABRIC: 'METER', BORDER: 'METER', LINING: 'METER', EMBELLISHMENT: 'PIECE',
@@ -66,7 +68,7 @@ const DEFAULT_UNIT = {
 };
 
 function Field({ field, value, error, onChange, inventory, quantity, quantityError, onQuantityChange,
-                 source, brought, onSourceChange, onBroughtChange }) {
+                 source, brought, onSourceChange, onBroughtChange, purchase, onPurchaseChange }) {
   const common = {
     className: 'form-control',
     id: `tf-${field.key}`,
@@ -120,10 +122,21 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       // own "Specify" text field (saree, shirt, kurta...): that pair stays.
       const other = !NO_OTHER.has(field.key) && !field.options.some((o) => o.value === 'other');
       const typed = other && isTypedOther(value);
+      // "Buy for this order": a typed answer with a purchase row hung on it.
+      const buying = typed && Boolean(purchase);
+      const pick = (chosen) => {
+        if (chosen === BUY_OPTION) {
+          onChange(field.key, OTHER_PREFIX + (purchase?.name || ''));
+          if (!purchase) onPurchaseChange(field.key, { field_key: field.key, name: '', quantity: '', unit: 'METER', estimated_cost: '', required_by: '', notes: '' });
+          return;
+        }
+        if (purchase) onPurchaseChange(field.key, null);
+        onChange(field.key, chosen === OTHER_PREFIX ? OTHER_PREFIX : chosen);
+      };
       control = (
         <>
-          <select {...common} value={typed ? OTHER_PREFIX : (value ?? '')}
-                  onChange={(e) => onChange(field.key, e.target.value === OTHER_PREFIX ? OTHER_PREFIX : e.target.value)}>
+          <select {...common} value={buying ? BUY_OPTION : typed ? OTHER_PREFIX : (value ?? '')}
+                  onChange={(e) => pick(e.target.value)}>
             <option value="">Select</option>
             {field.options.map((option) => (
               <option key={option.value} value={option.value}>
@@ -131,12 +144,30 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
               </option>
             ))}
             {other && <option value={OTHER_PREFIX}>Other (type it)</option>}
+            {other && <option value={BUY_OPTION}>Not in stock? Buy for this order</option>}
           </select>
-          {typed && (
+          {typed && !buying && (
             <input className="form-control" type="text" style={{ marginTop: '8px' }} autoFocus
                    maxLength={OTHER_MAX_LENGTH} value={typedOtherText(value)}
                    placeholder={`Type the ${field.label.toLowerCase()} you want`}
                    onChange={(e) => onChange(field.key, OTHER_PREFIX + e.target.value)} />
+          )}
+          {buying && (
+            <div style={{ marginTop: '8px', padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--surface-2)' }}>
+              <input className="form-control" type="text" autoFocus maxLength={OTHER_MAX_LENGTH}
+                     placeholder={`What do you need? e.g. the ${field.label.toLowerCase()} the customer asked for`}
+                     aria-label={`What to buy for ${field.label}`} value={purchase.name || ''}
+                     onChange={(e) => { onChange(field.key, OTHER_PREFIX + e.target.value); onPurchaseChange(field.key, { ...purchase, name: e.target.value }); }} />
+              <div style={{ marginTop: '8px' }}>
+                <PurchaseDetails row={purchase} onChange={(next) => onPurchaseChange(field.key, next)} />
+              </div>
+              {purchaseError(purchase) && (
+                <div style={{ fontSize: '12px', color: 'var(--danger-color)', marginTop: '4px' }}>{purchaseError(purchase)}</div>
+              )}
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                🛒 Bought specially for this order. Nothing is taken from boutique stock.
+              </div>
+            </div>
           )}
         </>
       );
@@ -187,10 +218,13 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       // "Mixed" on the order means, and the only place it can be recorded
       // truthfully is here, line by line.
       const fromCustomer = source === 'CUSTOMER';
+      // Not in stock and not the customer's: bought for this one order.
+      const toBuy = source === 'PURCHASE';
       const unit = brought.unit || DEFAULT_UNIT[field.inventory_category] || 'UNIT';
+      const setBrought = (patch) => onBroughtChange(field.key, { ...brought, unit, ...patch });
       const sourceToggle = (
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-          {[['STORE', 'From stock'], ['CUSTOMER', 'Customer brought']].map(([key, label]) => (
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+          {[['STORE', 'From stock'], ['CUSTOMER', 'Customer brought'], ['PURCHASE', 'Not in stock? Buy for this order']].map(([key, label]) => (
             <button
               key={key}
               type="button"
@@ -212,7 +246,79 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       // it -- which is exactly how a delivered order used to leave stock
       // untouched. So the quantity is asked for here, at the moment the choice
       // is made, rather than defaulted to a number nobody decided.
-      control = fromCustomer ? (
+      control = toBuy ? (
+        <>
+          {sourceToggle}
+          <input
+            className="form-control"
+            id={`tf-${field.key}`}
+            type="text"
+            placeholder="What do you need? e.g. Pink zari maggam work"
+            value={brought.name || ''}
+            onChange={(e) => setBrought({ name: e.target.value })}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+            <input
+              className="form-control"
+              id={`tf-${field.key}-qty`}
+              type="number"
+              min="0"
+              step="0.001"
+              style={{ maxWidth: '120px' }}
+              placeholder="Quantity"
+              aria-label={`Quantity to buy for ${field.label}`}
+              value={quantity ?? ''}
+              onChange={(e) => onQuantityChange(field.key, e.target.value)}
+            />
+            <select
+              className="form-control"
+              style={{ maxWidth: '140px' }}
+              aria-label={`Unit for ${field.label}`}
+              value={unit}
+              onChange={(e) => setBrought({ unit: e.target.value })}
+            >
+              {UNITS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+            <input
+              className="form-control"
+              type="number"
+              min="0"
+              step="1"
+              style={{ maxWidth: '160px' }}
+              placeholder="Estimated cost ₹"
+              aria-label={`Estimated purchase cost for ${field.label}`}
+              value={brought.estimated_cost ?? ''}
+              onChange={(e) => setBrought({ estimated_cost: e.target.value })}
+            />
+            <input
+              className="form-control"
+              type="date"
+              style={{ maxWidth: '170px' }}
+              aria-label={`Purchase needed by, for ${field.label}`}
+              title="Purchase needed by"
+              value={brought.required_by || ''}
+              onChange={(e) => setBrought({ required_by: e.target.value })}
+            />
+          </div>
+          <input
+            className="form-control"
+            type="text"
+            style={{ marginTop: '8px' }}
+            placeholder="Notes, e.g. use on the pallu"
+            aria-label={`Notes for buying ${field.label}`}
+            value={brought.notes || ''}
+            onChange={(e) => setBrought({ notes: e.target.value })}
+          />
+          {quantityError && (
+            <div style={{ fontSize: '12px', color: 'var(--danger-color)', marginTop: '4px' }}>
+              {quantityError}
+            </div>
+          )}
+          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+            Bought specially for this order. Nothing is taken from boutique stock.
+          </div>
+        </>
+      ) : fromCustomer ? (
         <>
           {sourceToggle}
           <input
@@ -381,6 +487,9 @@ export default function TemplateForm({
   // "Mixed" leaves each one to be said explicitly.
   sources = {}, brought = {}, defaultSource = 'STORE',
   onSourceChange = () => {}, onBroughtChange = () => {},
+  // Things to buy for this garment, one per question they answer (field_key).
+  // Same reasoning again: a purchase is not a field of the spec.
+  purchases = [], onPurchaseChange = () => {},
   // Where to send someone whose inventory is empty. Optional because this form
   // also renders in places that have no navigation to offer.
   onGoToInventory = null,
@@ -478,6 +587,8 @@ export default function TemplateForm({
           brought={brought[field.key] || {}}
           onSourceChange={onSourceChange}
           onBroughtChange={onBroughtChange}
+          purchase={purchases.find((r) => r.field_key === field.key) || null}
+          onPurchaseChange={onPurchaseChange}
         />
       ))}
       </div>

@@ -11,7 +11,7 @@ from .models import (
     BillOfMaterials, BomLine, CatalogItem, CatalogSection, Category,
     CustomerMaterial, CustomerMaterialMovement, DEFAULT_UNIT_BY_CATEGORY,
     InventoryItem, ItemPlacement, LocationStock, OrderMaterialLine, OrderMaterialPlan,
-    PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement, Supplier,
+    OrderPurchase, PurchaseOrder, PurchaseOrderLine, StockLocation, StockMovement, Supplier,
     Unit, UnitConversion, next_item_code,
 )
 
@@ -541,6 +541,48 @@ class CustomerMaterialMovementSerializer(serializers.ModelSerializer):
                   'previous_remaining', 'new_remaining', 'user_name_snapshot',
                   'remarks', 'created_at']
         read_only_fields = fields
+
+
+class OrderPurchaseSerializer(serializers.ModelSerializer):
+    remaining_quantity = serializers.DecimalField(max_digits=12, decimal_places=3, read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    unit_display = serializers.CharField(source='get_unit_display', read_only=True)
+    order_code = serializers.CharField(source='order.order_id', read_only=True)
+    order_reference = serializers.CharField(source='order.reference', read_only=True)
+    customer_name = serializers.SerializerMethodField()
+    supplier_name = serializers.CharField(source='supplier.name', read_only=True, default=None)
+
+    class Meta:
+        model = OrderPurchase
+        fields = ['id', 'order', 'order_code', 'order_reference', 'customer_name', 'garment_job',
+                  'garment_name', 'field_key', 'name', 'notes', 'quantity', 'unit', 'unit_display',
+                  'estimated_cost', 'actual_cost', 'supplier', 'supplier_name', 'invoice_reference',
+                  'status', 'status_display', 'required_by', 'purchased_at', 'received_at',
+                  'received_quantity', 'used_quantity', 'remaining_quantity', 'created_at']
+        # What was bought is written by the purchase steps, not edited in place.
+        read_only_fields = ['order', 'garment_job', 'garment_name', 'field_key', 'actual_cost',
+                            'supplier', 'invoice_reference', 'status', 'purchased_at',
+                            'received_at', 'received_quantity', 'used_quantity', 'created_at']
+
+    def get_customer_name(self, obj):
+        c = obj.order.customer
+        return f"{c.first_name} {c.last_name}".strip()
+
+    def validate_name(self, value):
+        return validate_text(value, label='Item', max_length=200, required=True)
+
+    def validate_notes(self, value):
+        return validate_text(value, label='Notes', max_length=MAX_NOTE) or ''
+
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Quantity must be greater than zero.')
+        return value
+
+    def validate_estimated_cost(self, value):
+        if value < 0:
+            raise serializers.ValidationError('Estimated cost cannot be negative.')
+        return value
 
 
 class CustomerMaterialSerializer(serializers.ModelSerializer):

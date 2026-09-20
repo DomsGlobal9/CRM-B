@@ -30,6 +30,8 @@ const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGa
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
+import GarmentPurchases from './features/catalog/GarmentPurchases';
+import { purchaseError } from './features/catalog/materials';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
 import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview';
 import OrderAlterations, { RequestAlterationModal } from './features/alterations/OrderAlterations';
@@ -1722,6 +1724,16 @@ function App() {
     });
   };
 
+  /** The purchase row hung on one question of a garment: replaced, or
+   *  removed when `row` is null (the answer changed to something in stock). */
+  const updateGarmentPurchase = (key, fieldKey, row) => {
+    setGarmentJobs(prev => prev.map(job => {
+      if (job.key !== key) return job;
+      const rest = (job.purchases || []).filter(r => r.field_key !== fieldKey);
+      return { ...job, purchases: row ? [...rest, row] : rest };
+    }));
+  };
+
   const updateGarmentValues = (key, values) => {
     setGarmentJobs(prev => prev.map(job => (job.key === key ? { ...job, values } : job)));
   };
@@ -1754,11 +1766,14 @@ function App() {
           itemId: job.values?.[field.key],
           name: (brought.name || '').trim(),
           unit: brought.unit,
+          estimated_cost: brought.estimated_cost,
+          required_by: brought.required_by,
+          notes: brought.notes,
         };
       })
-      // A line counts once it names something: a roll off the rack, or the
-      // cloth the customer handed over. Nothing named, nothing to plan.
-      .filter(entry => (entry.source === 'CUSTOMER' ? entry.name : entry.itemId));
+      // A line counts once it names something: a roll off the rack, the
+      // cloth the customer handed over, or the thing to go and buy.
+      .filter(entry => (entry.source === 'STORE' ? entry.itemId : entry.name));
   };
 
   /** One material line, in the shape the API stores.
@@ -1767,8 +1782,19 @@ function App() {
    *  serializer rejects the combination, because their cloth is not stock and
    *  must never be reserved or deducted from it.
    */
-  const materialLine = (job) => ({ field, source, itemId, name, unit }) => (
-    source === 'CUSTOMER'
+  const materialLine = (job) => ({ field, source, itemId, name, unit, estimated_cost, required_by, notes }) => (
+    source === 'PURCHASE'
+      ? {
+        field_key: field.key,
+        free_text: name,
+        quantity: job.quantities?.[field.key],
+        unit,
+        source: 'PURCHASE',
+        estimated_cost: estimated_cost || 0,
+        required_by: required_by || null,
+        notes: (notes || '').trim(),
+      }
+    : source === 'CUSTOMER'
       ? {
         field_key: field.key,
         free_text: name,
@@ -1819,7 +1845,16 @@ function App() {
           if (source === 'CUSTOMER' && !name && raw !== undefined && raw !== '') {
             jobQuantityErrors[field.key] = 'Name what the customer brought for this.';
           }
+          if (source === 'PURCHASE') {
+            const cost = Number(job.brought?.[field.key]?.estimated_cost ?? 0);
+            if (!name && raw !== undefined && raw !== '') jobQuantityErrors[field.key] = 'Say what needs to be bought.';
+            else if (Number.isNaN(cost) || cost < 0) jobQuantityErrors[field.key] = 'The estimated cost cannot be negative.';
+          }
         });
+      (job.purchases || []).forEach((row, i) => {
+        const problem = purchaseError(row);
+        if (problem) jobQuantityErrors[`purchase:${i}`] = problem;
+      });
       if (Object.keys(jobQuantityErrors).length) quantityErrors[job.key] = jobQuantityErrors;
     });
     setGarmentErrors(errors);
@@ -1904,6 +1939,11 @@ function App() {
           sources: job.sources || {},
           brought: job.brought || {},
           materials: garmentMaterialLines(job),
+          purchases: (job.purchases || []).map(r => ({
+            field_key: r.field_key || '',
+            name: (r.name || '').trim(), quantity: r.quantity, unit: r.unit || 'METER',
+            estimated_cost: r.estimated_cost || 0, required_by: r.required_by || null, notes: (r.notes || '').trim(),
+          })),
         };
       }),
       design: {
@@ -1962,6 +2002,7 @@ function App() {
           design: garment.design || {},
           fabrics: garment.fabrics || {},
           fabric_qty: garment.fabric_qty || {},
+          purchases: garment.purchases || [],
         });
       } catch (err) {
         console.error('Could not reload the garment template', garment.template_key, err);
@@ -4797,6 +4838,21 @@ function App() {
                             <span className="od-section-sub">{t('ordersPage.rawMaterialsSub', 'Track the materials used for this order.')}</span>
                           </div>
                         </div>
+                        {(order.purchases || []).filter(pu => pu.status !== 'CANCELLED').length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                            {(order.purchases || []).filter(pu => pu.status !== 'CANCELLED').map(pu => (
+                              <div key={pu.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--surface-2)', fontSize: '13px' }}>
+                                <span>🛒 <strong>{pu.name}</strong>{pu.garment_name ? ` · ${pu.garment_name}` : ''}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>
+                                  {Number(pu.quantity)} {pu.unit_display} · {pu.actual_cost != null ? `${inr(pu.actual_cost)} paid` : `${inr(pu.estimated_cost)} estimated`}
+                                </span>
+                                <span className={`ui-badge ui-badge--${{ TO_PURCHASE: 'warning', PURCHASED: 'info', RECEIVED: 'success' }[pu.status] || 'neutral'}`} style={{ marginLeft: 'auto' }}>
+                                  {pu.status === 'TO_PURCHASE' ? 'Need to buy' : pu.status_display}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <MaterialsChecklist orderId={order.id} role={currentUser.role} />
                       </section>
                       )}
@@ -7112,6 +7168,7 @@ function App() {
                           <div key={sectionKey} className="wz-garment-section">
                             <TemplateForm template={job.template} section={sectionKey} values={job.values}
                                           errors={garmentErrors[job.key] || {}} only={upFront}
+                                          purchases={job.purchases || []} onPurchaseChange={(fieldKey, row) => updateGarmentPurchase(job.key, fieldKey, row)}
                                           onChange={(values) => updateGarmentValues(job.key, values)} />
                           </div>
                         ))}
@@ -7130,6 +7187,14 @@ function App() {
                                         onChange={(values) => updateGarmentValues(job.key, values)} />
                         </div>
 
+                        {/* Something the customer wants that the shelf does not
+                            hold: bought for this order, tracked in Inventory →
+                            To buy for orders. Never stock. */}
+                        <div className="wz-garment-section">
+                          <GarmentPurchases rows={job.purchases || []}
+                                            onChange={(rows) => setGarmentJobs(prev => prev.map(j => (j.key === job.key ? { ...j, purchases: rows } : j)))} />
+                        </div>
+
                         {hasOptional && (
                           <details className="wz-more">
                             <summary>{t('wizard.moreDetails', 'More details')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
@@ -7137,6 +7202,7 @@ function App() {
                               <div key={sectionKey} className="wz-garment-section">
                                 <TemplateForm template={job.template} section={sectionKey} values={job.values}
                                               errors={garmentErrors[job.key] || {}} only={foldedAway}
+                                              purchases={job.purchases || []} onPurchaseChange={(fieldKey, row) => updateGarmentPurchase(job.key, fieldKey, row)}
                                               onChange={(values) => updateGarmentValues(job.key, values)} />
                               </div>
                             ))}
@@ -7533,6 +7599,19 @@ function App() {
                     </Suspense>
                   )}
 
+                  {garmentJobs.some(job => (job.purchases || []).length) && card(t('wizard.sheetPurchases', 'To buy for this order'), stepOf('what'), (
+                    <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        {garmentJobs.flatMap(job => (job.purchases || []).map((row, i) => (
+                          <tr key={`${job.key}:${i}`} style={{ borderTop: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{job.template?.name || job.key}</td>
+                            <td style={{ padding: '8px 0', fontWeight: 600 }}>🛒 {row.name}</td>
+                            <td style={{ padding: '8px 0', textAlign: 'right' }}>{row.quantity} {(row.unit || 'METER').toLowerCase()} · {inr(row.estimated_cost)} est.</td>
+                          </tr>
+                        )))}
+                      </tbody>
+                    </table>
+                  ))}
                   {fabricLines.length > 0 && card(t('wizard.sheetFabric', 'Fabric from our stock'), stepOf('what'), (
                     <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
                       <tbody>
