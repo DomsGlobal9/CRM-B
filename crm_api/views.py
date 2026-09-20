@@ -1887,6 +1887,7 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 # Neutral: apply_advance decides once the total is final.
                 'payment_status': 'Pending',
                 'custom_requirements': special_instructions,
+                'instructions_voice_note': str(payload.get('instructions_voice_note') or ''),
                 'estimated_delivery': ready_by or (due[0] if due else None),
                 'delivery_method': delivery.get('method') or 'Direct Pickup',
                 'courier_service': delivery.get('courier'),

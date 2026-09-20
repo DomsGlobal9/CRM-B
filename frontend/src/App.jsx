@@ -82,7 +82,27 @@ const WIZARD_STEPS = {
 };
 const EMPTY_ALTERATION = { orderId: '', garmentJobId: '', issue: '', type: 'PAID_CLIENT_REQUEST', charge: '', paidNow: '' };
 /** Garment measurement keys that are also on the customer's saved sheet. */
-const MEASURE_KEYS = { chest: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck' };
+// The master body sheet, taken once per customer and reused across garments:
+// garment field key -> sheet key. Several garment keys name the same
+// measurement (chest and bust, bicep and upper arm, crotch and rise, the
+// lehenga's floor length and waist-to-floor), so they share a sheet key.
+// bust/waist/hips/shoulder/neck are columns on the Measurement row; the rest
+// live in its additional_measurements JSON.
+const MEASURE_KEYS = {
+  chest: 'bust', bust: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck',
+  height: 'height', underbust: 'underbust', high_waist: 'high_waist', armhole: 'armhole',
+  upper_arm: 'upper_arm', bicep: 'upper_arm', elbow: 'elbow', wrist: 'wrist',
+  shoulder_to_bust: 'shoulder_to_bust', shoulder_to_waist: 'shoulder_to_waist',
+  waist_to_hip: 'waist_to_hip', waist_to_floor: 'waist_to_floor', floor_length: 'waist_to_floor',
+  crotch: 'rise', thigh: 'thigh', knee: 'knee', calf: 'calf', ankle: 'ankle',
+  inseam: 'inseam', outseam: 'outseam',
+};
+const SHEET_COLUMNS = new Set(['bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length']);
+const sheetGet = (sheet, key) => (SHEET_COLUMNS.has(key) ? sheet[key] : sheet.additional_measurements?.[key]);
+const sheetSet = (sheet, key, value) => {
+  if (SHEET_COLUMNS.has(key)) sheet[key] = value;
+  else sheet.additional_measurements = { ...(sheet.additional_measurements || {}), [key]: value };
+};
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const todayIso = () => isoDay(new Date());
 const plusDaysIso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return isoDay(d); };
@@ -1569,6 +1589,11 @@ function App() {
   const [designLinks, setDesignLinks] = useState('');
   const [advancePaymentAmount, setAdvancePaymentAmount] = useState(0);
   const [specialInstructions, setSpecialInstructions] = useState('');
+  // A voice note recorded on the Measurements step: { url, by, at } once
+  // sent. Uploaded at once, carried on the draft, and set on the order as
+  // its instructions voice note at confirm -- so the tailor hears it wherever
+  // an order's voice note already plays.
+  const [measureVoiceNote, setMeasureVoiceNote] = useState(null);
 
   const [selectedFabric, setSelectedFabric] = useState(null);
   // Order-level money only. Everything garment-shaped -- base, fabric,
@@ -1932,6 +1957,9 @@ function App() {
       // for older readers of the draft.
       payment: { option: total > 0 && advance >= total ? 'full' : 'partial', advance },
       special_instructions: specialInstructions,
+      instructions_voice_note: measureVoiceNote?.url || '',
+      instructions_voice_note_by: measureVoiceNote?.by || '',
+      instructions_voice_note_at: measureVoiceNote?.at || null,
     };
   };
 
@@ -2004,6 +2032,9 @@ function App() {
                                  discount: prices.discount ?? 0 });
     if (payment.advance !== undefined) setAdvancePaymentAmount(payment.advance);
     setSpecialInstructions(payload.special_instructions || '');
+    setMeasureVoiceNote(payload.instructions_voice_note
+      ? { url: payload.instructions_voice_note, by: payload.instructions_voice_note_by || '', at: payload.instructions_voice_note_at || null }
+      : null);
     setWizardError(null);
     setDraftSaveState('idle');
     setGarmentErrors({});
@@ -2836,6 +2867,7 @@ function App() {
     setQuotePrices({ packaging: 500, discount: 0 });
     setAdvancePaymentAmount(0);
     setSpecialInstructions('');
+    setMeasureVoiceNote(null);
     setReadyBy(plusDaysIso(15));
     setDesignRequest({ designer: '', brief: '' });
     setAlterationForm(EMPTY_ALTERATION);
@@ -2913,7 +2945,8 @@ function App() {
       const own = new Set(((job.template?.sections || []).find(sec => sec.key === 'measurements')?.fields || []).map(f => f.key));
       const values = { ...(job.values || {}) };
       Object.entries(MEASURE_KEYS).forEach(([key, sheetKey]) => {
-        if (own.has(key) && (values[key] === undefined || values[key] === '') && sheet[sheetKey]) values[key] = sheet[sheetKey];
+        const kept = sheetGet(sheet, sheetKey);
+        if (own.has(key) && (values[key] === undefined || values[key] === '') && kept) values[key] = kept;
       });
       return { ...job, values };
     }));
@@ -2923,7 +2956,7 @@ function App() {
     const body = { ...(customerForm.measurements || {}) };
     garmentJobs.forEach(job => {
       Object.entries(MEASURE_KEYS).forEach(([key, sheetKey]) => {
-        if (job.values?.[key] !== undefined && job.values[key] !== '') body[sheetKey] = job.values[key];
+        if (job.values?.[key] !== undefined && job.values[key] !== '') sheetSet(body, sheetKey, job.values[key]);
       });
     });
     setCustomerForm(prev => ({ ...prev, measurements: body }));
@@ -7406,6 +7439,24 @@ function App() {
                 {!needsMeasurements() && (
                   <div className="content-card wz-card od-hint">{t('wizard.nothingToMeasure', 'Nothing to measure for these garments.')}</div>
                 )}
+
+                {/* The same recorder the workflow's stage review uses: record,
+                    hear it back, Send keeps it under the sender's name, Delete
+                    throws it away. Sent here means uploaded and held on the
+                    draft; it lands on the order at confirm. */}
+                <div className="content-card wz-card">
+                  <Field label={t('wizard.measurementVoiceNote', 'Voice note for the tailor')}>
+                    <VoiceRecorder
+                      sent={measureVoiceNote}
+                      onSend={async (blob) => {
+                        const url = await api.uploadVoiceNote(blob);
+                        const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
+                        setMeasureVoiceNote({ url, by, at: new Date().toISOString() });
+                      }}
+                      onDelete={() => setMeasureVoiceNote(null)}
+                    />
+                  </Field>
+                </div>
               </>
             )}
 

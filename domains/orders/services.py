@@ -289,6 +289,14 @@ class OrderService:
             tracking_number=data.get('tracking_number'),
             delivery_address=data.get('delivery_address'),
             special_instructions=data.get('custom_requirements') or '',
+            # A voice note recorded in the wizard, stamped with who left it,
+            # the same way OrderViewSet.perform_update stamps a later one.
+            instructions_voice_note=(data.get('instructions_voice_note') or '')[:500],
+            instructions_voice_note_by=(
+                OrderService._voice_sender(user) if data.get('instructions_voice_note') else ''),
+            instructions_voice_note_at=(
+                datetime.datetime.now(datetime.timezone.utc)
+                if data.get('instructions_voice_note') else None),
             advance_paid=advance_paid,
             amount_paid=amount_paid,
             current_stage_key='created',
