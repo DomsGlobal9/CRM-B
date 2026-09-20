@@ -272,7 +272,7 @@ class OrderService:
                          else 'HIGH' if s_conf['key'] in ('pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
                          else 'MEDIUM')
             for index, s_conf in enumerate(workflow_stages, start=1)
-            if s_conf['key'] not in ('created', 'delivered')
+            if s_conf['key'] not in ('created', 'payment', 'delivered')
         ]
         ProductionTask.objects.bulk_create(tasks_to_create)
 
@@ -528,6 +528,7 @@ class OrderService:
             'trial_scheduled': 'Ready for Dispatch',
             'trial_completed': 'Ready for Dispatch',
             'ready_for_delivery': 'Ready for Dispatch',
+            'payment': 'Ready for Dispatch',
             'delivered': 'Delivered' if new_status == 'COMPLETED' else order.order_status,
         }
         previous_order_status = order.order_status
@@ -631,6 +632,7 @@ CLIENT_STATUS_WHEN_SETTLED = {
     'trial_scheduled': 'Ready for Dispatch',
     'trial_completed': 'Ready for Dispatch',
     'ready_for_delivery': 'Ready for Dispatch',
+    'payment': 'Ready for Dispatch',
     'delivered': 'Delivered',
 }
 
@@ -850,7 +852,7 @@ def set_order_flow(order, flow, user):
             OrderStage.objects.create(
                 order=order, stage_key=s_conf['key'], stage_name=s_conf['name'],
                 status='NOT_STARTED', sequence=index, sla_hours=s_conf.get('sla_hours', 24))
-            if s_conf['key'] not in ('created', 'delivered'):
+            if s_conf['key'] not in ('created', 'payment', 'delivered'):
                 ProductionTask.objects.create(
                     order=order, title=s_conf['name'], stage_key=s_conf['key'],
                     assigned_to=order.master or order.tailor, sequence=index + 1, priority='MEDIUM')

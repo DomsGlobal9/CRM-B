@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Calendar, CheckCircle2, ClipboardList, Hand, Package, PackageCheck, PenTool, Ruler, Scissors,
+  Calendar, CheckCircle2, ClipboardList, Hand, IndianRupee, Package, PackageCheck, PenTool, Ruler, Scissors,
   Shirt, ShieldCheck, Sparkles, Truck, User,
 } from 'lucide-react';
 import { api } from '../../services/api';
@@ -53,6 +53,7 @@ const STAGE_LOOK = {
   trial_scheduled:       ['green',   Calendar,     'Fitting booked'],
   trial_completed:       ['green',   CheckCircle2, 'Fitting done'],
   ready_for_delivery:    ['green',   PackageCheck, 'Packed and waiting'],
+  payment:               ['green',   IndianRupee,  'Settling the bill'],
   delivered:             ['green',   Truck,        'With the customer'],
 };
 

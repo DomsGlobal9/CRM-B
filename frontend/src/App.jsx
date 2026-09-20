@@ -249,7 +249,7 @@ const STAGE_ICONS = {
   paper_cutting: FileText, maggam_work: PenTool, maggam_handwork: Hand, maggam_verification: ShieldCheck,
   fabric_cutting: Scissors, stitching_in_progress: Shirt,
   finishing: Sparkles, pressing: Flame, master_quality_check: ShieldCheck, trial_scheduled: CalendarClock,
-  trial_completed: UserCheck, ready_for_delivery: PackageCheck, delivered: Truck,
+  trial_completed: UserCheck, ready_for_delivery: PackageCheck, payment: IndianRupee, delivered: Truck,
 };
 
 /**
@@ -4650,7 +4650,9 @@ function App() {
                             <button type="button" className="btn-primary" style={{ padding: '6px 14px', minHeight: '32px', fontSize: '12.5px' }}
                                     disabled={completingAllOrderId === order.id}
                                     onClick={async () => {
-                                      if (!window.confirm('Complete every remaining stage and mark this order Delivered?')) return;
+                                      if (!window.confirm((order.payment_status === 'Paid' ? '' : `Payment is not complete: ${inr(order.amount_paid)} of ${inr(order.total_amount)} received.
+
+`) + 'Complete every remaining stage and mark this order Delivered?')) return;
                                       setCompletingAllOrderId(order.id);
                                       try { await api.completeAllStages(order.id); await fetchDashboardAndConfig(); }
                                       catch (err) { alert(err.message); }
@@ -7932,6 +7934,15 @@ function App() {
         // on the stage. Either is a note saved in place, status unchanged.
         const transition = async (status, okMessage, comments = stageReviewComments, sentVoiceNote = null, clearVoiceNote = false) => {
           if (stageTransitionBusy) return;
+          // The Payment step checks the money is in. It may still be completed
+          // on a partial payment, but only after the owner says so here; the
+          // balance is then chased at Delivery.
+          if (status === 'COMPLETED' && stage.stage_key === 'payment' && activeReviewOrder.payment_status !== 'Paid') {
+            const paid = Number(activeReviewOrder.amount_paid || 0), total = Number(activeReviewOrder.total_amount || 0);
+            if (!window.confirm(`Payment is not complete: ${inr(paid)} of ${inr(total)} received (${inr(total - paid)} outstanding).
+
+Complete the Payment stage with this partial payment?`)) return;
+          }
           if (stageReviewRecording) { alert(t('ordersPage.stopRecordingFirst', 'Stop the recording first, then save.')); return; }
           setStageTransitionBusy(true);
           try {

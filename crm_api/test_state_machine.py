@@ -22,7 +22,7 @@ SEQUENCE = [
     'created', 'pattern_cutting',
     'stitching_in_progress',
     'finishing', 'pressing', 'master_quality_check',
-    'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'delivered',
+    'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'payment', 'delivered',
 ]
 
 

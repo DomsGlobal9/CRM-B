@@ -521,12 +521,12 @@ class MasterJourneyTests(WorkflowTestBase):
 
         self.step(order, "stitching_in_progress", user=self.tailor_user)
         for stage_key in ["master_quality_check", "trial_scheduled", "trial_completed",
-                          "ready_for_delivery", "delivered"]:
+                          "ready_for_delivery", "payment", "delivered"]:
             self.assertEqual(self._transition(order, stage_key).status_code, 200, stage_key)
 
         order.refresh_from_db()
         self.assertEqual(order.order_status, "Delivered")
-        self.assertEqual(order.stages.filter(status="COMPLETED").count(), 10)
+        self.assertEqual(order.stages.filter(status="COMPLETED").count(), 11)
 
     def test_master_work_is_attributed_to_them(self):
         order = self.make_order()
@@ -1038,7 +1038,7 @@ class MasterJourneyTests(WorkflowTestBase):
 
         for key in ["finishing", "pressing", "master_quality_check",
                     "trial_scheduled", "trial_completed", "ready_for_delivery",
-                    "delivered"]:
+                    "payment", "delivered"]:
             self.complete(order, key, user=self.master_user)
 
         order.refresh_from_db()

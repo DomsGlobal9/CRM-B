@@ -75,7 +75,7 @@ class OrderMaterialsTestBase(TenantTestCase):
             'created', 'pattern_cutting',
             'maggam_work', 'stitching_in_progress',
             'finishing', 'pressing', 'master_quality_check',
-            'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'delivered',
+            'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'payment', 'delivered',
         ]):
             OrderStage.objects.create(
                 order=order, stage_key=key, stage_name=key.replace('_', ' ').title(),
@@ -103,7 +103,7 @@ class OrderMaterialsTestBase(TenantTestCase):
         'created', 'pattern_cutting',
         'maggam_work', 'stitching_in_progress',
         'finishing', 'pressing', 'master_quality_check',
-        'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'delivered',
+        'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'payment', 'delivered',
     ]
     OPTIONAL = {'maggam_work'}
 

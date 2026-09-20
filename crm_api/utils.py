@@ -232,6 +232,7 @@ def seed_tenant_defaults(demo=True):
             {"key": "trial_scheduled", "name": "Trial booking", "sla": 48},
             {"key": "trial_completed", "name": "Trial", "sla": 24},
             {"key": "ready_for_delivery", "name": "Delivery prep", "sla": 24},
+            {"key": "payment", "name": "Payment", "sla": 24},
             {"key": "delivered", "name": "Delivery", "sla": 24},
         ]
 

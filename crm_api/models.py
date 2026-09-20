@@ -542,6 +542,10 @@ def get_default_workflow():
         {"key": "trial_scheduled", "name": "Trial booking", "sla_hours": 48, "roles": ["Owner", "Master"]},
         {"key": "trial_completed", "name": "Trial", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "ready_for_delivery", "name": "Delivery prep", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        # Money before handover. Not a rule the server enforces: the owner may
+        # complete it on a partial payment (the balance is chased at Delivery)
+        # after the screen asks them to say so.
+        {"key": "payment", "name": "Payment", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "delivered", "name": "Delivery", "sla_hours": 12, "roles": ["Owner", "Master"]}
     ]
 
