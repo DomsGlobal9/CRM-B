@@ -1,5 +1,4 @@
 import { Check, X, Shirt } from 'lucide-react';
-import { groupGarmentJobs } from '../../features/catalog/garmentGroups';
 
 /**
  * DressesDropdown - a native select for adding garments to the order, with the
@@ -20,7 +19,6 @@ export default function DressesDropdown({
 }) {
   const chosenKeys = new Set(garmentJobs.map((job) => job.key));
   const available = garmentTemplates.filter((t) => !chosenKeys.has(t.key));
-  const groups = groupGarmentJobs(garmentJobs);
 
   return (
     <div
@@ -60,12 +58,9 @@ export default function DressesDropdown({
       </div>
 
       {/* Chosen garments */}
-      {groups.map((group) => (
-        <div key={group.primary.key} style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '10px' }}>
-          {groups.length > 1 && (
-            <span className="stat-label" style={{ width: '100%' }}>{group.primary.template?.name || group.primary.key}</span>
-          )}
-          {group.jobs.map((job) => {
+      {garmentJobs.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '10px' }}>
+          {garmentJobs.map((job) => {
             const name = job.template?.name || job.key;
             return (
               <span
@@ -108,7 +103,7 @@ export default function DressesDropdown({
             );
           })}
         </div>
-      ))}
+      )}
 
       {/* Garment picker. Value is pinned to '' so every pick re-arms it. */}
       <select
