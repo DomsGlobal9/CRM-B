@@ -7445,7 +7445,11 @@ function App() {
                     throws it away. Sent here means uploaded and held on the
                     draft; it lands on the order at confirm. */}
                 <div className="content-card wz-card">
-                  <Field label={t('wizard.measurementVoiceNote', 'Voice note for the tailor')}>
+                  <Field label={t('wizard.notesForTailor', 'Notes for the tailor')}>
+                    {/* The same note the "What" screen asks for; one field, two doors. */}
+                    <VoiceTextarea className="form-control" rows={3} value={specialInstructions} maxLength={LIMITS.note}
+                                   onChange={(e) => setSpecialInstructions(e.target.value)}
+                                   placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
                     <VoiceRecorder
                       sent={measureVoiceNote}
                       onSend={async (blob) => {
