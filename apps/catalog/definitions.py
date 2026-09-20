@@ -122,6 +122,15 @@ def bottom_materials(extra=()):
     ]
 
 
+def grouped(group, *fields):
+    """Fold these optional fields away under one "+ <group>" heading on the
+    Measurements step. Read from validation['group'] by the wizard; the
+    server ignores keys it does not know, so nothing else changes."""
+    for f in fields:
+        f['validation'] = {**f['validation'], 'group': group}
+    return list(fields)
+
+
 def parts(*labels):
     """The parts of a garment a design photograph can be of.
 
@@ -159,7 +168,63 @@ TEMPLATES = [
             ],
             # A petticoat is its own garment on the order (key 'petticoat'),
             # so the saree no longer asks whether one is required.
-            'measurements': [],
+            # Nothing here is required: every group folds away behind a "+"
+            # and is filled only when the counter has the numbers.
+            'measurements': [
+                *grouped('Body / Fit Measurements',
+                    measurement('height', 'Height'),
+                    measurement('shoulder', 'Shoulder'),
+                    measurement('bust', 'Bust'),
+                    measurement('underbust', 'Underbust'),
+                    measurement('waist', 'Waist'),
+                    measurement('high_waist', 'High Waist'),
+                    measurement('hip', 'Hip'),
+                    measurement('waist_to_floor', 'Waist-to-Floor'),
+                    measurement('shoulder_to_floor', 'Shoulder-to-Floor'),
+                    measurement('blouse_length', 'Blouse Length'),
+                ),
+                *grouped('Saree Measurements',
+                    field('saree_total_length', 'Saree Total Length', 'number', unit='m',
+                          validation={'min': 0, 'max': 20, 'step': 0.25}),
+                    measurement('saree_width', 'Saree Width'),
+                    measurement('pallu_length', 'Pallu Length'),
+                    measurement('pallu_width', 'Pallu Width'),
+                    field('pallu_placement', 'Pallu Fall / Placement', 'text'),
+                    measurement('pleat_length', 'Pleat Length'),
+                    measurement('pleat_width', 'Pleat Width'),
+                    field('number_of_pleats', 'Number of Pleats', 'number',
+                          validation={'min': 0, 'max': 30, 'step': 1}),
+                    field('saree_fall_length', 'Saree Fall Length', 'number', unit='m',
+                          validation={'min': 0, 'max': 20, 'step': 0.25}),
+                    measurement('petticoat_length', 'Petticoat Length'),
+                    measurement('petticoat_waist', 'Petticoat Waist'),
+                    measurement('petticoat_flare', 'Petticoat Flare / Hem',
+                                validation={'min': 0, 'max': 200, 'step': 0.25}),
+                ),
+                *grouped('With Border / Pattern',
+                    measurement('border_width', 'Border Width'),
+                    field('border_placement', 'Border Placement', 'text'),
+                    measurement('top_border_width', 'Top Border'),
+                    measurement('bottom_border_width', 'Bottom Border'),
+                    measurement('pallu_border_width', 'Pallu Border'),
+                    field('border_direction', 'Border Direction', 'text'),
+                    measurement('pattern_repeat', 'Pattern Repeat'),
+                    measurement('motif_size', 'Motif Size'),
+                    measurement('motif_spacing', 'Motif Spacing'),
+                    field('pattern_align_pleats', 'Pattern Alignment at Pleats', 'text'),
+                    field('pattern_align_pallu', 'Pattern Alignment at Pallu', 'text'),
+                    field('embroidery_placement', 'Embroidery Placement', 'text'),
+                    field('contrast_panel', 'Contrast Panel Measurements', 'text'),
+                ),
+                *grouped('Without Pattern',
+                    measurement('plain_body_width', 'Plain Body Width'),
+                    measurement('plain_pallu_width', 'Plain Pallu Width'),
+                    field('plain_border', 'Plain Border / No Border', 'select',
+                          options=['Plain Border', 'No Border']),
+                    field('edge_finish', 'Desired Finish at Edges', 'text'),
+                    field('tassel_placement', 'Tassel / Latkan Placement', 'text'),
+                ),
+            ],
             'style': [
                 field('services', 'Services Required', 'multiselect', required=True, options=[
                     'Stitching', 'Fall', 'Pico', ('fall_pico', 'Fall + Pico'),

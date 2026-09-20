@@ -7227,6 +7227,10 @@ function App() {
                 {garmentJobs.map((job) => {
                   const section = job.template.sections.find((sec) => sec.key === 'measurements');
                   if (!section) return null;
+                  // Optional measurements a template tags with validation.group
+                  // (the saree) fold away, one "+" per group, and are filled
+                  // only when wanted. A template with no groups draws as before.
+                  const groups = [...new Set(section.fields.map((f) => f.validation?.group).filter(Boolean))];
                   return (
                     <div className="content-card wz-card" key={job.key}>
                       <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -7234,7 +7238,17 @@ function App() {
                       </div>
                       <TemplateForm template={job.template} section="measurements" values={job.values}
                                     errors={garmentErrors[job.key] || {}}
+                                    only={groups.length ? (f) => !f.validation?.group : null}
                                     onChange={(values) => updateGarmentValues(job.key, values)} />
+                      {groups.map((group) => (
+                        <details key={group} className="wz-more">
+                          <summary><Plus size={14} /> {group} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <TemplateForm template={job.template} section="measurements" values={job.values}
+                                        errors={garmentErrors[job.key] || {}}
+                                        only={(f) => f.validation?.group === group}
+                                        onChange={(values) => updateGarmentValues(job.key, values)} />
+                        </details>
+                      ))}
                     </div>
                   );
                 })}
