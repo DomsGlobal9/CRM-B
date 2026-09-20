@@ -7246,7 +7246,10 @@ function App() {
                   // Optional measurements a template tags with validation.group
                   // (the saree) fold away, one "+" per group, and are filled
                   // only when wanted. A template with no groups draws as before.
-                  const groups = [...new Set(section.fields.map((f) => f.validation?.group).filter(Boolean))];
+                  // Only groups with a field this garment currently shows: the
+                  // sharara groups on Bottom Wear hang off its type, so a
+                  // salwar draws no "+" for them.
+                  const groups = [...new Set(section.fields.filter((f) => isVisible(f, job.values)).map((f) => f.validation?.group).filter(Boolean))];
                   return (
                     <div className="content-card wz-card" key={job.key}>
                       <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
