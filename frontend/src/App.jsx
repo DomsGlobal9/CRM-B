@@ -8910,6 +8910,11 @@ Complete the Payment stage with this partial payment?`)) return;
                     </select>
                   </Field>
                 )}
+                {/* One grid cell: the notes box, and under it the voice
+                    note. The recorder sits outside the bordered control --
+                    Field lays its children out in a row for icon + input,
+                    which squeezed the textarea to a few characters wide. */}
+                <div className="at-field">
                 <Field label="Comments / Fitting Logs">
                   <VoiceTextarea
                     className="form-control"
@@ -8918,6 +8923,7 @@ Complete the Payment stage with this partial payment?`)) return;
                     value={stageReviewComments}
                     onChange={(e) => setStageReviewComments(e.target.value)}
                   />
+                </Field>
                   {/* The voice note proper: recorded on its own (nothing is
                       transcribed into the box), heard back, then Send saves
                       it on the stage under the sender's name -- with whatever
@@ -8932,7 +8938,7 @@ Complete the Payment stage with this partial payment?`)) return;
                     }}
                     onDelete={() => transition(stage.status, t('ordersPage.voiceNoteDeleted', 'Voice note deleted.'), stageReviewComments, null, true)}
                   />
-                </Field>
+                </div>
                 <div className="at-field">
                   <span className="at-field-label">
                     Upload Progress Photos <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(up to 5)</span>
