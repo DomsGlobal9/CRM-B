@@ -807,6 +807,132 @@ function StageTimeline({ stages, onSelectStage, hasVoiceNote = anyVoiceNote }) {
   );
 }
 
+/** What a stage is doing, in words, and the tone of its badge. */
+const stageWords = (t, status) => (
+  status === 'COMPLETED' ? [t('ordersPage.taskDone', 'Completed'), 'success']
+  : status === 'SKIPPED' ? [t('ordersPage.taskSkipped', 'Skipped'), 'neutral']
+  : status === 'PENDING_VERIFICATION' ? [t('ordersPage.taskWaitingCheck', 'Waiting for check'), 'warning']
+  : status === 'PAUSED' ? [t('ordersPage.taskPaused', 'Paused'), 'warning']
+  : isLive({ status }) ? [t('ordersPage.taskLive', 'In progress'), 'info']
+  : [t('ordersPage.taskNotStarted', 'Not started'), 'neutral']);
+
+/** The row of a stage to open: the garment in hand, else the first not yet
+ *  done, else the first. A rolled-up step names a stage, not a garment. */
+const rowToOpen = (stages, stageKey) => {
+  const rows = (stages || []).filter((s) => s.stage_key === stageKey);
+  return rows.find(isLive) || rows.find((s) => !isSettled(s)) || rows[0] || null;
+};
+
+/** The order's journey as one table: a numbered step per stage (a per-garment
+ *  stage counts once), what state it is in, when it closed, and the one
+ *  action that fits. Every row opens its stage. */
+function OrderTaskTable({ stages, onSelectStage }) {
+  const { t } = useLanguage();
+  const steps = rollupStages(stages);
+  if (!steps.length) {
+    return <div className="od-empty">{t('ordersPage.noProductionStages', 'No production stages recorded for this order.')}</div>;
+  }
+  const current = currentRow(steps);
+  return (
+    <div className="at-table-wrap od-tasks-wrap">
+      <table className="at-table at-table--fit od-tasks">
+        <thead>
+          <tr>
+            <th className="od-tasks-num">#</th>
+            <th>{t('ordersPage.taskCol', 'Task')}</th>
+            <th>{t('common.status', 'Status')}</th>
+            <th>{t('ordersPage.completedOn', 'Completed on')}</th>
+            <th style={{ textAlign: 'right' }}>{t('common.actions', 'Actions')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {steps.map((step, i) => {
+            const [words, tone] = stageWords(t, step.status);
+            const done = isSettled(step);
+            const live = isLive(step);
+            const open = () => { const row = rowToOpen(stages, step.stage_key); if (row) onSelectStage(row); };
+            return (
+              <tr key={step.stage_key} className={step === current ? 'od-tasks-row--current' : done ? 'od-tasks-row--done' : ''}
+                  onClick={open} style={{ cursor: 'pointer' }}>
+                <td className="od-tasks-num">{i + 1}</td>
+                <td data-label={t('ordersPage.taskCol', 'Task')}>
+                  <span className="od-tasks-name">{step.stage_name}{anyVoiceNote(step) && <Mic size={12} className="oj-mic" aria-label="Voice note" />}</span>
+                </td>
+                <td data-label={t('common.status', 'Status')}>
+                  <span className={`ui-badge ui-badge--${tone}`}>
+                    <span className="od-tasks-dot" aria-hidden="true" />{words}
+                  </span>
+                </td>
+                <td data-label={t('ordersPage.completedOn', 'Completed on')} className="od-tasks-when">
+                  {step.status === 'COMPLETED' && step.completed_at ? fmtDate(step.completed_at) : '—'}
+                </td>
+                <td style={{ textAlign: 'right' }}>
+                  {live ? (
+                    <button type="button" className="btn-primary at-btn-sm" onClick={(e) => { e.stopPropagation(); open(); }}>
+                      {t('ordersPage.updateStage', 'Update')}
+                    </button>
+                  ) : done ? (
+                    <button type="button" className="btn-secondary at-btn-sm" onClick={(e) => { e.stopPropagation(); open(); }}>
+                      {t('common.view', 'View')}
+                    </button>
+                  ) : (
+                    <span className="od-tasks-when">—</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Each garment on the order with its own steps as chips, so a two-garment
+ *  order shows which blouse is on which step. A chip opens that row. */
+function OrderGarmentsCard({ order, onSelectStage }) {
+  const { t } = useLanguage();
+  const jobs = order.garment_jobs || [];
+  if (!jobs.length) return null;
+  return (
+    <section className="at-section od-garments">
+      <div className="od-section-head">
+        <IconTile icon={Shirt} tone="green" size={40} iconSize={18} />
+        <div className="od-section-title od-section-title--stack">
+          <h3>{t('ordersPage.garmentsInOrder', 'Garments in this order')}</h3>
+          <span className="od-section-sub">{t('ordersPage.garmentsInOrderSub', 'Items to be prepared')}</span>
+        </div>
+      </div>
+      <div className="od-garment-list">
+        {jobs.map((job) => {
+          const rows = (order.stages || []).filter((s) => s.garment_job === job.id).sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+          return (
+            <div key={job.id} className="od-garment">
+              <div className="od-garment-tile" aria-hidden="true"><Shirt size={20} /></div>
+              <div className="od-garment-body">
+                <div className="od-garment-name">{job.template_name || t('ordersPage.garment', 'Garment')}</div>
+                {rows.length > 0 && (
+                  <div className="od-garment-steps">
+                    {rows.map((s) => {
+                      const state = STEP_STATE(s.status);
+                      return (
+                        <button key={s.id} type="button" className={`od-garment-step od-garment-step--${state}`}
+                                onClick={() => onSelectStage(s)} title={`${s.stage_name} — ${stageWords(t, s.status)[0]}`}>
+                          {s.stage_name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 /**
  * How the order leaves the boutique: pickup, or a courier with its details.
  * Intake no longer asks; the counter decides here, when it is decided, through
@@ -4722,12 +4848,7 @@ function App() {
             {['orders', 'workshop'].includes(dashboardTab) && openOrder && (() => {
               const order = openOrder;
               const stages = order.stages || [];
-              // Counted by step, not by row: a per-garment step is one step.
-              const steps = rollupStages(stages);
-              const live = steps.find(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status)) || null;
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
-              const journeyBadge = allDone ? ['success', STEP_LABEL.done]
-                : live ? ['info', STEP_LABEL.live] : ['neutral', STEP_LABEL.next];
               const tasksDone = stages.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
               const stepChip = `${tasksDone} of ${stages.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
               // Model display parked — see task 16
@@ -4741,9 +4862,36 @@ function App() {
               const verified = Object.values(verification).filter(Boolean).length;
               return (
                 <div className="od-page">
-                  <button type="button" className="btn-link od-back" onClick={() => setOpenOrdersRowId(null)}>
-                    <ArrowLeft size={16} /> {dashboardTab === 'workshop' ? t('ordersPage.backToWorkshop', 'Back to workshop') : t('ordersPage.backToOrders', 'Back to orders')}
-                  </button>
+                  <div className="od-topbar">
+                    <button type="button" className="btn-link od-back" onClick={() => setOpenOrdersRowId(null)}>
+                      <ArrowLeft size={16} /> {dashboardTab === 'workshop' ? t('ordersPage.backToWorkshop', 'Back to workshop') : t('ordersPage.backToOrders', 'Back to orders')}
+                    </button>
+                    {/* The one thing to do next lives up here: send it to the
+                        workshop, or (the owner's shortcut) close every stage. */}
+                    <div className="od-topbar-actions">
+                      {orderBucket(order) === 'new' && ['Owner', 'Master'].includes(currentUser.role) && (
+                        <button type="button" className="btn-primary od-send-btn" disabled={sendBusy}
+                                onClick={() => openSendToWorkshop(order)}>
+                          <Scissors size={16} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
+                        </button>
+                      )}
+                      {currentUser.role === 'Owner' && stages.length > 0 && !allDone && orderBucket(order) !== 'new' && (
+                        <button type="button" className="btn-primary"
+                                disabled={completingAllOrderId === order.id}
+                                onClick={async () => {
+                                  if (!window.confirm((order.payment_status === 'Paid' ? '' : `Payment is not complete: ${inr(order.amount_paid)} of ${inr(order.total_amount)} received.
+
+`) + 'Complete every remaining stage and mark this order Delivered?')) return;
+                                  setCompletingAllOrderId(order.id);
+                                  try { await api.completeAllStages(order.id); await fetchDashboardAndConfig(); }
+                                  catch (err) { alert(err.message); }
+                                  finally { setCompletingAllOrderId(null); }
+                                }}>
+                          <CheckCircle2 size={16} /> {completingAllOrderId === order.id ? t('ordersPage.completing', 'Completing…') : t('ordersPage.markComplete', 'Mark as complete')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
                   <header className="od-head">
                     <div className="od-head-left">
@@ -4792,9 +4940,9 @@ function App() {
                         })()}
                       </div>
                       <div className="od-meta">
-                        <span><User size={14} />{t('ordersPage.client', 'Client:')} <strong>{order.customer_name}</strong></span>
+                        <span><User size={14} />{t('ordersPage.client', 'Customer:')} <strong>{order.customer_name}</strong></span>
                         <span className="od-meta-sep" aria-hidden="true">·</span>
-                        <span><Calendar size={14} />{t('ordersPage.created', 'Created:')} {fmtDate(order.order_date)}</span>
+                        <span><Calendar size={14} />{t('ordersPage.created', 'Taken on:')} {fmtDate(order.order_date)}</span>
                       </div>
                     </div>
                     <p className="od-quote">“From fabric to finesse, we keep you in the loop.”</p>
@@ -4867,71 +5015,54 @@ function App() {
                   {orderBucket(order) === 'workshop' && (() => {
                     const now = stageNow(order);
                     if (!now) return null;
-                    const cards = [
-                      ['prev', t('ordersPage.previousStage', 'Previous stage'), now.prev, now.prev?.completed_at ? `${t('ordersPage.doneOn', 'done')} ${fmtDate(now.prev.completed_at)}` : ''],
-                      ['now', t('ordersPage.currentStage', 'Current stage'), now.current,
-                        [stageWho(now.current), sinceLabel(now.current.started_at) && `${t('ordersPage.since', 'since')} ${sinceLabel(now.current.started_at)}`,
-                         now.current.status === 'PENDING_VERIFICATION' && t('ordersPage.waitingForCheck', 'waiting for check')].filter(Boolean).join(' · ')],
-                      ['next', t('ordersPage.nextStage', 'Next stage'), now.next, stageWho(now.next || {}) || t('ordersPage.upNext', 'up next')],
+                    const cols = [
+                      { key: 'prev', label: t('ordersPage.previousStage', 'Previous stage'), st: now.prev, Icon: Check,
+                        sub: now.prev?.completed_at ? `${t('ordersPage.completedOn', 'Completed on')} ${fmtDate(now.prev.completed_at)}` : '' },
+                      { key: 'now', label: t('ordersPage.currentStage', 'Current stage'), st: now.current, Icon: Scissors,
+                        sub: [now.current.started_at && `${t('ordersPage.startedOn', 'Started on')} ${fmtDate(now.current.started_at)}`,
+                              stageWho(now.current), now.current.status === 'PENDING_VERIFICATION' && t('ordersPage.waitingForCheck', 'waiting for check')]
+                          .filter(Boolean).join(' · ') },
+                      { key: 'next', label: t('ordersPage.nextStage', 'Next stage'), st: now.next, Icon: Clock,
+                        sub: now.next ? t('ordersPage.startsAfter', 'Starts after {stage}', { stage: now.name.toLowerCase() }) : '' },
                     ];
                     return (
-                      <section className="od-standing" aria-label={t('ordersPage.whereItStands', 'Where it stands')}>
-                        {cards.map(([key, label, st, sub]) => (
-                          <button key={key} type="button" className={`od-standing-card od-standing-card--${key}`} disabled={!st}
-                                  onClick={() => st && openStageReview(order, st)}>
-                            <span className="ui-eyebrow">{label}</span>
-                            <strong>{st ? st.stage_name : '—'}</strong>
-                            {sub && <span className="od-standing-sub">{sub}</span>}
-                          </button>
+                      <section className="at-section od-strip" aria-label={t('ordersPage.whereItStands', 'Where it stands')}>
+                        {cols.map(({ key, label, st, Icon, sub }, idx) => (
+                          <React.Fragment key={key}>
+                            {idx > 0 && <span className="od-strip-arrow" aria-hidden="true"><ChevronRight size={18} /></span>}
+                            <div className={`od-strip-col od-strip-col--${key}`}>
+                              <span className="ui-eyebrow">{label}</span>
+                              <button type="button" className="od-strip-pill" disabled={!st} onClick={() => st && openStageReview(order, st)}>
+                                <span className="od-strip-icon"><Icon size={16} /></span>
+                                <span className="od-strip-name">{st ? st.stage_name : '—'}</span>
+                              </button>
+                              {sub && <span className="od-strip-sub">{sub}</span>}
+                            </div>
+                          </React.Fragment>
                         ))}
                       </section>
                     );
                   })()}
 
-                  <section className="at-section od-journey">
-                    <div className="od-section-head">
-                      <IconTile icon={ClipboardList} tone="amber" size={40} iconSize={18} />
-                      <div className="od-section-title od-section-title--stack">
-                        <h3>{t('ordersPage.orderJourney', 'Order journey')}</h3>
-                        <span className="od-section-sub">{t('ordersPage.orderJourneySub', 'Track the progress from concept to completion')}</span>
-                      </div>
-                      {stages.length > 0 && (
-                        <div className="od-head-actions">
-                          {/* A new order has one obvious next step. */}
-                          {orderBucket(order) === 'new' && ['Owner', 'Master'].includes(currentUser.role) && (
-                            <button type="button" className="btn-primary od-send-btn" disabled={sendBusy}
-                                    onClick={() => openSendToWorkshop(order)}>
-                              <Scissors size={16} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
-                            </button>
-                          )}
-                          {/* The owner's shortcut: the whole journey in one go,
-                              for work already done off the record. */}
-                          {currentUser.role === 'Owner' && !allDone && (
-                            <button type="button" className="btn-primary" style={{ padding: '6px 14px', minHeight: '32px', fontSize: '12.5px' }}
-                                    disabled={completingAllOrderId === order.id}
-                                    onClick={async () => {
-                                      if (!window.confirm((order.payment_status === 'Paid' ? '' : `Payment is not complete: ${inr(order.amount_paid)} of ${inr(order.total_amount)} received.
-
-`) + 'Complete every remaining stage and mark this order Delivered?')) return;
-                                      setCompletingAllOrderId(order.id);
-                                      try { await api.completeAllStages(order.id); await fetchDashboardAndConfig(); }
-                                      catch (err) { alert(err.message); }
-                                      finally { setCompletingAllOrderId(null); }
-                                    }}>
-                              <CheckCircle2 size={14} /> {completingAllOrderId === order.id ? 'Completing…' : 'Complete all stages'}
-                            </button>
-                          )}
-                          <span className="od-chip">{stepChip}</span>
-                          <span className={`ui-badge ui-badge--${journeyBadge[0]}`}>{journeyBadge[1]}</span>
-                        </div>
-                      )}
-                    </div>
-                    <StageTimeline stages={stages} onSelectStage={(stage) => openStageReview(order, stage)} />
-                  </section>
-
                   <div className="od-columns">
                     <div className="od-main">
-                      <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} />
+                  <section className="at-section od-journey">
+                        <div className="od-section-head">
+                          <IconTile icon={ClipboardList} tone="amber" size={40} iconSize={18} />
+                          <div className="od-section-title od-section-title--stack">
+                            <h3>{t('ordersPage.orderJourney', 'Order journey & tasks')}</h3>
+                            <span className="od-section-sub">{t('ordersPage.orderJourneySub', 'Track and manage tasks for this order')}</span>
+                          </div>
+                          {stages.length > 0 && (
+                            <div className="od-head-actions od-progress">
+                              <span className="od-progress-text">{stepChip}</span>
+                              <span className="od-progress-bar"><ProgressBar pct={Math.round((tasksDone / stages.length) * 100)} tone="green" /></span>
+                              <span className="od-progress-pct">{Math.round((tasksDone / stages.length) * 100)}%</span>
+                            </div>
+                          )}
+                        </div>
+                        <OrderTaskTable stages={stages} onSelectStage={(stage) => openStageReview(order, stage)} />
+                      </section>
 
                       <CustomerMessageQueue
                         orderId={order.id}
@@ -5106,9 +5237,34 @@ function App() {
                             </div>
                           )}
                       </div>
+                      <div className="od-tip" role="note">
+                        <IconTile icon={Sparkles} tone="green" size={36} iconSize={16} />
+                        <div>
+                          <strong>{t('ordersPage.tipTitle', 'Keep the quality high!')}</strong>
+                          <span>{t('ordersPage.tipText', 'Check measurements and design notes before moving to the next stage.')}</span>
+                        </div>
+                      </div>
                     </div>
 
                     <aside className="od-side">
+                      <OrderGarmentsCard order={order} onSelectStage={(stage) => openStageReview(order, stage)} />
+                      <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} />
+                      <section className="at-section od-customer">
+                        <div className="od-section-head" style={{ marginBottom: 0 }}>
+                          <IconTile icon={User} tone="neutral" size={40} iconSize={18} />
+                          <div className="od-section-title od-section-title--stack">
+                            <h3>{t('ordersPage.customerDetails', 'Customer details')}</h3>
+                            <span className="od-section-sub">{order.customer_name}</span>
+                          </div>
+                          <button type="button" className="btn-secondary at-btn-sm"
+                                  onClick={() => {
+                                    const cust = customersList.find((c) => c.id === order.customer) || { id: order.customer, first_name: order.customer_name, last_name: '' };
+                                    setDashboardTab('customers'); openDirectoryCustomer(cust);
+                                  }}>
+                            {t('ordersPage.viewCustomer', 'View customer')} <ArrowRight size={14} />
+                          </button>
+                        </div>
+                      </section>
                       {/* Model display parked — see task 16
                           The garment, and the stage panel behind it: that is where the
                           latest design, its notes and references are read.
