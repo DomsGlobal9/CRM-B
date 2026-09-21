@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 // Model display parked — see task 16
@@ -2281,7 +2281,6 @@ function App() {
   // In-flight guards, same shape as signupBusy/savingPaymentId: a boolean for
   // the shared bell, an order/row id for per-row controls.
   const [markingNotificationsRead, setMarkingNotificationsRead] = useState(false);
-  const [updatingStatusOrderId, setUpdatingStatusOrderId] = useState(null);
   const [savingVerificationOrderId, setSavingVerificationOrderId] = useState(null);
   const [assigningWorkflowOrderId, setAssigningWorkflowOrderId] = useState(null);
   const [deletingDraftId, setDeletingDraftId] = useState(null);
@@ -4396,23 +4395,32 @@ function App() {
                   );
                 })()}
 
-                {/* Production pipeline: one tile per customer-facing status,
-                    in the order an order moves through them. */}
+                {/* Production pipeline: one tile per stage orders are standing
+                    on right now, in workroom order, plus the two piles either
+                    side of it. */}
                 {(() => {
-                  const dist = dashboardData?.stats?.status_distribution || {};
-                  const ORDER = ['Received', 'Confirmed', 'Stylist Review', 'Design & Creation',
-                                 'Quality Check', 'Ready for Dispatch', 'Shipped', 'Delivered'];
-                  const LOOK = {
-                    'Received': ['amber', Clock], 'Confirmed': ['amber', CheckCircle2],
-                    'Stylist Review': ['violet', PenTool], 'Design & Creation': ['rose', Scissors],
-                    'Quality Check': ['blue', ShieldCheck], 'Ready for Dispatch': ['violet', PackageCheck],
-                    'Shipped': ['neutral', Truck], 'Delivered': ['green', CheckCircle2],
-                  };
-                  const rank = (st) => (ORDER.indexOf(st) === -1 ? 99 : ORDER.indexOf(st));
-                  const entries = Object.entries(dist).sort((a, b) => rank(a[0]) - rank(b[0]));
-                  const jump = (st) => {
-                    setOrdersFilterTab(st === 'Delivered' ? 'done' : 'workshop');
-                    setDashboardTab('orders');
+                  const dist = {};
+                  let fresh = 0;
+                  ordersList.forEach((o) => {
+                    const b = orderBucket(o);
+                    if (b === 'new') fresh += 1;
+                    if (b !== 'workshop') return;
+                    const now = stageNow(o);
+                    if (!now) return;
+                    const k = now.current.stage_key;
+                    dist[k] = dist[k] || { name: now.name, count: 0, seq: now.current.sequence ?? 0 };
+                    dist[k].count += 1;
+                  });
+                  const entries = [
+                    ...(fresh ? [['new', { name: t('ordersPage.notSentYet', 'Not sent yet'), count: fresh, seq: -1 }]] : []),
+                    ...Object.entries(dist).sort((a, b) => a[1].seq - b[1].seq),
+                  ];
+                  const LOOK = { new: ['amber', Clock], pattern_cutting: ['rose', Scissors], fabric_cutting: ['rose', Scissors],
+                    stitching_in_progress: ['blue', Shirt], finishing: ['blue', Shirt], master_quality_check: ['violet', ShieldCheck],
+                    ready_for_delivery: ['green', PackageCheck], payment: ['amber', Wallet], delivered: ['green', CheckCircle2] };
+                  const jump = (key) => {
+                    if (key === 'new') { setOrdersFilterTab('new'); setDashboardTab('orders'); return; }
+                    setOrdersStageFilter(key); setDashboardTab('workshop');
                   };
                   return (
                     <SectionCard icon={Boxes} tone="green" title="In the workroom"
@@ -4424,13 +4432,13 @@ function App() {
                         </div>
                       ) : (
                         <div className="at-pipeline">
-                          {entries.map(([st, count]) => {
-                            const [tone, Icon] = LOOK[st] || ['neutral', Package];
+                          {entries.map(([key, { name, count }]) => {
+                            const [tone, Icon] = LOOK[key] || ['neutral', Package];
                             return (
-                              <button key={st} type="button" className={`at-pipeline-tile at-stat--${tone}`} onClick={() => jump(st)}>
+                              <button key={key} type="button" className={`at-pipeline-tile at-stat--${tone}`} onClick={() => jump(key)}>
                                 <IconTile icon={Icon} tone={tone} size={34} iconSize={16} />
                                 <span className="at-pipeline-value">{count}</span>
-                                <span className="at-pipeline-label">{t(`status.${st}`, st)}</span>
+                                <span className="at-pipeline-label">{name}</span>
                               </button>
                             );
                           })}
@@ -4647,7 +4655,7 @@ function App() {
                   <div className="tabs-header" style={{ marginBottom: '16px' }}>
                     <button className={`tab-btn ${designsView === 'dashboard' ? 'active' : ''}`}
                             onClick={() => setDesignsView('dashboard')}>
-                      Dashboard
+                      {t('designsPage.overviewTab', 'Overview')}
                     </button>
                     <button className={`tab-btn ${designsView === 'library' ? 'active' : ''}`}
                             onClick={() => setDesignsView('library')}>
@@ -4740,28 +4748,19 @@ function App() {
                     <div className="od-head-left">
                       <div className="od-title-row">
                         <h1 className="od-title">Order {orderRef(order)}</h1>
-                        {/* The status pill is the control that moves the order along. */}
-                        <label className={`od-status od-status--${orderStatusTone(order.order_status)}`}
-                               title={t('ordersPage.updateStatus', 'Update status')}>
-                          <RefreshCw size={13} className="od-status-icon" />
-                          <select
-                            value={order.order_status}
-                            disabled={updatingStatusOrderId === order.id}
-                            onChange={(e) => {
-                              if (updatingStatusOrderId) return;
-                              setUpdatingStatusOrderId(order.id);
-                              api.updateOrderStatus(order.id, e.target.value)
-                                .then(() => fetchDashboardAndConfig())
-                                .catch(err => alert("Failed to update status: " + err.message))
-                                .finally(() => setUpdatingStatusOrderId(null));
-                            }}
-                          >
-                            {['Received', 'Confirmed', 'Stylist Review', 'Design & Creation', 'Quality Check', 'Ready for Dispatch', 'Shipped', 'Delivered'].map(status => (
-                              <option key={status} value={status}>{t(`status.${status}`, status)}</option>
-                            ))}
-                          </select>
-                          <ChevronDown size={13} className="od-status-chevron" />
-                        </label>
+                        {/* Where it stands, in the workroom's words: the stages
+                            move the order along, so nothing to pick here. */}
+                        {(() => {
+                          const bucket = orderBucket(order);
+                          const text = bucket === 'done' ? t(`status.${order.order_status}`, order.order_status)
+                            : bucket === 'new' ? t('ordersPage.notSentYet', 'Not sent yet')
+                            : (stageNow(order)?.name || t('ordersPage.tabInProgress', 'In progress'));
+                          return (
+                            <span className={`od-status od-status--${orderStatusTone(order.order_status)}`} style={{ padding: '0 14px', fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+                              {text}
+                            </span>
+                          );
+                        })()}
                         {verified > 0 && (
                           <span className="ui-badge ui-badge--success">
                             👑 {t('ordersPage.masterVerified', 'Master Verified:')} {verified}/{verifyTotal} ({Math.round((verified / verifyTotal) * 100)}%)
@@ -5164,7 +5163,7 @@ function App() {
                   title={dashboardTab === 'workshop' ? t('ordersPage.workshopTitle', 'Workshop') : t('ordersPage.title')}
                   subtitle={dashboardTab === 'workshop' ? t('ordersPage.workshopSubtitle', 'Every order being made, who has it, and what comes next.') : t('ordersPage.subtitle')}
                   aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
-                  actions={(
+                  actions={dashboardTab === 'workshop' ? null : (
                     <>
                       {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
                         <button className="btn-secondary" style={{ padding: '10px 18px' }} onClick={() => setTakingInOutside(true)}>
@@ -5207,7 +5206,8 @@ function App() {
                         )}
                         {/* Narrow by who it is for, what it is, and where it stands;
                             the list and the board read the same filter. */}
-                        <div className="at-toolbar-filters">
+                        <details className="at-toolbar-filters at-filters-fold">
+                          <summary className="at-phone-only"><Filter size={14} /> {t('common.filters', 'Filters')}</summary>
                           <select className="form-control at-filter" value={ordersTypeFilter} aria-label="Order type"
                                   onChange={(e) => setOrdersTypeFilter(e.target.value)}>
                             <option value="All">{t('ordersPage.allTypes', 'All types')}</option>
@@ -5235,7 +5235,7 @@ function App() {
                               : [...new Map(ordersList.flatMap(o => (o.stages || []).map(st => [st.stage_key, st.stage_name]))).entries()]
                             ).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
                           </select>
-                        </div>
+                        </details>
                         {/* List / Board: two drawings of the workshop; the
                             board's columns are stages, so only that tab has one. */}
                         {dashboardTab === 'workshop' && (
@@ -5293,7 +5293,7 @@ function App() {
 
                       return (
                       <div className="at-table-wrap">
-                      <table className="at-table">
+                      <table className="at-table at-table--fit">
                         <thead>
                           <tr>
                             <th>Order ID</th>
@@ -5350,11 +5350,11 @@ function App() {
                         return (
                         <React.Fragment key={order.id}>
                         <tr style={isCancelled ? { opacity: 0.55 } : undefined}>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
-                          <td>{order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
-                          <td>{order.customer_name}</td>
-                          <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
-                          <td>
+                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)} <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
+                          <td className="at-desk-only">{order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
+                          <td className="at-desk-only">{order.customer_name}</td>
+                          <td data-label={t('ordersPage.estDelivery', 'Delivery')}>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
+                          <td data-label={t('ordersPage.whereItStands', 'Where it stands')}>
                             {bucket === 'done' && (
                               <div className="at-stage-strip">
                                 <span className={`ui-badge ui-badge--${statusTone(order.order_status)}`}>{isDelivered ? 'Delivered' : 'Cancelled'}</span>
@@ -6006,7 +6006,6 @@ function App() {
                         <th>{t('invoicesPage.billingClient', 'Billing Client')}</th>
                         <th>{t('common.date', 'Date')}</th>
                         <th>{t('invoicesPage.totalPrice', 'Total Price')}</th>
-                        <th>{t('invoicesPage.advancePaid', 'Advance Paid')}</th>
                         <th>{t('invoicesPage.totalPaid', 'Total Paid')}</th>
                         <th>{t('invoicesPage.balanceDue', 'Balance Due')}</th>
                         <th>{t('common.status', 'Payment Status')}</th>
@@ -6016,7 +6015,7 @@ function App() {
                     <tbody>
                       {filtered.length === 0 ? (
                         <tr>
-                          <td colSpan="9" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          <td colSpan="8" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
                             {ordersList.length === 0
                               ? t('invoicesPage.emptyState', 'Invoices appear here once you have created an order.')
                               : t('invoicesPage.noMatchingInvoices', 'No invoices matching the criteria.')}
@@ -6038,7 +6037,6 @@ function App() {
                             </td>
                             <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{fmtDate(order.order_date)}</td>
                             <td className="at-num" style={{ fontWeight: 600 }}>{formatMoney(order.total_amount)}</td>
-                            <td className="at-num" style={{ color: 'var(--text-secondary)' }}>{formatMoney(order.advance_paid)}</td>
                             {/* Editable: the one place a part payment is recorded. The
                                 backend derives the label, clamps to the total and caps
                                 the advance -- only the input lives here. */}
@@ -6085,6 +6083,11 @@ function App() {
                                 <span style={{ flex: 1 }}><ProgressBar pct={pct} tone="green" /></span>
                                 <span className="at-num" style={{ fontSize: 'var(--text-2xs)', color: 'var(--text-secondary)' }}>{pct}%</span>
                               </div>
+                              {Number(order.advance_paid) > 0 && (
+                                <div className="at-num" style={{ fontSize: 'var(--text-2xs)', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                  {t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) })}
+                                </div>
+                              )}
                             </td>
                             <td className="at-num" style={{ color: balance > 0 ? 'var(--danger-color)' : 'var(--text-secondary)', fontWeight: 600 }}>
                               {formatMoney(balance)}

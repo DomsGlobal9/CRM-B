@@ -1044,7 +1044,7 @@ function Roster({ isOwner, canSeeTeam }) {
                           title="Edit details, employment and documents"
                           style={{
                             fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-sm)',
-                            background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                            background: 'none', border: 'none', padding: 0, cursor: 'pointer', minHeight: '32px',
                             color: 'var(--text-primary)', textAlign: 'left', fontFamily: 'inherit',
                           }}
                         >{member.name}</button>

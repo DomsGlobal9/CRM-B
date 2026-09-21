@@ -1,5 +1,6 @@
 const en = {
   common: {
+    filters: "Filters",
     english: "English",
     hindi: "Hindi",
     selectLanguage: "Language",
@@ -327,6 +328,7 @@ const en = {
     totalPrice: "Order value",
     advancePaid: "Advance taken",
     totalPaid: "Paid so far",
+    ofWhichAdvance: "{amount} advance",
     balanceDue: "Balance due",
     emptyState: "Bills appear here as soon as you take an order.",
     noMatchingInvoices: "No bills match.",
@@ -403,6 +405,7 @@ const en = {
     shareWhatsappBtn: "Share WhatsApp"
   },
   designsPage: {
+    overviewTab: "Overview",
     title: "Design library",
     subtitle: "The looks your boutique offers, by garment, with what customers pick most.",
     boutiqueDesigns: "Boutique designs",
