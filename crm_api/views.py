@@ -677,6 +677,34 @@ class OrderViewSet(viewsets.ModelViewSet):
         image.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=['DELETE'], url_path='stage-notes/(?P<activity_id>[0-9]+)/voice-note')
+    def delete_stage_note_voice(self, request, pk=None, activity_id=None):
+        """Take the recording off one note in a stage's thread.
+
+        The note's text stays, as does a stage transition the note rode on: the
+        activity is the audit trail. A plain note with nothing else on it goes
+        entirely. Whoever left it may delete it, and so may the owner and the
+        supervising roles, who can already clear the stage's own recording.
+        """
+        order = self.get_object()
+        note = order.activities.filter(id=activity_id).first()
+        if note is None or not (note.metadata or {}).get('voice_note'):
+            return Response({'error': 'No such voice note on this order.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        role = resolve_user_role(request.user)
+        if note.user_id != request.user.id and role != OWNER and role not in SUPERVISOR_ROLES:
+            return Response({'error': 'Only the person who left this note, the owner or a master can delete it.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        metadata = dict(note.metadata)
+        for key in ('voice_note', 'voice_note_by', 'voice_note_at'):
+            metadata.pop(key, None)
+        if note.event_type == 'STAGE_NOTE' and not metadata.get('comments'):
+            note.delete()
+        else:
+            note.metadata = metadata
+            note.save(update_fields=['metadata'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['POST'], url_path='publish-garment-images')
     def publish_garment_images(self, request, pk=None):
         order = self.get_object()
