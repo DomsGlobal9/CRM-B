@@ -1385,10 +1385,10 @@ const navSectionsFor = (user, t) => {
   const role = user?.role;
   const sections =
     (!role || role === 'Owner') ? [
-      { key: 'daily', label: t('nav.groups.daily', 'Daily'), items: [
+      { key: 'daily', label: t('nav.groups.daily', 'Overview'), items: [
         { tab: 'overview', icon: Store, label: t('nav.dashboard'), phone: true },
         { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
-        { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Workshop'), phone: true },
+        { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
@@ -1402,11 +1402,11 @@ const navSectionsFor = (user, t) => {
       ] },
       // Manage Tailors is WHO works here; Staff Management is their
       // employment, time and pay. The pairing is the point of the group.
-      { key: 'people', label: t('nav.groups.people', 'People'), items: [
+      { key: 'people', label: t('nav.groups.people', 'Team'), items: [
         { tab: 'staff', icon: Users, label: t('nav.staffManagement') },
       ] },
-      { key: 'business', label: t('nav.groups.business', 'Business'), items: [
-        { tab: 'finance', icon: Wallet, label: t('nav.finance', 'Cost & P&L') },
+      { key: 'business', label: t('nav.groups.business', 'Finance'), items: [
+        { tab: 'finance', icon: Wallet, label: t('nav.finance', 'Profit & Costs') },
         { tab: 'invoices', icon: Receipt, label: t('nav.invoices') },
         { tab: 'analytics', icon: BarChart2, label: t('nav.analytics') },
       ] },
@@ -1437,7 +1437,7 @@ const navSectionsFor = (user, t) => {
   // gets the same separation as the owner with eleven. Account takes a slot on
   // the bottom bar only for the roles whose own section cannot fill it.
   const roomy = !role || role === 'Owner' || role === 'Master';
-  return [...sections, { key: 'session', divider: true, items: [
+  return [...sections, { key: 'session', divider: true, label: t('nav.groups.account', 'Account'), items: [
     { tab: 'account', icon: User, label: t('nav.account'), phone: !roomy },
     { tab: 'settings', icon: Settings, label: t('nav.settings') },
   ] }];
