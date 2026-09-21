@@ -50,7 +50,10 @@ const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
  * Works controlled (value) and uncontrolled (defaultValue). Dictated words are
  * appended to whatever is already typed, so people can mix the two.
  */
-export default function VoiceTextarea({ value, defaultValue, onChange, style, onRecording, onRecordingChange, ...rest }) {
+// `onMic`: the mic button calls this instead of dictating -- for a box whose
+// voice note is recorded by a VoiceRecorder beneath it, so one mic means one
+// thing on that screen. Nothing else about the box changes.
+export default function VoiceTextarea({ value, defaultValue, onChange, style, onRecording, onRecordingChange, onMic, ...rest }) {
   const ref = useRef(null);
   const recRef = useRef(null);
   const mediaRef = useRef(null);
@@ -159,14 +162,14 @@ export default function VoiceTextarea({ value, defaultValue, onChange, style, on
 
   useEffect(() => { if (onRecording && onRecordingChange) onRecordingChange(listening); }, [listening]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const supported = onRecording ? (canRecord() || Boolean(recognitionClass())) : Boolean(recognitionClass());
+  const supported = onMic ? canRecord() : onRecording ? (canRecord() || Boolean(recognitionClass())) : Boolean(recognitionClass());
   const textarea = (
     <textarea ref={ref} value={value} defaultValue={defaultValue} onChange={onChange}
               style={supported ? { ...style, paddingRight: '40px' } : style} {...rest} />
   );
   if (!supported) return textarea;
 
-  const idle = onRecording ? 'Record a voice note (and dictate)' : 'Speak instead of typing';
+  const idle = onMic ? 'Record a voice note' : onRecording ? 'Record a voice note (and dictate)' : 'Speak instead of typing';
   const busy = onRecording ? 'Stop' : 'Stop listening';
   // Classed so a bordered wrapper (.at-field-control) can treat this as the
   // control itself rather than a box inside it -- see index.css.
@@ -181,7 +184,7 @@ export default function VoiceTextarea({ value, defaultValue, onChange, style, on
           {mmss(elapsed)}
         </span>
       )}
-      <button type="button" onClick={start}
+      <button type="button" onClick={onMic || start}
               title={listening ? busy : idle}
               aria-label={listening ? busy : idle}
               aria-pressed={listening}
@@ -253,7 +256,7 @@ const RECORDER_KEYFRAMES = `
 @keyframes vn-bar { 0%,100% { transform: scaleY(.3) } 50% { transform: scaleY(1) } }
 `;
 
-export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label = 'Record voice note', onRecordingChange }) {
+export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label = 'Record voice note', onRecordingChange, startToken = 0 }) {
   const [phase, setPhase] = useState('idle');   // idle | recording | preview | sending | deleting
   const [blob, setBlob] = useState(null);
   const [elapsed, setElapsed] = useState(0);
@@ -319,6 +322,14 @@ export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label 
     try { await onDelete(); setPhase('idle'); }
     catch (err) { setError(err?.message || 'Could not delete the voice note.'); setPhase('idle'); }
   };
+
+  // A bump of `startToken` is a press of the record button from elsewhere
+  // (the notes box's mic). Only from rest: never over a take in progress.
+  useEffect(() => {
+    if (!startToken || phase !== 'idle' || disabled) return undefined;
+    const id = setTimeout(start, 0);
+    return () => clearTimeout(id);
+  }, [startToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const when = sent?.at ? new Date(sent.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
   const small = { padding: '4px 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' };

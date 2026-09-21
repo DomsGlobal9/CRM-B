@@ -2242,6 +2242,9 @@ function App() {
   const [activeReviewStage, setActiveReviewStage] = useState(null);
   const [activeReviewOrder, setActiveReviewOrder] = useState(null);
   const [stageReviewComments, setStageReviewComments] = useState('');
+  // Bumped by the notes box's mic on the stage review; the recorder under
+  // it starts on each bump.
+  const [stageReviewMicKick, setStageReviewMicKick] = useState(0);
   // Up to five photographs of the work, going up with the transition.
   const [stageReviewImages, setStageReviewImages] = useState([]);
   // The recording behind the comment being written, kept as a Blob until the
@@ -8922,6 +8925,7 @@ Complete the Payment stage with this partial payment?`)) return;
                     maxLength={LIMITS.note}
                     value={stageReviewComments}
                     onChange={(e) => setStageReviewComments(e.target.value)}
+                    onMic={() => setStageReviewMicKick((k) => k + 1)}
                   />
                 </Field>
                   {/* The voice note proper: recorded on its own (nothing is
@@ -8930,6 +8934,7 @@ Complete the Payment stage with this partial payment?`)) return;
                       text is in the box -- or Delete throws it away. */}
                   <VoiceRecorder
                     disabled={stageTransitionBusy}
+                    startToken={stageReviewMicKick}
                     onRecordingChange={setStageReviewRecording}
                     sent={stage.voice_note ? { url: stage.voice_note, by: stage.voice_note_by, at: stage.voice_note_at } : null}
                     onSend={async (blob) => {
