@@ -4440,6 +4440,23 @@ table.data-table tbody tr:hover {
 .at-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); font-size: var(--text-sm); vertical-align: middle; color: var(--text-primary); }
 .at-table tr:last-child td { border-bottom: none; }
 .at-table tbody tr:hover td { background: var(--surface-2); }
+/* A roster that fits the page instead of scrolling sideways: no floor on its
+   width, and below tablet each row stacks into a card, every cell labelled by
+   its own header (data-label) so nothing needs a second layout. Stacks
+   below 1024px: with the sidebar open a laptop leaves too little room for
+   five columns, and truncated cells read worse than cards. */
+.at-table--fit { min-width: 0; }
+@media (max-width: 1024px) {
+  .at-table--fit thead { display: none; }
+  .at-table--fit, .at-table--fit tbody, .at-table--fit tr, .at-table--fit td { display: block; width: 100%; }
+  .at-table--fit tr { padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+  .at-table--fit tr:last-child { border-bottom: none; }
+  .at-table--fit td { padding: 6px 16px; border-bottom: none; text-align: left !important; white-space: normal !important; }
+  /* Cells are single-line with an ellipsis on desktop; stacked, they wrap. */
+  .at-table--fit td * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; flex-wrap: wrap !important; }
+  .at-table--fit td[data-label]::before { content: attr(data-label); display: block; font-size: var(--text-2xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+  .at-table--fit tbody tr:hover td { background: transparent; }
+}
 .at-num { font-variant-numeric: tabular-nums; }
 .at-cell-person { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .at-btn-sm { padding: 6px 12px !important; font-size: var(--text-xs) !important; }

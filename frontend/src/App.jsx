@@ -68,6 +68,7 @@ const WIZARD_STEPS = {
     { key: 'design', label: 'Design', sub: 'The look' },
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
+    { key: 'personal', label: 'Personalization', sub: 'Extras, if any' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Complete the order', sub: 'Invoice & payment' },
   ],
@@ -77,6 +78,7 @@ const WIZARD_STEPS = {
     { key: 'design', label: 'Design', sub: 'The look' },
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
+    { key: 'personal', label: 'Personalization', sub: 'Extras, if any' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Complete the order', sub: 'Invoice & payment' },
   ],
@@ -87,13 +89,7 @@ const WIZARD_STEPS = {
   ],
 };
 const EMPTY_ALTERATION = { orderId: '', garmentJobId: '', issue: '', type: 'PAID_CLIENT_REQUEST', charge: '', paidNow: '' };
-/** Garment measurement keys that are also on the customer's saved sheet. */
-// The master body sheet, taken once per customer and reused across garments:
-// garment field key -> sheet key. Several garment keys name the same
-// measurement (chest and bust, bicep and upper arm, crotch and rise, the
-// lehenga's floor length and waist-to-floor), so they share a sheet key.
-// bust/waist/hips/shoulder/neck are columns on the Measurement row; the rest
-// live in its additional_measurements JSON.
+
 const MEASURE_KEYS = {
   chest: 'bust', bust: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck',
   height: 'height', underbust: 'underbust', high_waist: 'high_waist', armhole: 'armhole',
@@ -132,9 +128,7 @@ const UserAvatar = ({ user, size }) => {
   );
 };
 
-// Customer tier: Silver, Gold or Platinum, the boutique's own call when the
-// customer was taken in (the order wizard asks). One pill for the directory
-// card, the profile banner and the order book, so they cannot drift apart.
+
 const TIERS = ['Platinum', 'Gold', 'Silver'];
 const customerTier = (record) => (TIERS.includes(record?.customer_type) ? record.customer_type : 'Silver');
 const tierCounts = (customers) =>
@@ -151,7 +145,7 @@ const TierBadge = ({ tier }) => (
   }}>{tier}</span>
 );
 
-/** The workroom step an order is standing on: what is running, else the next one up. */
+
 const orderStageKey = (order) => {
   const stages = order.stages || [];
   const current = stages.find((st) => st.status === 'PENDING_VERIFICATION')
@@ -245,8 +239,7 @@ const StyleProfileCard = ({ customer }) => {
   );
 };
 
-// Live date + time for the dashboard header. Ticks once a minute -- seconds add
-// motion nobody reads and a re-render every second for no reason.
+
 const HeaderClock = () => {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -267,34 +260,22 @@ const ScreenLoading = () => (
 );
 import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 
-// Mirrors core/permissions.py SUPERVISOR_ROLES. Roles that run the floor and
-// may hand work to someone else. A list rather than a bare === 'Master' check
-// so a boutique that splits its floor into specialists can be added in one
-// place instead of hunting every comparison.
+
 const SUPERVISOR_ROLES = ['Master'];
 
-// Everyone who works on garments. resolve_user_role returns the Tailor
-// profile's role verbatim, so a boutique that has split its floor produces
-// role strings beyond 'Tailor' and 'Master' -- and get_default_workflow
-// permits each of them on a specific stage. Comparing against the two literal
-// names stranded every specialist: routed to a tab their own nav does not
-// contain, and shown an order's money that the permission matrix says
-// production staff must not see.
+
 const PRODUCTION_ROLES = [
   'Tailor', 'Master', 'Maggam Master', 'Karigar', 'Maggam Karigar', 'Packaging Staff', 'QC Staff',
 ];
 const isProductionStaff = (role) => PRODUCTION_ROLES.includes(role);
 
-/** Badge colour for an order's status, shared by the order book and the order page. */
 const orderStatusTone = (st) =>
   st === 'Delivered' ? 'success'
     : st === 'Cancelled' ? 'neutral'
     : (st === 'Shipped' || st === 'Ready for Dispatch') ? 'info'
     : 'warning';
 
-/** A step is not started, in progress, or completed: nothing else is shown.
- *  Verification and a pause are how a step is in progress, never states of
- *  their own on screen; a skipped step is settled, so it reads as completed. */
+
 const STEP_STATE = (status) =>
   (status === 'COMPLETED' || status === 'SKIPPED') ? 'done'
     : (status === 'IN_PROGRESS' || status === 'PAUSED' || status === 'PENDING_VERIFICATION') ? 'live'
@@ -302,20 +283,7 @@ const STEP_STATE = (status) =>
 const STEP_LABEL = { done: 'Completed', live: 'In progress', next: 'Not started' };
 const STEP_TONE = { done: 'success', live: 'info', next: 'neutral' };
 
-/**
- * A stored mobile number, written the way its owner would recognise it.
- *
- * Numbers are now stored canonically -- Customer.save folds "+91 (0) 98765
- * 43211", "0091 9876543211" and "098765 43211" onto one value -- so that a
- * returning client is the same record rather than a second profile. The stored
- * form is 919876543211, which is right for identity and wrong for a human: it
- * was printing on the invoice, and three screens rendered "+91 919876543211"
- * by prefixing a country code the value already carried.
- *
- * Storage is canonical; display is formatted. Anything that is not a
- * recognisable Indian number is shown exactly as it was typed, because those
- * digits are the only record of how to reach that client.
- */
+
 const formatMobile = (raw) => {
   const digits = String(raw || '').replace(/\D/g, '');
   if (digits.length === 12 && digits.startsWith('91')) {
@@ -326,19 +294,11 @@ const formatMobile = (raw) => {
   return raw || '';
 };
 
-/**
- * wa.me wants digits only, with the country code and no punctuation.
- *
- * Built as `wa.me/91${mobile}` at the call site, which produced
- * wa.me/91+91 98765 43211 for any number the owner had typed with formatting --
- * and, once numbers were stored canonically, wa.me/91919876543211. Both open a
- * chat with nobody. The stored value already carries the country code.
- */
+
 const waLink = (raw) => `https://wa.me/${String(raw || '').replace(/\D/g, '')}`;
 
 
-// Mirrors Appointment.TYPE_CHOICES in apps/scheduling/models.py.
-// Mirrors Appointment.STATUS_CHOICES in apps/scheduling/models.py.
+
 const APPOINTMENT_STATUS_LABELS = {
   SCHEDULED: 'Scheduled',
   CONFIRMED: 'Confirmed',
@@ -354,8 +314,7 @@ const APPOINTMENT_TYPE_LABELS = {
   DELIVERY: 'Final Delivery',
 };
 
-// Mirrors Tailor.ROLE_CHOICES. A boutique run by one generalist keeps using Master;
-// larger studios split the work, and each stage only accepts its own specialists.
+
 const STAFF_ROLES = [
   { value: 'Tailor', label: 'Stitching Tailor', hint: 'Stitches the garment.' },
   { value: 'Master', label: 'Master Tailor (generalist)', hint: 'Can work on every stage.' },
@@ -366,9 +325,7 @@ const STAFF_ROLES = [
   { value: 'QC Staff', label: 'QC Staff', hint: 'Runs the quality inspection.' },
 ];
 
-// Which garment templates the order wizard offers for a customer's gender.
-// Keyed by GarmentTemplate.key; a jacket is worn by everyone, so it sits in
-// both. "Other" (or no answer) shows the whole list.
+
 const MENS_GARMENT_KEYS = new Set([
   'shirt', 't_shirt', 'kurta', 'indo_western', 'mens_suit', 'trouser', 'jeans',
   'shorts', 'mens_bottom_wear', 'coat', 'casual_wear', 'sherwani', 'jacket',
@@ -3236,6 +3193,15 @@ function App() {
         rememberMeasurements();
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
+      } else if (wizardStepKey === 'personal') {
+        // Everything here is optional; a typed value is still checked so a
+        // bad number does not reach the review unremarked.
+        if (!validateGarments({ sections: ['basic', 'style'] })) {
+          alert('Something on this screen is not valid — see the highlighted fields.');
+          return;
+        }
+        await persistDraft({ step: currentStep + 1 });
+        reachStep(currentStep + 1);
       } else if (wizardStepKey === 'review') {
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
@@ -5550,7 +5516,24 @@ function App() {
                       )}
                     </div>
                   ) : (
-                    directoryCustomers.map(cust => {
+                    // One line per customer, the same roster table the Team
+                    // page uses. Fixed column widths and single-line cells,
+                    // so every row is the same two-line height and the
+                    // columns line up down the page. A row opens the
+                    // customer, as the card did.
+                    <div className="at-table-wrap">
+                      <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '30%' }}>Customer</th>
+                            <th style={{ width: '26%' }}>Body measurements</th>
+                            <th style={{ width: '14%' }}>Style notes</th>
+                            <th style={{ width: '15%' }}>Orders</th>
+                            <th style={{ width: '15%' }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                    {directoryCustomers.map(cust => {
                       const m = cust.measurements;
                       const parts = m?.additional_measurements?.stitch_parts || [];
                       const visible = m ? getVisibleMeasurementFields(parts) : [];
@@ -5567,82 +5550,88 @@ function App() {
                       ].filter(Boolean);
                       const open = () => openDirectoryCustomer(cust);
                       const orders = cust.order_count ?? cust.orders?.length ?? 0;
+                      const contact = [formatMobile(cust.mobile_number), cust.email_address, cust.city_region || cust.address].filter(Boolean);
+                      // One line, cut with an ellipsis; the full text is the tooltip.
+                      const line = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+                      const sub = { ...line, fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' };
+                      const measure = (v) => (v === null || v === undefined || v === '' ? '—' : Number(v) || v);
                       return (
-                        <div key={cust.id} className="ui-card" style={{ padding: 0 }}>
-                          <div
-                            className="at-customer"
-                            role="button"
-                            tabIndex={0}
-                            onClick={open}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
-                          >
+                        <tr
+                          key={cust.id}
+                          role="button"
+                          tabIndex={0}
+                          style={{ cursor: 'pointer' }}
+                          onClick={open}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
+                        >
+                          <td data-label="Customer" style={{ overflow: 'hidden' }}>
                             <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
-                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={48} />
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                  <span style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36} />
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                  <span style={{ ...line, fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}
+                                        title={`${cust.first_name} ${cust.last_name}`}>
                                     {cust.first_name} {cust.last_name}
                                   </span>
-                                  <TierBadge tier={customerTier(cust)} />
+                                  <span style={{ flexShrink: 0 }}><TierBadge tier={customerTier(cust)} /></span>
                                 </div>
-                                <div className="at-contact">
-                                  <span><Phone size={12} /> {formatMobile(cust.mobile_number)}</span>
-                                  {cust.email_address && <span><Mail size={12} /> {cust.email_address}</span>}
-                                  {(cust.city_region || cust.address) && <span><MapPin size={12} /> {cust.city_region || cust.address}</span>}
+                                <div style={sub} title={contact.join(' · ')}>
+                                  <Phone size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />{contact.join(' · ')}
                                 </div>
                               </div>
                             </div>
+                          </td>
 
-                            <div className="at-customer-cell">
-                              <div className="ui-eyebrow">{t('customersPage.bodyMeasurements')}</div>
-                              {m && shown.length > 0 ? (
-                                <div className="at-measure-grid">
-                                  {shown.map(([k, label]) => (
-                                    <div key={k}>
-                                      <div className="at-measure-label">{label}</div>
-                                      <div className="at-measure-value">{m[k]}</div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>No measurements yet.</span>
-                              )}
-                            </div>
-
-                            <div className="at-customer-cell">
-                              <div className="ui-eyebrow">{t('customersPage.bespokeProfile')}</div>
-                              <div className="at-tags">
-                                {tags.map(tag => <span key={tag} className="at-tag">{tag}</span>)}
+                          <td data-label="Body measurements" style={{ overflow: 'hidden' }}>
+                            {m && shown.length > 0 ? (
+                              <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
+                                   title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
+                                {shown.map(([k, label], i) => (
+                                  <span key={k}>
+                                    {i > 0 && <span style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
+                                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{label} </span>
+                                    <strong>{measure(m[k])}</strong>
+                                  </span>
+                                ))}
                               </div>
-                              {cust.custom_requirements && (
-                                <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.4 }}>
-                                  {cust.custom_requirements}
-                                </div>
-                              )}
+                            ) : (
+                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} title="No size measurements logged yet.">Not logged yet</span>
+                            )}
+                          </td>
+
+                          <td data-label="Style notes" style={{ overflow: 'hidden' }}>
+                            <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
+                              {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
+                            {cust.custom_requirements && (
+                              <div style={sub} title={cust.custom_requirements}>{cust.custom_requirements}</div>
+                            )}
+                          </td>
 
-                            <div className="at-customer-cell">
-                              <div className="ui-eyebrow">Orders</div>
-                              <div style={{ fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-primary)' }}>{orders}</div>
-                              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {inr(cust.total_spend)} spent · {t('customersPage.registered')} {fmtDate(cust.created_at)}
-                              </div>
-                              <button
-                                type="button"
-                                className="at-link at-customer-notes"
-                                style={{ marginTop: '6px', color: 'var(--accent-text)' }}
-                                onClick={(e) => { e.stopPropagation(); setStyleNotesFor(cust); }}
-                              >
-                                <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
-                              </button>
+                          <td data-label="Orders" style={{ overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 700 }}>{orders}</div>
+                            <div style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
+                              {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
                             </div>
+                          </td>
 
-                            <ChevronRight className="at-customer-chevron" size={18} style={{ color: 'var(--text-muted)' }} />
-                          </div>
-
-                        </div>
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <button
+                              type="button"
+                              className="at-link"
+                              style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              onClick={(e) => { e.stopPropagation(); setStyleNotesFor(cust); }}
+                            >
+                              <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
+                            </button>
+                            <ChevronRight size={16} style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
+                          </td>
+                        </tr>
                       );
-                    })
+                    })}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               </>
@@ -7612,14 +7601,6 @@ function App() {
                     </div>
                   )}
 
-                  {garmentJobs.length > 0 && (
-                    <div className="form-group" style={{ marginTop: '18px' }}>
-                      <label className="form-label" htmlFor="wz-notes">{t('wizard.notesForTailor', 'Notes for the tailor')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
-                      <VoiceTextarea id="wz-notes" className="form-control" rows={3} value={specialInstructions} maxLength={LIMITS.note}
-                                onChange={(e) => setSpecialInstructions(e.target.value)}
-                                placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
-                    </div>
-                  )}
                 </div>
               </>
             )}
@@ -7675,7 +7656,11 @@ function App() {
                     throws it away. Sent here means uploaded and held on the
                     draft; it lands on the order at confirm. */}
                 <div className="content-card wz-card">
-                  <Field label={t('wizard.measurementVoiceNote', 'Voice note for the tailor')}>
+                  <Field label={t('wizard.notesForTailor', 'Notes for the tailor')}>
+                    {/* The same note the "What" screen asks for; one field, two doors. */}
+                    <VoiceTextarea className="form-control" rows={3} value={specialInstructions} maxLength={LIMITS.note}
+                                   onChange={(e) => setSpecialInstructions(e.target.value)}
+                                   placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
                     <VoiceRecorder
                       sent={measureVoiceNote}
                       onSend={async (blob) => {
@@ -7686,6 +7671,74 @@ function App() {
                       onDelete={() => setMeasureVoiceNote(null)}
                     />
                   </Field>
+                </div>
+              </>
+            )}
+
+            {/* PERSONALIZATION: the optional extras per garment -- the
+                questions its cut does not insist on, and anything in the
+                customer's own words -- after the measurements are taken. */}
+            {wizardStepKey === 'personal' && (
+              <>
+                <div className="page-title-group">
+                  <h1 className="page-title">{t('wizard.personalTitle', 'Anything extra?')}</h1>
+                  <p className="page-subtitle">{t('wizard.personalSubtitle', 'Optional details per garment, and notes for the tailor. Skip what does not apply.')}</p>
+                </div>
+                <div className="content-card wz-card">
+                  {garmentJobs.map((job, idx) => {
+                    const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
+                    const foldedAway = (f) => f.key !== 'delivery_date' && !f.is_required && !f.visible_when;
+                    const hasOptional = sections.some((k) => (job.template.sections.find((sec) => sec.key === k)?.fields || []).some((f) => foldedAway(f) && f.field_type !== 'file'));
+                    return (
+                      <div key={job.key} className="wz-garment">
+                        <div className="wz-garment-head">
+                          <span className="wz-garment-num">{idx + 1}</span>
+                          <div>
+                            <div className="wz-garment-name">{job.template.name}</div>
+                            <div className="wz-garment-sub">{t('wizard.personalSub', 'Optional')}</div>
+                          </div>
+                        </div>
+
+                        {/* Anything the options above have no box for, in the
+                            customer's own words. The template's own
+                            special_instructions field (Production Notes), so it
+                            is validated and stored with the garment's spec and
+                            the tailor reads it on the garment's brief. */}
+                        <div className="wz-garment-section">
+                          <div className="od-hint" style={{ marginBottom: '6px' }}>
+                            {t('wizard.garmentNoteHint', 'Anything the options above don’t cover? Write it here.')}
+                          </div>
+                          <TemplateForm template={job.template} section="production" values={job.values}
+                                        errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'special_instructions'}
+                                        onChange={(values) => updateGarmentValues(job.key, values)} />
+                        </div>
+
+                        {hasOptional && (
+                          <details className="wz-more">
+                            <summary>{t('wizard.moreDetails', 'More details')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                            {sections.map((sectionKey) => (
+                              <div key={sectionKey} className="wz-garment-section">
+                                <TemplateForm template={job.template} section={sectionKey} values={job.values}
+                                              errors={garmentErrors[job.key] || {}} only={foldedAway}
+                                              purchases={job.purchases || []} onPurchaseChange={(fieldKey, row) => updateGarmentPurchase(job.key, fieldKey, row)}
+                                              onChange={(values) => updateGarmentValues(job.key, values)} />
+                              </div>
+                            ))}
+                          </details>
+                        )}
+
+                      </div>
+                    );
+                  })}
+
+                  {garmentJobs.length > 0 && (
+                    <div className="form-group" style={{ marginTop: '18px' }}>
+                      <label className="form-label" htmlFor="wz-notes">{t('wizard.notesForTailor', 'Notes for the tailor')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <VoiceTextarea id="wz-notes" className="form-control" rows={3} value={specialInstructions} maxLength={LIMITS.note}
+                                onChange={(e) => setSpecialInstructions(e.target.value)}
+                                placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
+                    </div>
+                  )}
                 </div>
               </>
             )}

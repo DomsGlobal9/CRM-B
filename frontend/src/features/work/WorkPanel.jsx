@@ -6,7 +6,7 @@ import { orderRef, formatDate, formatDateTime } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { imageFilesError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import VoiceTextarea, { VoiceClipPreview, VoiceNotePlayer, SpeakButton } from '../../components/ui/VoiceTextarea';
+import VoiceTextarea, { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
 import { Lightbox } from '../designStudio/GarmentPartPicker';
@@ -268,11 +268,13 @@ function JobScreen({ order, stage, mode, isSupervisor, fabricTaxonomy, onClose, 
     return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('popstate', onClose); };
   }, [view, onClose]);
 
-  const save = async (status, text, files, blob, okMsg) => {
+  // `clearVoice` throws the stage's saved voice note away, as the stage
+  // review's Delete does.
+  const save = async (status, text, files, blob, okMsg, clearVoice = false) => {
     setBusy(true); setError('');
     try {
       const voiceUrl = blob ? await api.uploadVoiceNote(blob) : null;
-      await api.transitionStage(order.id, stage.stage_key, status, text || '', files || [], null, voiceUrl, false, stage.garment_job || null);
+      await api.transitionStage(order.id, stage.stage_key, status, text || '', files || [], null, voiceUrl, clearVoice, stage.garment_job || null);
       onDone(okMsg);
     } catch (e) {
       setError(e?.message || t('workPage.saveFailed', 'Could not save. Please try again.'));
@@ -462,12 +464,28 @@ function JobScreen({ order, stage, mode, isSupervisor, fabricTaxonomy, onClose, 
   );
 }
 
+/* The voice note proper, the same as the stage review's: recorded on its own
+   (nothing is transcribed into the box), heard back, then Send saves it on the
+   stage under the sender's name -- with whatever text is in the box -- or
+   Delete throws it away. */
+function StageVoiceNote({ stage, busy, text, save, onRecordingChange }) {
+  const { t } = useLanguage();
+  return (
+    <VoiceRecorder
+      disabled={busy}
+      onRecordingChange={onRecordingChange}
+      sent={stage.voice_note ? { url: stage.voice_note, by: stage.voice_note_by, at: stage.voice_note_at } : null}
+      onSend={(blob) => save(stage.status, text, [], blob, t('workPage.voiceNoteSent', 'Voice note sent.'))}
+      onDelete={() => save(stage.status, text, [], null, t('workPage.voiceNoteDeleted', 'Voice note deleted.'), true)}
+    />
+  );
+}
+
 /* Photos + optional note, then "Send for checking" (worker) or "Mark done" (supervisor). */
 function SubmitForm({ stage, busy, error, isSupervisor, save }) {
   const { t } = useLanguage();
   const [photos, setPhotos] = useState([]); // File[]
   const [text, setText] = useState('');
-  const [clip, setClip] = useState(null);
   const [recording, setRecording] = useState(false);
   const [problem, setProblem] = useState('');
   const galleryRef = useRef(null);
@@ -485,7 +503,7 @@ function SubmitForm({ stage, busy, error, isSupervisor, save }) {
 
   const submit = () => {
     if (recording) { setProblem(t('workPage.stopRecording', 'Stop the recording first.')); return; }
-    save('COMPLETED', text, photos, clip,
+    save('COMPLETED', text, photos, null,
       isSupervisor ? t('workPage.doneToast', 'Marked done.') : t('workPage.sentToast', 'Sent for checking.'));
   };
 
@@ -508,10 +526,9 @@ function SubmitForm({ stage, busy, error, isSupervisor, save }) {
         {problem && <div className="wk-error" role="alert">{problem}</div>}
         <div className="wk-note-box">
           <VoiceTextarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)}
-                         placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')}
-                         onRecording={setClip} onRecordingChange={setRecording} />
+                         placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} />
+          <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} />
         </div>
-        {clip && <VoiceClipPreview blob={clip} onRemove={() => setClip(null)} />}
       </div>
       <ActionBar error={error}>
         {needPhoto && <div className="wk-hint">{t('workPage.addPhotoFirst', 'Add a photo of the finished work first')}</div>}
@@ -537,29 +554,25 @@ function NoteForm({ stage, busy, error, save }) {
   const { t } = useLanguage();
   const [openNote, setOpenNote] = useState(false);
   const [text, setText] = useState('');
-  const [clip, setClip] = useState(null);
   const [recording, setRecording] = useState(false);
   return (
     <>
       <div className="wk-form">
         <div className="wk-calm">{t('workPage.sentForChecking', 'Sent for checking. The master will look at it.')}</div>
         {openNote && (
-          <>
-            <div className="wk-note-box">
-              <VoiceTextarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)}
-                             placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')}
-                             onRecording={setClip} onRecordingChange={setRecording} autoFocus />
-            </div>
-            {clip && <VoiceClipPreview blob={clip} onRemove={() => setClip(null)} />}
-          </>
+          <div className="wk-note-box">
+            <VoiceTextarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)}
+                           placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} autoFocus />
+            <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} />
+          </div>
         )}
       </div>
       <ActionBar error={error}>
         {!openNote
           ? <button type="button" className="btn-secondary" onClick={() => setOpenNote(true)}>{t('workPage.addNote', 'Add a note')}</button>
           : (
-            <button type="button" className="btn-primary" disabled={busy || recording || (!text.trim() && !clip)}
-                    onClick={() => save(stage.status, text, [], clip, t('workPage.noteSaved', 'Note saved.'))}>
+            <button type="button" className="btn-primary" disabled={busy || recording || !text.trim()}
+                    onClick={() => save(stage.status, text, [], null, t('workPage.noteSaved', 'Note saved.'))}>
               {busy ? t('workPage.saving', 'Saving…') : t('workPage.saveNote', 'Save note')}
             </button>
           )}
@@ -573,11 +586,11 @@ function CheckForm({ stage, busy, error, save }) {
   const { t } = useLanguage();
   const [sending, setSending] = useState(false);
   const [reason, setReason] = useState('');
-  const [clip, setClip] = useState(null);
   const [recording, setRecording] = useState(false);
   const boxRef = useRef(null);
   const who = stage.performed_by_name || stage.assigned_to_name || t('workPage.theWorker', 'the worker');
-  const ready = reason.trim().length > 0 || clip;
+  // A voice note already sent on the stage counts as the reason.
+  const ready = reason.trim().length > 0 || Boolean(stage.voice_note);
 
   useEffect(() => { if (sending) boxRef.current?.scrollIntoView({ block: 'nearest' }); }, [sending]);
 
@@ -587,10 +600,9 @@ function CheckForm({ stage, busy, error, save }) {
         <div className="wk-form" ref={boxRef}>
           <div className="wk-note-box">
             <VoiceTextarea className="form-control" rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
-                           placeholder={t('workPage.sendBackReason', 'Say what needs to be redone')}
-                           onRecording={setClip} onRecordingChange={setRecording} autoFocus />
+                           placeholder={t('workPage.sendBackReason', 'Say what needs to be redone')} autoFocus />
+            <StageVoiceNote stage={stage} busy={busy} text={reason} save={save} onRecordingChange={setRecording} />
           </div>
-          {clip && <VoiceClipPreview blob={clip} onRemove={() => setClip(null)} />}
         </div>
       )}
       <ActionBar error={error}>
@@ -598,7 +610,7 @@ function CheckForm({ stage, busy, error, save }) {
           <>
             {!ready && <div className="wk-hint">{t('workPage.reasonRequired', 'A reason is needed so the worker knows what to fix')}</div>}
             <button type="button" className="btn-primary" disabled={busy || recording || !ready}
-                    onClick={() => save('IN_PROGRESS', reason.trim() || t('workPage.seeVoiceNote', 'See voice note'), [], clip,
+                    onClick={() => save('IN_PROGRESS', reason.trim() || t('workPage.seeVoiceNote', 'See voice note'), [], null,
                       t('workPage.sentBackToast', 'Sent back to {who}.', { who }))}>
               {busy ? t('workPage.saving', 'Saving…') : t('workPage.sendBackTo', 'Send back to {who}', { who })}
             </button>
