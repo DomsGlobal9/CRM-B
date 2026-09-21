@@ -65,8 +65,8 @@ const WIZARD_STEPS = {
   stitch: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'type', label: 'Apparel', sub: 'What we are making' },
-    { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
     { key: 'design', label: 'Design', sub: 'The look' },
+    { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'personal', label: 'Personalization', sub: 'Extras, if any' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
@@ -75,8 +75,8 @@ const WIZARD_STEPS = {
   design: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'type', label: 'Apparel', sub: 'What we are making' },
-    { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
     { key: 'design', label: 'Design', sub: 'The look' },
+    { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'personal', label: 'Personalization', sub: 'Extras, if any' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
@@ -3176,11 +3176,11 @@ function App() {
         }
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
-      } else if (wizardStepKey === 'fabric') {
-        await persistDraft({ step: currentStep + 1 });
-        reachStep(currentStep + 1);
       } else if (wizardStepKey === 'design') {
         if (serviceType === 'design' && !designRequest.designer) { alert('Pick the designer.'); return; }
+        await persistDraft({ step: currentStep + 1 });
+        reachStep(currentStep + 1);
+      } else if (wizardStepKey === 'fabric') {
         const target = stepAfterGarments();
         await persistDraft({ step: target });
         if (wizardSteps[target - 1]?.key === 'measure') prefillMeasurements();
