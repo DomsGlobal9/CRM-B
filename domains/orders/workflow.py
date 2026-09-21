@@ -162,11 +162,20 @@ def outstanding_before(order, config, stage_key, garment_job_id=None):
     return sorted(out, key=lambda s: stage_position(config, s['key']))
 
 
+#: An alteration is a delivered garment back for changes: taken in, worked,
+#: checked, paid for and handed back. Nothing from the making of it.
+ALTERATION_STAGES = ('created', 'alteration_work', 'master_quality_check',
+                     'ready_for_delivery', 'payment', 'delivered')
+
+
 def stages_for_flow(config, flow):
     """The stages an order on `flow` is built from. A stage that names no
-    `flows` is on every path; 'legacy' is the whole list, as it always was."""
+    `flows` is on every path; 'legacy' is the whole list, as it always was.
+    The alteration path is the short list above, in the configured order."""
     if flow == 'legacy':
         return ordered_stages(config)
+    if flow == 'alteration':
+        return [s for s in ordered_stages(config) if s['key'] in ALTERATION_STAGES]
     return [s for s in ordered_stages(config)
             if not s.get('flows') or flow in s['flows']]
 

@@ -320,8 +320,15 @@ class Order(models.Model):
     # is placed from whether any garment carries hand work; the owner may
     # change it until cutting starts. 'legacy' marks orders placed before the
     # paths split, which keep the single 15-stage line they were created with.
-    FLOW_CHOICES = [('stitching', 'Stitching'), ('maggam', 'Maggam'), ('legacy', 'Legacy')]
+    FLOW_CHOICES = [('stitching', 'Stitching'), ('maggam', 'Maggam'), ('alteration', 'Alteration'), ('legacy', 'Legacy')]
     flow = models.CharField(max_length=20, choices=FLOW_CHOICES, default='stitching', db_index=True)
+    # An alteration is an order too -- a delivered garment back for changes,
+    # on the short 'alteration' path -- numbered under the order it came
+    # from (#12-A1). Both null for a garment brought in from outside.
+    alteration_of = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='alterations')
+    alteration_seq = models.PositiveIntegerField(null=True, blank=True)
+    alteration_garment = models.ForeignKey('catalog.GarmentJob', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    alteration_garment_name = models.CharField(max_length=100, blank=True, default='')
 
     special_instructions = models.TextField(blank=True, default='')
     # The spoken version of special_instructions, when it was dictated: a
@@ -349,6 +356,8 @@ class Order(models.Model):
     @property
     def reference(self):
         """What to print for this order wherever a customer might read it."""
+        if self.alteration_of_id and self.alteration_seq:
+            return f"{self.alteration_of.reference}-A{self.alteration_seq}"
         return f"#{self.order_number}" if self.order_number else self.order_id
 
     def __str__(self):
@@ -542,6 +551,10 @@ def get_default_workflow():
         # The Master is on both stitching stages: the generalist in a small
         # boutique stitches as well as supervises, and the assign picker
         # reads this list, so leaving them off hid them from it.
+        # The alteration path's one workroom step: a delivered garment back
+        # for changes. Only orders on the 'alteration' flow carry it, and
+        # they carry nothing else from the workroom (workflow.ALTERATION_STAGES).
+        {"key": "alteration_work", "name": "Alteration work", "sla_hours": 48, "roles": ["Owner", "Master", "Tailor"], "flows": ["alteration"]},
         {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Master", "Tailor"], "scope": "garment"},
         # No separate Stitching check either: a tailor's completion already
         # goes to the owner/Master as PENDING_VERIFICATION, and their sign-off

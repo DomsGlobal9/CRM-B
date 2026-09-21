@@ -390,12 +390,24 @@ class OrderSerializer(serializers.ModelSerializer):
     order_status_display = serializers.SerializerMethodField()
     delivery_method_display = serializers.SerializerMethodField()
     order_reference = serializers.CharField(source='reference', read_only=True)
+    # The alteration path: which order and garment it came back from, and
+    # on a delivered order, the alterations raised on it.
+    alteration_of_reference = serializers.CharField(source='alteration_of.reference', read_only=True, default=None)
+    alteration_garment_name = serializers.CharField(read_only=True)
+    alterations = serializers.SerializerMethodField()
+
+    def get_alterations(self, obj):
+        return [{'id': a.id, 'order_reference': a.reference, 'order_status': a.order_status,
+                 'current_stage_key': a.current_stage_key, 'order_date': a.order_date,
+                 'garment_label': a.alteration_garment_name, 'total_amount': a.total_amount}
+                for a in obj.alterations.order_by('alteration_seq')]
 
     class Meta:
         model = Order
         fields = [
             'id', 'order_id', 'order_number', 'order_reference', 'customer', 'customer_name', 'customer_garment_type', 'customer_measurements',
             'garments', 'garment_label',
+            'alteration_of', 'alteration_of_reference', 'alteration_seq', 'alteration_garment', 'alteration_garment_name', 'alterations',
             'customer_mobile', 'customer_email', 'customer_address', 'customer_type', 'customer_occasion',
             'customer_neckline_style', 'customer_sleeve_style', 'customer_back_style',
             'tailor', 'tailor_name', 'master', 'master_name',

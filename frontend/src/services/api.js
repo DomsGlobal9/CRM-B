@@ -1981,6 +1981,22 @@ Object.assign(api, {
   getAlterations: (params) => alterationRequest('', {}, params),
   getAlteration: (id) => alterationRequest(`${id}`),
   createAlteration: (payload) => alterationRequest('', { method: 'POST', body: payload }),
+  // An alteration is an order on the short path: raised on the delivered
+  // order it came from, or on its own for a garment from outside.
+  async createAlterationOrder(orderId, body) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/alterations/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(body),
+    });
+    if (!res.ok) await failWith(res, 'Could not take the garment in');
+    return res.json();
+  },
+  async createOutsideAlterationOrder(body) {
+    const res = await guardedFetch(`${BASE_URL}/orders/outside-alteration/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(body),
+    });
+    if (!res.ok) await failWith(res, 'Could not take the garment in');
+    return res.json();
+  },
   // A garment stitched elsewhere: multipart, so the photograph of it as it
   // arrived can ride along with the fields.
   async createOutsideAlteration(fields, photoFile) {

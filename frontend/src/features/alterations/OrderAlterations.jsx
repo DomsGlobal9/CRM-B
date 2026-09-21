@@ -1,70 +1,55 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AlertTriangle, Scissors, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatDate as fmtDate, formatMoney } from '../../services/format';
-import { parseAdjustments } from './adjustments';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 
 /**
- * The alteration strip that lives inside an order card and a customer's order
- * history: what has come back on this order, and the way to take a garment in.
- *
- * Deliberately a small inline block rather than a second order screen. The
- * whole alteration file lives in the Alterations tab; this is the door to it
- * from where a customer is actually standing.
+ * A delivered garment back for changes. An alteration is an order on the
+ * short alteration path, numbered under this one (#12-A1), so once it is
+ * taken in it lives in Orders and the Workshop like everything else. This is
+ * the door from the order it came from: what has come back, and the intake.
  *
  * "Request alteration" only appears on a Delivered order, and only for the
- * roles that run the counter. The server enforces both again -- this just
- * avoids drawing a button that would be refused.
+ * roles that run the counter. The server enforces both again.
  */
 
-// Intake is any counter login; the server refuses Designer logins itself.
-const canRaise = (user) => !user?.role || user.role !== 'Designer';
-
-const STATUS_TONE = {
-  RECEIVED: '#6b7280', INSPECTION: '#3b82f6', PENDING_APPROVAL: '#f59e0b',
-  APPROVED: '#8b5cf6', ASSIGNED: '#0ea5e9', IN_PROGRESS: '#f59e0b',
-  QC: '#a855f7', READY_FOR_PICKUP: 'var(--success-color)', COMPLETED: 'var(--success-color)',
-  CANCELLED: 'var(--danger-color)',
-};
+const canRaise = (user) => !user?.role || ['Owner', 'Master'].includes(user.role);
 
 const money = (value) => formatMoney(Number(value || 0));
 
-export function RequestAlterationModal({ order, customerId, onClose, onCreated }) {
+export function RequestAlterationModal({ order, onClose, onCreated }) {
   const garments = order.garment_jobs || [];
   const [form, setForm] = useState({
-    garment_job_id: garments.length === 1 ? garments[0].id : '',
-    alteration_type: 'PAID_CLIENT_REQUEST',
-    issue_scale: '',
-    issue_description: '',
-    adjustments: '',
-    charge_amount: '',
-    notes: '',
+    garment_job: garments.length === 1 ? garments[0].id : '',
+    paid: true,
+    issue: '',
+    charge: '',
+    paid_now: '',
+    promised_by: '',
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-
   const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }));
-  const isPaid = form.alteration_type === 'PAID_CLIENT_REQUEST';
 
   const submit = async () => {
-    if (!form.issue_description.trim()) { setError('Say what is wrong with the garment.'); return; }
-    const chargeProblem = isPaid ? amountError(form.charge_amount, { label: 'Charge' }) : '';
-    if (chargeProblem) { setError(chargeProblem); return; }
+    if (!form.issue.trim()) { setError('Say what needs changing.'); return; }
+    const charge = form.paid ? parseFloat(form.charge || 0) : 0;
+    const bad = form.paid
+      ? (amountError(form.charge, { label: 'Charge' }) || amountError(form.paid_now, { label: 'Paid now', max: charge }))
+      : '';
+    const dateBad = form.promised_by && form.promised_by < new Date().toISOString().slice(0, 10) ? 'Promised by cannot be in the past.' : '';
+    if (bad || dateBad) { setError(bad || dateBad); return; }
     setBusy(true);
     setError(null);
     try {
-      const created = await api.createAlteration({
-        customer_id: customerId,
-        order_id: order.order_id,
-        garment_job_id: form.garment_job_id,
-        alteration_type: form.alteration_type,
-        issue_description: form.issue_description,
-        issue_scale: form.issue_scale,
-        requested_adjustments: parseAdjustments(form.adjustments),
-        charge_amount: isPaid && form.charge_amount ? form.charge_amount : '0.00',
-        notes: form.notes,
+      const created = await api.createAlterationOrder(order.id, {
+        garment_job: form.garment_job || null,
+        issue: form.issue.trim(),
+        charge: form.paid && form.charge ? form.charge : '0',
+        paid_now: form.paid && form.paid_now ? form.paid_now : '0',
+        promised_by: form.promised_by || null,
       });
       onCreated(created);
     } catch (err) {
@@ -84,14 +69,15 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: 'var(--surface-color, #17181a)', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', maxWidth: '760px', maxHeight: '92vh', overflowY: 'auto', padding: '20px' }}
+        role="dialog" aria-label="Take a garment back for alteration"
+        style={{ background: 'var(--surface-color, #17181a)', border: '1px solid var(--border-color)', borderRadius: '12px', width: '100%', maxWidth: '640px', maxHeight: '92vh', overflowY: 'auto', padding: '20px' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Take a garment back for alteration</h3>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
+          <button type="button" onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
         </div>
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: 0, marginBottom: '16px', lineHeight: 1.5 }}>
-          Order {order.order_id} stays exactly as it is. This opens a separate alteration job against the garment you pick.
+          Order {order.order_reference || order.order_id} stays as it is. This opens alteration {order.order_reference || ''}-A{(order.alterations || []).length + 1}, which goes through the workshop like any order.
         </p>
 
         {error && (
@@ -101,15 +87,12 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
           </div>
         )}
 
-        <div className="form-grid-2" style={{ gap: '12px' }}>
         <div style={field}>
           <label style={label}>Which garment came back?</label>
           {garments.length === 0 ? (
-            <div style={{ fontSize: '13px', color: 'var(--danger-color)' }}>
-              This order has no garment records, so an alteration cannot be raised against it.
-            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>The whole order.</div>
           ) : (
-            <select className="form-control" value={form.garment_job_id} onChange={set('garment_job_id')}>
+            <select className="form-control" value={form.garment_job} onChange={set('garment_job')}>
               <option value="">Choose the garment…</option>
               {garments.map((garment) => (
                 <option key={garment.id} value={garment.id}>
@@ -124,14 +107,14 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
           <label style={label}>Who is paying for it?</label>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {[
-              ['FREE_BOUTIQUE_FAULT', 'Free — our fault', 'Wrong measurement, stitching or fit on our side.'],
-              ['PAID_CLIENT_REQUEST', 'Paid — customer request', 'They have changed their mind or want something different.'],
-            ].map(([value, text, hint]) => (
+              [false, 'Free — our fault', 'Wrong measurement, stitching or fit on our side.'],
+              [true, 'Paid — customer request', 'They have changed their mind or want something different.'],
+            ].map(([paid, text, hint]) => (
               <button
-                key={value}
+                key={String(paid)}
                 type="button"
-                onClick={() => setForm((prev) => ({ ...prev, alteration_type: value, charge_amount: value === 'FREE_BOUTIQUE_FAULT' ? '' : prev.charge_amount }))}
-                className={form.alteration_type === value ? 'btn-primary' : 'btn-secondary'}
+                onClick={() => setForm((prev) => ({ ...prev, paid, charge: paid ? prev.charge : '', paid_now: paid ? prev.paid_now : '' }))}
+                className={form.paid === paid ? 'btn-primary' : 'btn-secondary'}
                 style={{ flex: '1 1 180px', textAlign: 'left', padding: '10px 12px', fontSize: '12.5px' }}
                 title={hint}
               >
@@ -140,44 +123,37 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
             ))}
           </div>
         </div>
-        </div>
 
-        {/* How big a job it is, judged at the counter: a small issue is a
-            small process and comes back sooner; a big one takes more work
-            and more time. Optional, so an intake in a hurry is not blocked. */}
         <div style={field}>
-          <label style={label}>How big is the issue?</label>
-          <select className="form-control" value={form.issue_scale} onChange={set('issue_scale')}>
-            <option value="">Not decided yet</option>
-            <option value="SMALL">Small — a quick fix, less time</option>
-            <option value="BIG">Big — more work, more time</option>
-          </select>
+          <label style={label}>What needs changing?</label>
+          <VoiceTextarea className="form-control" rows={3} maxLength={LIMITS.note} placeholder="The waist is loose, let out 1 inch…" value={form.issue} onChange={set('issue')} />
         </div>
 
         <div className="form-grid-2" style={{ gap: '12px' }}>
-        <div style={field}>
-          <label style={label}>What is wrong?</label>
-          <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} placeholder="The waist is loose…" value={form.issue_description} onChange={set('issue_description')} />
-        </div>
-
-        <div style={field}>
-          <label style={label}>Adjustments asked for — one per line, e.g. “waist: let out 1 inch”</label>
-          <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} value={form.adjustments} onChange={set('adjustments')} />
-        </div>
-        </div>
-
-        {isPaid && (
+          {form.paid && (
+            <>
+              <div style={field}>
+                <label style={label}>Charge</label>
+                <input className="form-control" inputMode="decimal" value={form.charge}
+                       onChange={(e) => setForm((prev) => ({ ...prev, charge: cleanAmount(e.target.value) }))} />
+              </div>
+              <div style={field}>
+                <label style={label}>Paid now</label>
+                <input className="form-control" inputMode="decimal" value={form.paid_now}
+                       onChange={(e) => setForm((prev) => ({ ...prev, paid_now: cleanAmount(e.target.value) }))} />
+              </div>
+            </>
+          )}
           <div style={field}>
-            <label style={label}>Charge (optional now — it can be set after inspection)</label>
-            <input className="form-control" inputMode="decimal" value={form.charge_amount}
-                   onChange={(e) => setForm((prev) => ({ ...prev, charge_amount: cleanAmount(e.target.value) }))} />
+            <label style={label}>Promised by</label>
+            <input className="form-control" type="date" value={form.promised_by} onChange={set('promised_by')} />
           </div>
-        )}
+        </div>
 
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '6px' }}>
           <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
-          <button type="button" className="btn-primary" disabled={busy || !form.garment_job_id} onClick={submit}>
-            {busy ? 'Creating…' : 'Create alteration'}
+          <button type="button" className="btn-primary" disabled={busy || (garments.length > 0 && !form.garment_job)} onClick={submit}>
+            <Scissors size={14} /> {busy ? 'Taking it in…' : 'Take it in'}
           </button>
         </div>
       </div>
@@ -185,114 +161,50 @@ export function RequestAlterationModal({ order, customerId, onClose, onCreated }
   );
 }
 
-export default function OrderAlterations({ order, customerId, currentUser, onOpenAlteration, compact = false }) {
-  const [rows, setRows] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [error, setError] = useState(null);
-
-  const canRequest = order.order_status === 'Delivered'
-    && canRaise(currentUser);
-
-  const isDelivered = order.order_status === 'Delivered';
-
-  const refresh = useCallback(() => {
-    if (!isDelivered) return Promise.resolve();
-    return api.getAlterations({ order: order.order_id })
-      .then((data) => { setRows(data || []); setError(null); })
-      .catch((err) => { setRows([]); setError(err.message); });
-  }, [order.order_id, isDelivered]);
-
-  // Only a delivered order can have any, so nothing else pays for the request.
-  useEffect(() => { refresh(); }, [refresh]);
-
-  // Nothing to fetch and nothing to show: an order still in production has no
-  // alterations by definition, and no way to raise one.
-  if (!isDelivered) return null;
-
-  if (rows === null) {
-    return <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Loading alterations…</div>;
-  }
-  if (!canRequest && rows.length === 0) return null;
+/** The alterations raised on a delivered order, and the button to raise one. */
+export default function OrderAlterations({ order, currentUser, onOpenAlteration, compact = false }) {
+  const [open, setOpen] = useState(false);
+  const rows = order.alterations || [];
+  const delivered = order.order_status === 'Delivered';
+  if (!delivered || order.flow === 'alteration') return null;
+  if (rows.length === 0 && !canRaise(currentUser)) return null;
 
   return (
-    <div style={{
-      padding: compact ? '10px 0 0' : '14px 16px',
-      border: compact ? 'none' : '1px solid var(--border-color)',
-      borderRadius: '8px', textAlign: 'left',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-        <h4 style={{ fontSize: '13px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Scissors size={14} /> Alterations
-          {rows.length > 0 && (
-            <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>({rows.length})</span>
-          )}
-        </h4>
-        {canRequest && (
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{ fontSize: '12px', padding: '5px 12px' }}
-            onClick={(e) => { e.stopPropagation(); setShowModal(true); }}
-          >
-            Request alteration
+    <section className={compact ? '' : 'at-section od-alterations'} style={compact ? { marginTop: '8px' } : undefined}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: rows.length ? '10px' : 0 }}>
+        <strong style={{ fontSize: compact ? '13px' : '15px' }}>Alterations{rows.length ? ` (${rows.length})` : ''}</strong>
+        {canRaise(currentUser) && (
+          <button type="button" className="btn-secondary at-btn-sm" style={{ marginLeft: 'auto' }} onClick={(e) => { e.stopPropagation(); setOpen(true); }}>
+            <Scissors size={12} /> Request alteration
           </button>
         )}
       </div>
-
-      {error && <div style={{ fontSize: '12px', color: 'var(--danger-color)', marginTop: '6px' }}>{error}</div>}
-
-      {rows.length === 0 ? (
-        <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
-          Nothing has come back on this order.
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '10px' }}>
-          {rows.map((row) => {
-            const tone = STATUS_TONE[row.status] || '#6b7280';
-            return (
-              <div
-                key={row.id}
-                onClick={(e) => { e.stopPropagation(); if (onOpenAlteration) onOpenAlteration(row.id); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
-                  fontSize: '12.5px', padding: '8px 10px', borderRadius: '6px',
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)',
-                  cursor: onOpenAlteration ? 'pointer' : 'default',
-                }}
-              >
-                <strong>{row.alteration_number}</strong>
-                <span style={{ color: 'var(--text-muted)' }}>{row.garment_name || row.garment_job?.template_name}</span>
-                <span style={{
-                  fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px',
-                  color: tone, background: `${tone}1f`, border: `1px solid ${tone}55`,
-                }}>
-                  {row.status_display || row.status}
-                </span>
-                <span style={{ color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : 'var(--success-color)' }}>
-                  {row.alteration_type === 'PAID_CLIENT_REQUEST' ? 'Paid' : 'Free'}
-                </span>
-                {Number(row.outstanding_balance) > 0 && (
-                  <span style={{ color: 'var(--danger-color)' }}>{money(row.outstanding_balance)} due</span>
-                )}
-                <span style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}>{fmtDate(row.received_at)}</span>
-              </div>
-            );
-          })}
+      {rows.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {rows.map((row) => (
+            <button key={row.id} type="button"
+                    onClick={(e) => { e.stopPropagation(); if (onOpenAlteration) onOpenAlteration(row.id); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', padding: '8px 12px', borderRadius: 'var(--radius-md)',
+                             background: 'var(--surface-2)', border: '1px solid var(--border-color)', font: 'inherit', fontSize: '13px', color: 'var(--text-primary)',
+                             textAlign: 'left', cursor: onOpenAlteration ? 'pointer' : 'default', minHeight: '36px' }}>
+              <strong>{row.order_reference}</strong>
+              <span style={{ color: 'var(--text-secondary)' }}>{row.garment_label || 'Garment'}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{fmtDate(row.order_date)}</span>
+              <span className={`ui-badge ui-badge--${row.order_status === 'Delivered' ? 'success' : row.order_status === 'Cancelled' ? 'neutral' : 'info'}`} style={{ marginLeft: 'auto' }}>
+                {row.order_status === 'Delivered' ? 'Delivered' : row.order_status === 'Cancelled' ? 'Cancelled' : 'In the workshop'}
+              </span>
+              {Number(row.total_amount) > 0 && <span style={{ color: 'var(--text-secondary)' }}>{money(row.total_amount)}</span>}
+            </button>
+          ))}
         </div>
       )}
-
-      {showModal && (
+      {open && (
         <RequestAlterationModal
           order={order}
-          customerId={customerId || order.customer}
-          onClose={() => setShowModal(false)}
-          onCreated={(created) => {
-            setShowModal(false);
-            refresh();
-            if (onOpenAlteration && created?.id) onOpenAlteration(created.id);
-          }}
+          onClose={() => setOpen(false)}
+          onCreated={(created) => { setOpen(false); if (onOpenAlteration && created?.id) onOpenAlteration(created.id); }}
         />
       )}
-    </div>
+    </section>
   );
 }

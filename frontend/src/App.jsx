@@ -26,7 +26,6 @@ const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboa
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const CustomerDesigns = lazy(() => import('./features/designStudio/CustomerDesigns'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
-const AlterationsPanel = lazy(() => import('./features/alterations/AlterationsPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
@@ -36,7 +35,6 @@ import { purchaseError } from './features/catalog/materials';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
 import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview';
 import OrderAlterations, { RequestAlterationModal } from './features/alterations/OrderAlterations';
-import AlterationList from './features/alterations/AlterationList';
 import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import GarmentSummary from './features/catalog/GarmentSummary';
 import OrderKanban from './features/orders/OrderKanban';
@@ -2224,31 +2222,20 @@ function App() {
   // Which alteration the Alterations tab should open on. Set when somebody
   // follows one from an order card or a customer's file, cleared once the tab
   // has been entered so going back to the tab shows the register again.
-  const [openAlterationId, setOpenAlterationId] = useState(null);
   // Delivered order picked for alteration from the customer profile.
   const [alterationOrder, setAlterationOrder] = useState(null);
   // Delivered order picked for alteration from the Manage Orders table.
   const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
   // The "Outside garment" intake opened from the Manage Orders header.
   const [takingInOutside, setTakingInOutside] = useState(false);
+  // An alteration is an order on the short path: open it where orders open.
   const openAlteration = (id) => {
-    setOpenAlterationId(id);
     setSelectedDirectoryCustomer(null);
-    setDashboardTab('alterations');
-    // Opened on one the register does not hold yet (raised from inside an
-    // order card, which hands up only the id): refresh the register, so it
-    // is there when the counter comes back to Manage Orders.
-    if (id && !alterationsList.some((a) => a.id === id)) {
-      api.getAlterations().then((d) => setAlterationsList(d || [])).catch(() => {});
-    }
+    setDashboardTab('orders');
+    setOpenOrdersRowId(id);
+    fetchDashboardAndConfig();
   };
-  // An alteration just taken in: into the register at the top, so it is
-  // there when the counter comes back to Manage Orders, rather than only
-  // after the next reload.
-  const rememberAlteration = (created) => {
-    if (!created?.id) return;
-    setAlterationsList((prev) => [created, ...(prev || []).filter((a) => a.id !== created.id)]);
-  };
+  const rememberAlteration = () => {};
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   // Which order in the customer profile is expanded to show its production
   // progress. Opening a client's order used to throw them into the new-order
@@ -2256,8 +2243,6 @@ function App() {
   const [expandedCustomerOrderId, setExpandedCustomerOrderId] = useState(null);
   // Manage Orders table: the row whose full card is open under it.
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
-  // Alterations sit in the same register as orders, told apart by a Type column.
-  const [alterationsList, setAlterationsList] = useState([]);
   const [approvingDesignId, setApprovingDesignId] = useState(null);
   const [assigningStageKey, setAssigningStageKey] = useState(null);
 
@@ -2320,25 +2305,10 @@ function App() {
 
   // One predicate for the order registry, whichever way it is drawn: the list
   // and the board show the same orders under the same filter and search.
-  // Same chips and search box, read off an alteration's own fields.
-  const alterationMatchesFilters = (alt) => {
-    if (ordersTypeFilter === 'Stitching' || ordersTypeFilter === 'Maggam') return false;
-    // An alteration is in the workroom from the moment it is taken in.
-    const closed = ['COMPLETED', 'CANCELLED'].includes(alt.status);
-    if (ordersFilterTab === 'new') return false;
-    if ((ordersFilterTab === 'done') !== closed) return false;
-    if (ordersSearch.trim()) {
-      const query = ordersSearch.toLowerCase();
-      return (alt.alteration_number || '').toLowerCase().includes(query)
-        || (alt.customer?.name || '').toLowerCase().includes(query);
-    }
-    return true;
-  };
-
   const orderMatchesFilters = (order) => {
-    if (ordersTypeFilter === 'Alteration') return false;
+    if (ordersTypeFilter === 'Alteration' && order.flow !== 'alteration') return false;
     if (ordersTypeFilter === 'Maggam' && order.flow !== 'maggam') return false;
-    if (ordersTypeFilter === 'Stitching' && order.flow === 'maggam') return false;
+    if (ordersTypeFilter === 'Stitching' && order.flow !== 'stitching' && order.flow !== 'legacy') return false;
     if (orderBucket(order) !== ordersFilterTab) return false;
     if (ordersTierFilter !== 'All' && customerTier(order) !== ordersTierFilter) return false;
     if (ordersGarmentFilter !== 'All' && !orderGarmentNames(order).includes(ordersGarmentFilter)) return false;
@@ -2599,7 +2569,6 @@ function App() {
     // The rolls the order wizard picks from are stock now: every active
     // inventory item that is cloth, or filed under a garment part.
     if (hasModule(user, 'inventory')) await load('fabrics', () => api.getInventoryItems({ picker: 'true' }), setFabrics);
-    if (hasModule(user, 'alterations')) await load('alterations', api.getAlterations, (d) => setAlterationsList(d || []));
     if (hasModule(user, 'design_studio')) await load('designs', api.getAllBoutiqueDesigns, setAllDesigns);
     await load('settings', api.getBoutiqueSettings, (data) => {
       setBoutiqueSettings(data);
@@ -3249,25 +3218,14 @@ function App() {
       if (bad) { alert(charge ? bad : 'Enter the charge before recording a payment.'); return; }
     }
     try {
-      const created = await api.createAlteration({
-        customer_id: customerId,
-        order_id: candidate.order.order_id,
-        garment_job_id: candidate.job.id,
-        alteration_type: alterationForm.type,
-        issue_description: alterationForm.issue.trim(),
-        charge_amount: isPaid && alterationForm.charge ? alterationForm.charge : '0.00',
+      const created = await api.createAlterationOrder(candidate.order.id, {
+        garment_job: candidate.job.id,
+        issue: alterationForm.issue.trim(),
+        charge: isPaid && alterationForm.charge ? alterationForm.charge : '0',
+        paid_now: isPaid && alterationForm.paidNow ? alterationForm.paidNow : '0',
       });
-      const paidNow = parseFloat(alterationForm.paidNow || 0);
-      if (isPaid && paidNow > 0) {
-        try {
-          await api.recordAlterationPayment(created.id, { amount: paidNow, payment_method: 'CASH' });
-        } catch (err) {
-          alert(`The alteration was created, but the payment could not be recorded: ${err.message}. Record it on the Alterations page.`);
-        }
-      }
-      openAlteration(created.id);
       setView('dashboard');
-      fetchDashboardAndConfig();
+      openAlteration(created.id);
     } catch (err) {
       setWizardError(err.message || 'Could not create the alteration.');
     }
@@ -4343,7 +4301,6 @@ function App() {
                   // cleared by hand; everything inside resets with the key.
                   setSelectedDirectoryCustomer(null);
                   setOpenOrdersRowId(null);
-                  setOpenAlterationId(null);
                   setSelectedDashboardOrder(null);
                   setSectionVisit(n => n + 1);
                   setMobileNavOpen(false);
@@ -4367,17 +4324,6 @@ function App() {
                 <Suspense fallback={<ScreenLoading />}>
                   <WorkPanel view={dashboardTab === 'work' ? 'open' : dashboardTab} orders={ordersList} currentUser={currentUser} workflowConfig={boutiqueSettings?.workflow_config || []} tailors={tailors} fabricTaxonomy={fabricTaxonomy} onChanged={fetchDashboardAndConfig} />
                 </Suspense>
-                {/* The tailor's alteration queue: a separate job against a
-                    delivered order, so it stays its own list under My work. */}
-                {dashboardTab === 'work' && (
-                  <div style={{ marginTop: '20px' }}>
-                    <AlterationList
-                      title={t('alterations.mine', 'My Alterations')}
-                      params={{ assigned_to_me: '1', open: '1' }}
-                      onOpenAlteration={openAlteration}
-                    />
-                  </div>
-                )}
               </>
             )}
 
@@ -4542,7 +4488,7 @@ function App() {
                     ...(fresh ? [['new', { name: t('ordersPage.notSentYet', 'Not sent yet'), count: fresh, seq: -1 }]] : []),
                     ...Object.entries(dist).sort((a, b) => a[1].seq - b[1].seq),
                   ];
-                  const LOOK = { new: ['amber', Clock], pattern_cutting: ['rose', Scissors], fabric_cutting: ['rose', Scissors],
+                  const LOOK = { new: ['amber', Clock], pattern_cutting: ['rose', Scissors], fabric_cutting: ['rose', Scissors], alteration_work: ['rose', Scissors],
                     stitching_in_progress: ['blue', Shirt], finishing: ['blue', Shirt], master_quality_check: ['violet', ShieldCheck],
                     ready_for_delivery: ['green', PackageCheck], payment: ['amber', Wallet], delivered: ['green', CheckCircle2] };
                   const jump = (key) => {
@@ -4720,19 +4666,6 @@ function App() {
               </Suspense>
             )}
 
-            {/* Post-delivery alterations. Its own screen, deliberately not a
-                second copy of the order registry: an alteration is a separate
-                job that merely points at the order it came from. */}
-            {dashboardTab === 'alterations' && (
-              <Suspense fallback={<ScreenLoading />}>
-                <AlterationsPanel
-                  currentUser={currentUser}
-                  initialAlterationId={openAlterationId}
-                  onBackToList={() => setOpenAlterationId(null)}
-                  key={openAlterationId || 'list'}
-                />
-              </Suspense>
-            )}
 
             {/* 3. MANAGE TAILORS TAB */}
 
@@ -4919,9 +4852,10 @@ function App() {
                           // Which path through the workroom. Switchable by the
                           // owner or Master until cutting or anything after it
                           // has begun -- the server refuses it past that.
-                          const canSwitch = (currentUser?.role === 'Owner' || currentUser?.role === 'Master')
+                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || currentUser?.role === 'Master')
                             && !(order.stages || []).some(st => st.stage_key !== 'created' && st.status !== 'NOT_STARTED');
-                          const label = order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
+                          const label = order.flow === 'alteration' ? t('ordersPage.flowAlteration', 'Alteration')
+                            : order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
                           return canSwitch ? (
                             <label className={`ui-badge ${order.flow === 'maggam' ? 'ui-badge--warning' : 'ui-badge--neutral'}`} style={{ cursor: 'pointer', gap: '4px' }} title="Change how this order is made">
                               <select value={order.flow} aria-label="Order path"
@@ -4943,6 +4877,17 @@ function App() {
                         <span><User size={14} />{t('ordersPage.client', 'Customer:')} <strong>{order.customer_name}</strong></span>
                         <span className="od-meta-sep" aria-hidden="true">·</span>
                         <span><Calendar size={14} />{t('ordersPage.created', 'Taken on:')} {fmtDate(order.order_date)}</span>
+                        {order.flow === 'alteration' && (
+                          <>
+                            <span className="od-meta-sep" aria-hidden="true">·</span>
+                            <span><Scissors size={14} />
+                              {order.alteration_of ? (
+                                <>{t('ordersPage.alterationOf', 'Alteration of')} <button type="button" className="at-link" onClick={() => setOpenOrdersRowId(order.alteration_of)}>{order.alteration_of_reference}</button></>
+                              ) : t('ordersPage.outsideGarment', 'Garment from outside')}
+                              {order.alteration_garment_name ? ` · ${order.alteration_garment_name}` : ''}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <p className="od-quote">“From fabric to finesse, we keep you in the loop.”</p>
@@ -5426,9 +5371,8 @@ function App() {
                           : (st === 'Shipped' || st === 'Ready for Dispatch') ? 'info'
                           : 'warning';
                       const filtered = ordersList.filter(orderMatchesFilters);
-                      const filteredAlterations = alterationsList.filter(alterationMatchesFilters);
 
-                      if (filtered.length === 0 && filteredAlterations.length === 0) {
+                      if (filtered.length === 0) {
                         return (
                           <div className="ui-card" style={{ padding: 'var(--space-10)', textAlign: 'center', color: 'var(--text-muted)' }}>
                             {ordersList.length === 0 ? (
@@ -5462,38 +5406,6 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                      {/* Alterations first, newest at the top -- the one just taken
-                          in is what the counter is looking for. View opens the
-                          alteration's own page rather than expanding. */}
-                      {filteredAlterations.map(alt => {
-                        const done = alt.status === 'COMPLETED';
-                        const cancelled = alt.status === 'CANCELLED';
-                        return (
-                        <tr key={alt.id}>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{alt.alteration_number}</td>
-                          <td>Alteration</td>
-                          <td>{alt.customer?.name || [alt.customer?.first_name, alt.customer?.last_name].filter(Boolean).join(' ')}</td>
-                          <td>—</td>
-                          <td>
-                            <span className={`ui-badge ui-badge--${done ? 'success' : cancelled ? 'neutral' : 'warning'}`}>
-                              {done ? 'Delivered' : cancelled ? 'Cancelled' : 'Pending'}
-                            </span>
-                            {!done && !cancelled && (
-                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {alt.status_display || alt.status}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <button type="button" className="btn-secondary at-btn-sm" onClick={() => openAlteration(alt.id)}>
-                                <Eye size={12} /> View
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        );
-                      })}
                       {filtered.map(order => {
                         const isDelivered = order.order_status === 'Delivered';
                         const isCancelled = order.order_status === 'Cancelled';
@@ -5508,7 +5420,7 @@ function App() {
                         <React.Fragment key={order.id}>
                         <tr style={isCancelled ? { opacity: 0.55 } : undefined}>
                           <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)} <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
-                          <td className="at-desk-only">{order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
+                          <td className="at-desk-only">{order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td className="at-desk-only">{order.customer_name}</td>
                           <td data-label={t('ordersPage.estDelivery', 'Delivery')}>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
                           <td data-label={t('ordersPage.whereItStands', 'Where it stands')}>

@@ -203,6 +203,9 @@ const en = {
   },
   ordersPage: {
     backToOrders: "Back to orders",
+    flowAlteration: "Alteration",
+    alterationOf: "Alteration of",
+    outsideGarment: "Garment from outside",
     markComplete: "Mark as complete",
     completing: "Completing…",
     taskCol: "Task",
