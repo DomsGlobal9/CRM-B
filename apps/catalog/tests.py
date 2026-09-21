@@ -47,15 +47,20 @@ class TemplateSeedTests(CatalogTestCase):
             self.assertIn('special_instructions', keys)
             self.assertIn('urgency', keys)
 
-    def test_free_text_closes_the_basic_and_measurement_sections(self):
-        # The customer's "anything else" and the fit notes come last on every
-        # garment, after whatever the template itself asks.
+    def test_one_note_box_per_garment_plus_the_fit_notes(self):
+        # `special_instructions` (production) is the only "anything else" box:
+        # the basic section asks no free text of its own. The fit notes still
+        # follow the numbers on every garment.
         for template in GarmentTemplate.objects.all():
-            basic = [f.key for f in template.sections.get(key='basic').fields.all()]
+            basic = [f for f in template.sections.get(key='basic').fields.all()]
+            production = [f.key for f in template.sections.get(key='production').fields.all()]
             measurements = [
                 f.key for f in template.sections.get(key='measurements').fields.all()]
-            self.assertEqual(basic[-1], 'garment_notes', f"{template.key} basic")
-            self.assertEqual(measurements[-1], 'measurement_notes', f"{template.key} measurements")
+            self.assertNotIn('garment_notes', [f.key for f in basic], f"{template.key} basic")
+            self.assertFalse([f.key for f in basic if f.field_type == 'textarea'
+                              and f.key != 'hand_work_notes'], f"{template.key} basic")
+            self.assertIn('special_instructions', production, f"{template.key} production")
+            self.assertIn('measurement_notes', measurements, f"{template.key} measurements")
 
     def test_fabric_source_leads_the_materials_section(self):
         for template in GarmentTemplate.objects.all():
@@ -137,6 +142,17 @@ class VisibilityTests(CatalogTestCase):
         rounding = self._field('blouse', 'hand_rounding')
         self.assertTrue(is_visible(rounding, {}))
         self.assertFalse(is_visible(rounding, {'sleeve_length': 'sleeveless'}))
+
+    def test_saree_border_groups_are_alternatives(self):
+        # 'With Border / Pattern' and 'Without Pattern' never show together:
+        # the style step's `border` picks one, and unanswered means plain.
+        with_border = self._field('saree', 'border_width')
+        without = self._field('saree', 'plain_body_width')
+        for values, expect_with in (({'border': 'with_border'}, True),
+                                    ({'border': 'without_border'}, False),
+                                    ({}, False)):
+            self.assertEqual(is_visible(with_border, values), expect_with, values)
+            self.assertEqual(is_visible(without, values), not expect_with, values)
 
 
 class ValidationTests(CatalogTestCase):

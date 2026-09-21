@@ -699,7 +699,7 @@ const ta = {
     orderInProgressMany: "உங்களிடம் {count} ஆர்டர்கள் முன்னேற்றத்தில் உள்ளன",
     savedAutomaticallySub: "தானாகவே சேமிக்கப்பட்டது.",
     unnamedCustomer: "பெயரிடப்படாத வாடிக்கையாளர்",
-    stepXofY: "நிலை {step} / 6",
+    stepXofY: "நிலை {step} / {total}",
     lastSaved: "கடைசியாக சேமிக்கப்பட்டது",
     resume: "மீண்டும் தொடங்கு",
     discard: "ரத்து செய்",

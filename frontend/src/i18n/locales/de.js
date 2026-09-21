@@ -702,7 +702,7 @@ const de = {
     orderInProgressMany: "Sie haben {count} Bestellungen in Bearbeitung",
     savedAutomaticallySub: "Automatisch gespeichert.",
     unnamedCustomer: "Unbenannter Kunde",
-    stepXofY: "Schritt {step} / 6",
+    stepXofY: "Schritt {step} / {total}",
     lastSaved: "Zuletzt gespeichert",
     resume: "Fortsetzen",
     discard: "Verwerfen",

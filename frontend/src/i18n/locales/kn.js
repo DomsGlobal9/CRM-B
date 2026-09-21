@@ -700,7 +700,7 @@ const kn = {
     orderInProgressMany: "ನಿಮ್ಮ ಬಳಿ {count} ಆರ್ಡರ್‌ಗಳು ಪ್ರಗತಿಯಲ್ಲಿವೆ",
     savedAutomaticallySub: "ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಉಳಿಸಲಾಗಿದೆ.",
     unnamedCustomer: "ಹೆಸರಿಲ್ಲದ ಗ್ರಾಹಕರು",
-    stepXofY: "ಹಂತ {step} / 6",
+    stepXofY: "ಹಂತ {step} / {total}",
     lastSaved: "ಕೊನೆಯದಾಗಿ ಉಳಿಸಿದ್ದು",
     resume: "ಮತ್ತೆ ಪ್ರಾರಂಭಿಸಿ",
     discard: "ರದ್ದುಗೊಳಿಸಿ",

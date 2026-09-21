@@ -12,7 +12,8 @@ import {
 
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
-const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
+// Model display parked — see task 16
+// const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
@@ -1677,7 +1678,6 @@ function App() {
       }]);
       // Saree asks after its blouse and petticoat, lehenga after its choli
       // and dupatta. Paired adds skip the prompt so it cannot chain.
-      setActiveGarmentKey(jobKey);
       if (!skipPairingPrompt && getGarmentPairConfig(key, template.name)) {
         setActivePairingGarment({ key, name: template.name, jobKey });
       }
@@ -1857,7 +1857,25 @@ function App() {
     });
     setGarmentErrors(errors);
     const failed = Object.keys({ ...errors, ...quantityErrors })[0];
-    if (failed) setActiveGarmentKey(failed);
+    if (failed) {
+      setActiveGarmentKey(failed);
+      // TemplateForm marks a failed field only by the message under it and
+      // gives every control id tf-<field key>, repeated per garment; the
+      // garment card (#wz-garment-<job key>) picks this garment's copy. After
+      // the frame so the alert the caller raises has closed and the highlight
+      // has rendered before the page moves.
+      const fieldKey = Object.keys(errors[failed] || quantityErrors[failed])[0];
+      requestAnimationFrame(() => {
+        const scope = document.getElementById(`wz-garment-${failed}`) || document;
+        const control = scope.querySelector(`[id="tf-${fieldKey}"]`);
+        // A field folded under 'More details' or a measurement group is
+        // display:none; open every fold above it first or nothing moves.
+        let fold = control?.closest('details');
+        while (fold) { fold.open = true; fold = fold.parentElement?.closest('details'); }
+        control?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        control?.focus({ preventScroll: true });
+      });
+    }
     return Object.keys(errors).length === 0 && Object.keys(quantityErrors).length === 0;
   };
 
@@ -2926,6 +2944,12 @@ function App() {
     reachStep(n);
   }, [currentStep, maxStepReached, reachStep]);
   const wizardSteps = WIZARD_STEPS[serviceType] || WIZARD_STEPS.stitch;
+  // A phone shows three of the seven steps; bring the current one into view
+  // so the strip never sits on steps 1-3 while the order is on step 5.
+  useEffect(() => {
+    document.querySelector('.wizard-header-container [aria-current="step"]')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }, [currentStep]);
   const wizardStepKey = wizardSteps[currentStep - 1]?.key;
   /** Whether any garment on the order has a measurement to take right now. */
   const needsMeasurements = () => garmentJobs.some(job =>
@@ -4395,14 +4419,19 @@ function App() {
                           <ChevronRight size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                         </div>
                       );
+                      // One row per order: an order both due and unpaid was
+                      // listed twice, once per list, so the two chips share a row.
+                      const byOrder = new Map(due.map((o) => [o.id, { ...o, isDue: true }]));
+                      unpaid.forEach((o) => byOrder.set(o.id, { ...(byOrder.get(o.id) || o), balance: o.balance, isUnpaid: true }));
                       return (
                         <div>
-                          {due.map((o) => row(`due-${o.id}`, () => setDashboardTab('orders'), orderRef(o), o.customer || 'Customer',
-                            <span className={`ui-badge ui-badge--${o.overdue ? 'danger' : 'warning'}`}>
-                              {o.overdue ? 'Overdue' : 'Due'} {o.due ? new Date(o.due).toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''}
+                          {[...byOrder.values()].map((o) => row(`order-${o.id}`, () => setDashboardTab('orders'), orderRef(o), o.customer || 'Customer',
+                            <span style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                              {o.isDue && <span className={`ui-badge ui-badge--${o.overdue ? 'danger' : 'warning'}`}>
+                                {o.overdue ? 'Overdue' : 'Due'} {o.due ? new Date(o.due).toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''}
+                              </span>}
+                              {o.isUnpaid && <span className="ui-badge ui-badge--warning">{inr(o.balance)} due</span>}
                             </span>))}
-                          {unpaid.map((o) => row(`bal-${o.id}`, () => setDashboardTab('orders'), orderRef(o), o.customer || 'Customer',
-                            <span className="ui-badge ui-badge--warning">{inr(o.balance)} due</span>))}
                           {att.low_stock > 0 && row('stock', () => setDashboardTab('inventory'), null, 'Low stock',
                             <span className="ui-badge ui-badge--warning">{att.low_stock} item{att.low_stock === 1 ? '' : 's'}</span>)}
                           {att.pending_designs > 0 && row('designs', openDesignRequests, null, 'Designs awaiting review',
@@ -4650,11 +4679,12 @@ function App() {
                 : live ? ['info', STEP_LABEL.live] : ['neutral', STEP_LABEL.next];
               const tasksDone = stages.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
               const stepChip = `${tasksDone} of ${stages.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
+              // Model display parked — see task 16
               // The row to open: the first unsettled one, garment rows included.
-              const briefStage = stages.find(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status))
-                || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || stages[0];
-              const preview = (order.garment_images || [])[0]?.image || order.completed_garment_image;
-              const garmentName = order.garment_label || orderGarmentNames(order).join(', ') || order.customer_garment_type;
+              // const briefStage = stages.find(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status))
+              //   || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || stages[0];
+              // const preview = (order.garment_images || [])[0]?.image || order.completed_garment_image;
+              // const garmentName = order.garment_label || orderGarmentNames(order).join(', ') || order.customer_garment_type;
               const verification = order.master_verification || {};
               const verifyTotal = 6 + (orderGarmentNames(order).includes('Saree') ? 1 : 0);
               const verified = Object.values(verification).filter(Boolean).length;
@@ -5005,8 +5035,9 @@ function App() {
                     </div>
 
                     <aside className="od-side">
-                      {/* The garment, and the stage panel behind it: that is where the
-                          latest design, its notes and references are read. */}
+                      {/* Model display parked — see task 16
+                          The garment, and the stage panel behind it: that is where the
+                          latest design, its notes and references are read.
                       <section className="at-section od-preview">
                         <div className="od-section-head">
                           <IconTile icon={Eye} tone="green" size={40} iconSize={18} />
@@ -5025,7 +5056,7 @@ function App() {
                             {t('ordersPage.viewDesign', 'View design')} <ArrowRight size={14} />
                           </button>
                         )}
-                      </section>
+                      </section> */}
 
                       <OrderNotesCard key={order.id} order={order} canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
                     </aside>
@@ -5187,7 +5218,7 @@ function App() {
                           || stages.find(st => st.status === 'IN_PROGRESS')
                           || stages.find(st => st.status !== 'COMPLETED');
                         const done = stages.filter(st => st.status === 'COMPLETED').length;
-                        return current ? `${current.stage_name} (${done}/${stages.length})` : '';
+                        return current ? { name: current.stage_name, done, total: stages.length } : null;
                       };
                       const awaitingVerification = (order) =>
                         (order.stages || []).some(st => st.status === 'PENDING_VERIFICATION');
@@ -5241,6 +5272,7 @@ function App() {
                       {filtered.map(order => {
                         const isDelivered = order.order_status === 'Delivered';
                         const isCancelled = order.order_status === 'Cancelled';
+                        const stage = !isDelivered && !isCancelled ? stageNow(order) : null;
                         return (
                         <React.Fragment key={order.id}>
                         <tr>
@@ -5253,10 +5285,16 @@ function App() {
                               {isDelivered ? 'Delivered' : isCancelled ? 'Cancelled'
                                 : awaitingVerification(order) ? 'Pending verification' : 'Pending'}
                             </span>
-                            {!isDelivered && !isCancelled && stageNow(order) && (
-                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {stageNow(order)}
-                              </span>
+                            {/* "Cutting (1/21)" read as a date; the stage by name,
+                                progress as a bar under it. */}
+                            {stage && (
+                              <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                                {stage.name}
+                                <span className="at-progress" style={{ width: '72px', height: '4px', marginTop: '3px' }}
+                                      title={`${stage.done} of ${stage.total} stages done`}>
+                                  <span className="at-progress-fill at-progress-fill--forest" style={{ width: `${Math.round((100 * stage.done) / stage.total)}%` }} />
+                                </span>
+                              </div>
                             )}
                           </td>
                           <td style={{ whiteSpace: 'nowrap' }}>
@@ -5381,7 +5419,8 @@ function App() {
                       const visible = m ? getVisibleMeasurementFields(parts) : [];
                       const FIELDS = [['bust', 'Bust'], ['waist', 'Waist'], ['hips', 'Hips'], ['shoulder', 'Shoulder'],
                                       ['arm_length', 'Arm'], ['neck', 'Neck'], ['length', 'Length']];
-                      const shown = FIELDS.filter(([k]) => visible.includes(k)).slice(0, 4);
+                      // Only columns holding a number: a row of dashes says nothing.
+                      const shown = FIELDS.filter(([k]) => visible.includes(k) && m?.[k]).slice(0, 4);
                       const tags = [
                         `${cust.garment_type || ''}${parts.length ? ` (${parts.join(', ')})` : ''}`.trim(),
                         cust.neckline_style && `Neck: ${cust.neckline_style}`,
@@ -5424,12 +5463,12 @@ function App() {
                                   {shown.map(([k, label]) => (
                                     <div key={k}>
                                       <div className="at-measure-label">{label}</div>
-                                      <div className="at-measure-value">{m[k] || '—'}</div>
+                                      <div className="at-measure-value">{m[k]}</div>
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>No size measurements logged yet.</span>
+                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>No measurements yet.</span>
                               )}
                             </div>
 
@@ -5453,8 +5492,8 @@ function App() {
                               </div>
                               <button
                                 type="button"
-                                className="at-link"
-                                style={{ marginTop: '6px', fontSize: 'var(--text-xs)', color: 'var(--accent-text)' }}
+                                className="at-link at-customer-notes"
+                                style={{ marginTop: '6px', color: 'var(--accent-text)' }}
                                 onClick={(e) => { e.stopPropagation(); setStyleNotesFor(cust); }}
                               >
                                 <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
@@ -6897,6 +6936,8 @@ function App() {
                 );
               })}
             </div>
+            {/* Phones only (CSS): the strip scrolls, so say where in it we are. */}
+            <div className="stepper-count">{t('entry.stepXofY', 'Step {step} of {total}', { step: currentStep, total: wizardSteps.length })}</div>
           </div>
 
           <div className="main-content" style={{ padding: '40px 24px 100px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
@@ -7089,7 +7130,29 @@ function App() {
                   />}
 
                   {garmentJobs.length > 1 && (() => {
-                    const openKey = garmentJobs.some(j => j.key === activeGarmentKey) ? activeGarmentKey : garmentJobs[0].key;
+                    // Filled in: every required question this step asks is
+                    // answered -- the same check Next runs -- and at least one
+                    // answered by hand. A garment with no required question (a
+                    // petticoat) is valid the moment it is added, and must not
+                    // read Done before anyone has answered anything on it. Only
+                    // the template's current fields count, so an answer a draft
+                    // kept for a question since removed (hand work on a
+                    // petticoat) does not.
+                    const filled = (job) => Object.keys(validateSpec(job.template, job.values, { sections: ['basic', 'style'] })).length === 0
+                      && (job.template?.sections || [])
+                        .filter((sec) => sec.key === 'basic' || sec.key === 'style')
+                        .some((sec) => sec.fields.some((f) => {
+                          const v = job.values?.[f.key];
+                          return f.key !== 'delivery_date' && v !== '' && v != null && !(Array.isArray(v) && !v.length)
+                            && !(f.default != null && v === f.default);
+                        }));
+                    // The one to fill in now: the circle clicked, or the one
+                    // validation stopped on, while it still wants answers;
+                    // otherwise the first garment not yet filled in. So the
+                    // first garment reads "Fill in now" on the way in, not the
+                    // last one added, and moves on by itself once done.
+                    const picked = garmentJobs.find(j => j.key === activeGarmentKey);
+                    const openKey = (picked && !filled(picked) ? picked : garmentJobs.find(j => !filled(j)))?.key;
                     return (
                       <div style={{ marginTop: '16px' }}>
                         {/* The same stepper the wizard draws across the top, one
@@ -7099,24 +7162,9 @@ function App() {
                             numbered. Clicking a circle scrolls to that garment. */}
                         <div className="stepper-progress-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px 0' }}>
                           {garmentJobs.map((job, idx) => {
-                            const valid = Object.keys(validateSpec(job.template, job.values, { sections: ['basic', 'style'] })).length === 0;
                             const isActive = job.key === openKey;
-                            // Answered by hand: at least one of this step's own questions
-                            // holds something the template did not fill in itself. A
-                            // garment with no required question (a petticoat) is valid the
-                            // moment it is added, and must not read Done before anyone has
-                            // answered anything on it. Only the template's current fields
-                            // count, so an answer a draft kept for a question since removed
-                            // (hand work on a petticoat) does not.
-                            const touched = (job.template?.sections || [])
-                              .filter((sec) => sec.key === 'basic' || sec.key === 'style')
-                              .some((sec) => sec.fields.some((f) => {
-                                const v = job.values?.[f.key];
-                                return f.key !== 'delivery_date' && v !== '' && v != null && !(Array.isArray(v) && !v.length)
-                                  && !(f.default != null && v === f.default);
-                              }));
-                            const complete = valid && touched && !isActive;
-                            const missing = !valid && Boolean(garmentErrors[job.key]);
+                            const complete = filled(job) && !isActive;
+                            const missing = !filled(job) && Boolean(garmentErrors[job.key]);
                             // Sections are stacked below, so a circle scrolls to its garment.
                             const goTo = () => {
                               setActiveGarmentKey(job.key);
@@ -7164,10 +7212,10 @@ function App() {
                     const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
                     // Ready by (the Money screen) owns the delivery date; asking it
                     // per garment here would only be overwritten. Fields a rule
-                    // reveals stay beside the answer that reveals them, and the
-                    // free-text note is the catch-all for what the options miss,
-                    // so it is asked up front rather than folded away.
-                    const upFront = (f) => f.key !== 'delivery_date' && (f.is_required || Boolean(f.visible_when) || f.key === 'garment_notes');
+                    // reveals stay beside the answer that reveals them. The
+                    // catch-all note is the template's special_instructions,
+                    // drawn below the sections.
+                    const upFront = (f) => f.key !== 'delivery_date' && (f.is_required || Boolean(f.visible_when));
                     const foldedAway = (f) => f.key !== 'delivery_date' && !upFront(f);
                     const hasOptional = sections.some((k) => (job.template.sections.find((sec) => sec.key === k)?.fields || []).some((f) => foldedAway(f) && f.field_type !== 'file'));
                     return (
@@ -7204,14 +7252,6 @@ function App() {
                           <TemplateForm template={job.template} section="production" values={job.values}
                                         errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'special_instructions'}
                                         onChange={(values) => updateGarmentValues(job.key, values)} />
-                        </div>
-
-                        {/* Something the customer wants that the shelf does not
-                            hold: bought for this order, tracked in Inventory →
-                            To buy for orders. Never stock. */}
-                        <div className="wz-garment-section">
-                          <GarmentPurchases rows={job.purchases || []}
-                                            onChange={(rows) => setGarmentJobs(prev => prev.map(j => (j.key === job.key ? { ...j, purchases: rows } : j)))} />
                         </div>
 
                         {hasOptional && (
@@ -7310,6 +7350,14 @@ function App() {
                             {t('wizard.fabricToBuy', 'To be bought for this order. Note what and how much under Trims & accessories, or in the notes for the tailor.')}
                           </p>
                         )}
+
+                        {/* Something the customer wants that the shelf does not
+                            hold: bought for this order, tracked in Inventory →
+                            To buy for orders. Never stock. */}
+                        <div className="wz-garment-section">
+                          <GarmentPurchases rows={job.purchases || []}
+                                            onChange={(rows) => setGarmentJobs(prev => prev.map(j => (j.key === job.key ? { ...j, purchases: rows } : j)))} />
+                        </div>
                         <details className="wz-more" open={(job.values?.fabric_source || 'inventory') === 'customer'}>
                           <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer fabrics (they bring it)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                           <Suspense fallback={<ScreenLoading />}>
@@ -7457,7 +7505,7 @@ function App() {
                   // salwar draws no "+" for them.
                   const groups = [...new Set(section.fields.filter((f) => isVisible(f, job.values)).map((f) => f.validation?.group).filter(Boolean))];
                   return (
-                    <div className="content-card wz-card" key={job.key}>
+                    <div className="content-card wz-card" key={job.key} id={`wz-garment-${job.key}`}>
                       <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Scissors size={20} /> {job.template.name}
                       </div>
@@ -7629,7 +7677,8 @@ function App() {
                       above. Renders nothing where the vendor is not set up or
                       no garment has a design. The photograph lands on
                       job.design.preview and confirms with the rest.
-                      Switched off for now; uncomment to bring it back. */}
+                      Switched off for now; uncomment to bring it back.
+                      Model display parked — see task 16 */}
                   {/* <Suspense fallback={null}>
                     <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
                       onPreview={(jobKey, url) => setGarmentJobs(prev => prev.map(j => j.key === jobKey

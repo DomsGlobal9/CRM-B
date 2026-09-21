@@ -65,9 +65,8 @@ COMMON_BASIC = [
     field('trial_date', 'Trial Date', 'date', when=eq('trial_required', True)),
     field('delivery_date', 'Delivery Date', 'date'),
     field('urgency', 'Urgency', 'select', options=['Normal', 'Express'], default='normal'),
-    field('garment_notes', 'Anything else about this garment', 'textarea',
-          help_text='What the options above did not cover.',
-          validation={'max_length': 500}),
+    # No free-text box here: `special_instructions` (production) is the one
+    # note box, so the counter is not asked "anything else" twice.
 ]
 
 # (15) Asked after the numbers on every garment; the voice note lands here too.
@@ -225,6 +224,10 @@ TEMPLATES = [
                     measurement('petticoat_flare', 'Petticoat Flare / Hem',
                                 validation={'min': 0, 'max': 200, 'step': 0.25}),
                 ),
+                # The two groups below are alternatives, keyed on the style
+                # step's `border`: with it, the border/pattern numbers; without
+                # (or not asked, when no stitching service is chosen), the plain
+                # ones. `neq` is the opposite of `eq` and is true when unanswered.
                 *grouped('With Border / Pattern',
                     measurement('border_width', 'Border Width'),
                     field('border_placement', 'Border Placement', 'text'),
@@ -239,7 +242,7 @@ TEMPLATES = [
                     field('pattern_align_pallu', 'Pattern Alignment at Pallu', 'text'),
                     field('embroidery_placement', 'Embroidery Placement', 'text'),
                     field('contrast_panel', 'Contrast Panel Measurements', 'text'),
-                ),
+                    when=eq('border', 'with_border')),
                 *grouped('Without Pattern',
                     measurement('plain_body_width', 'Plain Body Width'),
                     measurement('plain_pallu_width', 'Plain Pallu Width'),
@@ -247,7 +250,7 @@ TEMPLATES = [
                           options=['Plain Border', 'No Border']),
                     field('edge_finish', 'Desired Finish at Edges', 'text'),
                     field('tassel_placement', 'Tassel / Latkan Placement', 'text'),
-                ),
+                    when=neq('border', 'with_border')),
             ],
             'style': [
                 field('services', 'Services Required', 'multiselect', required=True, options=[

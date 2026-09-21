@@ -695,7 +695,7 @@ const ar = {
     orderInProgressMany: "لديك {count} طلبات قيد التقدم",
     savedAutomaticallySub: "تم الحفظ تلقائيًا. تابع من حيث توقفت أو قم بتمزيقه.",
     unnamedCustomer: "عميل غير مسمى",
-    stepXofY: "المرحلة {step} / 6",
+    stepXofY: "المرحلة {step} / {total}",
     lastSaved: "آخر حفظ",
     resume: "متابعة",
     discard: "إلغاء",

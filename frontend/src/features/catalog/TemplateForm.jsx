@@ -461,7 +461,8 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
         {field.is_required && <span className="required"> *</span>}
       </label>
       {control}
-      {field.help_text && field.field_type !== 'text' && (
+      {/* text and textarea already show the help as their placeholder. */}
+      {field.help_text && field.field_type !== 'text' && field.field_type !== 'textarea' && (
         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
           {field.help_text}
         </div>

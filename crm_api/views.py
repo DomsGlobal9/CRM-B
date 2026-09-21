@@ -1912,11 +1912,18 @@ class OrderDraftViewSet(viewsets.ViewSet):
                             'review its garments before confirming.')
                     continue
                 job_pricing = with_extras(garment.get('pricing') or {})
+                # A draft was written against the template of its day; a
+                # question the template has since dropped (a re-cut saree
+                # sheet) is not the counter's mistake, so it is left behind
+                # rather than refusing the whole order as an "unknown field".
+                known = {f.key for sec in template.sections.all() for f in sec.fields.all()}
+                spec = {k: v for k, v in (garment.get('spec') or {}).items() if k in known}
+                measurements = {k: v for k, v in (garment.get('measurements') or {}).items() if k in known}
                 serializer = GarmentJobSerializer(data={
                     'order': order.id,
                     'template': str(template.id),
-                    'spec': garment.get('spec') or {},
-                    'measurements': garment.get('measurements') or {},
+                    'spec': spec,
+                    'measurements': measurements,
                     'materials': garment.get('materials') or [],
                     'base_price': money(job_pricing.get('base')),
                     'fabric_price': money(job_pricing.get('fabric')),

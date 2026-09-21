@@ -1,5 +1,5 @@
 import { useMemo, useRef, useEffect, useState } from 'react';
-import { Check, ChevronDown, Inbox, Layers, X } from 'lucide-react';
+import { Check, ChevronDown, Inbox, X } from 'lucide-react';
 
 import { inventoryImage, inventoryTile } from '../../services/inventoryImages';
 import { LIMITS, cleanAmount } from '../../services/validate';
@@ -315,8 +315,8 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
           {total}
         </span>
       </div>
-      {groups.map(({ key, label, fabrics }) => fabrics.length > 0 && (
-        <div key={key} style={{ marginTop: '8px' }}>
+      {groups.map(({ id, key, label, fabrics }) => fabrics.length > 0 && (
+        <div key={id || key} style={{ marginTop: '8px' }}>
           <div style={{ fontSize: '10.5px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
                         color: 'var(--text-secondary)', marginBottom: '2px' }}>
             {label}
@@ -412,6 +412,7 @@ export default function GarmentFabricPicker({
         let allSlots;
         if (accessoriesOnly) {
           allSlots = ACCESSORY_OPTIONS.map(opt => ({
+            id: opt.key,
             key: opt.key,
             label: opt.label,
             sectionKey: '',
@@ -421,6 +422,10 @@ export default function GarmentFabricPicker({
         } else {
           allSlots = (spec?.sections || []).flatMap(section =>
             (section.slots || []).map(slot => ({
+              // React key and tab id. slot.key alone repeats on a multi-section
+              // garment (a lehenga's Blouse, Skirt and Dupatta each have a
+              // MAIN_FABRIC); the selection itself stays keyed by slot.key.
+              id: section.key ? `${section.key}:${slot.key}` : slot.key,
               key: slot.key,
               label: slot.label,
               sectionKey: section.key,
@@ -449,10 +454,13 @@ export default function GarmentFabricPicker({
           });
         };
 
-        const activeSlotKey = activeSlotMap[job.key] || (selectedKeys.length > 0 ? selectedKeys[0] : null);
+        // Tabs are keyed by id (section:slot on a multi-section garment); a
+        // saved selection is keyed by slot alone, so find its tab by slot.
+        const activeSlotKey = activeSlotMap[job.key]
+          || (selectedKeys.length > 0 ? (allSlots.find(s => s.key === selectedKeys[0])?.id ?? selectedKeys[0]) : null);
         const activeSlotItem = accessoriesOnly
-          ? (activeSlotKey ? allSlots.find(s => s.key === activeSlotKey) : null)
-          : (allSlots.find(s => s.key === activeSlotKey) || allSlots[0]);
+          ? (activeSlotKey ? allSlots.find(s => s.id === activeSlotKey) : null)
+          : (allSlots.find(s => s.id === activeSlotKey) || allSlots[0]);
 
         const toggle = (slotKey) => (fabricId) => {
           const current = chosenForJob[slotKey] || [];
@@ -476,18 +484,11 @@ export default function GarmentFabricPicker({
         const currentAccOption = accessoriesOnly && activeSlotKey && ACCESSORY_OPTIONS.find(o => o.key === activeSlotKey);
 
         return (
-          // One card per dress, so a saree's fabrics and a blouse's can never
-          // read as one list.
-          <div className="content-card" key={job.key}>
-            <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <span style={{ width: '34px', height: '34px', borderRadius: '10px', display: 'flex',
-                             alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                             background: 'rgba(16,124,65,0.1)', color: 'var(--brand-link)' }}>
-                <Layers size={17} />
-              </span>
-              <span>{garmentName} {accessoriesOnly ? 'Accessories' : ''}</span>
-            </div>
-
+          // One block per dress. No card and no title of its own: this only
+          // renders inside the wizard's garment card, which already names the
+          // garment and draws the border -- a second card left ~200px of
+          // content on a phone.
+          <div key={job.key}>
             {!spec || allSlots.length === 0 ? (
               // A garment the fabric taxonomy does not describe yet. Said out
               // loud rather than showing an empty card or, worse, another
@@ -500,9 +501,6 @@ export default function GarmentFabricPicker({
               <div>
                 {accessoriesOnly ? (
                   <>
-                    <div style={{ padding: '16px 18px', borderRadius: '12px',
-                                  border: '1px solid var(--border-color)',
-                                  background: 'var(--surface-color, #fff)' }}>
                     <AccessoryMultiSelectDropdown
                       options={ACCESSORY_OPTIONS}
                       selectedKeys={selectedKeys}
@@ -510,7 +508,6 @@ export default function GarmentFabricPicker({
                       activeKey={activeSlotKey}
                       onSelectActiveKey={(key) => setActiveSlotMap(prev => ({ ...prev, [job.key]: key }))}
                     />
-                    </div>
                     {currentAccOption && (
                       <div style={{ margin: '16px 0 20px', padding: '16px 18px', borderRadius: '12px',
                                     border: '1px solid var(--border-color)',
@@ -583,7 +580,7 @@ export default function GarmentFabricPicker({
                       const chosenCount = (chosenForJob[s.key] || []).length;
                       const sectionPrefix = (spec.sections?.length > 1 && s.sectionLabel) ? `${s.sectionLabel} - ` : '';
                       return {
-                        key: s.key,
+                        key: s.id,
                         label: chosenCount > 0 ? `✓ ${sectionPrefix}${s.label} (${chosenCount})` : `${sectionPrefix}${s.label}`,
                       };
                     })}
@@ -617,8 +614,8 @@ export default function GarmentFabricPicker({
                 {/* Every part's picks, not only the open tab's: the counter
                     sees the whole saree -- pallu, border, body -- at once. */}
                 <ChosenSummary
-                  groups={allSlots.map(({ key, label }) => ({
-                    key, label,
+                  groups={allSlots.map(({ id, key, label }) => ({
+                    id, key, label,
                     fabrics: inStock.filter(f => (chosenForJob[key] || []).includes(String(f.id))),
                   }))}
                   accessoriesOnly={accessoriesOnly}

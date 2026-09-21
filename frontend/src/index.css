@@ -3569,6 +3569,14 @@ table.data-table tbody tr:hover {
 }
 
 /* Wizard & Order Creation Mobile Responsiveness & Overflow Fixes */
+.stepper-count { display: none; }
+
+@media (max-width: 640px) {
+  /* "What are we making?" at 36px wraps to three lines on a phone. */
+  .wizard-outer-wrapper h1.page-title { font-size: var(--text-xl); }
+  .wizard-outer-wrapper .page-subtitle { font-size: var(--text-sm); }
+}
+
 .wizard-outer-wrapper {
   overflow-x: hidden !important;
   width: 100% !important;
@@ -3615,6 +3623,16 @@ table.data-table tbody tr:hover {
 
   .stepper-progress-bar > div:nth-child(even) {
     display: none !important; /* Hide connecting line divs on mobile to prevent overflow */
+  }
+
+  /* Three of seven steps fit; the strip scrolls (App.jsx keeps the current
+     one in view), so say where in it the order is. */
+  .stepper-count {
+    display: block;
+    text-align: center;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    padding-bottom: 4px;
   }
 
   .wizard-outer-wrapper .main-content {
@@ -4368,6 +4386,9 @@ table.data-table tbody tr:hover {
 .at-section-sub { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 2px; }
 .at-link { font-size: var(--text-sm); font-weight: 600; color: var(--primary-color); display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; padding: 0; white-space: nowrap; }
 .at-link:hover { text-decoration: underline; }
+/* "See style notes" on the customer card: readable, and a thumb's height on a phone. */
+.at-customer-notes { font-size: var(--text-base); }
+@media (max-width: 640px) { .at-customer-notes { min-height: 44px; } }
 .at-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4); }
 .at-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); }
 .at-stack { display: flex; flex-direction: column; gap: var(--space-4); }
@@ -5082,6 +5103,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   /* Two-up facts, tile above the words, so the four fit one phone screen. */
   .od-facts { grid-template-columns: 1fr 1fr; gap: 10px; }
   .od-fact { flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; }
+  /* Except the two with a picker: half a phone truncates "Anya Sharma". */
+  .od-fact:has(.od-fact-select) { grid-column: 1 / -1; }
+  .od-fact:has(.od-fact-select) > div { width: 100%; min-width: 0; }
   .od-feed-item { grid-template-columns: 12px minmax(0, 1fr); }
   .od-feed-when, .od-feed-body, .od-feed-actions { grid-column: 2; }
   .od-feed-actions { flex-direction: row; flex-wrap: wrap; }

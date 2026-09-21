@@ -64,10 +64,12 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
   return (
     <>
       {/* One row, never wrapped: an eleven-part anarkali would otherwise stack
-          three rows of tabs above the grid they filter. The strip is the only
-          thing that scrolls sideways -- overscroll-behavior stops the gesture
-          chaining out to the page once it reaches an end. Scoped to this
-          component's own class, so the shared .tabs-header rules are untouched. */}
+          three rows of tabs above the grid they filter. Only the inner
+          .at-part-tabs-scroll scrolls sideways -- overscroll-behavior stops the
+          gesture chaining out to the page once it reaches an end -- so the
+          "Next" button beside it stays in view on a phone where the strip shows
+          one tab at a time. Scoped to this component's own class, so the
+          shared .tabs-header rules are untouched. */}
       <style>{`
         .at-part-tabs {
           display: flex;
@@ -75,12 +77,6 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           align-items: center;
           width: 0;
           min-width: 100%;
-          overflow-x: auto;
-          overflow-y: hidden;
-          overscroll-behavior-x: contain;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
           background: var(--surface-inset, #f4f4f5);
           border: 1px solid var(--border-color, #e4e4e7);
           padding: 5px;
@@ -88,10 +84,39 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           gap: 5px;
           margin-bottom: 16px;
         }
-        .at-part-tabs::-webkit-scrollbar {
+        .at-part-tabs-scroll {
+          display: flex;
+          flex: 1 1 0;
+          min-width: 0;
+          flex-wrap: nowrap;
+          align-items: center;
+          gap: 5px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          overscroll-behavior-x: contain;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .at-part-tabs-scroll::-webkit-scrollbar {
           display: none !important;
           height: 0 !important;
           width: 0 !important;
+        }
+        /* On a phone the strip shows about one tab: the fade at its right edge
+           is the cue that more are behind it. Desktop shows enough tabs to
+           make the cue noise. */
+        @media (max-width: 720px) {
+          .at-part-tabs-scroll {
+            -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+            mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+            padding-right: 28px; /* the last tab scrolls clear of the fade */
+          }
+          .at-part-tabs .tab-next {
+            max-width: 46%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
         }
         .at-part-tabs .tab-btn {
           flex: 0 0 auto;
@@ -123,7 +148,8 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           color: var(--text-primary, #0f172a);
         }
       `}</style>
-      <div className="at-part-tabs" ref={strip} onWheel={onWheel} role="tablist">
+      <div className="at-part-tabs" role="tablist">
+        <div className="at-part-tabs-scroll" ref={strip} onWheel={onWheel}>
         {/* allLabel null means there is no view behind these tabs other than
             the parts themselves, so the strip is parts alone. */}
         {tabs.map((part) => (
@@ -142,12 +168,17 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
             {active === part.key && next ? ' →' : ''}
           </button>
         ))}
+        </div>
         {next && (
           <button
             type="button"
             className="tab-btn tab-next"
             aria-label={`Next: ${next.label}`}
-            onClick={() => onChange(next.key)}
+            onClick={() => {
+              onChange(next.key);
+              // The new tab may sit behind the fade: bring it into view.
+              requestAnimationFrame(() => strip.current?.querySelector('[aria-current="true"], .active')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }));
+            }}
           >
             Next: {next.label} →
           </button>

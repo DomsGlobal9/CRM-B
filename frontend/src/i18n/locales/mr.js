@@ -694,7 +694,7 @@ const mr = {
     orderInProgressMany: "तुमच्या {count} ऑर्डर्स प्रगतीपथावर आहेत",
     savedAutomaticallySub: "आपोआप जतन केले. तेथून सुरू करा किंवा ते रद्द करा.",
     unnamedCustomer: "अनामित ग्राहक",
-    stepXofY: "टप्पा {step} / 6",
+    stepXofY: "टप्पा {step} / {total}",
     lastSaved: "शेवटचे जतन केले",
     resume: "पुन्हा सुरू करा",
     discard: "रद्द करा",

@@ -27,16 +27,13 @@ export default function DesignCatalogueFilter({ garmentKey, value = {}, onChange
   const active = Boolean(cat);
 
   const selectStyle = {
-    flex: '1 1 150px', width: 'auto', minWidth: 0, height: '32px', padding: '0 28px 0 10px', fontSize: '12.5px',
+    flex: '1 1 160px', width: 'auto', minWidth: '160px', height: '32px', padding: '0 28px 0 10px', fontSize: '12.5px',
     fontWeight: 500, color: 'var(--text-primary)', background: 'var(--surface-color, #fff)',
     border: '1px solid var(--border-color, #e4e4e7)', borderRadius: '7px', cursor: 'pointer',
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px',
-                  padding: '6px 8px 6px 12px', marginBottom: '10px', borderRadius: '10px',
-                  border: '1px solid var(--border-color, #e4e4e7)',
-                  background: 'var(--surface-inset, #f4f4f5)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px',
                      fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
                      color: 'var(--text-secondary)', flex: '0 0 auto' }}>

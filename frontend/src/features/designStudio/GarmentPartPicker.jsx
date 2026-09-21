@@ -31,6 +31,19 @@ import { useFabricTaxonomy } from '../fabrics/taxonomy';
 const FALLBACK =
   'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
+// What a photograph that failed to load turns into. Seeded catalogue rows carry
+// a bare filename that 404s locally, and the tile behind every <img> is
+// brand-dark, so without this a broken design read as a black square with alt
+// text in it. A data URI, so it cannot fail in turn.
+const PLACEHOLDER = 'data:image/svg+xml;utf8,'
+  + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">'
+    + '<rect width="160" height="160" fill="#ececea"/>'
+    + '<path d="M44 108l26-32 18 22 12-14 20 24H44z" fill="#c4c4c0"/>'
+    + '<circle cx="104" cy="58" r="9" fill="#c4c4c0"/></svg>');
+const onImgError = (e) => {
+  if (e.currentTarget.src !== PLACEHOLDER) e.currentTarget.src = PLACEHOLDER;
+};
+
 /** One selectable photograph.
  *
  *  No hover zoom. A card that grew under the cursor moved its own neighbours
@@ -55,7 +68,7 @@ function PickCard({ src, alt, picked, onClick, onView, children, height = '110px
                  textAlign: 'left', display: 'block', width: '100%' }}
       >
         <div style={{ height, background: 'var(--brand-dark)' }}>
-          <img src={resolveMediaUrl(src, FALLBACK)} alt={alt} loading="lazy"
+          <img src={resolveMediaUrl(src, FALLBACK)} alt={alt} loading="lazy" onError={onImgError}
                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         </div>
         {children}
@@ -98,7 +111,7 @@ function WebResultCard({ hit, kept, keeping, onKeep, sourceUrl, title }) {
               title={kept ? 'Kept on this part' : 'Keep this picture on this part'}
               style={{ cursor: kept ? 'default' : 'pointer' }}>
         <img src={hit.image_url} alt={title} loading="lazy"
-             onError={(e) => { e.currentTarget.src = FALLBACK; }} />
+             onError={onImgError} />
         {(kept || keeping) && (
           <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                          background: 'rgba(16,124,65,0.28)', color: '#fff', fontSize: '12px', fontWeight: 700,
@@ -204,7 +217,7 @@ export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onT
         </>
       )}
 
-      <img src={resolveMediaUrl(item.image_url, FALLBACK)} alt={item.label}
+      <img src={resolveMediaUrl(item.image_url, FALLBACK)} alt={item.label} onError={onImgError}
            onClick={(e) => e.stopPropagation()}
            style={{ maxWidth: '100%', maxHeight: '74vh', objectFit: 'contain',
                     borderRadius: '8px', display: 'block' }} />
@@ -1034,7 +1047,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 
   if (error) {
     return (
-      <div className="content-card" style={{ color: 'var(--danger-color)', fontSize: '12.5px' }}>
+      <div style={{ color: 'var(--danger-color)', fontSize: '12.5px' }}>
         {error}
         <button className="btn-secondary" style={{ marginLeft: '10px', padding: '3px 9px', fontSize: '11px' }}
                 onClick={() => { setAllDesigns(null); setError(null); setReloadToken(t => t + 1); }}>
@@ -1045,10 +1058,11 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   }
 
   return (
-    <div className="content-card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                    flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
-        <div className="card-title" style={{ margin: 0 }}>{garmentName}</div>
+    // No card and no title of its own: every caller sits inside the wizard's
+    // garment card, which already names the garment and draws the border. A
+    // second bordered card left ~200px of content on a phone.
+    <div>
+      <div style={{ marginBottom: '14px' }}>
         <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
           {ownOnly
             ? (referenceCount > 0
@@ -1571,7 +1585,7 @@ export function SelectedDesignSummary({ garmentJobs = [], onClear }) {
               <div key={part} style={{ width: '112px', flexShrink: 0, position: 'relative' }}>
                 <div style={{ height: '104px', background: 'var(--brand-dark)', borderRadius: '8px',
                               overflow: 'hidden', border: '1px solid var(--border-color)' }}>
-                  <img src={resolveMediaUrl(image.image_url, FALLBACK)}
+                  <img src={resolveMediaUrl(image.image_url, FALLBACK)} onError={onImgError}
                        alt={image.part_label || part} loading="lazy"
                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 </div>

@@ -113,15 +113,11 @@ def validate_spec(template, spec, *, partial=False):
             continue  # hidden: not required, not stored
 
         raw = spec.get(key)
-        # A question with a declared default is answered by it (hand work:
-        # "Without Work"), the same as frontend withDefaults does before a
-        # submit -- so a required-with-default field is never "missing".
-        if raw in (None, '', [], {}) and field.default not in (None, ''):
-            raw = field.default
         if raw in (None, '', [], {}):
-            # A required answer with a declared default (hand work: 'none')
-            # is that default when nothing was sent, not a refusal: the box
-            # showed it, and an older draft or client never wrote it out.
+            # A question with a declared default (hand work: "Without Work")
+            # is answered by it on a full validation, the same as the form
+            # does before a submit -- never "missing". A partial (draft)
+            # validation leaves it out, so a draft stays what was typed.
             if not partial and field.default not in (None, '', [], {}):
                 raw = field.default
             elif field.is_required and not partial:

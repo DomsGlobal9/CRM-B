@@ -701,7 +701,7 @@ const es = {
     orderInProgressMany: "Tiene {count} pedidos en progreso",
     savedAutomaticallySub: "Guardado automáticamente.",
     unnamedCustomer: "Cliente sin nombre",
-    stepXofY: "Paso {step} / 6",
+    stepXofY: "Paso {step} / {total}",
     lastSaved: "Último guardado",
     resume: "Reanudar",
     discard: "Descartar",

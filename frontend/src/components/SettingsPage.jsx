@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
 import { InvoiceTemplateSelector } from './invoice/InvoiceTemplateSelector.jsx';
-import { Globe, ShieldCheck, CheckCircle2, Building, User, Clock, Info, MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor } from 'lucide-react';
+import { Globe, ShieldCheck, CheckCircle2, Building, User, Clock, MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor } from 'lucide-react';
 import { getColorMode, setColorMode } from '../theme.js';
 import { api } from '../services/api.js';
 
@@ -171,17 +171,8 @@ export const SettingsPage = ({
               <span style={infoRowValue}>{boutiqueSettings?.timezone || 'Asia/Kolkata (IST)'}</span>
             </div>
           </div>
-
-          <div
-            style={{
-              marginTop: '24px', padding: '12px 14px', borderRadius: 'var(--radius-md)',
-              background: 'var(--info-bg)', border: '1px solid var(--info-color)', color: 'var(--info-color)',
-              fontSize: 'var(--text-xs)', display: 'flex', alignItems: 'center', gap: '8px',
-            }}
-          >
-            <Info size={16} style={{ flexShrink: 0 }} />
-            <span>{t('settingsPage.savedNotice')}</span>
-          </div>
+          {/* No "saved as you go" banner here: these rows are read-only, and
+              the appearance card already says it beside the one control that saves. */}
         </div>
 
         {/* WhatsApp Integration & QR Code Card */}

@@ -698,7 +698,7 @@ const ml = {
     orderInProgressMany: "നിങ്ങൾക്ക് {count} ഓർഡറുകൾ പുരോഗതിയിലാണ്",
     savedAutomaticallySub: "സ്വയമേവ സേവ് ചെയ്തു.",
     unnamedCustomer: "പേരില്ലാത്ത ഉപഭോക്താവ്",
-    stepXofY: "ഘട്ടം {step} / 6",
+    stepXofY: "ഘട്ടം {step} / {total}",
     lastSaved: "അവസാനം സേവ് ചെയ്തത്",
     resume: "വീണ്ടും ആരംഭിക്കുക",
     discard: "റദ്ദാക്കുക",

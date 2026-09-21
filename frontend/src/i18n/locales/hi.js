@@ -693,7 +693,7 @@ const hi = {
     orderInProgressMany: "आपके {count} ऑर्डर प्रगति पर हैं",
     savedAutomaticallySub: "स्वचालित रूप से सहेजा गया। जहां आपने इसे छोड़ा था वहां से उठाएं, या इसे त्याग दें।",
     unnamedCustomer: "अनाम ग्राहक",
-    stepXofY: "चरण {step} / 6",
+    stepXofY: "चरण {step} / {total}",
     lastSaved: "अंतिम बार सहेजा गया",
     resume: "पुनः प्रारंभ करें",
     discard: "हटाएं",

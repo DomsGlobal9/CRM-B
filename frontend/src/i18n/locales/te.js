@@ -694,7 +694,7 @@ const te = {
     orderInProgressMany: "మీ వద్ద {count} ఆర్డర్‌లు పురోగతిలో ఉన్నాయి",
     savedAutomaticallySub: "స్వయంచాలకంగా సేవ్ చేయబడింది. మీరు వదిలేసిన ప్రదేశం నుండి ప్రారంభించండి లేదా దానిని రద్దు చేయండి.",
     unnamedCustomer: "పేరు లేని కస్టమర్",
-    stepXofY: "దశ {step} / 6",
+    stepXofY: "దశ {step} / {total}",
     lastSaved: "చివరిగా సేవ్ చేయబడింది",
     resume: "మళ్ళీ ప్రారంభించండి",
     discard: "రద్దు చేయండి",

@@ -17,7 +17,7 @@ from django_tenants.test.cases import TenantTestCase
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from .models import BoutiqueSettings, Customer, Order, OrderActivity, OrderStage, Tailor
+from .models import BoutiqueSettings, Customer, Measurement, Order, OrderActivity, OrderStage, Tailor
 
 
 def jpeg(name='work.jpg', size=0):
@@ -218,6 +218,29 @@ class DraftConfirmTests(ValidationTestBase):
         self.assertIn('2000', self.error_of(self.confirm(special_instructions='n' * 2001)))
 
 
+class StaleDraftKeyTests(ValidationTestBase):
+    def test_a_draft_key_the_template_has_since_dropped_is_left_behind(self):
+        # A saree measured before its sheet was re-cut carries 'chest', which
+        # the saree template never asks. Confirm proceeds without it.
+        from apps.catalog.models import GarmentTemplate
+        saree = GarmentTemplate.resolve('saree')
+        draft = self.api.post(reverse('order-draft-list'), {'payload': {
+            'first_name': 'Meera', 'last_name': 'Rao', 'mobile_number': '9876500011',
+            'customer_type': 'Silver', 'ready_by': (date.today() + timedelta(days=10)).isoformat(),
+            'garments': [{
+                'key': 'saree', 'template_key': 'saree', 'template': str(saree.id),
+                'spec': {'saree_type': 'silk', 'services': ['stitching'], 'hand_work': 'none'},
+                'measurements': {'chest': '36'},
+                'pricing': {'base': '1500'},
+            }],
+        }, 'current_step': 7}, format='json')
+        self.assertEqual(draft.status_code, 201, draft.data)
+        confirmed = self.api.post(reverse('order-draft-confirm', args=[draft.data['id']]), {}, format='json')
+        self.assertEqual(confirmed.status_code, 201, confirmed.data)
+        job = confirmed.data['garment_jobs'][0]
+        self.assertNotIn('chest', job['measurements'])
+
+
 class OrderPatchTests(ValidationTestBase):
     def setUp(self):
         super().setUp()
@@ -243,6 +266,8 @@ class StageEndpointTests(ValidationTestBase):
     def setUp(self):
         super().setUp()
         customer = Customer.objects.create(first_name='Jane', last_name='Doe', mobile_number='9876543210')
+        # Stitching now wants the customer measured (the Measurements stage is gone).
+        Measurement.objects.create(customer=customer, bust=36, waist=30, hips=38)
         self.order = Order.objects.create(order_id='T2B-V2', customer=customer, total_amount=5000)
         self.stage = OrderStage.objects.create(
             order=self.order, stage_key='stitching_in_progress', stage_name='Stitching',

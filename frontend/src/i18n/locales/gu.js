@@ -697,7 +697,7 @@ const gu = {
     orderInProgressMany: "તમારી પાસે {count} ઓર્ડર પ્રગતિમાં છે",
     savedAutomaticallySub: "આપમેળે સાચવવામાં આવ્યું.",
     unnamedCustomer: "અનામી ગ્રાહક",
-    stepXofY: "તબક્કો {step} / 6",
+    stepXofY: "તબક્કો {step} / {total}",
     lastSaved: "છેલ્લે સાચવેલ",
     resume: "ફરી શરૂ કરો",
     discard: "રદ કરો",

@@ -20,6 +20,10 @@ import { isVisible, isTypedOther, typedOtherText } from '../../services/template
 
 const formatKey = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
+// Same words TemplateForm puts on the label: a stored 'in' reads as Inches here
+// too, so the review never says "12 in" under a form that said Inches.
+const UNIT_NAMES = { in: 'Inches', inch: 'Inches', inches: 'Inches' };
+
 function useInventoryNames(needed) {
   const [names, setNames] = useState({});
 
@@ -85,7 +89,7 @@ function displayValue(field, value, inventoryNames) {
   }
 
   const text = String(value);
-  return field.unit ? `${text} ${field.unit}` : text;
+  return field.unit ? `${text} ${UNIT_NAMES[String(field.unit).toLowerCase()] || field.unit}` : text;
 }
 
 /** atom: a label over its value. */
