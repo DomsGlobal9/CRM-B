@@ -4448,12 +4448,13 @@ table.data-table tbody tr:hover {
 .at-table--fit { min-width: 0; }
 @media (max-width: 1024px) {
   .at-table--fit thead { display: none; }
-  .at-table--fit, .at-table--fit tbody, .at-table--fit tr, .at-table--fit td { display: block; width: 100%; }
+  .at-table--fit, .at-table--fit tbody, .at-table--fit tr, .at-table--fit td { display: block; width: 100%; box-sizing: border-box; }
   .at-table--fit tr { padding: 10px 0; border-bottom: 1px solid var(--border-color); }
   .at-table--fit tr:last-child { border-bottom: none; }
   .at-table--fit td { padding: 6px 16px; border-bottom: none; text-align: left !important; white-space: normal !important; }
   /* Cells are single-line with an ellipsis on desktop; stacked, they wrap. */
-  .at-table--fit td * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; flex-wrap: wrap !important; }
+  .at-table--fit td * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+  .at-table--fit td .at-tags { flex-wrap: wrap !important; }
   .at-table--fit td[data-label]::before { content: attr(data-label); display: block; font-size: var(--text-2xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
   .at-table--fit tbody tr:hover td { background: transparent; }
 }

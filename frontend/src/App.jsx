@@ -5998,18 +5998,21 @@ function App() {
                   </div>
                 )}
 
+                {/* Fixed column widths and one-line cells, so every row is the
+                    same height and the money columns line up down the page;
+                    below 1024px the rows stack into labelled cards. */}
                 <div className="invoices-content at-table-wrap">
-                  <table className="at-table">
+                  <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                     <thead>
                       <tr>
-                        <th>{t('invoicesPage.invoiceId', 'Invoice ID')}</th>
-                        <th>{t('invoicesPage.billingClient', 'Billing Client')}</th>
-                        <th>{t('common.date', 'Date')}</th>
-                        <th>{t('invoicesPage.totalPrice', 'Total Price')}</th>
-                        <th>{t('invoicesPage.totalPaid', 'Total Paid')}</th>
-                        <th>{t('invoicesPage.balanceDue', 'Balance Due')}</th>
-                        <th>{t('common.status', 'Payment Status')}</th>
-                        <th>{t('common.actions', 'Action')}</th>
+                        <th style={{ width: '7%' }}>{t('invoicesPage.invoiceId', 'Invoice ID')}</th>
+                        <th style={{ width: '19%' }}>{t('invoicesPage.billingClient', 'Billing Client')}</th>
+                        <th style={{ width: '11%' }}>{t('common.date', 'Date')}</th>
+                        <th style={{ width: '10%', textAlign: 'right' }}>{t('invoicesPage.totalPrice', 'Total Price')}</th>
+                        <th style={{ width: '20%' }}>{t('invoicesPage.totalPaid', 'Total Paid')}</th>
+                        <th style={{ width: '10%', textAlign: 'right' }}>{t('invoicesPage.balanceDue', 'Balance Due')}</th>
+                        <th style={{ width: '12%' }}>{t('common.status', 'Payment Status')}</th>
+                        <th style={{ width: '11%', textAlign: 'right' }}>{t('common.actions', 'Action')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -6028,20 +6031,22 @@ function App() {
                         const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
                         return (
                           <tr key={order.id}>
-                            <td style={{ fontWeight: 700 }}>{orderRef(order)}</td>
-                            <td>
+                            <td data-label={t('invoicesPage.invoiceId', 'Invoice ID')} style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{orderRef(order)}</td>
+                            <td data-label={t('invoicesPage.billingClient', 'Billing Client')} style={{ overflow: 'hidden' }}>
                               <span className="at-cell-person">
                                 <AvatarInitials name={order.customer_name} size={32} />
-                                <span style={{ fontWeight: 500 }}>{order.customer_name}</span>
+                                <span style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={order.customer_name}>{order.customer_name}</span>
                               </span>
                             </td>
-                            <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{fmtDate(order.order_date)}</td>
-                            <td className="at-num" style={{ fontWeight: 600 }}>{formatMoney(order.total_amount)}</td>
+                            <td data-label={t('common.date', 'Date')} style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{fmtDate(order.order_date)}</td>
+                            <td data-label={t('invoicesPage.totalPrice', 'Total Price')} className="at-num" style={{ fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatMoney(order.total_amount)}</td>
                             {/* Editable: the one place a part payment is recorded. The
                                 backend derives the label, clamps to the total and caps
                                 the advance -- only the input lives here. */}
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--success-color)', fontWeight: 600 }}>
+                            <td data-label={t('invoicesPage.totalPaid', 'Total Paid')}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--success-color)', fontWeight: 600, height: '32px',
+                                            border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 0 0 8px', background: 'var(--surface-color)', flex: '0 1 120px', minWidth: '90px' }}>
                                 <span>₹</span>
                                 <input
                                   type="number"
@@ -6076,25 +6081,26 @@ function App() {
                                     }
                                   }}
                                   onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                                  style={{ width: '100px', padding: '4px 6px', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--success-color)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
+                                  style={{ width: '100%', minWidth: 0, minHeight: 0, height: '30px', padding: '0 6px', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--success-color)', border: 'none', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
                                 />
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', minWidth: '120px' }}>
-                                <span style={{ flex: 1 }}><ProgressBar pct={pct} tone="green" /></span>
-                                <span className="at-num" style={{ fontSize: 'var(--text-2xs)', color: 'var(--text-secondary)' }}>{pct}%</span>
+                                <span className="at-num" style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
+                                      title={Number(order.advance_paid) > 0 ? t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) }) : undefined}>
+                                  <strong style={{ color: pct >= 100 ? 'var(--success-color)' : 'var(--text-primary)' }}>{pct}%</strong>
+                                  {Number(order.advance_paid) > 0 && (
+                                    <span style={{ color: 'var(--text-muted)' }}> · {t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) })}</span>
+                                  )}
+                                </span>
                               </div>
-                              {Number(order.advance_paid) > 0 && (
-                                <div className="at-num" style={{ fontSize: 'var(--text-2xs)', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                                  {t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) })}
-                                </div>
-                              )}
+                              <div style={{ marginTop: '6px', maxWidth: '220px' }}><ProgressBar pct={pct} tone="green" /></div>
                             </td>
-                            <td className="at-num" style={{ color: balance > 0 ? 'var(--danger-color)' : 'var(--text-secondary)', fontWeight: 600 }}>
+                            <td data-label={t('invoicesPage.balanceDue', 'Balance Due')} className="at-num" style={{ color: balance > 0 ? 'var(--danger-color)' : 'var(--text-secondary)', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
                               {formatMoney(balance)}
                             </td>
-                            <td>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                                <span className={`ui-badge ui-badge--${statusTone(order.payment_status)}`}>{order.payment_status}</span>
+                            <td data-label={t('common.status', 'Payment Status')} style={{ overflow: 'hidden' }}>
+                              {/* The select is the status: its value is the badge the
+                                  ledger used to draw beside it, in the badge's colour. */}
+                              <span className={`ui-badge ui-badge--${statusTone(order.payment_status)}`} style={{ display: 'inline-flex', padding: 0, maxWidth: '100%' }}>
                                 <select
                                   value={order.payment_status}
                                   disabled={savingPaymentId === order.id}
@@ -6112,7 +6118,7 @@ function App() {
                                     }
                                   }}
                                   className="form-control"
-                                  style={{ padding: '4px 8px', fontSize: '12px', width: '110px', margin: 0 }}
+                                  style={{ padding: '0 26px 0 10px', fontSize: '12px', fontWeight: 600, width: '100%', maxWidth: '150px', minWidth: '96px', margin: 0, minHeight: 0, height: '30px', color: 'inherit', border: 'none', borderRadius: '999px', background: 'transparent', cursor: 'pointer' }}
                                 >
                                   {/* "Partially Paid" is a *derived* label, not a thing to
                                       choose; it appears only as the current value. */}
@@ -6124,8 +6130,8 @@ function App() {
                                 </select>
                               </span>
                             </td>
-                            <td>
-                              <button className="btn-secondary at-btn-sm" onClick={() => {
+                            <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                              <button className="btn-secondary at-btn-sm" title={t('invoicesPage.viewInvoice', 'View Invoice')} onClick={() => {
                                 setConfirmedOrder(order);
                                 setShowInvoiceModal(true);
                               }}>
