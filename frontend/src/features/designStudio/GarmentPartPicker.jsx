@@ -862,12 +862,18 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   // a saree is a pallu and a border and a body together, and hiding the
   // border's references while the pallu tab is open made the customer's
   // choices look thinner than they were.
+  //
+  // The fabric and accessory folds share the one references map with the
+  // design fold, so they show only their own slots: the design photographs
+  // kept under "Photos & references" belong to that fold, not to a fabric.
   const allRefs = useMemo(() => {
     const order = new Map(partOrder.map((key, i) => [key, i]));
+    const own = (isFabric || accessoriesOnly) ? new Set(tabParts.map(p => p.key)) : null;
     return Object.entries(references)
+      .filter(([part]) => !own || own.has(part))
       .sort(([a], [b]) => (order.get(a) ?? 99) - (order.get(b) ?? 99))
       .flatMap(([part, list]) => (list || []).map(ref => ({ ...ref, part })));
-  }, [references, partOrder]);
+  }, [references, partOrder, isFabric, accessoriesOnly, tabParts]);
 
   const addReferenceLink = () => {
     const typed = linkDraft.trim();

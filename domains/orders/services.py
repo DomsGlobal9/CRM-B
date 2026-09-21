@@ -53,10 +53,11 @@ def refresh_staff_availability(*staff):
             continue
 
         live = Order.objects.exclude(order_status__in=_SETTLED_ORDER_STATUSES)
-        finished = OrderStage.objects.filter(
-            stage_key='stitching_completed', status='COMPLETED',
-        ).values('order_id')
-        stitching = live.filter(tailor=person).exclude(pk__in=finished).exists()
+        # Any garment still on the machine keeps the tailor busy.
+        unfinished = OrderStage.objects.filter(
+            stage_key='stitching_in_progress',
+        ).exclude(status__in=workflow.SETTLED_STATUSES).values('order_id')
+        stitching = live.filter(tailor=person, pk__in=unfinished).exists()
         supervising = live.filter(master=person).exists()
 
         wanted = 'Busy' if (stitching or supervising) else 'Available'
@@ -91,28 +92,6 @@ def order_needs_measurements(order):
     return False
 
 
-def settle_measurement_stage(order):
-    """Mark Measurements Completed as SKIPPED when nothing asks for one.
-
-    Called once the garment jobs exist -- the stages are seeded with the order,
-    which happens before the dresses are attached, so at seed time there is
-    nothing yet to ask. SKIPPED rather than COMPLETED because no measurement was
-    taken and the record should not claim one was; prerequisites() treats both
-    as settled, so the order moves on either way.
-
-    Only ever touches a stage still sitting at NOT_STARTED, so a boutique that
-    has already worked the stage keeps whatever it recorded.
-    """
-    from django.utils import timezone
-
-    if order_needs_measurements(order):
-        return False
-    updated = order.stages.filter(
-        stage_key='measurements_completed', status='NOT_STARTED',
-    ).update(status='SKIPPED', completed_at=timezone.now())
-    return bool(updated)
-
-
 def apply_advance(order, advance):
     """Set the payment fields from what was actually collected.
 
@@ -140,6 +119,75 @@ def customer_has_measurements(customer):
     from apps.catalog.models import GarmentJob
     return GarmentJob.objects.filter(
         order__customer=customer).exclude(measurements={}).exists()
+
+
+def stage_row(order, stage_key, garment_job=None):
+    """The one OrderStage row a request means. A per-garment stage on an
+    order with several garments has several rows, so the caller must say
+    which garment; with one row the key alone is enough."""
+    rows = order.stages.filter(stage_key=stage_key)
+    job_id = getattr(garment_job, 'id', garment_job)
+    if job_id not in (None, ''):
+        rows = rows.filter(garment_job_id=job_id)
+    rows = list(rows[:2])
+    if not rows:
+        raise ValueError(f'Unknown stage "{stage_key}" for order {order.order_id}')
+    if len(rows) > 1:
+        raise ValueError(
+            f'{rows[0].stage_name} is tracked per garment on this order: say which garment.')
+    return rows[0]
+
+
+def ensure_garment_stages(order):
+    """Give every per-garment stage one row (and one task) per garment job.
+
+    Stages are written when the order is, before its garment jobs exist, as
+    one row each. Once the jobs are in -- or when one is added later -- this
+    splits each workroom stage into a row per garment, carrying over whatever
+    the single row already said. An order with no garment jobs keeps its
+    single rows. Idempotent.
+    """
+    from apps.production.models import ProductionTask
+    config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
+    jobs = list(order.garment_jobs.select_related('template').order_by('sequence', 'created_at'))
+    if not jobs:
+        return
+    for s_conf in workflow.stages_for_flow(config, order.flow):
+        if s_conf.get('scope') != 'garment':
+            continue
+        key = s_conf['key']
+        rows = list(OrderStage.objects.filter(order=order, stage_key=key))
+        if not rows:
+            continue
+        placeholder = next((r for r in rows if r.garment_job_id is None), None)
+        seed = placeholder or rows[0]
+        task_seed = ProductionTask.objects.filter(
+            order=order, stage_key=key, garment_job__isnull=True).first()
+        have = {r.garment_job_id for r in rows}
+        for job in jobs:
+            if job.id in have:
+                continue
+            OrderStage.objects.create(
+                order=order, garment_job=job, stage_key=key, stage_name=seed.stage_name,
+                status=placeholder.status if placeholder else 'NOT_STARTED',
+                started_at=placeholder.started_at if placeholder else None,
+                completed_at=placeholder.completed_at if placeholder else None,
+                duration_seconds=placeholder.duration_seconds if placeholder else 0,
+                assigned_to=placeholder.assigned_to if placeholder else None,
+                performed_by=placeholder.performed_by if placeholder else None,
+                comments=placeholder.comments if placeholder else None,
+                sequence=seed.sequence, sla_hours=seed.sla_hours)
+            ProductionTask.objects.create(
+                order=order, garment_job=job, stage_key=key,
+                title=f"{seed.stage_name} · {job.template.name}",
+                assigned_to=task_seed.assigned_to if task_seed else (order.master or order.tailor),
+                status=task_seed.status if task_seed else 'PENDING',
+                priority=task_seed.priority if task_seed else 'MEDIUM',
+                sequence=task_seed.sequence if task_seed else seed.sequence + 1)
+        if placeholder is not None:
+            ProductionTask.objects.filter(
+                order=order, stage_key=key, garment_job__isnull=True).delete()
+            placeholder.delete()
 
 
 class OrderService:
@@ -218,8 +266,6 @@ class OrderService:
         config, _ = BoutiqueSettings.objects.get_or_create(id=1)
         boutique_template = getattr(config, 'invoice_template', 'classic') or 'classic'
 
-        has_measurements = customer_has_measurements(customer)
-
         order = Order.objects.create(
             order_id=order_id,
             order_number=order_number,
@@ -243,9 +289,17 @@ class OrderService:
             tracking_number=data.get('tracking_number'),
             delivery_address=data.get('delivery_address'),
             special_instructions=data.get('custom_requirements') or '',
+            # A voice note recorded in the wizard, stamped with who left it,
+            # the same way OrderViewSet.perform_update stamps a later one.
+            instructions_voice_note=(data.get('instructions_voice_note') or '')[:500],
+            instructions_voice_note_by=(
+                OrderService._voice_sender(user) if data.get('instructions_voice_note') else ''),
+            instructions_voice_note_at=(
+                datetime.datetime.now(datetime.timezone.utc)
+                if data.get('instructions_voice_note') else None),
             advance_paid=advance_paid,
             amount_paid=amount_paid,
-            current_stage_key='measurements_completed' if has_measurements else 'created',
+            current_stage_key='created',
             production_status='IN_PROGRESS',
             invoice_template=data.get('invoice_template') or boutique_template,
             flow=data.get('flow') if data.get('flow') in ('stitching', 'maggam') else 'stitching',
@@ -263,10 +317,6 @@ class OrderService:
             completed_at = None
 
             if s_key == 'created':
-                s_status = 'COMPLETED'
-                started_at = timezone.now()
-                completed_at = timezone.now()
-            elif s_key == 'measurements_completed' and has_measurements:
                 s_status = 'COMPLETED'
                 started_at = timezone.now()
                 completed_at = timezone.now()
@@ -290,17 +340,17 @@ class OrderService:
         # One task per workroom stage the order has, named for the stage, so
         # a maggam order's task list is the maggam path and a plain one's is
         # not padded with embroidery it will never do.
-        tailor_stages = {'stitching_in_progress', 'stitching_completed', 'finishing'}
+        tailor_stages = {'stitching_in_progress', 'finishing'}
         tasks_to_create = [
             ProductionTask(
                 order=order, title=s_conf['name'], stage_key=s_conf['key'],
                 assigned_to=tailor if s_conf['key'] in tailor_stages else (master or tailor),
                 sequence=index,
                 priority='URGENT' if s_conf['key'] == 'stitching_in_progress'
-                         else 'HIGH' if s_conf['key'] in ('measurements_completed', 'pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
+                         else 'HIGH' if s_conf['key'] in ('pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
                          else 'MEDIUM')
             for index, s_conf in enumerate(workflow_stages, start=1)
-            if s_conf['key'] not in ('created', 'delivered')
+            if s_conf['key'] not in ('created', 'payment', 'delivered')
         ]
         ProductionTask.objects.bulk_create(tasks_to_create)
 
@@ -392,6 +442,7 @@ class OrderService:
             metadata={
                 "stage_key": order_stage.stage_key,
                 "stage_name": order_stage.stage_name,
+                "garment_job": str(order_stage.garment_job_id) if order_stage.garment_job_id else None,
                 "old_status": order_stage.status,
                 "new_status": order_stage.status,
                 "comments": comments or '',
@@ -402,13 +453,10 @@ class OrderService:
 
     @staticmethod
     @transaction.atomic
-    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None, voice_note='', clear_voice_note=False):
+    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None, voice_note='', clear_voice_note=False, notify=True, garment_job=None):
         from django.utils import timezone
 
-        try:
-            order_stage = order.stages.get(stage_key=stage_key)
-        except OrderStage.DoesNotExist:
-            raise ValueError(f'Unknown stage "{stage_key}" for order {order.order_id}')
+        order_stage = stage_row(order, stage_key, garment_job)
 
         config, _ = BoutiqueSettings.objects.get_or_create(id=1)
         workflow_stages = workflow.for_order(config.workflow_config, order)
@@ -533,7 +581,7 @@ class OrderService:
 
         from apps.inventory import order_materials
         material_report = order_materials.sync_order_materials(
-            order, stage_key, new_status, user=user)
+            order, stage_key, new_status, user=user, garment_job=order_stage.garment_job)
 
         order.current_stage_key = stage_key
         pending = order.stages.exclude(status__in=['COMPLETED', 'SKIPPED']).exists()
@@ -549,15 +597,14 @@ class OrderService:
             'maggam_handwork': 'Design & Creation',
             'maggam_verification': 'Design & Creation',
             'fabric_cutting': 'Design & Creation',
-            'assigned_to_tailor': 'Design & Creation',
-            'stitching_in_progress': 'Design & Creation',
-            'stitching_completed': 'Quality Check',
+            'stitching_in_progress': 'Quality Check' if new_status == 'COMPLETED' else 'Design & Creation',
             'finishing': 'Quality Check',
             'pressing': 'Quality Check',
             'master_quality_check': 'Ready for Dispatch' if new_status == 'COMPLETED' else 'Quality Check',
             'trial_scheduled': 'Ready for Dispatch',
             'trial_completed': 'Ready for Dispatch',
             'ready_for_delivery': 'Ready for Dispatch',
+            'payment': 'Ready for Dispatch',
             'delivered': 'Delivered' if new_status == 'COMPLETED' else order.order_status,
         }
         previous_order_status = order.order_status
@@ -567,7 +614,8 @@ class OrderService:
 
         from apps.production.models import ProductionTask
         task_status = STAGE_TO_TASK_STATUS.get(new_status)
-        task = ProductionTask.objects.filter(order=order, stage_key=stage_key).first()
+        task = ProductionTask.objects.filter(
+            order=order, stage_key=stage_key, garment_job_id=order_stage.garment_job_id).first()
         if task is not None and task_status:
             task.status = task_status
             fields = ['status']
@@ -585,6 +633,9 @@ class OrderService:
             metadata={
                 "stage_key": stage_key,
                 "stage_name": order_stage.stage_name,
+                "garment_job": str(order_stage.garment_job_id) if order_stage.garment_job_id else None,
+                "garment": (order_stage.garment_job.template.name
+                            if order_stage.garment_job_id and order_stage.garment_job.template_id else None),
                 "old_status": old_status,
                 "new_status": new_status,
                 "comments": comments,
@@ -593,7 +644,7 @@ class OrderService:
             }
         )
 
-        if stage_key in ('stitching_in_progress', 'stitching_completed', 'delivered'):
+        if stage_key in ('stitching_in_progress', 'delivered'):
             refresh_staff_availability(order.tailor, order.master)
 
         from domains.orders.notifications import notify_verification
@@ -602,7 +653,10 @@ class OrderService:
         elif rejected:
             notify_verification(order, order_stage, submitted=False)
 
-        if new_status in ('COMPLETED', 'SKIPPED'):
+        # `notify=False` is complete_all's: it walks a dozen stages in one
+        # transaction, and the customer should hear "Delivered" once, not
+        # every intermediate status in the same second.
+        if notify and new_status in ('COMPLETED', 'SKIPPED'):
             create_order_notifications(
                 order,
                 created=False,
@@ -629,13 +683,14 @@ STAGE_TO_TASK_STATUS = {
 }
 
 
-def _sync_task_status(order, stage_key, stage_status):
+def _sync_task_status(order, stage_key, stage_status, garment_job_id=None):
     """Keep the stage's ProductionTask row telling the same story."""
     from apps.production.models import ProductionTask
     task_status = STAGE_TO_TASK_STATUS.get(stage_status)
     if task_status:
         ProductionTask.objects.filter(
-            order=order, stage_key=stage_key).update(status=task_status)
+            order=order, stage_key=stage_key, garment_job_id=garment_job_id,
+        ).update(status=task_status)
 
 
 #: What each stage says about the customer-facing status once it is settled.
@@ -651,15 +706,14 @@ CLIENT_STATUS_WHEN_SETTLED = {
     'maggam_handwork': 'Design & Creation',
     'maggam_verification': 'Design & Creation',
     'fabric_cutting': 'Design & Creation',
-    'assigned_to_tailor': 'Design & Creation',
-    'stitching_in_progress': 'Design & Creation',
-    'stitching_completed': 'Quality Check',
+    'stitching_in_progress': 'Quality Check',
     'finishing': 'Quality Check',
     'pressing': 'Quality Check',
     'master_quality_check': 'Ready for Dispatch',
     'trial_scheduled': 'Ready for Dispatch',
     'trial_completed': 'Ready for Dispatch',
     'ready_for_delivery': 'Ready for Dispatch',
+    'payment': 'Ready for Dispatch',
     'delivered': 'Delivered',
 }
 
@@ -672,7 +726,7 @@ def recompute_client_status(order, config):
     remaining settled stages add up to, so walk them in workflow order and
     keep the last claim standing.
     """
-    live = dict(order.stages.values_list('stage_key', 'status'))
+    live = workflow.rollup(order)
     status = 'Received'
     for declared in workflow.ordered_stages(config):
         key = declared['key']
@@ -686,7 +740,7 @@ def _log_reversal(order, event_type, user, metadata):
         order=order, event_type=event_type, user=user, metadata=metadata)
 
 
-def reopen_order_stage(order, stage_key, user, reason, request=None):
+def reopen_order_stage(order, stage_key, user, reason, request=None, garment_job=None):
     """A supervisor reverses a settled stage, on the record.
 
     The mandatory reason is the whole point: the stage history stops being a
@@ -701,10 +755,9 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
             'A reason is required to reopen a completed stage.')
 
     try:
-        stage = order.stages.get(stage_key=stage_key)
-    except OrderStage.DoesNotExist:
-        raise workflow.TransitionError(
-            f'Unknown stage "{stage_key}" for order {order.order_id}')
+        stage = stage_row(order, stage_key, garment_job)
+    except ValueError as exc:
+        raise workflow.TransitionError(str(exc))
 
     config = workflow.for_order(
         BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, order)
@@ -723,17 +776,22 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
         stage.completed_at = None
         stage.duration_seconds = 0
         stage.save(update_fields=['status', 'completed_at', 'duration_seconds'])
-        _sync_task_status(order, stage_key, stage.status)
+        _sync_task_status(order, stage_key, stage.status, stage.garment_job_id)
 
         # Later work goes back to the starting line: it was done on a garment
         # whose earlier state is now unfinished, so it has to be done again.
-        for later in order.stages.filter(stage_key__in=reset_keys):
+        # Only this garment's later work, plus the order-level stages after.
+        later_rows = order.stages.filter(stage_key__in=reset_keys)
+        if stage.garment_job_id is not None:
+            later_rows = later_rows.filter(
+                models.Q(garment_job_id=stage.garment_job_id) | models.Q(garment_job__isnull=True))
+        for later in later_rows:
             later.status = 'NOT_STARTED'
             later.started_at = None
             later.completed_at = None
             later.duration_seconds = 0
             later.save(update_fields=['status', 'started_at', 'completed_at', 'duration_seconds'])
-            _sync_task_status(order, later.stage_key, 'NOT_STARTED')
+            _sync_task_status(order, later.stage_key, 'NOT_STARTED', later.garment_job_id)
 
         order.current_stage_key = stage_key
         order.production_status = 'IN_PROGRESS'
@@ -742,6 +800,7 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
 
         _log_reversal(order, 'STAGE_REOPENED', user, {
             'stage_key': stage_key,
+            'garment_job': str(stage.garment_job_id) if stage.garment_job_id else None,
             'previous_status': previous,
             'reset_stages': reset_keys,
             'reason': reason,
@@ -750,7 +809,7 @@ def reopen_order_stage(order, stage_key, user, reason, request=None):
     return order
 
 
-def fail_quality_check(order, user, reason, request=None):
+def fail_quality_check(order, user, reason, request=None, garment_job=None):
     """QC rejects the garment: the stitching band reopens for rework.
 
     A first-class transition, not a rollback: the reason is recorded on the QC
@@ -780,16 +839,16 @@ def fail_quality_check(order, user, reason, request=None):
                 f'This boutique\'s workflow has no "{needed}" stage, so the '
                 f'rework loop does not apply to it.')
 
-    qc = order.stages.filter(stage_key='master_quality_check').first()
-    if qc is None:
-        raise workflow.TransitionError(
-            f'Order {order.order_id} has no quality check stage.')
+    try:
+        qc = stage_row(order, 'master_quality_check', garment_job)
+    except ValueError as exc:
+        raise workflow.TransitionError(str(exc))
     if qc.status == 'COMPLETED':
         raise workflow.TransitionError(
             'This quality check has already passed. Reopen it first if that '
             'was a mistake.')
     stitching_settled = order.stages.filter(
-        stage_key='stitching_completed',
+        stage_key='stitching_in_progress', garment_job_id=qc.garment_job_id,
         status__in=workflow.SETTLED_STATUSES).exists()
     if not stitching_settled:
         raise workflow.TransitionError(
@@ -798,7 +857,8 @@ def fail_quality_check(order, user, reason, request=None):
 
     band = keys[keys.index('stitching_in_progress'):keys.index('master_quality_check')]
     with transaction.atomic():
-        for stage in order.stages.filter(stage_key__in=band):
+        # The rework is this garment's: the saree that passed stays passed.
+        for stage in order.stages.filter(stage_key__in=band, garment_job_id=qc.garment_job_id):
             if stage.status == 'NOT_STARTED':
                 continue
             stage.status = ('IN_PROGRESS'
@@ -807,7 +867,7 @@ def fail_quality_check(order, user, reason, request=None):
             stage.completed_at = None
             stage.duration_seconds = 0
             stage.save(update_fields=['status', 'completed_at', 'duration_seconds'])
-            _sync_task_status(order, stage.stage_key, stage.status)
+            _sync_task_status(order, stage.stage_key, stage.status, stage.garment_job_id)
 
         qc.status = 'NOT_STARTED'
         qc.completed_at = None
@@ -817,7 +877,7 @@ def fail_quality_check(order, user, reason, request=None):
         qc.comments = (f'QC FAILED: {reason}\n{qc.comments}'.strip()
                        if qc.comments else f'QC FAILED: {reason}')
         qc.save(update_fields=['status', 'completed_at', 'duration_seconds', 'comments'])
-        _sync_task_status(order, 'master_quality_check', 'NOT_STARTED')
+        _sync_task_status(order, 'master_quality_check', 'NOT_STARTED', qc.garment_job_id)
 
         order.current_stage_key = 'stitching_in_progress'
         order.production_status = 'IN_PROGRESS'
@@ -826,6 +886,7 @@ def fail_quality_check(order, user, reason, request=None):
 
         _log_reversal(order, 'QC_FAILED', user, {
             'reason': reason,
+            'garment_job': str(qc.garment_job_id) if qc.garment_job_id else None,
             'role': role,
             'reopened_stages': band,
         })
@@ -858,8 +919,7 @@ def set_order_flow(order, flow, user):
         raise workflow.TransitionError(f'Unknown flow "{flow}".')
     if order.flow == flow:
         return order
-    shared = {'created', 'measurements_completed', 'fabric_confirmed'}
-    begun = order.stages.exclude(stage_key__in=shared).exclude(status='NOT_STARTED')
+    begun = order.stages.exclude(stage_key='created').exclude(status='NOT_STARTED')
     if begun.exists():
         names = ', '.join(begun.values_list('stage_name', flat=True))
         raise workflow.TransitionError(
@@ -880,11 +940,12 @@ def set_order_flow(order, flow, user):
             OrderStage.objects.create(
                 order=order, stage_key=s_conf['key'], stage_name=s_conf['name'],
                 status='NOT_STARTED', sequence=index, sla_hours=s_conf.get('sla_hours', 24))
-            if s_conf['key'] not in ('created', 'delivered'):
+            if s_conf['key'] not in ('created', 'payment', 'delivered'):
                 ProductionTask.objects.create(
                     order=order, title=s_conf['name'], stage_key=s_conf['key'],
                     assigned_to=order.master or order.tailor, sequence=index + 1, priority='MEDIUM')
         order.flow = flow
         order.save(update_fields=['flow'])
+        ensure_garment_stages(order)
         _log_reversal(order, 'FLOW_CHANGED', user, {'flow': flow, 'role': role})
     return order

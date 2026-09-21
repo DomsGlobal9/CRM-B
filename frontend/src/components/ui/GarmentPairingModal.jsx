@@ -13,12 +13,11 @@ export const GARMENT_PAIR_MAP = {
   },
   lehenga: {
     primaryName: 'Lehenga',
-    prompt: 'Would you like to select a matching Lehenga Blouse and Dupatta?',
-    // 'lehenga_blouse', not 'blouse': a saree and a lehenga on the same order
-    // carry different blouses, and the saree's 'blouse' template is a
-    // separate garment from the lehenga's own.
+    prompt: 'Would you like to select a matching Blouse (Choli) and Dupatta?',
+    // Its own choli template, not the saree's blouse: a saree and a lehenga
+    // on one order each get their own blouse.
     pairKeys: ['lehenga_blouse', 'dupatta'],
-    pairLabels: ['Lehenga Blouse', 'Dupatta'],
+    pairLabels: ['Blouse (Choli)', 'Dupatta'],
   },
   kurti: {
     primaryName: 'Kurti',
@@ -103,6 +102,7 @@ export default function GarmentPairingModal({
   onClose,
   primaryGarmentKey,
   primaryGarmentName,
+  primaryJobKey,
   garmentTemplates = [],
   garmentJobs = [],
   onAddPairedGarments,
@@ -110,6 +110,8 @@ export default function GarmentPairingModal({
   const [selectedPairKeys, setSelectedPairKeys] = useState([]);
 
   const pairConfig = getGarmentPairConfig(primaryGarmentKey, primaryGarmentName);
+  // Only this primary's own pieces count: the saree's blouse is not the lehenga's.
+  const groupJobs = primaryJobKey ? garmentJobs.filter(j => j.pairedWith === primaryJobKey) : garmentJobs;
 
   // Initialize selected pair keys when modal opens
   useEffect(() => {
@@ -118,21 +120,20 @@ export default function GarmentPairingModal({
       const availablePairKeys = pairConfig.pairKeys.filter(pairKey => {
         const matchingTemplate = findMatchingTemplate(pairKey, garmentTemplates);
         if (!matchingTemplate) return false;
-        return !garmentJobs.some(job => job.key === matchingTemplate.key);
+        return !groupJobs.some(job => (job.template?.key || job.key) === matchingTemplate.key);
       });
       setSelectedPairKeys(availablePairKeys);
     } else {
       setSelectedPairKeys([]);
     }
-  }, [isOpen, primaryGarmentKey, primaryGarmentName, garmentTemplates, garmentJobs]);
+  }, [isOpen, primaryGarmentKey, primaryGarmentName, primaryJobKey, garmentTemplates, garmentJobs]);
 
   if (!isOpen || !pairConfig) return null;
 
   // Helper to match pairKey (e.g., 'blouse') to actual template in garmentTemplates
   function findMatchingTemplate(pairKey, templates) {
-    // An exact template key wins outright: the fuzzy match below resolved
-    // 'lehenga_blouse' to the saree's 'blouse' (substring), so the lehenga's
-    // pieces never showed once a saree was on the order.
+    // A pair key that names a template exactly wins: the loose match below
+    // would otherwise hand 'lehenga_blouse' to the lehenga itself.
     const exact = templates.find(t => t.key === pairKey);
     if (exact) return exact;
     const target = pairKey.toLowerCase().replace(/[^a-z]/g, '');
@@ -281,13 +282,16 @@ export default function GarmentPairingModal({
               {pairConfig.pairKeys.map((pairKey, idx) => {
                 const label = pairConfig.pairLabels[idx] || pairKey;
                 const template = findMatchingTemplate(pairKey, garmentTemplates);
-                const isAlreadyAdded = template && garmentJobs.some(j => j.key === template.key);
-                const isChecked = selectedPairKeys.includes(pairKey) || isAlreadyAdded;
+                // Already on the order (by template, so a second copy counts too).
+                // Not pre-ticked, but still tickable: a lehenga added after a
+                // saree wants its own dupatta, not the saree's.
+                const isAlreadyAdded = template && groupJobs.some(j => (j.template?.key || j.key) === template.key);
+                const isChecked = selectedPairKeys.includes(pairKey);
 
                 return (
                   <div
                     key={pairKey}
-                    onClick={() => !isAlreadyAdded && handleTogglePairKey(pairKey)}
+                    onClick={() => handleTogglePairKey(pairKey)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -296,7 +300,7 @@ export default function GarmentPairingModal({
                       borderRadius: '10px',
                       border: isChecked ? '1.5px solid #18181b' : '1px solid var(--border-color, #e2e8f0)',
                       background: isChecked ? 'rgba(24, 24, 27, 0.03)' : 'var(--surface-inset, #f8f9fa)',
-                      cursor: isAlreadyAdded ? 'default' : 'pointer',
+                      cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
                   >
@@ -322,7 +326,7 @@ export default function GarmentPairingModal({
 
                     {isAlreadyAdded ? (
                       <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#16a34a', background: '#dcfce7', padding: '2px 8px', borderRadius: '10px' }}>
-                        Added
+                        {isChecked ? 'Adding another' : 'Already on order · tick to add another'}
                       </span>
                     ) : (
                       <span style={{ fontSize: '12px', color: 'var(--text-secondary, #64748b)' }}>

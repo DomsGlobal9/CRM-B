@@ -75,6 +75,13 @@ class JobMaterialSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 {'inventory_item': 'Customer-supplied material does not come from stock.'}
             )
+        if source == JobMaterial.Source.PURCHASE:
+            if item:
+                raise serializers.ValidationError(
+                    {'inventory_item': 'Material bought for the order is not a stock item.'})
+            if not (attrs.get('free_text') or '').strip():
+                raise serializers.ValidationError(
+                    {'free_text': 'Say what needs to be bought.'})
         return attrs
 
 

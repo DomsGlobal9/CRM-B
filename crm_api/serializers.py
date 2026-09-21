@@ -341,6 +341,7 @@ class OrderStageHistorySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class OrderStageSerializer(serializers.ModelSerializer):
+    garment_name = serializers.CharField(source='garment_job.template.name', read_only=True, default=None)
     performed_by_name = serializers.CharField(source='performed_by.name', read_only=True)
     assigned_to_name = serializers.CharField(source='assigned_to.name', read_only=True)
     assigned_to_role = serializers.CharField(source='assigned_to.role', read_only=True)
@@ -383,6 +384,7 @@ class OrderSerializer(serializers.ModelSerializer):
     activities = OrderActivitySerializer(many=True, read_only=True)
     garment_images = GarmentImageSerializer(many=True, read_only=True)
     garment_jobs = serializers.SerializerMethodField()
+    purchases = serializers.SerializerMethodField()
     garments = serializers.SerializerMethodField()
     garment_label = serializers.SerializerMethodField()
     order_status_display = serializers.SerializerMethodField()
@@ -406,7 +408,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'instructions_voice_note_by', 'instructions_voice_note_at',
             'master_verification', 'stage_histories', 'current_stage_key', 'production_status',
             'stages', 'activities', 'garment_images', 'garment_images_published',
-            'garment_jobs', 'invoice_template', 'flow',
+            'garment_jobs', 'purchases', 'invoice_template', 'flow',
         ]
         extra_kwargs = {
             'delivery_address': {'max_length': 500},
@@ -499,6 +501,10 @@ class OrderSerializer(serializers.ModelSerializer):
         from apps.catalog.serializers import GarmentJobSerializer
         return GarmentJobSerializer(obj.garment_jobs.all(), many=True).data
 
+    def get_purchases(self, obj):
+        from apps.inventory.serializers import OrderPurchaseSerializer
+        return OrderPurchaseSerializer(obj.purchases.all(), many=True).data
+
     def get_garments(self, obj):
         from domains.orders.garments import garment_names
         return garment_names(obj)
@@ -508,49 +514,13 @@ class OrderSerializer(serializers.ModelSerializer):
         return garment_label(obj)
 
 
-def build_style_dna(obj, avg_price=None, last_order_date=None):
-    if not avg_price:
-        prices = {
-            'Lehenga': 32000,
-            'Gown': 25000,
-            'Saree': 15000,
-            'Anarkali': 18000,
-            'Kurti': 5000,
-            'Sherwani': 35000,
-            'Suit': 22000,
-            # men's wear
-            'Shirt': 3500,
-            'T-Shirt': 1500,
-            'Kurta': 4500,
-            'Indo-Western': 25000,
-            'Mens Suit': 30000,
-            'Trouser': 3000,
-            'Jeans': 3000,
-            'Shorts': 2000,
-            'Mens Bottom Wear': 2500,
-            'Coat': 18000,
-            'Casual Wear': 3000,
-        }
-        avg_price = prices.get(obj.garment_type, 15000)
-
-    if avg_price < 10000:
-        budget = f"₹{int(avg_price):,} (mid-range)"
-    elif avg_price < 30000:
-        budget = f"₹{int(avg_price):,} (premium designer)"
-    else:
-        budget = f"₹{int(avg_price):,} (luxury bridal)"
+def build_style_dna(obj, revenue=None, last_order_date=None):
+    # What this client has actually been billed, across every order. No
+    # figure at all when there are no orders: this used to print a guessed
+    # "budget" from a per-garment price table, which read as real money.
+    revenue_text = f"₹{int(revenue):,}" if revenue else None
 
     h = int.from_bytes(hashlib.sha256(str(obj.id).encode()).digest()[:8], 'big')
-    colors_options = [
-        "Blue 80% Green 15% Red 5%",
-        "Dusty Rose 60% Ivory 30% Gold 10%",
-        "Emerald Green 80% Pink 15% Red 5%",
-        "Charcoal Black 90% Silver 10%",
-        "Peach 50% Mint Green 40% Gold 10%",
-        "Crimson Red 90% Antique Gold 10%"
-    ]
-    colors = colors_options[h % len(colors_options)]
-
     styles_options = [
         "Traditional 90% | Fusion 10%",
         "Contemporary 80% | Traditional 20%",
@@ -601,8 +571,7 @@ def build_style_dna(obj, avg_price=None, last_order_date=None):
         next_action = "Direct outreach / Style upgrade"
 
     return {
-        "budget": budget,
-        "colors": colors,
+        "revenue": revenue_text,
         "style": style,
         "size": size,
         "visit_pattern": visit_pattern,
@@ -736,9 +705,9 @@ class CustomerSerializer(serializers.ModelSerializer):
 
     def get_style_dna(self, obj):
         orders = obj.orders.all()
-        avg_price = sum(o.total_amount for o in orders) / len(orders) if orders else None
+        revenue = sum(o.total_amount for o in orders) if orders else None
         last_order_date = max((o.order_date for o in orders), default=None)
-        return build_style_dna(obj, avg_price, last_order_date)
+        return build_style_dna(obj, revenue, last_order_date)
 
     def create(self, validated_data):
         measurements_data = validated_data.pop('measurements', None)
@@ -841,7 +810,7 @@ class CustomerSummarySerializer(serializers.ModelSerializer):
     def get_style_dna(self, obj):
         return build_style_dna(
             obj,
-            avg_price=getattr(obj, 'orders_avg_price', None),
+            revenue=getattr(obj, 'orders_total_spend', None),
             last_order_date=getattr(obj, 'orders_last_date', None),
         )
 

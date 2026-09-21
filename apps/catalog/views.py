@@ -90,6 +90,13 @@ class GarmentJobViewSet(viewsets.ModelViewSet):
         context['draft'] = str(self.request.data.get('draft', '')).lower() == 'true'
         return context
 
+    # A garment added to an order gets its own workroom stages; one removed
+    # takes its rows with it (the FK cascades).
+    def perform_create(self, serializer):
+        from domains.orders.services import ensure_garment_stages
+        job = serializer.save()
+        ensure_garment_stages(job.order)
+
     @action(detail=True, methods=['post'])
     def materials(self, request, pk=None):
         job = self.get_object()

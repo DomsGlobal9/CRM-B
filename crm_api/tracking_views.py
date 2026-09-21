@@ -63,7 +63,24 @@ def order_tracking(request, token):
 
         boutique = BoutiqueSettings.objects.filter(id=1).first()
 
-        stages = [s for s in order.stages.all() if s.status != 'SKIPPED']
+        # One line per stage for the customer: a per-garment stage reads as
+        # done once every garment's row is, and its date is the last one's.
+        stages, by_key = [], {}
+        for s in order.stages.all():
+            if s.status == 'SKIPPED':
+                continue
+            folded = by_key.get(s.stage_key)
+            if folded is None:
+                by_key[s.stage_key] = s
+                stages.append(s)
+                continue
+            if s.status in ('COMPLETED', 'SKIPPED') and folded.status == 'COMPLETED':
+                if s.completed_at and (folded.completed_at is None or s.completed_at > folded.completed_at):
+                    folded.completed_at = s.completed_at
+            elif folded.status == 'COMPLETED':
+                folded.status = s.status if s.status != 'NOT_STARTED' else 'IN_PROGRESS'
+            elif s.status != 'NOT_STARTED' and folded.status == 'NOT_STARTED':
+                folded.status = 'IN_PROGRESS'
 
         trial = (
             order.appointments

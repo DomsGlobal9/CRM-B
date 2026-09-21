@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Star, Copy, ShieldCheck, Compass, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, UserCheck, CalendarClock, Flame, ChevronDown, Mic, Hand } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, Truck, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 // Model display parked — see task 16
@@ -9,12 +9,7 @@ import {
   formatMoney, formatDate as fmtDate, formatDateTime as fmtDateTime,
   formatTime as fmtTime, setBoutiqueTimeZone, orderRef,
 } from './services/format';
-// The inventory panel and the design studio are whole screens behind their own
-// tabs, and together they are a sixth of the bundle. Loading them eagerly made
-// every first paint -- including the login screen -- wait on code most sessions
-// never open, so they are fetched when their tab is first shown instead.
-// TemplateForm stays eager: it renders inline in the order wizard, where a
-// loading flicker mid-form would be worse than its few KB.
+
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
 const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
@@ -22,8 +17,7 @@ import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
 import { fabricMatchesColour } from './features/fabrics/colour';
-// Named export off the same module, so it arrives with the chunk the
-// pickers already load rather than costing a second request.
+
 const InventoryPanel = lazy(() => import('./features/inventory/InventoryPanel'));
 const DesignLibrary = lazy(() => import('./features/designStudio/DesignLibrary'));
 const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
@@ -36,6 +30,8 @@ const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGa
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
+import GarmentPurchases from './features/catalog/GarmentPurchases';
+import { purchaseError } from './features/catalog/materials';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
 import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview';
 import OrderAlterations, { RequestAlterationModal } from './features/alterations/OrderAlterations';
@@ -61,10 +57,7 @@ import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
 
-/** Placeholder shown while a lazily loaded screen arrives. */
-// Whole-rupee money for the dashboard, Indian digit grouping. Paise are
-// noise at a glance; the detail screens keep them.
-/** The order wizard's screens, per service. A step key names the screen. */
+
 const WIZARD_STEPS = {
   // The counter talks about the garment first and the customer last, but the
   // customer comes before measurements so a known customer's sheet pre-fills.
@@ -94,16 +87,34 @@ const WIZARD_STEPS = {
 };
 const EMPTY_ALTERATION = { orderId: '', garmentJobId: '', issue: '', type: 'PAID_CLIENT_REQUEST', charge: '', paidNow: '' };
 /** Garment measurement keys that are also on the customer's saved sheet. */
-const MEASURE_KEYS = { chest: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck' };
+// The master body sheet, taken once per customer and reused across garments:
+// garment field key -> sheet key. Several garment keys name the same
+// measurement (chest and bust, bicep and upper arm, crotch and rise, the
+// lehenga's floor length and waist-to-floor), so they share a sheet key.
+// bust/waist/hips/shoulder/neck are columns on the Measurement row; the rest
+// live in its additional_measurements JSON.
+const MEASURE_KEYS = {
+  chest: 'bust', bust: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck',
+  height: 'height', underbust: 'underbust', high_waist: 'high_waist', armhole: 'armhole',
+  upper_arm: 'upper_arm', bicep: 'upper_arm', elbow: 'elbow', wrist: 'wrist',
+  shoulder_to_bust: 'shoulder_to_bust', shoulder_to_waist: 'shoulder_to_waist',
+  waist_to_hip: 'waist_to_hip', waist_to_floor: 'waist_to_floor', floor_length: 'waist_to_floor',
+  crotch: 'rise', thigh: 'thigh', knee: 'knee', calf: 'calf', ankle: 'ankle',
+  inseam: 'inseam', outseam: 'outseam',
+};
+const SHEET_COLUMNS = new Set(['bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length']);
+const sheetGet = (sheet, key) => (SHEET_COLUMNS.has(key) ? sheet[key] : sheet.additional_measurements?.[key]);
+const sheetSet = (sheet, key, value) => {
+  if (SHEET_COLUMNS.has(key)) sheet[key] = value;
+  else sheet.additional_measurements = { ...(sheet.additional_measurements || {}), [key]: value };
+};
 const isoDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const todayIso = () => isoDay(new Date());
 const plusDaysIso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return isoDay(d); };
 
 const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
-// One avatar for every user surface. Shows the person's uploaded photo when
-// they have one, otherwise their initial on a filled circle -- never the stock
-// stranger that used to be hardcoded here. Fills whatever circle wraps it.
+
 const UserAvatar = ({ user, size }) => {
   const url = resolveMediaUrl(user?.profile_photo || '');
   const initial = (user?.first_name || user?.name || user?.email || 'U').trim().charAt(0).toUpperCase();
@@ -155,12 +166,12 @@ const orderStageKey = (order) => {
 // Was two near-identical dark (#141414/#0d0d0d) blocks, one on the directory
 // card and one on the profile detail; now one component. Shows only fields the
 // AI actually filled -- the old detail card printed fabricated demo figures
-// ("premium designer", "Charcoal Black 90%") for every customer with no
-// style_dna, which read as real client data.
+// ("premium designer") for every customer with no style_dna, which read as
+// real client data.
 const StyleProfileCard = ({ customer }) => {
   const dna = customer?.style_dna || {};
   const rows = [
-    ['Revenue from this client', dna.budget, Wallet], ['Style preferences', dna.style, Shirt],
+    ['Revenue from this client', dna.revenue ?? dna.budget, Wallet], ['Style preferences', dna.style, Shirt],
     ['Measurement version', dna.size, Ruler], ['Visit pattern', dna.visit_pattern, CalendarDays],
   ].filter(([, v]) => v);
   const riskColor = dna.risk_level === 'danger' ? 'var(--danger-color)'
@@ -258,15 +269,6 @@ const STEP_STATE = (status) =>
     : 'next';
 const STEP_LABEL = { done: 'Completed', live: 'In progress', next: 'Not started' };
 const STEP_TONE = { done: 'success', live: 'info', next: 'neutral' };
-
-/** One icon per workroom step, keyed by the workflow's stage_key. */
-const STAGE_ICONS = {
-  created: FileText, measurements_completed: Ruler, fabric_confirmed: Layers, pattern_cutting: Scissors,
-  paper_cutting: FileText, maggam_work: PenTool, maggam_handwork: Hand, maggam_verification: ShieldCheck,
-  fabric_cutting: Scissors, assigned_to_tailor: User, stitching_in_progress: Shirt, stitching_completed: CheckCircle2,
-  finishing: Sparkles, pressing: Flame, master_quality_check: ShieldCheck, trial_scheduled: CalendarClock,
-  trial_completed: UserCheck, ready_for_delivery: PackageCheck, delivered: Truck,
-};
 
 /**
  * A stored mobile number, written the way its owner would recognise it.
@@ -663,31 +665,104 @@ function GarmentGallery({ order, onChanged }) {
 // person is not pointed at their own note.
 const anyVoiceNote = (stage) => Boolean(stage.voice_note);
 
+/** One status per stage key across its rows: a per-garment stage is done
+ *  once every garment's row is, live while any has begun. The order-level
+ *  view the header counts and the kanban use. */
+const rollupStages = (stages) => {
+  const out = [];
+  const seen = new Map();
+  (stages || []).forEach((s) => {
+    const cur = seen.get(s.stage_key);
+    if (!cur) { const row = { ...s, garment_job: null, garment_name: null }; seen.set(s.stage_key, row); out.push(row); return; }
+    const a = STEP_STATE(cur.status), b = STEP_STATE(s.status);
+    if (a === 'done' && b !== 'done') cur.status = b === 'live' ? s.status : 'IN_PROGRESS';
+    else if (a === 'next' && b !== 'next') cur.status = 'IN_PROGRESS';
+    else if (a === 'done' && b === 'done' && s.completed_at && (!cur.completed_at || s.completed_at > cur.completed_at)) cur.completed_at = s.completed_at;
+  });
+  return out;
+};
+
+/** The journey in plain parts: the order-level steps before the workroom,
+ *  one garment per card for the per-garment steps, then the order-level
+ *  steps after. A stage with no garment on an order with no garment rows
+ *  (an older order) goes in the head, so it still reads top to bottom. */
+const stageLanes = (stages) => {
+  const rows = stages || [];
+  const garments = [];
+  rows.forEach((s) => {
+    if (!s.garment_job) return;
+    let lane = garments.find((l) => l.key === s.garment_job);
+    if (!lane) { lane = { key: s.garment_job, label: s.garment_name || 'Garment', stages: [] }; garments.push(lane); }
+    lane.stages.push(s);
+  });
+  const shared = rows.filter((s) => !s.garment_job);
+  if (!garments.length) return { head: shared, garments, tail: [] };
+  const firstSeq = Math.min(...garments.map((l) => l.stages[0].sequence));
+  return {
+    head: shared.filter((s) => s.sequence < firstSeq),
+    garments,
+    tail: shared.filter((s) => s.sequence >= firstSeq),
+  };
+};
+
+const isSettled = (s) => s.status === 'COMPLETED' || s.status === 'SKIPPED';
+const isLive = (s) => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(s.status);
+/** The one row to do now: the one in hand, else the first not yet done. */
+const currentRow = (rows) => rows.find(isLive) || rows.find((s) => !isSettled(s)) || null;
+
+/** One task line: a plain mark, the name, and what state it is in, in words. */
+function JourneyTask({ stage, current, onSelect, hasVoiceNote }) {
+  const { t } = useLanguage();
+  const done = isSettled(stage);
+  const live = isLive(stage);
+  const words = stage.status === 'COMPLETED' ? t('ordersPage.taskDone', 'Completed')
+    : stage.status === 'SKIPPED' ? t('ordersPage.taskSkipped', 'Skipped')
+    : stage.status === 'PENDING_VERIFICATION' ? t('ordersPage.taskWaitingCheck', 'Waiting for check')
+    : stage.status === 'PAUSED' ? t('ordersPage.taskPaused', 'Paused')
+    : live ? t('ordersPage.taskLive', 'In progress')
+    : t('ordersPage.taskNotStarted', 'Not started');
+  const shortDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return (
+    <button type="button" className={`oj-task${done ? ' oj-task--done' : ''}${current ? ' oj-task--current' : ''}`}
+            onClick={() => onSelect(stage)}
+            title={`${stage.stage_name} — ${words}`}>
+      <span className="oj-mark" aria-hidden="true">{done ? '✓' : live ? '●' : '○'}</span>
+      <span className="oj-task-name">
+        {stage.stage_name}
+        {hasVoiceNote(stage) && <Mic size={12} className="oj-mic" aria-label="Voice note" />}
+      </span>
+      <span className="oj-task-state">
+        {words}{stage.status === 'COMPLETED' && stage.completed_at ? ` · ${shortDate(stage.completed_at)}` : ''}
+      </span>
+      {current && <span className="oj-task-now">← {t('ordersPage.currentTask', 'Current task')}</span>}
+    </button>
+  );
+}
+
+function JourneyTaskList({ rows, onSelectStage, hasVoiceNote }) {
+  const now = currentRow(rows);
+  return (
+    <div className="oj-tasks" role="list">
+      {rows.map((stage) => (
+        <JourneyTask key={stage.id || stage.stage_key} stage={stage} current={now === stage}
+                     onSelect={onSelectStage} hasVoiceNote={hasVoiceNote} />
+      ))}
+    </div>
+  );
+}
+
+/** One garment, folded to a line -- its name and how far along it is -- and
+ *  opened to its task list. Only one garment is open at a time, so the
+ *  person reads one job, not every job on the order. */
 function StageTimeline({ stages, onSelectStage, hasVoiceNote = anyVoiceNote }) {
   const { t } = useLanguage();
-  // Fifteen steps in a strip about four steps wide: opening an order on a
-  // phone put "Created" on screen and whatever actually needs doing several
-  // swipes away. Centre the live step (or the last one finished) so the strip
-  // opens where the work is.
-  const activeRef = React.useRef(null);
-  const scrollerRef = React.useRef(null);
-  React.useEffect(() => {
-    const el = activeRef.current, box = scrollerRef.current;
-    if (!el || !box) return;
-    // Not scrollIntoView: it would also scroll the page vertically to reach a
-    // strip the user may not have scrolled to yet.
-    box.scrollLeft = el.offsetLeft - (box.clientWidth - el.offsetWidth) / 2;
-  }, [stages]);
-
-  const activeIndex = (() => {
-    if (!stages || !stages.length) return -1;
-    const running = stages.findIndex(
-      (s) => s.status === 'IN_PROGRESS' || s.status === 'PAUSED' || s.status === 'PENDING_VERIFICATION');
-    if (running !== -1) return running;
-    let last = -1;
-    stages.forEach((s, i) => { if (s.status === 'COMPLETED') last = i; });
-    return last;
-  })();
+  const { head, garments, tail } = stageLanes(stages);
+  // Open where the work is: the garment with a task in hand, else the first
+  // garment still to do. Clicking another card moves the open one.
+  const autoKey = (garments.find((g) => g.stages.some(isLive)) || garments.find((g) => g.stages.some((s) => !isSettled(s))))?.key || null;
+  const [pick, setPick] = React.useState();
+  const openKey = pick === undefined ? autoKey : pick;
+  const setOpenKey = setPick;
 
   if (!stages || stages.length === 0) {
     return (
@@ -696,49 +771,49 @@ function StageTimeline({ stages, onSelectStage, hasVoiceNote = anyVoiceNote }) {
       </div>
     );
   }
-
-  const shortDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const allGarmentsDone = garments.every((g) => g.stages.every(isSettled));
 
   return (
-    <div ref={scrollerRef} className="od-timeline" role="list">
-      {stages.map((stage, idx, arr) => {
-        const tone = STEP_STATE(stage.status);
-        const isCompleted = tone === 'done';
-        const note = tone === 'live' ? STEP_LABEL.live
-          : isCompleted && stage.completed_at ? shortDate(stage.completed_at) : '';
-        const Icon = STAGE_ICONS[stage.stage_key] || Clock;
-        // A stage with a voice note on it is marked so the person the note
-        // is for can find it without opening every step.
-        const voiced = hasVoiceNote(stage);
-        return (
-          <div
-            key={stage.id || stage.stage_key}
-            ref={idx === activeIndex ? activeRef : null}
-            role="listitem"
-            tabIndex={0}
-            title={`${stage.stage_name} — ${STEP_LABEL[tone].toLowerCase()}${voiced ? ` · voice note from ${stage.voice_note_by || 'someone'}` : ''}`}
-            className={`od-stage od-stage--${tone}${idx === 0 ? ' od-stage--first' : ''}${idx === arr.length - 1 ? ' od-stage--last' : ''}`}
-            onClick={() => onSelectStage(stage)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectStage(stage); } }}
-          >
-            <div className="od-stage-row">
-              <span className="od-node" style={voiced ? { boxShadow: '0 0 0 3px rgba(37, 99, 235, 0.28)', borderColor: '#2563eb' } : undefined}>
-                <Icon size={16} />
-                {isCompleted && <span className="od-node-check"><Check size={9} strokeWidth={3} /></span>}
-                {voiced && (
-                  <span aria-label="Voice note" style={{
-                    position: 'absolute', top: '-5px', left: '-5px', width: '16px', height: '16px', borderRadius: '50%',
-                    background: '#2563eb', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    border: '2px solid var(--surface-color)',
-                  }}><Mic size={9} strokeWidth={3} /></span>
-                )}
-              </span>
-            </div>
-            <span className="od-stage-name" style={voiced ? { color: '#2563eb', fontWeight: 600 } : undefined}>{stage.stage_name}</span>
-            {note && <span className={`od-stage-note od-stage-note--${tone}`}>{note}</span>}
-          </div>
-        );
-      })}
+    <div className="oj">
+      {head.length > 0 && <JourneyTaskList rows={head} onSelectStage={onSelectStage} hasVoiceNote={hasVoiceNote} />}
+
+      {garments.length > 0 && (
+        <div className="oj-section">
+          <div className="stat-label">{t('ordersPage.garmentsToMake', 'Garments to make')}</div>
+          {garments.map((g) => {
+            const done = g.stages.filter(isSettled).length;
+            const finished = done === g.stages.length;
+            const open = g.key === openKey;
+            const now = currentRow(g.stages);
+            return (
+              <div key={g.key} className={`oj-garment${finished ? ' oj-garment--done' : ''}${open ? ' oj-garment--open' : ''}`}>
+                <button type="button" className="oj-garment-head" aria-expanded={open}
+                        onClick={() => setOpenKey(open ? null : g.key)}>
+                  <span className="oj-mark" aria-hidden="true">{finished ? '✓' : now && isLive(now) ? '●' : '○'}</span>
+                  <span className="oj-garment-name">{g.label}</span>
+                  <span className="oj-garment-progress">
+                    <span>{t('ordersPage.garmentProgress', '{done} of {total} completed').replace('{done}', done).replace('{total}', g.stages.length)}</span>
+                    <span className="oj-bar" aria-hidden="true"><span style={{ width: `${(done / g.stages.length) * 100}%` }} /></span>
+                  </span>
+                  {!finished && now && !open && <span className="oj-garment-next">{t('ordersPage.nextUp', 'Now')}: {now.stage_name}</span>}
+                  <ChevronDown size={16} className="oj-chevron" />
+                </button>
+                {open && <JourneyTaskList rows={g.stages} onSelectStage={onSelectStage} hasVoiceNote={hasVoiceNote} />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {tail.length > 0 && (
+        <div className="oj-section">
+          <div className="stat-label">{t('ordersPage.orderCompletion', 'Order completion')}</div>
+          {garments.length > 0 && !allGarmentsDone && (
+            <div className="oj-hint">{t('ordersPage.afterGarments', 'Starts once every garment above is finished.')}</div>
+          )}
+          <JourneyTaskList rows={tail} onSelectStage={onSelectStage} hasVoiceNote={hasVoiceNote} />
+        </div>
+      )}
     </div>
   );
 }
@@ -1391,24 +1466,38 @@ function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
 
-  // Signup Wizard State
-  const [signupStep, setSignupStep] = useState(1); // 1: Account, 2: Verify, 3: Profile, 4: Prefs, 5: Complete
+  // Signup: one form, then the "done" card. 1: Form, 2: Complete
+  const [signupStep, setSignupStep] = useState(1);
 
   const [signupForm, setSignupForm] = useState({
     first_name: '',
     last_name: '',
     email_address: '',
     mobile_number: '',
-    password: ''
+    password: '',
+    confirm_password: '',
+    terms: false
   });
   const [signupBusy, setSignupBusy] = useState(false);
   // A brand-new owner has never been here, so "Welcome back" reads as a
   // mix-up. Set by registration, cleared at logout: the greeting is theirs for
   // the first session.
-  const [justRegistered, setJustRegistered] = useState(false); // set at signup, read once by the first dashboard paint
   const [signupError, setSignupError] = useState(null);
+  // True only for the session that created the boutique: the dashboard says
+  // "Welcome ... to Scaleezy" instead of "Welcome back". Any later login
+  // (or a reload) is a return visit.
+  const [justRegistered, setJustRegistered] = useState(false);
   const [boutiqueName, setBoutiqueName] = useState('');
   const [boutiqueAddress, setBoutiqueAddress] = useState('');
+  // Create Account stays disabled until every box is filled and the two
+  // passwords agree; the exact-format checks (valid email, 10-digit mobile)
+  // still run on submit so the owner gets one plain message, not a red form.
+  const passwordMismatch = !!signupForm.confirm_password && signupForm.confirm_password !== signupForm.password;
+  const signupReady = !!(boutiqueName.trim() && boutiqueAddress.trim()
+    && signupForm.first_name.trim() && signupForm.last_name.trim()
+    && signupForm.email_address.trim() && signupForm.mobile_number
+    && signupForm.password.length >= 8 && signupForm.confirm_password === signupForm.password
+    && signupForm.terms);
 
   // Customer/Order Wizard State
   const [currentStep, setCurrentStep] = useState(1);
@@ -1424,7 +1513,8 @@ function App() {
   // seconds against the remote database, and a silent tile invites re-clicks.
   const [addingGarmentKey, setAddingGarmentKey] = useState(null);
   // Garments stack one under the other; the picker only comes back when asked.
-  const [showGarmentPicker, setShowGarmentPicker] = useState(false);
+  // The garment whose section the circles above point at; sections stay stacked.
+  const [activeGarmentKey, setActiveGarmentKey] = useState(null);
 
   // A wizard step lands read from the top, not wherever the previous step's
   // Next button happened to leave the scroll.
@@ -1496,6 +1586,11 @@ function App() {
   const [designLinks, setDesignLinks] = useState('');
   const [advancePaymentAmount, setAdvancePaymentAmount] = useState(0);
   const [specialInstructions, setSpecialInstructions] = useState('');
+  // A voice note recorded on the Measurements step: { url, by, at } once
+  // sent. Uploaded at once, carried on the draft, and set on the order as
+  // its instructions voice note at confirm -- so the tailor hears it wherever
+  // an order's voice note already plays.
+  const [measureVoiceNote, setMeasureVoiceNote] = useState(null);
 
   // Model display parked — see task 16
   // const [selectedFabric, setSelectedFabric] = useState(null);
@@ -1563,22 +1658,28 @@ function App() {
     loadGarmentTemplates();
   }, [currentUser, loadGarmentTemplates]);
 
-  const addGarment = async (key, skipPairingPrompt = false) => {
-    if (garmentJobs.some(job => job.key === key)) return;
+  const addGarment = async (key, skipPairingPrompt = false, allowAnother = false, pairedWith = null) => {
+    const taken = garmentJobs.some(job => job.key === key);
+    if (taken && !allowAnother) return;
     if (addingGarmentKey) return;
     setAddingGarmentKey(key);
     try {
       const template = await api.getGarmentTemplate(key);
+      // A pairing may add a garment the order already has -- the lehenga's
+      // own dupatta beside the saree's. The job then gets its own key; the
+      // template key stays on job.template, which is what every reader of
+      // the template uses (job.template?.key || job.key).
+      const jobKey = taken ? `${key}#${Date.now().toString(36)}` : key;
       setGarmentJobs(prev => [...prev, {
-        key, template, values: withDefaults(template), quantities: {}, sources: {}, brought: {},
+        key: jobKey, template, values: withDefaults(template), quantities: {}, sources: {}, brought: {}, pairedWith,
         pricing: { base: GARMENT_PRICES[template.name] || 15000, fabric: 0,
                    embroidery: 0, customization: 0, tailoring: 0 },
       }]);
       // Saree asks after its blouse and petticoat, lehenga after its choli
       // and dupatta. Paired adds skip the prompt so it cannot chain.
-      setActiveGarmentKey(key);
+      setActiveGarmentKey(jobKey);
       if (!skipPairingPrompt && getGarmentPairConfig(key, template.name)) {
-        setActivePairingGarment({ key, name: template.name });
+        setActivePairingGarment({ key, name: template.name, jobKey });
       }
     } catch (err) {
       console.error(err);
@@ -1590,7 +1691,7 @@ function App() {
 
   const handleAddPairedGarments = async (pairKeys) => {
     for (const pairKey of pairKeys) {
-      await addGarment(pairKey, true);
+      await addGarment(pairKey, true, true, activePairingGarment?.jobKey || null);
     }
   };
 
@@ -1612,12 +1713,23 @@ function App() {
   }, [garmentJobs]);
 
   const removeGarment = (key) => {
-    setGarmentJobs(prev => prev.filter(job => job.key !== key));
+    const gone = new Set([key, ...garmentJobs.filter(job => job.pairedWith === key).map(job => job.key)]);
+    setGarmentJobs(prev => prev.filter(job => !gone.has(job.key)));
     setGarmentErrors(prev => {
       const next = { ...prev };
-      delete next[key];
+      gone.forEach(k => { delete next[k]; });
       return next;
     });
+  };
+
+  /** The purchase row hung on one question of a garment: replaced, or
+   *  removed when `row` is null (the answer changed to something in stock). */
+  const updateGarmentPurchase = (key, fieldKey, row) => {
+    setGarmentJobs(prev => prev.map(job => {
+      if (job.key !== key) return job;
+      const rest = (job.purchases || []).filter(r => r.field_key !== fieldKey);
+      return { ...job, purchases: row ? [...rest, row] : rest };
+    }));
   };
 
   const updateGarmentValues = (key, values) => {
@@ -1652,11 +1764,14 @@ function App() {
           itemId: job.values?.[field.key],
           name: (brought.name || '').trim(),
           unit: brought.unit,
+          estimated_cost: brought.estimated_cost,
+          required_by: brought.required_by,
+          notes: brought.notes,
         };
       })
-      // A line counts once it names something: a roll off the rack, or the
-      // cloth the customer handed over. Nothing named, nothing to plan.
-      .filter(entry => (entry.source === 'CUSTOMER' ? entry.name : entry.itemId));
+      // A line counts once it names something: a roll off the rack, the
+      // cloth the customer handed over, or the thing to go and buy.
+      .filter(entry => (entry.source === 'STORE' ? entry.itemId : entry.name));
   };
 
   /** One material line, in the shape the API stores.
@@ -1665,8 +1780,19 @@ function App() {
    *  serializer rejects the combination, because their cloth is not stock and
    *  must never be reserved or deducted from it.
    */
-  const materialLine = (job) => ({ field, source, itemId, name, unit }) => (
-    source === 'CUSTOMER'
+  const materialLine = (job) => ({ field, source, itemId, name, unit, estimated_cost, required_by, notes }) => (
+    source === 'PURCHASE'
+      ? {
+        field_key: field.key,
+        free_text: name,
+        quantity: job.quantities?.[field.key],
+        unit,
+        source: 'PURCHASE',
+        estimated_cost: estimated_cost || 0,
+        required_by: required_by || null,
+        notes: (notes || '').trim(),
+      }
+    : source === 'CUSTOMER'
       ? {
         field_key: field.key,
         free_text: name,
@@ -1717,7 +1843,16 @@ function App() {
           if (source === 'CUSTOMER' && !name && raw !== undefined && raw !== '') {
             jobQuantityErrors[field.key] = 'Name what the customer brought for this.';
           }
+          if (source === 'PURCHASE') {
+            const cost = Number(job.brought?.[field.key]?.estimated_cost ?? 0);
+            if (!name && raw !== undefined && raw !== '') jobQuantityErrors[field.key] = 'Say what needs to be bought.';
+            else if (Number.isNaN(cost) || cost < 0) jobQuantityErrors[field.key] = 'The estimated cost cannot be negative.';
+          }
         });
+      (job.purchases || []).forEach((row, i) => {
+        const problem = purchaseError(row);
+        if (problem) jobQuantityErrors[`purchase:${i}`] = problem;
+      });
       if (Object.keys(jobQuantityErrors).length) quantityErrors[job.key] = jobQuantityErrors;
     });
     setGarmentErrors(errors);
@@ -1786,6 +1921,7 @@ function App() {
         const wantsDesigner = serviceType === 'design' && designRequest.designer;
         return {
           key: job.key,
+          paired_with: job.pairedWith || null,
           template: job.template?.id,
           template_key: job.template?.key || job.key,
           spec: splitSpec(job.template, values).spec,
@@ -1801,6 +1937,11 @@ function App() {
           sources: job.sources || {},
           brought: job.brought || {},
           materials: garmentMaterialLines(job),
+          purchases: (job.purchases || []).map(r => ({
+            field_key: r.field_key || '',
+            name: (r.name || '').trim(), quantity: r.quantity, unit: r.unit || 'METER',
+            estimated_cost: r.estimated_cost || 0, required_by: r.required_by || null, notes: (r.notes || '').trim(),
+          })),
         };
       }),
       design: {
@@ -1814,6 +1955,9 @@ function App() {
       // for older readers of the draft.
       payment: { option: total > 0 && advance >= total ? 'full' : 'partial', advance },
       special_instructions: specialInstructions,
+      instructions_voice_note: measureVoiceNote?.url || '',
+      instructions_voice_note_by: measureVoiceNote?.by || '',
+      instructions_voice_note_at: measureVoiceNote?.at || null,
     };
   };
 
@@ -1846,6 +1990,7 @@ function App() {
         const template = await api.getGarmentTemplate(garment.template_key);
         rebuilt.push({
           key: garment.key || garment.template_key,
+          pairedWith: garment.paired_with || null,
           template,
           values: withDefaults(template, garment.values),
           quantities: garment.quantities || {},
@@ -1855,6 +2000,7 @@ function App() {
           design: garment.design || {},
           fabrics: garment.fabrics || {},
           fabric_qty: garment.fabric_qty || {},
+          purchases: garment.purchases || [],
         });
       } catch (err) {
         console.error('Could not reload the garment template', garment.template_key, err);
@@ -1884,6 +2030,9 @@ function App() {
                                  discount: prices.discount ?? 0 });
     if (payment.advance !== undefined) setAdvancePaymentAmount(payment.advance);
     setSpecialInstructions(payload.special_instructions || '');
+    setMeasureVoiceNote(payload.instructions_voice_note
+      ? { url: payload.instructions_voice_note, by: payload.instructions_voice_note_by || '', at: payload.instructions_voice_note_at || null }
+      : null);
     setWizardError(null);
     setDraftSaveState('idle');
     setGarmentErrors({});
@@ -1981,6 +2130,7 @@ function App() {
   // Backend fetched collections
   const [dashboardData, setDashboardData] = useState(null);
   const [tailors, setTailors] = useState([]);
+  const [completingAllOrderId, setCompletingAllOrderId] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [appointmentForm, setAppointmentForm] = useState({
@@ -2589,6 +2739,7 @@ function App() {
     setAuthBusy(true);
     try {
       const res = await api.login(loginEmail, loginPassword);
+      setJustRegistered(false);
       setCurrentUser(res.user);
       setView('dashboard');
       if (res.user.role === 'Designer') {
@@ -2617,22 +2768,14 @@ function App() {
 
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
-    if (!signupForm.first_name || !signupForm.last_name || !signupForm.email_address || !signupForm.password) {
-      alert("Please enter all required signup fields.");
-      return;
-    }
+    if (!signupReady) return;
     // The server's own rules (core/validators.py), asked here so the owner
     // hears about a bad number before the boutique is provisioned.
     const bad = nameError(signupForm.first_name, { label: 'First name' })
       || nameError(signupForm.last_name, { label: 'Last name' })
       || emailError(signupForm.email_address, { required: true })
-      || mobileError(signupForm.mobile_number)
-      || (signupForm.password.length < 8 ? 'The password needs at least 8 characters.' : '');
-    if (bad) { alert(bad); return; }
-    setSignupStep(2); // Boutique details
-  };
-
-  const handleCompleteRegistration = async () => {
+      || mobileError(signupForm.mobile_number);
+    if (bad) { setSignupError(bad); return; }
     // Signup creates a Postgres schema and runs every migration into it, which
     // takes seconds rather than milliseconds -- long enough that an owner who
     // hears nothing back presses the button again. The second press used to
@@ -2640,6 +2783,7 @@ function App() {
     // answered.
     if (signupBusy) return;
     setSignupBusy(true);
+    setSignupError(null);
     try {
       const res = await api.signup({
         first_name: signupForm.first_name,
@@ -2654,16 +2798,15 @@ function App() {
       // No session back means signup is verification-gated: sign in first.
       if (!res.token) { setView('login'); return; }
       setCurrentUser(res.user);
-      setSignupStep(3);
+      setSignupStep(2);
       setTimeout(() => {
         setView('dashboard');
         fetchDashboardAndConfig(res.user);
       }, 1500);
     } catch (err) {
-      // Stays on this step and says so in the card. It used to alert() and
-      // throw the owner back to step 1, so "that email is already registered"
-      // -- much the commonest failure here -- read as the form having been
-      // wiped for no stated reason.
+      // Stays on the form and says so in the card, so "that email is already
+      // registered" -- much the commonest failure here -- does not read as
+      // the form having been wiped for no stated reason.
       setSignupError(err.message || 'Registration failed.');
     } finally {
       setSignupBusy(false);
@@ -2730,6 +2873,7 @@ function App() {
     setQuotePrices({ packaging: 500, discount: 0 });
     setAdvancePaymentAmount(0);
     setSpecialInstructions('');
+    setMeasureVoiceNote(null);
     setReadyBy(plusDaysIso(15));
     setDesignRequest({ designer: '', brief: '' });
     setAlterationForm(EMPTY_ALTERATION);
@@ -2808,7 +2952,8 @@ function App() {
       const values = { ...(job.values || {}) };
       Object.entries(MEASURE_KEYS).forEach(([key, sheetKey]) => {
         // "12.00" on the sheet reads as "12" in the box.
-        if (own.has(key) && (values[key] === undefined || values[key] === '') && sheet[sheetKey]) values[key] = String(Number(sheet[sheetKey]));
+        const kept = sheetGet(sheet, sheetKey);
+        if (own.has(key) && (values[key] === undefined || values[key] === '') && kept) values[key] = /^\d/.test(String(kept)) ? String(Number(kept)) : kept;
       });
       return { ...job, values };
     }));
@@ -2818,7 +2963,7 @@ function App() {
     const body = { ...(customerForm.measurements || {}) };
     garmentJobs.forEach(job => {
       Object.entries(MEASURE_KEYS).forEach(([key, sheetKey]) => {
-        if (job.values?.[key] !== undefined && job.values[key] !== '') body[sheetKey] = job.values[key];
+        if (job.values?.[key] !== undefined && job.values[key] !== '') sheetSet(body, sheetKey, job.values[key]);
       });
     });
     setCustomerForm(prev => ({ ...prev, measurements: body }));
@@ -3330,8 +3475,8 @@ function App() {
     // avoids a pointless round trip for everyone else.
     const canVerify = !currentUser?.role || currentUser.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser.role);
     if (stage.status === 'PENDING_VERIFICATION' && !stage.verification_seen_at && canVerify) {
-      api.markStageSeen(order.id, stage.stage_key)
-        .then((seen) => setSelectedStageObj((prev) => (prev && prev.stage_key === seen.stage_key ? { ...prev, ...seen } : prev)))
+      api.markStageSeen(order.id, stage.stage_key, stage.garment_job || null)
+        .then((seen) => setSelectedStageObj((prev) => (prev && prev.id === seen.id ? { ...prev, ...seen } : prev)))
         .catch(() => {});
     }
   };
@@ -3398,10 +3543,10 @@ function App() {
 
   // Nominate who should perform a stage. The server refuses a role the stage does
   // not permit, so the error is surfaced rather than swallowed.
-  const handleAssignStage = async (orderId, stageKey, tailorId) => {
+  const handleAssignStage = async (orderId, stageKey, tailorId, garmentJob = null) => {
     setAssigningStageKey(stageKey);
     try {
-      await api.assignStage(orderId, stageKey, tailorId || null);
+      await api.assignStage(orderId, stageKey, tailorId || null, garmentJob);
       await fetchDashboardAndConfig();
     } catch (err) {
       alert(err.message || 'Could not assign this stage.');
@@ -3691,7 +3836,7 @@ function App() {
       )}
 
       {view === 'signup' && (
-        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+        <div className="auth-page auth-page--signup" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)' }}>
           
           {/* Back to Home Button */}
           <button 
@@ -3722,161 +3867,22 @@ function App() {
           </button>
 
           <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
+          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '16px' }}>YOUR VISION. OUR CRAFT.</div>
 
-          {/* Auth Steps Tracker */}
-          <div className="auth-steps-tracker">
-            {/* Was five steps, two of which were scenery.
-                "Verify" showed an OTP box under "We have sent a 6-digit OTP
-                code to +91 <number>". Nothing was ever sent -- no SMS
-                provider exists in this product -- and handleVerifyOTP checked
-                only that the field was non-empty, so any six characters, or
-                any one character, walked through. It taught a new owner that
-                the number they typed had been confirmed when it had not.
-                "Preferences" listed six style tags as plain <span>s: no
-                onClick, no state, nothing saved anywhere, and a heading
-                asking the owner to select from them.
-                Both are gone rather than implemented. Real mobile
-                verification is an SMS provider, a cost per message and a
-                resend/expiry flow; style tags are a feature nothing in the
-                product reads yet. Neither is a fix for a fake step. */}
-            {[
-              { step: 1, label: 'Account' },
-              { step: 2, label: 'Boutique' },
-              { step: 3, label: 'Complete' }
-            ].map(item => (
-              <div key={item.step} className={`auth-step-item ${signupStep === item.step ? 'active' : ''}`}>
-                <div className="auth-step-num">{item.step}</div>
-                <span className="auth-step-label">{item.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="auth-card">
+          {/* One card, no steps. It used to be a two-tab wizard (owner on
+              tab 1, boutique on tab 2) with a step tracker above it; owners
+              lost their place between the tabs. Everything is on one screen
+              now, sized to fit a laptop viewport without scrolling. */}
+          <div className="auth-card auth-card--signup">
             {signupStep === 1 && (
-              <>
-                <h2 className="auth-title">Create your account</h2>
-                <p className="auth-subtitle">Join Scaleezy and start your custom creation journey.</p>
-                
-                <form onSubmit={handleSignupSubmit} className="auth-form">
-                  <div className="form-grid-2">
-                    <div className="form-group">
-                      <label className="form-label">First Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="Enter first name"
-                        value={signupForm.first_name}
-                        maxLength={LIMITS.name}
-                        onChange={(e) => setSignupForm({...signupForm, first_name: cleanName(e.target.value)})}
-                        required
-                        className="form-control"
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label">Last Name</label>
-                      <input 
-                        type="text" 
-                        placeholder="Enter last name"
-                        value={signupForm.last_name}
-                        maxLength={LIMITS.name}
-                        onChange={(e) => setSignupForm({...signupForm, last_name: cleanName(e.target.value)})}
-                        required
-                        className="form-control"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Email Address</label>
-                    <input 
-                      type="email" 
-                      placeholder="Enter your email address"
-                      value={signupForm.email_address}
-                      maxLength={LIMITS.email}
-                      onChange={(e) => setSignupForm({...signupForm, email_address: e.target.value})}
-                      onBlur={(e) => setSignupForm({...signupForm, email_address: cleanEmail(e.target.value)})}
-                      required
-                      className="form-control"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Mobile Number</label>
-                    <div className="input-wrapper">
-                      <span className="input-icon-left" style={{ left: '12px', fontSize: '14px' }}>+91</span>
-                      <input 
-                        type="tel" 
-                        inputMode="numeric"
-                        placeholder="Enter mobile number"
-                        value={signupForm.mobile_number}
-                        onChange={(e) => setSignupForm({...signupForm, mobile_number: tenDigits(e.target.value)})}
-                        style={{ paddingLeft: '50px' }}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="form-label">Password</label>
-                    <input 
-                      type="password" 
-                      placeholder="Create a password (min 8 characters)"
-                      value={signupForm.password}
-                      minLength={8}
-                      onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
-                      required
-                      className="form-control"
-                    />
-                    {signupForm.password && (
-                      <div className="password-strength-meter">
-                        <div className="password-strength-bar">
-                          <div className={`password-strength-fill ${getPasswordStrength()}`}></div>
-                        </div>
-                        <span className="password-strength-text">
-                          Password strength: <span>{getPasswordStrength()}</span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <label className="remember-me-checkbox" style={{ fontSize: '12px' }}>
-                    <input type="checkbox" required />
-                    I agree to the Terms & Conditions and Privacy Policy
-                  </label>
-
-                  <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '12px' }}>
-                    <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setView('login')}>
-                      Login
-                    </button>
-                    <button type="submit" className="btn-primary" style={{ justifyContent: 'center' }}>
-                      Create Account
-                    </button>
-                  </div>
-                </form>
-
-                <div className="divider-container">OR CONTINUE WITH</div>
-                <div className="social-icons-row">
-                  <div className="social-icon-circle"><Compass size={18} /></div>
-                  <div className="social-icon-circle"><User size={18} /></div>
-                  <div className="social-icon-circle"><MessageSquare size={18} /></div>
+              <form onSubmit={handleSignupSubmit} className="auth-form" style={{ gap: '10px' }}>
+                <div>
+                  <h2 className="auth-title" style={{ fontSize: '24px' }}>Create your boutique account</h2>
+                  <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>Fill in the boxes below. The button lights up when everything is filled.</p>
                 </div>
-              </>
-            )}
 
-            {signupStep === 2 && (
-              <>
-                <h2 className="auth-title">Your Boutique</h2>
-                <p className="auth-subtitle">This is what your customers see on invoices and messages.</p>
-
-                {/* This step used to ask for an occupation and a preferred
-                    communication channel. Neither was read by anything -- the
-                    signup view bound one of them and never mentioned it again
-                    -- while the two fields the product genuinely prints on
-                    every invoice, the boutique's name and address, were never
-                    asked for at all and fell back to "123 Atelier Way, Fashion
-                    District". Same step, same number of fields, now feeding
-                    BoutiqueSettings. */}
-                <div className="auth-form">
+                <div className="signup-section-title"><span className="signup-section-num">1</span>Your boutique</div>
+                <div className="form-grid-2 signup-grid">
                   <div className="form-group">
                     <label className="form-label">Boutique name</label>
                     <input
@@ -3886,9 +3892,10 @@ function App() {
                       value={boutiqueName}
                       maxLength={LIMITS.name}
                       onChange={(e) => setBoutiqueName(e.target.value)}
+                      required
+                      autoFocus
                     />
                   </div>
-
                   <div className="form-group">
                     <label className="form-label">Boutique address</label>
                     <input
@@ -3898,49 +3905,143 @@ function App() {
                       value={boutiqueAddress}
                       maxLength={LIMITS.address}
                       onChange={(e) => setBoutiqueAddress(e.target.value)}
+                      required
                     />
                   </div>
+                </div>
 
-                  {signupError && (
-                    <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '4px', whiteSpace: 'pre-wrap' }}>
-                      {signupError}
+                <div className="signup-section-title"><span className="signup-section-num">2</span>About you (the owner)</div>
+                <div className="form-grid-2 signup-grid">
+                  <div className="form-group">
+                    <label className="form-label">First name</label>
+                    <input
+                      type="text"
+                      placeholder="Enter first name"
+                      value={signupForm.first_name}
+                      maxLength={LIMITS.name}
+                      onChange={(e) => setSignupForm({...signupForm, first_name: cleanName(e.target.value)})}
+                      required
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Last name</label>
+                    <input
+                      type="text"
+                      placeholder="Enter last name"
+                      value={signupForm.last_name}
+                      maxLength={LIMITS.name}
+                      onChange={(e) => setSignupForm({...signupForm, last_name: cleanName(e.target.value)})}
+                      required
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Email address</label>
+                    <input
+                      type="email"
+                      placeholder="name@example.com"
+                      value={signupForm.email_address}
+                      maxLength={LIMITS.email}
+                      onChange={(e) => setSignupForm({...signupForm, email_address: e.target.value})}
+                      onBlur={(e) => setSignupForm({...signupForm, email_address: cleanEmail(e.target.value)})}
+                      required
+                      className="form-control"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Mobile number</label>
+                    <div className="input-wrapper">
+                      <span className="input-icon-left" style={{ left: '12px', fontSize: '14px' }}>+91</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        placeholder="10-digit mobile number"
+                        value={signupForm.mobile_number}
+                        onChange={(e) => setSignupForm({...signupForm, mobile_number: tenDigits(e.target.value)})}
+                        style={{ paddingLeft: '50px' }}
+                        required
+                      />
                     </div>
-                  )}
-                  <button className="btn-primary" style={{ justifyContent: 'center' }} disabled={signupBusy} onClick={handleCompleteRegistration}>
-                    {signupBusy ? 'Creating your boutique…' : 'Create my boutique'}
+                  </div>
+                  <div className="form-group">
+                    <div className="signup-label-row">
+                      <label className="form-label">Password</label>
+                      <span className="password-strength-text">
+                        {signupForm.password ? <>Strength: <span>{getPasswordStrength()}</span></> : '8 or more characters'}
+                      </span>
+                    </div>
+                    <input
+                      type="password"
+                      placeholder="At least 8 characters"
+                      value={signupForm.password}
+                      minLength={8}
+                      onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
+                      required
+                      className="form-control"
+                    />
+                    {/* Always rendered, so typing the first character does
+                        not push the row below it down. */}
+                    <div className="password-strength-bar">
+                      <div className={`password-strength-fill ${getPasswordStrength()}`}></div>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <div className="signup-label-row">
+                      <label className="form-label">Type the password again</label>
+                      <span className="password-strength-text" style={passwordMismatch ? { color: '#ba1a1a' } : undefined}>
+                        {passwordMismatch ? 'Not the same' : signupForm.confirm_password ? 'Matches' : 'Same as the first'}
+                      </span>
+                    </div>
+                    <input
+                      type="password"
+                      placeholder="Same password once more"
+                      value={signupForm.confirm_password}
+                      onChange={(e) => setSignupForm({...signupForm, confirm_password: e.target.value})}
+                      required
+                      className="form-control"
+                      style={passwordMismatch ? { borderColor: '#ba1a1a' } : undefined}
+                    />
+                    <div className="password-strength-bar">
+                      <div className={`password-strength-fill ${signupForm.confirm_password ? (passwordMismatch ? 'weak' : 'strong') : ''}`}></div>
+                    </div>
+                  </div>
+                </div>
+
+                {signupError && (
+                  <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', whiteSpace: 'pre-wrap' }}>
+                    {signupError}
+                  </div>
+                )}
+
+                <div className="mobile-stack-grid signup-footer">
+                  <label className="remember-me-checkbox" style={{ fontSize: '12.5px' }}>
+                    <input type="checkbox" checked={signupForm.terms} onChange={(e) => setSignupForm({...signupForm, terms: e.target.checked})} />
+                    I agree to the Terms & Conditions and Privacy Policy
+                  </label>
+                  <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setView('login')}>
+                    Log in instead
                   </button>
-                  <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setSignupStep(1)}>
-                    Back
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={!signupReady || signupBusy}
+                    title={signupReady ? undefined : 'Fill every box above to continue'}
+                    style={{ justifyContent: 'center', opacity: signupReady ? 1 : 0.5, cursor: signupReady ? 'pointer' : 'not-allowed' }}
+                  >
+                    {signupBusy ? 'Creating your boutique…' : 'Create Account'}
                   </button>
                 </div>
-              </>
+              </form>
             )}
 
-            {signupStep === 3 && (
+            {signupStep === 2 && (
               <div style={{ textAlign: 'center', padding: '32px' }}>
                 <div className="success-circle" style={{ margin: '0 auto 20px' }}><Check size={36} /></div>
                 <h2 className="auth-title">Registration Complete!</h2>
                 <p style={{ color: 'var(--text-secondary)' }}>Welcome to Scaleezy. Redirecting you to the portal workspace...</p>
               </div>
             )}
-          </div>
-
-          <div className="auth-badge-info-grid">
-            <div className="auth-badge-card">
-              <Lock className="auth-badge-icon" size={24} />
-              <h4>Secure & Encrypted</h4>
-              <p>Your data is protected with enterprise-tier bank level security standards.</p>
-            </div>
-            <div className="auth-badge-card">
-              <Compass className="auth-badge-icon" size={24} />
-              <h4>Personalized Experience</h4>
-              <p>Tailored custom order builders matching style flows perfectly.</p>
-            </div>
-            <div className="auth-badge-card">
-              <Star className="auth-badge-icon" size={24} />
-              <h4>Expert Support</h4>
-              <p>Boutique assistance is available 24/7 at the click of a button.</p>
-            </div>
           </div>
         </div>
       )}
@@ -4091,7 +4192,8 @@ function App() {
             {dashboardTab === 'overview' && (
               <>
                 <PageHeader
-                  title={justRegistered && dashboardTab === 'overview' && !ordersList.length ? t('dashboard.welcomeNewUser', `Welcome, ${currentUserName}! 🎉`, { name: currentUserName })
+                  title={justRegistered && dashboardTab === 'overview' && !ordersList.length
+                    ? t('dashboard.welcomeNewUser', `Welcome ${currentUserName} to Scaleezy! 👋`, { name: currentUserName })
                     : t('dashboard.welcomeBackUser', `Welcome back, ${currentUserName}! 👋`, { name: currentUserName })}
                   subtitle={t('dashboard.subtitle')}
                   meta={<HeaderClock />}
@@ -4540,15 +4642,17 @@ function App() {
             {dashboardTab === 'orders' && openOrder && (() => {
               const order = openOrder;
               const stages = order.stages || [];
-              const liveIdx = stages.findIndex(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status));
-              const live = liveIdx !== -1 ? stages[liveIdx] : null;
-              const doneCount = stages.filter(st => st.status === 'COMPLETED').length;
+              // Counted by step, not by row: a per-garment step is one step.
+              const steps = rollupStages(stages);
+              const live = steps.find(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status)) || null;
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
               const journeyBadge = allDone ? ['success', STEP_LABEL.done]
                 : live ? ['info', STEP_LABEL.live] : ['neutral', STEP_LABEL.next];
-              const stepChip = allDone ? `${stages.length} of ${stages.length} done`
-                : `Step ${(live ? liveIdx : doneCount) + 1} of ${stages.length}`;
-              const briefStage = live || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || stages[0];
+              const tasksDone = stages.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
+              const stepChip = `${tasksDone} of ${stages.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
+              // The row to open: the first unsettled one, garment rows included.
+              const briefStage = stages.find(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status))
+                || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || stages[0];
               const preview = (order.garment_images || [])[0]?.image || order.completed_garment_image;
               const garmentName = order.garment_label || orderGarmentNames(order).join(', ') || order.customer_garment_type;
               const verification = order.master_verification || {};
@@ -4595,9 +4699,8 @@ function App() {
                           // Which path through the workroom. Switchable by the
                           // owner or Master until cutting or anything after it
                           // has begun -- the server refuses it past that.
-                          const shared = new Set(['created', 'measurements_completed', 'fabric_confirmed']);
                           const canSwitch = (currentUser?.role === 'Owner' || currentUser?.role === 'Master')
-                            && !(order.stages || []).some(st => !shared.has(st.stage_key) && st.status !== 'NOT_STARTED');
+                            && !(order.stages || []).some(st => st.stage_key !== 'created' && st.status !== 'NOT_STARTED');
                           const label = order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
                           return canSwitch ? (
                             <label className={`ui-badge ${order.flow === 'maggam' ? 'ui-badge--warning' : 'ui-badge--neutral'}`} style={{ cursor: 'pointer', gap: '4px' }} title="Change how this order is made">
@@ -4697,6 +4800,23 @@ function App() {
                       </div>
                       {stages.length > 0 && (
                         <div className="od-head-actions">
+                          {/* The owner's shortcut: the whole journey in one go,
+                              for work already done off the record. */}
+                          {currentUser.role === 'Owner' && !allDone && (
+                            <button type="button" className="btn-primary" style={{ padding: '6px 14px', minHeight: '32px', fontSize: '12.5px' }}
+                                    disabled={completingAllOrderId === order.id}
+                                    onClick={async () => {
+                                      if (!window.confirm((order.payment_status === 'Paid' ? '' : `Payment is not complete: ${inr(order.amount_paid)} of ${inr(order.total_amount)} received.
+
+`) + 'Complete every remaining stage and mark this order Delivered?')) return;
+                                      setCompletingAllOrderId(order.id);
+                                      try { await api.completeAllStages(order.id); await fetchDashboardAndConfig(); }
+                                      catch (err) { alert(err.message); }
+                                      finally { setCompletingAllOrderId(null); }
+                                    }}>
+                              <CheckCircle2 size={14} /> {completingAllOrderId === order.id ? 'Completing…' : 'Complete all stages'}
+                            </button>
+                          )}
                           <span className="od-chip">{stepChip}</span>
                           <span className={`ui-badge ui-badge--${journeyBadge[0]}`}>{journeyBadge[1]}</span>
                         </div>
@@ -4725,6 +4845,21 @@ function App() {
                             <span className="od-section-sub">{t('ordersPage.rawMaterialsSub', 'Track the materials used for this order.')}</span>
                           </div>
                         </div>
+                        {(order.purchases || []).filter(pu => pu.status !== 'CANCELLED').length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '12px' }}>
+                            {(order.purchases || []).filter(pu => pu.status !== 'CANCELLED').map(pu => (
+                              <div key={pu.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', padding: '8px 12px', borderRadius: 'var(--radius-md)', background: 'var(--surface-2)', fontSize: '13px' }}>
+                                <span>🛒 <strong>{pu.name}</strong>{pu.garment_name ? ` · ${pu.garment_name}` : ''}</span>
+                                <span style={{ color: 'var(--text-secondary)' }}>
+                                  {Number(pu.quantity)} {pu.unit_display} · {pu.actual_cost != null ? `${inr(pu.actual_cost)} paid` : `${inr(pu.estimated_cost)} estimated`}
+                                </span>
+                                <span className={`ui-badge ui-badge--${{ TO_PURCHASE: 'warning', PURCHASED: 'info', RECEIVED: 'success' }[pu.status] || 'neutral'}`} style={{ marginLeft: 'auto' }}>
+                                  {pu.status === 'TO_PURCHASE' ? 'Need to buy' : pu.status_display}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <MaterialsChecklist orderId={order.id} role={currentUser.role} />
                       </section>
                       )}
@@ -4816,11 +4951,11 @@ function App() {
                                   const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
                                   if (remark === null) return;
                                   if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
-                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, remark.trim().slice(0, LIMITS.reason)); fetchDashboardAndConfig(); }
+                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, remark.trim().slice(0, LIMITS.reason), 'REJECTED', stitching?.garment_job || null); fetchDashboardAndConfig(); }
                                   catch (err) { alert(err.message); }
                                 };
                                 const clear = async (url) => {
-                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, '', 'CLEAR'); fetchDashboardAndConfig(); }
+                                  try { await api.reviewStagePhoto(order.id, 'stitching_in_progress', url, '', 'CLEAR', stitching?.garment_job || null); fetchDashboardAndConfig(); }
                                   catch (err) { alert(err.message); }
                                 };
                                 return photos.length > 0 && (
@@ -5528,8 +5663,8 @@ function App() {
                                 {stages.length > 0 && (
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '8px', marginTop: '12px' }}>
                                     {stages.map(stage => (
-                                      <div key={stage.stage_key} style={{ fontSize: 'var(--text-2xs)', padding: '8px 10px', borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)', border: '1px solid var(--border-color)' }}>
-                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{stage.stage_name}</div>
+                                      <div key={stage.id || stage.stage_key} style={{ fontSize: 'var(--text-2xs)', padding: '8px 10px', borderRadius: 'var(--radius-sm)', background: 'var(--surface-2)', border: '1px solid var(--border-color)' }}>
+                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{stage.stage_name}{stage.garment_name ? ` · ${stage.garment_name}` : ''}</div>
                                         <div style={{ color: 'var(--text-muted)', marginTop: '2px' }}>
                                           {STEP_LABEL[STEP_STATE(stage.status)].toLowerCase()}
                                           {stage.assigned_to_name ? ` · ${stage.assigned_to_name}` : ''}
@@ -6938,6 +7073,93 @@ function App() {
                 </div>
 
                 <div className="content-card wz-card">
+                  {/* Picks the first garment only. Once one is on the order the
+                      next is added from the prompt under the last section, so
+                      garments are filled in one after another, not all at once. */}
+                  {garmentJobs.length === 0 && <DressesDropdown
+                    title={t('wizard.dressesInOrder', 'Dresses in this Order')}
+                    subtitle={t('wizard.dressesSubtitle', 'Pick every garment being made.')}
+                    garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
+                    garmentJobs={garmentJobs}
+                    addingGarmentKey={addingGarmentKey}
+                    garmentTemplatesError={garmentTemplatesError}
+                    loadGarmentTemplates={loadGarmentTemplates}
+                    addGarment={addGarment}
+                    removeGarment={removeGarment}
+                  />}
+
+                  {garmentJobs.length > 1 && (() => {
+                    const openKey = garmentJobs.some(j => j.key === activeGarmentKey) ? activeGarmentKey : garmentJobs[0].key;
+                    return (
+                      <div style={{ marginTop: '16px' }}>
+                        {/* The same stepper the wizard draws across the top, one
+                            circle per garment: a tick once every required
+                            question this step asks is answered -- the same
+                            check Next runs -- the open one filled, the rest
+                            numbered. Clicking a circle scrolls to that garment. */}
+                        <div className="stepper-progress-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px 0' }}>
+                          {garmentJobs.map((job, idx) => {
+                            const valid = Object.keys(validateSpec(job.template, job.values, { sections: ['basic', 'style'] })).length === 0;
+                            const isActive = job.key === openKey;
+                            // Answered by hand: at least one of this step's own questions
+                            // holds something the template did not fill in itself. A
+                            // garment with no required question (a petticoat) is valid the
+                            // moment it is added, and must not read Done before anyone has
+                            // answered anything on it. Only the template's current fields
+                            // count, so an answer a draft kept for a question since removed
+                            // (hand work on a petticoat) does not.
+                            const touched = (job.template?.sections || [])
+                              .filter((sec) => sec.key === 'basic' || sec.key === 'style')
+                              .some((sec) => sec.fields.some((f) => {
+                                const v = job.values?.[f.key];
+                                return f.key !== 'delivery_date' && v !== '' && v != null && !(Array.isArray(v) && !v.length)
+                                  && !(f.default != null && v === f.default);
+                              }));
+                            const complete = valid && touched && !isActive;
+                            const missing = !valid && Boolean(garmentErrors[job.key]);
+                            // Sections are stacked below, so a circle scrolls to its garment.
+                            const goTo = () => {
+                              setActiveGarmentKey(job.key);
+                              document.getElementById(`wz-garment-${job.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            };
+                            return (
+                              <React.Fragment key={job.key}>
+                                <div className="stepper-step stepper-step--link" role="button" tabIndex={0}
+                                     aria-current={isActive ? 'step' : undefined}
+                                     title={`Go to ${job.template?.name || job.key}`}
+                                     onClick={goTo}
+                                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(); } }}
+                                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, position: 'relative', zIndex: 2, cursor: 'pointer' }}>
+                                  <div style={{
+                                    width: '28px', height: '28px', borderRadius: '50%',
+                                    backgroundColor: complete ? 'var(--primary-color)' : (isActive ? 'var(--selected-bg)' : 'var(--surface-inset)'),
+                                    color: complete ? 'var(--primary-foreground)' : isActive ? 'var(--selected-fg)' : 'var(--text-secondary)',
+                                    border: isActive ? '2px solid var(--primary-color)' : missing ? '2px solid var(--danger-color, #b91c1c)' : 'none',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '12px', fontWeight: 600, marginBottom: '8px',
+                                  }}>
+                                    {complete ? <Check size={14} /> : idx + 1}
+                                  </div>
+                                  <span style={{ fontSize: '11px', fontWeight: isActive || complete ? 600 : 500, color: isActive || complete ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                                    {job.template?.name || job.key}
+                                  </span>
+                                  <span style={{ fontSize: '9px', color: missing ? 'var(--danger-color, #b91c1c)' : 'var(--text-secondary)', marginTop: '2px' }}>
+                                    {complete ? t('wizard.completed', 'Done') : missing ? t('wizard.garmentMissing', 'Something missing') : isActive ? t('wizard.garmentNow', 'Fill in now') : t('wizard.garmentNext', 'Up next')}
+                                  </span>
+                                </div>
+                                {idx < garmentJobs.length - 1 && (
+                                  <div style={{ display: 'flex', alignItems: 'center', flex: 1, margin: '0 -20px', transform: 'translateY(-20px)', zIndex: 1, color: complete ? 'var(--primary-color)' : 'var(--border-color)' }}>
+                                    <div style={{ height: '2px', flex: 1, backgroundColor: 'currentColor' }}></div>
+                                    <ArrowRight size={16} style={{ marginLeft: '-4px', flexShrink: 0 }} />
+                                  </div>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {garmentJobs.map((job, idx) => {
                     const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
                     // Ready by (the Money screen) owns the delivery date; asking it
@@ -6949,7 +7171,7 @@ function App() {
                     const foldedAway = (f) => f.key !== 'delivery_date' && !upFront(f);
                     const hasOptional = sections.some((k) => (job.template.sections.find((sec) => sec.key === k)?.fields || []).some((f) => foldedAway(f) && f.field_type !== 'file'));
                     return (
-                      <div key={job.key} className="wz-garment">
+                      <div key={job.key} id={`wz-garment-${job.key}`} className="wz-garment">
                         <div className="wz-garment-head">
                           <span className="wz-garment-num">{idx + 1}</span>
                           <div>
@@ -6965,6 +7187,7 @@ function App() {
                           <div key={sectionKey} className="wz-garment-section">
                             <TemplateForm template={job.template} section={sectionKey} values={job.values}
                                           errors={garmentErrors[job.key] || {}} only={upFront}
+                                          purchases={job.purchases || []} onPurchaseChange={(fieldKey, row) => updateGarmentPurchase(job.key, fieldKey, row)}
                                           onChange={(values) => updateGarmentValues(job.key, values)} />
                           </div>
                         ))}
@@ -6983,6 +7206,14 @@ function App() {
                                         onChange={(values) => updateGarmentValues(job.key, values)} />
                         </div>
 
+                        {/* Something the customer wants that the shelf does not
+                            hold: bought for this order, tracked in Inventory →
+                            To buy for orders. Never stock. */}
+                        <div className="wz-garment-section">
+                          <GarmentPurchases rows={job.purchases || []}
+                                            onChange={(rows) => setGarmentJobs(prev => prev.map(j => (j.key === job.key ? { ...j, purchases: rows } : j)))} />
+                        </div>
+
                         {hasOptional && (
                           <details className="wz-more">
                             <summary>{t('wizard.moreDetails', 'More details')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
@@ -6990,35 +7221,36 @@ function App() {
                               <div key={sectionKey} className="wz-garment-section">
                                 <TemplateForm template={job.template} section={sectionKey} values={job.values}
                                               errors={garmentErrors[job.key] || {}} only={foldedAway}
+                                              purchases={job.purchases || []} onPurchaseChange={(fieldKey, row) => updateGarmentPurchase(job.key, fieldKey, row)}
                                               onChange={(values) => updateGarmentValues(job.key, values)} />
                               </div>
                             ))}
+                          </details>
+                        )}
+                        {/* Sections stack one under another, so the prompt to
+                            add the next garment sits after the last one. Same
+                            list and same addGarment as the dropdown above; the
+                            new garment renders right below this. */}
+                        {idx === garmentJobs.length - 1 && (
+                          <details className="wz-more">
+                            <summary><Plus size={14} /> {t('wizard.addAnotherGarment', 'Do you need to add another garment?')}</summary>
+                            <select className="form-control" value="" disabled={!!addingGarmentKey} style={{ marginTop: '8px' }}
+                                    onChange={(e) => {
+                                      if (!e.target.value) return;
+                                      e.target.closest('details').open = false;
+                                      addGarment(e.target.value);
+                                    }}>
+                              <option value="">{addingGarmentKey ? t('common.loading', 'Loading…') : t('wizard.selectGarment', 'Select Garment')}</option>
+                              {garmentsForGender(garmentTemplates, customerForm.gender)
+                                .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key))
+                                .map((tpl) => <option key={tpl.key} value={tpl.key}>{tpl.name}</option>)}
+                            </select>
                           </details>
                         )}
                       </div>
                     );
                   })}
 
-                  {/* The picker sits under the last garment: with none yet it is
-                      the whole screen, afterwards it hides behind the question. */}
-                  {garmentJobs.length > 0 && !showGarmentPicker ? (
-                    <button type="button" className="btn-secondary" style={{ width: '100%', justifyContent: 'center' }}
-                            onClick={() => setShowGarmentPicker(true)}>
-                      <Plus size={14} /> {t('wizard.addAnotherGarment', 'Do you need to add another garment?')}
-                    </button>
-                  ) : (
-                    <DressesDropdown
-                      title={t('wizard.dressesInOrder', 'Dresses in this Order')}
-                      subtitle={t('wizard.dressesSubtitle', 'Pick every garment being made.')}
-                      garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
-                      garmentJobs={garmentJobs}
-                      addingGarmentKey={addingGarmentKey}
-                      garmentTemplatesError={garmentTemplatesError}
-                      loadGarmentTemplates={loadGarmentTemplates}
-                      addGarment={(key) => { setShowGarmentPicker(false); addGarment(key); }}
-                      removeGarment={removeGarment}
-                    />
-                  )}
                 </div>
               </>
             )}
@@ -7164,6 +7396,7 @@ function App() {
                                                onReferencesChange={(next) => handlePartReferences(job.key, next)} />
                           </Suspense>
                         </details>
+
                       </div>
                   ))}
 
@@ -7216,28 +7449,59 @@ function App() {
                 {garmentJobs.map((job) => {
                   const section = job.template.sections.find((sec) => sec.key === 'measurements');
                   if (!section) return null;
+                  // Optional measurements a template tags with validation.group
+                  // (the saree) fold away, one "+" per group, and are filled
+                  // only when wanted. A template with no groups draws as before.
+                  // Only groups with a field this garment currently shows: the
+                  // sharara groups on Bottom Wear hang off its type, so a
+                  // salwar draws no "+" for them.
+                  const groups = [...new Set(section.fields.filter((f) => isVisible(f, job.values)).map((f) => f.validation?.group).filter(Boolean))];
                   return (
                     <div className="content-card wz-card" key={job.key}>
                       <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Scissors size={20} /> {job.template.name}
                       </div>
-                      {/* Numbers first, then the extra checklist, then the note
-                          (spoken or typed) for whatever the numbers cannot say. */}
-                      {[
-                        (f) => f.field_type === 'number',
-                        (f) => f.field_type !== 'number' && f.key !== 'measurement_notes',
-                        (f) => f.key === 'measurement_notes',
-                      ].map((only, i) => (
-                        <TemplateForm key={i} template={job.template} section="measurements" values={job.values}
-                                      errors={garmentErrors[job.key] || {}} only={only}
-                                      onChange={(values) => updateGarmentValues(job.key, values)} />
+                      <TemplateForm template={job.template} section="measurements" values={job.values}
+                                    errors={garmentErrors[job.key] || {}}
+                                    only={(f) => f.key !== 'measurement_notes' && !(groups.length && f.validation?.group)}
+                                    onChange={(values) => updateGarmentValues(job.key, values)} />
+                      {groups.map((group) => (
+                        <details key={group} className="wz-more">
+                          <summary><Plus size={14} /> {group} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <TemplateForm template={job.template} section="measurements" values={job.values}
+                                        errors={garmentErrors[job.key] || {}}
+                                        only={(f) => f.validation?.group === group}
+                                        onChange={(values) => updateGarmentValues(job.key, values)} />
+                        </details>
                       ))}
+                      {/* The note (spoken or typed) for whatever the numbers cannot say, last. */}
+                      <TemplateForm template={job.template} section="measurements" values={job.values}
+                                    errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'measurement_notes'}
+                                    onChange={(values) => updateGarmentValues(job.key, values)} />
                     </div>
                   );
                 })}
                 {!needsMeasurements() && (
                   <div className="content-card wz-card od-hint">{t('wizard.nothingToMeasure', 'Nothing to measure for these garments.')}</div>
                 )}
+
+                {/* The same recorder the workflow's stage review uses: record,
+                    hear it back, Send keeps it under the sender's name, Delete
+                    throws it away. Sent here means uploaded and held on the
+                    draft; it lands on the order at confirm. */}
+                <div className="content-card wz-card">
+                  <Field label={t('wizard.measurementVoiceNote', 'Voice note for the tailor')}>
+                    <VoiceRecorder
+                      sent={measureVoiceNote}
+                      onSend={async (blob) => {
+                        const url = await api.uploadVoiceNote(blob);
+                        const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
+                        setMeasureVoiceNote({ url, by, at: new Date().toISOString() });
+                      }}
+                      onDelete={() => setMeasureVoiceNote(null)}
+                    />
+                  </Field>
+                </div>
               </>
             )}
 
@@ -7364,13 +7628,14 @@ function App() {
                   {/* The garment drawn on a model, from the designs and rolls
                       above. Renders nothing where the vendor is not set up or
                       no garment has a design. The photograph lands on
-                      job.design.preview and confirms with the rest. */}
-                  <Suspense fallback={null}>
+                      job.design.preview and confirms with the rest.
+                      Switched off for now; uncomment to bring it back. */}
+                  {/* <Suspense fallback={null}>
                     <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
                       onPreview={(jobKey, url) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
                         ? { ...j, design: { ...(j.design || {}), preview: url } } : j))}
                       onView={(url, label) => setReviewView({ items: [{ key: 'preview', image_url: url, label }], index: 0 })} />
-                  </Suspense>
+                  </Suspense> */}
                   {reviewView && (
                     <Suspense fallback={null}>
                       <ReviewLightbox items={reviewView.items} index={reviewView.index}
@@ -7379,6 +7644,19 @@ function App() {
                     </Suspense>
                   )}
 
+                  {garmentJobs.some(job => (job.purchases || []).length) && card(t('wizard.sheetPurchases', 'To buy for this order'), stepOf('fabric'), (
+                    <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        {garmentJobs.flatMap(job => (job.purchases || []).map((row, i) => (
+                          <tr key={`${job.key}:${i}`} style={{ borderTop: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{job.template?.name || job.key}</td>
+                            <td style={{ padding: '8px 0', fontWeight: 600 }}>🛒 {row.name}</td>
+                            <td style={{ padding: '8px 0', textAlign: 'right' }}>{row.quantity} {(row.unit || 'METER').toLowerCase()} · {inr(row.estimated_cost)} est.</td>
+                          </tr>
+                        )))}
+                      </tbody>
+                    </table>
+                  ))}
                   {fabricLines.length > 0 && card(t('wizard.sheetFabric', 'Fabric from our stock'), stepOf('fabric'), (
                     <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
                       <tbody>
@@ -7852,10 +8130,9 @@ function App() {
               </button>
               <button 
                 className="btn-primary" 
-                style={{ backgroundColor: 'var(--text-primary)' }}
                 onClick={() => window.print()}
               >
-                Print Invoice
+                <Printer size={16} /> Print Invoice
               </button>
             </div>
           </div>
@@ -7952,6 +8229,15 @@ function App() {
         // on the stage. Either is a note saved in place, status unchanged.
         const transition = async (status, okMessage, comments = stageReviewComments, sentVoiceNote = null, clearVoiceNote = false) => {
           if (stageTransitionBusy) return;
+          // The Payment step checks the money is in. It may still be completed
+          // on a partial payment, but only after the owner says so here; the
+          // balance is then chased at Delivery.
+          if (status === 'COMPLETED' && stage.stage_key === 'payment' && activeReviewOrder.payment_status !== 'Paid') {
+            const paid = Number(activeReviewOrder.amount_paid || 0), total = Number(activeReviewOrder.total_amount || 0);
+            if (!window.confirm(`Payment is not complete: ${inr(paid)} of ${inr(total)} received (${inr(total - paid)} outstanding).
+
+Complete the Payment stage with this partial payment?`)) return;
+          }
           if (stageReviewRecording) { alert(t('ordersPage.stopRecordingFirst', 'Stop the recording first, then save.')); return; }
           setStageTransitionBusy(true);
           try {
@@ -7964,7 +8250,8 @@ function App() {
               stageReviewImages,
               selectedPerformerId || null,
               voiceNote,
-              clearVoiceNote
+              clearVoiceNote,
+              stage.garment_job || null
             );
             alert(okMessage);
             closeStage();
@@ -7986,7 +8273,7 @@ function App() {
         return (
           <FormModal
             icon={Scissors} tone="green" width="1000px" zIndex={1100}
-            title={stage ? `Production Stage: ${stage.stage_name}` : `Stage Review: ${activeReviewStage}`}
+            title={stage ? `Production Stage: ${stage.stage_name}${stage.garment_name ? ` · ${stage.garment_name}` : ''}` : `Stage Review: ${activeReviewStage}`}
             subtitle={`Order ID: ${orderRef(activeReviewOrder)}${activeReviewOrder.customer_name ? ` · ${activeReviewOrder.customer_name}` : ''}`}
             onClose={closeStage}
             footer={stage && (
@@ -8269,7 +8556,7 @@ function App() {
                           verdict
                             ? <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px' }}
                                       onClick={async () => {
-                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, '', 'CLEAR'); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
+                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, '', 'CLEAR', stage.garment_job || null); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.id === stage.id)); fetchDashboardAndConfig(); }
                                         catch (err) { alert(err.message); }
                                       }}>Undo rejection</button>
                             : <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px', color: 'var(--danger-color)' }}
@@ -8277,7 +8564,7 @@ function App() {
                                         const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
                                         if (remark === null) return;
                                         if (!remark.trim()) { alert('A remark is required to reject a photo.'); return; }
-                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, remark.trim().slice(0, LIMITS.reason)); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.stage_key === stage.stage_key)); fetchDashboardAndConfig(); }
+                                        try { const o = await api.reviewStagePhoto(activeReviewOrder.id, stage.stage_key, url, remark.trim().slice(0, LIMITS.reason), 'REJECTED', stage.garment_job || null); setActiveReviewOrder(o); setSelectedStageObj(o.stages.find(st => st.id === stage.id)); fetchDashboardAndConfig(); }
                                         catch (err) { alert(err.message); }
                                       }}><X size={11} /> Reject photo</button>
                         )}
@@ -8299,7 +8586,7 @@ function App() {
                       className="form-control"
                       value={stage.assigned_to || ''}
                       disabled={assigningStageKey === stage.stage_key}
-                      onChange={(e) => handleAssignStage(activeReviewOrder.id, stage.stage_key, e.target.value)}
+                      onChange={(e) => handleAssignStage(activeReviewOrder.id, stage.stage_key, e.target.value, stage.garment_job || null)}
                     >
                       <option value="">Unassigned</option>
                       {eligibleStaffForStage(stage.stage_key).map(t => (
@@ -8603,8 +8890,10 @@ function App() {
             {reversalPrompt.type === 'reopen' && (() => {
               // Later work is reset with it: the server does this, the
               // warning just makes sure nobody is surprised.
-              const stages = activeReviewOrder?.stages || [];
-              const at = stages.findIndex(s => s.stage_key === selectedStageObj?.stage_key);
+              // Only this garment's later rows and the order-level ones, as the server does.
+              const mine = (s) => !s.garment_job || !selectedStageObj?.garment_job || s.garment_job === selectedStageObj.garment_job;
+              const stages = (activeReviewOrder?.stages || []).filter(mine);
+              const at = stages.findIndex(s => s.id === selectedStageObj?.id);
               const reset = at === -1 ? [] : stages.slice(at + 1).filter(s => s.status !== 'NOT_STARTED');
               return reset.length > 0 && (
                 <div role="alert" style={{ display: 'flex', gap: '8px', padding: '10px 12px', marginBottom: '12px', borderRadius: '10px',
@@ -8638,9 +8927,9 @@ function App() {
                   setReversalBusy(true);
                   try {
                     if (reversalPrompt.type === 'failqc') {
-                      await api.failQualityCheck(activeReviewOrder.id, reversalReason.trim());
+                      await api.failQualityCheck(activeReviewOrder.id, reversalReason.trim(), selectedStageObj?.garment_job || null);
                     } else {
-                      await api.reopenStage(activeReviewOrder.id, selectedStageObj.stage_key, reversalReason.trim());
+                      await api.reopenStage(activeReviewOrder.id, selectedStageObj.stage_key, reversalReason.trim(), selectedStageObj.garment_job || null);
                     }
                     setReversalPrompt(null);
                     setActiveReviewStage(null);
@@ -8689,6 +8978,7 @@ function App() {
         onClose={() => setActivePairingGarment(null)}
         primaryGarmentKey={activePairingGarment?.key}
         primaryGarmentName={activePairingGarment?.name}
+        primaryJobKey={activePairingGarment?.jobKey}
         garmentTemplates={garmentTemplates}
         garmentJobs={garmentJobs}
         onAddPairedGarments={handleAddPairedGarments}

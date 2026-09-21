@@ -143,6 +143,18 @@ def bottom_materials(extra=()):
     ]
 
 
+def grouped(group, *fields, when=None):
+    """Fold these optional fields away under one "+ <group>" heading on the
+    Measurements step. Read from validation['group'] by the wizard; the
+    server ignores keys it does not know, so nothing else changes.
+    `when` puts the same visibility rule on every field in the group."""
+    for f in fields:
+        f['validation'] = {**f['validation'], 'group': group}
+        if when is not None:
+            f['visible_when'] = when
+    return list(fields)
+
+
 def parts(*labels):
     """The parts of a garment a design photograph can be of.
 
@@ -173,14 +185,70 @@ TEMPLATES = [
                 field('saree_type', 'Saree Type', 'select', required=True, options=[
                     'Silk', 'Cotton', 'Georgette', 'Chiffon', 'Linen', 'Organza',
                     'Tissue', 'Banarasi', 'Kanchipuram', 'Other']),
-                field('saree_type_other', 'Specify Type', 'text',
+                field('saree_type_other', 'Specify Type', 'text', required=True,
                       when=eq('saree_type', 'other')),
                 field('fabric_length', 'Fabric Length', 'number', unit='m',
                       validation={'min': 0, 'max': 20, 'step': 0.25}),
             ],
             # A petticoat is its own garment on the order (key 'petticoat'),
             # so the saree no longer asks whether one is required.
-            'measurements': [],
+            # Nothing here is required: every group folds away behind a "+"
+            # and is filled only when the counter has the numbers.
+            'measurements': [
+                *grouped('Body / Fit Measurements',
+                    measurement('height', 'Height'),
+                    measurement('shoulder', 'Shoulder'),
+                    measurement('bust', 'Bust'),
+                    measurement('underbust', 'Underbust'),
+                    measurement('waist', 'Waist'),
+                    measurement('high_waist', 'High Waist'),
+                    measurement('hip', 'Hip'),
+                    measurement('waist_to_floor', 'Waist-to-Floor'),
+                    measurement('shoulder_to_floor', 'Shoulder-to-Floor'),
+                    measurement('blouse_length', 'Blouse Length'),
+                ),
+                *grouped('Saree Measurements',
+                    field('saree_total_length', 'Saree Total Length', 'number', unit='m',
+                          validation={'min': 0, 'max': 20, 'step': 0.25}),
+                    measurement('saree_width', 'Saree Width'),
+                    measurement('pallu_length', 'Pallu Length'),
+                    measurement('pallu_width', 'Pallu Width'),
+                    field('pallu_placement', 'Pallu Fall / Placement', 'text'),
+                    measurement('pleat_length', 'Pleat Length'),
+                    measurement('pleat_width', 'Pleat Width'),
+                    field('number_of_pleats', 'Number of Pleats', 'number',
+                          validation={'min': 0, 'max': 30, 'step': 1}),
+                    field('saree_fall_length', 'Saree Fall Length', 'number', unit='m',
+                          validation={'min': 0, 'max': 20, 'step': 0.25}),
+                    measurement('petticoat_length', 'Petticoat Length'),
+                    measurement('petticoat_waist', 'Petticoat Waist'),
+                    measurement('petticoat_flare', 'Petticoat Flare / Hem',
+                                validation={'min': 0, 'max': 200, 'step': 0.25}),
+                ),
+                *grouped('With Border / Pattern',
+                    measurement('border_width', 'Border Width'),
+                    field('border_placement', 'Border Placement', 'text'),
+                    measurement('top_border_width', 'Top Border'),
+                    measurement('bottom_border_width', 'Bottom Border'),
+                    measurement('pallu_border_width', 'Pallu Border'),
+                    field('border_direction', 'Border Direction', 'text'),
+                    measurement('pattern_repeat', 'Pattern Repeat'),
+                    measurement('motif_size', 'Motif Size'),
+                    measurement('motif_spacing', 'Motif Spacing'),
+                    field('pattern_align_pleats', 'Pattern Alignment at Pleats', 'text'),
+                    field('pattern_align_pallu', 'Pattern Alignment at Pallu', 'text'),
+                    field('embroidery_placement', 'Embroidery Placement', 'text'),
+                    field('contrast_panel', 'Contrast Panel Measurements', 'text'),
+                ),
+                *grouped('Without Pattern',
+                    measurement('plain_body_width', 'Plain Body Width'),
+                    measurement('plain_pallu_width', 'Plain Pallu Width'),
+                    field('plain_border', 'Plain Border / No Border', 'select',
+                          options=['Plain Border', 'No Border']),
+                    field('edge_finish', 'Desired Finish at Edges', 'text'),
+                    field('tassel_placement', 'Tassel / Latkan Placement', 'text'),
+                ),
+            ],
             'style': [
                 field('services', 'Services Required', 'multiselect', required=True, options=[
                     'Stitching', 'Fall', 'Pico', ('fall_pico', 'Fall + Pico'),
@@ -245,7 +313,68 @@ TEMPLATES = [
                     'Portable Katori', 'Peplum', 'Ruffled', ('jacket', 'Jacket Style'),
                     ('cape', 'Cape Style'), 'Long Waist', 'Corset']),
             ],
-            'measurements': blouse_measurements(),
+            # The six shared measurements stay as they were (required, drawn
+            # up front). Everything after is optional and folds away behind a
+            # "+" per group. Shoulder, waist, armhole, sleeve length, neck and
+            # collar already have a field, so they are not asked twice.
+            'measurements': [
+                *blouse_measurements(),
+                *grouped('Body Measurements',
+                    measurement('bust', 'Bust'),
+                    measurement('underbust', 'Underbust'),
+                    measurement('high_waist', 'High Waist'),
+                    measurement('across_chest', 'Across Chest'),
+                    measurement('across_back', 'Across Back'),
+                    measurement('front_length', 'Front Length'),
+                    measurement('back_length', 'Back Length'),
+                    measurement('upper_arm', 'Upper Arm / Bicep'),
+                    measurement('elbow', 'Elbow'),
+                    measurement('wrist', 'Wrist'),
+                    measurement('neck_circumference', 'Neck Circumference'),
+                    measurement('shoulder_to_bust', 'Shoulder-to-Bust'),
+                    measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
+                ),
+                *grouped('Neck',
+                    measurement('neck_width', 'Neck Width'),
+                    measurement('front_neck_depth', 'Front Neck Depth'),
+                    measurement('back_neck_depth', 'Back Neck Depth'),
+                    field('neck_shape', 'Neck Shape', 'text'),
+                    measurement('collar_height', 'Collar Height (if applicable)'),
+                ),
+                *grouped('Sleeves',
+                    measurement('sleeve_opening', 'Sleeve Opening'),
+                    measurement('upper_arm_circumference', 'Upper-Arm Circumference'),
+                    measurement('elbow_circumference', 'Elbow Circumference'),
+                    measurement('cuff_width', 'Cuff Width'),
+                    measurement('cuff_height', 'Cuff Height'),
+                ),
+                *grouped('Closure',
+                    field('closure', 'Closure', 'multiselect', options=[
+                        ('back_zip', 'Back Zip'), ('side_zip', 'Side Zip'),
+                        'Hooks', 'Dori', 'Buttons']),
+                    measurement('opening_length', 'Opening Length'),
+                ),
+                *grouped('With Pattern / Embroidery',
+                    measurement('border_width', 'Border Width'),
+                    measurement('sleeve_border', 'Sleeve Border'),
+                    measurement('neck_border', 'Neck Border'),
+                    measurement('waist_border', 'Waist Border'),
+                    measurement('front_motif_size', 'Front Motif Size'),
+                    measurement('back_motif_size', 'Back Motif Size'),
+                    field('sleeve_motif', 'Sleeve Motif', 'text'),
+                    measurement('pattern_repeat', 'Pattern Repeat'),
+                    field('pattern_direction', 'Pattern Direction', 'text'),
+                    field('embroidery_placement', 'Embroidery Placement', 'text'),
+                    field('mirror_panel_matching', 'Mirror / Panel Matching', 'text'),
+                ),
+                *grouped('Plain Blouse',
+                    field('fabric_direction', 'Fabric Direction', 'text'),
+                    field('seam_placement', 'Seam Placement', 'text'),
+                    field('dart_placement', 'Dart Placement', 'text'),
+                    field('princess_cut_placement', 'Princess-Cut Placement', 'text'),
+                    measurement('ease_allowance', 'Ease / Comfort Allowance'),
+                ),
+            ],
             'style': [
                 *sleeve_and_neck(),
                 field('dot_point', 'Dot Point', 'text'),
@@ -299,9 +428,71 @@ TEMPLATES = [
                     'A-Line', 'Circular', 'Mermaid', 'Straight Cut',
                     ('panelled', 'Panelled (Khalis)')]),
             ],
+            # Waist and floor length stay required and up front. The rest is
+            # optional, folded behind a "+" per group. Waist-to-floor is
+            # `floor_length`, waist fastening is `waist_finish` (style), so
+            # neither is asked twice.
             'measurements': [
                 measurement('waist', 'Waist', required=True),
                 measurement('floor_length', 'Floor Length', required=True),
+                *grouped('Body',
+                    measurement('height', 'Height'),
+                    measurement('high_waist', 'High Waist'),
+                    measurement('hip', 'Hip'),
+                    measurement('waist_to_hip', 'Waist-to-Hip'),
+                    measurement('waist_to_ankle', 'Waist-to-Ankle'),
+                    measurement('finished_length', 'Desired Finished Length'),
+                    measurement('heel_height', 'Heel Height'),
+                ),
+                *grouped('Construction',
+                    measurement('waistband_width', 'Waistband Width'),
+                    field('panel_count', 'Number of Panels / Kalis', 'number',
+                          validation={'min': 0, 'max': 60, 'step': 1}),
+                    measurement('panel_width', 'Panel Width'),
+                    measurement('total_ghera', 'Total Ghera',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    measurement('hem_circumference', 'Hem Circumference',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    measurement('front_length', 'Front Length'),
+                    measurement('back_length', 'Back Length'),
+                    measurement('seam_allowance', 'Seam Allowance'),
+                ),
+                *grouped('Layers / Tiers',
+                    field('layers', 'Layers / Tiers', 'textarea',
+                          help_text='One line per layer: starting point, height, width, flare, gather ratio, fabric, seam placement.',
+                          validation={'max_length': 2000}),
+                ),
+                *grouped('Border',
+                    measurement('bottom_border_width', 'Bottom Border Width'),
+                    measurement('second_border_width', 'Second Border Width'),
+                    field('border_placement', 'Border Placement', 'text'),
+                    measurement('border_distance', 'Distance Between Borders'),
+                    measurement('border_circumference', 'Border Circumference',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    field('border_direction', 'Border Direction', 'text'),
+                ),
+                *grouped('Pattern / Embroidery',
+                    measurement('motif_size', 'Motif Size'),
+                    measurement('motif_spacing', 'Motif Spacing'),
+                    measurement('pattern_repeat', 'Pattern Repeat'),
+                    field('front_pattern', 'Front Pattern', 'text'),
+                    field('back_pattern', 'Back Pattern', 'text'),
+                    field('panel_pattern', 'Panel Pattern', 'text'),
+                    field('pattern_matching', 'Pattern Matching', 'text'),
+                    field('embroidery_placement', 'Embroidery Placement', 'text'),
+                    field('sequin_placement', 'Sequins / Beadwork Placement', 'text'),
+                ),
+                *grouped('Inner',
+                    measurement('lining_length', 'Lining Length'),
+                    measurement('cancan_length', 'Can-Can Length'),
+                    field('cancan_layers', 'Can-Can Layers', 'number',
+                          validation={'min': 0, 'max': 10, 'step': 1}),
+                    measurement('cancan_flare', 'Can-Can Flare',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    field('petticoat_underskirt', 'Petticoat / Underskirt', 'text'),
+                    field('fastening', 'Hooks / Zip / Dori', 'multiselect',
+                          options=['Hooks', 'Zip', 'Dori']),
+                ),
             ],
             'style': [
                 field('waist_finish', 'Waist Finish', 'select',
@@ -454,6 +645,63 @@ TEMPLATES = [
                 measurement('chest', 'Chest'),
                 measurement('waist', 'Waist'),
                 measurement('hip', 'Hip'),
+                # The seven above stay as they were. The rest is optional and
+                # folds behind a "+" per group. Shoulder, bust (chest), waist,
+                # hip and the finished length (top length) are asked above.
+                *grouped('Body',
+                    measurement('underbust', 'Underbust'),
+                    measurement('high_waist', 'High Waist'),
+                    measurement('armhole', 'Armhole'),
+                    measurement('upper_arm', 'Upper Arm'),
+                    measurement('elbow', 'Elbow'),
+                    measurement('wrist', 'Wrist'),
+                ),
+                *grouped('Length',
+                    measurement('shoulder_to_bust', 'Shoulder-to-Bust'),
+                    measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
+                    measurement('shoulder_to_hip', 'Shoulder-to-Hip'),
+                    measurement('shoulder_to_floor', 'Shoulder-to-Floor'),
+                    measurement('front_length', 'Front Length'),
+                    measurement('back_length', 'Back Length'),
+                    measurement('heel_height', 'Heel Height'),
+                ),
+                *grouped('Construction',
+                    field('panel_count', 'Number of Panels / Kalis', 'number',
+                          validation={'min': 0, 'max': 60, 'step': 1}),
+                    measurement('panel_width', 'Panel Width'),
+                    measurement('empire_waist', 'Empire Waist Position'),
+                    measurement('flare_ghera', 'Flare / Ghera',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    measurement('hem_circumference', 'Hem Circumference',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    field('panel_seam_placement', 'Panel Seam Placement', 'text'),
+                    measurement('lining_length', 'Lining Length'),
+                    field('cancan_details', 'Can-Can', 'text'),
+                ),
+                *grouped('Layers',
+                    field('layer_count', 'Layer Count', 'number',
+                          validation={'min': 0, 'max': 10, 'step': 1}),
+                    measurement('layer_start', 'Layer Starting Point'),
+                    measurement('layer_height', 'Layer Height'),
+                    measurement('layer_flare', 'Layer Flare',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    field('gather_ratio', 'Gather Ratio', 'text'),
+                    field('layer_fabric', 'Layer Fabric', 'text'),
+                ),
+                *grouped('Border / Pattern',
+                    measurement('neck_border', 'Neck Border'),
+                    measurement('sleeve_border', 'Sleeve Border'),
+                    measurement('waist_border', 'Waist Border'),
+                    measurement('panel_border', 'Panel Border'),
+                    measurement('bottom_border', 'Bottom Border'),
+                    measurement('border_width', 'Border Width'),
+                    measurement('motif_size', 'Motif Size'),
+                    measurement('motif_spacing', 'Motif Spacing'),
+                    measurement('pattern_repeat', 'Pattern Repeat'),
+                    field('panel_matching', 'Panel Matching', 'text'),
+                    field('front_back_pattern', 'Front / Back Pattern', 'text'),
+                    field('embroidery_placement', 'Embroidery Placement', 'text'),
+                ),
             ],
             'style': [
                 field('front_neck', 'Front Neck', 'text'),
@@ -498,7 +746,7 @@ TEMPLATES = [
                 field('bottom_type', 'Bottom Type', 'select', required=True, options=[
                     'Salwar', 'Churidar', 'Palazzo', 'Sharara', 'Patiala',
                     'Cigarette Pant', 'Dhoti', 'Other']),
-                field('bottom_type_other', 'Specify Type', 'text',
+                field('bottom_type_other', 'Specify Type', 'text', required=True,
                       when=eq('bottom_type', 'other')),
             ],
             'measurements': [
@@ -511,6 +759,81 @@ TEMPLATES = [
                 measurement('calf', 'Calf'),
                 measurement('ankle', 'Ankle'),
                 measurement('crotch', 'Crotch'),
+                # Sharara only, like the can-can material below: every other
+                # bottom type sees exactly the list above. All optional, folded
+                # behind a "+" per group. Waist, hip and full length are asked
+                # above; waist closure is `waist_finish` (style).
+                *grouped('Body',
+                    measurement('high_waist', 'High Waist'),
+                    measurement('waist_to_hip', 'Waist-to-Hip'),
+                    measurement('waist_to_floor', 'Waist-to-Floor'),
+                    measurement('heel_height', 'Heel Height'),
+                    when=one_of('bottom_type', ['sharara'])),
+                *grouped('Sharara Construction',
+                    measurement('waistband_width', 'Waistband'),
+                    measurement('upper_panel_length', 'Upper Panel Length'),
+                    measurement('flare_start', 'Flare Starting Point'),
+                    field('panel_count', 'Number of Panels', 'number',
+                          validation={'min': 0, 'max': 60, 'step': 1}),
+                    measurement('panel_width', 'Panel Width'),
+                    measurement('total_ghera', 'Total Ghera',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    measurement('bottom_circumference', 'Bottom Circumference',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    field('seam_placement', 'Center / Front / Back Seam', 'text'),
+                    when=one_of('bottom_type', ['sharara'])),
+                *grouped('Layers / Pattern',
+                    measurement('layer_height', 'Layer Height'),
+                    measurement('layer_width', 'Layer Width',
+                                validation={'min': 0, 'max': 600, 'step': 0.25}),
+                    field('gather_amount', 'Gather Amount', 'text'),
+                    measurement('border_width', 'Border Width'),
+                    field('border_placement', 'Border Placement', 'text'),
+                    measurement('motif_size', 'Motif Size'),
+                    measurement('motif_spacing', 'Motif Spacing'),
+                    measurement('pattern_repeat', 'Pattern Repeat'),
+                    field('panel_matching', 'Panel Matching', 'text'),
+                    field('embroidery_placement', 'Embroidery Placement', 'text'),
+                    when=one_of('bottom_type', ['sharara'])),
+                *grouped('Inner',
+                    field('lining_details', 'Lining', 'text'),
+                    field('cancan_details', 'Can-Can', 'text'),
+                    field('inner_shorts', 'Inner Shorts / Underskirt', 'text'),
+                    field('fastening', 'Zip / Hooks / Dori', 'multiselect',
+                          options=['Zip', 'Hooks', 'Dori']),
+                    when=one_of('bottom_type', ['sharara'])),
+                # Churidar only, same shape. Waist, hip, thigh, knee, calf,
+                # ankle, rise (crotch) and full length are asked above; bottom
+                # opening is `bottom_width` and waist closure `waist_finish`
+                # (style). Keys the sharara groups already use get a prefix,
+                # since a template's keys are one namespace.
+                *grouped('Body',
+                    measurement('inseam', 'Inseam'),
+                    measurement('outseam', 'Outseam'),
+                    when=one_of('bottom_type', ['churidar'])),
+                *grouped('Churidar-specific',
+                    measurement('ankle_finished', 'Ankle Finished Measurement'),
+                    measurement('churi_length', 'Churi / Gather Length'),
+                    field('churi_folds', 'Number of Churi Folds', 'number',
+                          validation={'min': 0, 'max': 60, 'step': 1}),
+                    measurement('knee_fitting', 'Knee Fitting'),
+                    measurement('thigh_fitting', 'Thigh Fitting'),
+                    measurement('churidar_waistband', 'Waistband'),
+                    when=one_of('bottom_type', ['churidar'])),
+                *grouped('Pattern',
+                    measurement('ankle_border', 'Ankle Border'),
+                    measurement('side_border', 'Side Border'),
+                    field('motif_placement', 'Motif Placement', 'text'),
+                    field('churidar_embroidery_placement', 'Embroidery Placement', 'text'),
+                    measurement('churidar_pattern_repeat', 'Pattern Repeat'),
+                    field('pattern_direction', 'Pattern Direction', 'text'),
+                    when=one_of('bottom_type', ['churidar'])),
+                *grouped('Plain',
+                    field('fabric_stretch', 'Fabric Stretch', 'text'),
+                    measurement('ease', 'Ease'),
+                    field('churidar_fastening', 'Drawstring / Elastic / Zip', 'multiselect',
+                          options=['Drawstring', 'Elastic', 'Zip']),
+                    when=one_of('bottom_type', ['churidar'])),
             ],
             'style': [
                 field('waist_finish', 'Waist Finish', 'select', options=WAIST_FINISH),
@@ -710,7 +1033,7 @@ TEMPLATES = [
                 field('shirt_type', 'Shirt Type', 'select', required=True, options=[
                     'Formal', 'Casual', 'Dress', 'Oxford', 'Linen', 'Denim', 'Printed',
                     'Checked', 'Striped', 'Short Kurta Shirt', 'Other']),
-                field('shirt_type_other', 'Specify Type', 'text',
+                field('shirt_type_other', 'Specify Type', 'text', required=True,
                       when=eq('shirt_type', 'other')),
                 field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Oversized']),
             ],
@@ -725,6 +1048,47 @@ TEMPLATES = [
                 measurement('armhole', 'Armhole'),
                 measurement('bicep', 'Bicep'),
                 measurement('cuff', 'Cuff'),
+                # The ten above stay as they were. The rest is optional and
+                # folds behind a "+" per group. Shirt length, shoulder, chest,
+                # waist, hip, neck, sleeve length, armhole, bicep and cuff are
+                # already asked above, so they are not repeated.
+                *grouped('Body',
+                    measurement('height', 'Height'),
+                    measurement('underbust', 'Underbust'),
+                    measurement('high_waist', 'High Waist'),
+                    measurement('elbow', 'Elbow'),
+                    measurement('wrist', 'Wrist'),
+                ),
+                *grouped('Length',
+                    measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
+                    measurement('shoulder_to_hip', 'Shoulder-to-Hip'),
+                    measurement('front_length', 'Front Length'),
+                    measurement('back_length', 'Back Length'),
+                    measurement('side_length', 'Side Length'),
+                ),
+                *grouped('Neck',
+                    measurement('neck_width', 'Neck Width'),
+                    measurement('front_neck_depth', 'Front Depth'),
+                    measurement('back_neck_depth', 'Back Depth'),
+                    measurement('collar_height', 'Collar Height'),
+                    measurement('collar_width', 'Collar Width'),
+                ),
+                *grouped('Sleeves',
+                    measurement('sleeve_opening', 'Sleeve Opening'),
+                    measurement('cuff_height', 'Cuff Height'),
+                ),
+                *grouped('Pattern',
+                    measurement('shirt_border', 'Shirt Border'),
+                    measurement('hem_border', 'Hem Border'),
+                    measurement('sleeve_border', 'Sleeve Border'),
+                    measurement('collar_border', 'Collar Border'),
+                    field('front_motif', 'Front Motif', 'text'),
+                    field('back_motif', 'Back Motif', 'text'),
+                    measurement('pattern_repeat', 'Pattern Repeat'),
+                    field('pattern_direction', 'Pattern Direction', 'text'),
+                    field('pocket_placement', 'Pocket Placement', 'text'),
+                    measurement('pocket_size', 'Pocket Size'),
+                ),
             ],
             'style': [
                 field('collar_style', 'Collar', 'select', options=[
@@ -755,7 +1119,7 @@ TEMPLATES = [
                 field('tshirt_type', 'T-Shirt Type', 'select', required=True, options=[
                     'Crew Neck', 'V-Neck', 'Polo', 'Henley', 'Round Neck', 'Oversized',
                     'Graphic', 'Printed', 'Tank Top', 'Sports', 'Other']),
-                field('tshirt_type_other', 'Specify Type', 'text',
+                field('tshirt_type_other', 'Specify Type', 'text', required=True,
                       when=eq('tshirt_type', 'other')),
                 field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Oversized']),
             ],
@@ -791,7 +1155,7 @@ TEMPLATES = [
                 field('kurta_type', 'Kurta Type', 'select', required=True, options=[
                     'Straight', 'Short', 'Long', 'Pathani', 'Asymmetric', 'Angrakha',
                     'Lucknowi', 'Other']),
-                field('kurta_type_other', 'Specify Type', 'text',
+                field('kurta_type_other', 'Specify Type', 'text', required=True,
                       when=eq('kurta_type', 'other')),
                 field('fit', 'Fit', 'select', options=['Slim Fit', 'Regular Fit', 'Relaxed Fit']),
             ],
@@ -940,7 +1304,7 @@ TEMPLATES = [
                 field('trouser_type', 'Trouser Type', 'select', required=True, options=[
                     'Formal', 'Dress', 'Chinos', 'Casual', 'Linen', 'Cotton', 'Cargo',
                     'Utility', 'Other']),
-                field('trouser_type_other', 'Specify Type', 'text',
+                field('trouser_type_other', 'Specify Type', 'text', required=True,
                       when=eq('trouser_type', 'other')),
                 field('fit', 'Fit', 'select', options=[
                     'Straight Fit', 'Slim Fit', 'Regular Fit', 'Tapered', 'Wide Leg']),
@@ -954,6 +1318,39 @@ TEMPLATES = [
                 measurement('bottom_opening', 'Bottom Opening'),
                 measurement('inseam', 'Inseam'),
                 measurement('crotch', 'Crotch'),
+                # The eight above stay as they were. The rest is optional and
+                # folds behind a "+" per group. Waist, hip, thigh, knee, full
+                # length, inseam and rise (crotch) are asked above; pleats are
+                # `front_style` (style), so none is repeated.
+                *grouped('Body',
+                    measurement('high_waist', 'High Waist'),
+                    measurement('waist_to_hip', 'Waist-to-Hip'),
+                    measurement('front_rise', 'Front Rise'),
+                    measurement('back_rise', 'Back Rise'),
+                    measurement('calf', 'Calf'),
+                    measurement('ankle', 'Ankle'),
+                    measurement('outseam', 'Outseam'),
+                ),
+                *grouped('Construction',
+                    measurement('waistband_width', 'Waistband Width'),
+                    measurement('belt_loop_width', 'Belt Loop Width'),
+                    field('pocket_placement', 'Pocket Placement', 'text'),
+                    measurement('pocket_opening', 'Pocket Opening'),
+                    measurement('zip_length', 'Zip Length'),
+                    field('hook_button_placement', 'Hook / Button Placement', 'text'),
+                    measurement('cuff_width', 'Cuff Width'),
+                    field('darts', 'Darts', 'text'),
+                ),
+                *grouped('Pattern / Border',
+                    measurement('side_border_width', 'Side Border Width'),
+                    measurement('bottom_border_width', 'Bottom Border Width'),
+                    field('border_placement', 'Border Placement', 'text'),
+                    field('print_direction', 'Print Direction', 'text'),
+                    measurement('motif_size', 'Motif Size'),
+                    measurement('motif_repeat', 'Motif Repeat'),
+                    field('pattern_matching', 'Pattern Matching', 'text'),
+                    field('embroidery_placement', 'Embroidery Placement', 'text'),
+                ),
             ],
             'style': [
                 field('front_style', 'Front', 'select', options=['Flat Front', 'Single Pleat', 'Double Pleat']),
@@ -1053,7 +1450,7 @@ TEMPLATES = [
                 field('bottom_type', 'Bottom Type', 'select', required=True, options=[
                     'Churidar', 'Pajama', 'Pathani Pajama', 'Salwar', 'Dhoti', 'Dhoti Pants',
                     'Afghani Pants', 'Patiala Pajama', 'Pleated Dhoti Pants', 'Other']),
-                field('bottom_type_other', 'Specify Type', 'text',
+                field('bottom_type_other', 'Specify Type', 'text', required=True,
                       when=eq('bottom_type', 'other')),
             ],
             'measurements': [
@@ -1179,6 +1576,35 @@ COMMON_BY_SECTION = {
     'production': COMMON_PRODUCTION,
 }
 
+#: Recorded on any garment with a print, embroidery, border, lace, stripe,
+#: motif, panel or layered design. Optional on every garment that can carry
+#: work (petticoat excepted), folded behind one "+" after the garment's own
+#: groups. Keys carry a `design_` prefix because several garments already
+#: ask a border width or motif size of their own under a per-garment group.
+COMMON_PATTERN = grouped('Pattern / Design Details',
+    field('design_pattern_type', 'Pattern Type', 'text'),
+    field('design_pattern_direction', 'Pattern Direction', 'text'),
+    measurement('design_pattern_repeat', 'Pattern Repeat'),
+    measurement('design_motif_size', 'Motif Size'),
+    measurement('design_motif_spacing', 'Motif Spacing'),
+    measurement('design_border_width', 'Border Width'),
+    field('design_border_placement', 'Border Placement', 'text'),
+    measurement('design_border_distance', 'Distance Between Borders'),
+    field('design_front_placement', 'Front Pattern Placement', 'text'),
+    field('design_back_placement', 'Back Pattern Placement', 'text'),
+    field('design_side_placement', 'Side Pattern Placement', 'text'),
+    field('design_sleeve_placement', 'Sleeve Pattern Placement', 'text'),
+    field('design_panel_matching', 'Panel-to-Panel Matching', 'text'),
+    field('design_seam_matching', 'Seam Matching', 'text'),
+    field('design_symmetry', 'Symmetry', 'text'),
+    field('design_fabric_grain', 'Fabric Grain / Direction', 'text'),
+    field('design_orientation', 'Pattern Upside / Downside', 'text'),
+    field('design_embroidery_area', 'Embroidery Area', 'text'),
+    field('design_embroidery_density', 'Embroidery Density', 'text'),
+    field('design_extra_fabric', 'Extra Fabric Required for Matching', 'number', unit='m',
+          validation={'min': 0, 'max': 20, 'step': 0.25}),
+)
+
 
 HAND_WORK_KINDS = [
     ('maggam', 'Maggam (Aari)'), 'Zardozi', 'Thread Embroidery',
@@ -1188,6 +1614,12 @@ HAND_WORK_KINDS = [
 #: gate; anything but 'none' puts the order on the maggam path, which is
 #: what every reader of it tests (flow_for_garments, isMaggamOrder).
 HAND_WORK_WANTED = ['with_work']
+
+
+#: Per-garment wording for the hand-work questions: (type label, parts label).
+HAND_WORK_LABELS = {
+    'lehenga': ('Type of Design', 'Design Required On'),
+}
 
 
 def hand_work_fields(definition):
@@ -1202,10 +1634,14 @@ def hand_work_fields(definition):
                     for p in definition.get('design_parts', [])
                     if not any(w in p['key'] for w in skip)]
     has_work = one_of('hand_work', HAND_WORK_WANTED)
+    # The counter talks about the design on the garment, not the work. Same
+    # keys and options, so nothing that reads the answers changes.
+    kind_label, parts_label = HAND_WORK_LABELS.get(
+        definition['key'], ('Type of Design', 'Work On'))
     fields = [
         field('hand_work', 'Maggam / Hand Work', 'select', required=True, default='none',
               options=[('none', 'Without Work'), ('with_work', 'With Work')]),
-        field('hand_work_kind', 'Type of Design', 'select', options=HAND_WORK_KINDS, when=has_work),
+        field('hand_work_kind', kind_label, 'select', options=HAND_WORK_KINDS, when=has_work),
         field('hand_work_density', 'Work Coverage', 'select',
               options=['Light', 'Medium', 'Heavy'], when=has_work),
         field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
@@ -1213,7 +1649,7 @@ def hand_work_fields(definition):
               validation={'max_length': 500}, when=has_work),
     ]
     if part_options:
-        fields.insert(2, field('hand_work_parts', 'Design Required On', 'multiselect',
+        fields.insert(2, field('hand_work_parts', parts_label, 'multiselect',
                                options=part_options, when=has_work))
     return fields
 
@@ -1242,6 +1678,8 @@ def build(definition):
             fields = FABRIC_SOURCE + fields
             if definition['key'] not in NO_HAND_WORK:
                 fields = fields + HAND_WORK_MATERIALS
+        if key == 'measurements' and definition['key'] not in NO_HAND_WORK:
+            fields = fields + COMMON_PATTERN
         sections.append({
             'key': key,
             'title': title,

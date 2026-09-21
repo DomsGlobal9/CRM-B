@@ -7,7 +7,7 @@ from django.utils import timezone
 from . import bom as bom_service
 from .models import (
     BomLine, Category, CustomerMaterial, CustomerMaterialMovement,
-    OrderMaterialLine, OrderMaterialPlan,
+    OrderMaterialLine, OrderMaterialPlan, OrderPurchase, Unit,
 )
 from .services import InventoryService
 
@@ -113,6 +113,8 @@ def plan_from_garment_jobs(order, *, user=None):
     for selection in selections:
         item = selection.inventory_item
         is_customer = selection.source == JobMaterial.Source.CUSTOMER
+        # A purchase line has no item: the checklist lists it, nothing is
+        # reserved or consumed from stock for it (see OrderPurchase).
         name = item.name if item else (selection.free_text or selection.field_key)
 
         quantity = _quantity(selection.quantity, 'quantity')
@@ -362,13 +364,16 @@ def ensure_plan(order, *, user=None):
 
 
 @transaction.atomic
-def sync_order_materials(order, stage_key, new_status, *, user=None):
+def sync_order_materials(order, stage_key, new_status, *, user=None, garment_job=None):
     if new_status != 'COMPLETED':
         return None
-    if stage_key not in ('fabric_confirmed', 'stitching_completed', 'delivered'):
+    if stage_key not in ('created', 'fabric_confirmed', 'stitching_in_progress', 'delivered'):
         return None
 
-    if stage_key == 'fabric_confirmed':
+    # 'created': the order is taken with its fabric chosen, so the materials
+    # are reserved then. 'fabric_confirmed' stays for a boutique whose saved
+    # workflow still has the stage.
+    if stage_key in ('created', 'fabric_confirmed'):
         plan, skipped = ensure_plan(order, user=user)
         if plan is None:
             return {'stage': stage_key, 'planned': 0, 'skipped': skipped}
@@ -379,7 +384,8 @@ def sync_order_materials(order, stage_key, new_status, *, user=None):
 
     plan = live_plan(order)
 
-    if stage_key == 'stitching_completed':
+    # Stitching done: the fabric on the plan has been used.
+    if stage_key == 'stitching_in_progress':
         if plan is None:
             plan, _ = ensure_plan(order, user=user)
             if plan is None:
@@ -388,9 +394,13 @@ def sync_order_materials(order, stage_key, new_status, *, user=None):
     if plan is None:
         return None
 
-    if stage_key == 'stitching_completed':
+    if stage_key == 'stitching_in_progress':
         consumed, short = [], []
-        for line in plan.lines.select_related('item', 'garment_job'):
+        # Per-garment stitching: only that garment's cloth is used up.
+        lines = plan.lines.select_related('item', 'garment_job')
+        if garment_job is not None:
+            lines = lines.filter(garment_job=garment_job)
+        for line in lines:
             if line.is_customer_supplied or line.item is None:
                 continue
             outstanding = (line.required_quantity - line.consumed_quantity
@@ -541,6 +551,105 @@ def record_customer_material(material, movement_type, quantity, *, user=None, re
     locked.save(update_fields=[field])
     _log_customer_movement(locked, movement_type, quantity,
                            previous=remaining, user=user, remarks=remarks)
+    return locked
+
+
+def create_order_purchase(order, *, name, quantity, unit, garment_job=None,
+                          job_material=None, field_key='', estimated_cost=0,
+                          required_by=None, notes='', user=None):
+    """Record that something must be bought for this order. Stock is untouched."""
+    quantity = _quantity(quantity, 'quantity')
+    if quantity <= 0:
+        raise MaterialPlanError('Quantity to buy must be greater than zero.')
+    estimated_cost = _quantity(estimated_cost or 0, 'estimated_cost')
+    if estimated_cost < 0:
+        raise MaterialPlanError('Estimated cost cannot be negative.')
+    name = (name or '').strip()
+    if not name:
+        raise MaterialPlanError('Say what needs to be bought.')
+    if unit not in Unit.values:
+        raise MaterialPlanError(f'{unit!r} is not a valid unit.')
+    return OrderPurchase.objects.create(
+        order=order, garment_job=garment_job, job_material=job_material,
+        field_key=field_key or '',
+        garment_name=(garment_job.template.name
+                      if garment_job is not None and garment_job.template_id else ''),
+        name=name[:200], notes=(notes or '').strip(), quantity=quantity, unit=unit,
+        estimated_cost=estimated_cost, required_by=required_by, created_by=user)
+
+
+def _purchase_locked(purchase, allowed, action):
+    locked = OrderPurchase.objects.select_for_update().get(pk=purchase.pk)
+    if locked.status not in allowed:
+        raise MaterialPlanError(
+            f"'{locked.name}' is {locked.get_status_display().lower()}; it cannot be {action}.")
+    return locked
+
+
+@transaction.atomic
+def mark_purchased(purchase, *, actual_cost, supplier=None, purchased_at=None,
+                   invoice_reference='', user=None):
+    """Bought: the real price paid, kept apart from what the customer is charged."""
+    locked = _purchase_locked(purchase, (OrderPurchase.Status.TO_PURCHASE,), 'marked purchased')
+    actual_cost = _quantity(actual_cost, 'actual_cost')
+    if actual_cost < 0:
+        raise MaterialPlanError('Purchase cost cannot be negative.')
+    locked.actual_cost = actual_cost
+    locked.supplier = supplier
+    locked.purchased_at = purchased_at or timezone.localdate()
+    locked.invoice_reference = (invoice_reference or '')[:100]
+    locked.status = OrderPurchase.Status.PURCHASED
+    locked.save(update_fields=['actual_cost', 'supplier', 'purchased_at', 'invoice_reference',
+                               'status', 'updated_at'])
+    return locked
+
+
+@transaction.atomic
+def receive_purchase(purchase, *, quantity=None, user=None):
+    """In the boutique's hands, for this order only. Not stock."""
+    locked = _purchase_locked(
+        purchase, (OrderPurchase.Status.TO_PURCHASE, OrderPurchase.Status.PURCHASED), 'received')
+    quantity = _quantity(locked.quantity if quantity in (None, '') else quantity, 'quantity')
+    if quantity <= 0:
+        raise MaterialPlanError('Received quantity must be greater than zero.')
+    if locked.status == OrderPurchase.Status.TO_PURCHASE:
+        # Received without a purchase step: it was bought at the counter.
+        locked.purchased_at = locked.purchased_at or timezone.localdate()
+        if locked.actual_cost is None:
+            locked.actual_cost = locked.estimated_cost
+    locked.received_quantity = quantity
+    locked.received_at = timezone.now()
+    locked.status = OrderPurchase.Status.RECEIVED
+    locked.save(update_fields=['received_quantity', 'received_at', 'purchased_at', 'actual_cost',
+                               'status', 'updated_at'])
+    return locked
+
+
+@transaction.atomic
+def use_purchase(purchase, quantity, *, user=None):
+    """Went into the garment. USED once nothing is left; a remainder stays on
+    the row, on the order's account, until someone decides what to do with it."""
+    locked = _purchase_locked(purchase, (OrderPurchase.Status.RECEIVED,), 'used')
+    quantity = _quantity(quantity, 'quantity')
+    if quantity <= 0:
+        raise MaterialPlanError('Used quantity must be greater than zero.')
+    if quantity > locked.remaining_quantity:
+        raise MaterialPlanError(
+            f"Only {locked.remaining_quantity} {locked.get_unit_display()} of "
+            f"'{locked.name}' is left; cannot use {quantity}.")
+    locked.used_quantity += quantity
+    if locked.remaining_quantity <= 0:
+        locked.status = OrderPurchase.Status.USED
+    locked.save(update_fields=['used_quantity', 'status', 'updated_at'])
+    return locked
+
+
+@transaction.atomic
+def cancel_purchase(purchase, *, user=None):
+    """Only before anything was bought: a receipt is history, not a draft."""
+    locked = _purchase_locked(purchase, (OrderPurchase.Status.TO_PURCHASE,), 'cancelled')
+    locked.status = OrderPurchase.Status.CANCELLED
+    locked.save(update_fields=['status', 'updated_at'])
     return locked
 
 

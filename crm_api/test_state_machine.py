@@ -3,6 +3,7 @@ from decimal import Decimal
 from unittest import mock
 
 from django.contrib.auth.models import User
+from django.db import models
 from django_tenants.test.cases import TenantTestCase
 
 from apps.catalog.models import GarmentJob, GarmentTemplate, JobMaterial
@@ -18,10 +19,10 @@ from domains.orders.services import OrderService
 # The plain stitching path. Every order here is placed on it; the maggam
 # path and the legacy line are FlowTests' business.
 SEQUENCE = [
-    'created', 'measurements_completed', 'fabric_confirmed', 'pattern_cutting',
-    'assigned_to_tailor', 'stitching_in_progress',
-    'stitching_completed', 'finishing', 'pressing', 'master_quality_check',
-    'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'delivered',
+    'created', 'pattern_cutting',
+    'stitching_in_progress',
+    'finishing', 'pressing', 'master_quality_check',
+    'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'payment', 'delivered',
 ]
 
 
@@ -87,6 +88,13 @@ class StateMachineTestBase(TenantTestCase):
                 source=JobMaterial.Source.STORE)
         return order
 
+    def reserve_fabric(self, order=None):
+        # The order-confirm view reserves the chosen fabric the moment the
+        # order is taken; there is no Fabric stage to do it later.
+        from apps.inventory import order_materials
+        return order_materials.sync_order_materials(
+            order or self.order, 'created', 'COMPLETED', user=self.owner)
+
     def move(self, stage_key, status='COMPLETED', user=None, order=None):
         return OrderService.transition_order_stage(
             order=order or self.order, stage_key=stage_key, new_status=status,
@@ -129,8 +137,8 @@ class StatusAnnouncementTests(StateMachineTestBase):
         return Notification.objects.filter(**filters)
 
     def test_a_stage_that_leaves_the_status_alone_announces_nothing(self):
-        self.advance_to('stitching_completed')
-        self.move('stitching_completed')        # Quality Check begins here
+        self.advance_to('stitching_in_progress')
+        self.move('stitching_in_progress')        # Quality Check begins here
         before = self.notifications().count()
         messages = self.snapshot()['messages']
 
@@ -145,10 +153,10 @@ class StatusAnnouncementTests(StateMachineTestBase):
                          'the customer was messaged about nothing')
 
     def test_a_real_change_is_announced_once(self):
-        self.advance_to('stitching_completed')
+        self.advance_to('stitching_in_progress')
         before = self.notifications(recipient_role='Customer').count()
 
-        self.move('stitching_completed')        # Design & Creation -> Quality Check
+        self.move('stitching_in_progress')        # Design & Creation -> Quality Check
 
         self.assertEqual(self.notifications(recipient_role='Customer').count(),
                          before + 1)
@@ -161,7 +169,7 @@ class InvalidTransitionTests(StateMachineTestBase):
 
     def test_pattern_cutting_to_ready_for_dispatch_is_refused(self):
 
-        self.advance_to('assigned_to_tailor')   # through pattern cutting
+        self.advance_to('stitching_in_progress')   # through pattern cutting
         before = self.snapshot()
 
         with self.assertRaises(ValueError) as caught:
@@ -171,8 +179,9 @@ class InvalidTransitionTests(StateMachineTestBase):
         self.assertEqual(self.snapshot(), before, 'a refusal must change nothing')
 
     def test_a_refused_transition_leaves_absolutely_everything_alone(self):
-        self.advance_to('fabric_confirmed')
-        self.move('fabric_confirmed')           # reserves material
+        self.reserve_fabric()
+        self.advance_to('pattern_cutting')
+        self.move('pattern_cutting')
         before = self.snapshot()
         self.assertGreater(before['reserved'], 0, 'precondition: something is reserved')
 
@@ -195,8 +204,7 @@ class InvalidTransitionTests(StateMachineTestBase):
         order = self._order(order_id="T2B-SM-M")
         from domains.orders.services import set_order_flow
         set_order_flow(order, 'maggam', self.owner)
-        for key in ('created', 'measurements_completed', 'fabric_confirmed',
-                    'paper_cutting'):
+        for key in ('created', 'paper_cutting'):
             self.move(key, order=order)
         with self.assertRaises(ValueError) as caught:
             self.move('maggam_work', 'SKIPPED', order=order)
@@ -211,18 +219,18 @@ class InvalidTransitionTests(StateMachineTestBase):
     def test_an_invalid_status_is_refused(self):
         before = self.snapshot()
         with self.assertRaises(ValueError) as caught:
-            self.move('fabric_confirmed', 'BANANA')
+            self.move('pattern_cutting', 'BANANA')
         self.assertIn('Invalid stage status', str(caught.exception))
         self.assertEqual(self.snapshot(), before)
 
     def test_a_completed_stage_cannot_be_reopened(self):
 
-        self.advance_to('fabric_confirmed')
-        self.move('fabric_confirmed')
+        self.advance_to('pattern_cutting')
+        self.move('pattern_cutting')
         before = self.snapshot()
 
         with self.assertRaises(ValueError) as caught:
-            self.move('fabric_confirmed', 'IN_PROGRESS')
+            self.move('pattern_cutting', 'IN_PROGRESS')
 
         self.assertIn('already completed', str(caught.exception))
         self.assertEqual(self.snapshot(), before)
@@ -258,8 +266,19 @@ class InvalidTransitionTests(StateMachineTestBase):
         self.advance_to('stitching_in_progress', order=order)
 
         with self.assertRaises(ValueError) as caught:
-            self.move('stitching_in_progress', 'IN_PROGRESS', order=order)
+            self.move('stitching_in_progress', 'IN_PROGRESS', order=order, user=self.tailor_user)
         self.assertIn('No tailor is assigned', str(caught.exception))
+
+    def test_a_supervisor_stitches_without_naming_a_tailor(self):
+        # The owner of a one-person boutique, or the Master, is the stitcher.
+        order = self._order(order_id="T2B-SM-SOLO")
+        order.tailor = None
+        order.save(update_fields=['tailor'])
+        self.advance_to('stitching_in_progress', order=order)
+        for user in (self.owner, self.master_user):
+            self.move('stitching_in_progress', 'IN_PROGRESS', order=order, user=user)
+        self.move('stitching_in_progress', 'COMPLETED', order=order, user=self.master_user)
+        self.assertEqual(order.stages.get(stage_key='stitching_in_progress').status, 'COMPLETED')
 
 
 class ValidSequenceTests(StateMachineTestBase):
@@ -287,36 +306,37 @@ class ValidSequenceTests(StateMachineTestBase):
 
     def test_a_successful_transition_writes_exactly_one_activity_event(self):
         before = OrderActivity.objects.filter(order=self.order).count()
-        self.advance_to('fabric_confirmed')
-        self.move('fabric_confirmed')
+        self.advance_to('pattern_cutting')
+        self.move('pattern_cutting')
         after = OrderActivity.objects.filter(order=self.order).count()
-        self.assertEqual(after - before, 3)
+        self.assertEqual(after - before, 2)
 
 
 class IdempotencyTests(StateMachineTestBase):
 
     def test_repeating_a_completed_transition_changes_nothing_further(self):
 
-        self.advance_to('fabric_confirmed')
-        self.move('fabric_confirmed')
+        self.reserve_fabric()
+        self.advance_to('pattern_cutting')
+        self.move('pattern_cutting')
         after_first = self.snapshot()
         self.assertGreater(after_first['reserved'], 0)
 
         for _ in range(3):
-            self.move('fabric_confirmed')
+            self.move('pattern_cutting')
 
         self.assertEqual(self.snapshot(), after_first,
-                         'a retry must not reserve, log or message again')
+                         'a retry must not log or message again')
 
-    def test_repeating_stitching_completed_does_not_consume_twice(self):
+    def test_repeating_stitching_does_not_consume_twice(self):
 
-        self.advance_to('stitching_completed')
-        self.move('stitching_completed')
+        self.advance_to('stitching_in_progress')
+        self.move('stitching_in_progress')
         after_first = self.snapshot()
         self.assertEqual(after_first['stock'], Decimal('23.000'))
 
-        self.move('stitching_completed')
-        self.move('stitching_completed')
+        self.move('stitching_in_progress')
+        self.move('stitching_in_progress')
 
         self.assertEqual(self.snapshot(), after_first)
         self.assertEqual(
@@ -360,8 +380,8 @@ class OwnerDropdownLiveRegressionTests(StateMachineTestBase):
                              f'{value} should be reachable in turn')
 
         mid = self.snapshot()
-        self.assertEqual(mid['stages']['fabric_confirmed'], 'COMPLETED')
-        self.assertEqual(mid['stages']['stitching_completed'], 'COMPLETED')
+        self.assertEqual(mid['order_status'], 'Design & Creation')
+        self.assertEqual(mid['stages']['stitching_in_progress'], 'COMPLETED')
         self.assertGreater(mid['movements'], 0, 'materials followed production')
 
         refused = self.set_status('Ready for Dispatch')
@@ -389,27 +409,153 @@ class OwnerDropdownLiveRegressionTests(StateMachineTestBase):
 class AtomicityTests(StateMachineTestBase):
 
     def test_a_failing_side_effect_rolls_the_whole_transition_back(self):
-        self.advance_to('fabric_confirmed')
+        self.advance_to('stitching_in_progress')
         before = self.snapshot()
 
         with mock.patch(
             'apps.inventory.order_materials.sync_order_materials',
-            side_effect=RuntimeError('reservation exploded'),
+            side_effect=RuntimeError('consumption exploded'),
         ):
             with self.assertRaises(RuntimeError):
-                self.move('fabric_confirmed')
+                self.move('stitching_in_progress')
 
         self.assertEqual(self.snapshot(), before,
                          'a failed side effect must take the stage back with it')
 
     def test_a_successful_transition_commits_state_stock_and_audit_together(self):
-        self.advance_to('fabric_confirmed')
+        self.reserve_fabric()
+        self.advance_to('stitching_in_progress')
         before = self.snapshot()
+        self.assertEqual(before['reserved'], Decimal('2.000'))
 
-        self.move('fabric_confirmed')
+        self.move('stitching_in_progress')
 
         after = self.snapshot()
-        self.assertEqual(after['stages']['fabric_confirmed'], 'COMPLETED')
-        self.assertEqual(after['reserved'], Decimal('2.000'))
+        self.assertEqual(after['stages']['stitching_in_progress'], 'COMPLETED')
+        self.assertEqual(after['reserved'], Decimal('0.000'))
+        self.assertEqual(after['stock'], before['stock'] - Decimal('2.000'))
         self.assertEqual(after['activities'], before['activities'] + 1)
-        self.assertEqual(after['stock'], before['stock'], 'reserving deducts nothing')
+
+
+class DropMeasurementAndFabricStagesMigrationTests(StateMachineTestBase):
+    """Migration 0054 against a boutique that still carries the two stages."""
+
+    def _old_shape(self):
+        from django.utils import timezone
+        old = [
+            {"key": "measurements_completed", "name": "Measurements", "sla_hours": 24, "roles": ["Owner", "Master"]},
+            {"key": "fabric_confirmed", "name": "Fabric", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        ]
+        settings = BoutiqueSettings.objects.get(id=1)
+        settings.workflow_config = [settings.workflow_config[0], *old, *settings.workflow_config[1:]]
+        settings.save(update_fields=['workflow_config'])
+
+        order = self._order(order_id="T2B-SM-OLD")
+        order.stages.filter(sequence__gte=1).update(sequence=models.F('sequence') + 2)
+        OrderStage.objects.create(order=order, stage_key='measurements_completed', stage_name='Measurements',
+                                  sequence=1, status='COMPLETED', completed_at=timezone.now())
+        OrderStage.objects.create(order=order, stage_key='fabric_confirmed', stage_name='Fabric', sequence=2)
+        from apps.production.models import ProductionTask
+        ProductionTask.objects.create(order=order, title='Fabric', stage_key='fabric_confirmed', sequence=2)
+        ProductionTask.objects.create(order=order, title='Cutting', stage_key='pattern_cutting', sequence=3)
+        order.current_stage_key = 'measurements_completed'
+        order.save(update_fields=['current_stage_key'])
+        return order
+
+    def test_the_stages_leave_the_workflow_and_every_order(self):
+        from importlib import import_module
+        from django.apps import apps
+        order = self._old_shape()
+
+        import_module('crm_api.migrations.0054_drop_measurement_and_fabric_stages').forwards(apps, None)
+
+        keys = [s['key'] for s in BoutiqueSettings.objects.get(id=1).workflow_config]
+        self.assertNotIn('measurements_completed', keys)
+        self.assertNotIn('fabric_confirmed', keys)
+        rows = list(order.stages.order_by('sequence').values_list('stage_key', 'sequence'))
+        self.assertEqual([k for k, _ in rows], SEQUENCE)
+        self.assertEqual([s for _, s in rows], list(range(len(SEQUENCE))))
+        self.assertEqual(list(order.production_tasks.values_list('stage_key', flat=True)), ['pattern_cutting'])
+        order.refresh_from_db()
+        self.assertEqual(order.current_stage_key, 'created')
+
+
+class CompleteAllStagesTests(OwnerDropdownLiveRegressionTests):
+    """POST /orders/{id}/complete-all/: the one-person boutique's shortcut."""
+
+    def url(self):
+        return f'/api/orders/{self.order.id}/complete-all/'
+
+    def test_the_owner_finishes_the_whole_journey(self):
+        r = self.api.post(self.url())
+
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(
+            set(self.order.stages.values_list('status', flat=True)), {'COMPLETED'})
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.order_status, 'Delivered')
+        self.assertEqual(self.order.production_status, 'COMPLETED')
+        # The customer hears about the outcome once, not about every stage
+        # passed through on the way to it.
+        self.assertEqual(CustomerMessage.objects.filter(order=self.order).count(), 1)
+
+    def test_staff_or_none_makes_no_difference(self):
+        self.order.tailor = self.order.master = None
+        self.order.save(update_fields=['tailor', 'master'])
+        Tailor.objects.all().delete()
+        r = self.api.post(self.url())
+        self.assertEqual(r.status_code, 200, r.data)
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.order_status, 'Delivered')
+
+    def test_a_tailor_account_may_not_use_it(self):
+        Tailor.objects.exclude(id=self.tailor.id).delete()
+        from rest_framework.authtoken.models import Token
+        token, _ = Token.objects.get_or_create(user=self.tailor_user)
+        self.api.credentials(HTTP_AUTHORIZATION=f'Token {token.key}',
+                             HTTP_X_TENANT_ID=self.tenant.schema_name)
+        r = self.api.post(self.url())
+        self.assertEqual(r.status_code, 403)
+
+
+class DropHandoverAndStitchingCheckMigrationTests(StateMachineTestBase):
+    """Migration 0055 against a boutique that still carries the two stages."""
+
+    def test_the_stages_leave_the_workflow_and_every_order(self):
+        from importlib import import_module
+        from django.apps import apps
+        from django.utils import timezone
+        from apps.production.models import ProductionTask
+
+        settings = BoutiqueSettings.objects.get(id=1)
+        keys = [s['key'] for s in settings.workflow_config]
+        at = keys.index('stitching_in_progress')
+        settings.workflow_config = [
+            *settings.workflow_config[:at],
+            {"key": "assigned_to_tailor", "name": "Handover to tailor", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},
+            settings.workflow_config[at],
+            {"key": "stitching_completed", "name": "Stitching check", "sla_hours": 12, "roles": ["Owner", "Master", "Tailor"]},
+            *settings.workflow_config[at + 1:],
+        ]
+        settings.save(update_fields=['workflow_config'])
+        order = self._order(order_id="T2B-SM-OLD2")
+        order.stages.filter(sequence__gte=at).update(sequence=models.F('sequence') + 2)
+        OrderStage.objects.create(order=order, stage_key='assigned_to_tailor', stage_name='Handover to tailor',
+                                  sequence=at, status='COMPLETED', completed_at=timezone.now())
+        OrderStage.objects.create(order=order, stage_key='stitching_completed', stage_name='Stitching check',
+                                  sequence=at + 2)
+        ProductionTask.objects.create(order=order, title='Stitching check', stage_key='stitching_completed', sequence=5)
+        order.current_stage_key = 'assigned_to_tailor'
+        order.save(update_fields=['current_stage_key'])
+
+        import_module('crm_api.migrations.0055_drop_handover_and_stitching_check_stages').forwards(apps, None)
+
+        keys = [s['key'] for s in BoutiqueSettings.objects.get(id=1).workflow_config]
+        self.assertNotIn('assigned_to_tailor', keys)
+        self.assertNotIn('stitching_completed', keys)
+        rows = list(order.stages.order_by('sequence').values_list('stage_key', 'sequence'))
+        self.assertEqual([k for k, _ in rows], SEQUENCE)
+        self.assertEqual([s for _, s in rows], list(range(len(SEQUENCE))))
+        self.assertFalse(order.production_tasks.filter(stage_key='stitching_completed').exists())
+        order.refresh_from_db()
+        self.assertEqual(order.current_stage_key, 'stitching_in_progress')

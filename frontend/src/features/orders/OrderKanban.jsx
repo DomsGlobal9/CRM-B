@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Calendar, CheckCircle2, ClipboardList, Hand, Package, PackageCheck, PenTool, Ruler, Scissors,
+  Calendar, CheckCircle2, ClipboardList, Hand, IndianRupee, Package, PackageCheck, PenTool, Ruler, Scissors,
   Shirt, ShieldCheck, Sparkles, Truck, User,
 } from 'lucide-react';
 import { api } from '../../services/api';
@@ -46,15 +46,14 @@ const STAGE_LOOK = {
   maggam_handwork:       ['violet',  Hand,         'Frame work on the finished design'],
   maggam_verification:   ['violet',  ShieldCheck,  'Embroidery awaiting sign-off'],
   fabric_cutting:        ['blue',    Scissors,     'Cutting after embroidery'],
-  assigned_to_tailor:    ['blue',    User,         'Handed to the stitcher'],
   stitching_in_progress: ['violet',  Shirt,        'Stitching in progress'],
-  stitching_completed:   ['violet',  CheckCircle2, 'Stitched, awaiting finishing'],
   finishing:             ['amber',   Shirt,        'Hemming & finishing'],
   pressing:              ['amber',   PackageCheck, 'Pressing & packaging'],
   master_quality_check:  ['blue',    ShieldCheck,  'Master inspection'],
   trial_scheduled:       ['green',   Calendar,     'Fitting booked'],
   trial_completed:       ['green',   CheckCircle2, 'Fitting done'],
   ready_for_delivery:    ['green',   PackageCheck, 'Packed and waiting'],
+  payment:               ['green',   IndianRupee,  'Settling the bill'],
   delivered:             ['green',   Truck,        'With the customer'],
 };
 
@@ -69,14 +68,16 @@ function liveStage(order, columns) {
     // no stage row to open or to transition.
     return { stage_key: order.current_stage_key, status: null, legacy: true };
   }
-  const byKey = Object.fromEntries((order.stages || []).map((s) => [s.stage_key, s]));
+  // A per-garment stage has a row per garment: the first still open places the card.
   for (const col of columns) {
-    const stage = byKey[col.key];
-    if (stage && !SETTLED.has(stage.status)) return stage;
+    const stage = rowsOf(order, col.key).find((s) => !SETTLED.has(s.status));
+    if (stage) return stage;
   }
   const last = columns[columns.length - 1];
-  return (last && byKey[last.key]) || null;
+  return (last && rowsOf(order, last.key)[0]) || null;
 }
+
+const rowsOf = (order, key) => (order.stages || []).filter((s) => s.stage_key === key);
 
 function dueTone(order, today) {
   if (!order.estimated_delivery || order.order_status === 'Delivered') return null;
@@ -138,7 +139,7 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
       return;
     }
 
-    const stageOf = (key) => (order.stages || []).find((s) => s.stage_key === key);
+    const stageOf = (key) => rowsOf(order, key)[0];
     if (!stageOf(target.key)) {
       alert(`${orderRef(order)} does not go through ${target.name}: it is on the other path.`);
       return;
@@ -156,13 +157,19 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
     try {
       for (const key of hops) {
         const col = columns.find((c) => c.key === key);
-        // An optional stage nobody started is skipped, as update-status does;
-        // one that was begun is finished, because the work happened.
-        const status = (col?.optional && stageOf(key)?.status === 'NOT_STARTED')
-          ? 'SKIPPED' : 'COMPLETED';
-        await api.transitionStage(order.id, key, status, '', [], null);
+        // Every garment's row of the stage. An optional stage nobody started
+        // is skipped, as update-status does; one that was begun is finished,
+        // because the work happened.
+        for (const row of rowsOf(order, key)) {
+          if (SETTLED.has(row.status)) continue;
+          const status = (col?.optional && row.status === 'NOT_STARTED') ? 'SKIPPED' : 'COMPLETED';
+          await api.transitionStage(order.id, key, status, '', [], null, null, false, row.garment_job || null);
+        }
       }
-      await api.transitionStage(order.id, target.key, 'IN_PROGRESS', '', [], null);
+      for (const row of rowsOf(order, target.key)) {
+        if (SETTLED.has(row.status) || row.status === 'IN_PROGRESS') continue;
+        await api.transitionStage(order.id, target.key, 'IN_PROGRESS', '', [], null, null, false, row.garment_job || null);
+      }
     } catch (err) {
       alert(`Could not move ${orderRef(order)}: ${err.message}`);
     } finally {

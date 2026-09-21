@@ -55,7 +55,8 @@ from domains.orders.notifications import create_order_notifications
 from domains.orders.tracking import tracking_url
 from domains.orders.repositories import OrderRepository
 from domains.orders.services import (
-    OrderService, fail_quality_check, refresh_staff_availability, reopen_order_stage,
+    OrderService, ensure_garment_stages, fail_quality_check, refresh_staff_availability,
+    reopen_order_stage, stage_row,
 )
 
 def _refused(exc):
@@ -515,8 +516,7 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     STATUS_TO_STAGE = {
         'Received': 'created',
-        'Confirmed': 'fabric_confirmed',
-        'Design & Creation': 'stitching_completed',
+        'Design & Creation': 'stitching_in_progress',
         'Quality Check': 'master_quality_check',
         'Ready for Dispatch': 'ready_for_delivery',
         'Delivered': 'delivered',
@@ -582,21 +582,55 @@ class OrderViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 updated = order
                 for key in keys[previous_landing + 1:target_index + 1]:
-                    stage = order.stages.filter(stage_key=key).first()
-                    if stage is None or stage.status in ('COMPLETED', 'SKIPPED'):
-                        continue
                     optional = next(
                         (s.get('optional') for s in config if s['key'] == key), False)
-                    updated = OrderService.transition_order_stage(
-                        order=order,
-                        stage_key=key,
-                        new_status='SKIPPED' if optional else 'COMPLETED',
-                        user=request.user,
-                    )
+                    for stage in order.stages.filter(stage_key=key).exclude(
+                            status__in=('COMPLETED', 'SKIPPED')):
+                        updated = OrderService.transition_order_stage(
+                            order=order,
+                            stage_key=key,
+                            new_status='SKIPPED' if optional else 'COMPLETED',
+                            user=request.user,
+                            garment_job=stage.garment_job_id,
+                        )
         except ValueError as ve:
             return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         order.refresh_from_db()
         return Response({'status': 'status updated', 'order_status': order.order_status})
+
+    @action(detail=True, methods=['POST'], url_path='complete-all')
+    def complete_all(self, request, pk=None):
+        """The owner finishes the whole journey at once.
+
+        Every unsettled stage is completed in order, in one transaction, through
+        the same transition_order_stage every click goes through -- so every
+        rule (prerequisites, measurements, stock) still applies, and a refusal
+        names the stage and leaves nothing half-done. Owner only:
+        RolePermission admits no other role to an action outside its two
+        lists. The customer is told once, about the final status, not about
+        each stage passed on the way.
+        """
+        order = self.get_object()
+        from domains.orders import workflow
+        config = workflow.for_order(
+            BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, order)
+        optional = {s['key'] for s in config if s.get('optional')}
+        position = {s['key']: i for i, s in enumerate(config)}
+        pending = sorted(
+            order.stages.exclude(status__in=('COMPLETED', 'SKIPPED')).filter(stage_key__in=position),
+            key=lambda row: (position[row.stage_key], row.garment_job_id is None, str(row.garment_job_id)))
+        try:
+            with transaction.atomic():
+                for row in pending:
+                    OrderService.transition_order_stage(
+                        order=order, stage_key=row.stage_key,
+                        new_status='SKIPPED' if row.stage_key in optional else 'COMPLETED',
+                        user=request.user, notify=row is pending[-1],
+                        garment_job=row.garment_job_id)
+        except ValueError as ve:
+            return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data)
 
     @action(detail=True, methods=['POST'], url_path='garment-images')
     def upload_garment_image(self, request, pk=None):
@@ -736,7 +770,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         # A tailor's report is a submission, not a completion: the stitching
         # stage goes to the owner/Master for verification with the photo, and
         # only their verification settles it. A supervisor filing the report
-        # themselves still closes both stitching stages as before.
+        # themselves completes the stage outright.
         from core.roles import OWNER, resolve_user_role
         from core.permissions import SUPERVISOR_ROLES
         role = resolve_user_role(request.user)
@@ -744,7 +778,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             steps = (
                 ('stitching_in_progress', 'IN_PROGRESS'),
                 ('stitching_in_progress', 'COMPLETED'),
-                ('stitching_completed', 'COMPLETED'),
             )
         else:
             steps = (
@@ -752,10 +785,11 @@ class OrderViewSet(viewsets.ModelViewSet):
                 ('stitching_in_progress', 'PENDING_VERIFICATION'),
             )
 
+        garment_job = request.data.get('garment_job') or None
         try:
             for stage_key, stage_status in steps:
-                live = order.stages.filter(stage_key=stage_key).first()
-                if live and live.status == stage_status:
+                live = stage_row(order, stage_key, garment_job)
+                if live.status == stage_status:
                     continue
                 for f in images:
                     f.seek(0)
@@ -767,6 +801,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     user=request.user,
                     files=images if (images and stage_status == 'PENDING_VERIFICATION') else None,
                     request=request,
+                    garment_job=garment_job,
                 )
         except ValueError as ve:
             return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
@@ -821,9 +856,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         it on every open without thinking.
         """
         order = self.get_object()
-        stage = order.stages.filter(stage_key=request.data.get('stage_key')).first()
-        if stage is None:
-            return Response({'error': 'Unknown stage.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            stage = stage_row(order, request.data.get('stage_key'), request.data.get('garment_job'))
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
         role = resolve_user_role(request.user)
         if stage.status != 'PENDING_VERIFICATION' or role not in (OWNER, *SUPERVISOR_ROLES):
             return Response(OrderStageSerializer(stage).data)
@@ -855,10 +891,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         if not stage_key:
             return Response({'error': 'stage_key is required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        stage = order.stages.filter(stage_key=stage_key).first()
-        if not stage:
-            return Response({'error': f"Unknown stage '{stage_key}' for this order."},
-                            status=status.HTTP_404_NOT_FOUND)
+        try:
+            stage = stage_row(order, stage_key, request.data.get('garment_job'))
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
 
         if tailor_id in (None, '', 'null'):
             stage.assigned_to = None
@@ -899,11 +935,14 @@ class OrderViewSet(viewsets.ModelViewSet):
             event_type='ASSIGNMENT',
             user=request.user if request.user.is_authenticated else None,
             metadata={'stage_key': stage_key, 'stage_name': stage.stage_name,
+                      'garment_job': str(stage.garment_job_id) if stage.garment_job_id else None,
                       'assigned_to': tailor.name, 'assigned_to_id': tailor.id},
         )
 
         from apps.production.models import ProductionTask
-        ProductionTask.objects.filter(order=order, stage_key=stage_key).update(assigned_to=tailor)
+        ProductionTask.objects.filter(
+            order=order, stage_key=stage_key, garment_job_id=stage.garment_job_id,
+        ).update(assigned_to=tailor)
 
         return Response(OrderStageSerializer(stage).data, status=status.HTTP_200_OK)
 
@@ -940,6 +979,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 request=request,
                 voice_note=voice_note,
                 clear_voice_note=clear_voice_note,
+                garment_job=request.data.get('garment_job') or None,
             )
             # Re-read: `order` was loaded with its stages prefetched, so the
             # cache still holds the pre-transition rows and would serialise the
@@ -973,7 +1013,10 @@ class OrderViewSet(viewsets.ModelViewSet):
         not a transition: sending the whole stage back is still Send Back.
         """
         order = self.get_object()
-        stage = order.stages.filter(stage_key=request.data.get('stage_key')).first()
+        try:
+            stage = stage_row(order, request.data.get('stage_key'), request.data.get('garment_job'))
+        except ValueError:
+            stage = None
         url = request.data.get('url')
         if stage is None or url not in (stage.attachments or []):
             return Response({'error': 'No such photo on this stage.'},
@@ -1019,6 +1062,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 reason=validate_text(request.data.get('reason'), label='Reason',
                                      max_length=MAX_REASON),
                 request=request,
+                garment_job=request.data.get('garment_job') or None,
             )
         except ValidationError as exc:
             return _refused(exc)
@@ -1045,6 +1089,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                 reason=validate_text(request.data.get('reason'), label='Reason',
                                      max_length=MAX_REASON),
                 request=request,
+                garment_job=request.data.get('garment_job') or None,
             )
         except ValidationError as exc:
             return _refused(exc)
@@ -1532,6 +1577,35 @@ def _collect_customer_materials(basket, template, job):
         entry['fields'].append(f"{template.name} · {line.field_key}")
 
 
+def _record_order_purchases(order, job, materials, user, purchases=()):
+    """Each 'buy for this order' line on the garment becomes a purchase to
+    make, anchored to that garment. `purchases` are the wizard's own rows
+    (the garment card's list); `materials` lines with source PURCHASE are the
+    per-field form. The cost and date live only on the draft line, so they
+    are read from the payload, not the JobMaterial."""
+    from apps.catalog.models import JobMaterial
+    from apps.inventory import order_materials
+
+    for raw in purchases:
+        if not isinstance(raw, dict) or not (raw.get('name') or '').strip():
+            continue
+        order_materials.create_order_purchase(
+            order, garment_job=job, name=raw['name'], quantity=raw.get('quantity') or 0,
+            field_key=(raw.get('field_key') or '')[:60],
+            unit=raw.get('unit') or 'METER', estimated_cost=raw.get('estimated_cost') or 0,
+            required_by=raw.get('required_by') or None, notes=raw.get('notes') or '', user=user)
+
+    extras = {m.get('field_key'): m for m in materials if isinstance(m, dict)}
+    for line in job.materials.filter(source=JobMaterial.Source.PURCHASE):
+        raw = extras.get(line.field_key) or {}
+        order_materials.create_order_purchase(
+            order, garment_job=job, job_material=line, field_key=line.field_key,
+            name=line.free_text or line.field_key, quantity=line.quantity or 0,
+            unit=line.unit or 'PIECE', estimated_cost=raw.get('estimated_cost') or 0,
+            required_by=raw.get('required_by') or None, notes=raw.get('notes') or line.notes or '',
+            user=user)
+
+
 def _receive_customer_materials(order, basket, user):
     from apps.inventory import order_materials
 
@@ -1813,6 +1887,7 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 # Neutral: apply_advance decides once the total is final.
                 'payment_status': 'Pending',
                 'custom_requirements': special_instructions,
+                'instructions_voice_note': str(payload.get('instructions_voice_note') or ''),
                 'estimated_delivery': ready_by or (due[0] if due else None),
                 'delivery_method': delivery.get('method') or 'Direct Pickup',
                 'courier_service': delivery.get('courier'),
@@ -1854,6 +1929,8 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 job.selections = _selections_from_draft(garment, template)
                 job.save(update_fields=['selections'])
                 _collect_customer_materials(brought, template, job)
+                _record_order_purchases(order, job, garment.get('materials') or [],
+                                        request.user, garment.get('purchases') or [])
 
                 design = garment.get('design') or {}
                 # `items` is the old whole-design shortlist; `parts` is what the
@@ -1867,6 +1944,7 @@ class OrderDraftViewSet(viewsets.ViewSet):
                                             ready_by)
 
             _receive_customer_materials(order, brought, request.user)
+            ensure_garment_stages(order)
 
             if has_job_pricing:
                 from domains.orders.pricing import recompute_order_totals
@@ -1874,12 +1952,12 @@ class OrderDraftViewSet(viewsets.ViewSet):
             from domains.orders.services import apply_advance
             apply_advance(order, order.total_amount if full_payment else advance)
 
-            # Now that the dresses are attached, the workflow can tell whether
-            # any of them asks for a measurement. A saree with no petticoat
-            # asks for none, and its Measurements stage is skipped rather than
-            # left blocking the order forever.
-            from domains.orders.services import settle_measurement_stage
-            settle_measurement_stage(order)
+            # The fabric was chosen while the order was written up, so it is
+            # reserved from stock now that the dresses (and their material
+            # lines) are attached. This used to wait for a Fabric stage that
+            # only restated a decision already made.
+            from apps.inventory import order_materials
+            order_materials.sync_order_materials(order, 'created', 'COMPLETED', user=request.user)
 
             create_order_notifications(order, created=True)
             return order

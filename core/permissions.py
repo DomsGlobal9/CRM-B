@@ -344,8 +344,9 @@ def stages_for_role(config, role):
 
 
 def queue_order_ids(queryset, user, role):
+    from django.db.models import Q
     from crm_api.models import BoutiqueSettings, OrderStage
-    from domains.orders.workflow import prerequisites
+    from domains.orders.workflow import is_per_garment, prerequisites
 
     config = BoutiqueSettings.objects.values_list(
         'workflow_config', flat=True).filter(id=1).first() or []
@@ -353,14 +354,20 @@ def queue_order_ids(queryset, user, role):
     ids = set()
     for stage_key in stages_for_role(config, role):
         earlier = [s['key'] for s in prerequisites(config, stage_key)]
-        ready = queryset.filter(
-            stages__stage_key=stage_key, stages__status__in=UNSETTLED_STATUSES)
+        ready = OrderStage.objects.filter(
+            order__in=queryset, stage_key=stage_key, status__in=UNSETTLED_STATUSES)
         if earlier:
             blocked = OrderStage.objects.filter(
-                stage_key__in=earlier, status__in=UNSETTLED_STATUSES
-            ).values('order_id')
-            ready = ready.exclude(pk__in=blocked)
-        ids.update(ready.values_list('id', flat=True))
+                stage_key__in=earlier, status__in=UNSETTLED_STATUSES)
+            # A garment's row waits on its own garment's earlier work and on
+            # the order-level stages; an order-level row waits on everything.
+            if is_per_garment(config, stage_key):
+                ready = ready.exclude(
+                    Q(order_id__in=blocked.filter(garment_job__isnull=True).values('order_id'))
+                    | Q(garment_job_id__in=blocked.filter(garment_job__isnull=False).values('garment_job_id')))
+            else:
+                ready = ready.exclude(order_id__in=blocked.values('order_id'))
+        ids.update(ready.values_list('order_id', flat=True))
     return ids
 
 

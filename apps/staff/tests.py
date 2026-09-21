@@ -962,8 +962,7 @@ class WorkStartCheckInTests(AttendanceTestCase):
         order = Order.objects.create(order_id='T2B-ATT-1', customer=customer,
                                      tailor=self.anita)
         # Everything before stitching is done, so the tailor may start it.
-        for seq, key in enumerate(['created', 'measurements_completed', 'fabric_confirmed',
-                                   'pattern_cutting', 'maggam_work', 'assigned_to_tailor']):
+        for seq, key in enumerate(['created', 'pattern_cutting', 'maggam_work']):
             OrderStage.objects.create(order=order, stage_key=key, stage_name=key,
                                       sequence=seq, status='COMPLETED')
         stage = OrderStage.objects.create(

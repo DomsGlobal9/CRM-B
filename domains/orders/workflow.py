@@ -44,11 +44,23 @@ sanctioned ways back both live here, and both are explicit and audited:
   and the customer-facing status drops to match what is now true.
 
 Anything else that moves a settled stage backwards is still refused.
+
+PER-GARMENT STAGES
+==================
+A stage declared `scope: garment` has one OrderStage row per garment job on
+the order (the saree's Cutting, the blouse's Cutting), so an order's stage
+list carries several rows with the same key. Every rule here reasons about a
+ROW, scoped to its garment: the blouse's Stitching needs the blouse's Cutting
+done, not the saree's. An order-level stage (Trial, Delivery) needs every
+garment's earlier work done. `rollup` folds the rows back to one status per
+key for readers that only care where the order as a whole stands.
 """
 
 #: PENDING_VERIFICATION: a worker has submitted the stage with a photo and an
 #: owner or Master has yet to verify it. Not settled -- the order does not move
 #: on until they do -- but it satisfies the same prerequisites as COMPLETED.
+from core.permissions import SUPERVISOR_ROLES
+
 VALID_STATUSES = ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED', 'PAUSED',
                   'PENDING_VERIFICATION')
 
@@ -62,7 +74,7 @@ class TransitionError(ValueError):
     pass
 
 
-def _requires_measurements(order, stage):
+def _requires_measurements(order, stage, *, supervisor):
 
     from domains.orders.services import (
         customer_has_measurements, order_needs_measurements)
@@ -89,21 +101,65 @@ def _requires_measurements(order, stage):
     return 'Measurements are not completed for this customer.'
 
 
-def _requires_a_tailor(order, stage):
-    if order.tailor_id or stage.assigned_to_id:
+def _requires_a_tailor(order, stage, *, supervisor):
+    # A supervisor who starts the stitching is the stitcher. The owner of a
+    # one-person boutique has nobody to hand it to, and a Master does every
+    # job; this rule used to stop both of them dead at this stage.
+    if supervisor or order.tailor_id or stage.assigned_to_id:
         return None
     return 'No tailor is assigned to this order.'
 
 
+# Stitching is where the numbers and the stitcher are both needed. The
+# measurements rule used to sit on a Handover stage, which is gone.
 REQUIRED_DATA = {
-    'assigned_to_tailor': _requires_measurements,
-    'stitching_in_progress': _requires_a_tailor,
+    'stitching_in_progress': (_requires_measurements, _requires_a_tailor),
 }
 
 
 def ordered_stages(config):
 
     return [s for s in (config or []) if s.get('key')]
+
+
+def is_per_garment(config, stage_key):
+    return any(s['key'] == stage_key and s.get('scope') == 'garment'
+               for s in ordered_stages(config))
+
+
+def rollup(order):
+    """One status per stage key across all of its rows: COMPLETED or SKIPPED
+    once every row is settled, IN_PROGRESS while any row has begun, else
+    NOT_STARTED. The order-level view of a per-garment stage."""
+    rows = {}
+    for key, status in order.stages.values_list('stage_key', 'status'):
+        rows.setdefault(key, []).append(status)
+    out = {}
+    for key, statuses in rows.items():
+        if all(st in SETTLED_STATUSES for st in statuses):
+            out[key] = 'COMPLETED' if 'COMPLETED' in statuses else 'SKIPPED'
+        elif any(st != 'NOT_STARTED' for st in statuses):
+            out[key] = 'IN_PROGRESS'
+        else:
+            out[key] = 'NOT_STARTED'
+    return out
+
+
+def outstanding_before(order, config, stage_key, garment_job_id=None):
+    """The prerequisite stages of `stage_key` that are not settled, as seen
+    from one row: for a garment's row, its own garment's earlier rows plus the
+    order-level ones; for an order-level row, every earlier row on the order."""
+    earlier = {s['key']: s for s in prerequisites(config, stage_key)}
+    rows = order.stages.filter(stage_key__in=earlier).exclude(status__in=SETTLED_STATUSES)
+    if garment_job_id is not None:
+        from django.db.models import Q
+        rows = rows.filter(Q(garment_job_id=garment_job_id) | Q(garment_job__isnull=True))
+    seen, out = set(), []
+    for key in rows.values_list('stage_key', flat=True):
+        if key not in seen:
+            seen.add(key)
+            out.append(earlier[key])
+    return sorted(out, key=lambda s: stage_position(config, s['key']))
 
 
 def stages_for_flow(config, flow):
@@ -126,11 +182,12 @@ def for_order(config, order):
     # In the order's own sequence, not the config's: a legacy order was
     # built when maggam sat after cutting, and its rows still say so.
     declared = {s['key']: s for s in ordered_stages(config)}
-    out = []
+    out, seen = [], set()
     for key in order.stages.order_by('sequence').values_list('stage_key', flat=True):
         s = declared.get(key)
-        if s is None:
+        if s is None or key in seen:
             continue
+        seen.add(key)
         if getattr(order, 'flow', 'legacy') == 'legacy' and key == 'maggam_work':
             s = {**s, 'optional': True}
         out.append(s)
@@ -202,22 +259,19 @@ def check_transition(order, stage, new_status, *, config, role, owner_role):
             f'{label} is a required stage and cannot be skipped.')
 
     if new_status in ENTERING_STATUSES:
-        live = dict(order.stages.values_list('stage_key', 'status'))
-        outstanding = [
-            s for s in prerequisites(config, stage_key)
-            if live.get(s['key'], 'NOT_STARTED') not in SETTLED_STATUSES
-        ]
+        outstanding = outstanding_before(order, config, stage_key, stage.garment_job_id)
         if outstanding:
             names = ', '.join(s.get('name', s['key']) for s in outstanding)
             raise TransitionError(
                 f'Cannot move to {label} yet: {names} '
                 f'{"is" if len(outstanding) == 1 else "are"} not completed.')
 
-    validator = REQUIRED_DATA.get(stage_key)
-    if validator is not None and new_status in ('IN_PROGRESS', 'COMPLETED', 'PENDING_VERIFICATION'):
-        problem = validator(order, stage)
-        if problem:
-            raise TransitionError(f'Cannot move to {label}. {problem}')
+    if new_status in ('IN_PROGRESS', 'COMPLETED', 'PENDING_VERIFICATION'):
+        for validator in REQUIRED_DATA.get(stage_key, ()):
+            problem = validator(order, stage,
+                                supervisor=role == owner_role or role in SUPERVISOR_ROLES)
+            if problem:
+                raise TransitionError(f'Cannot move to {label}. {problem}')
 
 
 #: Who may reverse settled work. The owner runs the boutique; the Master runs
@@ -257,8 +311,14 @@ def check_reopen(order, stage, *, config, role, owner_role):
     # a reopened stage with completed work stacked on top would make the
     # record claim the later work happened on a garment whose earlier state
     # is now officially unfinished. The caller resets these and logs them.
-    live = dict(order.stages.values_list('stage_key', 'status'))
-    return [
-        s['key'] for s in ordered_stages(config)[position + 1:]
-        if live.get(s['key'], 'NOT_STARTED') != 'NOT_STARTED'
-    ]
+    # For a garment's row, only that garment's later work (and the
+    # order-level stages after it) count; the saree's finished Stitching
+    # stands whatever happens to the blouse's Cutting.
+    later = order.stages.filter(
+        stage_key__in=[s['key'] for s in ordered_stages(config)[position + 1:]]
+    ).exclude(status='NOT_STARTED')
+    if stage.garment_job_id is not None:
+        from django.db.models import Q
+        later = later.filter(Q(garment_job_id=stage.garment_job_id) | Q(garment_job__isnull=True))
+    begun = set(later.values_list('stage_key', flat=True))
+    return [s['key'] for s in ordered_stages(config)[position + 1:] if s['key'] in begun]

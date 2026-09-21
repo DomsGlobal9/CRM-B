@@ -462,19 +462,20 @@ export const api = {
   // A verifier opened a submitted stage. Idempotent on the server: the
   // first open leaves the "seen" tick and tells the worker, later ones do
   // nothing, so this is safe to call on every open.
-  async markStageSeen(orderId, stageKey) {
+  // `garmentJob`: which garment's row, on a stage tracked per garment.
+  async markStageSeen(orderId, stageKey, garmentJob = null) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/stage-seen/`, {
-      method: 'POST', headers: getHeaders(), body: JSON.stringify({ stage_key: stageKey }),
+      method: 'POST', headers: getHeaders(), body: JSON.stringify({ stage_key: stageKey, garment_job: garmentJob }),
     });
     if (!res.ok) await failWith(res, 'Could not mark the stage as seen');
     return res.json();
   },
 
-  async assignStage(orderId, stageKey, tailorId) {
+  async assignStage(orderId, stageKey, tailorId, garmentJob = null) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/assign-stage/`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ stage_key: stageKey, tailor_id: tailorId }),
+      body: JSON.stringify({ stage_key: stageKey, tailor_id: tailorId, garment_job: garmentJob }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -559,6 +560,15 @@ export const api = {
     return res.json();
   },
 
+  /** Owner of a staff-less boutique completes every remaining stage at once. */
+  async completeAllStages(orderId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/complete-all/`, {
+      method: 'POST', headers: getHeaders(),
+    });
+    if (!res.ok) await failWith(res, 'Could not complete the stages');
+    return res.json();
+  },
+
   /** Owner/Master moves an order onto the other path through the workroom. */
   async setOrderFlow(orderId, flow) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/set-flow/`, {
@@ -569,18 +579,19 @@ export const api = {
   },
 
   /** Owner/Master rejects one submitted photo with a remark, or clears a verdict. */
-  async reviewStagePhoto(orderId, stageKey, url, remark, status = 'REJECTED') {
+  async reviewStagePhoto(orderId, stageKey, url, remark, status = 'REJECTED', garmentJob = null) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/review-photo/`, {
       method: 'POST', headers: getHeaders(),
-      body: JSON.stringify({ stage_key: stageKey, url, remark, status }),
+      body: JSON.stringify({ stage_key: stageKey, url, remark, status, garment_job: garmentJob }),
     });
     if (!res.ok) await failWith(res, 'Failed to review the photo');
     return res.json();
   },
 
-  async submitCompletion(orderId, comments, imageFiles) {
+  async submitCompletion(orderId, comments, imageFiles, garmentJob = null) {
     const formData = new FormData();
     if (comments) formData.append('tailor_comments', comments);
+    if (garmentJob) formData.append('garment_job', garmentJob);
     [].concat(imageFiles || []).filter(Boolean)
       .forEach((f) => formData.append('completed_garment_images', f));
 
@@ -630,30 +641,31 @@ export const api = {
 
   // The two sanctioned reversals. Both demand a reason because the record of
   // who moved a garment backwards, and why, is the entire point of them.
-  async reopenStage(orderId, stageKey, reason) {
+  async reopenStage(orderId, stageKey, reason, garmentJob = null) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/reopen-stage/`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ stage_key: stageKey, reason }),
+      body: JSON.stringify({ stage_key: stageKey, reason, garment_job: garmentJob }),
     });
     if (!res.ok) await failWith(res, 'Could not reopen that stage.');
     return res.json();
   },
 
-  async failQualityCheck(orderId, reason) {
+  async failQualityCheck(orderId, reason, garmentJob = null) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/fail-qc/`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason, garment_job: garmentJob }),
     });
     if (!res.ok) await failWith(res, 'Could not record the QC failure.');
     return res.json();
   },
 
-  async transitionStage(orderId, stageKey, status, comments, imageFiles = [], performedById = null, voiceNote = null, clearVoiceNote = false) {
+  async transitionStage(orderId, stageKey, status, comments, imageFiles = [], performedById = null, voiceNote = null, clearVoiceNote = false, garmentJob = null) {
     const formData = new FormData();
     formData.append('stage_key', stageKey);
     formData.append('status', status);
+    if (garmentJob) formData.append('garment_job', garmentJob);
     if (comments) formData.append('comments', comments);
     if (performedById) formData.append('performed_by_id', performedById);
     if (voiceNote) formData.append('voice_note', voiceNote);
@@ -1737,6 +1749,19 @@ Object.assign(api, {
   receiveCustomerMaterial: (payload) => inventoryPost('customer-materials/', payload),
   recordCustomerMaterial: (id, action, payload) =>
     inventoryPost(`customer-materials/${id}/${action}/`, payload),
+
+  // Things bought for one order (not stock). `step`: purchased | received | use | cancel.
+  getOrderPurchases: (params) => inventoryGet('order-purchases/', params),
+  createOrderPurchase: (payload) => inventoryPost('order-purchases/', payload),
+  updateOrderPurchase: async (id, payload) => {
+    const res = await guardedFetch(inventoryUrl(`order-purchases/${id}/`), {
+      method: 'PATCH', headers: getHeaders(), body: JSON.stringify(payload || {}),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(describeApiError(res, data));
+    return data;
+  },
+  stepOrderPurchase: (id, step, payload) => inventoryPost(`order-purchases/${id}/${step}/`, payload),
 
   // Reports
   getInventoryReport: (name, params) => inventoryGet(`reports/${name}/`, params),

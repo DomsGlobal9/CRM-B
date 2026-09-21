@@ -21,6 +21,10 @@ class ProductionTask(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='production_tasks')
+    # The garment the task is for, on a per-garment stage; see OrderStage.garment_job.
+    garment_job = models.ForeignKey(
+        'catalog.GarmentJob', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='production_tasks')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
     stage_key = models.CharField(max_length=100, db_index=True)

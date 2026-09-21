@@ -72,10 +72,10 @@ class OrderMaterialsTestBase(TenantTestCase):
                                      total_amount=Decimal('32025.00'),
                                      tailor=self.tailor, master=self.master)
         for seq, key in enumerate([
-            'created', 'measurements_completed', 'fabric_confirmed', 'pattern_cutting',
-            'maggam_work', 'assigned_to_tailor', 'stitching_in_progress',
-            'stitching_completed', 'finishing', 'pressing', 'master_quality_check',
-            'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'delivered',
+            'created', 'pattern_cutting',
+            'maggam_work', 'stitching_in_progress',
+            'finishing', 'pressing', 'master_quality_check',
+            'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'payment', 'delivered',
         ]):
             OrderStage.objects.create(
                 order=order, stage_key=key, stage_name=key.replace('_', ' ').title(),
@@ -100,10 +100,10 @@ class OrderMaterialsTestBase(TenantTestCase):
         return job
 
     SEQUENCE = [
-        'created', 'measurements_completed', 'fabric_confirmed', 'pattern_cutting',
-        'maggam_work', 'assigned_to_tailor', 'stitching_in_progress',
-        'stitching_completed', 'finishing', 'pressing', 'master_quality_check',
-        'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'delivered',
+        'created', 'pattern_cutting',
+        'maggam_work', 'stitching_in_progress',
+        'finishing', 'pressing', 'master_quality_check',
+        'trial_scheduled', 'trial_completed', 'ready_for_delivery', 'payment', 'delivered',
     ]
     OPTIONAL = {'maggam_work'}
 
@@ -122,6 +122,12 @@ class OrderMaterialsTestBase(TenantTestCase):
             order=order, stage_key=stage_key, new_status='COMPLETED',
             user=user or self.owner,
         )
+
+    def confirm_fabric(self, order, user=None):
+        # What the order-confirm view does once the dresses are attached: the
+        # fabric was chosen with the order, so it is reserved then.
+        return order_materials.sync_order_materials(
+            order, 'created', 'COMPLETED', user=user or self.owner)
 
     def stock(self, item):
         item.refresh_from_db()
@@ -208,7 +214,7 @@ class ReservationTests(OrderMaterialsTestBase):
         self.garment(order, self.blouse_template, [
             ('main_fabric', self.brocade, 2), ('lining', self.lining, 1.5)])
 
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
 
         self.assertEqual(self.stock(self.brocade), (Decimal('25.000'), Decimal('2.000')))
         self.assertEqual(self.brocade.available_stock, Decimal('23.000'))
@@ -224,7 +230,7 @@ class ReservationTests(OrderMaterialsTestBase):
         lehenga = self.garment(order, self.lehenga_template,
                                [('main_fabric', self.brocade, 4)], sequence=1)
 
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
 
         movements = StockMovement.objects.filter(
             item=self.brocade, movement_type=StockMovement.Type.RESERVATION)
@@ -235,7 +241,7 @@ class ReservationTests(OrderMaterialsTestBase):
     def test_selecting_a_material_never_consumes_it(self):
         order = self.make_order()
         self.garment(order, self.blouse_template, [('main_fabric', self.brocade, 2)])
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
 
         current, reserved = self.stock(self.brocade)
         self.assertEqual(current, Decimal('25.000'), 'still physically on the shelf')
@@ -252,7 +258,7 @@ class ReservationTests(OrderMaterialsTestBase):
     def test_a_reservation_nobody_consumes_is_given_back(self):
         order = self.make_order()
         self.garment(order, self.blouse_template, [('main_fabric', self.brocade, 2)])
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
         self.assertEqual(self.stock(self.brocade)[1], Decimal('2.000'))
 
         released = order_materials.release_unused(
@@ -272,7 +278,7 @@ class ReservationTests(OrderMaterialsTestBase):
         self.garment(order, self.blouse_template,
                      [('main_fabric', self.brocade, 40)])  # only 25 in stock
 
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
 
         current, reserved = self.stock(self.brocade)
         self.assertEqual(current, Decimal('25.000'))
@@ -284,7 +290,7 @@ class ReservationTests(OrderMaterialsTestBase):
     def test_reserving_twice_does_not_reserve_twice_over(self):
         order = self.make_order()
         self.garment(order, self.blouse_template, [('main_fabric', self.brocade, 2)])
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
         plan = order_materials.live_plan(order)
         order_materials.reserve(plan, user=self.owner, allow_partial=True)
         self.assertEqual(self.stock(self.brocade)[1], Decimal('2.000'))
@@ -298,10 +304,10 @@ class ConsumptionTests(OrderMaterialsTestBase):
         self.garment(order, self.blouse_template, [
             ('main_fabric', self.brocade, 2), ('hooks', self.hooks, 1)])
 
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
         self.assertEqual(self.stock(self.brocade), (Decimal('25.000'), Decimal('2.000')))
 
-        self.advance(order, 'stitching_completed')
+        self.advance(order, 'finishing')
 
         self.assertEqual(self.stock(self.brocade), (Decimal('23.000'), Decimal('0.000')))
         self.assertEqual(self.stock(self.hooks), (Decimal('49.000'), Decimal('0.000')))
@@ -314,8 +320,8 @@ class ConsumptionTests(OrderMaterialsTestBase):
         lehenga = self.garment(order, self.lehenga_template,
                                [('main_fabric', self.brocade, 4)], sequence=1)
 
-        self.advance(order, 'fabric_confirmed')
-        self.advance(order, 'stitching_completed')
+        self.confirm_fabric(order)
+        self.advance(order, 'finishing')
 
         self.assertEqual(self.stock(self.brocade)[0], Decimal('19.000'))  # 25 - 6
 
@@ -333,16 +339,16 @@ class ConsumptionTests(OrderMaterialsTestBase):
         order = self.make_order()
         blouse = self.garment(order, self.blouse_template,
                               [('main_fabric', self.brocade, 2)])
-        self.advance(order, 'fabric_confirmed')
-        self.advance(order, 'stitching_completed')
+        self.confirm_fabric(order)
+        self.advance(order, 'finishing')
 
         reservation = StockMovement.objects.get(
             item=self.brocade, movement_type=StockMovement.Type.RESERVATION)
         consumption = StockMovement.objects.get(
             item=self.brocade, movement_type=StockMovement.Type.CONSUMPTION)
 
-        self.assertEqual(reservation.stage_key, 'fabric_confirmed')
-        self.assertEqual(consumption.stage_key, 'stitching_completed')
+        self.assertEqual(reservation.stage_key, 'created')
+        self.assertEqual(consumption.stage_key, 'stitching_in_progress')
         self.assertEqual(consumption.garment_job_id, blouse.id)
         self.assertEqual(consumption.order_id, order.id)
         self.assertEqual(consumption.quantity, Decimal('2.000'))
@@ -352,7 +358,7 @@ class ConsumptionTests(OrderMaterialsTestBase):
     def test_a_release_carries_the_stage_it_was_made_at(self):
         order = self.make_order()
         self.garment(order, self.blouse_template, [('main_fabric', self.brocade, 2)])
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
 
         order_materials.release_unused(
             order_materials.live_plan(order), user=self.owner,
@@ -365,24 +371,23 @@ class ConsumptionTests(OrderMaterialsTestBase):
 
     def test_a_garment_added_after_fabric_was_confirmed_is_still_accounted_for(self):
         order = self.make_order()
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
         self.assertIsNone(order_materials.live_plan(order))
         self.assertEqual(self.stock(self.brocade), (Decimal('25.000'), Decimal('0.000')))
 
         self.garment(order, self.blouse_template, [('main_fabric', self.brocade, 2)])
 
-        self.advance(order, 'stitching_completed')
+        self.advance(order, 'finishing')
 
         self.assertEqual(self.stock(self.brocade)[0], Decimal('23.000'))
         self.assertTrue(StockMovement.objects.filter(
             item=self.brocade, movement_type=StockMovement.Type.CONSUMPTION,
             order=order).exists())
 
-    def test_nothing_moves_before_the_fabric_is_confirmed(self):
+    def test_planning_a_garment_moves_nothing_by_itself(self):
 
         order = self.make_order()
         self.garment(order, self.blouse_template, [('main_fabric', self.brocade, 2)])
-        self.advance(order, 'measurements_completed')
         self.assertEqual(self.stock(self.brocade), (Decimal('25.000'), Decimal('0.000')))
         self.assertFalse(StockMovement.objects.filter(order=order).exists())
 
@@ -406,8 +411,8 @@ class CustomerSuppliedMaterialTests(OrderMaterialsTestBase):
             quantity=Decimal('1'), unit=Unit.PACKET,
             source=JobMaterial.Source.STORE)
 
-        self.advance(order, 'fabric_confirmed')
-        self.advance(order, 'stitching_completed')
+        self.confirm_fabric(order)
+        self.advance(order, 'finishing')
 
         self.assertEqual(self.stock(self.hooks)[0], Decimal('49.000'))
         customer_line = order_materials.live_plan(order).lines.get(
@@ -427,8 +432,8 @@ class ReconciliationTests(OrderMaterialsTestBase):
             ('main_fabric', self.brocade, 2), ('lining', self.lining, 1.5)])
 
         opening = self.stock(self.brocade)[0]
-        self.advance(order, 'fabric_confirmed')
-        self.advance(order, 'stitching_completed')
+        self.confirm_fabric(order)
+        self.advance(order, 'finishing')
         self.advance(order, 'master_quality_check')
         self.advance(order, 'delivered')
 
@@ -450,8 +455,8 @@ class ReconciliationTests(OrderMaterialsTestBase):
         self.garment(order, self.lehenga_template,
                      [('main_fabric', self.brocade, 4)], sequence=1)
 
-        self.advance(order, 'fabric_confirmed')
-        self.advance(order, 'stitching_completed')
+        self.confirm_fabric(order)
+        self.advance(order, 'finishing')
         self.advance(order, 'master_quality_check')
         self.advance(order, 'delivered')
 
@@ -463,7 +468,7 @@ class ReconciliationTests(OrderMaterialsTestBase):
     def test_using_less_than_planned_returns_the_difference_to_the_shelf(self):
         order = self.make_order()
         self.garment(order, self.blouse_template, [('main_fabric', self.brocade, 2)])
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
 
         plan = order_materials.live_plan(order)
         line = plan.lines.get(item=self.brocade)
@@ -473,7 +478,7 @@ class ReconciliationTests(OrderMaterialsTestBase):
         self.assertEqual(current, Decimal('24.000'))
         self.assertEqual(reserved, Decimal('1.000'), "the unused metre is still held")
 
-        self.advance(order, 'stitching_completed')
+        self.advance(order, 'finishing')
         self.advance(order, 'master_quality_check')
         self.advance(order, 'delivered')
 
@@ -488,7 +493,7 @@ class ReconciliationTests(OrderMaterialsTestBase):
     def test_waste_is_recorded_separately_from_what_went_into_the_garment(self):
         order = self.make_order()
         self.garment(order, self.blouse_template, [('main_fabric', self.brocade, 3)])
-        self.advance(order, 'fabric_confirmed')
+        self.confirm_fabric(order)
 
         plan = order_materials.live_plan(order)
         line = plan.lines.get(item=self.brocade)
@@ -507,12 +512,12 @@ class ReconciliationTests(OrderMaterialsTestBase):
         order = self.make_order()
         self.garment(order, self.blouse_template,
                      [('main_fabric', self.brocade, 2)], sequence=0)
-        self.advance(order, 'fabric_confirmed')
-        self.advance(order, 'stitching_completed')
+        self.confirm_fabric(order)
+        self.advance(order, 'finishing')
 
         entry = order.activities.filter(
             event_type='STAGE_TRANSITION',
-            metadata__stage_key='stitching_completed').first()
+            metadata__stage_key='stitching_in_progress').first()
         consumed = entry.metadata['materials']['consumed']
         self.assertEqual(consumed[0]['material'], 'Maroon Brocade')
         self.assertEqual(consumed[0]['quantity'], '2.000')

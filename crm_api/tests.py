@@ -275,7 +275,7 @@ class BoutiqueCRMTests(TenantTestCase):
         self.assertEqual(row['total_spend'], 30000.00)
         self.assertEqual(row['segment'], 'HVC')
         self.assertEqual(row['measurements']['bust'], '36.00')
-        self.assertIn('30,000', row['style_dna']['budget'])
+        self.assertEqual(row['style_dna']['revenue'], '₹30,000')
         self.assertIn('risk_level', row['style_dna'])
 
     def test_customer_detail_still_returns_full_orders(self):
@@ -564,13 +564,13 @@ class BoutiqueCRMTests(TenantTestCase):
         self.authenticate_client()
         customer = self._customer_with_order()
         order = Order.objects.get(customer=customer)
-        OrderStage.objects.create(order=order, stage_key='measurements_completed',
-                                  stage_name='Measurements Completed', sequence=1)
+        OrderStage.objects.create(order=order, stage_key='pattern_cutting',
+                                  stage_name='Cutting', sequence=1)
         mm = Tailor.objects.create(name="Meena", specialty="Measuring", role="Master")
 
         response = self.client.post(
             reverse('order-assign-stage', args=[order.id]),
-            {'stage_key': 'measurements_completed', 'tailor_id': mm.id}, format='json',
+            {'stage_key': 'pattern_cutting', 'tailor_id': mm.id}, format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -581,13 +581,13 @@ class BoutiqueCRMTests(TenantTestCase):
         self.authenticate_client()
         customer = self._customer_with_order()
         order = Order.objects.get(customer=customer)
-        OrderStage.objects.create(order=order, stage_key='measurements_completed',
-                                  stage_name='Measurements Completed', sequence=1)
+        OrderStage.objects.create(order=order, stage_key='pattern_cutting',
+                                  stage_name='Cutting', sequence=1)
         presser = Tailor.objects.create(name="Presser", specialty="Pressing", role="Packaging Staff")
 
         response = self.client.post(
             reverse('order-assign-stage', args=[order.id]),
-            {'stage_key': 'measurements_completed', 'tailor_id': presser.id}, format='json',
+            {'stage_key': 'pattern_cutting', 'tailor_id': presser.id}, format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -597,17 +597,17 @@ class BoutiqueCRMTests(TenantTestCase):
         self.authenticate_client()
         customer = self._customer_with_order()
         order = Order.objects.get(customer=customer)
-        stage = OrderStage.objects.create(order=order, stage_key='measurements_completed',
-                                          stage_name='Measurements Completed', sequence=1)
+        stage = OrderStage.objects.create(order=order, stage_key='pattern_cutting',
+                                          stage_name='Cutting', sequence=1)
         planned = Tailor.objects.create(name="Meena", specialty="Measuring", role="Master")
         actual = Tailor.objects.create(name="Stand-in", specialty="Measuring", role="Master")
-        settle_stages_before(order, 'measurements_completed')
+        settle_stages_before(order, 'pattern_cutting')
 
         self.client.post(reverse('order-assign-stage', args=[order.id]),
-                         {'stage_key': 'measurements_completed', 'tailor_id': planned.id}, format='json')
+                         {'stage_key': 'pattern_cutting', 'tailor_id': planned.id}, format='json')
         from domains.orders.services import OrderService
         OrderService.transition_order_stage(
-            order=order, stage_key='measurements_completed', new_status='COMPLETED',
+            order=order, stage_key='pattern_cutting', new_status='COMPLETED',
             performer_id=actual.id, user=self.user,
         )
 
