@@ -230,13 +230,13 @@ function strokesToFile(strokes) {
 // The form: one form, two ways of taking the picture
 
 function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initialCustomerId, newCustomer,
-                              onClose, onSaved, onCustomerCreated }) {
+                              initialTemplateId = '', onClose, onSaved, onCustomerCreated }) {
   // Offered only while the wizard's customer is new: a name and a mobile
   // typed above, and no saved row behind them.
   const pendingNew = !initialCustomerId && (newCustomer?.first_name || '').trim() && (newCustomer?.mobile_number || '').trim()
     ? newCustomer : null;
   const [form, setForm] = useState({
-    title: '', customer: initialCustomerId || (pendingNew ? NEW_CUSTOMER : ''), order: '', template: '', notes: '',
+    title: '', customer: initialCustomerId || (pendingNew ? NEW_CUSTOMER : ''), order: '', template: initialTemplateId ? String(initialTemplateId) : '', notes: '',
   });
   // Ticked by default: the boutique wants what it captures in its own
   // library. One tap keeps a plainly personal sketch out of it.
@@ -451,9 +451,15 @@ function CustomerDesignView({ design, onClose }) {
 // ---------------------------------------------------------------------------
 // The list
 
+// `templateId` / `garmentName`: mounted per garment on the wizard's Design
+// step, the form starts on that garment and the list shows its designs (and
+// any saved without a garment). Without them it is the order-level view.
 export default function CustomerDesigns({ customerId, customers = [], orders = [], garmentTemplates = [],
-                                          newCustomer = null, onCustomerCreated }) {
-  const [designs, setDesigns] = useState(null);
+                                          newCustomer = null, onCustomerCreated, templateId = '', garmentName = '' }) {
+  const [allDesigns, setDesigns] = useState(null);
+  const designs = useMemo(() => (allDesigns && garmentName
+    ? allDesigns.filter((d) => !d.garment_type || d.garment_type === garmentName)
+    : allDesigns), [allDesigns, garmentName]);
   const [error, setError] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [mode, setMode] = useState(null);       // 'upload' | 'draw' | null
@@ -576,7 +582,7 @@ export default function CustomerDesigns({ customerId, customers = [], orders = [
         <CustomerDesignForm
           mode={mode} customers={customers} orders={orders} garmentTemplates={garmentTemplates}
           initialCustomerId={customerId} newCustomer={newCustomer} onCustomerCreated={onCustomerCreated}
-          onClose={() => setMode(null)} onSaved={saved}
+          initialTemplateId={templateId} onClose={() => setMode(null)} onSaved={saved}
         />
       )}
       {viewing && <CustomerDesignView design={viewing} onClose={() => setViewing(null)} />}

@@ -60,23 +60,23 @@ import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './co
 
 
 const WIZARD_STEPS = {
-  // The counter talks about the garment first and the customer last, but the
-  // customer comes before measurements so a known customer's sheet pre-fills.
+  // The customer first, then the garment: who it is for, what we are making,
+  // then their sheet pre-fills the measurements.
   stitch: [
+    { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'type', label: 'Apparel', sub: 'What we are making' },
     { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
     { key: 'design', label: 'Design', sub: 'The look' },
-    { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'personal', label: 'Personalization', sub: 'Extras, if any' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Complete the order', sub: 'Invoice & payment' },
   ],
   design: [
+    { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'type', label: 'Apparel', sub: 'What we are making' },
     { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
     { key: 'design', label: 'Design', sub: 'The look' },
-    { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'personal', label: 'Personalization', sub: 'Extras, if any' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
@@ -3024,7 +3024,8 @@ function App() {
     setCustomerForm(prev => ({ ...prev, measurements: body }));
   };
   /** After the customer: measurements when any is needed, else review. */
-  const stepAfterCustomer = () => {
+  /** After the garment screens: measurements when any is needed, else the extras. */
+  const stepAfterGarments = () => {
     const measureIdx = wizardSteps.findIndex(step => step.key === 'measure');
     return measureIdx + (needsMeasurements() ? 1 : 2);
   };
@@ -3165,10 +3166,8 @@ function App() {
         const emailBad = emailError(customerForm.email_address);
         if (emailBad) { alert(`${emailBad} Or leave it blank.`); return; }
         if (serviceType === 'alter') { reachStep(currentStep + 1); return; }
-        const target = stepAfterCustomer();
-        await persistDraft({ step: target });
-        if (wizardSteps[target - 1]?.key === 'measure') prefillMeasurements();
-        reachStep(target);
+        await persistDraft({ step: currentStep + 1 });
+        reachStep(currentStep + 1);
       } else if (wizardStepKey === 'type') {
         if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); return; }
         if (!validateGarments({ sections: ['basic', 'style'] })) {
@@ -3182,8 +3181,10 @@ function App() {
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'design') {
         if (serviceType === 'design' && !designRequest.designer) { alert('Pick the designer.'); return; }
-        await persistDraft({ step: currentStep + 1 });
-        reachStep(currentStep + 1);
+        const target = stepAfterGarments();
+        await persistDraft({ step: target });
+        if (wizardSteps[target - 1]?.key === 'measure') prefillMeasurements();
+        reachStep(target);
       } else if (wizardStepKey === 'measure') {
         if (!validateGarments({ sections: ['measurements'] })) {
           alert('Some measurements are missing or invalid \u2014 see the highlighted fields.');
@@ -7212,30 +7213,6 @@ function App() {
                     </details>
                   )}
 
-                  {/* Customer Designs: a design the customer described, captured
-                      by the studio -- a photograph of a paper sketch, or drawn
-                      here. Order-level, as its tab on the old Design Studio
-                      screen was; its own rows kept for the customer, nothing on
-                      the draft. */}
-                  <details className="wz-more" style={{ marginTop: '18px' }}>
-                    <summary><PenTool size={14} /> {t('wizard.sheetCustomerDesigns', 'Customer Designs')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                    <Suspense fallback={<ScreenLoading />}>
-                      <CustomerDesigns
-                        customerId={customerId}
-                        customers={allCustomers}
-                        orders={ordersList}
-                        garmentTemplates={garmentTemplates}
-                        newCustomer={customerForm}
-                        onCustomerCreated={(row) => {
-                          // The walk-in is now a customer: the draft carries
-                          // the id, so confirm updates them rather than
-                          // creating a second row for the same mobile.
-                          setCustomerId(row.id);
-                          setAllCustomers((prev) => [row, ...prev]);
-                        }}
-                      />
-                    </Suspense>
-                  </details>
                 </div>
               </>
             )}
@@ -7580,6 +7557,32 @@ function App() {
                           </Suspense>
                         </details>
 
+                        {/* Customer Designs: a design the customer described, captured
+                            by the studio -- a photograph of a paper sketch, or drawn
+                            here. Order-level, as its tab on the old Design Studio
+                            screen was; its own rows kept for the customer, nothing on
+                            the draft. */}
+                        <details className="wz-more">
+                          <summary><PenTool size={14} /> {t('wizard.sheetCustomerDesigns', 'Customer Designs')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <CustomerDesigns
+                              customerId={customerId}
+                              customers={allCustomers}
+                              orders={ordersList}
+                              garmentTemplates={garmentTemplates}
+                              templateId={job.template?.id}
+                              garmentName={job.template?.name}
+                              newCustomer={customerForm}
+                              onCustomerCreated={(row) => {
+                                // The walk-in is now a customer: the draft carries
+                                // the id, so confirm updates them rather than
+                                // creating a second row for the same mobile.
+                                setCustomerId(row.id);
+                                setAllCustomers((prev) => [row, ...prev]);
+                              }}
+                            />
+                          </Suspense>
+                        </details>
                       </div>
                   ))}
 
