@@ -1,6 +1,9 @@
 
 
 def garment_names(order):
+    # An alteration is one garment, named at intake.
+    if getattr(order, 'flow', '') == 'alteration' and order.alteration_garment_name:
+        return [order.alteration_garment_name]
     names = []
     for job in order.garment_jobs.all():
         name = (job.template.name if job.template_id else '') or 'Custom garment'

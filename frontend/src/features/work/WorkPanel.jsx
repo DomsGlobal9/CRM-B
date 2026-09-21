@@ -35,7 +35,8 @@ const humanise = (key) => String(key || '').replace(/_/g, ' ').replace(/^\w/, (c
 const statusLabel = (status, t) => { const [k, d] = STATUS_LABELS[status] || []; return k ? t(k, d) : String(status || ''); };
 // Orders written before garment jobs existed name their garment on the order.
 const garmentLabel = (order, t) =>
-  (order.garment_jobs || []).map((j) => j.template_name).filter(Boolean).join(', ')
+  (order.flow === 'alteration' && order.alteration_garment_name)
+  || (order.garment_jobs || []).map((j) => j.template_name).filter(Boolean).join(', ')
   || order.customer_garment_type || t('workPage.customGarment', 'Custom garment');
 // A per-garment stage names its garment; an order-level one names them all.
 const jobTitle = (order, stage, t) => `${stage.garment_name || garmentLabel(order, t)} · ${stage.stage_name || humanise(stage.stage_key)}`;
@@ -306,8 +307,8 @@ function JobScreen({ order, stage, mode, isSupervisor, fabricTaxonomy, onClose, 
   const whatToMake = (
     <>
       <section className="wk-section">
-        <h3 className="wk-section-title">{t('workPage.whatToMake', 'What to make')}</h3>
-        <div className="wk-text wk-strong">{garmentLabel(order, t)}</div>
+        <h3 className="wk-section-title">{order.flow === 'alteration' ? t('workPage.whatToChange', 'What to change') : t('workPage.whatToMake', 'What to make')}</h3>
+        <div className="wk-text wk-strong">{garmentLabel(order, t)}{order.flow === 'alteration' && order.alteration_of_reference ? ` · ${t('workPage.fromOrder', 'from order')} ${order.alteration_of_reference}` : ''}</div>
         {jobs.some((j) => Object.keys(j.selections || {}).length > 0) && (
           <div className="wk-gap">
             <GarmentSelectionsReview

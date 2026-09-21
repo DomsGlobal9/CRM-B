@@ -302,7 +302,7 @@ class OrderService:
             current_stage_key='created',
             production_status='IN_PROGRESS',
             invoice_template=data.get('invoice_template') or boutique_template,
-            flow=data.get('flow') if data.get('flow') in ('stitching', 'maggam') else 'stitching',
+            flow=data.get('flow') if data.get('flow') in ('stitching', 'maggam', 'alteration') else 'stitching',
         )
 
         workflow_stages = workflow.stages_for_flow(config.workflow_config, order.flow)
@@ -340,13 +340,13 @@ class OrderService:
         # One task per workroom stage the order has, named for the stage, so
         # a maggam order's task list is the maggam path and a plain one's is
         # not padded with embroidery it will never do.
-        tailor_stages = {'stitching_in_progress', 'finishing'}
+        tailor_stages = {'stitching_in_progress', 'finishing', 'alteration_work'}
         tasks_to_create = [
             ProductionTask(
                 order=order, title=s_conf['name'], stage_key=s_conf['key'],
                 assigned_to=tailor if s_conf['key'] in tailor_stages else (master or tailor),
                 sequence=index,
-                priority='URGENT' if s_conf['key'] == 'stitching_in_progress'
+                priority='URGENT' if s_conf['key'] in ('stitching_in_progress', 'alteration_work')
                          else 'HIGH' if s_conf['key'] in ('pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
                          else 'MEDIUM')
             for index, s_conf in enumerate(workflow_stages, start=1)
@@ -380,6 +380,48 @@ class OrderService:
 
         refresh_staff_availability(tailor, master)
 
+        return order
+
+    @staticmethod
+    def create_alteration_order(customer, data, user=None, parent=None, garment_job=None):
+        """A delivered garment back for changes, as an order on the short
+        alteration path. Numbered under `parent` (#12-A1) when it is one of
+        ours; a garment from outside has no parent and no garment job.
+
+        data: issue (what needs changing), charge (0 = free / boutique
+        fault), paid_now, promised_by (date), garment_name (outside only).
+        """
+        charge = max(float(data.get('charge') or 0), 0.0)
+        paid_now = min(max(float(data.get('paid_now') or 0), 0.0), charge)
+        payload = {
+            'flow': 'alteration',
+            'tailoring_charges': charge,
+            'payment_status': 'Paid' if charge and paid_now >= charge else ('Partially Paid' if paid_now else 'Pending'),
+            'advance_paid': paid_now,
+            'custom_requirements': (data.get('issue') or '').strip(),
+            'estimated_delivery': data.get('promised_by'),
+            'tailor_id': parent.tailor_id if parent else None,
+            'master_id': parent.master_id if parent else None,
+        }
+        if not payload['custom_requirements']:
+            raise ValueError('Say what needs changing.')
+        order = OrderService.create_order_for_customer(customer, payload, user=user)
+        order.alteration_of = parent
+        order.alteration_seq = (parent.alterations.exclude(pk=order.pk).count() + 1) if parent else None
+        order.alteration_garment = garment_job
+        order.alteration_garment_name = (
+            (garment_job.template.name if garment_job and garment_job.template_id else '')
+            or (data.get('garment_name') or '').strip())[:100]
+        order.save(update_fields=['alteration_of', 'alteration_seq', 'alteration_garment', 'alteration_garment_name'])
+        # Nothing to collect on a free alteration: the Payment step is not a step.
+        if charge <= 0:
+            order.stages.filter(stage_key='payment').update(status='SKIPPED')
+        # The parent's crew carries over, so hand the rows out the way
+        # send-to-workshop would: the work to the tailor, the rest to the master.
+        if order.tailor_id:
+            order.stages.filter(stage_key='alteration_work').update(assigned_to=order.tailor)
+        if order.master_id:
+            order.stages.exclude(stage_key__in=('created', 'alteration_work')).update(assigned_to=order.master)
         return order
 
     @staticmethod
@@ -598,6 +640,7 @@ class OrderService:
             'maggam_verification': 'Design & Creation',
             'fabric_cutting': 'Design & Creation',
             'stitching_in_progress': 'Quality Check' if new_status == 'COMPLETED' else 'Design & Creation',
+            'alteration_work': 'Quality Check' if new_status == 'COMPLETED' else 'Design & Creation',
             'finishing': 'Quality Check',
             'pressing': 'Quality Check',
             'master_quality_check': 'Ready for Dispatch' if new_status == 'COMPLETED' else 'Quality Check',

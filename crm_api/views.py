@@ -1023,6 +1023,62 @@ class OrderViewSet(viewsets.ModelViewSet):
         """Owner and Master, the same pair that assigns a stage."""
         SUPERVISOR_ORDER_ACTIONS = RolePermission.SUPERVISOR_ORDER_ACTIONS | {'send_to_workshop'}
 
+    def _alteration_body(self, request):
+        """The intake form, checked: what needs changing, the charge, what
+        was paid at the counter, and when it is promised back."""
+        data = request.data
+        charge = validate_amount(data.get('charge'), label='Charge')
+        paid_now = validate_amount(data.get('paid_now'), label='Paid now', maximum=charge or Decimal('0'))
+        return {
+            'issue': validate_text(data.get('issue'), label='What needs changing', max_length=MAX_NOTE, required=True),
+            'charge': charge,
+            'paid_now': paid_now,
+            'promised_by': validate_not_past(data.get('promised_by') or None, label='Promised by'),
+            'garment_name': validate_text(data.get('garment_name'), label='Garment', max_length=100),
+        }
+
+    @action(detail=True, methods=['POST'], url_path='alterations')
+    def create_alteration(self, request, pk=None):
+        """A garment we delivered on this order is back for changes: a new
+        order on the alteration path, numbered #<this>-A<n>."""
+        parent = self.get_object()
+        if parent.flow == 'alteration':
+            return Response({'error': 'Raise it on the order the garment was made on, not on an alteration.'}, status=status.HTTP_400_BAD_REQUEST)
+        if parent.order_status != 'Delivered':
+            return Response({'error': 'Only a delivered order can have an alteration.'}, status=status.HTTP_400_BAD_REQUEST)
+        job = None
+        if request.data.get('garment_job'):
+            job = parent.garment_jobs.filter(pk=request.data.get('garment_job')).first()
+            if job is None:
+                return Response({'error': 'That garment is not on this order.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            body = self._alteration_body(request)
+            order = OrderService.create_alteration_order(parent.customer, body, user=request.user, parent=parent, garment_job=job)
+        except (ValueError, ValidationError) as exc:
+            return Response({'error': str(getattr(exc, 'detail', [exc])[0]) if hasattr(exc, 'detail') else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        data = OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data
+        return Response(data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['POST'], url_path='outside-alteration')
+    def outside_alteration(self, request):
+        """A garment stitched elsewhere, brought in for changes: the same
+        short path, under its own number."""
+        try:
+            customer = CustomerRepository.get_by_id(str(request.data.get('customer') or '')) if request.data.get('customer') else None
+        except (ValueError, ValidationError):
+            customer = None
+        if customer is None:
+            return Response({'error': 'Pick the customer first.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            body = self._alteration_body(request)
+            if not body['garment_name']:
+                raise ValueError('Say which garment it is.')
+            order = OrderService.create_alteration_order(customer, body, user=request.user)
+        except (ValueError, ValidationError) as exc:
+            return Response({'error': str(getattr(exc, 'detail', [exc])[0]) if hasattr(exc, 'detail') else str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        data = OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data
+        return Response(data, status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=['POST'], url_path='send-to-workshop',
             permission_classes=[_SendToWorkshop])
     def send_to_workshop(self, request, pk=None):
@@ -1065,7 +1121,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             # Same hand-out as order creation: tailor stages to the tailor,
             # the rest to the master; and tell them, as PATCH /orders/ does.
             from apps.production.models import ProductionTask
-            tailor_stages = ('stitching_in_progress', 'finishing')
+            tailor_stages = ('stitching_in_progress', 'finishing', 'alteration_work')
             tasks = ProductionTask.objects.filter(order=order)
             if order.tailor_id != (old_tailor.id if old_tailor else None):
                 tasks.filter(stage_key__in=tailor_stages).update(assigned_to=order.tailor)
@@ -1103,8 +1159,9 @@ class OrderViewSet(viewsets.ModelViewSet):
                     OrderService.transition_order_stage(
                         order=order, stage_key=row.stage_key, new_status='IN_PROGRESS',
                         user=request.user, garment_job=row.garment_job_id)
+                tailor_step = nxt.stage_key in ('stitching_in_progress', 'finishing', 'alteration_work')
                 order.stages.filter(stage_key=nxt.stage_key, assigned_to__isnull=True).update(
-                    assigned_to=order.master or order.tailor)
+                    assigned_to=(order.tailor if tailor_step else order.master) or order.tailor or order.master)
                 started = nxt.stage_key
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
