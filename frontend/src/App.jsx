@@ -161,6 +161,22 @@ const orderStageKey = (order) => {
   return current ? current.stage_key : '';
 };
 
+/** Where an order sits for the owner: 'new' (still on the counter),
+ *  'workshop' (someone is working on it) or 'done' (delivered or cancelled). */
+const ORDER_CLOSED = ['Delivered', 'Cancelled'];
+const orderBucket = (order) => {
+  if (ORDER_CLOSED.includes(order.order_status)) return 'done';
+  // production_status is IN_PROGRESS from creation, so only the stages tell.
+  const started = (order.stages || []).some((st) => st.stage_key !== 'created' && !['NOT_STARTED', 'SKIPPED'].includes(st.status));
+  return started ? 'workshop' : 'new';
+};
+/** '3 h' / '2 d' since a timestamp, for the order book's stage strip. */
+const sinceLabel = (iso) => {
+  if (!iso) return '';
+  const hours = Math.floor((Date.now() - new Date(iso).getTime()) / 36e5);
+  return hours < 1 ? 'just now' : hours < 24 ? `${hours} h` : `${Math.floor(hours / 24)} d`;
+};
+
 // The AI "Style Profile" card. Deep-forest hero surface with gold accents --
 // the same emphasis treatment as the dashboard revenue hero -- so a premium
 // insight reads as special without dropping a black card onto the light page.
@@ -2170,6 +2186,12 @@ function App() {
   // status makes its new message appear without a reload.
   const [queuedMessages, setQueuedMessages] = useState([]);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
+  // 'Send to workshop': the order in the small modal, its two picks, and the
+  // server's sentence when it refuses.
+  const [sendingOrder, setSendingOrder] = useState(null);
+  const [sendForm, setSendForm] = useState({ master: '', tailor: '' });
+  const [sendError, setSendError] = useState('');
+  const [sendBusy, setSendBusy] = useState(false);
 
   // Existing Customer Search Modal
   const [allCustomers, setAllCustomers] = useState([]);
@@ -2178,7 +2200,9 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
   const [ordersSearch, setOrdersSearch] = useState('');
-  const [ordersFilterTab, setOrdersFilterTab] = useState('All');
+  // null until the owner picks a tab: the workshop when it has rows, else the new ones.
+  const [ordersTabPick, setOrdersFilterTab] = useState(null);
+  const ordersFilterTab = ordersTabPick || (ordersList.some((o) => orderBucket(o) === 'workshop') ? 'workshop' : 'new');
   // Customer tier, garment and workroom step: each 'All' or one value.
   const [ordersTierFilter, setOrdersTierFilter] = useState('All');
   // Stitching orders, maggam orders, alterations, or everything.
@@ -2199,10 +2223,10 @@ function App() {
   // Same chips and search box, read off an alteration's own fields.
   const alterationMatchesFilters = (alt) => {
     if (ordersTypeFilter === 'Stitching' || ordersTypeFilter === 'Maggam') return false;
+    // An alteration is in the workroom from the moment it is taken in.
     const closed = ['COMPLETED', 'CANCELLED'].includes(alt.status);
-    if (ordersFilterTab === 'Active' && closed) return false;
-    if (ordersFilterTab === 'Shipped') return false;
-    if (ordersFilterTab === 'Delivered' && alt.status !== 'COMPLETED') return false;
+    if (ordersFilterTab === 'new') return false;
+    if ((ordersFilterTab === 'done') !== closed) return false;
     if (ordersSearch.trim()) {
       const query = ordersSearch.toLowerCase();
       return (alt.alteration_number || '').toLowerCase().includes(query)
@@ -2215,13 +2239,7 @@ function App() {
     if (ordersTypeFilter === 'Alteration') return false;
     if (ordersTypeFilter === 'Maggam' && order.flow !== 'maggam') return false;
     if (ordersTypeFilter === 'Stitching' && order.flow === 'maggam') return false;
-    if (ordersFilterTab === 'Active') {
-      if (['Shipped', 'Delivered'].includes(order.order_status)) return false;
-    } else if (ordersFilterTab === 'Shipped') {
-      if (order.order_status !== 'Shipped') return false;
-    } else if (ordersFilterTab === 'Delivered') {
-      if (order.order_status !== 'Delivered') return false;
-    }
+    if (orderBucket(order) !== ordersFilterTab) return false;
     if (ordersTierFilter !== 'All' && customerTier(order) !== ordersTierFilter) return false;
     if (ordersGarmentFilter !== 'All' && !orderGarmentNames(order).includes(ordersGarmentFilter)) return false;
     if (ordersStageFilter !== 'All' && orderStageKey(order) !== ordersStageFilter) return false;
@@ -2672,6 +2690,46 @@ function App() {
     } finally {
       setSavingAppointment(false);
     }
+  };
+
+  // Who goes on a new order by default: the order's own Master and tailor,
+  // else the first Master and the free tailor with the fewest open orders.
+  const workshopMasters = () => tailors.filter((tl) => tl.role === 'Master');
+  const workshopCrew = () => tailors.filter((tl) => tl.role !== 'Master');
+  const defaultWorkshopPicks = (order) => {
+    const open = {};
+    ordersList.forEach((o) => { if (o.tailor && !ORDER_CLOSED.includes(o.order_status)) open[o.tailor] = (open[o.tailor] || 0) + 1; });
+    const freest = [...workshopCrew()].sort((a, b) =>
+      ((b.status === 'Available') - (a.status === 'Available')) || ((open[a.id] || 0) - (open[b.id] || 0)))[0];
+    return { master: order.master || workshopMasters()[0]?.id || '', tailor: order.tailor || freest?.id || '' };
+  };
+  const sendToWorkshop = async (order, picks, inModal) => {
+    if (sendBusy) return;
+    setSendBusy(true); setSendError('');
+    try {
+      const updated = await api.sendToWorkshop(order.id, picks);
+      setSendingOrder(null);
+      setConfirmedOrder((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
+      fetchDashboardAndConfig();
+      if (!inModal) {
+        const row = (updated.stages || []).find((st) => st.stage_key === updated.started_stage);
+        const stage = row?.stage_name || '';
+        const who = row?.assigned_to_name || updated.master_name || updated.tailor_name || 'the workshop';
+        alert(stage
+          ? t('ordersPage.sentToWorkshop', 'Sent to the workshop — {tailor} starts with {stage}', { tailor: who, stage })
+          : t('ordersPage.sentToWorkshopPlain', 'Sent to the workshop'));
+      }
+    } catch (err) {
+      if (inModal) setSendError(err.message); else alert(err.message);
+    } finally {
+      setSendBusy(false);
+    }
+  };
+  // One Master and one tailor: nothing to choose, so send in one tap.
+  const openSendToWorkshop = (order) => {
+    const picks = defaultWorkshopPicks(order);
+    if (workshopMasters().length === 1 && workshopCrew().length === 1) { sendToWorkshop(order, picks, false); return; }
+    setSendForm(picks); setSendError(''); setSendingOrder(order);
   };
 
   const handleAssignWorkflow = async (orderId, updates) => {
@@ -4346,7 +4404,7 @@ function App() {
                                 onClick={() => { setInvoiceFilter('Pending'); setDashboardTab('invoices'); }} />
                       <StatCard icon={ClipboardList} tone="violet" label="Active orders" value={s.active_orders ?? 0}
                                 sub={`${s.due_soon ?? 0} due this week${overdue ? ` · ${overdue} overdue` : ''}`}
-                                onClick={() => { setOrdersFilterTab('Active'); setDashboardTab('orders'); }} />
+                                onClick={() => { setOrdersFilterTab('workshop'); setDashboardTab('orders'); }} />
                       <StatCard icon={Users} tone="blue" label="Customers" value={s.total_customers ?? 0}
                                 sub={(() => { const c = tierCounts(customersList); return `${c.Platinum} Platinum · ${c.Gold} Gold · ${c.Silver} Silver`; })()}
                                 onClick={() => setDashboardTab('customers')} />
@@ -4369,12 +4427,12 @@ function App() {
                   const rank = (st) => (ORDER.indexOf(st) === -1 ? 99 : ORDER.indexOf(st));
                   const entries = Object.entries(dist).sort((a, b) => rank(a[0]) - rank(b[0]));
                   const jump = (st) => {
-                    setOrdersFilterTab(st === 'Shipped' || st === 'Delivered' ? st : 'Active');
+                    setOrdersFilterTab(st === 'Delivered' ? 'done' : 'workshop');
                     setDashboardTab('orders');
                   };
                   return (
                     <SectionCard icon={Boxes} tone="green" title="In the workroom"
-                                 action={() => setDashboardTab('orders')} actionLabel="All orders"
+                                 action={() => { setOrdersFilterTab('workshop'); setDashboardTab('orders'); }} actionLabel="All orders"
                                  style={{ marginBottom: 'var(--space-5)' }}>
                       {entries.length === 0 ? (
                         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
@@ -4830,6 +4888,13 @@ function App() {
                       </div>
                       {stages.length > 0 && (
                         <div className="od-head-actions">
+                          {/* A new order has one obvious next step. */}
+                          {orderBucket(order) === 'new' && ['Owner', 'Master'].includes(currentUser.role) && (
+                            <button type="button" className="btn-primary od-send-btn" disabled={sendBusy}
+                                    onClick={() => openSendToWorkshop(order)}>
+                              <Scissors size={16} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
+                            </button>
+                          )}
                           {/* The owner's shortcut: the whole journey in one go,
                               for work already done off the record. */}
                           {currentUser.role === 'Owner' && !allDone && (
@@ -5107,28 +5172,25 @@ function App() {
                 />
 
                 {(() => {
-                  const total = ordersList.length;
-                  const shipped = ordersList.filter(o => o.order_status === 'Shipped').length;
-                  const delivered = ordersList.filter(o => o.order_status === 'Delivered').length;
-                  const active = total - shipped - delivered;
+                  // Three piles: still on the counter, being made, out the door.
+                  const fresh = ordersList.filter(o => orderBucket(o) === 'new').length;
+                  const making = ordersList.filter(o => orderBucket(o) === 'workshop').length;
+                  const done = ordersList.filter(o => orderBucket(o) === 'done').length;
                   return (
                     <>
                       <section className="at-stat-grid">
-                        <StatCard icon={ShoppingCart} tone="green" label="Total Orders" value={total} sub="all time"
-                                  onClick={() => setOrdersFilterTab('All')} />
-                        <StatCard icon={Clock} tone="amber" label="Active Orders" value={active} sub="in progress"
-                                  onClick={() => setOrdersFilterTab('Active')} />
-                        <StatCard icon={Truck} tone="blue" label="Shipped" value={shipped} sub="on their way"
-                                  onClick={() => setOrdersFilterTab('Shipped')} />
-                        <StatCard icon={CheckCircle2} tone="green" label="Delivered" value={delivered} sub="handed over"
-                                  onClick={() => setOrdersFilterTab('Delivered')} />
+                        <StatCard icon={ShoppingCart} tone="amber" label={t('ordersPage.tabNew', 'New')} value={fresh} sub={t('ordersPage.tabNewSub', 'waiting to be sent')}
+                                  onClick={() => setOrdersFilterTab('new')} />
+                        <StatCard icon={Scissors} tone="blue" label={t('ordersPage.tabWorkshop', 'In the workshop')} value={making} sub={t('ordersPage.tabWorkshopSub', 'being made')}
+                                  onClick={() => setOrdersFilterTab('workshop')} />
+                        <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Done')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
+                                  onClick={() => setOrdersFilterTab('done')} />
                       </section>
                       <div className="at-toolbar">
                         <Chips value={ordersFilterTab} onChange={setOrdersFilterTab} options={[
-                          { key: 'All', label: t('ordersPage.filterAll'), count: total },
-                          { key: 'Active', label: t('ordersPage.filterActive'), count: active },
-                          { key: 'Shipped', label: t('ordersPage.filterShipped'), count: shipped },
-                          { key: 'Delivered', label: t('ordersPage.filterDelivered'), count: delivered },
+                          { key: 'new', label: t('ordersPage.tabNew', 'New'), count: fresh },
+                          { key: 'workshop', label: t('ordersPage.tabWorkshop', 'In the workshop'), count: making },
+                          { key: 'done', label: t('ordersPage.tabDone', 'Done'), count: done },
                         ]} />
                         {/* Narrow by who it is for, what it is, and where it stands;
                             the list and the board read the same filter. */}
@@ -5161,20 +5223,23 @@ function App() {
                             ).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
                           </select>
                         </div>
-                        <div className="at-toolbar-right">
-                          {/* List / Board: two drawings of the same filtered orders. */}
-                          <Segmented ariaLabel="Orders view" value={ordersView} onChange={setOrdersView} options={[
-                            { key: 'kanban', label: 'Board', icon: LayoutGrid },
-                            { key: 'list', label: 'List', icon: List },
-                          ]} />
-                        </div>
+                        {/* List / Board: two drawings of the workshop; the
+                            board's columns are stages, so only that tab has one. */}
+                        {ordersFilterTab === 'workshop' && (
+                          <div className="at-toolbar-right">
+                            <Segmented ariaLabel="Orders view" value={ordersView} onChange={setOrdersView} options={[
+                              { key: 'kanban', label: 'Board', icon: LayoutGrid },
+                              { key: 'list', label: 'List', icon: List },
+                            ]} />
+                          </div>
+                        )}
                       </div>
                     </>
                   );
                 })()}
 
                 <div className="orders-registry-content" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                  {ordersView === 'kanban' ? (
+                  {ordersView === 'kanban' && ordersFilterTab === 'workshop' ? (
                     <OrderKanban
                       orders={ordersList.filter(orderMatchesFilters)}
                       workflow={boutiqueSettings?.workflow_config}
@@ -5211,17 +5276,20 @@ function App() {
                         );
                       }
 
-                      // Pending shows the stage the order is standing on.
+                      // The stage the order is standing on, with the step before
+                      // and after it (by name, so per-garment rows count once).
                       const stageNow = (order) => {
-                        const stages = order.stages || [];
+                        const stages = [...(order.stages || [])].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
                         const current = stages.find(st => st.status === 'PENDING_VERIFICATION')
-                          || stages.find(st => st.status === 'IN_PROGRESS')
-                          || stages.find(st => st.status !== 'COMPLETED');
-                        const done = stages.filter(st => st.status === 'COMPLETED').length;
-                        return current ? { name: current.stage_name, done, total: stages.length } : null;
+                          || stages.find(st => st.status === 'IN_PROGRESS' || st.status === 'PAUSED')
+                          || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED');
+                        if (!current) return null;
+                        const i = stages.indexOf(current);
+                        const prev = stages.slice(0, i).reverse().find(st => st.stage_key !== current.stage_key);
+                        const next = stages.slice(i + 1).find(st => st.stage_key !== current.stage_key);
+                        return { current, prev, next, name: current.stage_name };
                       };
-                      const awaitingVerification = (order) =>
-                        (order.stages || []).some(st => st.status === 'PENDING_VERIFICATION');
+                      const today = todayIso();
 
                       return (
                       <div className="at-table-wrap">
@@ -5272,33 +5340,67 @@ function App() {
                       {filtered.map(order => {
                         const isDelivered = order.order_status === 'Delivered';
                         const isCancelled = order.order_status === 'Cancelled';
-                        const stage = !isDelivered && !isCancelled ? stageNow(order) : null;
+                        const bucket = orderBucket(order);
+                        const stage = bucket === 'workshop' ? stageNow(order) : null;
+                        const late = bucket === 'workshop' && order.estimated_delivery && order.estimated_delivery < today;
+                        // Delivered on: when the last step closed, else the promised day.
+                        const deliveredOn = isDelivered
+                          ? ((order.stages || []).filter(st => st.completed_at).map(st => st.completed_at).sort().pop() || order.estimated_delivery)
+                          : null;
                         return (
                         <React.Fragment key={order.id}>
-                        <tr>
+                        <tr style={isCancelled ? { opacity: 0.55 } : undefined}>
                           <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}</td>
                           <td>{order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td>{order.customer_name}</td>
                           <td>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
                           <td>
-                            <span className={`ui-badge ui-badge--${awaitingVerification(order) ? 'info' : statusTone(order.order_status)}`}>
-                              {isDelivered ? 'Delivered' : isCancelled ? 'Cancelled'
-                                : awaitingVerification(order) ? 'Pending verification' : 'Pending'}
-                            </span>
-                            {/* "Cutting (1/21)" read as a date; the stage by name,
-                                progress as a bar under it. */}
+                            {bucket === 'done' && (
+                              <div className="at-stage-strip">
+                                <span className={`ui-badge ui-badge--${statusTone(order.order_status)}`}>{isDelivered ? 'Delivered' : 'Cancelled'}</span>
+                                {deliveredOn && <span className="at-stage-strip-muted">{fmtDate(deliveredOn)}</span>}
+                                <span className="at-stage-strip-muted">{inr(order.total_amount)}</span>
+                              </div>
+                            )}
+                            {bucket === 'new' && (
+                              <span className="ui-badge ui-badge--warning">{t('ordersPage.notSentYet', 'Not sent yet')}</span>
+                            )}
+                            {/* Where it stands: the step before (done), the step
+                                it is on with who has it and for how long, the
+                                step after. */}
                             {stage && (
-                              <div style={{ marginTop: '4px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {stage.name}
-                                <span className="at-progress" style={{ width: '72px', height: '4px', marginTop: '3px' }}
-                                      title={`${stage.done} of ${stage.total} stages done`}>
-                                  <span className="at-progress-fill at-progress-fill--forest" style={{ width: `${Math.round((100 * stage.done) / stage.total)}%` }} />
+                              <div className="at-stage-strip">
+                                {stage.prev && (
+                                  <span className="at-stage-strip-muted"><Check size={13} /> {stage.prev.stage_name}</span>
+                                )}
+                                <span className="at-stage-strip-now">
+                                  {stage.prev && <span className="at-stage-strip-arrow" aria-hidden="true">→ </span>}
+                                  <strong>{stage.current.stage_name}</strong>
+                                  {(() => {
+                                    const who = stage.current.assigned_to_name || (stage.current.status !== 'NOT_STARTED' && stage.current.performed_by_name) || '';
+                                    const since = sinceLabel(stage.current.started_at);
+                                    return (who || since) ? (
+                                      <span className="at-stage-strip-muted">
+                                        {who && ` · ${who}`}{since && ` · ${t('ordersPage.since', 'since')} ${since}`}
+                                      </span>
+                                    ) : null;
+                                  })()}
                                 </span>
+                                {stage.next && (
+                                  <span className="at-stage-strip-muted"><span className="at-stage-strip-arrow" aria-hidden="true">→ </span>{stage.next.stage_name}</span>
+                                )}
+                                {late && <span className="ui-badge ui-badge--danger">{t('ordersPage.late', 'Late')}</span>}
                               </div>
                             )}
                           </td>
                           <td style={{ whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
+                              {bucket === 'new' && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                                <button type="button" className="btn-primary at-btn-sm" disabled={sendBusy}
+                                        onClick={() => openSendToWorkshop(order)}>
+                                  <Scissors size={12} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
+                                </button>
+                              )}
                               {/* A delivered garment can come back: the same
                                   request form the order card and the customer
                                   profile open, one click from the row, for
@@ -8052,11 +8154,22 @@ function App() {
               controls of the whole order flow, on a screen that then scrolled
               sideways. Wrapping, with a width floor, stacks them instead. */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'center', width: '100%', maxWidth: '450px' }}>
+            {orderBucket(confirmedOrder) === 'workshop' ? (
+              <div className="at-sent-note" role="status" style={{ flex: '1 1 100%' }}>
+                <CheckCircle2 size={18} /> {t('ordersPage.inTheWorkshop', 'In the workshop')}
+                {confirmedOrder.tailor_name ? ` · ${confirmedOrder.tailor_name}` : ''}
+              </div>
+            ) : (
+              <button className="btn-primary" style={{ flex: '1 1 100%', justifyContent: 'center', minHeight: '48px' }} disabled={sendBusy}
+                      onClick={() => openSendToWorkshop(confirmedOrder)}>
+                <Scissors size={18} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
+              </button>
+            )}
+            <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => setShowInvoiceModal(true)}>
+              <FileText size={18} /> View & Print Invoice
+            </button>
             <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => { setView('dashboard'); fetchDashboardAndConfig(); }}>
               Back to Dashboard
-            </button>
-            <button className="btn-primary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => setShowInvoiceModal(true)}>
-              <FileText size={18} /> View & Print Invoice
             </button>
           </div>
         </div>
@@ -8089,6 +8202,45 @@ function App() {
       )}
 
       {/* INVOICE MODAL */}
+      {/* Send to the workshop: who leads it, who stitches it, when it is due. */}
+      {sendingOrder && (
+        <FormModal icon={Scissors} tone="amber" width="460px"
+                   title={t('ordersPage.sendModalTitle', 'Send to the workshop')}
+                   subtitle={`${orderRef(sendingOrder)} · ${sendingOrder.customer_name || ''}`}
+                   onClose={() => !sendBusy && setSendingOrder(null)}
+                   footer={(
+                     <button type="button" className="btn-primary" style={{ width: '100%', justifyContent: 'center', minHeight: '48px' }}
+                             disabled={sendBusy} onClick={() => sendToWorkshop(sendingOrder, sendForm, true)}>
+                       <Scissors size={16} /> {sendBusy ? t('ordersPage.sending', 'Sending…') : t('ordersPage.send', 'Send')}
+                     </button>
+                   )}>
+          <Field label={t('ordersPage.supervisingMaster', 'Master in charge')} htmlFor="send-master">
+            <select id="send-master" className="form-control" value={sendForm.master} onChange={(e) => setSendForm({ ...sendForm, master: e.target.value })}>
+              <option value="">{t('ordersPage.unassigned', 'Not yet assigned')}</option>
+              {workshopMasters().map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
+            </select>
+          </Field>
+          <Field label={t('ordersPage.stitchingTailor', 'Stitching tailor')} htmlFor="send-tailor">
+            <select id="send-tailor" className="form-control" value={sendForm.tailor} onChange={(e) => setSendForm({ ...sendForm, tailor: e.target.value })}>
+              <option value="">{t('ordersPage.unassigned', 'Not yet assigned')}</option>
+              {workshopCrew().map(tl => (
+                <option key={tl.id} value={tl.id}>{tl.name}{tl.status && tl.status !== 'Available' ? ` (${tl.status})` : ''}</option>
+              ))}
+            </select>
+          </Field>
+          <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
+            <Calendar size={14} style={{ verticalAlign: '-2px' }} /> {t('ordersPage.estDelivery', 'Promised by')}: <strong style={{ color: 'var(--text-primary)' }}>
+              {sendingOrder.estimated_delivery ? fmtDate(sendingOrder.estimated_delivery) : t('ordersPage.tbd', 'Not set')}
+            </strong>
+          </div>
+          {sendError && (
+            <div className="ui-badge ui-badge--danger" role="alert" style={{ whiteSpace: 'normal', display: 'block', marginTop: '12px', padding: '10px 12px', fontSize: '14px' }}>
+              {sendError}
+            </div>
+          )}
+        </FormModal>
+      )}
+
       {showInvoiceModal && confirmedOrder && (
         <div style={{
           position: 'fixed',

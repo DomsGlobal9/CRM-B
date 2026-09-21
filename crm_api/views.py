@@ -14,7 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from core.permissions import (
-    OwnerOnly, OwnNotifications, SUPERVISOR_ROLES, visible_customers, visible_orders,
+    OwnerOnly, OwnNotifications, RolePermission, SUPERVISOR_ROLES, visible_customers, visible_orders,
 )
 from core.roles import OWNER, resolve_user_role
 from core.validators import (
@@ -990,6 +990,100 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    class _SendToWorkshop(RolePermission):
+        """Owner and Master, the same pair that assigns a stage."""
+        SUPERVISOR_ORDER_ACTIONS = RolePermission.SUPERVISOR_ORDER_ACTIONS | {'send_to_workshop'}
+
+    @action(detail=True, methods=['POST'], url_path='send-to-workshop',
+            permission_classes=[_SendToWorkshop])
+    def send_to_workshop(self, request, pk=None):
+        """One button for the owner: name who does the work, then start it.
+
+        Body {master?, tailor?} (Tailor ids). Closes 'Order taken' and opens
+        the first untouched stage after it through the service, so its
+        prerequisites and activity log apply. Idempotent: an order already in
+        the workroom just takes the new assignments (started_stage null).
+        """
+        from core.modules import PRODUCTION_ROLES
+        order = self.get_object()
+
+        def pick(field, roles, label):
+            raw = request.data.get(field)
+            if raw in (None, '', 'null'):
+                return None
+            try:
+                staff = Tailor.objects.get(id=int(raw))
+            except (Tailor.DoesNotExist, TypeError, ValueError):
+                raise ValueError(f'That {label} is not on this boutique\'s staff list.')
+            if staff.role not in roles:
+                raise ValueError(f'{staff.name} is a {staff.role} and cannot be the {label} on this order.')
+            return staff
+
+        try:
+            master = pick('master', {'Master'}, 'master in charge')
+            tailor = pick('tailor', set(PRODUCTION_ROLES) - {'Master'}, 'stitching tailor')
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        old_tailor, old_master = order.tailor, order.master
+        if master:
+            order.master = master
+        if tailor:
+            order.tailor = tailor
+        if master or tailor:
+            order.save(update_fields=['master', 'tailor'])
+            refresh_staff_availability(old_tailor, old_master, order.tailor, order.master)
+            # Same hand-out as order creation: tailor stages to the tailor,
+            # the rest to the master; and tell them, as PATCH /orders/ does.
+            from apps.production.models import ProductionTask
+            tailor_stages = ('stitching_in_progress', 'finishing')
+            tasks = ProductionTask.objects.filter(order=order)
+            if order.tailor_id != (old_tailor.id if old_tailor else None):
+                tasks.filter(stage_key__in=tailor_stages).update(assigned_to=order.tailor)
+                Notification.objects.create(
+                    title=f"New Stitching Task: {order.reference}",
+                    message=f"Order {order.reference} has been assigned to you for stitching.",
+                    recipient_role=order.tailor.role,
+                    recipient_email=order.tailor.user.email if order.tailor.user else None)
+            if order.master_id != (old_master.id if old_master else None):
+                tasks.exclude(stage_key__in=tailor_stages).update(assigned_to=order.master)
+                Notification.objects.create(
+                    title=f"New Assignment: {order.reference}",
+                    message=f"Order {order.reference} has been assigned to you as Supervising Master.",
+                    recipient_role=order.master.role,
+                    recipient_email=order.master.user.email if order.master.user else None)
+
+        started = None
+        try:
+            created = order.stages.filter(stage_key='created').first()
+            if created and created.status != 'COMPLETED':
+                OrderService.transition_order_stage(
+                    order=order, stage_key='created', new_status='COMPLETED', user=request.user)
+            nxt = (order.stages.exclude(stage_key='created').filter(status='NOT_STARTED')
+                   .order_by('sequence', 'id').first())
+            # Only when nothing after 'created' has begun: a second send is not a restart.
+            if nxt and not order.stages.exclude(stage_key='created').exclude(
+                    status__in=('NOT_STARTED', 'SKIPPED')).exists():
+                # Every garment's row of that stage, so a two-garment order
+                # does not show Cutting half-started after one Send.
+                rows = order.stages.filter(stage_key=nxt.stage_key, status='NOT_STARTED').order_by('id')
+                for row in rows:
+                    OrderService.transition_order_stage(
+                        order=order, stage_key=row.stage_key, new_status='IN_PROGRESS',
+                        user=request.user, garment_job=row.garment_job_id)
+                order.stages.filter(stage_key=nxt.stage_key, assigned_to__isnull=True).update(
+                    assigned_to=order.master or order.tailor)
+                started = nxt.stage_key
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        order.refresh_from_db()
+        if order.order_status == 'Received':
+            order.order_status = 'Confirmed'
+            order.save(update_fields=['order_status'])
+        data = OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data
+        return Response({**data, 'started_stage': started}, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['POST'], url_path='set-flow')
     def set_flow(self, request, pk=None):

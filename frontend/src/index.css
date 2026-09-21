@@ -5262,3 +5262,19 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
     grid-template-columns: 1fr;
   }
 }
+
+/* Order book: where a workshop order stands, in one line -- the step done,
+   the step it is on with who has it, the step next. Three lines on a phone. */
+.at-stage-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; line-height: 1.4; }
+.at-stage-strip-muted { color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
+.at-stage-strip-now { color: var(--text-primary); display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0 4px; }
+.at-stage-strip-arrow { color: var(--text-muted); }
+.at-table .at-stage-strip .ui-badge { white-space: nowrap; }
+/* The green note that replaces "Send to workshop" once it has gone. */
+.at-sent-note { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 10px 16px; border-radius: var(--radius-md); background: var(--success-bg); color: var(--success-color); font-weight: var(--weight-semibold); font-size: 15px; }
+.od-send-btn { min-height: 44px; padding: 8px 18px; font-size: 14px; }
+@media (max-width: 640px) {
+  .at-stage-strip { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .at-stage-strip-now .at-stage-strip-arrow { display: none; }
+  .at-table .btn-primary.at-btn-sm, .at-table .btn-secondary.at-btn-sm { min-height: 44px !important; font-size: 14px !important; }
+}

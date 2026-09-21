@@ -560,6 +560,16 @@ export const api = {
     return res.json();
   },
 
+  /** One tap from the counter: put the Master and tailor on the order and
+   *  start its first workroom stage. Returns the order plus `started_stage`. */
+  async sendToWorkshop(orderId, { master, tailor } = {}) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/send-to-workshop/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify({ master: master || null, tailor: tailor || null }),
+    });
+    if (!res.ok) await failWith(res, 'Could not send the order to the workshop');
+    return res.json();
+  },
+
   /** Owner of a staff-less boutique completes every remaining stage at once. */
   async completeAllStages(orderId) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/complete-all/`, {
