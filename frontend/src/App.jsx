@@ -5474,7 +5474,7 @@ function App() {
                                   request form the order card and the customer
                                   profile open, one click from the row, for
                                   the roles that run the counter. */}
-                              {isDelivered && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                              {isDelivered && order.flow !== 'alteration' && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
                                 <button type="button" className="btn-secondary at-btn-sm"
                                         style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--accent-color)' }}
                                         onClick={() => setOrdersAlterationOrder(order)}>
@@ -8131,7 +8131,7 @@ function App() {
               <>
                 <div className="page-title-group">
                   <h1 className="page-title">{t('wizard.alterIssueTitle', 'What needs changing?')}</h1>
-                  <p className="page-subtitle">{t('wizard.alterIssueSubtitle', 'Inspection, the tailor and quality check follow on the Alterations page.')}</p>
+                  <p className="page-subtitle">{t('wizard.alterIssueSubtitle', 'It goes to the workshop like any order, numbered under the order it came from.')}</p>
                 </div>
                 {wizardError && (
                   <div role="alert" className="wz-error">

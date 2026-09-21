@@ -416,6 +416,12 @@ class OrderService:
         # Nothing to collect on a free alteration: the Payment step is not a step.
         if charge <= 0:
             order.stages.filter(stage_key='payment').update(status='SKIPPED')
+        # The parent's crew carries over, so hand the rows out the way
+        # send-to-workshop would: the work to the tailor, the rest to the master.
+        if order.tailor_id:
+            order.stages.filter(stage_key='alteration_work').update(assigned_to=order.tailor)
+        if order.master_id:
+            order.stages.exclude(stage_key__in=('created', 'alteration_work')).update(assigned_to=order.master)
         return order
 
     @staticmethod

@@ -1014,6 +1014,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         """A garment we delivered on this order is back for changes: a new
         order on the alteration path, numbered #<this>-A<n>."""
         parent = self.get_object()
+        if parent.flow == 'alteration':
+            return Response({'error': 'Raise it on the order the garment was made on, not on an alteration.'}, status=status.HTTP_400_BAD_REQUEST)
         if parent.order_status != 'Delivered':
             return Response({'error': 'Only a delivered order can have an alteration.'}, status=status.HTTP_400_BAD_REQUEST)
         job = None
