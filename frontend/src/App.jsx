@@ -81,13 +81,7 @@ const WIZARD_STEPS = {
   ],
 };
 const EMPTY_ALTERATION = { orderId: '', garmentJobId: '', issue: '', type: 'PAID_CLIENT_REQUEST', charge: '', paidNow: '' };
-/** Garment measurement keys that are also on the customer's saved sheet. */
-// The master body sheet, taken once per customer and reused across garments:
-// garment field key -> sheet key. Several garment keys name the same
-// measurement (chest and bust, bicep and upper arm, crotch and rise, the
-// lehenga's floor length and waist-to-floor), so they share a sheet key.
-// bust/waist/hips/shoulder/neck are columns on the Measurement row; the rest
-// live in its additional_measurements JSON.
+
 const MEASURE_KEYS = {
   chest: 'bust', bust: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck',
   height: 'height', underbust: 'underbust', high_waist: 'high_waist', armhole: 'armhole',
@@ -126,9 +120,7 @@ const UserAvatar = ({ user, size }) => {
   );
 };
 
-// Customer tier: Silver, Gold or Platinum, the boutique's own call when the
-// customer was taken in (the order wizard asks). One pill for the directory
-// card, the profile banner and the order book, so they cannot drift apart.
+
 const TIERS = ['Platinum', 'Gold', 'Silver'];
 const customerTier = (record) => (TIERS.includes(record?.customer_type) ? record.customer_type : 'Silver');
 const tierCounts = (customers) =>
@@ -145,7 +137,7 @@ const TierBadge = ({ tier }) => (
   }}>{tier}</span>
 );
 
-/** The workroom step an order is standing on: what is running, else the next one up. */
+
 const orderStageKey = (order) => {
   const stages = order.stages || [];
   const current = stages.find((st) => st.status === 'PENDING_VERIFICATION')
@@ -155,14 +147,7 @@ const orderStageKey = (order) => {
   return current ? current.stage_key : '';
 };
 
-// The AI "Style Profile" card. Deep-forest hero surface with gold accents --
-// the same emphasis treatment as the dashboard revenue hero -- so a premium
-// insight reads as special without dropping a black card onto the light page.
-// Was two near-identical dark (#141414/#0d0d0d) blocks, one on the directory
-// card and one on the profile detail; now one component. Shows only fields the
-// AI actually filled -- the old detail card printed fabricated demo figures
-// ("premium designer") for every customer with no style_dna, which read as
-// real client data.
+
 const StyleProfileCard = ({ customer }) => {
   const dna = customer?.style_dna || {};
   const rows = [
@@ -208,8 +193,7 @@ const StyleProfileCard = ({ customer }) => {
   );
 };
 
-// Live date + time for the dashboard header. Ticks once a minute -- seconds add
-// motion nobody reads and a re-render every second for no reason.
+
 const HeaderClock = () => {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -230,34 +214,22 @@ const ScreenLoading = () => (
 );
 import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 
-// Mirrors core/permissions.py SUPERVISOR_ROLES. Roles that run the floor and
-// may hand work to someone else. A list rather than a bare === 'Master' check
-// so a boutique that splits its floor into specialists can be added in one
-// place instead of hunting every comparison.
+
 const SUPERVISOR_ROLES = ['Master'];
 
-// Everyone who works on garments. resolve_user_role returns the Tailor
-// profile's role verbatim, so a boutique that has split its floor produces
-// role strings beyond 'Tailor' and 'Master' -- and get_default_workflow
-// permits each of them on a specific stage. Comparing against the two literal
-// names stranded every specialist: routed to a tab their own nav does not
-// contain, and shown an order's money that the permission matrix says
-// production staff must not see.
+
 const PRODUCTION_ROLES = [
   'Tailor', 'Master', 'Maggam Master', 'Karigar', 'Maggam Karigar', 'Packaging Staff', 'QC Staff',
 ];
 const isProductionStaff = (role) => PRODUCTION_ROLES.includes(role);
 
-/** Badge colour for an order's status, shared by the order book and the order page. */
 const orderStatusTone = (st) =>
   st === 'Delivered' ? 'success'
     : st === 'Cancelled' ? 'neutral'
     : (st === 'Shipped' || st === 'Ready for Dispatch') ? 'info'
     : 'warning';
 
-/** A step is not started, in progress, or completed: nothing else is shown.
- *  Verification and a pause are how a step is in progress, never states of
- *  their own on screen; a skipped step is settled, so it reads as completed. */
+
 const STEP_STATE = (status) =>
   (status === 'COMPLETED' || status === 'SKIPPED') ? 'done'
     : (status === 'IN_PROGRESS' || status === 'PAUSED' || status === 'PENDING_VERIFICATION') ? 'live'
@@ -265,20 +237,7 @@ const STEP_STATE = (status) =>
 const STEP_LABEL = { done: 'Completed', live: 'In progress', next: 'Not started' };
 const STEP_TONE = { done: 'success', live: 'info', next: 'neutral' };
 
-/**
- * A stored mobile number, written the way its owner would recognise it.
- *
- * Numbers are now stored canonically -- Customer.save folds "+91 (0) 98765
- * 43211", "0091 9876543211" and "098765 43211" onto one value -- so that a
- * returning client is the same record rather than a second profile. The stored
- * form is 919876543211, which is right for identity and wrong for a human: it
- * was printing on the invoice, and three screens rendered "+91 919876543211"
- * by prefixing a country code the value already carried.
- *
- * Storage is canonical; display is formatted. Anything that is not a
- * recognisable Indian number is shown exactly as it was typed, because those
- * digits are the only record of how to reach that client.
- */
+
 const formatMobile = (raw) => {
   const digits = String(raw || '').replace(/\D/g, '');
   if (digits.length === 12 && digits.startsWith('91')) {
@@ -289,19 +248,11 @@ const formatMobile = (raw) => {
   return raw || '';
 };
 
-/**
- * wa.me wants digits only, with the country code and no punctuation.
- *
- * Built as `wa.me/91${mobile}` at the call site, which produced
- * wa.me/91+91 98765 43211 for any number the owner had typed with formatting --
- * and, once numbers were stored canonically, wa.me/91919876543211. Both open a
- * chat with nobody. The stored value already carries the country code.
- */
+
 const waLink = (raw) => `https://wa.me/${String(raw || '').replace(/\D/g, '')}`;
 
 
-// Mirrors Appointment.TYPE_CHOICES in apps/scheduling/models.py.
-// Mirrors Appointment.STATUS_CHOICES in apps/scheduling/models.py.
+
 const APPOINTMENT_STATUS_LABELS = {
   SCHEDULED: 'Scheduled',
   CONFIRMED: 'Confirmed',
@@ -317,8 +268,7 @@ const APPOINTMENT_TYPE_LABELS = {
   DELIVERY: 'Final Delivery',
 };
 
-// Mirrors Tailor.ROLE_CHOICES. A boutique run by one generalist keeps using Master;
-// larger studios split the work, and each stage only accepts its own specialists.
+
 const STAFF_ROLES = [
   { value: 'Tailor', label: 'Stitching Tailor', hint: 'Stitches the garment.' },
   { value: 'Master', label: 'Master Tailor (generalist)', hint: 'Can work on every stage.' },
@@ -329,9 +279,7 @@ const STAFF_ROLES = [
   { value: 'QC Staff', label: 'QC Staff', hint: 'Runs the quality inspection.' },
 ];
 
-// Which garment templates the order wizard offers for a customer's gender.
-// Keyed by GarmentTemplate.key; a jacket is worn by everyone, so it sits in
-// both. "Other" (or no answer) shows the whole list.
+
 const MENS_GARMENT_KEYS = new Set([
   'shirt', 't_shirt', 'kurta', 'indo_western', 'mens_suit', 'trouser', 'jeans',
   'shorts', 'mens_bottom_wear', 'coat', 'casual_wear', 'sherwani', 'jacket',
