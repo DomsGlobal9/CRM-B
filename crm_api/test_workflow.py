@@ -79,7 +79,7 @@ class WorkflowTestBase(TenantTestCase):
         order = self.make_order(**kwargs)
         config = BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config
         line = [s for s in config if s["key"] not in
-                ("paper_cutting", "maggam_handwork", "maggam_verification", "fabric_cutting")]
+                ("paper_cutting", "maggam_handwork", "maggam_verification", "fabric_cutting", "alteration_work")]
         maggam = next(s for s in line if s["key"] == "maggam_work")
         line = [s for s in line if s["key"] != "maggam_work"]
         line.insert(next(i for i, s in enumerate(line) if s["key"] == "pattern_cutting") + 1, maggam)

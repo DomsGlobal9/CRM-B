@@ -173,7 +173,9 @@ def stages_for_flow(config, flow):
     `flows` is on every path; 'legacy' is the whole list, as it always was.
     The alteration path is the short list above, in the configured order."""
     if flow == 'legacy':
-        return ordered_stages(config)
+        # The whole line as it always was -- the alteration step came later
+        # and was never on it.
+        return [s for s in ordered_stages(config) if s.get('flows') != ['alteration']]
     if flow == 'alteration':
         return [s for s in ordered_stages(config) if s['key'] in ALTERATION_STAGES]
     return [s for s in ordered_stages(config)
