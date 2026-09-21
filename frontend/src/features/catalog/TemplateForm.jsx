@@ -6,16 +6,11 @@ import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { cleanAmount } from '../../services/validate';
 import { OTHER_PREFIX, OTHER_MAX_LENGTH, isTypedOther, typedOtherText } from '../../services/templates';
 
-// Dropdowns that steer the order rather than describe the garment: an answer
-// nobody listed would send the job down no path at all.
 const NO_OTHER = new Set(['hand_work', 'urgency']);
 import { CameraButton } from '../../components/ui/Atelier';
 import { UNITS, purchaseError } from './materials';
 import { PurchaseDetails } from './GarmentPurchases';
 
-// A select's own "buy it" choice, never stored: the answer is kept as
-// "other:<name>" like any typed option, and the purchase row beside it says
-// it must be bought. Mirrors nothing on the server on purpose.
 const BUY_OPTION = '__buy__';
 
 /**
@@ -27,8 +22,6 @@ const BUY_OPTION = '__buy__';
  * change.
  */
 
-// Inventory pickers all want the same shape, and several fields on one form ask
-// for the same category. Fetch once per category and share it across fields.
 function useInventoryOptions(categories) {
   const [byCategory, setByCategory] = useState({});
 
@@ -55,13 +48,7 @@ function useInventoryOptions(categories) {
   return byCategory;
 }
 
-// How a template field's unit reads on its label; the stored value ('in') is
-// what validation and the summary keep using.
 const UNIT_NAMES = { in: 'Inches' };
-
-// Mirrors Unit and DEFAULT_UNIT_BY_CATEGORY in apps/inventory/models.py. A
-// customer's own cloth has no stock row to read a unit off, so the form has to
-// offer the same vocabulary the ledger stores.
 
 const DEFAULT_UNIT = {
   FABRIC: 'METER', BORDER: 'METER', LINING: 'METER', EMBELLISHMENT: 'PIECE',
@@ -84,9 +71,6 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       break;
 
     case 'number':
-      // Digits and at most two decimals: the sheet's columns hold 999.99, and
-      // a value pre-filled as "12.00" with "12" typed after it must not become
-      // 12.0012 -- it becomes 12.00 and the typist sees it did.
       control = (
         <input
           {...common}
@@ -119,13 +103,8 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       break;
 
     case 'select': {
-      // "Other" keeps the select's own key: the typed text is stored as
-      // "other:<text>", so nothing else about the spec changes shape.
-      // Skipped where the template already lists an Other option with its
-      // own "Specify" text field (saree, shirt, kurta...): that pair stays.
       const other = !NO_OTHER.has(field.key) && !field.options.some((o) => o.value === 'other');
       const typed = other && isTypedOther(value);
-      // "Buy for this order": a typed answer with a purchase row hung on it.
       const buying = typed && Boolean(purchase);
       const pick = (chosen) => {
         if (chosen === BUY_OPTION) {
@@ -244,11 +223,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
           ))}
         </div>
       );
-      // Picking the roll is half the answer. Without "how much", the order can
-      // name a material but the inventory ledger can never reserve or consume
-      // it -- which is exactly how a delivered order used to leave stock
-      // untouched. So the quantity is asked for here, at the moment the choice
-      // is made, rather than defaulted to a number nobody decided.
+     
       control = toBuy ? (
         <>
           {sourceToggle}
@@ -414,9 +389,6 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
     }
 
     case 'file': {
-      // The draft is JSON and a File cannot ride in it, so the picture is
-      // stored the moment it is chosen and the value is its URL -- the same
-      // shape the customer-reference upload already produces.
       const urls = field.is_repeatable ? (value || []) : (value ? [value] : []);
       const upload = async (e) => {
         const files = [...e.target.files];
@@ -476,49 +448,15 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
 
 export default function TemplateForm({
   template, section, values, errors = {}, onChange,
-  // Which of the section's fields to draw; the wizard asks the required ones
-  // first and folds the rest away. Visibility rules still apply on top.
   only = null,
-  // How much of each selected material this garment needs, keyed by field key.
-  // Kept beside `values` rather than inside it because `spec` is validated
-  // against the template's own field list, and a quantity is not one of its
-  // fields -- it belongs to the material line, not to the garment's spec.
   quantities = {}, quantityErrors = {}, onQuantityChange = () => {},
-  // Per-material source, and what the customer brought when it is theirs. Same
-  // reasoning as quantities: neither is a field of the garment's spec.
-  // `defaultSource` comes from the order's Material Source answer, so choosing
-  // "Customer Provided Fabric" up top starts every line on the customer and
-  // "Mixed" leaves each one to be said explicitly.
   sources = {}, brought = {}, defaultSource = 'STORE',
   onSourceChange = () => {}, onBroughtChange = () => {},
-  // Things to buy for this garment, one per question they answer (field_key).
-  // Same reasoning again: a purchase is not a field of the spec.
   purchases = [], onPurchaseChange = () => {},
-  // Where to send someone whose inventory is empty. Optional because this form
-  // also renders in places that have no navigation to offer.
   onGoToInventory = null,
 }) {
   const definition = getSection(template, section);
-  // File fields are not rendered, because nothing in this product can save one.
-  //
-  // The four of them -- Measurement Sheet, Reference Images, Audio Note, Final
-  // Approved Design -- stored the browser's raw File object in `values`, and
-  // saveGarmentJobs sends that through JSON.stringify, which turns a File into
-  // `{}`. core/templates.py then treats `{}` as empty and drops the key with no
-  // error; a repeatable one becomes `[{}]` and is stored verbatim, reaching the
-  // tailor's "What to make" panel as `reference images: [object Object]`.
-  // Meanwhile GarmentSummary printed "Attached".
-  //
-  // So a staff member photographed the customer's handwritten measurement
-  // sheet, the wizard advanced with no complaint, and the artefact proving what
-  // was actually measured was gone at the moment of capture.
-  //
-  // Removing the affordance rather than hardening the write path, deliberately.
-  // Rejecting the value server-side would be worse: saveGarmentJobs runs AFTER
-  // the order is created, so a hard 400 there strands an order with no garment
-  // job behind a dead wizard. Real uploads need a multipart endpoint and a
-  // FormData path, which is a feature -- see the audit's Missing Features
-  // table. Until it exists, offering the input is the bug.
+ 
   const fields = (definition?.fields || [])
     .filter((f) => f.field_type !== 'file')
     .filter((f) => (only ? only(f) : true))
@@ -529,27 +467,18 @@ export default function TemplateForm({
     .map((f) => f.inventory_category);
   const inventory = useInventoryOptions(inventoryCategories);
 
-  // Loaded-and-empty across every category this section asks about. A new
-  // boutique used to discover mid-order that every picker says "Nothing in
-  // stock" -- the guidance belongs before the choices, not scattered under
-  // them. Distinguished from still-loading so established boutiques never see
-  // the banner flash.
   const inventoryLoaded = inventoryCategories.length > 0
     && inventoryCategories.every((c) => c in inventory);
   const inventoryEmpty = inventoryLoaded
     && inventoryCategories.every((c) => (inventory[c] || []).length === 0);
 
   const handleChange = (key, value) => {
-    // Prune after every edit: switching Peplum to Corset must take the flare
-    // length with it, or the cutter is handed a measurement for a panel that is
-    // not being made.
+    
     onChange(pruneHidden(template, { ...values, [key]: value }));
   };
 
   if (!definition) return null;
   if (!fields.length) {
-    // A filtered instance is one of several on the screen; only the whole
-    // section has nothing to say.
     if (only) return null;
     return (
       <div style={{ fontSize: '13px', color: 'var(--text-secondary)', padding: '8px 0' }}>

@@ -8,33 +8,10 @@ import { PartTabStrip } from './GarmentPartTabs';
 import DesignCatalogueFilter from './DesignCatalogueFilter';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
 
-/**
- * Choosing a garment's design, part by part.
- *
- * The boutique's designs are what a customer browses: two sarees show as two
- * sarees, each by its overall photograph. Opening one shows everything filed
- * under it -- pallu, border, body, pleat -- and the customer takes the parts
- * they want from it.
- *
- * The selection is a map of part to photograph, not a design id, which is what
- * lets a customer take THIS pallu off one saree and THAT border off another.
- * Opening a second design and picking its border simply overwrites the border
- * slot; the pallu chosen earlier stays.
- *
- * Parts never cross garments: the designs are filtered by this garment's
- * template, and the part headings come from that template's own vocabulary.
- *
- * Needs no customer and no draft. This is the boutique's own library, and the
- * point of the screen is that a customer browses it before giving any details.
- */
 
 const FALLBACK =
   'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
-// What a photograph that failed to load turns into. Seeded catalogue rows carry
-// a bare filename that 404s locally, and the tile behind every <img> is
-// brand-dark, so without this a broken design read as a black square with alt
-// text in it. A data URI, so it cannot fail in turn.
 const PLACEHOLDER = 'data:image/svg+xml;utf8,'
   + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">'
     + '<rect width="160" height="160" fill="#ececea"/>'
@@ -44,14 +21,6 @@ const onImgError = (e) => {
   if (e.currentTarget.src !== PLACEHOLDER) e.currentTarget.src = PLACEHOLDER;
 };
 
-/** One selectable photograph.
- *
- *  No hover zoom. A card that grew under the cursor moved its own neighbours
- *  out from under it, so aiming at the picture you wanted became a moving
- *  target -- and a customer comparing eight parts is doing exactly that. The
- *  View button opens the photograph at full size instead, on purpose rather
- *  than by accident of where the mouse rested.
- */
 function PickCard({ src, alt, picked, onClick, onView, children, height = '110px' }) {
   return (
     <div
@@ -83,9 +52,6 @@ function PickCard({ src, alt, picked, onClick, onView, children, height = '110px
       )}
 
       {onView && (
-        // stopPropagation, because this button sits over a card whose own click
-        // chooses the part. Without it, looking at a photograph would also
-        // select it.
         <button
           type="button"
           title="View full size"
@@ -153,25 +119,14 @@ function WebResultCard({ hit, kept, keeping, onKeep, sourceUrl, title }) {
 }
 
 
-/** One photograph, full size: look at it, choose it, walk the set.
- *
- *  Takes the whole list and an index rather than a single image, because the
- *  point of opening one is usually to compare it with the next. Arrow keys and
- *  the edge buttons move through it; the selection button means a customer who
- *  has enlarged a photograph to decide can act on the decision without closing
- *  it first.
- */
 export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onToggle }) {
   const item = items[index];
   const many = items.length > 1;
 
-  // Wraps, so the set has no dead end at either edge.
   const step = (delta) => onIndexChange((index + delta + items.length) % items.length);
 
   useEffect(() => {
     const onKey = (e) => {
-      // Every key handled here is swallowed. The lightbox is the top layer, so
-      // a press that moves it must not also reach whatever is underneath.
       if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
       else if (e.key === 'ArrowLeft' && many) { e.preventDefault(); e.stopPropagation(); step(-1); }
       else if (e.key === 'ArrowRight' && many) { e.preventDefault(); e.stopPropagation(); step(1); }
@@ -180,14 +135,6 @@ export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onT
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  // Every click here is stopped before it leaves.
-  //
-  // The lightbox is painted over the design modal but it is a CHILD of it in
-  // the React tree, and the modal's own backdrop closes on click. So a click
-  // that closed the lightbox went on bubbling into that handler and shut the
-  // modal underneath as well -- one Close, both layers gone, and the customer
-  // thrown back out to the design list. Closing the top layer must leave the
-  // one beneath it exactly where it was.
   const close = (e) => { e.stopPropagation(); onClose(); };
   const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
 
@@ -233,8 +180,6 @@ export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onT
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}
            onClick={(e) => e.stopPropagation()}>
         {onToggle && (
-          // The same toggle the grid card has: choosing is not a one-way door,
-          // so the button says which way it goes rather than only "Select".
           <button
             type="button"
             className={isSelected ? 'btn-secondary' : 'btn-primary'}
@@ -253,23 +198,8 @@ export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onT
   );
 }
 
-
-/** Everything filed under one design, in one grid.
- *
- *  Every photograph of the design at once, four to a row, each labelled with
- *  the part it shows. This replaced a section per part: a design carries one
- *  photograph of each part, so eight sections meant eight headings stacked down
- *  the page with a single image under each, and seeing the whole saree meant
- *  scrolling past all of them. The part is a caption on the card, not a heading
- *  above a grid of one.
- */
 function DesignModal({ design, partOrder, partLabels, selection, onChoose, onClose }) {
-  // An index into `images`, not a copy of one, so the lightbox can step
-  // through the set and stay in sync with a selection made from inside it.
   const [viewIndex, setViewIndex] = useState(null);
-  // Template order, so the overall shot leads and the rest read the way the
-  // boutique declared them. Anything filed under a part the template no longer
-  // names still appears, after the declared ones.
   const images = useMemo(() => {
     const rank = new Map(partOrder.map((k, i) => [k, i]));
     return [...(design.images || [])].sort(
@@ -370,13 +300,6 @@ function DesignModal({ design, partOrder, partLabels, selection, onChoose, onClo
   );
 }
 
-
-/** @param ownOnly  Only the customer's own references, part by part: the tabs,
- *                   what they have already given for the open part and the two
- *                   ways to give one. No catalogue browsing, because that is
- *                   what the Design Studio tab next door is for. Same component
- *                   because it is the same garment, the same parts and the same
- *                   {part: reference} slot -- only the catalogue half is off. */
 export const ACCESSORY_OPTIONS = [
   {
     key: 'dori',
@@ -641,17 +564,13 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   const effectiveTaxonomy = taxonomy || fetchedTaxonomy;
 
   const [allDesigns, setAllDesigns] = useState(null);
-  // The catalogue position the list is narrowed to -- {category, subcategory,
-  // option}, every key optional, exactly what the library's browser holds.
   const [catalogueFilter, setCatalogueFilter] = useState({});
   const [template, setTemplate] = useState(null);
   const [error, setError] = useState(null);
   const [openDesign, setOpenDesign] = useState(null);
   const [viewIndex, setViewIndex] = useState(null);
-  // Bumped by Retry, so the effect below stays the only place the fetch is made.
   const [reloadToken, setReloadToken] = useState(0);
 
-  // Track multi-selected accessory keys when accessoriesOnly is true
   const [selectedAccessoryKeys, setSelectedAccessoryKeys] = useState(() => {
     const existing = Object.keys(references || {});
     return existing.length > 0 ? existing : [];
@@ -673,37 +592,18 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   const [accessorySubtypes, setAccessorySubtypes] = useState({});
   const [fabricMeasurements, setFabricMeasurements] = useState({});
 
-  // Derived rather than stored: a `loading` flag would have to be set
-  // synchronously at the top of the effect, which is the cascading-render
-  // pattern React warns about.
   const loading = !allDesigns && !error;
 
   useEffect(() => {
     if (!garmentKey) return undefined;
     let cancelled = false;
     Promise.all([
-      // Nothing browses the catalogue in ownOnly mode, so it is not fetched.
       ownOnly ? [] : api.getDesignLibrary({ template: garmentKey, status: 'ACTIVE' }),
-      // The garment select on the upload form defaults to no garment, so a
-      // boutique's own uploads routinely carry none -- and filtering strictly
-      // by this garment hid every one of them behind "no designs uploaded
-      // yet". They are the boutique's designs either way, so they follow the
-      // garment's designs rather than disappearing. Their photographs are
-      // filed under 'overall', which every garment has.
       ownOnly ? [] : api.getDesignLibrary({ template: 'none', status: 'ACTIVE' }).catch(() => []),
-      // Only for the part headings and their order; the designs carry the
-      // photographs themselves.
       api.getGarmentTemplate(garmentKey).catch(() => null),
     ])
       .then(([rows, untagged, tpl]) => {
         if (cancelled) return;
-        // A design added through Manage Designs' form arrives with its cover
-        // as image_url and no part photographs at all, so it was listed with
-        // "0 photographs", sat under no part tab and could not be chosen.
-        // Its cover is the whole-garment shot, so it is filed under the
-        // garment's overall part -- the same slot an upload with no part
-        // chosen lands in -- and from there every tab, the modal and choose()
-        // treat it like any other photograph. Nothing is written back.
         const overallKey = (tpl?.design_parts || []).map(p => p.key)
           .find(k => k.startsWith('overall')) || 'overall';
         const withCover = (d) => (d.images?.length || !d.image_url) ? d
@@ -716,10 +616,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     return () => { cancelled = true; };
   }, [garmentKey, reloadToken, ownOnly]);
 
-  // What the tabs, the grid and the modal show: every design fetched, or only
-  // those filed at the chosen catalogue position. A derive over the list
-  // already in hand rather than a refetch, so switching chips is instant and
-  // the untagged uploads merged in above are narrowed the same way.
+  
   const designs = useMemo(() => {
     if (!allDesigns) return null;
     const { category, subcategory, option } = catalogueFilter;
@@ -738,20 +635,11 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     () => Object.fromEntries((template?.design_parts || []).map(p => [p.key, p.label])),
     [template]);
 
-  // Every photograph the boutique has for this garment, filed under its part
-  // and carrying the design it came off. Built from the designs already
-  // fetched above rather than from a second call: a design arrives with its
-  // images, so grouping them is a derive, and doing it here keeps the
-  // untagged uploads the fetch deliberately merges in.
   const imagesByPart = useMemo(() => {
     const map = new Map();
     (designs || []).forEach((design) => {
       (design.images || []).forEach((image) => {
         if (!map.has(image.part)) map.set(image.part, []);
-        // design_id rather than the design itself: the chosen photograph is
-        // written into the order draft, so it stays a flat row of scalars, and
-        // it is the field the design list already reads back to mark a design
-        // the customer has taken a part from.
         map.get(image.part).push({ ...image, design_id: design.id,
                                    design_title: design.title,
                                    designer_name: design.designer_name });
@@ -794,19 +682,11 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     return [...declared, ...extra];
   }, [template, imagesByPart, ownOnly, isFabric, accessoriesOnly, effectiveTaxonomy, garmentKey, garmentsByKey]);
 
-  // Which tab is showing. `null` is the design list this screen has always
-  // opened on, and it is the last tab; anything else is a part. Derived, so a
-  // garment whose template has not loaded yet -- or a part it does not declare
-  // -- falls back to its own first part rather than an empty grid.
   const [partTab, setPartTab] = useState(undefined);
   const [linkDraft, setLinkDraft] = useState('');
   const [addingLink, setAddingLink] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
-  // "Search the web": photographs the catalogue does not have, found through
-  // Design Discovery. Shown only where the server says it is set up. A pick
-  // is copied into our storage before it joins the part's references, because
-  // the links the search returns expire.
   const [webAvailable, setWebAvailable] = useState(false);
   const [webOpen, setWebOpen] = useState(false);
   const [webQuery, setWebQuery] = useState('');
@@ -823,8 +703,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   const ownCamRef = useRef(null);
   const videoRef = useRef(null);
   const [camStream, setCamStream] = useState(null);
-  // Cleanup only -- nothing is set here, so the camera cannot be left running
-  // by a customer who navigates away with the modal open.
   useEffect(() => () => camStream?.getTracks().forEach(track => track.stop()), [camStream]);
 
   const openPart = partTab === null ? null
@@ -833,28 +711,8 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     : (tabParts.some(p => p.key === partTab) ? partTab : (tabParts[0]?.key ?? null));
   const openPartLabel = tabParts.find(p => p.key === openPart)?.label || '';
   const partShots = openPart ? (imagesByPart.get(openPart) || []) : [];
-
-  // The overall shot stands for the whole garment rather than one detail of
-  // it, so View on one opens that design's own gallery -- every part filed
-  // under it, pallu and border and body together -- instead of a bigger copy
-  // of the photograph already on screen. Every other tab is showing a single
-  // part, where full size is exactly what a customer wants from View.
-  //
-  // startsWith, because the key is the garment's own: overall_saree_design,
-  // overall_anarkali_design, overall_design on bottom wear, and a bare
-  // 'overall' on anything uploaded without a garment. Same test coverOf makes
-  // a few lines down. Garments whose template declares no overall part -- gown,
-  // suit, sherwani -- simply never take this branch.
   const overallTab = Boolean(openPart && openPart.startsWith('overall'));
 
-  // Everything the customer has handed over for THIS part -- a list, because
-  // describing a pallu takes three photographs and a link as often as it takes
-  // one, and deciding which single one of those counts is the boutique's job
-  // rather than something this form should force at the moment they are given.
-  //
-  // Kept apart from `selection`, which stays exactly what it was: the one
-  // chosen photograph per part that the summary, the modal and the board item
-  // at Confirm all read.
   const ownRefs = (openPart && references[openPart]) || [];
 
   const putRefs = (list) => onReferencesChange?.({ ...references, [openPart]: list });
@@ -863,22 +721,11 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 
   const removeRef = (id, part = openPart) => {
     const left = (references[part] || []).filter(r => r.id !== id);
-    // The part's key goes with its last reference rather than sitting there as
-    // an empty list nobody put anything in.
     const next = { ...references };
     if (left.length) next[part] = left; else delete next[part];
     onReferencesChange?.(next);
   };
 
-  // Every reference on this garment, whichever part it was kept on, in the
-  // order the part tabs run. The strip under the picker shows all of them:
-  // a saree is a pallu and a border and a body together, and hiding the
-  // border's references while the pallu tab is open made the customer's
-  // choices look thinner than they were.
-  //
-  // The fabric and accessory folds share the one references map with the
-  // design fold, so they show only their own slots: the design photographs
-  // kept under "Photos & references" belong to that fold, not to a fabric.
   const allRefs = useMemo(() => {
     const order = new Map(partOrder.map((key, i) => [key, i]));
     const own = (isFabric || accessoriesOnly) ? new Set(tabParts.map(p => p.key)) : null;
@@ -891,9 +738,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   const addReferenceLink = () => {
     const typed = linkDraft.trim();
     if (!typed) return;
-    // A link pasted without its scheme ("pinterest.com/pin/...") is a relative
-    // path to resolveMediaUrl, which would hang it off the media host and show
-    // a broken card. What the customer meant is a site.
     const url = /^https?:\/\//i.test(typed) ? typed : `https://${typed}`;
     if (ownRefs.some(r => r.source_url === url)) { setLinkDraft(''); return; }
     addRefs([{
@@ -953,8 +797,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     setUploading(true);
     setUploadError(null);
     try {
-      // One request per file, all in flight together. Promise.all rather than a
-      // loop with await, so picking eight photographs is one wait and not eight.
       const stored = await Promise.all(files.map(async (file) => {
         const { image_url } = await api.uploadReferenceImage(file);
         return {
@@ -964,8 +806,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
       }));
       addRefs(stored);
     } catch (err) {
-      // Whatever did upload is lost with the batch. Said plainly rather than
-      // leaving the customer to wonder which of the eight landed.
       setUploadError(`${err.message} — please add those pictures again.`);
     } finally {
       setUploading(false);
@@ -974,22 +814,11 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 
   const uploadReference = (e) => {
     const files = [...(e.target.files || [])];
-    e.target.value = '';        // so re-picking the same file fires change again
+    e.target.value = '';       
     uploadFiles(files);
   };
 
-  /** Open the camera.
-   *
-   *  Not the `capture` attribute on the file input, which is what this used to
-   *  be: capture is honoured by mobile browsers ONLY. On a desktop it is
-   *  ignored outright and the button opened the ordinary file picker -- which
-   *  is exactly what a boutique on a laptop saw when they pressed Take photo.
-   *
-   *  getUserMedia works on both, so it is the one path. Where it cannot run --
-   *  no permission, no camera, or a page served over plain HTTP, which browsers
-   *  refuse outright -- it falls back to the capture input, so a phone still
-   *  gets its native camera and nothing gets worse than it was.
-   */
+
   const openCamera = async () => {
     setUploadError(null);
     if (!navigator.mediaDevices?.getUserMedia) { ownCamRef.current?.click(); return; }
@@ -1002,7 +831,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   };
 
   const closeCamera = () => {
-    // Every track stopped, or the camera light stays on after the modal shuts.
     camStream?.getTracks().forEach(track => track.stop());
     setCamStream(null);
   };
@@ -1026,8 +854,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   const referenceCount = Object.values(references)
     .reduce((n, list) => n + (list?.length || 0), 0);
 
-  // Clicking the chosen photograph again clears that part, so a customer can
-  // undo without having to pick a different one instead.
   const choose = (part, image) => {
     const next = { ...selection };
     if (next[part]?.id === image.id) delete next[part];
@@ -1058,9 +884,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   }
 
   return (
-    // No card and no title of its own: every caller sits inside the wizard's
-    // garment card, which already names the garment and draws the border. A
-    // second bordered card left ~200px of content on a phone.
     <div>
       <div style={{ marginBottom: '14px' }}>
         <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
@@ -1357,8 +1180,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
               onView={() => {
                 const design = overallTab
                   && (designs || []).find(d => String(d.id) === String(image.design_id));
-                // Falls through to the plain full-size view whenever the design
-                // behind the photograph is not in hand.
                 if (design) setOpenDesign(design); else setViewIndex(i);
               }}
             >
@@ -1403,8 +1224,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
         <div style={{ display: 'grid', gap: '14px',
                       gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
           {designs.map((design, i) => {
-            // How many of this customer's chosen parts came off this design --
-            // so a design they have already taken something from is marked.
             const taken = Object.values(selection)
               .filter(img => img && String(img.design_id) === String(design.id)).length;
             return (
@@ -1446,8 +1265,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
              onClick={closeCamera}>
           <video
             autoPlay playsInline muted
-            // srcObject cannot be set from JSX, and a ref callback sets it the
-            // moment the element exists rather than a render later.
             ref={(el) => { videoRef.current = el; if (el && el.srcObject !== camStream) el.srcObject = camStream; }}
             onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: '8px', background: '#000' }}
@@ -1520,8 +1337,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
  * keep in step -- it is a view of the selection, not a copy of it.
  */
 export function SelectedDesignSummary({ garmentJobs = [], onClear }) {
-  // Which picture the full-size view is showing, as an index into the flat
-  // list below. Null when it is closed.
   const [viewIndex, setViewIndex] = useState(null);
 
   const sections = garmentJobs
@@ -1538,12 +1353,6 @@ export function SelectedDesignSummary({ garmentJobs = [], onClear }) {
 
   const total = sections.reduce((n, s) => n + s.picks.length, 0);
 
-  // Every chosen photograph, in the order the sections read, so the arrows walk
-  // the whole outfit rather than stopping at the end of a garment. The label
-  // carries the garment too -- 'Border Design' alone is ambiguous once a saree
-  // and a dupatta both have one.
-  // Each entry keeps the section and part it came from, so finding the one a
-  // View button belongs to is a lookup rather than a re-walk of the sections.
   const viewItems = sections.flatMap(section =>
     section.picks.map(({ part, image }) => ({
       sectionKey: section.key,
