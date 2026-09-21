@@ -1041,6 +1041,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             tasks = ProductionTask.objects.filter(order=order)
             if order.tailor_id != (old_tailor.id if old_tailor else None):
                 tasks.filter(stage_key__in=tailor_stages).update(assigned_to=order.tailor)
+                order.stages.filter(stage_key__in=tailor_stages, status='NOT_STARTED').update(assigned_to=order.tailor)
                 Notification.objects.create(
                     title=f"New Stitching Task: {order.reference}",
                     message=f"Order {order.reference} has been assigned to you for stitching.",
@@ -1048,6 +1049,8 @@ class OrderViewSet(viewsets.ModelViewSet):
                     recipient_email=order.tailor.user.email if order.tailor.user else None)
             if order.master_id != (old_master.id if old_master else None):
                 tasks.exclude(stage_key__in=tailor_stages).update(assigned_to=order.master)
+                order.stages.exclude(stage_key__in=tailor_stages + ('created',)).filter(
+                    status='NOT_STARTED').update(assigned_to=order.master)
                 Notification.objects.create(
                     title=f"New Assignment: {order.reference}",
                     message=f"Order {order.reference} has been assigned to you as Supervising Master.",

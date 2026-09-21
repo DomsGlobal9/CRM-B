@@ -45,6 +45,7 @@ class SendToWorkshopTests(WorkflowTestBase):
         from apps.production.models import ProductionTask
         from crm_api.models import Notification
         self.assertEqual(self.stage(order, "pattern_cutting").assigned_to_id, self.master.id)
+        self.assertEqual(self.stage(order, "stitching_in_progress").assigned_to_id, self.tailor.id)
         self.assertEqual(ProductionTask.objects.get(order=order, stage_key="stitching_in_progress").assigned_to_id, self.tailor.id)
         self.assertEqual(ProductionTask.objects.get(order=order, stage_key="pattern_cutting").assigned_to_id, self.master.id)
         self.assertTrue(Notification.objects.filter(title=f"New Stitching Task: {order.reference}").exists())
