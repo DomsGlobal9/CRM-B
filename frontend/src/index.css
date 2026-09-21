@@ -4321,6 +4321,22 @@ table.data-table tbody tr:hover {
 .garment-detail { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .garment-detail-label { font-size: var(--text-xs); color: var(--text-secondary); line-height: var(--leading-tight); }
 .garment-detail-value { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); overflow-wrap: anywhere; }
+/* The production-stage brief: every answered field as its own tile -- label
+   over value on a soft ground -- in an even grid, with a rule after each
+   section title. A spec a tailor scans down, not a loose scatter of pairs.
+   Scoped so the wizard's review, which renders the same component, keeps
+   its lighter form. */
+.at-stage-brief .garment-card { padding: var(--space-4) var(--space-5); gap: var(--space-4); }
+.at-stage-brief .garment-card-name { font-size: var(--text-lg); }
+.at-stage-brief .garment-section { gap: var(--space-3); }
+.at-stage-brief .garment-section-title { display: flex; align-items: center; gap: var(--space-3); }
+.at-stage-brief .garment-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+.at-stage-brief .garment-section-grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: var(--space-2); }
+.at-stage-brief .garment-detail { padding: 8px 12px; background: var(--surface-inset); border-radius: var(--radius-md); gap: 3px; }
+.at-stage-brief .garment-detail-label { font-size: var(--text-2xs); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.at-stage-brief .garment-detail-value { font-size: var(--text-sm); }
+.at-stage-brief .garment-instructions { margin-top: var(--space-1); }
+@media (max-width: 600px) { .at-stage-brief .garment-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .garment-instructions { padding: var(--space-3) var(--space-4); background: var(--warning-bg); border: 1px solid var(--warning-color); border-radius: var(--radius-md); display: flex; flex-direction: column; gap: var(--space-1); }
 .garment-instructions .garment-section-title { color: var(--warning-color); }
 .garment-instructions-text { font-size: var(--text-sm); color: var(--text-primary); white-space: pre-wrap; }
@@ -5124,7 +5140,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   /* One column: the cards interleave (photos, then the preview) instead of
      the whole side column trailing the whole main column. */
   .od-main, .od-side { display: contents; }
-  .od-gallery { order: 1; } .od-preview { order: 2; } .od-updates { order: 3; } .od-notes { order: 4; } .od-materials { order: 5; } .od-extra { order: 6; }
+  .od-garments { order: 1; } .od-gallery { order: 2; } .od-updates { order: 3; } .od-customer { order: 4; } .od-notes { order: 5; } .od-materials { order: 6; } .od-extra { order: 7; } .od-tip { order: 8; }
 }
 @media (max-width: 640px) {
   .od-title { font-size: 28px; }
@@ -5295,15 +5311,65 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 
 /* Order book: where a workshop order stands, in one line -- the step done,
    the step it is on with who has it, the step next. Three lines on a phone. */
-.od-standing { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
-.od-standing-card { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left; padding: var(--space-3) var(--space-4); border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-1); color: var(--text-primary); cursor: pointer; font: inherit; }
-.od-standing-card:hover:not(:disabled) { border-color: var(--accent-border); }
-.od-standing-card:disabled { opacity: 0.55; cursor: default; }
-.od-standing-card strong { font-size: 16px; }
-.od-standing-card--now { border-color: var(--accent-border); background: var(--accent-color); }
-.od-standing-card--now .ui-eyebrow { color: var(--accent-text); }
-.od-standing-sub { font-size: 13px; color: var(--text-secondary); }
-@media (max-width: 640px) { .od-standing { grid-template-columns: 1fr; } }
+/* Order page top bar: back link left, the one next action right. */
+.od-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.od-topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Where it stands: previous / current / next in one strip, the live step ringed. */
+.od-strip { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 8px 12px; }
+.od-strip-col { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; min-width: 0; }
+.od-strip-arrow { display: flex; align-items: center; justify-content: center; color: var(--text-muted); padding-top: 34px; }
+.od-strip-pill { display: inline-flex; align-items: center; gap: 12px; max-width: 100%; padding: 6px 20px 6px 6px; border: 1px solid var(--border-color); border-radius: 999px; background: var(--surface-2); color: var(--text-primary); font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+.od-strip-pill:hover:not(:disabled) { border-color: var(--accent-border); }
+.od-strip-pill:disabled { cursor: default; opacity: .6; }
+.od-strip-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--surface-color); border: 1px solid var(--border-color); color: var(--text-secondary); flex-shrink: 0; }
+.od-strip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.od-strip-sub { font-size: 13px; color: var(--text-secondary); line-height: 1.4; }
+.od-strip-col--prev .od-strip-icon { background: var(--text-muted); border-color: transparent; color: #fff; }
+.od-strip-col--now .od-strip-pill { background: var(--accent-color); border-color: var(--accent-border); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-border) 35%, transparent); }
+.od-strip-col--now .od-strip-icon { background: var(--primary-color); border-color: transparent; color: #fff; }
+.od-strip-col--now .ui-eyebrow { color: var(--accent-text); }
+.od-strip-col--next .od-strip-icon { border-style: dashed; background: transparent; }
+/* Journey: progress in the head, the steps as a table. */
+.od-progress { display: flex; align-items: center; gap: 10px; }
+.od-progress-text { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+.od-progress-bar { display: block; width: 180px; }
+.od-progress-pct { font-size: 13px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.od-tasks-wrap { margin: 0 -4px; }
+.od-tasks th, .od-tasks td { padding: 12px 14px; }
+.od-tasks-num { width: 40px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.od-tasks-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+.od-tasks-when { color: var(--text-secondary); white-space: nowrap; }
+.od-tasks-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; margin-right: 6px; }
+.od-tasks-row--done td { color: var(--text-secondary); }
+.od-tasks-row--done .od-tasks-name { font-weight: 400; }
+.od-tasks-row--current td { background: var(--accent-color); }
+.od-tasks-row--current .od-tasks-name { font-weight: 600; }
+/* Garments in this order: a tile, the name, its steps as chips. */
+.od-garment-list { display: flex; flex-direction: column; gap: 12px; }
+.od-garment { display: flex; gap: 12px; align-items: flex-start; }
+.od-garment-tile { display: flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: var(--radius-md); background: var(--surface-inset); color: var(--text-secondary); flex-shrink: 0; }
+.od-garment-body { min-width: 0; flex: 1; }
+.od-garment-name { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.od-garment-steps { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
+.od-garment-step { border: none; background: none; padding: 2px 0; font: inherit; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; min-height: 28px; }
+.od-garment-step:hover { color: var(--text-primary); text-decoration: underline; }
+.od-garment-step--done { color: var(--success-color); }
+.od-garment-step--live { color: var(--accent-text); font-weight: 600; }
+/* The quiet note at the foot of the main column. */
+.od-tip { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid var(--accent-border); border-radius: var(--radius-lg); background: var(--accent-color); }
+.od-tip div { display: flex; flex-direction: column; gap: 2px; }
+.od-tip strong { font-size: 14px; color: var(--text-primary); }
+.od-tip span { font-size: 13px; color: var(--text-secondary); }
+@media (max-width: 1024px) { .od-tasks-num { display: none !important; } }
+@media (max-width: 760px) {
+  .od-strip { grid-template-columns: 1fr; gap: 10px; }
+  .od-strip-arrow { display: none; }
+  .od-strip-col { flex-direction: row; align-items: center; text-align: left; flex-wrap: wrap; gap: 6px 12px; }
+  .od-strip-col .ui-eyebrow { flex-basis: 100%; }
+  .od-strip-sub { flex-basis: 100%; }
+  .od-progress { width: 100%; }
+  .od-progress-bar { flex: 1; width: auto; }
+}
 .at-stage-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; line-height: 1.4; }
 .at-stage-strip-muted { color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
 .at-stage-strip-now { color: var(--text-primary); display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0 4px; }

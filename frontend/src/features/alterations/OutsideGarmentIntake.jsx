@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, Camera, Shirt, User, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { Dropzone } from '../../components/ui/Atelier';
-import { parseAdjustments } from './adjustments';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import {
   LIMITS, tenDigits, mobileError, cleanName, nameError, cleanAmount, amountError,
@@ -70,16 +69,20 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
         });
         customerId = row.id;
       }
-      const created = await api.createOutsideAlteration({
-        customer_id: customerId,
-        garment_template_id: form.garment_template_id,
-        garment_note: form.garment_note.trim(),
-        issue_description: form.issue_description,
-        issue_scale: form.issue_scale,
-        requested_adjustments: parseAdjustments(form.adjustments),
-        charge_amount: form.charge_amount || '0.00',
-        notes: form.notes,
-      }, photo);
+      const template = templates.find((tpl) => String(tpl.id) === String(form.garment_template_id));
+      const issue = [form.issue_description.trim(), form.adjustments.trim(), form.notes.trim()].filter(Boolean).join('\n');
+      const created = await api.createOutsideAlterationOrder({
+        customer: customerId,
+        garment_name: template?.name || form.garment_note.trim(),
+        issue,
+        charge: form.charge_amount || '0',
+        paid_now: '0',
+      });
+      // The photograph of it as it arrived, kept with the order's garment photos.
+      if (photo) {
+        try { await api.uploadGarmentImage(created.id, 'FRONT', photo); }
+        catch (err) { alert(`Taken in, but the photo could not be saved: ${err.message}`); }
+      }
       onCreated(created);
     } catch (err) {
       setError(err.message);

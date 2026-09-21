@@ -26,7 +26,6 @@ const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboa
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const CustomerDesigns = lazy(() => import('./features/designStudio/CustomerDesigns'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
-const AlterationsPanel = lazy(() => import('./features/alterations/AlterationsPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
@@ -36,7 +35,6 @@ import { purchaseError } from './features/catalog/materials';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
 import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview';
 import OrderAlterations, { RequestAlterationModal } from './features/alterations/OrderAlterations';
-import AlterationList from './features/alterations/AlterationList';
 import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import GarmentSummary from './features/catalog/GarmentSummary';
 import OrderKanban from './features/orders/OrderKanban';
@@ -804,6 +802,132 @@ function StageTimeline({ stages, onSelectStage, hasVoiceNote = anyVoiceNote }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** What a stage is doing, in words, and the tone of its badge. */
+const stageWords = (t, status) => (
+  status === 'COMPLETED' ? [t('ordersPage.taskDone', 'Completed'), 'success']
+  : status === 'SKIPPED' ? [t('ordersPage.taskSkipped', 'Skipped'), 'neutral']
+  : status === 'PENDING_VERIFICATION' ? [t('ordersPage.taskWaitingCheck', 'Waiting for check'), 'warning']
+  : status === 'PAUSED' ? [t('ordersPage.taskPaused', 'Paused'), 'warning']
+  : isLive({ status }) ? [t('ordersPage.taskLive', 'In progress'), 'info']
+  : [t('ordersPage.taskNotStarted', 'Not started'), 'neutral']);
+
+/** The row of a stage to open: the garment in hand, else the first not yet
+ *  done, else the first. A rolled-up step names a stage, not a garment. */
+const rowToOpen = (stages, stageKey) => {
+  const rows = (stages || []).filter((s) => s.stage_key === stageKey);
+  return rows.find(isLive) || rows.find((s) => !isSettled(s)) || rows[0] || null;
+};
+
+/** The order's journey as one table: a numbered step per stage (a per-garment
+ *  stage counts once), what state it is in, when it closed, and the one
+ *  action that fits. Every row opens its stage. */
+function OrderTaskTable({ stages, onSelectStage }) {
+  const { t } = useLanguage();
+  const steps = rollupStages(stages);
+  if (!steps.length) {
+    return <div className="od-empty">{t('ordersPage.noProductionStages', 'No production stages recorded for this order.')}</div>;
+  }
+  const current = currentRow(steps);
+  return (
+    <div className="at-table-wrap od-tasks-wrap">
+      <table className="at-table at-table--fit od-tasks">
+        <thead>
+          <tr>
+            <th className="od-tasks-num">#</th>
+            <th>{t('ordersPage.taskCol', 'Task')}</th>
+            <th>{t('common.status', 'Status')}</th>
+            <th>{t('ordersPage.completedOn', 'Completed on')}</th>
+            <th style={{ textAlign: 'right' }}>{t('common.actions', 'Actions')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {steps.map((step, i) => {
+            const [words, tone] = stageWords(t, step.status);
+            const done = isSettled(step);
+            const live = isLive(step);
+            const open = () => { const row = rowToOpen(stages, step.stage_key); if (row) onSelectStage(row); };
+            return (
+              <tr key={step.stage_key} className={step === current ? 'od-tasks-row--current' : done ? 'od-tasks-row--done' : ''}
+                  onClick={open} style={{ cursor: 'pointer' }}>
+                <td className="od-tasks-num">{i + 1}</td>
+                <td data-label={t('ordersPage.taskCol', 'Task')}>
+                  <span className="od-tasks-name">{step.stage_name}{anyVoiceNote(step) && <Mic size={12} className="oj-mic" aria-label="Voice note" />}</span>
+                </td>
+                <td data-label={t('common.status', 'Status')}>
+                  <span className={`ui-badge ui-badge--${tone}`}>
+                    <span className="od-tasks-dot" aria-hidden="true" />{words}
+                  </span>
+                </td>
+                <td data-label={t('ordersPage.completedOn', 'Completed on')} className="od-tasks-when">
+                  {step.status === 'COMPLETED' && step.completed_at ? fmtDate(step.completed_at) : '—'}
+                </td>
+                <td style={{ textAlign: 'right' }}>
+                  {live ? (
+                    <button type="button" className="btn-primary at-btn-sm" onClick={(e) => { e.stopPropagation(); open(); }}>
+                      {t('ordersPage.updateStage', 'Update')}
+                    </button>
+                  ) : done ? (
+                    <button type="button" className="btn-secondary at-btn-sm" onClick={(e) => { e.stopPropagation(); open(); }}>
+                      {t('common.view', 'View')}
+                    </button>
+                  ) : (
+                    <span className="od-tasks-when">—</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Each garment on the order with its own steps as chips, so a two-garment
+ *  order shows which blouse is on which step. A chip opens that row. */
+function OrderGarmentsCard({ order, onSelectStage }) {
+  const { t } = useLanguage();
+  const jobs = order.garment_jobs || [];
+  if (!jobs.length) return null;
+  return (
+    <section className="at-section od-garments">
+      <div className="od-section-head">
+        <IconTile icon={Shirt} tone="green" size={40} iconSize={18} />
+        <div className="od-section-title od-section-title--stack">
+          <h3>{t('ordersPage.garmentsInOrder', 'Garments in this order')}</h3>
+          <span className="od-section-sub">{t('ordersPage.garmentsInOrderSub', 'Items to be prepared')}</span>
+        </div>
+      </div>
+      <div className="od-garment-list">
+        {jobs.map((job) => {
+          const rows = (order.stages || []).filter((s) => s.garment_job === job.id).sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+          return (
+            <div key={job.id} className="od-garment">
+              <div className="od-garment-tile" aria-hidden="true"><Shirt size={20} /></div>
+              <div className="od-garment-body">
+                <div className="od-garment-name">{job.template_name || t('ordersPage.garment', 'Garment')}</div>
+                {rows.length > 0 && (
+                  <div className="od-garment-steps">
+                    {rows.map((s) => {
+                      const state = STEP_STATE(s.status);
+                      return (
+                        <button key={s.id} type="button" className={`od-garment-step od-garment-step--${state}`}
+                                onClick={() => onSelectStage(s)} title={`${s.stage_name} — ${stageWords(t, s.status)[0]}`}>
+                          {s.stage_name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
@@ -2098,31 +2222,20 @@ function App() {
   // Which alteration the Alterations tab should open on. Set when somebody
   // follows one from an order card or a customer's file, cleared once the tab
   // has been entered so going back to the tab shows the register again.
-  const [openAlterationId, setOpenAlterationId] = useState(null);
   // Delivered order picked for alteration from the customer profile.
   const [alterationOrder, setAlterationOrder] = useState(null);
   // Delivered order picked for alteration from the Manage Orders table.
   const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
   // The "Outside garment" intake opened from the Manage Orders header.
   const [takingInOutside, setTakingInOutside] = useState(false);
+  // An alteration is an order on the short path: open it where orders open.
   const openAlteration = (id) => {
-    setOpenAlterationId(id);
     setSelectedDirectoryCustomer(null);
-    setDashboardTab('alterations');
-    // Opened on one the register does not hold yet (raised from inside an
-    // order card, which hands up only the id): refresh the register, so it
-    // is there when the counter comes back to Manage Orders.
-    if (id && !alterationsList.some((a) => a.id === id)) {
-      api.getAlterations().then((d) => setAlterationsList(d || [])).catch(() => {});
-    }
+    setDashboardTab('orders');
+    setOpenOrdersRowId(id);
+    fetchDashboardAndConfig();
   };
-  // An alteration just taken in: into the register at the top, so it is
-  // there when the counter comes back to Manage Orders, rather than only
-  // after the next reload.
-  const rememberAlteration = (created) => {
-    if (!created?.id) return;
-    setAlterationsList((prev) => [created, ...(prev || []).filter((a) => a.id !== created.id)]);
-  };
+  const rememberAlteration = () => {};
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   // Which order in the customer profile is expanded to show its production
   // progress. Opening a client's order used to throw them into the new-order
@@ -2130,8 +2243,6 @@ function App() {
   const [expandedCustomerOrderId, setExpandedCustomerOrderId] = useState(null);
   // Manage Orders table: the row whose full card is open under it.
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
-  // Alterations sit in the same register as orders, told apart by a Type column.
-  const [alterationsList, setAlterationsList] = useState([]);
   const [approvingDesignId, setApprovingDesignId] = useState(null);
   const [assigningStageKey, setAssigningStageKey] = useState(null);
 
@@ -2194,25 +2305,10 @@ function App() {
 
   // One predicate for the order registry, whichever way it is drawn: the list
   // and the board show the same orders under the same filter and search.
-  // Same chips and search box, read off an alteration's own fields.
-  const alterationMatchesFilters = (alt) => {
-    if (ordersTypeFilter === 'Stitching' || ordersTypeFilter === 'Maggam') return false;
-    // An alteration is in the workroom from the moment it is taken in.
-    const closed = ['COMPLETED', 'CANCELLED'].includes(alt.status);
-    if (ordersFilterTab === 'new') return false;
-    if ((ordersFilterTab === 'done') !== closed) return false;
-    if (ordersSearch.trim()) {
-      const query = ordersSearch.toLowerCase();
-      return (alt.alteration_number || '').toLowerCase().includes(query)
-        || (alt.customer?.name || '').toLowerCase().includes(query);
-    }
-    return true;
-  };
-
   const orderMatchesFilters = (order) => {
-    if (ordersTypeFilter === 'Alteration') return false;
+    if (ordersTypeFilter === 'Alteration' && order.flow !== 'alteration') return false;
     if (ordersTypeFilter === 'Maggam' && order.flow !== 'maggam') return false;
-    if (ordersTypeFilter === 'Stitching' && order.flow === 'maggam') return false;
+    if (ordersTypeFilter === 'Stitching' && order.flow !== 'stitching' && order.flow !== 'legacy') return false;
     if (orderBucket(order) !== ordersFilterTab) return false;
     if (ordersTierFilter !== 'All' && customerTier(order) !== ordersTierFilter) return false;
     if (ordersGarmentFilter !== 'All' && !orderGarmentNames(order).includes(ordersGarmentFilter)) return false;
@@ -2476,7 +2572,6 @@ function App() {
     // The rolls the order wizard picks from are stock now: every active
     // inventory item that is cloth, or filed under a garment part.
     if (hasModule(user, 'inventory')) await load('fabrics', () => api.getInventoryItems({ picker: 'true' }), setFabrics);
-    if (hasModule(user, 'alterations')) await load('alterations', api.getAlterations, (d) => setAlterationsList(d || []));
     if (hasModule(user, 'design_studio')) await load('designs', api.getAllBoutiqueDesigns, setAllDesigns);
     await load('settings', api.getBoutiqueSettings, (data) => {
       setBoutiqueSettings(data);
@@ -3126,25 +3221,14 @@ function App() {
       if (bad) { alert(charge ? bad : 'Enter the charge before recording a payment.'); return; }
     }
     try {
-      const created = await api.createAlteration({
-        customer_id: customerId,
-        order_id: candidate.order.order_id,
-        garment_job_id: candidate.job.id,
-        alteration_type: alterationForm.type,
-        issue_description: alterationForm.issue.trim(),
-        charge_amount: isPaid && alterationForm.charge ? alterationForm.charge : '0.00',
+      const created = await api.createAlterationOrder(candidate.order.id, {
+        garment_job: candidate.job.id,
+        issue: alterationForm.issue.trim(),
+        charge: isPaid && alterationForm.charge ? alterationForm.charge : '0',
+        paid_now: isPaid && alterationForm.paidNow ? alterationForm.paidNow : '0',
       });
-      const paidNow = parseFloat(alterationForm.paidNow || 0);
-      if (isPaid && paidNow > 0) {
-        try {
-          await api.recordAlterationPayment(created.id, { amount: paidNow, payment_method: 'CASH' });
-        } catch (err) {
-          alert(`The alteration was created, but the payment could not be recorded: ${err.message}. Record it on the Alterations page.`);
-        }
-      }
-      openAlteration(created.id);
       setView('dashboard');
-      fetchDashboardAndConfig();
+      openAlteration(created.id);
     } catch (err) {
       setWizardError(err.message || 'Could not create the alteration.');
     }
@@ -4220,7 +4304,6 @@ function App() {
                   // cleared by hand; everything inside resets with the key.
                   setSelectedDirectoryCustomer(null);
                   setOpenOrdersRowId(null);
-                  setOpenAlterationId(null);
                   setSelectedDashboardOrder(null);
                   setSectionVisit(n => n + 1);
                   setMobileNavOpen(false);
@@ -4244,17 +4327,6 @@ function App() {
                 <Suspense fallback={<ScreenLoading />}>
                   <WorkPanel view={dashboardTab === 'work' ? 'open' : dashboardTab} orders={ordersList} currentUser={currentUser} workflowConfig={boutiqueSettings?.workflow_config || []} tailors={tailors} fabricTaxonomy={fabricTaxonomy} onChanged={fetchDashboardAndConfig} />
                 </Suspense>
-                {/* The tailor's alteration queue: a separate job against a
-                    delivered order, so it stays its own list under My work. */}
-                {dashboardTab === 'work' && (
-                  <div style={{ marginTop: '20px' }}>
-                    <AlterationList
-                      title={t('alterations.mine', 'My Alterations')}
-                      params={{ assigned_to_me: '1', open: '1' }}
-                      onOpenAlteration={openAlteration}
-                    />
-                  </div>
-                )}
               </>
             )}
 
@@ -4419,7 +4491,7 @@ function App() {
                     ...(fresh ? [['new', { name: t('ordersPage.notSentYet', 'Not sent yet'), count: fresh, seq: -1 }]] : []),
                     ...Object.entries(dist).sort((a, b) => a[1].seq - b[1].seq),
                   ];
-                  const LOOK = { new: ['amber', Clock], pattern_cutting: ['rose', Scissors], fabric_cutting: ['rose', Scissors],
+                  const LOOK = { new: ['amber', Clock], pattern_cutting: ['rose', Scissors], fabric_cutting: ['rose', Scissors], alteration_work: ['rose', Scissors],
                     stitching_in_progress: ['blue', Shirt], finishing: ['blue', Shirt], master_quality_check: ['violet', ShieldCheck],
                     ready_for_delivery: ['green', PackageCheck], payment: ['amber', Wallet], delivered: ['green', CheckCircle2] };
                   const jump = (key) => {
@@ -4597,19 +4669,6 @@ function App() {
               </Suspense>
             )}
 
-            {/* Post-delivery alterations. Its own screen, deliberately not a
-                second copy of the order registry: an alteration is a separate
-                job that merely points at the order it came from. */}
-            {dashboardTab === 'alterations' && (
-              <Suspense fallback={<ScreenLoading />}>
-                <AlterationsPanel
-                  currentUser={currentUser}
-                  initialAlterationId={openAlterationId}
-                  onBackToList={() => setOpenAlterationId(null)}
-                  key={openAlterationId || 'list'}
-                />
-              </Suspense>
-            )}
 
             {/* 3. MANAGE TAILORS TAB */}
 
@@ -4725,12 +4784,7 @@ function App() {
             {['orders', 'workshop'].includes(dashboardTab) && openOrder && (() => {
               const order = openOrder;
               const stages = order.stages || [];
-              // Counted by step, not by row: a per-garment step is one step.
-              const steps = rollupStages(stages);
-              const live = steps.find(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status)) || null;
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
-              const journeyBadge = allDone ? ['success', STEP_LABEL.done]
-                : live ? ['info', STEP_LABEL.live] : ['neutral', STEP_LABEL.next];
               const tasksDone = stages.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
               const stepChip = `${tasksDone} of ${stages.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
               // Model display parked — see task 16
@@ -4744,9 +4798,36 @@ function App() {
               const verified = Object.values(verification).filter(Boolean).length;
               return (
                 <div className="od-page">
-                  <button type="button" className="btn-link od-back" onClick={() => setOpenOrdersRowId(null)}>
-                    <ArrowLeft size={16} /> {dashboardTab === 'workshop' ? t('ordersPage.backToWorkshop', 'Back to workshop') : t('ordersPage.backToOrders', 'Back to orders')}
-                  </button>
+                  <div className="od-topbar">
+                    <button type="button" className="btn-link od-back" onClick={() => setOpenOrdersRowId(null)}>
+                      <ArrowLeft size={16} /> {dashboardTab === 'workshop' ? t('ordersPage.backToWorkshop', 'Back to workshop') : t('ordersPage.backToOrders', 'Back to orders')}
+                    </button>
+                    {/* The one thing to do next lives up here: send it to the
+                        workshop, or (the owner's shortcut) close every stage. */}
+                    <div className="od-topbar-actions">
+                      {orderBucket(order) === 'new' && ['Owner', 'Master'].includes(currentUser.role) && (
+                        <button type="button" className="btn-primary od-send-btn" disabled={sendBusy}
+                                onClick={() => openSendToWorkshop(order)}>
+                          <Scissors size={16} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
+                        </button>
+                      )}
+                      {currentUser.role === 'Owner' && stages.length > 0 && !allDone && orderBucket(order) !== 'new' && (
+                        <button type="button" className="btn-primary"
+                                disabled={completingAllOrderId === order.id}
+                                onClick={async () => {
+                                  if (!window.confirm((order.payment_status === 'Paid' ? '' : `Payment is not complete: ${inr(order.amount_paid)} of ${inr(order.total_amount)} received.
+
+`) + 'Complete every remaining stage and mark this order Delivered?')) return;
+                                  setCompletingAllOrderId(order.id);
+                                  try { await api.completeAllStages(order.id); await fetchDashboardAndConfig(); }
+                                  catch (err) { alert(err.message); }
+                                  finally { setCompletingAllOrderId(null); }
+                                }}>
+                          <CheckCircle2 size={16} /> {completingAllOrderId === order.id ? t('ordersPage.completing', 'Completing…') : t('ordersPage.markComplete', 'Mark as complete')}
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
                   <header className="od-head">
                     <div className="od-head-left">
@@ -4774,9 +4855,10 @@ function App() {
                           // Which path through the workroom. Switchable by the
                           // owner or Master until cutting or anything after it
                           // has begun -- the server refuses it past that.
-                          const canSwitch = (currentUser?.role === 'Owner' || currentUser?.role === 'Master')
+                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || currentUser?.role === 'Master')
                             && !(order.stages || []).some(st => st.stage_key !== 'created' && st.status !== 'NOT_STARTED');
-                          const label = order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
+                          const label = order.flow === 'alteration' ? t('ordersPage.flowAlteration', 'Alteration')
+                            : order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
                           return canSwitch ? (
                             <label className={`ui-badge ${order.flow === 'maggam' ? 'ui-badge--warning' : 'ui-badge--neutral'}`} style={{ cursor: 'pointer', gap: '4px' }} title="Change how this order is made">
                               <select value={order.flow} aria-label="Order path"
@@ -4795,9 +4877,20 @@ function App() {
                         })()}
                       </div>
                       <div className="od-meta">
-                        <span><User size={14} />{t('ordersPage.client', 'Client:')} <strong>{order.customer_name}</strong></span>
+                        <span><User size={14} />{t('ordersPage.client', 'Customer:')} <strong>{order.customer_name}</strong></span>
                         <span className="od-meta-sep" aria-hidden="true">·</span>
-                        <span><Calendar size={14} />{t('ordersPage.created', 'Created:')} {fmtDate(order.order_date)}</span>
+                        <span><Calendar size={14} />{t('ordersPage.created', 'Taken on:')} {fmtDate(order.order_date)}</span>
+                        {order.flow === 'alteration' && (
+                          <>
+                            <span className="od-meta-sep" aria-hidden="true">·</span>
+                            <span><Scissors size={14} />
+                              {order.alteration_of ? (
+                                <>{t('ordersPage.alterationOf', 'Alteration of')} <button type="button" className="at-link" onClick={() => setOpenOrdersRowId(order.alteration_of)}>{order.alteration_of_reference}</button></>
+                              ) : t('ordersPage.outsideGarment', 'Garment from outside')}
+                              {order.alteration_garment_name ? ` · ${order.alteration_garment_name}` : ''}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <p className="od-quote">“From fabric to finesse, we keep you in the loop.”</p>
@@ -4870,71 +4963,54 @@ function App() {
                   {orderBucket(order) === 'workshop' && (() => {
                     const now = stageNow(order);
                     if (!now) return null;
-                    const cards = [
-                      ['prev', t('ordersPage.previousStage', 'Previous stage'), now.prev, now.prev?.completed_at ? `${t('ordersPage.doneOn', 'done')} ${fmtDate(now.prev.completed_at)}` : ''],
-                      ['now', t('ordersPage.currentStage', 'Current stage'), now.current,
-                        [stageWho(now.current), sinceLabel(now.current.started_at) && `${t('ordersPage.since', 'since')} ${sinceLabel(now.current.started_at)}`,
-                         now.current.status === 'PENDING_VERIFICATION' && t('ordersPage.waitingForCheck', 'waiting for check')].filter(Boolean).join(' · ')],
-                      ['next', t('ordersPage.nextStage', 'Next stage'), now.next, stageWho(now.next || {}) || t('ordersPage.upNext', 'up next')],
+                    const cols = [
+                      { key: 'prev', label: t('ordersPage.previousStage', 'Previous stage'), st: now.prev, Icon: Check,
+                        sub: now.prev?.completed_at ? `${t('ordersPage.completedOn', 'Completed on')} ${fmtDate(now.prev.completed_at)}` : '' },
+                      { key: 'now', label: t('ordersPage.currentStage', 'Current stage'), st: now.current, Icon: Scissors,
+                        sub: [now.current.started_at && `${t('ordersPage.startedOn', 'Started on')} ${fmtDate(now.current.started_at)}`,
+                              stageWho(now.current), now.current.status === 'PENDING_VERIFICATION' && t('ordersPage.waitingForCheck', 'waiting for check')]
+                          .filter(Boolean).join(' · ') },
+                      { key: 'next', label: t('ordersPage.nextStage', 'Next stage'), st: now.next, Icon: Clock,
+                        sub: now.next ? t('ordersPage.startsAfter', 'Starts after {stage}', { stage: now.name.toLowerCase() }) : '' },
                     ];
                     return (
-                      <section className="od-standing" aria-label={t('ordersPage.whereItStands', 'Where it stands')}>
-                        {cards.map(([key, label, st, sub]) => (
-                          <button key={key} type="button" className={`od-standing-card od-standing-card--${key}`} disabled={!st}
-                                  onClick={() => st && openStageReview(order, st)}>
-                            <span className="ui-eyebrow">{label}</span>
-                            <strong>{st ? st.stage_name : '—'}</strong>
-                            {sub && <span className="od-standing-sub">{sub}</span>}
-                          </button>
+                      <section className="at-section od-strip" aria-label={t('ordersPage.whereItStands', 'Where it stands')}>
+                        {cols.map(({ key, label, st, Icon, sub }, idx) => (
+                          <React.Fragment key={key}>
+                            {idx > 0 && <span className="od-strip-arrow" aria-hidden="true"><ChevronRight size={18} /></span>}
+                            <div className={`od-strip-col od-strip-col--${key}`}>
+                              <span className="ui-eyebrow">{label}</span>
+                              <button type="button" className="od-strip-pill" disabled={!st} onClick={() => st && openStageReview(order, st)}>
+                                <span className="od-strip-icon"><Icon size={16} /></span>
+                                <span className="od-strip-name">{st ? st.stage_name : '—'}</span>
+                              </button>
+                              {sub && <span className="od-strip-sub">{sub}</span>}
+                            </div>
+                          </React.Fragment>
                         ))}
                       </section>
                     );
                   })()}
 
-                  <section className="at-section od-journey">
-                    <div className="od-section-head">
-                      <IconTile icon={ClipboardList} tone="amber" size={40} iconSize={18} />
-                      <div className="od-section-title od-section-title--stack">
-                        <h3>{t('ordersPage.orderJourney', 'Order journey')}</h3>
-                        <span className="od-section-sub">{t('ordersPage.orderJourneySub', 'Track the progress from concept to completion')}</span>
-                      </div>
-                      {stages.length > 0 && (
-                        <div className="od-head-actions">
-                          {/* A new order has one obvious next step. */}
-                          {orderBucket(order) === 'new' && ['Owner', 'Master'].includes(currentUser.role) && (
-                            <button type="button" className="btn-primary od-send-btn" disabled={sendBusy}
-                                    onClick={() => openSendToWorkshop(order)}>
-                              <Scissors size={16} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
-                            </button>
-                          )}
-                          {/* The owner's shortcut: the whole journey in one go,
-                              for work already done off the record. */}
-                          {currentUser.role === 'Owner' && !allDone && (
-                            <button type="button" className="btn-primary" style={{ padding: '6px 14px', minHeight: '32px', fontSize: '12.5px' }}
-                                    disabled={completingAllOrderId === order.id}
-                                    onClick={async () => {
-                                      if (!window.confirm((order.payment_status === 'Paid' ? '' : `Payment is not complete: ${inr(order.amount_paid)} of ${inr(order.total_amount)} received.
-
-`) + 'Complete every remaining stage and mark this order Delivered?')) return;
-                                      setCompletingAllOrderId(order.id);
-                                      try { await api.completeAllStages(order.id); await fetchDashboardAndConfig(); }
-                                      catch (err) { alert(err.message); }
-                                      finally { setCompletingAllOrderId(null); }
-                                    }}>
-                              <CheckCircle2 size={14} /> {completingAllOrderId === order.id ? 'Completing…' : 'Complete all stages'}
-                            </button>
-                          )}
-                          <span className="od-chip">{stepChip}</span>
-                          <span className={`ui-badge ui-badge--${journeyBadge[0]}`}>{journeyBadge[1]}</span>
-                        </div>
-                      )}
-                    </div>
-                    <StageTimeline stages={stages} onSelectStage={(stage) => openStageReview(order, stage)} />
-                  </section>
-
                   <div className="od-columns">
                     <div className="od-main">
-                      <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} />
+                  <section className="at-section od-journey">
+                        <div className="od-section-head">
+                          <IconTile icon={ClipboardList} tone="amber" size={40} iconSize={18} />
+                          <div className="od-section-title od-section-title--stack">
+                            <h3>{t('ordersPage.orderJourney', 'Order journey & tasks')}</h3>
+                            <span className="od-section-sub">{t('ordersPage.orderJourneySub', 'Track and manage tasks for this order')}</span>
+                          </div>
+                          {stages.length > 0 && (
+                            <div className="od-head-actions od-progress">
+                              <span className="od-progress-text">{stepChip}</span>
+                              <span className="od-progress-bar"><ProgressBar pct={Math.round((tasksDone / stages.length) * 100)} tone="green" /></span>
+                              <span className="od-progress-pct">{Math.round((tasksDone / stages.length) * 100)}%</span>
+                            </div>
+                          )}
+                        </div>
+                        <OrderTaskTable stages={stages} onSelectStage={(stage) => openStageReview(order, stage)} />
+                      </section>
 
                       <CustomerMessageQueue
                         orderId={order.id}
@@ -5109,9 +5185,34 @@ function App() {
                             </div>
                           )}
                       </div>
+                      <div className="od-tip" role="note">
+                        <IconTile icon={Sparkles} tone="green" size={36} iconSize={16} />
+                        <div>
+                          <strong>{t('ordersPage.tipTitle', 'Keep the quality high!')}</strong>
+                          <span>{t('ordersPage.tipText', 'Check measurements and design notes before moving to the next stage.')}</span>
+                        </div>
+                      </div>
                     </div>
 
                     <aside className="od-side">
+                      <OrderGarmentsCard order={order} onSelectStage={(stage) => openStageReview(order, stage)} />
+                      <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} />
+                      <section className="at-section od-customer">
+                        <div className="od-section-head" style={{ marginBottom: 0 }}>
+                          <IconTile icon={User} tone="neutral" size={40} iconSize={18} />
+                          <div className="od-section-title od-section-title--stack">
+                            <h3>{t('ordersPage.customerDetails', 'Customer details')}</h3>
+                            <span className="od-section-sub">{order.customer_name}</span>
+                          </div>
+                          <button type="button" className="btn-secondary at-btn-sm"
+                                  onClick={() => {
+                                    const cust = customersList.find((c) => c.id === order.customer) || { id: order.customer, first_name: order.customer_name, last_name: '' };
+                                    setDashboardTab('customers'); openDirectoryCustomer(cust);
+                                  }}>
+                            {t('ordersPage.viewCustomer', 'View customer')} <ArrowRight size={14} />
+                          </button>
+                        </div>
+                      </section>
                       {/* Model display parked — see task 16
                           The garment, and the stage panel behind it: that is where the
                           latest design, its notes and references are read.
@@ -5273,9 +5374,8 @@ function App() {
                           : (st === 'Shipped' || st === 'Ready for Dispatch') ? 'info'
                           : 'warning';
                       const filtered = ordersList.filter(orderMatchesFilters);
-                      const filteredAlterations = alterationsList.filter(alterationMatchesFilters);
 
-                      if (filtered.length === 0 && filteredAlterations.length === 0) {
+                      if (filtered.length === 0) {
                         return (
                           <div className="ui-card" style={{ padding: 'var(--space-10)', textAlign: 'center', color: 'var(--text-muted)' }}>
                             {ordersList.length === 0 ? (
@@ -5309,38 +5409,6 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                      {/* Alterations first, newest at the top -- the one just taken
-                          in is what the counter is looking for. View opens the
-                          alteration's own page rather than expanding. */}
-                      {filteredAlterations.map(alt => {
-                        const done = alt.status === 'COMPLETED';
-                        const cancelled = alt.status === 'CANCELLED';
-                        return (
-                        <tr key={alt.id}>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{alt.alteration_number}</td>
-                          <td>Alteration</td>
-                          <td>{alt.customer?.name || [alt.customer?.first_name, alt.customer?.last_name].filter(Boolean).join(' ')}</td>
-                          <td>—</td>
-                          <td>
-                            <span className={`ui-badge ui-badge--${done ? 'success' : cancelled ? 'neutral' : 'warning'}`}>
-                              {done ? 'Delivered' : cancelled ? 'Cancelled' : 'Pending'}
-                            </span>
-                            {!done && !cancelled && (
-                              <span style={{ marginLeft: '8px', fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {alt.status_display || alt.status}
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                              <button type="button" className="btn-secondary at-btn-sm" onClick={() => openAlteration(alt.id)}>
-                                <Eye size={12} /> View
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        );
-                      })}
                       {filtered.map(order => {
                         const isDelivered = order.order_status === 'Delivered';
                         const isCancelled = order.order_status === 'Cancelled';
@@ -5355,7 +5423,7 @@ function App() {
                         <React.Fragment key={order.id}>
                         <tr style={isCancelled ? { opacity: 0.55 } : undefined}>
                           <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)} <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
-                          <td className="at-desk-only">{order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
+                          <td className="at-desk-only">{order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td className="at-desk-only">{order.customer_name}</td>
                           <td data-label={t('ordersPage.estDelivery', 'Delivery')}>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
                           <td data-label={t('ordersPage.whereItStands', 'Where it stands')}>
@@ -5409,7 +5477,7 @@ function App() {
                                   request form the order card and the customer
                                   profile open, one click from the row, for
                                   the roles that run the counter. */}
-                              {isDelivered && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                              {isDelivered && order.flow !== 'alteration' && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
                                 <button type="button" className="btn-secondary at-btn-sm"
                                         style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--accent-color)' }}
                                         onClick={() => setOrdersAlterationOrder(order)}>
@@ -8066,7 +8134,7 @@ function App() {
               <>
                 <div className="page-title-group">
                   <h1 className="page-title">{t('wizard.alterIssueTitle', 'What needs changing?')}</h1>
-                  <p className="page-subtitle">{t('wizard.alterIssueSubtitle', 'Inspection, the tailor and quality check follow on the Alterations page.')}</p>
+                  <p className="page-subtitle">{t('wizard.alterIssueSubtitle', 'It goes to the workshop like any order, numbered under the order it came from.')}</p>
                 </div>
                 {wizardError && (
                   <div role="alert" className="wz-error">
@@ -8720,13 +8788,18 @@ Complete the Payment stage with this partial payment?`)) return;
                 labels the order form used. Nested on the order payload, so it
                 needs no fetch beyond the template itself. */}
             {jobs.length > 0 && (
-              <OrderGarmentBrief
-                jobs={jobs}
-                specialInstructions={activeReviewOrder.special_instructions}
-                voiceNote={activeReviewOrder.instructions_voice_note}
-                voiceNoteBy={activeReviewOrder.instructions_voice_note_by}
-                voiceNoteAt={activeReviewOrder.instructions_voice_note_at}
-              />
+              // .at-stage-brief: the spec as tiled cells (index.css), scoped
+              // to this modal so the wizard's review of the same component is
+              // untouched.
+              <div className="at-stage-brief">
+                <OrderGarmentBrief
+                  jobs={jobs}
+                  specialInstructions={activeReviewOrder.special_instructions}
+                  voiceNote={activeReviewOrder.instructions_voice_note}
+                  voiceNoteBy={activeReviewOrder.instructions_voice_note_by}
+                  voiceNoteAt={activeReviewOrder.instructions_voice_note_at}
+                />
+              </div>
             )}
             {/* An order with no garment lines still carries its instructions;
                 without the brief they had nowhere to show, so the person doing
