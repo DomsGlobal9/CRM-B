@@ -7183,6 +7183,28 @@ function App() {
                           </div>
                         ))}
 
+                        <details className="wz-more">
+                          <summary><Camera size={14} /> {t('wizard.sheetPhotos', 'Photos & references from the customer')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker ownOnly
+                                               garmentKey={job.template?.key || job.key}
+                                               garmentName={job.template?.name || job.key}
+                                               references={partReferences[job.key] || {}}
+                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                          </Suspense>
+                        </details>
+
+                        <details className="wz-more">
+                          <summary><Sparkles size={14} /> {t('wizard.sheetCatalogue', 'Pick a look from our catalogue')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          <Suspense fallback={<ScreenLoading />}>
+                            <GarmentPartPicker
+                              garmentKey={job.template?.key || job.key}
+                              garmentName={job.template?.name || job.key}
+                              selection={partSelection[job.key] || {}}
+                              onChange={(next) => handlePartSelection(job.key, next)} />
+                          </Suspense>
+                        </details>
+
                         {canSeeTab(currentUser, 'inventory') && (
                           <details className="wz-more">
                             <summary><Layers size={14} /> {t('wizard.sheetFabric', 'Fabric from our stock')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
@@ -7262,28 +7284,6 @@ function App() {
                           <GarmentPurchases rows={job.purchases || []}
                                             onChange={(rows) => setGarmentJobs(prev => prev.map(j => (j.key === job.key ? { ...j, purchases: rows } : j)))} />
                         </div>
-
-                        <details className="wz-more">
-                          <summary><Camera size={14} /> {t('wizard.sheetPhotos', 'Photos & references from the customer')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker ownOnly
-                                               garmentKey={job.template?.key || job.key}
-                                               garmentName={job.template?.name || job.key}
-                                               references={partReferences[job.key] || {}}
-                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
-                          </Suspense>
-                        </details>
-
-                        <details className="wz-more">
-                          <summary><Sparkles size={14} /> {t('wizard.sheetCatalogue', 'Pick a look from our catalogue')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker
-                              garmentKey={job.template?.key || job.key}
-                              garmentName={job.template?.name || job.key}
-                              selection={partSelection[job.key] || {}}
-                              onChange={(next) => handlePartSelection(job.key, next)} />
-                          </Suspense>
-                        </details>
 
                         {/* Sections stack one under another, so the prompt to
                             add the next garment sits after the last one. Same
