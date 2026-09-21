@@ -5265,6 +5265,15 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 
 /* Order book: where a workshop order stands, in one line -- the step done,
    the step it is on with who has it, the step next. Three lines on a phone. */
+.od-standing { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.od-standing-card { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left; padding: var(--space-3) var(--space-4); border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-1); color: var(--text-primary); cursor: pointer; font: inherit; }
+.od-standing-card:hover:not(:disabled) { border-color: var(--accent-border); }
+.od-standing-card:disabled { opacity: 0.55; cursor: default; }
+.od-standing-card strong { font-size: 16px; }
+.od-standing-card--now { border-color: var(--accent-border); background: var(--accent-color); }
+.od-standing-card--now .ui-eyebrow { color: var(--accent-text); }
+.od-standing-sub { font-size: 13px; color: var(--text-secondary); }
+@media (max-width: 640px) { .od-standing { grid-template-columns: 1fr; } }
 .at-stage-strip { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; line-height: 1.4; }
 .at-stage-strip-muted { color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
 .at-stage-strip-now { color: var(--text-primary); display: inline-flex; align-items: center; flex-wrap: wrap; gap: 0 4px; }

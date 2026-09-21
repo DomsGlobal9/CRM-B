@@ -170,6 +170,21 @@ const orderBucket = (order) => {
   const started = (order.stages || []).some((st) => st.stage_key !== 'created' && !['NOT_STARTED', 'SKIPPED'].includes(st.status));
   return started ? 'workshop' : 'new';
 };
+/** The stage the order is standing on, with the step before and after it
+ *  (by name, so per-garment rows count once). */
+const stageNow = (order) => {
+  const stages = [...(order.stages || [])].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+  const current = stages.find(st => st.status === 'PENDING_VERIFICATION')
+    || stages.find(st => st.status === 'IN_PROGRESS' || st.status === 'PAUSED')
+    || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED');
+  if (!current) return null;
+  const i = stages.indexOf(current);
+  const prev = stages.slice(0, i).reverse().find(st => st.stage_key !== current.stage_key);
+  const next = stages.slice(i + 1).find(st => st.stage_key !== current.stage_key);
+  return { current, prev, next, name: current.stage_name };
+};
+/** Who has a stage right now: the assignee, else whoever last moved it. */
+const stageWho = (st) => st.assigned_to_name || (st.status !== 'NOT_STARTED' && st.performed_by_name) || '';
 /** '3 h' / '2 d' since a timestamp, for the order book's stage strip. */
 const sinceLabel = (iso) => {
   if (!iso) return '';
@@ -2204,7 +2219,7 @@ function App() {
   const [ordersSearch, setOrdersSearch] = useState('');
   // null until the owner picks a tab: the workshop when it has rows, else the new ones.
   const [ordersTabPick, setOrdersFilterTab] = useState(null);
-  const ordersFilterTab = dashboardTab === 'workshop' ? 'workshop' : (ordersTabPick === 'done' ? 'done' : 'new');
+  const ordersFilterTab = dashboardTab === 'workshop' ? 'workshop' : (ordersTabPick || 'new');
   // Customer tier, garment and workroom step: each 'All' or one value.
   const [ordersTierFilter, setOrdersTierFilter] = useState('All');
   // Stitching orders, maggam orders, alterations, or everything.
@@ -4882,6 +4897,31 @@ function App() {
                   </section>
 
                   {/* Where the order stands in the workroom; a step opens its panel. */}
+                  {/* Previous / current / next, each a door into that stage. */}
+                  {orderBucket(order) === 'workshop' && (() => {
+                    const now = stageNow(order);
+                    if (!now) return null;
+                    const cards = [
+                      ['prev', t('ordersPage.previousStage', 'Previous stage'), now.prev, now.prev?.completed_at ? `${t('ordersPage.doneOn', 'done')} ${fmtDate(now.prev.completed_at)}` : ''],
+                      ['now', t('ordersPage.currentStage', 'Current stage'), now.current,
+                        [stageWho(now.current), sinceLabel(now.current.started_at) && `${t('ordersPage.since', 'since')} ${sinceLabel(now.current.started_at)}`,
+                         now.current.status === 'PENDING_VERIFICATION' && t('ordersPage.waitingForCheck', 'waiting for check')].filter(Boolean).join(' · ')],
+                      ['next', t('ordersPage.nextStage', 'Next stage'), now.next, stageWho(now.next || {}) || t('ordersPage.upNext', 'up next')],
+                    ];
+                    return (
+                      <section className="od-standing" aria-label={t('ordersPage.whereItStands', 'Where it stands')}>
+                        {cards.map(([key, label, st, sub]) => (
+                          <button key={key} type="button" className={`od-standing-card od-standing-card--${key}`} disabled={!st}
+                                  onClick={() => st && openStageReview(order, st)}>
+                            <span className="ui-eyebrow">{label}</span>
+                            <strong>{st ? st.stage_name : '—'}</strong>
+                            {sub && <span className="od-standing-sub">{sub}</span>}
+                          </button>
+                        ))}
+                      </section>
+                    );
+                  })()}
+
                   <section className="at-section od-journey">
                     <div className="od-section-head">
                       <IconTile icon={ClipboardList} tone="amber" size={40} iconSize={18} />
@@ -5185,8 +5225,8 @@ function App() {
                         <section className="at-stat-grid">
                           <StatCard icon={ShoppingCart} tone="amber" label={t('ordersPage.tabNew', 'New')} value={fresh} sub={t('ordersPage.tabNewSub', 'waiting to be sent')}
                                     onClick={() => setOrdersFilterTab('new')} />
-                          <StatCard icon={Scissors} tone="blue" label={t('ordersPage.tabWorkshop', 'In the workshop')} value={making} sub={t('ordersPage.tabWorkshopSub', 'being made')}
-                                    onClick={() => setDashboardTab('workshop')} />
+                          <StatCard icon={Scissors} tone="blue" label={t('ordersPage.tabInProgress', 'In progress')} value={making} sub={t('ordersPage.tabWorkshopSub', 'being made')}
+                                    onClick={() => setOrdersFilterTab('workshop')} />
                           <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Done')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
                                     onClick={() => setOrdersFilterTab('done')} />
                         </section>
@@ -5195,6 +5235,7 @@ function App() {
                         {dashboardTab === 'orders' && (
                           <Chips value={ordersFilterTab} onChange={setOrdersFilterTab} options={[
                             { key: 'new', label: t('ordersPage.tabNew', 'New'), count: fresh },
+                            { key: 'workshop', label: t('ordersPage.tabInProgress', 'In progress'), count: making },
                             { key: 'done', label: t('ordersPage.tabDone', 'Done'), count: done },
                           ]} />
                         )}
@@ -5231,7 +5272,7 @@ function App() {
                         </div>
                         {/* List / Board: two drawings of the workshop; the
                             board's columns are stages, so only that tab has one. */}
-                        {ordersFilterTab === 'workshop' && (
+                        {dashboardTab === 'workshop' && (
                           <div className="at-toolbar-right">
                             <Segmented ariaLabel="Orders view" value={ordersView} onChange={setOrdersView} options={[
                               { key: 'kanban', label: 'Board', icon: LayoutGrid },
@@ -5245,7 +5286,7 @@ function App() {
                 })()}
 
                 <div className="orders-registry-content" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                  {ordersView === 'kanban' && ordersFilterTab === 'workshop' ? (
+                  {ordersView === 'kanban' && dashboardTab === 'workshop' ? (
                     <OrderKanban
                       orders={ordersList.filter(orderMatchesFilters)}
                       workflow={boutiqueSettings?.workflow_config}
@@ -5282,19 +5323,6 @@ function App() {
                         );
                       }
 
-                      // The stage the order is standing on, with the step before
-                      // and after it (by name, so per-garment rows count once).
-                      const stageNow = (order) => {
-                        const stages = [...(order.stages || [])].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
-                        const current = stages.find(st => st.status === 'PENDING_VERIFICATION')
-                          || stages.find(st => st.status === 'IN_PROGRESS' || st.status === 'PAUSED')
-                          || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED');
-                        if (!current) return null;
-                        const i = stages.indexOf(current);
-                        const prev = stages.slice(0, i).reverse().find(st => st.stage_key !== current.stage_key);
-                        const next = stages.slice(i + 1).find(st => st.stage_key !== current.stage_key);
-                        return { current, prev, next, name: current.stage_name };
-                      };
                       const today = todayIso();
 
                       return (
@@ -5383,7 +5411,7 @@ function App() {
                                   {stage.prev && <span className="at-stage-strip-arrow" aria-hidden="true">→ </span>}
                                   <strong>{stage.current.stage_name}</strong>
                                   {(() => {
-                                    const who = stage.current.assigned_to_name || (stage.current.status !== 'NOT_STARTED' && stage.current.performed_by_name) || '';
+                                    const who = stageWho(stage.current);
                                     const since = sinceLabel(stage.current.started_at);
                                     return (who || since) ? (
                                       <span className="at-stage-strip-muted">
