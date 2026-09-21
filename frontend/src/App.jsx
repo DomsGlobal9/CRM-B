@@ -5379,7 +5379,24 @@ function App() {
                       )}
                     </div>
                   ) : (
-                    directoryCustomers.map(cust => {
+                    // One line per customer, the same roster table the Team
+                    // page uses. Fixed column widths and single-line cells,
+                    // so every row is the same two-line height and the
+                    // columns line up down the page. A row opens the
+                    // customer, as the card did.
+                    <div className="at-table-wrap">
+                      <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ width: '30%' }}>Customer</th>
+                            <th style={{ width: '26%' }}>Body measurements</th>
+                            <th style={{ width: '14%' }}>Style notes</th>
+                            <th style={{ width: '15%' }}>Orders</th>
+                            <th style={{ width: '15%' }}></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                    {directoryCustomers.map(cust => {
                       const m = cust.measurements;
                       const parts = m?.additional_measurements?.stitch_parts || [];
                       const visible = m ? getVisibleMeasurementFields(parts) : [];
@@ -5395,82 +5412,88 @@ function App() {
                       ].filter(Boolean);
                       const open = () => openDirectoryCustomer(cust);
                       const orders = cust.order_count ?? cust.orders?.length ?? 0;
+                      const contact = [formatMobile(cust.mobile_number), cust.email_address, cust.city_region || cust.address].filter(Boolean);
+                      // One line, cut with an ellipsis; the full text is the tooltip.
+                      const line = { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+                      const sub = { ...line, fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' };
+                      const measure = (v) => (v === null || v === undefined || v === '' ? '—' : Number(v) || v);
                       return (
-                        <div key={cust.id} className="ui-card" style={{ padding: 0 }}>
-                          <div
-                            className="at-customer"
-                            role="button"
-                            tabIndex={0}
-                            onClick={open}
-                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
-                          >
+                        <tr
+                          key={cust.id}
+                          role="button"
+                          tabIndex={0}
+                          style={{ cursor: 'pointer' }}
+                          onClick={open}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
+                        >
+                          <td data-label="Customer" style={{ overflow: 'hidden' }}>
                             <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
-                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={48} />
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                  <span style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-md)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36} />
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                  <span style={{ ...line, fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}
+                                        title={`${cust.first_name} ${cust.last_name}`}>
                                     {cust.first_name} {cust.last_name}
                                   </span>
-                                  <TierBadge tier={customerTier(cust)} />
+                                  <span style={{ flexShrink: 0 }}><TierBadge tier={customerTier(cust)} /></span>
                                 </div>
-                                <div className="at-contact">
-                                  <span><Phone size={12} /> {formatMobile(cust.mobile_number)}</span>
-                                  {cust.email_address && <span><Mail size={12} /> {cust.email_address}</span>}
-                                  {(cust.city_region || cust.address) && <span><MapPin size={12} /> {cust.city_region || cust.address}</span>}
+                                <div style={sub} title={contact.join(' · ')}>
+                                  <Phone size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />{contact.join(' · ')}
                                 </div>
                               </div>
                             </div>
+                          </td>
 
-                            <div className="at-customer-cell">
-                              <div className="ui-eyebrow">{t('customersPage.bodyMeasurements')}</div>
-                              {m && shown.length > 0 ? (
-                                <div className="at-measure-grid">
-                                  {shown.map(([k, label]) => (
-                                    <div key={k}>
-                                      <div className="at-measure-label">{label}</div>
-                                      <div className="at-measure-value">{m[k] || '—'}</div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>No size measurements logged yet.</span>
-                              )}
-                            </div>
-
-                            <div className="at-customer-cell">
-                              <div className="ui-eyebrow">{t('customersPage.bespokeProfile')}</div>
-                              <div className="at-tags">
-                                {tags.map(tag => <span key={tag} className="at-tag">{tag}</span>)}
+                          <td data-label="Body measurements" style={{ overflow: 'hidden' }}>
+                            {m && shown.length > 0 ? (
+                              <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
+                                   title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
+                                {shown.map(([k, label], i) => (
+                                  <span key={k}>
+                                    {i > 0 && <span style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
+                                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{label} </span>
+                                    <strong>{measure(m[k])}</strong>
+                                  </span>
+                                ))}
                               </div>
-                              {cust.custom_requirements && (
-                                <div style={{ fontSize: 'var(--text-2xs)', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.4 }}>
-                                  {cust.custom_requirements}
-                                </div>
-                              )}
+                            ) : (
+                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} title="No size measurements logged yet.">Not logged yet</span>
+                            )}
+                          </td>
+
+                          <td data-label="Style notes" style={{ overflow: 'hidden' }}>
+                            <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
+                              {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
+                            {cust.custom_requirements && (
+                              <div style={sub} title={cust.custom_requirements}>{cust.custom_requirements}</div>
+                            )}
+                          </td>
 
-                            <div className="at-customer-cell">
-                              <div className="ui-eyebrow">Orders</div>
-                              <div style={{ fontSize: 'var(--text-md)', fontWeight: 700, color: 'var(--text-primary)' }}>{orders}</div>
-                              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                                {inr(cust.total_spend)} spent · {t('customersPage.registered')} {fmtDate(cust.created_at)}
-                              </div>
-                              <button
-                                type="button"
-                                className="at-link"
-                                style={{ marginTop: '6px', fontSize: 'var(--text-xs)', color: 'var(--accent-text)' }}
-                                onClick={(e) => { e.stopPropagation(); setStyleNotesFor(cust); }}
-                              >
-                                <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
-                              </button>
+                          <td data-label="Orders" style={{ overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 700 }}>{orders}</div>
+                            <div style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
+                              {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
                             </div>
+                          </td>
 
-                            <ChevronRight className="at-customer-chevron" size={18} style={{ color: 'var(--text-muted)' }} />
-                          </div>
-
-                        </div>
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <button
+                              type="button"
+                              className="at-link"
+                              style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                              onClick={(e) => { e.stopPropagation(); setStyleNotesFor(cust); }}
+                            >
+                              <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
+                            </button>
+                            <ChevronRight size={16} style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
+                          </td>
+                        </tr>
                       );
-                    })
+                    })}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               </>
