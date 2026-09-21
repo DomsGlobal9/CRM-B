@@ -3,25 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import { isVisible, isTypedOther, typedOtherText } from '../../services/templates';
 
-/**
- * Read-only recap of every dress on an order.
- *
- * Used by the wizard's review step and by the production stage panel, so the
- * person approving the order and the person cutting it read the same page.
- *
- * Built up in three layers, so each reads at a glance:
- *   atom      Detail       one label over one value
- *   molecule  SectionGroup the template's own section (Measurements, Style...)
- *   organism  GarmentCard  one dress: name, count, its sections
- *
- * Values are rendered through the template metadata rather than raw: an option
- * shows its label, not `fall_pico`; a measurement carries its unit.
- */
-
 const formatKey = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-// Same words TemplateForm puts on the label: a stored 'in' reads as Inches here
-// too, so the review never says "12 in" under a form that said Inches.
 const UNIT_NAMES = { in: 'Inches', inch: 'Inches', inches: 'Inches' };
 
 function useInventoryNames(needed) {
@@ -71,14 +54,6 @@ function displayValue(field, value, inventoryNames) {
   }
 
   if (field.field_type === 'file') {
-    // Kept for any value already stored on an existing garment job, but it can
-    // no longer say "Attached" for something that was never saved. TemplateForm
-    // stops rendering file inputs at all (see the comment there): the browser's
-    // File object does not survive JSON.stringify, so what reached the database
-    // was `{}` or `[{}]` while this line reported success. A summary that
-    // confirms an upload the product cannot perform is worse than no summary.
-    // TemplateForm now uploads on pick and stores the URL, so a string (or a
-    // list of them) is a photograph that really was saved.
     const urls = (Array.isArray(value) ? value : [value]).filter((v) => typeof v === 'string' && v);
     if (urls.length) return `${urls.length} photo${urls.length === 1 ? '' : 's'} attached`;
     if (Array.isArray(value)) {
@@ -123,10 +98,6 @@ function SectionGroup({ title, entries }) {
  *  so the wizard's own review, which also renders this component, is untouched.
  */
 function MeasurementTable({ title, entries }) {
-  // A grid of divs with table roles rather than a <table>: index.css turns
-  // every <table> into display:block on small screens for the data tables,
-  // which would leave a tailor's sheet with its cells stopping short of its
-  // own border on exactly the phone it is most likely read on.
   const cell = { padding: '10px 14px', borderTop: '1px solid var(--border-color)',
                  display: 'flex', alignItems: 'center', minWidth: 0 };
   return (
@@ -197,8 +168,6 @@ export default function GarmentSummary({ jobs, onEdit, inventoryNames: providedN
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {jobs.map((job) => {
-        // Only what was actually answered, and only fields that still apply --
-        // an answer left behind by a since-hidden field must not resurface here.
         const sections = job.template.sections
           .map((section) => ({
             ...section,
