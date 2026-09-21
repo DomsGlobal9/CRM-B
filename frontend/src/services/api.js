@@ -802,6 +802,14 @@ export const api = {
     return data;
   },
 
+  async deleteStageNoteVoice(orderId, activityId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/stage-notes/${activityId}/voice-note/`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error(describeApiError(res, await res.json().catch(() => ({}))));
+  },
+
   async deleteGarmentImage(orderId, imageId) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/garment-images/${imageId}/`, {
       method: 'DELETE',

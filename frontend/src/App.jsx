@@ -8827,7 +8827,46 @@ Complete the Payment stage with this partial payment?`)) return;
                         {new Date(a.timestamp).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </div>
                       {a.metadata.comments && <div>{a.metadata.comments}</div>}
-                      <VoiceNotePlayer src={a.metadata.voice_note} />
+                      {a.metadata.voice_note && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <VoiceNotePlayer src={a.metadata.voice_note} style={{ flex: '1 1 200px', marginTop: 0 }} />
+                          {/* The browser's own ⋮ on the player cannot be added
+                              to, so Delete sits beside it -- the same button the
+                              recorder above draws for the stage's note. */}
+                          {a.id && (
+                            <button type="button" className="btn-secondary"
+                                    style={{ padding: '4px 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+                                    disabled={stageTransitionBusy}
+                                    title={t('ordersPage.deleteVoiceNote', 'Delete this voice note')}
+                                    onClick={async () => {
+                                      if (!window.confirm(t('ordersPage.deleteVoiceNoteConfirm', 'Delete this voice note?'))) return;
+                                      setStageTransitionBusy(true);
+                                      try {
+                                        await api.deleteStageNoteVoice(activeReviewOrder.id, a.id);
+                                        // The modal reads its own copy of the order, which the
+                                        // background refresh does not replace -- so the note goes
+                                        // from that copy the same way the server took it: the
+                                        // clip off the row, or the row itself when nothing is left.
+                                        setActiveReviewOrder((prev) => prev && ({
+                                          ...prev,
+                                          activities: (prev.activities || []).flatMap((row) => {
+                                            if (row.id !== a.id) return [row];
+                                            const { voice_note, voice_note_by, voice_note_at, ...rest } = row.metadata || {}; // eslint-disable-line no-unused-vars
+                                            return row.event_type === 'STAGE_NOTE' && !rest.comments ? [] : [{ ...row, metadata: rest }];
+                                          }),
+                                        }));
+                                        fetchDashboardAndConfig();
+                                      } catch (err) {
+                                        alert(err.message || t('ordersPage.voiceNoteDeleteFailed', 'Could not delete the voice note.'));
+                                      } finally {
+                                        setStageTransitionBusy(false);
+                                      }
+                                    }}>
+                              <Trash2 size={13} /> {t('common.delete', 'Delete')}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
