@@ -8720,13 +8720,18 @@ Complete the Payment stage with this partial payment?`)) return;
                 labels the order form used. Nested on the order payload, so it
                 needs no fetch beyond the template itself. */}
             {jobs.length > 0 && (
-              <OrderGarmentBrief
-                jobs={jobs}
-                specialInstructions={activeReviewOrder.special_instructions}
-                voiceNote={activeReviewOrder.instructions_voice_note}
-                voiceNoteBy={activeReviewOrder.instructions_voice_note_by}
-                voiceNoteAt={activeReviewOrder.instructions_voice_note_at}
-              />
+              // .at-stage-brief: the spec as tiled cells (index.css), scoped
+              // to this modal so the wizard's review of the same component is
+              // untouched.
+              <div className="at-stage-brief">
+                <OrderGarmentBrief
+                  jobs={jobs}
+                  specialInstructions={activeReviewOrder.special_instructions}
+                  voiceNote={activeReviewOrder.instructions_voice_note}
+                  voiceNoteBy={activeReviewOrder.instructions_voice_note_by}
+                  voiceNoteAt={activeReviewOrder.instructions_voice_note_at}
+                />
+              </div>
             )}
             {/* An order with no garment lines still carries its instructions;
                 without the brief they had nowhere to show, so the person doing
