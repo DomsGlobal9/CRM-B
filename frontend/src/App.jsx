@@ -4398,9 +4398,9 @@ function App() {
                   <section className="content-card" style={{ padding: '20px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
                       <div>
-                        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 500 }}>Getting started</h2>
+                        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 500 }}>{t('dashboard.gettingStarted', 'Getting started')}</h2>
                         <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                          {onboardingSteps.filter(step => step.done).length} of {onboardingSteps.length} done — this is the order the work flows in.
+                          {t('dashboard.onboardingProgress', '{done} of {total} done — this is the order the work flows in.', { done: onboardingSteps.filter(step => step.done).length, total: onboardingSteps.length })}
                         </p>
                       </div>
                       <button
@@ -4412,7 +4412,7 @@ function App() {
                           } catch { /* per-device convenience only */ }
                         }}
                       >
-                        Dismiss
+                        {t('dashboard.dismiss', 'Dismiss')}
                       </button>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -4455,17 +4455,17 @@ function App() {
                   const overdue = Number(s.overdue) || 0;
                   return (
                     <section className="at-stat-grid" style={{ marginBottom: 'var(--space-5)' }}>
-                      <StatCard icon={TrendingUp} tone="green" label="Revenue this month"
-                                value={inr(s.revenue_month)} sub={`${inr(s.revenue_total)} all time`}
+                      <StatCard icon={TrendingUp} tone="green" label={t('dashboard.revenueThisMonth', 'Revenue this month')}
+                                value={inr(s.revenue_month)} sub={t('dashboard.allTime', '{amount} all time', { amount: inr(s.revenue_total) })}
                                 onClick={() => { setInvoiceFilter('All'); setDashboardTab('invoices'); }} />
-                      <StatCard icon={Wallet} tone="amber" label="To collect" value={inr(outstanding)}
-                                sub={outstanding > 0 ? 'across active orders' : 'all settled'}
+                      <StatCard icon={Wallet} tone="amber" label={t('dashboard.toCollect', 'To collect')} value={inr(outstanding)}
+                                sub={outstanding > 0 ? t('dashboard.acrossActiveOrders', 'across active orders') : t('dashboard.allSettled', 'all settled')}
                                 onClick={() => { setInvoiceFilter('Pending'); setDashboardTab('invoices'); }} />
-                      <StatCard icon={ClipboardList} tone="violet" label="Active orders" value={s.active_orders ?? 0}
-                                sub={`${s.due_soon ?? 0} due this week${overdue ? ` · ${overdue} overdue` : ''}`}
+                      <StatCard icon={ClipboardList} tone="violet" label={t('dashboard.activeOrders', 'Active orders')} value={s.active_orders ?? 0}
+                                sub={`${t('dashboard.dueThisWeek', '{n} due this week', { n: s.due_soon ?? 0 })}${overdue ? ` · ${t('dashboard.overdueCount', '{n} overdue', { n: overdue })}` : ''}`}
                                 onClick={() => setDashboardTab('workshop')} />
-                      <StatCard icon={Users} tone="blue" label="Customers" value={s.total_customers ?? 0}
-                                sub={(() => { const c = tierCounts(customersList); return `${c.Platinum} Platinum · ${c.Gold} Gold · ${c.Silver} Silver`; })()}
+                      <StatCard icon={Users} tone="blue" label={t('dashboard.totalCustomers', 'Customers')} value={s.total_customers ?? 0}
+                                sub={(() => { const c = tierCounts(customersList); return t('dashboard.tierSummary', '{platinum} Platinum · {gold} Gold · {silver} Silver', { platinum: c.Platinum, gold: c.Gold, silver: c.Silver }); })()}
                                 onClick={() => setDashboardTab('customers')} />
                     </section>
                   );
@@ -4499,12 +4499,12 @@ function App() {
                     setOrdersStageFilter(key); setDashboardTab('workshop');
                   };
                   return (
-                    <SectionCard icon={Boxes} tone="green" title="In the workroom"
-                                 action={() => setDashboardTab('workshop')} actionLabel="All orders"
+                    <SectionCard icon={Boxes} tone="green" title={t('dashboard.inWorkroom', 'In the workroom')}
+                                 action={() => setDashboardTab('workshop')} actionLabel={t('dashboard.allOrders', 'All orders')}
                                  style={{ marginBottom: 'var(--space-5)' }}>
                       {entries.length === 0 ? (
                         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                          No orders yet. Create the first one to see it move through the floor.
+                          {t('dashboard.noOrdersFloor', 'No orders yet. Create the first one to see it move through the floor.')}
                         </div>
                       ) : (
                         <div className="at-pipeline">
@@ -4526,15 +4526,15 @@ function App() {
 
                 {/* Needs attention | Today */}
                 <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)' }}>
-                  <SectionCard icon={AlertCircle} tone="rose" title="Needs your attention"
-                               action={() => setDashboardTab('orders')} actionLabel="View All">
+                  <SectionCard icon={AlertCircle} tone="rose" title={t('dashboard.needsAttention', 'Needs your attention')}
+                               action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View All')}>
                     {(() => {
                       const att = dashboardData?.attention || {};
                       const due = att.due || [];
                       const unpaid = att.unpaid || [];
                       if (!due.length && !unpaid.length && !att.low_stock && !att.pending_designs) {
                         return <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                          Nothing needs you right now — no overdue orders, balances or low stock.
+                          {t('dashboard.nothingNeedsYou', 'Nothing needs you right now — no overdue orders, balances or low stock.')}
                         </div>;
                       }
                       const row = (key, onClick, ref, label, badge) => (
@@ -4551,23 +4551,23 @@ function App() {
                       unpaid.forEach((o) => byOrder.set(o.id, { ...(byOrder.get(o.id) || o), balance: o.balance, isUnpaid: true }));
                       return (
                         <div>
-                          {[...byOrder.values()].map((o) => row(`order-${o.id}`, () => setDashboardTab('orders'), orderRef(o), o.customer || 'Customer',
+                          {[...byOrder.values()].map((o) => row(`order-${o.id}`, () => setDashboardTab('orders'), orderRef(o), o.customer || t('dashboard.customer', 'Customer'),
                             <span style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                               {o.isDue && <span className={`ui-badge ui-badge--${o.overdue ? 'danger' : 'warning'}`}>
-                                {o.overdue ? 'Overdue' : 'Due'} {o.due ? new Date(o.due).toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''}
+                                {o.overdue ? t('dashboard.overdue', 'Overdue') : t('dashboard.due', 'Due')} {o.due ? new Date(o.due).toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''}
                               </span>}
-                              {o.isUnpaid && <span className="ui-badge ui-badge--warning">{inr(o.balance)} due</span>}
+                              {o.isUnpaid && <span className="ui-badge ui-badge--warning">{t('dashboard.balanceDue', '{amount} due', { amount: inr(o.balance) })}</span>}
                             </span>))}
-                          {att.low_stock > 0 && row('stock', () => setDashboardTab('inventory'), null, 'Low stock',
-                            <span className="ui-badge ui-badge--warning">{att.low_stock} item{att.low_stock === 1 ? '' : 's'}</span>)}
-                          {att.pending_designs > 0 && row('designs', openDesignRequests, null, 'Designs awaiting review',
+                          {att.low_stock > 0 && row('stock', () => setDashboardTab('inventory'), null, t('dashboard.lowStock', 'Low stock'),
+                            <span className="ui-badge ui-badge--warning">{att.low_stock === 1 ? t('dashboard.lowStockOne', '{n} item', { n: 1 }) : t('dashboard.lowStockMany', '{n} items', { n: att.low_stock })}</span>)}
+                          {att.pending_designs > 0 && row('designs', openDesignRequests, null, t('dashboard.designsAwaitingReview', 'Designs awaiting review'),
                             <span className="ui-badge ui-badge--info">{att.pending_designs}</span>)}
                         </div>
                       );
                     })()}
                   </SectionCard>
 
-                  <SectionCard icon={CalendarDays} tone="green" title="Today">
+                  <SectionCard icon={CalendarDays} tone="green" title={t('dashboard.today', 'Today')}>
                     {(() => {
                       const today = dashboardData?.today || {};
                       const appts = today.appointments || [];
@@ -4577,18 +4577,18 @@ function App() {
                             <button type="button" className="at-pipeline-tile at-stat--green" style={{ flex: 1 }}
                                     onClick={() => setDashboardTab('staff')}>
                               <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{today.staff_working ?? 0}</span>
-                              <span className="at-pipeline-label">on the floor now</span>
+                              <span className="at-pipeline-label">{t('dashboard.onFloorNow', 'on the floor now')}</span>
                             </button>
                             <div className="at-pipeline-tile at-stat--neutral" style={{ flex: 1, cursor: 'default' }}>
                               <span className="at-pipeline-value">{today.staff_present ?? 0}</span>
-                              <span className="at-pipeline-label">present today</span>
+                              <span className="at-pipeline-label">{t('dashboard.presentToday', 'present today')}</span>
                             </div>
                           </div>
                           {appts.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: 'var(--space-2) 0' }}>
                               <IconTile icon={Calendar} tone="neutral" size={40} iconSize={18} />
                               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 'var(--space-2) 0 var(--space-3)' }}>
-                                No appointments booked for today.
+                                {t('dashboard.noAppointmentsToday', 'No appointments booked for today.')}
                               </div>
                               <button type="button" className="btn-primary at-btn-sm" style={{ margin: '0 auto' }}
                                       onClick={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}>
@@ -4600,7 +4600,7 @@ function App() {
                               {appts.map((a) => (
                                 <div key={a.id} className="at-row">
                                   <span className="at-row-main" style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
-                                    <b>{a.time}</b> · {a.customer || 'Customer'}</span>
+                                    <b>{a.time}</b> · {a.customer || t('dashboard.customer', 'Customer')}</span>
                                   <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>{a.type}{a.with ? ` · ${a.with}` : ''}</span>
                                 </div>
                               ))}
@@ -4616,12 +4616,12 @@ function App() {
                     reads as a ledger, and a ledger wants the row. The header's
                     New Order and the sidebar already carry every shortcut the
                     Quick Actions card duplicated. */}
-                <SectionCard icon={ShoppingBag} tone="blue" title="Latest orders"
-                             subtitle="The latest orders across the floor"
+                <SectionCard icon={ShoppingBag} tone="blue" title={t('dashboard.recentOrders', 'Latest orders')}
+                             subtitle={t('dashboard.latestOrdersSub', 'The latest orders across the floor')}
                              action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View all')}>
                   {!dashboardData?.recent_orders || dashboardData.recent_orders.length === 0 ? (
                     <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                      No orders yet.
+                      {t('dashboard.noOrdersYet', 'No orders yet.')}
                     </div>
                   ) : (
                     <div>
@@ -4633,7 +4633,7 @@ function App() {
                               name and the garment are two spans, and inline
                               they ran together as "Asrita DasSaree". */}
                           <span className="at-row-main" style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                            <span className="at-row-title" style={{ fontWeight: 500 }}>{order.customer_name || order.customer || 'Customer'}</span>
+                            <span className="at-row-title" style={{ fontWeight: 500 }}>{order.customer_name || order.customer || t('dashboard.customer', 'Customer')}</span>
                             <span className="at-row-sub">{order.garment_label || ''}</span>
                           </span>
                           <span style={{ textAlign: 'right' }}>
