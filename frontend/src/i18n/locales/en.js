@@ -202,6 +202,7 @@ const en = {
   },
   ordersPage: {
     backToOrders: "Back to orders",
+    backToWorkshop: "Back to workshop",
     allCustomerTypes: "All customer types",
     allGarments: "All garments",
     allStages: "All stages",

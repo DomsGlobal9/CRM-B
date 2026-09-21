@@ -4767,7 +4767,7 @@ function App() {
               return (
                 <div className="od-page">
                   <button type="button" className="btn-link od-back" onClick={() => setOpenOrdersRowId(null)}>
-                    <ArrowLeft size={16} /> {t('ordersPage.backToOrders', 'Back to orders')}
+                    <ArrowLeft size={16} /> {dashboardTab === 'workshop' ? t('ordersPage.backToWorkshop', 'Back to workshop') : t('ordersPage.backToOrders', 'Back to orders')}
                   </button>
 
                   <header className="od-head">
@@ -5446,8 +5446,9 @@ function App() {
                                   <Scissors size={12} /> Alteration
                                 </button>
                               )}
+                              {/* An order being made is read in the Workshop room. */}
                               <button type="button" className="btn-secondary at-btn-sm"
-                                      onClick={() => setOpenOrdersRowId(order.id)}>
+                                      onClick={() => { if (bucket === 'workshop') setDashboardTab('workshop'); setOpenOrdersRowId(order.id); }}>
                                 <Eye size={12} /> View
                               </button>
                             </div>
