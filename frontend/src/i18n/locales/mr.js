@@ -204,7 +204,7 @@ const mr = {
     inWorkroom: "वर्करूममध्ये",
     allOrders: "सर्व ऑर्डर",
     noOrdersFloor: "अजून ऑर्डर नाहीत. पहिली तयार करा आणि ती फ्लोअरवर पुढे जाताना पाहा.",
-    needsAttention: "तुमचे लक्ष हवे",
+    needsAttention: "लक्ष द्या",
     nothingNeedsYou: "सध्या काही नाही — विलंबित ऑर्डर, बाकी किंवा कमी स्टॉक नाही.",
     overdue: "विलंबित",
     due: "देय",

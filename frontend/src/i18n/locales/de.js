@@ -212,7 +212,7 @@ const de = {
     inWorkroom: "In der Werkstatt",
     allOrders: "Alle Aufträge",
     noOrdersFloor: "Noch keine Aufträge. Lege den ersten an, um ihn durch die Werkstatt laufen zu sehen.",
-    needsAttention: "Braucht deine Aufmerksamkeit",
+    needsAttention: "Braucht Aufmerksamkeit",
     nothingNeedsYou: "Nichts zu tun — keine überfälligen Aufträge, offenen Beträge oder niedrigen Bestände.",
     overdue: "Überfällig",
     due: "Fällig",

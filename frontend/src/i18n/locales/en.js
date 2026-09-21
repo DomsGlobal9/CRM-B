@@ -213,7 +213,7 @@ const en = {
     inWorkroom: "In the workroom",
     allOrders: "All orders",
     noOrdersFloor: "No orders yet. Create the first one to see it move through the floor.",
-    needsAttention: "Needs your attention",
+    needsAttention: "Needs attention",
     nothingNeedsYou: "Nothing needs you right now — no overdue orders, balances or low stock.",
     overdue: "Overdue",
     due: "Due",

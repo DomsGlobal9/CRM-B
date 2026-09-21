@@ -202,7 +202,7 @@ const hi = {
     inWorkroom: "वर्करूम में",
     allOrders: "सभी ऑर्डर",
     noOrdersFloor: "अभी कोई ऑर्डर नहीं। पहला ऑर्डर बनाएँ और उसे फ़्लोर पर आगे बढ़ते देखें।",
-    needsAttention: "आपके ध्यान की ज़रूरत",
+    needsAttention: "ध्यान दें",
     nothingNeedsYou: "अभी कुछ नहीं — कोई विलंबित ऑर्डर, बकाया या कम स्टॉक नहीं।",
     overdue: "विलंबित",
     due: "देय",

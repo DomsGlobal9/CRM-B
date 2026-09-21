@@ -211,7 +211,7 @@ const es = {
     inWorkroom: "En el taller",
     allOrders: "Todos los pedidos",
     noOrdersFloor: "Aún no hay pedidos. Crea el primero para verlo avanzar por el taller.",
-    needsAttention: "Necesita tu atención",
+    needsAttention: "Requiere atención",
     nothingNeedsYou: "Nada pendiente — sin pedidos atrasados, saldos ni stock bajo.",
     overdue: "Atrasado",
     due: "Vence",

@@ -205,7 +205,7 @@ const ar = {
     inWorkroom: "في الورشة",
     allOrders: "كل الطلبات",
     noOrdersFloor: "لا توجد طلبات بعد. أنشئ الطلب الأول لتراه يتحرك عبر الورشة.",
-    needsAttention: "يحتاج انتباهك",
+    needsAttention: "يحتاج انتباهاً",
     nothingNeedsYou: "لا شيء يحتاجك الآن — لا طلبات متأخرة ولا أرصدة ولا مخزون منخفض.",
     overdue: "متأخر",
     due: "مستحق",

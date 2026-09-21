@@ -207,7 +207,7 @@ const gu = {
     inWorkroom: "વર્કરૂમમાં",
     allOrders: "બધા ઓર્ડર",
     noOrdersFloor: "હજુ કોઈ ઓર્ડર નથી. પહેલો બનાવો અને તેને ફ્લોર પર આગળ વધતો જુઓ.",
-    needsAttention: "તમારું ધ્યાન જોઈએ",
+    needsAttention: "ધ્યાન આપો",
     nothingNeedsYou: "હાલ કંઈ નથી — કોઈ વિલંબિત ઓર્ડર, બાકી કે ઓછો સ્ટોક નથી.",
     overdue: "વિલંબિત",
     due: "બાકી",

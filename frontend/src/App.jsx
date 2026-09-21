@@ -4526,7 +4526,7 @@ function App() {
 
                 {/* Needs attention | Today */}
                 <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)' }}>
-                  <SectionCard icon={AlertCircle} tone="rose" title={t('dashboard.needsAttention', 'Needs your attention')}
+                  <SectionCard icon={AlertCircle} tone="rose" title={t('dashboard.needsAttention', 'Needs attention')}
                                action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View All')}>
                     {(() => {
                       const att = dashboardData?.attention || {};
