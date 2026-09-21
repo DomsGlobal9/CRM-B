@@ -32,6 +32,7 @@ const en = {
   nav: {
     dashboard: "My boutique",
     manageOrders: "Orders",
+    workshop: "Workshop",
     customers: "Customers",
     alterations: "Alterations",
     invoices: "Bills & payments",
@@ -214,6 +215,8 @@ const en = {
     rawMaterials: "Raw materials checklist",
     rawMaterialsSub: "Track the materials used for this order.",
     title: "Order book",
+    workshopTitle: "Workshop",
+    workshopSubtitle: "Every order being made, who has it, and what comes next.",
     subtitle: "Every order you have taken, how far along it is, and when it leaves the boutique.",
     newOrder: "Take a new order",
     searchPlaceholder: "Search by order number or customer…",

@@ -1242,6 +1242,7 @@ function NetworkActivityBar() {
 const NAV_MODULE = {
   overview: null,
   orders: null,
+  workshop: null,
   alterations: 'alterations',
   customers: null,
   work: null,
@@ -1291,6 +1292,7 @@ const navSectionsFor = (user, t) => {
       { key: 'daily', label: t('nav.groups.daily', 'Daily'), items: [
         { tab: 'overview', icon: Store, label: t('nav.dashboard'), phone: true },
         { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
+        { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Workshop'), phone: true },
         { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
@@ -2202,7 +2204,7 @@ function App() {
   const [ordersSearch, setOrdersSearch] = useState('');
   // null until the owner picks a tab: the workshop when it has rows, else the new ones.
   const [ordersTabPick, setOrdersFilterTab] = useState(null);
-  const ordersFilterTab = ordersTabPick || (ordersList.some((o) => orderBucket(o) === 'workshop') ? 'workshop' : 'new');
+  const ordersFilterTab = dashboardTab === 'workshop' ? 'workshop' : (ordersTabPick === 'done' ? 'done' : 'new');
   // Customer tier, garment and workroom step: each 'All' or one value.
   const [ordersTierFilter, setOrdersTierFilter] = useState('All');
   // Stitching orders, maggam orders, alterations, or everything.
@@ -4135,6 +4137,7 @@ function App() {
             title={t(
               dashboardTab === 'overview' ? 'nav.dashboard' :
               dashboardTab === 'orders' ? 'nav.manageOrders' :
+              dashboardTab === 'workshop' ? 'nav.workshop' :
               dashboardTab === 'tailors' ? 'nav.manageTailors' :
               dashboardTab === 'designs' ? 'nav.manageDesigns' :
               dashboardTab === 'staff' ? 'nav.staffManagement' :
@@ -4404,7 +4407,7 @@ function App() {
                                 onClick={() => { setInvoiceFilter('Pending'); setDashboardTab('invoices'); }} />
                       <StatCard icon={ClipboardList} tone="violet" label="Active orders" value={s.active_orders ?? 0}
                                 sub={`${s.due_soon ?? 0} due this week${overdue ? ` · ${overdue} overdue` : ''}`}
-                                onClick={() => { setOrdersFilterTab('workshop'); setDashboardTab('orders'); }} />
+                                onClick={() => setDashboardTab('workshop')} />
                       <StatCard icon={Users} tone="blue" label="Customers" value={s.total_customers ?? 0}
                                 sub={(() => { const c = tierCounts(customersList); return `${c.Platinum} Platinum · ${c.Gold} Gold · ${c.Silver} Silver`; })()}
                                 onClick={() => setDashboardTab('customers')} />
@@ -4432,7 +4435,7 @@ function App() {
                   };
                   return (
                     <SectionCard icon={Boxes} tone="green" title="In the workroom"
-                                 action={() => { setOrdersFilterTab('workshop'); setDashboardTab('orders'); }} actionLabel="All orders"
+                                 action={() => setDashboardTab('workshop')} actionLabel="All orders"
                                  style={{ marginBottom: 'var(--space-5)' }}>
                       {entries.length === 0 ? (
                         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
@@ -4726,7 +4729,7 @@ function App() {
             {/* One order on its own page. Everything the row used to unfold
                 inline, laid out so the eye lands on the order, then who is on
                 it and when it is due, then where it stands, then the work. */}
-            {dashboardTab === 'orders' && openOrder && (() => {
+            {['orders', 'workshop'].includes(dashboardTab) && openOrder && (() => {
               const order = openOrder;
               const stages = order.stages || [];
               // Counted by step, not by row: a per-garment step is one step.
@@ -5130,7 +5133,7 @@ function App() {
               );
             })()}
 
-            {dashboardTab === 'orders' && !openOrder && (
+            {['orders', 'workshop'].includes(dashboardTab) && !openOrder && (
               <>
                 {ordersAlterationOrder && (
                   <RequestAlterationModal
@@ -5152,8 +5155,8 @@ function App() {
                   </Suspense>
                 )}
                 <PageHeader
-                  title={t('ordersPage.title')}
-                  subtitle={t('ordersPage.subtitle')}
+                  title={dashboardTab === 'workshop' ? t('ordersPage.workshopTitle', 'Workshop') : t('ordersPage.title')}
+                  subtitle={dashboardTab === 'workshop' ? t('ordersPage.workshopSubtitle', 'Every order being made, who has it, and what comes next.') : t('ordersPage.subtitle')}
                   aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
                   actions={(
                     <>
@@ -5178,20 +5181,23 @@ function App() {
                   const done = ordersList.filter(o => orderBucket(o) === 'done').length;
                   return (
                     <>
-                      <section className="at-stat-grid">
-                        <StatCard icon={ShoppingCart} tone="amber" label={t('ordersPage.tabNew', 'New')} value={fresh} sub={t('ordersPage.tabNewSub', 'waiting to be sent')}
-                                  onClick={() => setOrdersFilterTab('new')} />
-                        <StatCard icon={Scissors} tone="blue" label={t('ordersPage.tabWorkshop', 'In the workshop')} value={making} sub={t('ordersPage.tabWorkshopSub', 'being made')}
-                                  onClick={() => setOrdersFilterTab('workshop')} />
-                        <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Done')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
-                                  onClick={() => setOrdersFilterTab('done')} />
-                      </section>
+                      {dashboardTab === 'orders' && (
+                        <section className="at-stat-grid">
+                          <StatCard icon={ShoppingCart} tone="amber" label={t('ordersPage.tabNew', 'New')} value={fresh} sub={t('ordersPage.tabNewSub', 'waiting to be sent')}
+                                    onClick={() => setOrdersFilterTab('new')} />
+                          <StatCard icon={Scissors} tone="blue" label={t('ordersPage.tabWorkshop', 'In the workshop')} value={making} sub={t('ordersPage.tabWorkshopSub', 'being made')}
+                                    onClick={() => setDashboardTab('workshop')} />
+                          <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Done')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
+                                    onClick={() => setOrdersFilterTab('done')} />
+                        </section>
+                      )}
                       <div className="at-toolbar">
-                        <Chips value={ordersFilterTab} onChange={setOrdersFilterTab} options={[
-                          { key: 'new', label: t('ordersPage.tabNew', 'New'), count: fresh },
-                          { key: 'workshop', label: t('ordersPage.tabWorkshop', 'In the workshop'), count: making },
-                          { key: 'done', label: t('ordersPage.tabDone', 'Done'), count: done },
-                        ]} />
+                        {dashboardTab === 'orders' && (
+                          <Chips value={ordersFilterTab} onChange={setOrdersFilterTab} options={[
+                            { key: 'new', label: t('ordersPage.tabNew', 'New'), count: fresh },
+                            { key: 'done', label: t('ordersPage.tabDone', 'Done'), count: done },
+                          ]} />
+                        )}
                         {/* Narrow by who it is for, what it is, and where it stands;
                             the list and the board read the same filter. */}
                         <div className="at-toolbar-filters">
