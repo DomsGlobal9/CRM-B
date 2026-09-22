@@ -194,19 +194,20 @@ const sinceLabel = (iso) => {
 // ("premium designer") for every customer with no style_dna, which read as
 // real client data.
 const StyleProfileCard = ({ customer }) => {
+  const { t } = useLanguage();
   const dna = customer?.style_dna || {};
   const rows = [
-    ['Revenue from this client', dna.revenue ?? dna.budget, Wallet], ['Style preferences', dna.style, Shirt],
-    ['Measurement version', dna.size, Ruler], ['Visit pattern', dna.visit_pattern, CalendarDays],
+    [t('customersPage.totalSpent', 'Total spent'), dna.revenue ?? dna.budget, Wallet], [t('customersPage.stylePreferences', 'Style preferences'), dna.style, Shirt],
+    [t('customersPage.size', 'Size'), dna.size, Ruler], [t('customersPage.visitPattern', 'Visit pattern'), dna.visit_pattern, CalendarDays],
   ].filter(([, v]) => v);
   const riskColor = dna.risk_level === 'danger' ? 'var(--danger-color)'
     : dna.risk_level === 'warning' ? 'var(--warning-color)' : 'var(--success-color)';
   const hasAny = rows.length || dna.risk_status || dna.next_action;
   return (
     <SectionCard icon={Sparkles} tone="amber"
-                 title={customer?.first_name ? `${customer.first_name}'s style profile` : 'Style Profile'}>
+                 title={t('customersPage.styleProfile', 'Style profile')}>
       {!hasAny && (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No AI style profile for this customer yet.</div>
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{t('customersPage.noStyleProfile', 'No style profile for this customer yet.')}</div>
       )}
       {rows.map(([label, value, Icon]) => (
         <div key={label} className="at-dna-row">
@@ -216,7 +217,7 @@ const StyleProfileCard = ({ customer }) => {
       ))}
       {dna.risk_status && (
         <div className="at-dna-row">
-          <span className="at-dna-label"><ShieldCheck size={16} /> Risk status</span>
+          <span className="at-dna-label"><ShieldCheck size={16} /> {t('customersPage.activity', 'Activity')}</span>
           <strong style={{ color: riskColor, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: riskColor }} />
             {dna.risk_status}
@@ -225,13 +226,13 @@ const StyleProfileCard = ({ customer }) => {
       )}
       {dna.next_action && (
         <div className="at-dna-row">
-          <span className="at-dna-label"><Target size={16} /> Next action</span>
-          <strong style={{ color: 'var(--accent-text)', fontStyle: 'italic' }}>&ldquo;{dna.next_action}&rdquo;</strong>
+          <span className="at-dna-label"><Target size={16} /> {t('customersPage.suggestedNextStep', 'Suggested next step')}</span>
+          <strong style={{ color: 'var(--accent-text)', fontStyle: 'italic' }}>{dna.next_action}</strong>
         </div>
       )}
       {hasAny && (
         <InfoNote tone="green" icon={Leaf} style={{ marginTop: 'var(--space-3)', padding: '10px 14px' }}>
-          <em>Read automatically from your sales data — not entered by hand.</em>
+          <em>{t('customersPage.calculatedFromSales', 'Calculated from sales data.')}</em>
         </InfoNote>
       )}
     </SectionCard>
@@ -1386,10 +1387,10 @@ const navSectionsFor = (user, t) => {
   const role = user?.role;
   const sections =
     (!role || role === 'Owner') ? [
-      { key: 'daily', label: t('nav.groups.daily', 'Daily'), items: [
+      { key: 'daily', label: t('nav.groups.daily', 'Overview'), items: [
         { tab: 'overview', icon: Store, label: t('nav.dashboard'), phone: true },
         { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
-        { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Workshop'), phone: true },
+        { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
@@ -1403,11 +1404,11 @@ const navSectionsFor = (user, t) => {
       ] },
       // Manage Tailors is WHO works here; Staff Management is their
       // employment, time and pay. The pairing is the point of the group.
-      { key: 'people', label: t('nav.groups.people', 'People'), items: [
+      { key: 'people', label: t('nav.groups.people', 'Team'), items: [
         { tab: 'staff', icon: Users, label: t('nav.staffManagement') },
       ] },
-      { key: 'business', label: t('nav.groups.business', 'Business'), items: [
-        { tab: 'finance', icon: Wallet, label: t('nav.finance', 'Cost & P&L') },
+      { key: 'business', label: t('nav.groups.business', 'Finance'), items: [
+        { tab: 'finance', icon: Wallet, label: t('nav.finance', 'Profit & Costs') },
         { tab: 'invoices', icon: Receipt, label: t('nav.invoices') },
         { tab: 'analytics', icon: BarChart2, label: t('nav.analytics') },
       ] },
@@ -1438,7 +1439,7 @@ const navSectionsFor = (user, t) => {
   // gets the same separation as the owner with eleven. Account takes a slot on
   // the bottom bar only for the roles whose own section cannot fill it.
   const roomy = !role || role === 'Owner' || role === 'Master';
-  return [...sections, { key: 'session', divider: true, items: [
+  return [...sections, { key: 'session', divider: true, label: t('nav.groups.account', 'Account'), items: [
     { tab: 'account', icon: User, label: t('nav.account'), phone: !roomy },
     { tab: 'settings', icon: Settings, label: t('nav.settings') },
   ] }];
@@ -4404,9 +4405,9 @@ function App() {
                   <section className="content-card" style={{ padding: '20px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
                       <div>
-                        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 500 }}>Getting started</h2>
+                        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 500 }}>{t('dashboard.gettingStarted', 'Getting started')}</h2>
                         <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                          {onboardingSteps.filter(step => step.done).length} of {onboardingSteps.length} done — this is the order the work flows in.
+                          {t('dashboard.onboardingProgress', '{done} of {total} done — this is the order the work flows in.', { done: onboardingSteps.filter(step => step.done).length, total: onboardingSteps.length })}
                         </p>
                       </div>
                       <button
@@ -4418,7 +4419,7 @@ function App() {
                           } catch { /* per-device convenience only */ }
                         }}
                       >
-                        Dismiss
+                        {t('dashboard.dismiss', 'Dismiss')}
                       </button>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -4461,17 +4462,17 @@ function App() {
                   const overdue = Number(s.overdue) || 0;
                   return (
                     <section className="at-stat-grid" style={{ marginBottom: 'var(--space-5)' }}>
-                      <StatCard icon={TrendingUp} tone="green" label="Revenue this month"
-                                value={inr(s.revenue_month)} sub={`${inr(s.revenue_total)} all time`}
+                      <StatCard icon={TrendingUp} tone="green" label={t('dashboard.revenueThisMonth', 'Revenue this month')}
+                                value={inr(s.revenue_month)} sub={t('dashboard.allTime', '{amount} all time', { amount: inr(s.revenue_total) })}
                                 onClick={() => { setInvoiceFilter('All'); setDashboardTab('invoices'); }} />
-                      <StatCard icon={Wallet} tone="amber" label="To collect" value={inr(outstanding)}
-                                sub={outstanding > 0 ? 'across active orders' : 'all settled'}
+                      <StatCard icon={Wallet} tone="amber" label={t('dashboard.toCollect', 'To collect')} value={inr(outstanding)}
+                                sub={outstanding > 0 ? t('dashboard.acrossActiveOrders', 'across active orders') : t('dashboard.allSettled', 'all settled')}
                                 onClick={() => { setInvoiceFilter('Pending'); setDashboardTab('invoices'); }} />
-                      <StatCard icon={ClipboardList} tone="violet" label="Active orders" value={s.active_orders ?? 0}
-                                sub={`${s.due_soon ?? 0} due this week${overdue ? ` · ${overdue} overdue` : ''}`}
+                      <StatCard icon={ClipboardList} tone="violet" label={t('dashboard.activeOrders', 'Active orders')} value={s.active_orders ?? 0}
+                                sub={`${t('dashboard.dueThisWeek', '{n} due this week', { n: s.due_soon ?? 0 })}${overdue ? ` · ${t('dashboard.overdueCount', '{n} overdue', { n: overdue })}` : ''}`}
                                 onClick={() => setDashboardTab('workshop')} />
-                      <StatCard icon={Users} tone="blue" label="Customers" value={s.total_customers ?? 0}
-                                sub={(() => { const c = tierCounts(customersList); return `${c.Platinum} Platinum · ${c.Gold} Gold · ${c.Silver} Silver`; })()}
+                      <StatCard icon={Users} tone="blue" label={t('dashboard.totalCustomers', 'Customers')} value={s.total_customers ?? 0}
+                                sub={(() => { const c = tierCounts(customersList); return t('dashboard.tierSummary', '{platinum} Platinum · {gold} Gold · {silver} Silver', { platinum: c.Platinum, gold: c.Gold, silver: c.Silver }); })()}
                                 onClick={() => setDashboardTab('customers')} />
                     </section>
                   );
@@ -4505,12 +4506,12 @@ function App() {
                     setOrdersStageFilter(key); setDashboardTab('workshop');
                   };
                   return (
-                    <SectionCard icon={Boxes} tone="green" title="In the workroom"
-                                 action={() => setDashboardTab('workshop')} actionLabel="All orders"
+                    <SectionCard icon={Boxes} tone="green" title={t('dashboard.inWorkroom', 'In the workroom')}
+                                 action={() => setDashboardTab('workshop')} actionLabel={t('dashboard.allOrders', 'All orders')}
                                  style={{ marginBottom: 'var(--space-5)' }}>
                       {entries.length === 0 ? (
                         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                          No orders yet. Create the first one to see it move through the floor.
+                          {t('dashboard.noOrdersFloor', 'No orders yet. Create the first one to see it move through the floor.')}
                         </div>
                       ) : (
                         <div className="at-pipeline">
@@ -4532,15 +4533,15 @@ function App() {
 
                 {/* Needs attention | Today */}
                 <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)' }}>
-                  <SectionCard icon={AlertCircle} tone="rose" title="Needs your attention"
-                               action={() => setDashboardTab('orders')} actionLabel="View All">
+                  <SectionCard icon={AlertCircle} tone="rose" title={t('dashboard.needsAttention', 'Needs attention')}
+                               action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View All')}>
                     {(() => {
                       const att = dashboardData?.attention || {};
                       const due = att.due || [];
                       const unpaid = att.unpaid || [];
                       if (!due.length && !unpaid.length && !att.low_stock && !att.pending_designs) {
                         return <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                          Nothing needs you right now — no overdue orders, balances or low stock.
+                          {t('dashboard.nothingNeedsYou', 'Nothing needs you right now — no overdue orders, balances or low stock.')}
                         </div>;
                       }
                       const row = (key, onClick, ref, label, badge) => (
@@ -4557,23 +4558,23 @@ function App() {
                       unpaid.forEach((o) => byOrder.set(o.id, { ...(byOrder.get(o.id) || o), balance: o.balance, isUnpaid: true }));
                       return (
                         <div>
-                          {[...byOrder.values()].map((o) => row(`order-${o.id}`, () => setDashboardTab('orders'), orderRef(o), o.customer || 'Customer',
+                          {[...byOrder.values()].map((o) => row(`order-${o.id}`, () => setDashboardTab('orders'), orderRef(o), o.customer || t('dashboard.customer', 'Customer'),
                             <span style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                               {o.isDue && <span className={`ui-badge ui-badge--${o.overdue ? 'danger' : 'warning'}`}>
-                                {o.overdue ? 'Overdue' : 'Due'} {o.due ? new Date(o.due).toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''}
+                                {o.overdue ? t('dashboard.overdue', 'Overdue') : t('dashboard.due', 'Due')} {o.due ? new Date(o.due).toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''}
                               </span>}
-                              {o.isUnpaid && <span className="ui-badge ui-badge--warning">{inr(o.balance)} due</span>}
+                              {o.isUnpaid && <span className="ui-badge ui-badge--warning">{t('dashboard.balanceDue', '{amount} due', { amount: inr(o.balance) })}</span>}
                             </span>))}
-                          {att.low_stock > 0 && row('stock', () => setDashboardTab('inventory'), null, 'Low stock',
-                            <span className="ui-badge ui-badge--warning">{att.low_stock} item{att.low_stock === 1 ? '' : 's'}</span>)}
-                          {att.pending_designs > 0 && row('designs', openDesignRequests, null, 'Designs awaiting review',
+                          {att.low_stock > 0 && row('stock', () => setDashboardTab('inventory'), null, t('dashboard.lowStock', 'Low stock'),
+                            <span className="ui-badge ui-badge--warning">{att.low_stock === 1 ? t('dashboard.lowStockOne', '{n} item', { n: 1 }) : t('dashboard.lowStockMany', '{n} items', { n: att.low_stock })}</span>)}
+                          {att.pending_designs > 0 && row('designs', openDesignRequests, null, t('dashboard.designsAwaitingReview', 'Designs awaiting review'),
                             <span className="ui-badge ui-badge--info">{att.pending_designs}</span>)}
                         </div>
                       );
                     })()}
                   </SectionCard>
 
-                  <SectionCard icon={CalendarDays} tone="green" title="Today">
+                  <SectionCard icon={CalendarDays} tone="green" title={t('dashboard.today', 'Today')}>
                     {(() => {
                       const today = dashboardData?.today || {};
                       const appts = today.appointments || [];
@@ -4583,18 +4584,18 @@ function App() {
                             <button type="button" className="at-pipeline-tile at-stat--green" style={{ flex: 1 }}
                                     onClick={() => setDashboardTab('staff')}>
                               <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{today.staff_working ?? 0}</span>
-                              <span className="at-pipeline-label">on the floor now</span>
+                              <span className="at-pipeline-label">{t('dashboard.onFloorNow', 'Working now')}</span>
                             </button>
                             <div className="at-pipeline-tile at-stat--neutral" style={{ flex: 1, cursor: 'default' }}>
                               <span className="at-pipeline-value">{today.staff_present ?? 0}</span>
-                              <span className="at-pipeline-label">present today</span>
+                              <span className="at-pipeline-label">{t('dashboard.presentToday', 'Present today')}</span>
                             </div>
                           </div>
                           {appts.length === 0 ? (
                             <div style={{ textAlign: 'center', padding: 'var(--space-2) 0' }}>
                               <IconTile icon={Calendar} tone="neutral" size={40} iconSize={18} />
                               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 'var(--space-2) 0 var(--space-3)' }}>
-                                No appointments booked for today.
+                                {t('dashboard.noAppointmentsToday', 'No appointments booked for today.')}
                               </div>
                               <button type="button" className="btn-primary at-btn-sm" style={{ margin: '0 auto' }}
                                       onClick={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}>
@@ -4606,7 +4607,7 @@ function App() {
                               {appts.map((a) => (
                                 <div key={a.id} className="at-row">
                                   <span className="at-row-main" style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
-                                    <b>{a.time}</b> · {a.customer || 'Customer'}</span>
+                                    <b>{a.time}</b> · {a.customer || t('dashboard.customer', 'Customer')}</span>
                                   <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>{a.type}{a.with ? ` · ${a.with}` : ''}</span>
                                 </div>
                               ))}
@@ -4622,12 +4623,12 @@ function App() {
                     reads as a ledger, and a ledger wants the row. The header's
                     New Order and the sidebar already carry every shortcut the
                     Quick Actions card duplicated. */}
-                <SectionCard icon={ShoppingBag} tone="blue" title="Latest orders"
-                             subtitle="The latest orders across the floor"
+                <SectionCard icon={ShoppingBag} tone="blue" title={t('dashboard.recentOrders', 'Latest orders')}
+                             subtitle={t('dashboard.latestOrdersSub', 'Recently placed orders')}
                              action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View all')}>
                   {!dashboardData?.recent_orders || dashboardData.recent_orders.length === 0 ? (
                     <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                      No orders yet.
+                      {t('dashboard.noOrdersYet', 'No orders yet.')}
                     </div>
                   ) : (
                     <div>
@@ -4639,7 +4640,7 @@ function App() {
                               name and the garment are two spans, and inline
                               they ran together as "Asrita DasSaree". */}
                           <span className="at-row-main" style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                            <span className="at-row-title" style={{ fontWeight: 500 }}>{order.customer_name || order.customer || 'Customer'}</span>
+                            <span className="at-row-title" style={{ fontWeight: 500 }}>{order.customer_name || order.customer || t('dashboard.customer', 'Customer')}</span>
                             <span className="at-row-sub">{order.garment_label || ''}</span>
                           </span>
                           <span style={{ textAlign: 'right' }}>
@@ -4728,7 +4729,7 @@ function App() {
                     </button>
                     <button className={`tab-btn ${designsView === 'library' ? 'active' : ''}`}
                             onClick={() => setDesignsView('library')}>
-                      Boutique Designs
+                      {t('designsPage.boutiqueDesignsTab', 'Boutique designs')}
                     </button>
                     <button className={`tab-btn ${designsView === 'requests' ? 'active' : ''}`}
                             onClick={() => setDesignsView('requests')}>
@@ -5303,7 +5304,7 @@ function App() {
                                     onClick={() => setOrdersFilterTab('new')} />
                           <StatCard icon={Scissors} tone="blue" label={t('ordersPage.tabInProgress', 'In progress')} value={making} sub={t('ordersPage.tabWorkshopSub', 'being made')}
                                     onClick={() => setOrdersFilterTab('workshop')} />
-                          <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Done')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
+                          <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Closed')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
                                     onClick={() => setOrdersFilterTab('done')} />
                         </section>
                       )}
@@ -5312,7 +5313,7 @@ function App() {
                           <Chips value={ordersFilterTab} onChange={setOrdersFilterTab} options={[
                             { key: 'new', label: t('ordersPage.tabNew', 'New'), count: fresh },
                             { key: 'workshop', label: t('ordersPage.tabInProgress', 'In progress'), count: making },
-                            { key: 'done', label: t('ordersPage.tabDone', 'Done'), count: done },
+                            { key: 'done', label: t('ordersPage.tabDone', 'Closed'), count: done },
                           ]} />
                         )}
                         {/* Narrow by who it is for, what it is, and where it stands;
@@ -5556,7 +5557,7 @@ function App() {
                     <>
                       <section className="at-stat-grid">
                         <StatCard icon={Users} tone="green" label="Total Customers" value={customersList.length}
-                                  sub={`${withOrders} have ordered`} />
+                                  sub={t('customersPage.withOrdersCount', '{n} with orders', { n: withOrders })} />
                         <StatCard icon={Crown} tone="amber" label="Platinum customers" value={tiers.Platinum}
                                   sub={`${tiers.Gold} Gold · ${tiers.Silver} Silver`} />
                         <StatCard icon={CalendarDays} tone="violet" label="New This Month" value={thisMonth} sub="registered" />
@@ -5681,7 +5682,7 @@ function App() {
                                 ))}
                               </div>
                             ) : (
-                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} title="No size measurements logged yet.">Not logged yet</span>
+                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} title={t('customersPage.notRecorded', 'Not recorded')}>{t('customersPage.notRecorded', 'Not recorded')}</span>
                             )}
                           </td>
 
@@ -5766,15 +5767,15 @@ function App() {
               <div className="customer-detail-view-container at-stack">
                 <div className="at-toolbar" style={{ margin: 0 }}>
                   <button type="button" className="at-link" onClick={() => setSelectedDirectoryCustomer(null)}>
-                    <ArrowLeft size={16} /> Back to Customer Directory
+                    <ArrowLeft size={16} /> {t('customersPage.backToCustomers', 'Back to Customers')}
                   </button>
                   {isOwner && (
                     <div className="at-toolbar-right">
                       <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
-                        <Copy size={16} /> Go with Existing Design
+                        <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
                       </button>
                       <button className="btn-primary" onClick={() => handleSelectExistingCustomer(c)}>
-                        <Sparkles size={16} /> Create New Order
+                        <Sparkles size={16} /> {t('customersPage.newOrder', 'New order')}
                       </button>
                     </div>
                   )}
@@ -5801,23 +5802,23 @@ function App() {
                   <div className="at-profile-stats">
                     <div className="at-profile-stat">
                       <IconTile icon={CalendarDays} tone="blue" size={36} iconSize={16} />
-                      <div><div className="at-measure-label">Customer since</div><div className="at-measure-value">{fmtDate(c.created_at)}</div></div>
+                      <div><div className="at-measure-label">{t('customersPage.customerSince', 'Customer since')}</div><div className="at-measure-value">{fmtDate(c.created_at)}</div></div>
                     </div>
                     <div className="at-profile-stat">
                       <IconTile icon={ShoppingBag} tone="amber" size={36} iconSize={16} />
-                      <div><div className="at-measure-label">Total orders</div><div className="at-measure-value">{orderCount}</div></div>
+                      <div><div className="at-measure-label">{t('customersPage.totalOrders', 'Total orders')}</div><div className="at-measure-value">{orderCount}</div></div>
                     </div>
                     <div className="at-profile-stat">
                       <IconTile icon={Heart} tone="rose" size={36} iconSize={16} />
-                      <div><div className="at-measure-label">Preference</div><div className="at-measure-value">{c.occasion || c.garment_type || '—'}</div></div>
+                      <div><div className="at-measure-label">{t('customersPage.preference', 'Preference')}</div><div className="at-measure-value">{c.occasion || c.garment_type || '—'}</div></div>
                     </div>
                   </div>
                 </div>
 
                 <div className="responsive-profile-grid">
                   <div className="at-stack">
-                    <SectionCard icon={Ruler} tone="amber" title="Body Measurements & Sizing"
-                                 subtitle={parts.length > 0 ? `Stitching: ${parts.join(', ')}` : undefined}>
+                    <SectionCard icon={Ruler} tone="amber" title={t('customersPage.measurementsTitle', 'Measurements')}
+                                 subtitle={parts.length > 0 ? t('customersPage.stitchingParts', 'Stitching: {parts}', { parts: parts.join(', ') }) : undefined}>
                       {c.measurements ? (
                         <>
                           <div className="at-measure-cols">
@@ -5828,14 +5829,14 @@ function App() {
                               </div>
                             ))}
                             <div className="at-measure-row">
-                              <span>Occasion Preference</span>
+                              <span>{t('customersPage.occasionLabel', 'Occasion')}</span>
                               <strong>{c.occasion || '—'}</strong>
                             </div>
                           </div>
                           {c.measurement_history && c.measurement_history.length > 0 && (
                             <div style={{ marginTop: 'var(--space-4)' }}>
                               <div className="ui-eyebrow" style={{ color: 'var(--accent-text)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: 'var(--space-3)' }}>
-                                <History size={13} /> Sizing Version History
+                                <History size={13} /> {t('customersPage.sizingHistory', 'Measurement history')}
                               </div>
                               <div className="at-stack" style={{ gap: 'var(--space-2)', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                                 {[...c.measurement_history].reverse().map((hist, idx, arr) => (
@@ -5860,12 +5861,12 @@ function App() {
                       )}
                     </SectionCard>
 
-                    <SectionCard icon={ShoppingBag} tone="amber" title="Order History"
+                    <SectionCard icon={ShoppingBag} tone="amber" title={t('customersPage.orderHistory', 'Order History')}
                                  action={orders.length > 0 ? () => setDashboardTab('orders') : undefined} actionLabel="View All">
                       {directoryDetailLoading && !c.orders ? (
                         <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>Loading order history…</p>
                       ) : orders.length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>No orders have been placed by this customer yet.</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>{t('customersPage.noOrdersYet', 'No orders yet.')}</p>
                       ) : orders.map(order => {
                         // The row opens the order's production progress, so
                         // "where is my dress?" is answered from the profile.
@@ -6340,12 +6341,12 @@ function App() {
                       </SectionCard>
 
                       <SectionCard icon={Users} tone="violet" title={t('analyticsPage.customerSegmentation', 'Customer Segmentation')}
-                                   subtitle="Client distribution by value" action={() => setDashboardTab('customers')}>
+                                   subtitle="Customers grouped by how much they spend" action={() => setDashboardTab('customers')}>
                         <div style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'center', flexWrap: 'wrap' }}>
                           <div className="at-donut" style={{ background: segments.gradient }}>
                             <div className="at-donut-label">
                               <span className="at-donut-value">{customersList.length}</span>
-                              <span className="at-donut-sub">Clients</span>
+                              <span className="at-donut-sub">Customers</span>
                             </div>
                           </div>
                           <div className="at-legend">
@@ -6389,7 +6390,7 @@ function App() {
 
                     <div className="at-stack">
                       <SectionCard icon={Scissors} tone="blue" title={t('analyticsPage.staffWorkloadOverview', 'Staff & Workload Overview')}
-                                   subtitle="Current team status and capacity" action={() => setDashboardTab('staff')} actionLabel="Manage Staff">
+                                   subtitle="Current team status and capacity" action={() => setDashboardTab('staff')} actionLabel="Manage team">
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--space-3)' }}>
                           <div className="at-pipeline-tile at-stat--blue" style={{ cursor: 'default' }}>
                             <span className="at-pipeline-label">{t('analyticsPage.totalTailoringTeam', 'Total Tailoring Team')}</span>
@@ -7011,10 +7012,10 @@ function App() {
                             </div>
                             <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                               {draft.customer_name
-                                ? (garments.length ? garments.join(', ') : t('wizard.noGarmentChosen', 'No garment chosen yet'))
+                                ? (garments.length ? garments.join(', ') : t('wizard.noGarmentChosen', 'No garment yet'))
                                 : t('entry.customerNotYet', 'Customer not added yet')}
                               {' · '}{(() => { const total = WIZARD_STEPS[draft.payload?.service === 'design' ? 'design' : 'stitch'].length; return t('entry.stepXofY', 'Step {step} of {total}', { step: Math.min(draft.current_step, total), total }); })()}
-                              {' · '}{t('entry.lastSaved', 'last saved')} {new Date(draft.updated_at).toLocaleString()}
+                              {' · '}{t('entry.lastSaved', 'saved')} {fmtDateTime(draft.updated_at)}
                             </div>
                           </div>
                           <button type="button" className="btn-primary" onClick={() => hydrateWizard(draft)}>

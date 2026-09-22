@@ -29,7 +29,7 @@ function DesignStrip({ title, subtitle, icon, tone, designs, emptyText, metric, 
             <div key={d.id} className="at-row">
               <span className={`at-avatar at-tile--${i === 0 ? 'rose' : i === 1 ? 'amber' : 'neutral'}`}
                     style={{ width: 28, height: 28, fontSize: 12 }}>{i + 1}</span>
-              <span className="at-row-main">
+              <span className="at-row-main" style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
                 <span className="at-row-title">{d.title}</span>
                 <span className="at-row-sub">
                   {d.garment_type || 'Design'} · {metric === 'views' ? `${d.view_count} views` : `${d.order_count} orders`}
@@ -291,14 +291,14 @@ export default function DesignDashboard({ onOpenLibrary, canManageDesigners = fa
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(260px, 1fr)', gap: 'var(--space-4)' }} className="design-dashboard-grid">
-        <DesignStrip icon={Upload} tone="green" title={t('designsPage.recentUploads', 'Recent Uploads')} subtitle="Your latest added designs"
+        <DesignStrip icon={Upload} tone="green" title={t('designsPage.recentUploads', 'Recently added')} subtitle={t('designsPage.recentUploadsSub', 'Your newest designs')}
                      designs={data.recent_uploads} emptyText="Nothing uploaded yet." action={onOpenLibrary} />
         <CategoriesPanel onOpenLibrary={onOpenLibrary} />
       </div>
       <div className="at-grid-2">
-        <DesignStrip icon={Eye} tone="amber" title={t('designsPage.mostViewed', 'Most Viewed')} subtitle="Designs that get the most attention"
+        <DesignStrip icon={Eye} tone="amber" title={t('designsPage.mostViewed', 'Most viewed')} subtitle={t('designsPage.mostViewedSub', 'Designs customers view most')}
                      designs={data.most_viewed} metric="views" emptyText="No views recorded yet." action={onOpenLibrary} />
-        <DesignStrip icon={ShoppingCart} tone="green" title={t('designsPage.mostOrdered', 'Most Ordered')} subtitle="Designs loved by your customers"
+        <DesignStrip icon={ShoppingCart} tone="green" title={t('designsPage.mostOrdered', 'Most ordered')} subtitle={t('designsPage.mostOrderedSub', 'Designs customers order most')}
                      designs={data.most_ordered} metric="orders" emptyText="No orders placed from the library yet." action={onOpenLibrary} />
       </div>
       <DesignStrip icon={Clock} tone="violet" title={t('designsPage.trendingThisWeek', 'Trending This Week')} subtitle="Most viewed in the last 7 days"

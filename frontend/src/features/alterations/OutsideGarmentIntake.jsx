@@ -102,11 +102,11 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
            style={{ background: 'var(--surface-color, #17181a)', border: '1px solid var(--border-color)', borderRadius: '12px',
                     width: '100%', maxWidth: '760px', maxHeight: '92vh', overflowY: 'auto', padding: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Take in a garment from outside</h3>
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Outside garment alteration</h3>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}><X size={18} /></button>
         </div>
         <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginTop: 0, marginBottom: '16px', lineHeight: 1.5 }}>
-          A garment stitched elsewhere, brought in for work. It is always a paid job, and from here it goes through the same alteration flow as our own.
+          A garment stitched elsewhere, brought in for alteration. Always a paid job.
         </p>
 
         {error && (
@@ -127,9 +127,9 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
             </select>
           </div>
           <div style={field}>
-            <label style={label}><Shirt size={12} style={{ verticalAlign: '-2px' }} /> Which garment is it?</label>
+            <label style={label}><Shirt size={12} style={{ verticalAlign: '-2px' }} /> Garment type</label>
             <select className="form-control" value={form.garment_template_id} onChange={set('garment_template_id')}>
-              <option value="">Not in our list — describe it below</option>
+              <option value="">Other (describe below)</option>
               {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </div>
@@ -156,13 +156,13 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
         )}
 
         <div style={field}>
-          <label style={label}>About the garment — colour, fabric, where it was bought</label>
+          <label style={label}>Garment details</label>
           <input className="form-control" maxLength={200} placeholder="e.g. Green silk blouse, bought in Chennai"
                  value={form.garment_note} onChange={set('garment_note')} />
         </div>
 
         <div style={field}>
-          <label style={label}><Camera size={12} style={{ verticalAlign: '-2px' }} /> Photo as received (optional, but worth taking — it records what was already wrong)</label>
+          <label style={label}><Camera size={12} style={{ verticalAlign: '-2px' }} /> Photo on arrival (optional)</label>
           {photo ? (
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
               <img src={preview} alt="As received" style={{ width: '84px', height: '104px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-color)' }} />
@@ -176,14 +176,14 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
             </div>
           ) : (
             <Dropzone compact camera onFiles={([f]) => { if (!f) return; if (!f.type?.startsWith('image/')) { setError('Please choose an image file.'); return; } setError(null); setPhoto(f); setPreview(URL.createObjectURL(f)); }}
-                      title="Drop a photo here" subtitle="or use the camera" chooseLabel="Choose photo" cameraLabel="Take photo" />
+                      title="Drop a photo here" subtitle="or choose a photo" chooseLabel="Choose photo" cameraLabel="Take photo" />
           )}
         </div>
 
         <div style={field}>
           <label style={label}>How big is the issue?</label>
           <select className="form-control" value={form.issue_scale} onChange={set('issue_scale')}>
-            <option value="">Not decided yet</option>
+            <option value="">Not set</option>
             <option value="SMALL">Small — a quick fix, less time</option>
             <option value="BIG">Big — more work, more time</option>
           </select>
@@ -191,12 +191,13 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
 
         <div className="form-grid-2" style={{ gap: '12px' }}>
           <div style={field}>
-            <label style={label}>What does the customer want done?</label>
+            <label style={label}>Customer's request</label>
             <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} placeholder="The sleeves are too tight…" value={form.issue_description} onChange={set('issue_description')} />
           </div>
           <div style={field}>
-            <label style={label}>Adjustments asked for — one per line, e.g. “sleeve: let out 1 inch”</label>
-            <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} value={form.adjustments} onChange={set('adjustments')} />
+            <label style={label}>Adjustments (one per line)</label>
+            <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} value={form.adjustments} onChange={set('adjustments')}
+                           placeholder="e.g. sleeve: let out 1 inch" />
           </div>
         </div>
 

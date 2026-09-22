@@ -163,11 +163,11 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       {summary && (
         <div className="at-stat-grid">
           <StatCard icon={Package} tone="green" label={t('inventoryPage.stockValue')} value={money(summary.inventory_value)}
-                    sub={`${summary.item_count} ${t('inventoryPage.itemsTracked', 'items tracked')}`} />
+                    sub={`${summary.item_count} ${summary.item_count === 1 ? t('inventoryPage.itemsTrackedOne', 'item in stock') : t('inventoryPage.itemsTracked', 'items in stock')}`} />
           <StatCard icon={AlertTriangle} tone="amber" label={t('inventoryPage.outOfStock')} value={summary.out_of_stock_count}
-                    sub="Need buying again" onClick={() => { setTab('items'); setReorderOnly(true); }} />
+                    sub={t('inventoryPage.outOfStockSub', 'To reorder')} onClick={() => { setTab('items'); setReorderOnly(true); }} />
           <StatCard icon={ArrowDownCircle} tone="blue" label={t('inventoryPage.reorderDue')} value={summary.needs_reorder_count}
-                    sub="Below the reorder mark" onClick={() => { setTab('items'); setReorderOnly(true); }} />
+                    sub={t('inventoryPage.reorderDueSub', 'Below reorder level')} onClick={() => { setTab('items'); setReorderOnly(true); }} />
           <StatCard icon={History} tone="rose" label={t('inventoryPage.deadStock')} value={summary.dead_stock_count}
                     sub={t('inventoryPage.noMovement90Days', 'No movement in 90 days')} onClick={() => setTab('reports')} />
         </div>
@@ -182,7 +182,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
           { key: 'locations', label: t('inventoryPage.locations'), icon: MapPin },
           { key: 'recipes', label: t('inventoryPage.recipes'), icon: Scissors },
           { key: 'suppliers', label: t('inventoryPage.suppliers'), icon: ClipboardList },
-          { key: 'purchases', label: t('inventoryPage.orderPurchases', 'To buy for orders'), icon: ShoppingCart },
+          { key: 'purchases', label: t('inventoryPage.orderPurchases', 'Purchase list'), icon: ShoppingCart },
           { key: 'reports', label: t('inventoryPage.reports'), icon: BarChart3 },
         ].map(({ key, label, icon: Icon }) => {
           const active = tab === key;
