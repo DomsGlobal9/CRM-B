@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Building2, Database, MoreHorizontal, Pause, Play, Trash2 } from 'lucide-react';
 
 import { consoleApi } from '../api';
@@ -21,8 +22,9 @@ import {
 
 /* The row's actions behind one ⋯ button. The open menu is one piece of
    state on the screen (`menu`), so opening a second row's closes the first.
-   Positioned fixed from the button's rectangle: the table scrolls sideways
-   inside .sa-table-wrap, so an absolute menu would be clipped at its edge. */
+   Rendered through a portal on <body>, fixed at the button's rectangle: the
+   Action cells are position: sticky with their own backgrounds, so a menu
+   left inside the table is painted under the rows below it. */
 function RowMenu({ id, menu, setMenu, items }) {
   const open = menu?.id === id;
   const toggle = (e) => {
@@ -36,7 +38,7 @@ function RowMenu({ id, menu, setMenu, items }) {
       <button className="sa-btn sa-menu-btn" onClick={toggle} aria-haspopup="menu" aria-expanded={open} aria-label="Actions">
         <MoreHorizontal size={16} />
       </button>
-      {open && (
+      {open && createPortal(
         <div className="sa-menu" role="menu" style={{ top: menu.top, right: menu.right }} onClick={(e) => e.stopPropagation()}>
           {items.map((item) => (
             <button key={item.label} role="menuitem" className={`sa-menu-item ${item.danger ? 'danger' : ''}`}
@@ -44,7 +46,8 @@ function RowMenu({ id, menu, setMenu, items }) {
               {item.icon} {item.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
