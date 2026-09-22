@@ -172,6 +172,14 @@ afterwards does not undo.
   then queue behind each other. Measured on eight concurrent requests each
   waiting 300ms on the database: **2.47s with the defaults, 0.35s with the
   config file.**
+* **Nightly cron (Render Cron Job, same repo and env vars):**
+  ```bash
+  python manage.py purge_delivered_media
+  ```
+  Deletes the workroom's stage photos and voice notes of every order delivered
+  more than 3 days ago (`--days N` to change it), in every boutique. Until this
+  job is scheduled nothing is ever deleted; a Delivery reopened inside the
+  window still has all its media. See `domains/orders/retention.py`.
 * **Region:** put the service in the same region as the Supabase database
   (`ap-southeast-1`). Every request makes several database round trips, so a
   cross-region service pays that latency several times over per request. This is

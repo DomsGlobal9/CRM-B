@@ -341,6 +341,11 @@ class Order(models.Model):
     instructions_voice_note_at = models.DateTimeField(null=True, blank=True)
     current_stage_key = models.CharField(max_length=100, default="created", db_index=True)
     production_status = models.CharField(max_length=50, default="NOT_STARTED", db_index=True) # NOT_STARTED, IN_PROGRESS, COMPLETED, PAUSED, SKIPPED
+    # When the workroom's photos and voice notes were removed from storage,
+    # a few days after delivery (domains.orders.retention). Null while they
+    # are still there -- so a Delivery reopened inside the window has all of
+    # them, and the nightly purge never visits an order twice.
+    media_purged_at = models.DateTimeField(null=True, blank=True, db_index=True)
     invoice_template = models.CharField(max_length=50, default="classic", blank=True, null=True)
 
     def save(self, *args, **kwargs):
