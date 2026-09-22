@@ -6327,12 +6327,12 @@ function App() {
                       </SectionCard>
 
                       <SectionCard icon={Users} tone="violet" title={t('analyticsPage.customerSegmentation', 'Customer Segmentation')}
-                                   subtitle="Client distribution by value" action={() => setDashboardTab('customers')}>
+                                   subtitle="Customers grouped by how much they spend" action={() => setDashboardTab('customers')}>
                         <div style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'center', flexWrap: 'wrap' }}>
                           <div className="at-donut" style={{ background: segments.gradient }}>
                             <div className="at-donut-label">
                               <span className="at-donut-value">{customersList.length}</span>
-                              <span className="at-donut-sub">Clients</span>
+                              <span className="at-donut-sub">Customers</span>
                             </div>
                           </div>
                           <div className="at-legend">
@@ -6376,7 +6376,7 @@ function App() {
 
                     <div className="at-stack">
                       <SectionCard icon={Scissors} tone="blue" title={t('analyticsPage.staffWorkloadOverview', 'Staff & Workload Overview')}
-                                   subtitle="Current team status and capacity" action={() => setDashboardTab('staff')} actionLabel="Manage Staff">
+                                   subtitle="Current team status and capacity" action={() => setDashboardTab('staff')} actionLabel="Manage team">
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--space-3)' }}>
                           <div className="at-pipeline-tile at-stat--blue" style={{ cursor: 'default' }}>
                             <span className="at-pipeline-label">{t('analyticsPage.totalTailoringTeam', 'Total Tailoring Team')}</span>
