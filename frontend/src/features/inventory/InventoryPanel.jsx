@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, History, MapPin, Package, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, History, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -417,62 +417,64 @@ function ItemsTab({
           {t('inventoryPage.noMatchingItems', 'No items match these filters.')}
         </div>
       ) : (
-        <div style={{ ...panel, marginTop: '20px', overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '780px' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                <th style={{ padding: '14px 12px' }}>{t('inventoryPage.tableItem', 'Item')}</th>
-                <th style={{ padding: '14px 12px' }}>{t('inventoryPage.tableCategory', 'Category')}</th>
-                <th style={{ padding: '14px 12px', textAlign: 'right' }}>{t('inventoryPage.tableInStock', 'In stock')}</th>
-                <th style={{ padding: '14px 12px', textAlign: 'right' }}>{t('inventoryPage.tableReserved', 'Reserved')}</th>
-                <th style={{ padding: '14px 12px', textAlign: 'right' }}>{t('inventoryPage.tableAvailable', 'Available')}</th>
-                <th style={{ padding: '14px 12px' }}>{t('inventoryPage.tableLocation', 'Location')}</th>
-                <th style={{ padding: '14px 12px' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((item) => (
-                <tr key={item.id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                  <td style={{ padding: '12px' }}>
-                    <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <img src={inventoryImage(item)} alt="" loading="lazy"
-                           style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
-                      {item.name}
-                      {item.needs_reorder && (
-                        <span title="At or below reorder level" style={{ display: 'inline-flex', color: 'var(--warning-color)' }}>
-                          <AlertTriangle size={13} />
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      {item.item_code}{item.color ? ` · ${item.color}` : ''}
-                    </div>
-                  </td>
-                  <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{categoryLabel[item.category] || item.category}</td>
-                  <td style={{ padding: '12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{qty(item.current_stock)}</td>
-                  <td style={{ padding: '12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: 'var(--text-muted)' }}>{qty(item.reserved_stock)}</td>
-                  <td style={{
-                    padding: '12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600,
-                    color: Number(item.available_stock) <= 0 ? 'var(--danger-color)' : item.needs_reorder ? 'var(--warning-color)' : 'var(--text-primary)',
-                  }}>
-                    {qty(item.available_stock)} <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-muted)' }}>{item.unit_display}</span>
-                  </td>
-                  <td style={{ padding: '12px', color: 'var(--text-muted)' }}>{item.rack_location || '—'}</td>
-                  <td style={{ padding: '12px', whiteSpace: 'nowrap', textAlign: 'right' }}>
-                    <button type="button" className="btn-secondary" style={{ fontSize: '11px', padding: '4px 10px', marginRight: '6px' }} onClick={() => onMove(item)}>
-                      <ArrowDownCircle size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />{t('inventoryPage.move', 'Move')}
-                    </button>
-                    <button type="button" className="btn-secondary" style={{ fontSize: '11px', padding: '4px 10px', marginRight: '6px' }} onClick={() => onLedger(item)}>
-                      <History size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />{t('inventoryPage.history', 'History')}
+        <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
+          {shown.map((item) => {
+            const availableColor = Number(item.available_stock) <= 0 ? 'var(--danger-color)' : item.needs_reorder ? 'var(--warning-color)' : 'var(--text-muted)';
+            const pill = {
+              position: 'absolute', top: 10, padding: '4px 10px', borderRadius: 6, fontSize: '10px', fontWeight: 700,
+              letterSpacing: '0.06em', textTransform: 'uppercase', background: '#1a1a1a', color: '#fff', maxWidth: '55%',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            };
+            const circleBtn = {
+              width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(0,0,0,0.08)', background: 'rgba(255,255,255,0.95)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', padding: 0,
+            };
+            return (
+              <div key={item.id} style={{ ...panel, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 12 }}>
+                <div style={{ position: 'relative', aspectRatio: '4 / 5', background: 'var(--surface-inset, #f3f2ee)' }}>
+                  <img src={inventoryImage(item)} alt="" loading="lazy"
+                       style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <span style={{ ...pill, left: 10 }} title={item.item_code}>{item.item_code}</span>
+                  <span style={{ ...pill, right: 10 }} title={categoryLabel[item.category] || item.category}>{categoryLabel[item.category] || item.category}</span>
+                  <div style={{ position: 'absolute', right: 10, bottom: 10, display: 'flex', gap: 6 }}>
+                    <button type="button" style={circleBtn} title={t('inventoryPage.history', 'History')} aria-label={t('inventoryPage.history', 'History')} onClick={() => onLedger(item)}>
+                      <History size={14} />
                     </button>
                     {isOwner && (
-                      <button type="button" className="btn-secondary" style={{ fontSize: '11px', padding: '4px 10px' }} onClick={() => onEdit(item)}>{t('inventoryPage.edit', 'Edit')}</button>
+                      <button type="button" style={circleBtn} title={t('inventoryPage.edit', 'Edit')} aria-label={t('inventoryPage.edit', 'Edit')} onClick={() => onEdit(item)}>
+                        <Pencil size={14} />
+                      </button>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+                <div style={{ padding: '14px 14px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontWeight: 700, fontSize: '15px', display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.name}
+                    {item.needs_reorder && (
+                      <span title="At or below reorder level" style={{ display: 'inline-flex', color: 'var(--warning-color)', flexShrink: 0 }}>
+                        <AlertTriangle size={13} />
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: availableColor, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <b>{qty(item.available_stock)}</b> {item.unit_display} {t('inventoryPage.tableAvailable', 'Available').toLowerCase()}
+                    {item.color ? ` · ${item.color}` : ''}
+                    {item.rack_location ? ` · ${item.rack_location}` : ''}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                    {qty(item.current_stock)} {t('inventoryPage.tableInStock', 'In stock').toLowerCase()} · {qty(item.reserved_stock)} {t('inventoryPage.tableReserved', 'Reserved').toLowerCase()}
+                  </div>
+                  <button type="button" onClick={() => onMove(item)} style={{
+                    marginTop: 10, width: '100%', padding: '11px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                    background: '#1a1a1a', color: '#fff', fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  }}>
+                    <ArrowDownCircle size={14} />{t('inventoryPage.move', 'Move')}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </>
