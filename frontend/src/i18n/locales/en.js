@@ -33,7 +33,7 @@ const en = {
   nav: {
     dashboard: "Dashboard",
     manageOrders: "Orders",
-    workshop: "Production",
+    workshop: "Workshop",
     customers: "Customers",
     alterations: "Alterations",
     invoices: "Bills & Payments",

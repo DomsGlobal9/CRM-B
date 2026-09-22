@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
@@ -1456,8 +1457,36 @@ const visibleNav = (user, t) => navSectionsFor(user, t)
 /** One entry in the sidebar. Collapsed, it is the icon alone and the label
  *  follows the pointer as a flyout -- position: fixed, because both the
  *  sidebar and the scrolling nav clip anything that pokes out of them. */
-function NavItem({ icon: Icon, label, active, onClick, collapsed }) {
+/* First-time spotlight on a control: a breathing ring around the child and a
+   bobbing callout above it, arrow pointing down at it. Only visual: the child
+   is untouched and stays clickable, and nothing opens on its own. */
+function GuidedHighlight({ show, text, children }) {
+  if (!show) return children;
+  return (
+    <span className="gh">
+      <span className="gh-callout" role="note">{text}</span>
+      <span className="gh-ring">{children}</span>
+    </span>
+  );
+}
+
+function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
   const [flyout, setFlyout] = useState(null);
+  // The spotlight callout sits just right of the item, over the page. Fixed
+  // from the item's rectangle, re-measured when the window changes, and
+  // rendered on <body> so nothing in the shell can paint over it.
+  const itemRef = useRef(null);
+  const [hintAt, setHintAt] = useState(null);
+  useEffect(() => {
+    if (!hint || collapsed) { setHintAt(null); return undefined; }
+    const place = () => {
+      const r = itemRef.current?.getBoundingClientRect();
+      if (r) setHintAt({ top: r.top + r.height / 2, left: r.right + 14 });
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [hint, collapsed]);
   const show = (e) => {
     if (!collapsed) return;
     const r = e.currentTarget.getBoundingClientRect();
@@ -1466,7 +1495,8 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed }) {
   const hide = () => setFlyout(null);
   return (
     <a
-      className={`portal-menu-item${active ? ' active' : ''}`}
+      ref={itemRef}
+      className={`portal-menu-item${active ? ' active' : ''}${hint && !collapsed ? ' gh-nav' : ''}`}
       role="button"
       tabIndex={0}
       aria-label={collapsed ? label : undefined}
@@ -1479,6 +1509,12 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed }) {
     >
       <Icon size={16} />
       <span className="portal-menu-label">{label}</span>
+      {/* On <body>: the sticky sidebar is its own stacking layer, so a callout
+          left inside it would paint under the page it points across. */}
+      {hint && !collapsed && hintAt && createPortal(
+        <span className="gh-callout gh-side" role="note" style={{ top: hintAt.top, left: hintAt.left }}>{hint}</span>,
+        document.body,
+      )}
       {collapsed && flyout && (
         <span className="portal-flyout" role="tooltip" style={{ top: flyout.top, left: flyout.left }}>{label}</span>
       )}
@@ -1486,14 +1522,14 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed }) {
   );
 }
 
-function PortalMenu({ sections, activeTab, onPick, collapsed = false }) {
+function PortalMenu({ sections, activeTab, onPick, collapsed = false, hints = {} }) {
   return sections.map((section) => (
     <React.Fragment key={section.key}>
       {section.divider && <div className="portal-menu-divider" />}
       {section.label && <div className="portal-menu-group">{section.label}</div>}
       {section.items.map(({ tab, icon, label }) => (
         <NavItem key={tab} icon={icon} label={label} active={activeTab === tab}
-                 collapsed={collapsed} onClick={() => onPick(tab)} />
+                 collapsed={collapsed} onClick={() => onPick(tab)} hint={hints[tab]} />
       ))}
     </React.Fragment>
   ));
@@ -3762,6 +3798,19 @@ function App() {
 
   // Driven by real data, so it can never disagree with the boutique's actual
   // state -- and it teaches the workflow in the order the work happens.
+  // First-time pointers. Counted off the lists already loaded for the
+  // dashboard, so nothing extra is fetched; each stops on its own at ten.
+  const canAddCustomer = !currentUser?.role || currentUser.role === 'Owner';
+  const guideCustomers = !loading && canAddCustomer && customersList.length < 10;
+  const guideOrders = !loading && ordersList.length < 10;
+  // Sidebar spotlights: Customers while under ten customers, Orders while
+  // under ten orders. Independent of each other; each hides on its own tab,
+  // where the page's button carries the guidance instead.
+  const sidebarHint = {
+    ...(guideCustomers && dashboardTab !== 'customers' ? { customers: t('onboard.sidebarCustomers', 'Add your customers') } : {}),
+    ...(guideOrders && dashboardTab !== 'orders' ? { orders: ordersList.length ? t('onboard.sidebarOrders', 'Create orders here') : t('onboard.sidebarFirstOrder', 'Create your first order') } : {}),
+  };
+
   const onboardingSteps = [
     { key: 'boutique', label: 'Create your boutique', done: true },
     { key: 'customer', label: 'Add your first customer', done: customersList.length > 0, go: () => setView('order-selector') },
@@ -4305,6 +4354,7 @@ function App() {
                 sections={navSections}
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
+                hints={sidebarHint}
                 onPick={(tab) => {
                   setDashboardTab(tab);
                   // App-level detail state lives outside the pane, so it is
@@ -4393,10 +4443,12 @@ function App() {
                         {!loading && <RotateCw size={15} />}
                         <span>{loading ? t('common.loading', 'Loading...') : t('common.refresh', 'Refresh')}</span>
                       </button>
-                      <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
-                        <Plus size={16} />
-                        {t('dashboard.newOrder')}
-                      </button>
+                      <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
+                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
+                          <Plus size={16} />
+                          {t('dashboard.newOrder')}
+                        </button>
+                      </GuidedHighlight>
                     </>
                   )}
                 />
@@ -5283,9 +5335,11 @@ function App() {
                         </button>
                       )}
                       {(!currentUser?.role || currentUser.role === 'Owner') && (
-                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                          <Plus size={16} /> {t('ordersPage.newOrder')}
-                        </button>
+                        <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
+                          <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
+                            <Plus size={16} /> {t('ordersPage.newOrder')}
+                          </button>
+                        </GuidedHighlight>
                       )}
                     </>
                   )}
@@ -5538,10 +5592,12 @@ function App() {
                       </div>
                     </>
                   )}
-                  actions={(!currentUser?.role || currentUser.role === 'Owner') && (
-                    <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                      <Plus size={16} /> Add Customer
-                    </button>
+                  actions={canAddCustomer && (
+                    <GuidedHighlight show={guideCustomers} text={customersList.length ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
+                      <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                        <Plus size={16} /> Add Customer
+                      </button>
+                    </GuidedHighlight>
                   )}
                 />
 
