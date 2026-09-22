@@ -244,8 +244,8 @@ table.sa-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .sa-menu-btn { padding: 6px 10px; line-height: 0; }
 .sa-menu {
   position: fixed;
-  z-index: 60;
-  min-width: 170px;
+  z-index: 1000;
+  min-width: 180px;
   padding: 6px;
   background: var(--surface-color);
   border: 1px solid var(--border-color);
