@@ -5297,7 +5297,7 @@ function App() {
                                     onClick={() => setOrdersFilterTab('new')} />
                           <StatCard icon={Scissors} tone="blue" label={t('ordersPage.tabInProgress', 'In progress')} value={making} sub={t('ordersPage.tabWorkshopSub', 'being made')}
                                     onClick={() => setOrdersFilterTab('workshop')} />
-                          <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Done')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
+                          <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Closed')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
                                     onClick={() => setOrdersFilterTab('done')} />
                         </section>
                       )}
@@ -5306,7 +5306,7 @@ function App() {
                           <Chips value={ordersFilterTab} onChange={setOrdersFilterTab} options={[
                             { key: 'new', label: t('ordersPage.tabNew', 'New'), count: fresh },
                             { key: 'workshop', label: t('ordersPage.tabInProgress', 'In progress'), count: making },
-                            { key: 'done', label: t('ordersPage.tabDone', 'Done'), count: done },
+                            { key: 'done', label: t('ordersPage.tabDone', 'Closed'), count: done },
                           ]} />
                         )}
                         {/* Narrow by who it is for, what it is, and where it stands;
@@ -5542,7 +5542,7 @@ function App() {
                     <>
                       <section className="at-stat-grid">
                         <StatCard icon={Users} tone="green" label="Total Customers" value={customersList.length}
-                                  sub={`${withOrders} have ordered`} />
+                                  sub={t('customersPage.withOrdersCount', '{n} with orders', { n: withOrders })} />
                         <StatCard icon={Crown} tone="amber" label="Platinum customers" value={tiers.Platinum}
                                   sub={`${tiers.Gold} Gold · ${tiers.Silver} Silver`} />
                         <StatCard icon={CalendarDays} tone="violet" label="New This Month" value={thisMonth} sub="registered" />
@@ -5667,7 +5667,7 @@ function App() {
                                 ))}
                               </div>
                             ) : (
-                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} title="No size measurements logged yet.">Not logged yet</span>
+                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} title={t('customersPage.notRecorded', 'Not recorded')}>{t('customersPage.notRecorded', 'Not recorded')}</span>
                             )}
                           </td>
 
