@@ -115,6 +115,10 @@ export const consoleApi = {
     request(`/boutiques/${schema}/suspend/`, { method: 'POST', body: { reason } }),
   reactivate: (schema, reason = '') =>
     request(`/boutiques/${schema}/reactivate/`, { method: 'POST', body: { reason } }),
+  // Drops the boutique and its schema. confirm_name is the typed name the
+  // server checks against the record before it will do anything.
+  deleteBoutique: (schema, confirmName, reason = '') =>
+    request(`/boutiques/${schema}/`, { method: 'DELETE', body: { confirm_name: confirmName, reason } }),
 
   leads: () => request('/leads/'),
   updateLead: (id, fields) => request(`/leads/${id}/`, { method: 'PATCH', body: fields }),
