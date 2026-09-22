@@ -22,7 +22,7 @@ urlpatterns = [
 
     path('boutiques/', TenantViewSet.as_view({'get': 'list'}),
          name='superadmin-boutiques'),
-    path('boutiques/<str:schema_name>/', TenantViewSet.as_view({'get': 'retrieve'}),
+    path('boutiques/<str:schema_name>/', TenantViewSet.as_view({'get': 'retrieve', 'delete': 'destroy'}),
          name='superadmin-boutique'),
     path('boutiques/<str:schema_name>/suspend/',
          TenantViewSet.as_view({'post': 'suspend'}), name='superadmin-suspend'),

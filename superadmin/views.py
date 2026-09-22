@@ -1,6 +1,7 @@
 
 from datetime import timedelta
 
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
@@ -137,6 +138,36 @@ class TenantViewSet(viewsets.ViewSet):
 
     def reactivate(self, request, schema_name=None):
         return self._set_active(request, schema_name, True)
+
+    def destroy(self, request, schema_name=None):
+        """Drop the boutique and its whole schema. There is no undo.
+
+        The caller must send the boutique's exact name back as confirm_name:
+        the dialog makes a person type it, and the server checks it too, so
+        a stray request cannot erase a boutique on its own.
+        """
+        tenant = _boutiques().filter(schema_name=schema_name).first()
+        if tenant is None:
+            return Response({'error': 'No such boutique.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        if schema_name == settings.TENANT_BASE_SCHEMA:
+            return Response({'error': 'That is the template every new boutique is copied from; it cannot be deleted.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if (request.data.get('confirm_name') or '').strip() != tenant.name:
+            return Response({'error': "Type the boutique's name exactly to delete it."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Recorded first: once the schema is gone there is nothing to describe.
+        audit.record(
+            request, 'boutique.delete', target=schema_name, boutique=schema_name,
+            before={'name': tenant.name, 'owner_email': tenant.owner_email,
+                    'is_active': tenant.is_active},
+            reason=(request.data.get('reason') or '').strip(),
+        )
+        # force_drop: the schema goes with the row, users, orders and all.
+        tenant.delete(force_drop=True)
+        clear_tenant_cache()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class BoutiqueDataView(APIView):

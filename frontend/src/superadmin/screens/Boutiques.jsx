@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { Building2, Database, Pause, Play } from 'lucide-react';
+import { Building2, Database, Pause, Play, Trash2 } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import {
@@ -34,6 +34,7 @@ export default function Boutiques({ route }) {
   const [status, setStatus] = useState('all');
   const [sort, setSort] = useState('name');
   const [pending, setPending] = useState(null);
+  const [deleting, setDeleting] = useState(null); // { boutique, agreed, busy }
 
   const state = useApi(useCallback(() => consoleApi.overview(), []));
 
@@ -66,6 +67,20 @@ export default function Boutiques({ route }) {
     } catch (e) {
       toast(e.message, 'off');
       setPending(null);
+    }
+  };
+
+  const destroy = async () => {
+    const { boutique } = deleting;
+    setDeleting((d) => ({ ...d, busy: true }));
+    try {
+      await consoleApi.deleteBoutique(boutique.schema_name, boutique.name);
+      toast(`${boutique.name} deleted.`);
+      setDeleting(null);
+      state.reload();
+    } catch (e) {
+      toast(e.message, 'off');
+      setDeleting((d) => ({ ...d, busy: false }));
     }
   };
 
@@ -165,6 +180,13 @@ export default function Boutiques({ route }) {
                               onClick={() => setPending({ boutique: b, next: !b.is_active })}>
                               {b.is_active ? <><Pause size={13} /> Suspend</> : <><Play size={13} /> Reactivate</>}
                             </button>
+                            {/* The template schema is what signup clones; it is not a boutique. */}
+                            {b.schema_name !== 'tenant_base' && (
+                              <button className="sa-btn danger" style={{ marginLeft: 6 }}
+                                onClick={() => setDeleting({ boutique: b, agreed: false, busy: false })}>
+                                <Trash2 size={13} /> Delete
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -189,6 +211,39 @@ export default function Boutiques({ route }) {
         onCancel={() => setPending(null)}
         onConfirm={apply}
       />
+
+      {/* Deleting drops the whole schema. One tick to say so is enough of a
+          pause; the server still gets the boutique's name back as its guard. */}
+      {deleting && (() => {
+        const { boutique, agreed, busy } = deleting;
+        const close = () => { if (!busy) setDeleting(null); };
+        return (
+          <div className="sa-modal-backdrop" onClick={close}>
+            <div className="sa-modal" role="dialog" aria-modal="true" aria-label="Delete this boutique?"
+              onClick={(e) => e.stopPropagation()}>
+              <h3>Delete this boutique?</h3>
+              <div className="sa-modal-body">
+                <p style={{ fontSize: 15, color: 'var(--text-primary)', marginBottom: 10 }}>
+                  <strong>{boutique.name}</strong>
+                </p>
+                <p>All of its data will be deleted: customers, orders, staff, everything.</p>
+                <p><strong>This action cannot be undone.</strong></p>
+              </div>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 16, cursor: 'pointer', fontSize: 14 }}>
+                <input type="checkbox" checked={agreed} autoFocus style={{ marginTop: 3 }}
+                  onChange={(e) => setDeleting((d) => ({ ...d, agreed: e.target.checked }))} />
+                <span>I understand. Delete this boutique and all its data.</span>
+              </label>
+              <div className="sa-modal-actions">
+                <button className="sa-btn" onClick={close} disabled={busy}>Cancel</button>
+                <button className="sa-btn danger-solid" onClick={destroy} disabled={busy || !agreed}>
+                  {busy ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 }
