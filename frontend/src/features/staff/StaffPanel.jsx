@@ -917,14 +917,14 @@ function Roster({ isOwner, canSeeTeam }) {
       {canSeeTeam && (() => {
         return (
           <div className="at-stat-grid" style={{ marginBottom: 'var(--space-5)' }}>
-            <StatCard icon={Users} tone="green" label="Total staff" value={analytics.total}
-                      sub={`${roster.length} on the roster`} />
+            <StatCard icon={Users} tone="green" label="Team size" value={analytics.total}
+                      sub={`${roster.length} people`} />
             <StatCard icon={UserCheck} tone="amber" label="Available now" value={analytics.available}
                       sub={analytics.busy ? `${analytics.busy} busy` : 'nobody busy'} />
-            <StatCard icon={Clock} tone="blue" label="On the floor today" value={analytics.presentToday}
-                      sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'from attendance'} />
-            <StatCard icon={Briefcase} tone="violet" label="Employment set up" value={withTerms}
-                      sub={`of ${roster.length}`} />
+            <StatCard icon={Clock} tone="blue" label="Present today" value={analytics.presentToday}
+                      sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'Marked in attendance'} />
+            <StatCard icon={Briefcase} tone="violet" label="Pay details added" value={withTerms}
+                      sub={`${withTerms} of ${roster.length}`} />
           </div>
         );
       })()}
@@ -962,7 +962,7 @@ function Roster({ isOwner, canSeeTeam }) {
             )}
             {withTerms > 0 && (
               <div>
-                <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-2)' }}>By employment</div>
+                <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-2)' }}>By work type</div>
                 <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                   {EMPLOYMENT_TYPES.filter(([k]) => analytics.emp[k])
                     .map(([k, label]) => chip(analytics.emp[k], label))}
@@ -978,7 +978,7 @@ function Roster({ isOwner, canSeeTeam }) {
           display: 'flex', gap: 'var(--space-3)', alignItems: 'center',
           flexWrap: 'wrap', marginBottom: 'var(--space-4)',
         }}>
-          <SearchBox value={search} onChange={setSearch} placeholder="Search staff by name, role, or phone…" />
+          <SearchBox value={search} onChange={setSearch} placeholder="Search team by name, role or phone…" />
           {isOwner && (
             <button type="button" className="btn-primary" style={{ marginLeft: 'auto', padding: '10px 18px' }} onClick={() => setAdding(true)}>
               <Plus size={16} /> Add a team member
@@ -990,7 +990,7 @@ function Roster({ isOwner, canSeeTeam }) {
       {rows.length === 0 ? (
         <div className="ui-card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-secondary)' }}>
           {canSeeTeam
-            ? 'No staff on the roster yet. Add someone with the button above -- their role, login, employment and documents are all set up in one go.'
+            ? 'Nobody on the team yet. Add someone with the button above -- their role, login, pay details and documents are all set up in one go.'
             : 'Your employment details have not been set up yet. Your boutique owner can add them.'}
         </div>
       ) : (
@@ -1017,10 +1017,10 @@ function Roster({ isOwner, canSeeTeam }) {
                 <th>Team member</th>
                 <th>Status</th>
                 <th>Contact</th>
-                <th>Employment</th>
+                <th>Work type</th>
                 {showPay && <th>Pay</th>}
                 {showPay && <th>Advances</th>}
-                {isOwner && <th style={{ textAlign: 'right' }}>Actions</th>}
+                {isOwner && <th style={{ textAlign: 'right' }}></th>}
               </tr>
             </thead>
             <tbody>
@@ -1091,7 +1091,7 @@ function Roster({ isOwner, canSeeTeam }) {
                     // FK points at Tailor -- so a designer is never "not set up".
                     <span style={{ color: 'var(--text-muted)' }}
                           title="No employment details yet — this person works exactly as before.">
-                      Not set up
+                      Not added
                     </span>
                   )}
                 </td>
