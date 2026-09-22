@@ -8,12 +8,6 @@ import FabricPlacements from '../fabrics/FabricPlacements';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 
-/**
- * The inventory item form, shared by the inventory page ("New item", edit,
- * the catalogue's "Stock this") and the design library ("Add to inventory").
- * A draft may carry catalog_item or design_asset; saving links the item to
- * that row and leaves the item code to the server.
- */
 
 const EMPTY_OPTIONS = { categories: [], units: [], default_unit_by_category: {} };
 
@@ -55,8 +49,7 @@ export function Modal({ title, onClose, children, width = '520px' }) {
 
 export default function ItemFormModal({ item, options, suppliers, onClose, onSaved }) {
   const { t } = useLanguage();
-  // The inventory page hands these in; anywhere else (the design library)
-  // the form fetches them itself.
+  
   const [loadedOptions, setLoadedOptions] = useState(null);
   const [loadedSuppliers, setLoadedSuppliers] = useState(null);
   useEffect(() => {
@@ -82,8 +75,6 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
     sub_category: item.sub_category || '',
     catalog_item: item.catalog_item || '',
     design_asset: item.design_asset || '',
-    // What the fabric catalogue used to record: the roll's own photographs,
-    // its exact shade, what it is and where on which garment it goes.
     material_type: item.material_type || '',
     color_hex: item.color_hex || '',
     image_urls: item.image_urls || [],
@@ -91,7 +82,6 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
     kind: item.kind || '',
     variant: item.variant || '',
     placements: (item.placements || []).map(({ garment, section, slot }) => ({ garment, section, slot })),
-    // A roll that has just arrived is stocked in the same breath.
     opening_stock: '',
   });
   const taxonomy = useFabricTaxonomy();
@@ -116,7 +106,6 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // The unit follows the category until the user picks one themselves.
   const unitForCategory = opts.default_unit_by_category?.[form.category];
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   // Filed from the catalogue or the design library: the server issues the code.
@@ -145,8 +134,6 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
       });
       ['supplier', 'sub_category', 'catalog_item', 'design_asset'].forEach((k) => { if (!payload[k]) delete payload[k]; });
       const saved = await api.saveInventoryItem(payload, item.id || null);
-      // Through the ledger, like every other quantity: the item is created
-      // empty and the opening figure arrives as a Stock In that names itself.
       if (isNew && Number(openingStock) > 0) {
         await api.moveStock(saved.id, 'stock-in', { quantity: openingStock, remarks: 'Opening stock' });
       }

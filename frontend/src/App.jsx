@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
-// Model display parked — see task 16
-// import { inventoryImage } from './services/inventoryImages';
 import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
 import {
   formatMoney, formatDate as fmtDate, formatDateTime as fmtDateTime,
@@ -12,8 +10,6 @@ import {
 
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
-// Model display parked — see task 16
-// const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
@@ -59,8 +55,6 @@ import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './co
 
 
 const WIZARD_STEPS = {
-  // The customer first, then the garment: who it is for, what we are making,
-  // then their sheet pre-fills the measurements.
   stitch: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
     { key: 'type', label: 'Apparel', sub: 'What we are making' },
@@ -159,7 +153,6 @@ const orderStageKey = (order) => {
 const ORDER_CLOSED = ['Delivered', 'Cancelled'];
 const orderBucket = (order) => {
   if (ORDER_CLOSED.includes(order.order_status)) return 'done';
-  // production_status is IN_PROGRESS from creation, so only the stages tell.
   const started = (order.stages || []).some((st) => st.stage_key !== 'created' && !['NOT_STARTED', 'SKIPPED'].includes(st.status));
   return started ? 'workshop' : 'new';
 };
@@ -185,14 +178,6 @@ const sinceLabel = (iso) => {
   return hours < 1 ? 'just now' : hours < 24 ? `${hours} h` : `${Math.floor(hours / 24)} d`;
 };
 
-// The AI "Style Profile" card. Deep-forest hero surface with gold accents --
-// the same emphasis treatment as the dashboard revenue hero -- so a premium
-// insight reads as special without dropping a black card onto the light page.
-// Was two near-identical dark (#141414/#0d0d0d) blocks, one on the directory
-// card and one on the profile detail; now one component. Shows only fields the
-// AI actually filled -- the old detail card printed fabricated demo figures
-// ("premium designer") for every customer with no style_dna, which read as
-// real client data.
 const StyleProfileCard = ({ customer }) => {
   const { t } = useLanguage();
   const dna = customer?.style_dna || {};
@@ -396,19 +381,11 @@ const DEFAULT_CUSTOMER_DATA = {
   }
 };
 
-// A garment template key as a person reads it: blouse_length -> "Blouse length".
-// Shared by the staff blueprint panel and the stage-detail "What to make" block,
-// which were about to grow two different versions of the same line.
 const humaniseSpecKey = (key) => {
   const words = String(key).replace(/_/g, ' ').trim();
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
-// Every garment on an order, for screens that only need to name them.
-// Prefers the order's garment jobs -- the record of what was actually ordered --
-// and falls back to the customer's single garment_type only for orders written
-// before garment jobs existed. Mirrors domains/orders/garments.py; the API sends
-// `garments` already, so this is the client-side guard for older payloads.
 const orderGarmentNames = (order) => {
   if (!order) return [];
   if (Array.isArray(order.garments) && order.garments.length) return order.garments;
@@ -446,25 +423,6 @@ const getVisibleMeasurementFields = (stitchParts) => {
 };
 
 
-
-// Clickable twelve-stage timeline. Shown on the owner's order registry and on a
-// master's assignments board, so it lives here rather than being written twice.
-/** The customer messages an order has raised, and the owner's send button.
- *
- * There is no WhatsApp Business integration behind this. Each queued message
- * carries a wa.me link that opens the customer's chat with the text already
- * written; the owner sends it from their own number and then marks it sent.
- * Nothing here can observe a send that happened in another app, so "Mark sent"
- * is the owner's word for it, which is why it is a separate deliberate click
- * rather than something inferred from opening the link.
- *
- * Presentational: the queue is fetched once for the whole screen by
- * fetchDashboardAndConfig and handed down. It used to fetch its own messages
- * from the order id, which was tidier to drop in and wrong twice over -- one
- * request per order card on an unpaginated registry, and a list that never
- * refreshed, so a message queued by the status dropdown directly above it
- * stayed invisible until a hard reload.
- */
 function CustomerMessageQueue({ orderId, messages, onMarkSent }) {
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState(null);
@@ -556,17 +514,6 @@ const GARMENT_VIEWS = [
   ['DUPATTA', 'Dupatta styling'],
 ];
 
-/** Photographs of the finished garment, and the decision to show the customer.
- *
- * Front and back are required before publishing, because those are the two the
- * specification promises the customer. Publishing queues the "your outfit is
- * ready" message, so it is a deliberate button rather than something that
- * happens the moment a photograph lands -- the angles go up one at a time, and
- * a half-uploaded gallery is not what anyone wants sent.
- *
- * The images come from the order payload that is already on screen, so this
- * costs no extra request.
- */
 function GarmentGallery({ order, onChanged }) {
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
@@ -746,8 +693,6 @@ function JourneyTaskList({ rows, onSelectStage, hasVoiceNote }) {
 function StageTimeline({ stages, onSelectStage, hasVoiceNote = anyVoiceNote }) {
   const { t } = useLanguage();
   const { head, garments, tail } = stageLanes(stages);
-  // Open where the work is: the garment with a task in hand, else the first
-  // garment still to do. Clicking another card moves the open one.
   const autoKey = (garments.find((g) => g.stages.some(isLive)) || garments.find((g) => g.stages.some((s) => !isSettled(s))))?.key || null;
   const [pick, setPick] = React.useState();
   const openKey = pick === undefined ? autoKey : pick;
@@ -1023,13 +968,9 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
   const [text, setText] = useState(order.special_instructions || '');
   const [state, setState] = useState('idle');
   const savedRef = useRef(order.special_instructions || '');
-  // The recording behind a dictated note, saved the moment dictation stops --
-  // separately from the text autosave, which keeps its own diffing.
   const [voiceNote, setVoiceNote] = useState({
     url: order.instructions_voice_note || '', by: order.instructions_voice_note_by || '', at: order.instructions_voice_note_at || null,
   });
-  // Send uploads then saves; the server stamps who sent it and when, and
-  // hands both back on the order, so the label here is the server's.
   const sendVoice = async (blob) => {
     const url = await api.uploadVoiceNote(blob);
     const updated = await api.updateOrder(order.id, { instructions_voice_note: url });
@@ -1098,33 +1039,6 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
   );
 }
 
-/**
- * Give a design brief one shape, whatever the server sent.
- *
- * /design-studio/boards/ answers with TailorBriefSerializer -- which has a
- * `design` key -- only for a caller who has a tailor profile and is not the
- * Owner. Everyone else, the Owner included, gets DesignBoardSerializer, whose
- * approved item is under `selected` and which has no `design` at all.
- *
- * The stage panel guarded on `(brief.design || brief.selected)` and then read
- * `brief.design.image_url` on the next line, so for an Owner the guard passed
- * on `selected` and the read threw on `design`. A TypeError inside render hits
- * the error boundary, which unmounts the whole workspace -- and that panel is
- * the only place a stage can be started, paused or completed, so an Owner
- * could not run production on any order that had been through the Design
- * Studio at all.
- *
- * Normalising here rather than at each of the four reads: one place to be
- * wrong, and the next serializer shape that appears has one place to be taught.
- */
-/**
- * What the cutting table actually used, roll by roll.
- *
- * Fabric Confirmed reserved the metres the order asked for. This records the
- * metres that were cut and the offcuts at the moment they happen: stock drops
- * by exactly that, the movement names pattern_cutting, and whatever was
- * reserved but never cut goes back on the shelf when the order is delivered.
- */
 function CuttingUsage({ orderId }) {
   const [plan, setPlan] = useState(null);
   const [loaded, setLoaded] = useState(false);
@@ -1134,7 +1048,6 @@ function CuttingUsage({ orderId }) {
   const refresh = () => api.getMaterialChecklist(orderId)
     .then((data) => { setPlan(data.plan); setLoaded(true); })
     .catch(() => setLoaded(true));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { refresh(); }, [orderId]);
 
   if (!loaded) return <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Loading materials…</div>;
@@ -1192,17 +1105,6 @@ function CuttingUsage({ orderId }) {
 }
 
 
-/**
- * The Master\'s gathering checklist for one order.
- *
- * Every material the order plans, each with: a tick that records who had it in
- * hand and when, photographs of the actual bolt or spool (camera or gallery)
- * that travel with the order for QC and future rework, and the consumption
- * note once stitching has drawn it. Visibility for everyone; ticking and
- * photographing are the Owner\'s and the Master\'s.
- */
-/** Does this order name any material to gather? The checklist's lines are
- *  built from exactly these picks, so no picks means no list. */
 const hasMaterials = (order) =>
   (order.garment_jobs || []).some((job) => (job.materials || []).length > 0);
 
@@ -1216,9 +1118,6 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
   const refresh = () => api.getMaterialChecklist(orderId)
     .then((data) => { setPlan(data.plan); setLoaded(true); })
     .catch(() => setLoaded(true));
-  // Fetch only when someone opens the panel. The registry renders one of
-  // these per order card, and an on-mount fetch would fire the whole page's
-  // worth of requests at a cross-region API on every visit.
   useEffect(() => { if (opened) refresh(); /* eslint-disable-next-line */ }, [opened, orderId]);
 
   if (!opened) {
@@ -1297,14 +1196,7 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
   );
 }
 
-/**
- * A thin bar across the very top whenever ANY api call is in flight.
- *
- * Every request pays seconds of cross-region latency, and not every control
- * can carry its own spinner -- this is the app-wide answer to "is anything
- * happening?". Driven by window events from services/api.js so the api module
- * stays framework-free.
- */
+
 function NetworkActivityBar() {
   const [active, setActive] = useState(false);
   useEffect(() => {
@@ -1320,23 +1212,6 @@ function NetworkActivityBar() {
   );
 }
 
-/* ── NAVIGATION ─────────────────────────────────────────────────────────────
-   One table, three surfaces: the dashboard sidebar, the order-selector sidebar
-   and the phone bottom bar. They were three hand-kept lists and had already
-   drifted -- the selector sidebar never gained the Staff entry the dashboard
-   sidebar has, and the bottom bar had no Designer branch at all, so a designer
-   on a phone was offered "My Assignments", a tab their own sidebar does not
-   contain. Read from one place they cannot drift again. */
-
-/* The server module behind each tab, keyed by the dashboardTab VALUE rather
-   than by its label -- a renamed tab must not quietly lose its gate.
-
-   `null` means nothing on the server can switch it off: overview, orders,
-   customers, assignments, account and settings ride ALWAYS_ON or STRUCTURAL
-   prefixes (core/modules.py). Invoices and Analytics are computed in the
-   browser out of orders already fetched -- CLIENT_ONLY, no endpoint of their
-   own -- so there is no module key to invent for them and they stay visible
-   for everyone. */
 const NAV_MODULE = {
   overview: null,
   orders: null,
@@ -1357,22 +1232,10 @@ const NAV_MODULE = {
   finance: 'finance',
 };
 
-/* Hiding a tab is a courtesy; the server is the control and refuses the call
-   either way. So a user object carrying no `modules` -- an older token, a
-   login cached before the field existed -- sees everything: a workspace that
-   blanks its own navigation because one field is absent is worse than one
-   offering a tab the server will turn down. */
 const hasModule = (user, key) =>
   !key || !Array.isArray(user?.modules) || user.modules.includes(key);
 
-/* `tab in NAV_MODULE`, not a truthy lookup on it. A tab MISSING from the table
-   read exactly like one deliberately set to `null`, so a tab added later
-   without a NAV_MODULE row was silently visible to every role -- a Tailor
-   offered a screen nobody decided to give them, and no way to notice.
-   A dev-time warning rather than a second UNGATED set: the table above already
-   enumerates the deliberate ones as explicit nulls, and a parallel list is one
-   more thing to forget. Still fails open, for the reason in the paragraph
-   above -- the point is that the mistake now says so out loud. */
+
 const canSeeTab = (user, tab) => {
   if (import.meta.env.DEV && !(tab in NAV_MODULE)) {
     console.warn(`canSeeTab: no NAV_MODULE row for "${tab}" -- showing it to every role. Add a module key, or an explicit null if that is meant.`);
@@ -1380,9 +1243,7 @@ const canSeeTab = (user, tab) => {
   return hasModule(user, NAV_MODULE[tab]);
 };
 
-/* Grouped by what the owner is DOING, not by the order the screens were built
-   in. `phone` marks the few entries the bottom bar carries, `phoneLabel` the
-   shorter wording it uses where the sidebar's would wrap. */
+
 const navSectionsFor = (user, t) => {
   const role = user?.role;
   const sections =
@@ -1396,14 +1257,11 @@ const navSectionsFor = (user, t) => {
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
       ] },
-      // Fabrics used to sit apart from Inventory in one flat list of eleven,
-      // and the roster apart from the employment screen that extends it, so
-      // finding anything meant reading all eleven.
+      
       { key: 'stock', label: t('nav.groups.stock', 'Stock'), items: [
         { tab: 'inventory', icon: Package, label: t('nav.inventory'), phone: true },
       ] },
-      // Manage Tailors is WHO works here; Staff Management is their
-      // employment, time and pay. The pairing is the point of the group.
+      
       { key: 'people', label: t('nav.groups.people', 'Team'), items: [
         { tab: 'staff', icon: Users, label: t('nav.staffManagement') },
       ] },
@@ -1427,17 +1285,10 @@ const navSectionsFor = (user, t) => {
       { key: 'production', items: [
         { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
-        // Production staff record their own hours here. Labelled for what it
-        // is to them -- the screen opens on Attendance and shows only their
-        // own record. Without this entry a tailor cannot check in at all.
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
       ] },
     ];
 
-  // A rule rather than a heading: these are the way OUT of the workspace, not
-  // another room in it. Shared by every role, so a tailor with two entries
-  // gets the same separation as the owner with eleven. Account takes a slot on
-  // the bottom bar only for the roles whose own section cannot fill it.
   const roomy = !role || role === 'Owner' || role === 'Master';
   return [...sections, { key: 'session', divider: true, label: t('nav.groups.account', 'Account'), items: [
     { tab: 'account', icon: User, label: t('nav.account'), phone: !roomy },
@@ -1451,11 +1302,7 @@ const visibleNav = (user, t) => navSectionsFor(user, t)
   .map((section) => ({ ...section, items: section.items.filter((i) => canSeeTab(user, i.tab)) }))
   .filter((section) => section.items.length);
 
-/** The sidebar list. `onPick` differs by view: the order selector has to leave
-    itself for the dashboard before a tab means anything. */
-/** One entry in the sidebar. Collapsed, it is the icon alone and the label
- *  follows the pointer as a flyout -- position: fixed, because both the
- *  sidebar and the scrolling nav clip anything that pokes out of them. */
+
 function NavItem({ icon: Icon, label, active, onClick, collapsed }) {
   const [flyout, setFlyout] = useState(null);
   const show = (e) => {
@@ -1501,21 +1348,10 @@ function PortalMenu({ sections, activeTab, onPick, collapsed = false }) {
 
 
 function App() {
-  // The marketing site is static HTML at / and no longer a view in here -- see
-  // frontend/index.html. This bundle is the workspace, served from /app, so it
-  // opens on the sign-in screen and "back" links leave for the marketing site.
-  // 'login', 'signup', 'forgot', 'reset', 'dashboard', 'order-selector', 'wizard', 'confirmed'
-  //
-  // Opens on 'reset' when the address bar carries a reset token, and that wins
-  // over a restored session on purpose: whoever followed the link may still be
-  // signed in here -- the ordinary case when an owner has merely forgotten a
-  // password rather than lost it -- and sending them to the dashboard would
-  // swallow the link without ever showing the form.
+  
   const [view, setView] = useState(
     () => new URLSearchParams(window.location.search).get('reset') ? 'reset' : 'login');
-  const [requestedTab, setDashboardTab] = useState('overview'); // 'overview', 'fabrics', 'tailors', 'designs' -- resolved into dashboardTab below
-  // Sidebar width is the reader's choice, remembered per device. Desktop
-  // only: below 1024px the sidebar is the drawer and always shows labels.
+  const [requestedTab, setDashboardTab] = useState('overview'); 
   const [navCollapsed, setNavCollapsed] = useState(() => {
     try { return localStorage.getItem('nav_collapsed') === '1'; } catch { return false; }
   });
@@ -1524,57 +1360,33 @@ function App() {
     return !c;
   });
   const [currentUser, setCurrentUser] = useState(null);
-  // The boutique's look is platform-set: apply whatever the account payload says.
+ 
   useEffect(() => { applyTenantTheme(currentUser); }, [currentUser]);
   const { t, language } = useLanguage();
   const currentUserName = currentUser?.first_name || currentUser?.name || currentUser?.email?.split('@')[0] || 'User';
 
-  // Every navigation surface reads this one list -- see NAV_MODULE above.
+  
   const navSections = visibleNav(currentUser, t);
 
-  // The tab actually shown, which is not always the tab that was asked for.
-  // The opening tab is picked from the role alone (checkAuthSession,
-  // handleLoginSubmit) and a restored session is where that goes stale: the
-  // owner may have closed that module for the role since, leaving a screen
-  // that 403s on every call it makes. Hiding the sidebar entry does not help
-  // on its own -- nothing stops a stale requestedTab from still pointing at
-  // it -- so resolve it here, where a hidden tab simply never renders.
-  // 'alterations' has no sidebar entry on purpose -- it is reached from a
-  // delivered order -- but it is still a real screen for anyone with the module.
   const navTabs = navSections.flatMap((s) => s.items.map((i) => i.tab));
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
 
-  
-  // Login Form State
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
-  // Password reset. `resetToken` is read out of the query string on mount --
-  // the link in the email is the only way into the 'reset' view, and the
-  // browser following it has no session and no tenant header yet, so the token
-  // carries the schema itself (see PasswordResetRequestView).
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
-  // Read once, as the initial value, rather than in an effect: setting state
-  // synchronously inside an effect makes React render the login screen first
-  // and the reset screen a frame later, which is a visible flash of the wrong
-  // page on the one screen where the user has just clicked a link in an email.
   const [resetToken, setResetToken] = useState(
     () => new URLSearchParams(window.location.search).get('reset'));
   const [resetPassword, setResetPassword] = useState('');
   const [resetConfirm, setResetConfirm] = useState('');
   const [resetDone, setResetDone] = useState(false);
-  // Shown inside the auth card. These screens deliberately do not use the
-  // alert() the rest of this file reaches for: a modal dialog on top of a
-  // sign-in form is the wrong shape for "that address is not valid".
+
   const [authError, setAuthError] = useState(null);
   const [authBusy, setAuthBusy] = useState(false);
-  // Logout asks first: one mis-tap on a phone menu ended the whole session,
-  // and the POST behind it takes seconds with nothing on screen saying so.
-  // Getting-started checklist: dismissed per device+boutique, and it also
-  // disappears on its own once every step is genuinely done.
+
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     try {
       return localStorage.getItem(`onboarding_dismissed_${localStorage.getItem('tenant_id') || ''}`) === '1';
@@ -1583,7 +1395,6 @@ function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
 
-  // Signup: one form, then the "done" card. 1: Form, 2: Complete
   const [signupStep, setSignupStep] = useState(1);
 
   const [signupForm, setSignupForm] = useState({
@@ -1596,19 +1407,12 @@ function App() {
     terms: false
   });
   const [signupBusy, setSignupBusy] = useState(false);
-  // A brand-new owner has never been here, so "Welcome back" reads as a
-  // mix-up. Set by registration, cleared at logout: the greeting is theirs for
-  // the first session.
+
   const [signupError, setSignupError] = useState(null);
-  // True only for the session that created the boutique: the dashboard says
-  // "Welcome ... to Scaleezy" instead of "Welcome back". Any later login
-  // (or a reload) is a return visit.
   const [justRegistered, setJustRegistered] = useState(false);
   const [boutiqueName, setBoutiqueName] = useState('');
   const [boutiqueAddress, setBoutiqueAddress] = useState('');
-  // Create Account stays disabled until every box is filled and the two
-  // passwords agree; the exact-format checks (valid email, 10-digit mobile)
-  // still run on submit so the owner gets one plain message, not a red form.
+  
   const passwordMismatch = !!signupForm.confirm_password && signupForm.confirm_password !== signupForm.password;
   const signupReady = !!(boutiqueName.trim() && boutiqueAddress.trim()
     && signupForm.first_name.trim() && signupForm.last_name.trim()
@@ -1616,114 +1420,62 @@ function App() {
     && signupForm.password.length >= 8 && signupForm.confirm_password === signupForm.password
     && signupForm.terms);
 
-  // Customer/Order Wizard State
   const [currentStep, setCurrentStep] = useState(1);
-  // The furthest stage this order has reached. The stepper lets the user jump
-  // to any stage up to it, because those are the ones Next has already
-  // validated and saved; anything beyond still has to be earned through Next.
+  
   const [maxStepReached, setMaxStepReached] = useState(1);
   const reachStep = useCallback((n) => {
     setCurrentStep(n);
     setMaxStepReached((m) => Math.max(m, n));
   }, []);
-  // Which garment tile is fetching its template right now: the load takes
-  // seconds against the remote database, and a silent tile invites re-clicks.
+  
   const [addingGarmentKey, setAddingGarmentKey] = useState(null);
-  // Garments stack one under the other; the picker only comes back when asked.
-  // The garment whose section the circles above point at; sections stay stacked.
   const [activeGarmentKey, setActiveGarmentKey] = useState(null);
 
-  // A wizard step lands read from the top, not wherever the previous step's
-  // Next button happened to leave the scroll.
   useEffect(() => {
-    // Instant, not smooth: the new step's content is still mounting, and a
-    // smooth scroll gets cancelled by the layout shifting under it.
     window.scrollTo(0, 0);
   }, [view, currentStep, signupStep]);
 
   const [customerId, setCustomerId] = useState(null);
   const [customerForm, setCustomerForm] = useState(DEFAULT_CUSTOMER_DATA);
-  // Which service this order is: something to stitch, a garment to alter, or
-  // a design the boutique's own designer will draw. It decides the screens.
   const [serviceType, setServiceType] = useState('stitch');
-  // One name box on the Who screen; split at the first space for the record.
   const [customerName, setCustomerName] = useState('');
   const [readyBy, setReadyBy] = useState(() => plusDaysIso(15));
   const [designRequest, setDesignRequest] = useState({ designer: '', brief: '' });
   const [designers, setDesigners] = useState([]);
   const [alterationForm, setAlterationForm] = useState(EMPTY_ALTERATION);
   
-  // Garment templates. `garmentTemplates` is the summary list that fills the
-  // picker; `garmentJobs` is the dresses on this order, each holding the full
-  // template it renders from and the answers given so far. One order can carry a
-  // lehenga, its blouse and a dupatta, so this is a list, not a single value.
   const [garmentTemplates, setGarmentTemplates] = useState([]);
   const [garmentJobs, setGarmentJobs] = useState([]);
-  // Which garment's form is open on the Garments step. One at a time, in
-  // tabs: two garments stacked meant scrolling past the whole saree form to
-  // reach the blouse. Derived at render so a removed garment falls back to
-  // the first rather than leaving an empty step.
   const [activePairingGarment, setActivePairingGarment] = useState(null);
-  // The order being written lives on the server as an OrderDraft; this is a
-  // cache of it. Refreshing, following the step-4 empty-state button, or
-  // opening a second tab must not be able to destroy work already done --
-  // which is exactly what happened while the wizard's only copy was here.
   const [draftId, setDraftId] = useState(null);
   const [draftVersion, setDraftVersion] = useState(null);
-  // idle | saving | saved | failed | conflict
   const [draftSaveState, setDraftSaveState] = useState('idle');
   const [resumableDrafts, setResumableDrafts] = useState([]);
-  // Which draft is asking to be confirmed for discard. An in-app step
-  // rather than window.confirm: a destructive action should not depend on
-  // a browser dialog, which can be suppressed by the browser, by an
-  // extension, or by the automation that is supposed to be testing it --
-  // and a control nobody can test is a control nobody should trust.
   const [discardingDraftId, setDiscardingDraftId] = useState(null);
   const [garmentErrors, setGarmentErrors] = useState({});
   const [garmentTemplatesError, setGarmentTemplatesError] = useState(null);
-  // Bumped after any design write so the library refetches its counts and grid.
   const [designLibraryToken, setDesignLibraryToken] = useState(0);
-  const [designsView, setDesignsView] = useState('dashboard'); // 'dashboard' | 'library' | 'requests'
-  // Design requests live inside the library page now; this is the one door.
+  const [designsView, setDesignsView] = useState('dashboard'); 
   const openDesignRequests = () => { setDesignsView('requests'); setDashboardTab('designs'); };
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  // Bumped whenever a sidebar item is picked, and used as the key of the main
-  // pane: picking a section always lands on its front page, even from a
-  // detail view inside that same section, because the pane remounts.
   const [sectionVisit, setSectionVisit] = useState(0);
 
   // Wizard Details State
   const [designNotes, setDesignNotes] = useState('');
   const [designFiles, setDesignFiles] = useState([]);
-  // Board id and selection handed up by the Design Studio, attached to the
-  // order once it is created in step 6.
   const [designBoard, setDesignBoard] = useState({ boardId: null, selected: null, approved: false });
   const [selectedDesignTemplates, setSelectedDesignTemplates] = useState([]);
   const [designSource, setDesignSource] = useState('BOUTIQUE_CATALOG');
   const [designLinks, setDesignLinks] = useState('');
   const [advancePaymentAmount, setAdvancePaymentAmount] = useState(0);
   const [specialInstructions, setSpecialInstructions] = useState('');
-  // A voice note recorded on the Measurements step: { url, by, at } once
-  // sent. Uploaded at once, carried on the draft, and set on the order as
-  // its instructions voice note at confirm -- so the tailor hears it wherever
-  // an order's voice note already plays.
   const [measureVoiceNote, setMeasureVoiceNote] = useState(null);
 
-  // Model display parked — see task 16
-  // const [selectedFabric, setSelectedFabric] = useState(null);
-  // Order-level money only. Everything garment-shaped -- base, fabric,
-  // embroidery, customization, tailoring -- lives on each entry in
-  // garmentJobs.pricing now, because one flat set is exactly how a Blouse +
-  // Lehenga order came to be priced as whichever garment the profile named.
   const [quotePrices, setQuotePrices] = useState({ packaging: 500, discount: 0 });
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   const fabricTaxonomy = useFabricTaxonomy();
 
-  // Tailors CRUD State
-  // Recording a payment: which row is in flight, and what went wrong. Shown in
-  // the Invoices header rather than through alert() -- a modal dialog over a
-  // ledger the owner is reading down is the wrong shape for "that did not save".
   const [wizardError, setWizardError] = useState(null);
   const [savingPaymentId, setSavingPaymentId] = useState(null);
   const [paymentError, setPaymentError] = useState(null);
@@ -1745,19 +1497,6 @@ function App() {
     description: ''
   });
 
-  // The old effect that synced a single base/fabric price from
-  // customerForm.garment_type is gone: money is seeded per garment in
-  // addGarment and edited per garment on the review step. A boutique fabric's
-  // suggested charge is applied to a garment when the owner types it, not
-  // guessed at three metres against whichever dress came first.
-
-  // The garment list drives the whole order form, and comes from the catalogue
-  // rather than a hardcoded array.
-  //
-  // Loaded per signed-in user, not on mount. The endpoint needs a token, and
-  // on mount there is none -- the app opens on the landing page and the user
-  // logs in afterwards. Fetching once on mount meant the request 401'd, the
-  // list stayed empty, and the order form offered no garments at all.
   const loadGarmentTemplates = useCallback(async () => {
     if (!localStorage.getItem('token')) return;
     setGarmentTemplatesError(null);
@@ -1782,18 +1521,14 @@ function App() {
     setAddingGarmentKey(key);
     try {
       const template = await api.getGarmentTemplate(key);
-      // A pairing may add a garment the order already has -- the lehenga's
-      // own dupatta beside the saree's. The job then gets its own key; the
-      // template key stays on job.template, which is what every reader of
-      // the template uses (job.template?.key || job.key).
+  
       const jobKey = taken ? `${key}#${Date.now().toString(36)}` : key;
       setGarmentJobs(prev => [...prev, {
         key: jobKey, template, values: withDefaults(template), quantities: {}, sources: {}, brought: {}, pairedWith,
         pricing: { base: GARMENT_PRICES[template.name] || 15000, fabric: 0,
                    embroidery: 0, customization: 0, tailoring: 0 },
       }]);
-      // Saree asks after its blouse and petticoat, lehenga after its choli
-      // and dupatta. Paired adds skip the prompt so it cannot chain.
+      
       if (!skipPairingPrompt && getGarmentPairConfig(key, template.name)) {
         setActivePairingGarment({ key, name: template.name, jobKey });
       }
@@ -1812,15 +1547,6 @@ function App() {
   };
 
 
-
-  // Pricing, the dashboard and the stage tracker still read the single
-  // garment_type on the customer, so it follows the first dress on the order
-  // until those move over to the job list.
-  //
-  // Derived rather than assigned inside addGarment: that read garmentJobs from
-  // the closure, so two garments added in the same tick both saw an empty list
-  // and the second overwrote the first -- the cost sidebar then named the wrong
-  // garment. Deriving also keeps it right when the first dress is removed.
   useEffect(() => {
     const first = garmentJobs[0]?.template?.name;
     if (first) {
@@ -1885,8 +1611,7 @@ function App() {
           notes: brought.notes,
         };
       })
-      // A line counts once it names something: a roll off the rack, the
-      // cloth the customer handed over, or the thing to go and buy.
+      
       .filter(entry => (entry.source === 'STORE' ? entry.itemId : entry.name));
   };
 
@@ -1932,11 +1657,7 @@ function App() {
       const jobErrors = validateSpec(job.template, job.values, { partial, sections });
       if (Object.keys(jobErrors).length) errors[job.key] = jobErrors;
 
-      // A material chosen with no quantity cannot be reserved or consumed, so
-      // it would reach production as a name with no effect on stock. Ask for
-      // the number now rather than defaulting to one nobody decided. Skipped
-      // while saving a draft, which is expected to be half-filled, and when only
-      // some sections are being asked: the material lines are not on screen then.
+     
       if (partial || sections) return;
       const jobQuantityErrors = {};
       garmentMaterialFields(job).forEach(({ field }) => {
@@ -1946,8 +1667,7 @@ function App() {
           jobQuantityErrors[field.key] = 'Enter how much of this material this garment needs.';
         }
       });
-      // A quantity typed against a customer material nobody named would be
-      // dropped on the way out, silently. Say so instead.
+      
       const fallbackSource = defaultMaterialSource(job);
       (job.template?.sections || [])
         .flatMap(section => section.fields || [])
@@ -1975,17 +1695,12 @@ function App() {
     const failed = Object.keys({ ...errors, ...quantityErrors })[0];
     if (failed) {
       setActiveGarmentKey(failed);
-      // TemplateForm marks a failed field only by the message under it and
-      // gives every control id tf-<field key>, repeated per garment; the
-      // garment card (#wz-garment-<job key>) picks this garment's copy. After
-      // the frame so the alert the caller raises has closed and the highlight
-      // has rendered before the page moves.
+
       const fieldKey = Object.keys(errors[failed] || quantityErrors[failed])[0];
       requestAnimationFrame(() => {
         const scope = document.getElementById(`wz-garment-${failed}`) || document;
         const control = scope.querySelector(`[id="tf-${fieldKey}"]`);
-        // A field folded under 'More details' or a measurement group is
-        // display:none; open every fold above it first or nothing moves.
+        
         let fold = control?.closest('details');
         while (fold) { fold.open = true; fold = fold.parentElement?.closest('details'); }
         control?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1995,34 +1710,7 @@ function App() {
     return Object.keys(errors).length === 0 && Object.keys(quantityErrors).length === 0;
   };
 
-  /** Every dress on the order being written, as one line.
-   *
-   *  The wizard's counterpart to orderGarmentLabel, which answers the same
-   *  question for an order that already exists. Derived from garmentJobs --
-   *  the actual garments chosen -- and never from customerForm.garment_type,
-   *  which holds one value and follows whichever dress was picked first.
-   *
-   *  A single definition because the expression had already been copied to two
-   *  sidebars and a third read the customer field instead: the step-5 summary
-   *  showed "Women - Blouse" for a blouse-and-lehenga order, on the screen
-   *  where the owner assigns staff and reads the price. Copies drift; this is
-   *  the fix for the drift as well as for the symptom.
-   */
-
-  /** Everything the wizard is holding, in a shape the draft can store.
-   *
-   *  Garment templates are stored by key rather than as the whole fetched
-   *  object: the template is boutique configuration that can be re-read, and
-   *  storing a copy of it would mean resuming a draft against a stale one.
-   */
-  /** Every stock line on a garment, in the shape the API stores.
-   *
-   *  The rolls picked part by part on the fabric step come first, with the
-   *  metres asked for there -- that is what the ledger reserves at Fabric
-   *  Confirmed and what the cutting table consumes. The template's own
-   *  material fields follow, minus any that name a roll the fabric step
-   *  already did, so one roll is never reserved twice for one garment.
-   */
+  
   const garmentMaterialLines = (job) => {
     const picked = Object.entries(job.fabrics || {}).flatMap(([slot, ids]) =>
       [...new Set((ids || []).map(String))].map(id => ({
@@ -2039,8 +1727,7 @@ function App() {
   const serialiseWizard = () => {
     const total = getTotalPrice();
     const advance = Number(advancePaymentAmount) || 0;
-    // The order's one ready-by date is also each garment's delivery_date, the
-    // template field older readers of the draft still look at.
+  
     const withDate = (values) => (readyBy ? { ...values, delivery_date: readyBy } : values);
     return {
       ...customerForm,
@@ -2104,20 +1791,16 @@ function App() {
 
     const { garments = [], design = {}, prices, payment = {},
             service, ready_by, design_request, ...customer } = payload;
-    // Older drafts carried tailor, fabric-tab and delivery choices; none of
-    // those is a customer field.
+    
     ['fabric', 'staff', 'delivery'].forEach((key) => { delete customer[key]; });
     setCustomerForm(prev => ({ ...prev, ...customer }));
     setCustomerName(`${customer.first_name || ''} ${customer.last_name || ''}`.trim());
     const kind = service === 'design' ? 'design' : 'stitch';
     setServiceType(kind);
-    // A draft from the six-step wizard carried the date on each garment.
+    
     setReadyBy(ready_by || garments.find(g => g.values?.delivery_date)?.values.delivery_date || plusDaysIso(15));
     setDesignRequest(design_request || { designer: '', brief: '' });
 
-    // Templates are re-fetched rather than restored from the draft, so a
-    // resumed order is always built against the boutique's current garment
-    // definitions.
     const rebuilt = [];
     for (const garment of garments) {
       try {
@@ -2140,10 +1823,7 @@ function App() {
         console.error('Could not reload the garment template', garment.template_key, err);
       }
     }
-    // A draft written before pricing moved per-garment holds one flat price
-    // set. Put it on the first garment -- which is exactly what the flat model
-    // meant by it -- so the owner sees the same money and the next save writes
-    // the draft forward in the new shape.
+    
     const hasJobPricing = rebuilt.some(job =>
       Object.values(job.pricing || {}).some(v => parseFloat(v || 0)));
     if (!hasJobPricing && rebuilt.length && prices) {
@@ -2170,11 +1850,9 @@ function App() {
     setWizardError(null);
     setDraftSaveState('idle');
     setGarmentErrors({});
-    // A draft written by the six-step wizard resumes on the last screen the
-    // new one has; the money screen is where everything it had ends up.
+    
     let step = Math.min(draft.current_step || 1, WIZARD_STEPS[kind].length);
-    // Nothing to make yet (an older draft parked past the customer screen):
-    // the garment step is the only one that can go anywhere.
+    
     if (kind !== 'alter' && !(draft.payload?.garments || []).length) step = 1;
     setMaxStepReached(step);
     reachStep(step);
@@ -2207,30 +1885,24 @@ function App() {
       setDraftSaveState('saved');
       return saved.id;
     } catch (err) {
-      // A conflict is not a failure to save -- it is this tab holding an older
-      // copy than the server. Overwriting would throw away whatever the other
-      // tab did, so the tab is marked stale and the person is told to reload.
+      
       setDraftSaveState(err.isConflict ? 'conflict' : 'failed');
       if (!err.isConflict) console.error('Could not save the draft', err);
       throw err;
     }
   };
 
-  // Active Selected Dashboard Order for progress tracker
   const [selectedDashboardOrder, setSelectedDashboardOrder] = useState(null);
   const [updatingOrderStatusId, setUpdatingOrderStatusId] = useState(null);
   const [styleNotesFor, setStyleNotesFor] = useState(null);
   const [selectedDirectoryCustomer, setSelectedDirectoryCustomer] = useState(null);
-  // Which alteration the Alterations tab should open on. Set when somebody
-  // follows one from an order card or a customer's file, cleared once the tab
-  // has been entered so going back to the tab shows the register again.
-  // Delivered order picked for alteration from the customer profile.
+  
   const [alterationOrder, setAlterationOrder] = useState(null);
-  // Delivered order picked for alteration from the Manage Orders table.
+  
   const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
-  // The "Outside garment" intake opened from the Manage Orders header.
+  
   const [takingInOutside, setTakingInOutside] = useState(false);
-  // An alteration is an order on the short path: open it where orders open.
+  
   const openAlteration = (id) => {
     setSelectedDirectoryCustomer(null);
     setDashboardTab('orders');
@@ -2239,11 +1911,7 @@ function App() {
   };
   const rememberAlteration = () => {};
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
-  // Which order in the customer profile is expanded to show its production
-  // progress. Opening a client's order used to throw them into the new-order
-  // wizard, so there was no way to answer "where is my dress?" from the profile.
   const [expandedCustomerOrderId, setExpandedCustomerOrderId] = useState(null);
-  // Manage Orders table: the row whose full card is open under it.
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
   const [approvingDesignId, setApprovingDesignId] = useState(null);
   const [assigningStageKey, setAssigningStageKey] = useState(null);
@@ -2258,23 +1926,14 @@ function App() {
     customer: '', appointment_type: 'TRIAL', scheduled_time: '', assigned_staff: '', notes: '',
   });
   const [savingAppointment, setSavingAppointment] = useState(false);
-  // The appointment the modal is looking at. Null means the modal is booking a
-  // new one -- same form either way, because it is the same five fields.
   const [editingAppointment, setEditingAppointment] = useState(null);
-  // Cancelled and past appointments are the record, and the owner has to be
-  // able to open one. Off by default: the panel is about the day ahead.
   const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [fabrics, setFabrics] = useState([]);
   const [allDesigns, setAllDesigns] = useState([]);
   const [customersList, setCustomersList] = useState([]);
   const [ordersList, setOrdersList] = useState([]);
-  // Customer messages still waiting for the owner to send them, for every
-  // order at once. Refreshed with the dashboard, so advancing an order's
-  // status makes its new message appear without a reload.
   const [queuedMessages, setQueuedMessages] = useState([]);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
-  // 'Send to workshop': the order in the small modal, its two picks, and the
-  // server's sentence when it refuses.
   const [sendingOrder, setSendingOrder] = useState(null);
   const [sendForm, setSendForm] = useState({ master: '', tailor: '' });
   const [sendError, setSendError] = useState('');
@@ -2287,17 +1946,13 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
   const [ordersSearch, setOrdersSearch] = useState('');
-  // null until the owner picks a tab: the workshop when it has rows, else the new ones.
   const [ordersTabPick, setOrdersFilterTab] = useState(null);
   const ordersFilterTab = dashboardTab === 'workshop' ? 'workshop' : (ordersTabPick || 'new');
-  // Customer tier, garment and workroom step: each 'All' or one value.
   const [ordersTierFilter, setOrdersTierFilter] = useState('All');
-  // Stitching orders, maggam orders, alterations, or everything.
   const [ordersTypeFilter, setOrdersTypeFilter] = useState('All');
   const [ordersGarmentFilter, setOrdersGarmentFilter] = useState('All');
   const [ordersStageFilter, setOrdersStageFilter] = useState('All');
   const [ordersView, setOrdersView] = useState('list');
-  // The order book's View button opens one order on its own page.
   const openOrder = openOrdersRowId ? ordersList.find((o) => o.id === openOrdersRowId) : null;
   useEffect(() => {
     if (!openOrdersRowId) return;
@@ -2305,8 +1960,7 @@ function App() {
     document.querySelector('.portal-main')?.scrollTo?.(0, 0);
   }, [openOrdersRowId]);
 
-  // One predicate for the order registry, whichever way it is drawn: the list
-  // and the board show the same orders under the same filter and search.
+ 
   const orderMatchesFilters = (order) => {
     if (ordersTypeFilter === 'Alteration' && order.flow !== 'alteration') return false;
     if (ordersTypeFilter === 'Maggam' && order.flow !== 'maggam') return false;
@@ -2331,34 +1985,23 @@ function App() {
   const [boutiqueSettings, setBoutiqueSettings] = useState(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
-  // Model display parked — see task 16
-  // const [drapingLoading, setDrapingLoading] = useState(false);
-  // const [drapingCompleted, setDrapingCompleted] = useState(false);
-  // const [drapedImage, setDrapedImage] = useState('');
-  // const [showDrapingModal, setShowDrapingModal] = useState(false);
   
   const [activeReviewStage, setActiveReviewStage] = useState(null);
   const [activeReviewOrder, setActiveReviewOrder] = useState(null);
   const [stageReviewComments, setStageReviewComments] = useState('');
-  // Bumped by the notes box's mic on the stage review; the recorder under
-  // it starts on each bump.
+  
   const [stageReviewMicKick, setStageReviewMicKick] = useState(0);
-  // Up to five photographs of the work, going up with the transition.
+  
   const [stageReviewImages, setStageReviewImages] = useState([]);
-  // The recording behind the comment being written, kept as a Blob until the
-  // transition is saved -- so cancelling the modal uploads nothing.
+  
   const [stageReviewRecording, setStageReviewRecording] = useState(false);
   const [selectedStageObj, setSelectedStageObj] = useState(null);
   const [selectedPerformerId, setSelectedPerformerId] = useState('');
   const [stageTransitionBusy, setStageTransitionBusy] = useState(false);
-  // The two sanctioned reversals, both behind a mandatory-reason dialog:
-  // {type: 'reopen'|'failqc'} while the dialog is open.
   const [reversalPrompt, setReversalPrompt] = useState(null);
   const [reversalReason, setReversalReason] = useState('');
   const [reversalBusy, setReversalBusy] = useState(false);
   const [globalError, setGlobalError] = useState(null);
-  // Names of the dashboard collections that failed to load, so the UI can say so
-  // instead of rendering an empty directory as if the boutique had no clients.
   const [loadErrors, setLoadErrors] = useState([]);
 
   useEffect(() => {
@@ -2379,40 +2022,20 @@ function App() {
 
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsDrawer, setShowNotificationsDrawer] = useState(false);
-  // In-flight guards, same shape as signupBusy/savingPaymentId: a boolean for
-  // the shared bell, an order/row id for per-row controls.
   const [markingNotificationsRead, setMarkingNotificationsRead] = useState(false);
   const [savingVerificationOrderId, setSavingVerificationOrderId] = useState(null);
   const [assigningWorkflowOrderId, setAssigningWorkflowOrderId] = useState(null);
   const [deletingDraftId, setDeletingDraftId] = useState(null);
 
-  // `user` is passed explicitly by callers that have just signed in: setCurrentUser
-  // has not committed yet at that point, so reading it from state would bail out
-  // and leave the bell empty until some later refresh.
   const fetchNotifications = async (user = currentUser) => {
     if (!user) return;
     const data = await api.getNotifications(user.role || 'Owner', user.email);
     setNotifications(data);
   };
 
-  // Persisted Session check.
-  //
-  // The reset link is checked first and wins. Someone following it may well
-  // still hold a live token in this browser -- that is the ordinary case when
-  // an owner resets a password they simply forgot rather than one that was
-  // stolen -- and restoring them to the dashboard would swallow the link
-  // without ever showing the form.
   useEffect(() => {
     if (resetToken) {
-      // Take it out of the address bar so the token is not left in history,
-      // in a bookmark, or in whatever the next Referer header carries.
       window.history.replaceState({}, '', window.location.pathname);
-      // checkAuthSession is what normally clears `loading`, and it is
-      // deliberately skipped on this path. Without this line the flag stays
-      // true forever, and the moment the reset finishes and the view goes back
-      // to 'login' the app renders its full-screen "Loading Atelier CRM..."
-      // spinner instead of the sign-in form -- with nothing left to load and
-      // no way out but a reload.
       setLoading(false);
       return;
     }
@@ -2430,9 +2053,6 @@ function App() {
     setAuthError(null);
     try {
       await api.requestPasswordReset(email);
-      // Shown whatever the server found. It answers identically for an address
-      // it knows and one it does not -- on purpose -- so telling the two apart
-      // here would undo that.
       setResetSent(true);
     } catch (err) {
       setAuthError(err.message || 'Could not send the reset email.');
@@ -2455,8 +2075,6 @@ function App() {
     setAuthError(null);
     try {
       await api.confirmPasswordReset(resetToken, resetPassword);
-      // The reset signed every device out, this one included, so anything
-      // still in localStorage is a token the server has already deleted.
       localStorage.removeItem('token');
       localStorage.removeItem('tenant_id');
       setResetDone(true);
@@ -2476,16 +2094,6 @@ function App() {
         setCurrentUser(user);
         setView('dashboard');
         if (user.role === 'Designer') {
-          // Deliberately does not call fetchDashboardAndConfig: that pulls
-          // customers, orders and financials into the browser session, and a
-          // designer account has no legitimate use for any of it. The API
-          // itself does not enforce this yet -- see
-          // docs/design-management.md section 4 -- so this is the one real
-          // containment step 7 actually has, and it is enforced by simply
-          // never requesting the data rather than by trusting a permission
-          // check that does not exist server-side.
-          // The queue, not the upload folder: what a designer signs in for is
-          // what has been asked of them.
           openDesignRequests();
           return;
         }
@@ -2558,29 +2166,15 @@ function App() {
 
     await load('orders', api.getOrders, setOrdersList);
 
-    // Dashboard, customers, orders and settings above and below ride ALWAYS_ON
-    // or STRUCTURAL prefixes and always answer. These do not: /api/tailors/,
-    // /api/scheduling/, /api/fabrics/, /api/boutique-designs/ and
-    // /api/notifications/ each sit behind a module, and this ran them
-    // unconditionally for every signed-in role -- so a Tailor, whose defaults
-    // carry none of the first four, took four 403s on every single boot and
-    // got four collections named in `loadErrors` as "could not load" for data
-    // they were never meant to have. Same list the nav gates on, so a fetch
-    // and its screen can no longer disagree about what this user has.
     if (hasModule(user, 'tailors')) await load('tailors', api.getTailors, setTailors);
-    // The panel this fills says Upcoming, so it asks for upcoming: past
-    // bookings and cancelled ones are history, not the day ahead.
     if (hasModule(user, 'scheduling')) await load('appointments', () => api.getAppointments({ upcoming: 'true' }), setAppointments);
-    // The rolls the order wizard picks from are stock now: every active
-    // inventory item that is cloth, or filed under a garment part.
     if (hasModule(user, 'inventory')) await load('fabrics', () => api.getInventoryItems({ picker: 'true' }), setFabrics);
     if (hasModule(user, 'design_studio')) await load('designs', api.getAllBoutiqueDesigns, setAllDesigns);
     await load('settings', api.getBoutiqueSettings, (data) => {
       setBoutiqueSettings(data);
       setBoutiqueTimeZone(data?.timezone);
     });
-    // Gateable like the four above, and the bell is on every screen -- but a
-    // boutique that has switched notifications off has no bell to fill.
+    
     if (hasModule(user, 'notifications')) await load('notifications', () => fetchNotifications(user), () => {});
 
     if (!user?.role || user.role === 'Owner') {
@@ -2590,10 +2184,6 @@ function App() {
     setLoading(false);
   };
 
-  /** Record that the owner sent a queued message from their own WhatsApp. */
-  // The linked WhatsApp session, read where it is shown. Quiet on failure:
-  // a boutique with no session service configured must not see an error
-  // banner on every dashboard visit.
   const fetchWhatsAppStatus = useCallback(async () => {
     try {
       const data = await api.getWhatsAppStatus();
@@ -2613,38 +2203,21 @@ function App() {
     }
   }, [view, dashboardTab, currentUser, fetchWhatsAppStatus]);
 
-  // The Today card (staff on the floor, today's appointments) reads from
-  // /api/dashboard/, which was fetched once at sign-in. A check-in on the
-  // Staff tab or a booking made elsewhere never reached it until a full
-  // reload, so the card sat on 0 / "No appointments". Re-read just the
-  // dashboard payload whenever the overview tab comes back into view.
   useEffect(() => {
     if (view === 'dashboard' && dashboardTab === 'overview' && dashboardData) {
       api.getDashboard().then(setDashboardData).catch(() => {});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [view, dashboardTab]);
 
-  // The browser's Back button. Every screen here is state, not a URL, so the
-  // only history entry was the sign-in page (or whatever tab the app was
-  // opened from) and Back left the app entirely -- which read as a logout.
-  // Each signed-in screen now puts an entry in history, so Back walks the
-  // screens the person actually visited; from the first one it stays put
-  // rather than leaving. The session is untouched either way.
   useEffect(() => {
     if (view === 'login' || view === 'signup' || view === 'forgot' || view === 'reset') return;
-    // After Back, history.state already is the screen being shown, so the
-    // check below keeps a pop from pushing a fresh entry of its own.
     const here = { atelier: true, view, tab: dashboardTab };
     const current = window.history.state;
     if (current?.atelier && current.view === view && current.tab === dashboardTab) return;
     if (current?.atelier) {
       window.history.pushState(here, '');
     } else {
-      // The first signed-in screen claims the entry the app was opened on
-      // AND adds one more: Back from the first screen then lands on the
-      // app's own duplicate (where popstate can hold it) instead of on
-      // whatever page came before the app.
       window.history.replaceState(here, '');
       window.history.pushState(here, '');
     }
@@ -2654,9 +2227,6 @@ function App() {
       const state = event.state;
       if (state?.atelier) {
         if (state.view === view && state.tab === dashboardTab) {
-          // Popped onto the duplicate of the screen already showing -- the
-          // first screen's guard. Put the guard back so the next Back holds
-          // too, and stay where we are.
           window.history.pushState(state, '');
           return;
         }
@@ -2670,7 +2240,6 @@ function App() {
 
   const handleMarkMessageSent = async (orderId, messageId) => {
     await api.markMessageSent(orderId, messageId);
-    // The queue holds only what is still waiting, so a sent one leaves it.
     setQueuedMessages((prev) => prev.filter((m) => m.id !== messageId));
   };
 
@@ -2714,8 +2283,6 @@ function App() {
   const handleSaveAppointment = async (e) => {
     e.preventDefault();
     if (savingAppointment) return;
-    // A booking already on the calendar may sit in the past (marking it
-    // completed, say); only a new one must be today or later.
     if (!editingAppointment && isPastDate((appointmentForm.scheduled_time || '').slice(0, 10))) {
       alert('The appointment cannot be in the past.');
       return;
@@ -2728,15 +2295,12 @@ function App() {
         scheduled_time: new Date(appointmentForm.scheduled_time).toISOString(),
       };
       if (editingAppointment) {
-        // The client cannot be moved to another person's appointment: that is
-        // a different booking, not an edit of this one.
         delete payload.customer;
         await api.updateAppointment(editingAppointment.id, payload);
       } else {
         await api.createAppointment(payload);
       }
       await reloadAppointments();
-      // The dashboard's Today card lists today's bookings from its own payload.
       fetchDashboardAndConfig();
       closeAppointmentModal();
     } catch (err) {
@@ -2765,8 +2329,6 @@ function App() {
     }
   };
 
-  // Who goes on a new order by default: the order's own Master and tailor,
-  // else the first Master and the free tailor with the fewest open orders.
   const workshopMasters = () => tailors.filter((tl) => tl.role === 'Master');
   const workshopCrew = () => tailors.filter((tl) => tl.role !== 'Master');
   const defaultWorkshopPicks = (order) => {
@@ -2892,8 +2454,6 @@ function App() {
       setCurrentUser(res.user);
       setView('dashboard');
       if (res.user.role === 'Designer') {
-        // See the matching branch in checkAuthSession for why this skips
-        // fetchDashboardAndConfig entirely rather than fetching and hiding.
         openDesignRequests();
         return;
       }
@@ -2904,11 +2464,6 @@ function App() {
       }
       fetchDashboardAndConfig(res.user);
     } catch (err) {
-      // Inline, not alert(): the comment on `authError` says these screens
-      // deliberately do not put a modal dialog on top of a sign-in form, and
-      // the forgot/reset views already follow that. Sign-in was the one that
-      // still did -- worst on a phone, where the alert covers the form and
-      // takes a second tap to clear before the password can be retyped.
       setAuthError(err.message || 'Invalid credentials.');
     } finally {
       setAuthBusy(false);
@@ -2918,18 +2473,11 @@ function App() {
   const handleSignupSubmit = async (e) => {
     e.preventDefault();
     if (!signupReady) return;
-    // The server's own rules (core/validators.py), asked here so the owner
-    // hears about a bad number before the boutique is provisioned.
     const bad = nameError(signupForm.first_name, { label: 'First name' })
       || nameError(signupForm.last_name, { label: 'Last name' })
       || emailError(signupForm.email_address, { required: true })
       || mobileError(signupForm.mobile_number);
     if (bad) { setSignupError(bad); return; }
-    // Signup creates a Postgres schema and runs every migration into it, which
-    // takes seconds rather than milliseconds -- long enough that an owner who
-    // hears nothing back presses the button again. The second press used to
-    // start a second boutique; it now cannot start until the first has
-    // answered.
     if (signupBusy) return;
     setSignupBusy(true);
     setSignupError(null);
@@ -2944,7 +2492,6 @@ function App() {
         business_address: boutiqueAddress
       });
       setJustRegistered(true);
-      // No session back means signup is verification-gated: sign in first.
       if (!res.token) { setView('login'); return; }
       setCurrentUser(res.user);
       setSignupStep(2);
@@ -2953,9 +2500,6 @@ function App() {
         fetchDashboardAndConfig(res.user);
       }, 1500);
     } catch (err) {
-      // Stays on the form and says so in the card, so "that email is already
-      // registered" -- much the commonest failure here -- does not read as
-      // the form having been wiped for no stated reason.
       setSignupError(err.message || 'Registration failed.');
     } finally {
       setSignupBusy(false);
@@ -3012,11 +2556,6 @@ function App() {
     setDesignNotes('');
     setDesignFiles([]);
     setSelectedDesignTemplates([]);
-    // setSelectedFabric(null);
-    // Model display parked — see task 16
-    // setDrapingCompleted(false);
-    // setDrapingLoading(false);
-    // setShowDrapingModal(false);
     setGarmentJobs([]);
     setGarmentErrors({});
     setQuotePrices({ packaging: 500, discount: 0 });
@@ -3027,7 +2566,6 @@ function App() {
     setDesignRequest({ designer: '', brief: '' });
     setAlterationForm(EMPTY_ALTERATION);
     setWizardError(null);
-    // A fresh order, not a PATCH of whichever draft the last one left behind.
     setDraftId(null);
     setDraftVersion(null);
     setDraftSaveState('idle');
@@ -3039,7 +2577,6 @@ function App() {
   /** "Take a new order": ask which service first. */
   const handleStartNewCustomer = () => setCustomerAddMode('choose');
 
-  // Customers -> Add Customer: null (the list), 'choose' (Excel or by hand), 'manual' (the form).
   const [customerAddMode, setCustomerAddMode] = useState(null);
   const handleSelectExistingCustomer = (cust) => startService('stitch', cust);
 
@@ -3071,15 +2608,11 @@ function App() {
     setView('dashboard');
   };
 
-  // Wizard Step actions
-  // Stepper click: a jump lands on the stage itself, never on a sub-phase of it.
   const jumpToStep = useCallback((n) => {
     if (n === currentStep || n > maxStepReached) return;
     reachStep(n);
   }, [currentStep, maxStepReached, reachStep]);
   const wizardSteps = WIZARD_STEPS[serviceType] || WIZARD_STEPS.stitch;
-  // A phone shows three of the seven steps; bring the current one into view
-  // so the strip never sits on steps 1-3 while the order is on step 5.
   useEffect(() => {
     document.querySelector('.wizard-header-container [aria-current="step"]')
       ?.scrollIntoView({ inline: 'center', block: 'nearest' });
@@ -3104,14 +2637,9 @@ function App() {
   const prefillMeasurements = () => {
     const sheet = customerForm.measurements || {};
     setGarmentJobs(prev => prev.map(job => {
-      // Only keys this garment's template asks for: an extra key is rejected
-      // as unknown at confirm.
       const own = new Set(((job.template?.sections || []).find(sec => sec.key === 'measurements')?.fields || []).map(f => f.key));
       const values = { ...(job.values || {}) };
       own.forEach((key) => {
-        // "12.00" on the sheet reads as "12" in the box. A key the alias map
-        // does not name (blouse_length, floor_length...) is stored under its
-        // own name by the spreadsheet import.
         const kept = sheetGet(sheet, MEASURE_KEYS[key] || key);
         if ((values[key] === undefined || values[key] === '') && kept) values[key] = /^\d/.test(String(kept)) ? String(Number(kept)) : kept;
       });
@@ -3137,18 +2665,6 @@ function App() {
 
   const submitOrderAndConfirm = async () => {
     setWizardError(null);
-
-    // One request. The server creates the client, the order, its production
-    // stages, its garments and their material lines inside a single
-    // transaction, then spends the draft.
-    //
-    // What this replaces: create the order, then save the garments, then
-    // attach the design, apologising after each step if it failed and pressing
-    // on regardless -- because going back to press Confirm again booked a
-    // SECOND order at the same price. Two invoices and doubled revenue from
-    // one failed sub-step and one reasonable retry. Now a failure leaves no
-    // order at all and the draft still on the server, so retrying is the right
-    // thing to do rather than the dangerous one.
     let id = draftId;
     try {
       id = await persistDraft({ step: currentStep });
@@ -3170,9 +2686,6 @@ function App() {
       fetchDashboardAndConfig();
     } catch (err) {
       if (err.alreadyPlaced) {
-        // A double-click, a retried request, or a refresh that re-fired it.
-        // The order exists; the one thing that must not happen is booking a
-        // second one, and the server has already refused to.
         setWizardError(
           'This order has already been placed. Check Manage Orders — do not place it again.');
         return;
@@ -3198,17 +2711,13 @@ function App() {
     }
   }, []);
 
-  // Orders already in progress, fetched when the owner arrives at the order
-  // screen. Not on mount: a draft is only relevant at the point of starting or
-  // resuming one, and asking for them on every dashboard load is a request
-  // nobody reads.
+  
   useEffect(() => {
     if (view !== 'order-selector') return;
     let cancelled = false;
     api.listOrderDrafts()
       .then(list => { if (!cancelled) setResumableDrafts(list || []); })
       .catch(err => {
-        // A failure here costs the resume prompt, not the session.
         console.error('Could not load saved orders', err);
         if (!cancelled) setResumableDrafts([]);
       });
@@ -3364,12 +2873,6 @@ function App() {
   const handleNext = () => runOnce(performNext);
   const handleSaveDraft = () => runOnce(performSaveDraft);
 
-  // Autosave, once a minute and whenever the tab is hidden, for the three
-  // places people type for a while: the order draft, the production notes on
-  // a stage, and the boutique profile. Each saves only what changed since its
-  // last save, waits while a manual save is running, and shows when it last
-  // saved. Short modal forms keep their Save button: creating a half-typed
-  // record every minute is not a favour.
   useAutosave({
     getSnapshot: () => JSON.stringify(serialiseWizard()),
     save: () => persistDraft(),
@@ -3378,8 +2881,6 @@ function App() {
   });
 
   const boutiqueFormRef = useRef(null);
-  // The sentence the server would send back, or ''. Save Changes alerts it;
-  // autosave simply waits, the way it does for an empty required field.
   const boutiqueFormError = (form) =>
     phoneError(form.boutiquePhone.value) || emailError(form.boutiqueEmail.value, { required: true });
   const pickLogo = (file) => {
@@ -3400,8 +2901,6 @@ function App() {
     setLogoFile(null);
   };
   const boutiqueAutosave = useAutosave({
-    // Read off the form itself, the way Save Changes does. A form with a
-    // required field still empty waits for the next tick rather than 400ing.
     getSnapshot: () => {
       const form = boutiqueFormRef.current;
       if (!form || !form.checkValidity() || boutiqueFormError(form)) return null;
@@ -3412,17 +2911,11 @@ function App() {
     paused: settingsSaving,
   });
 
-
-  // Preview arithmetic only. The server recomputes all of this at confirm
-  // through domains/orders/pricing.py and stores ITS answer; these exist so
-  // the sidebar can show the owner the same number the server will reach.
   const PRICING_FIELDS = [
     ['base', 'Base price'], ['fabric', 'Fabric'], ['embroidery', 'Embroidery & work'],
     ['customization', 'Customization'], ['tailoring', 'Tailoring'],
   ];
-  // Work a garment's spec adds on top of stitching -- backing, a border, a
-  // fall, pico -- each priced on its own line. Mirrors the extras the server
-  // folds into customization_price at confirm.
+  
   const EXTRA_CHARGES = [
     ['backing', 'Backing', (v) => v.backing === 'with_backing'],
     ['border', 'Border', (v) => v.border === 'with_border'],
@@ -3470,36 +2963,7 @@ function App() {
     return 'strong';
   };
 
-  // Filter lists
-
-  // Is this order mine to work on? The same three-way test core/permissions.py
-  // visible_orders applies server-side: the order's tailor, its master, or a
-  // stage assigned to me.
-  //
-  // The stage clause is the one that was missing. assign_stage exists precisely
-  // so a supervisor can hand ONE stage to someone who is not the order's
-  // tailor, and visible_orders deliberately returns that order to them -- but
-  // this screen, which is the only screen a tailor has, threw it away and told
-  // them "No active orders are assigned to you at the moment." Work was handed
-  // out and the person was never told.
-  /** A garment's shortlist changed.
-   *
-   *  Before Confirm this is the only home the selection has, so it goes on the
-   *  garment in the draft payload -- the same place its spec, materials and
-   *  price already live. After Confirm the board is real and this just tracks
-   *  which board the order carries.
-   */
-  /** The parts a customer has chosen for one dress: {part_key: image}.
-   *
-   *  Kept on the garment job's own `design`, not in a state of its own. That is
-   *  already what serialiseWizard writes to the draft and what the resume path
-   *  reads back, so the selection persists, survives a refresh and comes back
-   *  on resume without a second copy to keep in step.
-   *
-   *  Per garment, so a saree's Pallu and a blouse's Neck can never share a
-   *  slot -- the parts are the garment's own, and mixing them across dresses is
-   *  exactly the bug this shape prevents.
-   */
+  
   const partSelection = React.useMemo(
     () => Object.fromEntries(garmentJobs.map(job => [job.key, job.design?.parts || {}])),
     [garmentJobs]);
@@ -3510,21 +2974,7 @@ function App() {
       : job));
   };
 
-  /** The fabric chosen for each part of one dress: {slot_key: [fabric_id, ...]}.
-   *
-   *  Per garment AND per part, because that is what an order is: chanderi for
-   *  the saree body, organza for its pallu, net for the blouse sleeves. One
-   *  `selectedFabric` for the whole order could not say any of it.
-   *
-   *  A list per slot rather than a single id -- a sleeve takes net and its
-   *  lining -- and kept on the garment job itself, so removing a dress takes
-   *  its fabric choices with it and no stale blouse fabric can survive on an
-   *  order that no longer has a blouse.
-   */
-  // The colour the boutique fabrics are narrowed to. Empty is every roll,
-  // which is where the step opens; a swatch click or a typed word is the same
-  // filter. Only the boutique tab reads it -- accessories and the customer's
-  // own cloth are not filtered by it.
+
   const [fabricColorQuery, setFabricColorQuery] = useState('');
   const fabricSelection = React.useMemo(
     () => Object.fromEntries(garmentJobs.map(job => [job.key, job.fabrics || {}])),
@@ -3536,17 +2986,13 @@ function App() {
       : job));
   };
 
-  // An out-of-stock roll picked in the wizard: ask whether to restock it now
-  // or carry on. Restocking is a round trip -- the pick is made, the draft is
-  // saved, the inventory opens on that roll's stock-in form, and closing it
-  // brings the wizard back from the draft exactly where it was left.
-  const [stockPrompt, setStockPrompt] = useState(null);      // { fabric, proceed }
-  // The review screen's picture viewer: which group is open, and where in it.
-  const [reviewView, setReviewView] = useState(null);        // { items, index }
-  const [restockTrip, setRestockTrip] = useState(null);      // { fabric, draftId? }
+
+  const [stockPrompt, setStockPrompt] = useState(null);      
+  const [reviewView, setReviewView] = useState(null);       
+  const [restockTrip, setRestockTrip] = useState(null);      
   useEffect(() => {
     if (!restockTrip || restockTrip.draftId) return;
-    // Runs after the pick has committed, so the draft carries it.
+    
     (async () => {
       try {
         const id = await persistDraft({ step: currentStep });
@@ -3558,7 +3004,7 @@ function App() {
         alert(`Could not save the order before leaving: ${err.message}`);
       }
     })();
-  }, [restockTrip]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [restockTrip]); 
   const finishRestockTrip = async () => {
     const trip = restockTrip;
     setRestockTrip(null);
@@ -3573,9 +3019,6 @@ function App() {
     }
   };
 
-  // How much of each picked roll the garment needs, keyed "SLOT:itemId" per
-  // garment. Asked at the moment of choosing: a pick with no quantity is one
-  // the ledger can never reserve or consume.
   const fabricQuantities = React.useMemo(
     () => Object.fromEntries(garmentJobs.map(job => [job.key, job.fabric_qty || {}])),
     [garmentJobs]);
@@ -3585,10 +3028,6 @@ function App() {
       : job));
   };
 
-  // What the boutique grid shows under a colour filter. A roll the customer
-  // has already chosen stays on screen whatever the filter says: narrowing to
-  // "red" must not make the blue lining they picked a minute ago vanish from
-  // under its own tick, or they will pick it twice.
   const colourFilteredFabrics = React.useMemo(() => {
     const q = fabricColorQuery.trim().toLowerCase();
     if (!q) return fabrics;
@@ -3598,18 +3037,7 @@ function App() {
       fabricMatchesColour(f, q) || chosen.has(String(f.id)));
   }, [fabrics, fabricColorQuery, fabricSelection]);
 
-  /** The customer's own references for one dress: {part_key: [reference, ...]}.
-   *
-   *  A list per part, not one: a customer describing the pallu they want sends
-   *  three photographs of it and a Pinterest link, and picking which single one
-   *  of those "counts" is the boutique's job, not something the form should
-   *  force at the moment they are handing them over.
-   *
-   *  Kept beside `parts` on the same garment's `design` rather than inside it,
-   *  so everything that already reads `parts` -- the summary, the modal, the
-   *  board item written at Confirm -- keeps reading exactly one chosen
-   *  photograph per part and is untouched by this.
-   */
+  
   const partReferences = React.useMemo(
     () => Object.fromEntries(garmentJobs.map(job => [job.key, job.design?.part_refs || {}])),
     [garmentJobs]);
@@ -3625,13 +3053,9 @@ function App() {
     setActiveReviewStage(stage.stage_name);
     setActiveReviewOrder(order);
     setSelectedStageObj(stage);
-    setStageReviewComments('');  // a new note; the card above the box shows the latest one
+    setStageReviewComments('');  
     setStageReviewRecording(false);
     setStageReviewImages([]);
-    // A verifier opening a submitted stage: the worker who sent it gets a
-    // "seen" tick and a notification. Only the first open counts, and only
-    // from someone who can verify -- the server enforces both; this just
-    // avoids a pointless round trip for everyone else.
     const canVerify = !currentUser?.role || currentUser.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser.role);
     if (stage.status === 'PENDING_VERIFICATION' && !stage.verification_seen_at && canVerify) {
       api.markStageSeen(order.id, stage.stage_key, stage.garment_job || null)
@@ -3640,9 +3064,7 @@ function App() {
     }
   };
 
-  // The directory list returns flat rows without orders or measurement history,
-  // so opening a client fetches the full record. The summary row is shown right
-  // away and replaced in place, keeping the panel populated while it loads.
+  
   const openDirectoryCustomer = async (summaryRow) => {
     setSelectedDirectoryCustomer(summaryRow);
     setDirectoryDetailLoading(true);
@@ -3658,8 +3080,7 @@ function App() {
     }
   };
 
-  // Staff the boutique's workflow allows on a given stage. Mirrors the server-side
-  // check, so the dropdown never offers a choice the API would reject.
+
   const eligibleStaffForStage = (stageKey) => {
     const stageConf = (boutiqueSettings?.workflow_config || []).find(s => s.key === stageKey);
     const allowed = stageConf?.roles || [];
@@ -3667,23 +3088,8 @@ function App() {
     return tailors.filter(t => allowed.includes(t.role));
   };
 
-  // Who may actually be given the stitching.
-  //
-  // These pickers filtered `t.role !== 'Master'`, which passes every
-  // specialist role -- Maggam, Karigar, Pressing and QC -- while
-  // get_default_workflow restricts both
-  // stitching stages to ["Owner", "Tailor"]. So the owner could hand the
-  // stitching to the Maggam Master, the order was accepted, and that person
-  // could see it and never advance it: transition_order_stage refuses their
-  // role. The order sat until the owner worked out what had happened.
-  //
-  // eligibleStaffForStage reads the stage's own role list, which is the same
-  // list the server checks, so the dropdown cannot offer a choice the API will
-  // reject.
   const stitchingStaff = () => eligibleStaffForStage('stitching_in_progress');
 
-  // Sign off a design. The detail record is refetched so the approved badge and the
-  // superseded state of the other designs both come from the server, not a guess.
   const handleApproveDesign = async (prefId, fallbackImage) => {
     if (!selectedDirectoryCustomer) return;
     setApprovingDesignId(prefId);
@@ -3700,8 +3106,6 @@ function App() {
     }
   };
 
-  // Nominate who should perform a stage. The server refuses a role the stage does
-  // not permit, so the error is surfaced rather than swallowed.
   const handleAssignStage = async (orderId, stageKey, tailorId, garmentJob = null) => {
     setAssigningStageKey(stageKey);
     try {
@@ -3714,8 +3118,7 @@ function App() {
     }
   };
 
-  // Customer Directory rows. Memoised because this was previously filtered twice
-  // on every keystroke -- once for the empty check, once for the map.
+  
   const directoryCustomers = React.useMemo(() => {
     const term = searchQuery.toLowerCase();
     return customersList.filter(cust => {
@@ -3769,12 +3172,7 @@ function App() {
     { key: 'staff', label: 'Add your tailors, masters and designers', done: tailors.length > 0, tab: 'staff', go: () => setDashboardTab('staff') },
     { key: 'fabrics', label: 'Put your first fabric on the shelf', done: fabrics.length > 0, tab: 'inventory', go: () => setDashboardTab('inventory') },
     { key: 'production', label: 'Move an order through the workroom', done: ordersList.some(o => o.order_status && o.order_status !== 'Received'), tab: 'orders', go: () => setDashboardTab('orders') },
-    // A step whose screen this boutique cannot open is not a step it can ever
-    // finish: `done` stays false forever, so the checklist never completes and
-    // never stops nagging, and the arrow does nothing when clicked -- the
-    // requested tab is gated, the derived dashboardTab keeps the old one, and
-    // the row just sits there. Drop the instruction rather than give an
-    // instruction that cannot be followed.
+
   ].filter((step) => !step.tab || canSeeTab(currentUser, step.tab));
   const showOnboarding = !loading && !onboardingDismissed && onboardingSteps.some(step => !step.done);
   return (
@@ -4232,8 +3630,7 @@ function App() {
               setMarkingNotificationsRead(true);
               api.markNotificationsAsRead(currentUser.role || 'Owner', currentUser.email)
                 .then(() => fetchNotifications())
-                    // Never let the bell take the app down: a refused or failed
-                    // mark-read is not worth losing the session over.
+                    
                     .catch(() => {})
                     .finally(() => setMarkingNotificationsRead(false));
             }}
@@ -4307,8 +3704,6 @@ function App() {
                 collapsed={navCollapsed && !mobileNavOpen}
                 onPick={(tab) => {
                   setDashboardTab(tab);
-                  // App-level detail state lives outside the pane, so it is
-                  // cleared by hand; everything inside resets with the key.
                   setSelectedDirectoryCustomer(null);
                   setOpenOrdersRowId(null);
                   setSelectedDashboardOrder(null);
@@ -4794,12 +4189,6 @@ function App() {
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
               const tasksDone = stages.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
               const stepChip = `${tasksDone} of ${stages.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
-              // Model display parked — see task 16
-              // The row to open: the first unsettled one, garment rows included.
-              // const briefStage = stages.find(st => ['IN_PROGRESS', 'PAUSED', 'PENDING_VERIFICATION'].includes(st.status))
-              //   || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || stages[0];
-              // const preview = (order.garment_images || [])[0]?.image || order.completed_garment_image;
-              // const garmentName = order.garment_label || orderGarmentNames(order).join(', ') || order.customer_garment_type;
               const verification = order.master_verification || {};
               const verifyTotal = 6 + (orderGarmentNames(order).includes('Saree') ? 1 : 0);
               const verified = Object.values(verification).filter(Boolean).length;
@@ -4859,9 +4248,6 @@ function App() {
                           </span>
                         )}
                         {order.flow && order.flow !== 'legacy' && (() => {
-                          // Which path through the workroom. Switchable by the
-                          // owner or Master until cutting or anything after it
-                          // has begun -- the server refuses it past that.
                           const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || currentUser?.role === 'Master')
                             && !(order.stages || []).some(st => st.stage_key !== 'created' && st.status !== 'NOT_STARTED');
                           const label = order.flow === 'alteration' ? t('ordersPage.flowAlteration', 'Alteration')
@@ -5128,9 +4514,6 @@ function App() {
                                 </p>
                               )}
                               {(() => {
-                                // Every photograph the tailor submitted, off the stitching
-                                // stage; the cover shot alone for orders from before several
-                                // were kept. The supervisor can fault any one of them.
                                 const stitching = (order.stages || []).find(st => st.stage_key === 'stitching_in_progress');
                                 const photos = stitching?.attachments?.length ? stitching.attachments
                                   : (order.completed_garment_image ? [order.completed_garment_image] : []);
@@ -5220,28 +4603,6 @@ function App() {
                           </button>
                         </div>
                       </section>
-                      {/* Model display parked — see task 16
-                          The garment, and the stage panel behind it: that is where the
-                          latest design, its notes and references are read.
-                      <section className="at-section od-preview">
-                        <div className="od-section-head">
-                          <IconTile icon={Eye} tone="green" size={40} iconSize={18} />
-                          <div className="od-section-title"><h3>{t('ordersPage.garmentPreview', 'Garment preview')}</h3></div>
-                        </div>
-                        {preview
-                          ? <img className="od-preview-img" src={resolveMediaUrl(preview)} alt="" />
-                          : <div className="od-preview-empty"><Shirt size={28} /></div>}
-                        <div className="od-preview-name">{garmentName}</div>
-                        <span className={`ui-badge ui-badge--${orderStatusTone(order.order_status)} od-preview-status`}>
-                          {order.order_status_display || t(`status.${order.order_status}`, order.order_status)}
-                        </span>
-                        <p className="od-preview-text">{t('ordersPage.previewHint', 'View the latest design, notes and reference images.')}</p>
-                        {briefStage && (
-                          <button type="button" className="btn-primary" onClick={() => openStageReview(order, briefStage)}>
-                            {t('ordersPage.viewDesign', 'View design')} <ArrowRight size={14} />
-                          </button>
-                        )}
-                      </section> */}
 
                       <OrderNotesCard key={order.id} order={order} canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
                     </aside>
@@ -5744,21 +5105,16 @@ function App() {
               const shown = FIELDS.filter(([k]) => visible.includes(k));
               const orders = c.orders || [];
               const orderCount = c.order_count ?? orders.length;
-              // Both routes land in the order wizard, whose first step PATCHes
-              // the customer, and RolePermission refuses partial_update for
-              // anyone but the Owner -- so the buttons are the owner's.
+              
               const goExisting = () => {
-                // A clean stitch order with the customer already picked: the
-                // wizard starts on the garment step like any other.
+                
                 startService('stitch', c);
                 if (c.design_preferences?.length > 0) {
                   setDesignNotes(c.design_preferences[0].notes || '');
                 }
               };
               const reorder = (order) => {
-                // Garment prices are per garment now and the dresses are
-                // re-added on the garment step, so they re-quote there; only
-                // the order-level money carries over.
+                
                 startService('stitch', c);
                 setQuotePrices({ packaging: order.packaging_handling, discount: order.discount || 0 });
               };
@@ -6021,9 +5377,6 @@ function App() {
             {/* 6. INVOICES TAB */}
 
             {dashboardTab === 'invoices' && (() => {
-              // Collected is what has actually been received, and outstanding
-              // is the same (total - paid) expression the Balance Due cell in
-              // every row below uses, so the header agrees with its own table.
               const paidTotal = ordersList.reduce((sum, o) => sum + parseFloat(o.amount_paid || 0), 0);
               const pendingTotal = ordersList.reduce((sum, o) => sum + Math.max(0, parseFloat(o.total_amount || 0) - parseFloat(o.amount_paid || 0)), 0);
               const grandTotal = ordersList.reduce((sum, o) => sum + parseFloat(o.total_amount), 0);
@@ -7344,11 +6697,6 @@ function App() {
                           return f.key !== 'delivery_date' && v !== '' && v != null && !(Array.isArray(v) && !v.length)
                             && !(f.default != null && v === f.default);
                         }));
-                    // The one to fill in now: the circle clicked, or the one
-                    // validation stopped on, while it still wants answers;
-                    // otherwise the first garment not yet filled in. So the
-                    // first garment reads "Fill in now" on the way in, not the
-                    // last one added, and moves on by itself once done.
                     const picked = garmentJobs.find(j => j.key === activeGarmentKey);
                     const openKey = (picked && !filled(picked) ? picked : garmentJobs.find(j => !filled(j)))?.key;
                     return (
@@ -7408,11 +6756,6 @@ function App() {
                   })()}
                   {garmentJobs.map((job, idx) => {
                     const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
-                    // Ready by (the Money screen) owns the delivery date; asking it
-                    // per garment here would only be overwritten. Fields a rule
-                    // reveals stay beside the answer that reveals them. The
-                    // catch-all note is the template's special_instructions,
-                    // drawn below the sections.
                     const upFront = (f) => f.key !== 'delivery_date' && (f.is_required || Boolean(f.visible_when));
                     const foldedAway = (f) => f.key !== 'delivery_date' && !upFront(f);
                     const hasOptional = sections.some((k) => (job.template.sections.find((sec) => sec.key === k)?.fields || []).some((f) => foldedAway(f) && f.field_type !== 'file'));
@@ -7660,9 +7003,6 @@ function App() {
                               garmentName={job.template?.name}
                               newCustomer={customerForm}
                               onCustomerCreated={(row) => {
-                                // The walk-in is now a customer: the draft carries
-                                // the id, so confirm updates them rather than
-                                // creating a second row for the same mobile.
                                 setCustomerId(row.id);
                                 setAllCustomers((prev) => [row, ...prev]);
                               }}
@@ -7713,12 +7053,6 @@ function App() {
                 {garmentJobs.map((job) => {
                   const section = job.template.sections.find((sec) => sec.key === 'measurements');
                   if (!section) return null;
-                  // Optional measurements a template tags with validation.group
-                  // (the saree) fold away, one "+" per group, and are filled
-                  // only when wanted. A template with no groups draws as before.
-                  // Only groups with a field this garment currently shows: the
-                  // sharara groups on Bottom Wear hang off its type, so a
-                  // salwar draws no "+" for them.
                   const groups = [...new Set(section.fields.filter((f) => isVisible(f, job.values)).map((f) => f.validation?.group).filter(Boolean))];
                   return (
                     <div className="content-card wz-card" key={job.key} id={`wz-garment-${job.key}`}>
@@ -7863,9 +7197,7 @@ function App() {
                   {body}
                 </div>
               );
-              // Every picture attached to the order, in the groups the counter
-              // thinks in: the design chosen per part, the rolls from stock,
-              // the accessories, and whatever the customer brought.
+              
               const accessoryKeys = new Set(ACCESSORY_OPTIONS.map(o => o.key));
               const partName = (p, img) => img?.part_label || String(p).replace(/_/g, ' ');
               const withGarment = (job, list) => list.map(pic => ({
@@ -8241,8 +7573,6 @@ function App() {
 
       {/* CONFIRMED VIEW */}
       {view === 'confirmed' && confirmedOrder && (() => {
-        // The order carries the name it was saved under; the form is the
-        // fallback for the moment before it is re-read.
         const confirmedCustomerName = (
           confirmedOrder.customer_name
           || `${customerForm.first_name || ''} ${customerForm.last_name || ''}`.trim()
@@ -8609,16 +7939,8 @@ function App() {
         };
         const isSupervisor = !currentUser.role || currentUser.role === 'Owner'
           || SUPERVISOR_ROLES.includes(currentUser.role);
-        // One path for every forward move; the server decides whether the
-        // role, the prerequisites and the stage's own data allow it.
-        // `sentVoiceNote`: a recording the voice recorder has already
-        // uploaded (Send); `clearVoiceNote`: the recorder deleting the one
-        // on the stage. Either is a note saved in place, status unchanged.
         const transition = async (status, okMessage, comments = stageReviewComments, sentVoiceNote = null, clearVoiceNote = false) => {
           if (stageTransitionBusy) return;
-          // The Payment step checks the money is in. It may still be completed
-          // on a partial payment, but only after the owner says so here; the
-          // balance is then chased at Delivery.
           if (status === 'COMPLETED' && stage.stage_key === 'payment' && activeReviewOrder.payment_status !== 'Paid') {
             const paid = Number(activeReviewOrder.amount_paid || 0), total = Number(activeReviewOrder.total_amount || 0);
             if (!window.confirm(`Payment is not complete: ${inr(paid)} of ${inr(total)} received (${inr(total - paid)} outstanding).
@@ -8803,9 +8125,7 @@ Complete the Payment stage with this partial payment?`)) return;
                 labels the order form used. Nested on the order payload, so it
                 needs no fetch beyond the template itself. */}
             {jobs.length > 0 && (
-              // .at-stage-brief: the spec as tiled cells (index.css), scoped
-              // to this modal so the wizard's review of the same component is
-              // untouched.
+             
               <div className="at-stage-brief">
                 <OrderGarmentBrief
                   jobs={jobs}
@@ -8931,10 +8251,7 @@ Complete the Payment stage with this partial payment?`)) return;
                                       setStageTransitionBusy(true);
                                       try {
                                         await api.deleteStageNoteVoice(activeReviewOrder.id, a.id);
-                                        // The modal reads its own copy of the order, which the
-                                        // background refresh does not replace -- so the note goes
-                                        // from that copy the same way the server took it: the
-                                        // clip off the row, or the row itself when nothing is left.
+                                        
                                         setActiveReviewOrder((prev) => prev && ({
                                           ...prev,
                                           activities: (prev.activities || []).flatMap((row) => {
@@ -9104,184 +8421,6 @@ Complete the Payment stage with this partial payment?`)) return;
         );
       })()}
 
-      {// Model display parked — see task 16
-      // {showDrapingModal && selectedFabric && (
-      // <div style={{
-      // position: 'fixed',
-      // top: 0,
-      // left: 0,
-      // width: '100%',
-      // height: '100%',
-      // backgroundColor: 'rgba(0,0,0,0.75)',
-      // display: 'flex',
-      // justifyContent: 'center',
-      // alignItems: 'center',
-      // zIndex: 1200,
-      // backdropFilter: 'blur(4px)'
-      // }}>
-      // <div style={{
-      // backgroundColor: '#0d0d0d',
-      // borderRadius: '16px',
-      // border: '1px solid rgba(212, 175, 55, 0.25)',
-      // width: '800px',
-      // maxWidth: '95%',
-      // padding: '24px',
-      // boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-      // display: 'flex',
-      // flexDirection: 'column',
-      // gap: '20px',
-      // color: '#fff'
-      // }}>
-      // <style>{`
-      // @keyframes modalSpin {
-      // 0% { transform: rotate(0deg); }
-      // 100% { transform: rotate(360deg); }
-      // }
-      // `}</style>
-            
-      // {/* Modal Header */}
-      // <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px' }}>
-      // <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-      // <Sparkles size={20} style={{ color: 'var(--accent-text, #b07c40)', flexShrink: 0 }} />
-      // <h3 style={{ fontSize: 'clamp(14px, 4.2vw, 18px)', fontWeight: 700, margin: 0, letterSpacing: '0.5px' }}>Scaleezy Live Visualizer: Interactive Fabric Draping</h3>
-      // </div>
-      // <button 
-      // type="button"
-      // aria-label="Close visualizer"
-      // onClick={() => { setShowDrapingModal(false); }}
-      // style={{ background: 'none', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer', outline: 'none', flexShrink: 0, minWidth: '44px', minHeight: '44px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-      // >
-      // &times;
-      // </button>
-      // </div>
-
-      // {/* Modal Content Grid */}
-      // {/* `repeat(auto-fit, minmax(min(190px, 100%), 1fr))`, not a fixed
-      // `1.2fr 1.2fr 1.6fr`: three fixed columns put the third panel --
-      // the one carrying the Try On explanation -- 70px past the right
-      // edge of a 320px screen, where it was clipped and unreadable.
-      // auto-fit keeps all three side by side wherever they fit and
-      // stacks them when they do not. */}
-      // <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(190px, 100%), 1fr))', gap: '20px', alignItems: 'stretch' }}>
-      // {/* Left Column: Style Sketch */}
-      // <div style={{ background: '#141414', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
-      // <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Selected Style Sketch</span>
-      // {selectedDesignTemplates.length > 0 ? (
-      // <div style={{ width: '100%', height: '180px', overflow: 'hidden', borderRadius: '6px' }}>
-      // <img src={selectedDesignTemplates[0]} alt="Design Sketch" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      // </div>
-      // ) : (
-      // <div style={{ width: '100%', height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
-      // <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No sketch selected</span>
-      // </div>
-      // )}
-      // <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{customerForm.garment_type || "Bespoke Cut"}</span>
-      // </div>
-
-      // {/* Middle Column: Fabric Swatch */}
-      // <div style={{ background: '#141414', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '8px', padding: '16px', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
-      // <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Selected Fabric Swatch</span>
-      // <div style={{ width: '100%', height: '180px', overflow: 'hidden', borderRadius: '6px' }}>
-      // <img 
-      // src={inventoryImage(selectedFabric)}
-      // alt="Fabric Swatch" 
-      // style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-      // />
-      // </div>
-      // <span style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>{selectedFabric.name} ({selectedFabric.color})</span>
-      // </div>
-
-      // {/* Right Column: Draped Mannequin View */}
-      // <div style={{ background: '#181818', border: '1px solid rgba(212, 175, 55, 0.15)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', minHeight: '260px' }}>
-      // {!drapingCompleted && !drapingLoading ? (
-      // <div style={{ textAlign: 'center', padding: '20px' }}>
-      // <div style={{ color: 'var(--accent-text, #b07c40)', marginBottom: '12px' }}><Sparkles size={36} /></div>
-      // <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginBottom: '8px' }}>Ready to Drape</h4>
-      // <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '16px', maxWidth: '220px', margin: '0 auto 16px' }}>
-      // Click "Start Try On" to simulate draping this fabric onto the mannequin.
-      // </p>
-      // </div>
-      // ) : drapingLoading ? (
-      // <div style={{ textAlign: 'center', padding: '20px' }}>
-      // <div className="spinner" style={{ border: '3px solid rgba(255,255,255,0.1)', borderTop: '3px solid var(--accent-text, #b07c40)', borderRadius: '50%', width: '40px', height: '40px', animation: 'modalSpin 1s linear infinite', margin: '0 auto 16px' }} />
-      // <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginBottom: '4px' }}>Simulating Try On...</h4>
-      // <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>Mapping coordinates onto sketch layers</p>
-      // </div>
-      // ) : (
-      // <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%' }}>
-      // <span style={{ fontSize: '11px', color: 'var(--accent-text, #b07c40)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>✨ 3D Mannequin Draped View</span>
-      // <div style={{ width: '100%', height: '200px', overflow: 'hidden', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.08)' }}>
-      // <img src={drapedImage} alt="Draped Mannequin Mockup" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-      // </div>
-      // </div>
-      // )}
-      // </div>
-      // </div>
-
-      // {/* Modal Disclaimer */}
-      // <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.4)', fontStyle: 'italic', textAlign: 'left', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '10px' }}>
-      // ⚠️ Reference Simulation Only — actual handcrafting details may vary depending on tailoring cuts and fabric stretch.
-      // </div>
-
-      // {/* Modal Actions Footer */}
-      // <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: '12px', marginTop: '8px' }}>
-      // <button 
-      // type="button" 
-      // className="btn-secondary" 
-      // style={{ padding: '8px 16px', fontSize: '12px' }}
-      // onClick={() => { setShowDrapingModal(false); }}
-      // >
-      // Cancel
-      // </button>
-              
-      // {!drapingCompleted && !drapingLoading && (
-      // <button 
-      // type="button" 
-      // className="btn-primary" 
-      // style={{ padding: '8px 16px', fontSize: '12px', background: 'linear-gradient(135deg, #d35400, #e67e22)', border: 'none' }}
-      // onClick={() => {
-      // setDrapingLoading(true);
-      // setTimeout(() => {
-      // setDrapedImage(getDrapedPreviewImage(selectedFabric, selectedDesignTemplates[0] || ''));
-      // setDrapingLoading(false);
-      // setDrapingCompleted(true);
-      // }, 2000);
-      // }}
-      // >
-      // Start Try On
-      // </button>
-      // )}
-
-      // {drapingCompleted && (
-      // <>
-      // <button 
-      // type="button" 
-      // className="btn-secondary" 
-      // style={{ padding: '8px 16px', fontSize: '12px', border: '1px dashed rgba(255, 255, 255, 0.2)' }}
-      // onClick={() => {
-      // setDrapingCompleted(false);
-      // }}
-      // >
-      // Re-try / Change
-      // </button>
-      // <button 
-      // type="button" 
-      // className="btn-primary" 
-      // style={{ padding: '8px 16px', fontSize: '12px', backgroundColor: 'var(--primary-color)' }}
-      // onClick={() => {
-      // setShowDrapingModal(false);
-      // }}
-      // >
-      // Confirm & Save
-      // </button>
-      // </>
-      // )}
-      // </div>
-
-      // </div>
-      // </div>
-      // )}
-      }
 
       <NetworkActivityBar />
       {reviewView && view !== 'wizard' && (

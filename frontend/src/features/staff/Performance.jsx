@@ -1,16 +1,3 @@
-/**
- * Staff performance: how the floor is working, and the reviews written about it.
- *
- * Operational only. Nothing on this screen is compensation, because the
- * endpoint behind it has no access to a rate, a payslip or a ledger -- which is
- * what lets a Master read it without a filter anyone could forget.
- *
- * A metric arrives as {value, available, reason}. `available: false` means
- * there was no data, which is NOT the same as zero: reporting 0% completion for
- * somebody who was never assigned work would accuse them of failing work they
- * never had. Every figure here renders through `Metric`, which honours that.
- */
-
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlertCircle, Check, ChevronLeft, Lock, Star, X } from 'lucide-react';
 

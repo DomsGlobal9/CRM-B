@@ -1,18 +1,3 @@
-/**
- * Staff Management.
- *
- * Phase 1 is the roster and each person's employment terms. The Attendance,
- * Payroll and Performance tabs are declared here because they are what this
- * screen is for, and each says plainly that it is not built yet rather than
- * pretending with an empty table -- the pattern the platform console already
- * uses for specified-but-absent surfaces.
- *
- * The roster is `api.getTailors()` -- the SAME list the existing Manage Tailors
- * screen reads. There is no staff roster endpoint and there should not be one:
- * the boutique has one roster, and a second copy of it would be a second answer
- * to who works here. Employment terms are fetched separately and joined by
- * staff id, which is also what keeps rates off the roster response.
- */
 
 import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import { Check,
@@ -42,9 +27,6 @@ const panel = {
   boxShadow: 'var(--shadow-sm)',
 };
 
-// One themed error banner, so every form and the roster report failures the
-// same way instead of each hardcoding its own red. Was rgba(220,80,60,...)
-// on var(--danger-color) -- legible, but off-palette against the refreshed tokens.
 const errorBox = {
   background: 'var(--danger-bg)',
   border: '1px solid var(--danger-color)',
@@ -58,16 +40,7 @@ const errorBox = {
 const money = (n) =>
   `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
-/**
- * Whether this row actually carries pay, as opposed to having had it removed.
- *
- * The API strips hourly_rate, deposit_total and deposit_weekly from anyone
- * else's record for a non-owner, so a supervisor's copy of a colleague's row
- * simply has no such keys. Rendering it anyway would put `money(undefined)`
- * on screen -- and money() coerces to 0, so the card would state that a
- * colleague earns ₹0 an hour. Absent is not zero, and saying so wrongly about
- * someone's wage is worse than saying nothing.
- */
+
 const showsPay = (terms) => terms?.hourly_rate !== undefined;
 
 const EMPLOYMENT_TYPES = [
@@ -308,25 +281,17 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [created, setCreated] = useState(null);
-  // 'done' | 'failed' | null: the Copy button says what happened, because a
-  // click that silently copies looks exactly like one that silently did not.
   const [copied, setCopied] = useState(null);
   const [photo, setPhoto] = useState(null);
-  // Employment, in the same shape TermsFields edits. Prefilled from the
-  // profile when there is one.
   const [termsForm, setTermsForm] = useState(() =>
     terms
       ? { ...EMPTY_FORM, ...Object.fromEntries(Object.keys(EMPTY_FORM).map((k) => [k, terms[k] ?? ''])) }
       : EMPTY_FORM);
-  // Documents already held (editing), and the ones queued in this form. New
-  // files only go up once the person exists, so they wait for Save.
   const [docs, setDocs] = useState([]);
   const [docsError, setDocsError] = useState(null);
   const [pending, setPending] = useState([]);
   const [docForm, setDocForm] = useState({ kind: 'AADHAAR', number: '', label: '' });
   const [docFile, setDocFile] = useState(null);
-  // What Save has already achieved, so a failure part-way and a retry pick up
-  // where it stopped instead of creating the person or their profile twice.
   const [savedMember, setSavedMember] = useState(null);
   const [savedTerms, setSavedTerms] = useState(terms || null);
   const [credential, setCredential] = useState(null);
@@ -362,8 +327,6 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
     setDocFile(null);
   };
   const kindLabel = (kind) => (DOCUMENT_KINDS.find(([v]) => v === kind) || [kind, kind])[1];
-  // A custom role the owner types (janitor, cleaner...). The select holds the
-  // sentinel '__custom__' while they type; the real value lives here.
   const knownValues = ASSIGNABLE_ROLES.map((r) => r.value);
   const memberRoleIsCustom = editing && form.role && !knownValues.includes(form.role);
   const [customRole, setCustomRole] = useState(memberRoleIsCustom ? form.role : '');
@@ -390,8 +353,6 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
         name: form.name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
-        // Specialty is a free-text note on the roster row and the model
-        // requires it, so the role stands in when it is left blank.
         specialty: form.specialty.trim() || form.role,
         role: (form.role || '').trim(),
         status: form.status,
@@ -399,9 +360,6 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       const existing = member || savedMember;
       let saved;
       if (isDesigner) {
-        // A designer is not a roster row, so this goes to its own endpoint --
-        // and the login is a second call there rather than a side effect of
-        // creating the record, which is how design_studio already works.
         const designerPayload = {
           name: payload.name,
           phone: payload.phone,
@@ -415,7 +373,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
           saved = await api.createDesignerLogin(saved.id, payload.email);
         }
       } else {
-        // A photo makes this multipart; without one it stays plain JSON.
+        
         let body = payload;
         if (photo) {
           body = new FormData();
@@ -427,19 +385,12 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
           : await api.createTailor(body);
       }
       if (!existing) setSavedMember(saved);
-      // An edit can mint an account too -- giving an address to somebody who
-      // joined without one is how a person who never had a login gets one.
+      
       const cred = saved?.bootstrap_password ? saved : credential;
       if (saved?.bootstrap_password) setCredential(saved);
-
-      // Employment: always saved for an existing profile; created only when
-      // something beyond the defaults was filled in, so adding a person
-      // without pay details stays as light as it was.
       if (!isDesigner) {
         const employment = cleaned({ ...termsForm, phone: termsForm.phone || payload.phone });
         const filledIn = Object.keys(employment).some((k) => !['employment_type', 'phone'].includes(k));
-        // Creating the person with a mobile number already made their profile
-        // (it is where the number lives), so look before creating a second one.
         let profile = savedTerms;
         if (!profile && filledIn) {
           const rows = await api.getStaffProfiles();
@@ -465,11 +416,6 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
         setPending((p) => p.filter((d) => d !== doc));
       }
 
-      // The roster is refreshed only once the credential has been dismissed:
-      // refresh() puts the panel into its loading state, which unmounts this
-      // form, and a password set on an unmounted form is a password nobody
-      // ever saw. So when there is one, it is shown first and the refresh
-      // waits behind Done; without one, the refresh happens straight away.
       if (cred) setCreated(cred);
       else { onSaved(); onCancel(); }
     } catch (err) {
@@ -510,8 +456,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
                 await navigator.clipboard.writeText(text);
                 setCopied('done');
               } catch {
-                // No clipboard (an http page, a denied permission): say so
-                // rather than leaving the owner to paste and find nothing.
+                
                 setCopied('failed');
               }
               setTimeout(() => setCopied(null), 2500);
@@ -532,11 +477,6 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
     );
   }
 
-  // The one role that cannot change: a designer is a design_studio.Designer
-  // row, not a roster row, so there is no record to move them onto. Every
-  // production role is a value on the same row and the owner may change it
-  // freely -- the server's role gates and stage lists read the new value on
-  // the next request.
   const roleLocked = editing && isDesigner;
   const roleHint = roleLocked
     ? 'A designer cannot be moved to the production floor -- they are a different record.'
@@ -812,9 +752,7 @@ function Roster({ isOwner, canSeeTeam }) {
     }
   }, [canSeeTeam, isOwner]);
 
-  // Deferred rather than called straight from the effect body, matching
-  // InventoryPanel: refresh() sets loading state synchronously, and doing that
-  // inside an effect is the cascading-render pattern React warns about.
+
   useEffect(() => {
     const t = setTimeout(refresh, 0);
     return () => clearTimeout(t);
@@ -848,8 +786,7 @@ function Roster({ isOwner, canSeeTeam }) {
           ...roster.map((person) => ({
             member: person, terms: termsByStaff.get(String(person.id)),
           })),
-          // Marked rather than duck-typed: several things below have to know
-          // which table this person came from, and `isDesigner` says it once.
+        
           ...designers.map((d) => ({
             member: { ...d, role: 'Designer', isDesigner: true },
             terms: undefined,
@@ -867,8 +804,7 @@ function Roster({ isOwner, canSeeTeam }) {
 
   const withTerms = rows.filter((r) => r.terms).length;
 
-  // How many of each role, for the summary at the top. Production staff are
-  // grouped by their Tailor role; designers are their own table, added on.
+ 
   const roleCounts = useMemo(() => {
     const counts = {};
     roster.forEach((p) => { counts[p.role] = (counts[p.role] || 0) + 1; });
@@ -876,14 +812,10 @@ function Roster({ isOwner, canSeeTeam }) {
     return counts;
   }, [roster, designers]);
 
-  // Every role string already on the roster, so a custom one (janitor, cleaner)
-  // can be picked again instead of retyped.
   const rosterRoles = useMemo(
     () => [...new Set(roster.map((p) => p.role).filter(Boolean))],
     [roster]);
 
-  // The owner's staff overview: headcount, who is available, who is on the
-  // floor today, and the mix of employment terms.
   const analytics = useMemo(() => {
     const total = roster.length + designers.length;
     const busy = roster.filter((p) => (p.status || '').toLowerCase() === 'busy').length;

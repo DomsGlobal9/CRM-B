@@ -16,20 +16,11 @@ import RecipesTab from './RecipesTab';
 import ReportsTab from './ReportsTab';
 import OrderPurchasesTab from './OrderPurchasesTab';
 
-
-// Movement types the UI offers, in the order an item actually travels.
-// `field` names the number the form asks for, because "adjust" asks for a
-// counted total while everything else asks for a quantity moved.
 const MOVEMENTS = [
   { key: 'stock-in', label: 'Stock In', help: 'Goods received into the boutique.' },
   { key: 'reserve', label: 'Reserve', help: 'Spoken for by an order, still on the shelf.' },
   { key: 'release', label: 'Release', help: 'Cancel a reservation.' },
   { key: 'issue', label: 'Issue to production', help: 'Hand to the workroom. Leaves the shelf.' },
-  // Consumption and waste were missing from this list while the Reports tab
-  // counted exactly them: reports.consumption reads CONSUMPTION and loss_rates
-  // derives waste_percent from CONSUMPTION + WASTE. Both endpoints existed and
-  // took the same payload as their neighbours, so the two panels were correct
-  // and correctly reported nothing, for ever.
   { key: 'consume', label: 'Consume', help: 'Actually used up on a garment.' },
   { key: 'waste', label: 'Waste', help: 'Offcuts and loss during production.' },
   { key: 'return', label: 'Return', help: 'Unused material back from the workroom.' },
@@ -56,8 +47,6 @@ const panel = {
   boxShadow: 'var(--shadow-sm)',
 };
 
-// One themed inline error, so every form and the load failure report the same
-// way instead of each hardcoding var(--danger-color) on a red tint.
 const errorBox = {
   fontSize: 'var(--text-sm)',
   color: 'var(--danger-color)',
@@ -67,10 +56,6 @@ const errorBox = {
   borderRadius: 'var(--radius-md)',
 };
 
-// `restockItem` is a roll handed in from elsewhere (the order wizard found it
-// out of stock): the stock-in modal opens on it straight away, and closing
-// that modal -- done or not -- calls `onRestockDone` so the caller can take
-// the user back to where they were.
 export default function InventoryPanel({ currentUser, restockItem = null, onRestockDone }) {
   const { t } = useLanguage();
   const [tab, setTab] = useState('items');
@@ -90,7 +75,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
   const [ledgerItem, setLedgerItem] = useState(null);
   const [ledger, setLedger] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
-  // { catalogItem } while the stock sheet is open; catalogItem is null for "New item".
+  
   const [stocking, setStocking] = useState(null);
   const [catalogVersion, setCatalogVersion] = useState(0);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
@@ -336,9 +321,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
   );
 }
 
-// The Materials tab in sections, so a roll of silk is not listed between a
-// packet of hooks and a gift box. Keyed by InventoryItem.category; a category
-// not named here (a new one, say) lands under Other rather than vanishing.
+
 const MATERIAL_GROUPS = [
   { key: 'all', label: 'All', categories: null },
   { key: 'fabrics', label: 'Fabrics', categories: ['FABRIC', 'LINING'] },
@@ -360,9 +343,7 @@ function ItemsTab({
   categories, categoryLabel, isOwner, onMove, onLedger, onEdit,
 }) {
   const { t } = useLanguage();
-  // Which section is open. Purely a view of the rows already loaded: the
-  // search, category and reorder filters keep working exactly as before,
-  // this only decides which of their results are shown.
+  
   const [groupKey, setGroupKey] = useState('all');
   const [previewItem, setPreviewItem] = useState(null);
   const group = MATERIAL_GROUPS.find((g) => g.key === groupKey) || MATERIAL_GROUPS[0];
@@ -513,11 +494,8 @@ function ItemsTab({
   );
 }
 
-// Movements that take material off a shelf, and therefore need to say which.
 const STOCK_OUT = new Set(['issue', 'consume', 'waste', 'damage', 'scrap', 'reserve', 'adjust']);
-// Movements that belong to a particular garment. cost_per_order reads
-// OrderMaterialLine and the consumption report groups by order, so a movement
-// recorded without one is invisible to both.
+
 const ORDER_LINKED = new Set(['issue', 'consume', 'waste', 'reserve', 'release', 'return']);
 
 function MovementModal({ item, onClose, onDone }) {
@@ -534,8 +512,6 @@ function MovementModal({ item, onClose, onDone }) {
 
   const chosen = MOVEMENTS.find((m) => m.key === movement);
 
-  // Both lists are best-effort: the modal has to keep working for a boutique
-  // that tracks neither orders nor multiple locations.
   useEffect(() => {
     api.getOrders().then((rows) => setOrders(rows || [])).catch(() => setOrders([]));
     api.getItemLocations(item.id)
@@ -545,7 +521,7 @@ function MovementModal({ item, onClose, onDone }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    // A count can be zero (the shelf is empty); a movement cannot.
+    
     const problem = amountError(amount, { label: 'Quantity', max: LIMITS.quantity, required: true, allowZero: movement === 'adjust' });
     if (problem) { setError(problem); return; }
     setError(null);
@@ -554,12 +530,7 @@ function MovementModal({ item, onClose, onDone }) {
       const payload = { remarks };
       payload[chosen.field || 'quantity'] = amount;
       if (movement === 'issue' && stageKey) payload.stage_key = stageKey;
-      // The backend has always read both of these; the form simply never sent
-      // them. Without order_id every movement was written with order=None, so
-      // the cost-per-order and consumption reports had nothing to group by;
-      // without from_location, record_movement substituted the default
-      // location, so any stock-out failed once material had been transferred
-      // to the workshop and Main Store held zero.
+    
       if (orderId && ORDER_LINKED.has(movement)) payload.order_id = orderId;
       if (fromLocation && STOCK_OUT.has(movement)) payload.from_location = fromLocation;
       await api.moveStock(item.id, movement, payload);

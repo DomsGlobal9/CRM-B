@@ -5,22 +5,6 @@ import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile } from '../../components/ui/Atelier';
 
-/**
- * The published catalogue: 732 materials across 49 sections.
- *
- * Browsed by section rather than listed flat, because 732 rows in one scroll is
- * not a list anyone reads -- and the sections are the vocabulary the trade
- * already uses ("Beads", "Traditional Zardosi Materials"), so they are how
- * someone actually looks for a material.
- *
- * Items are not stock. A boutique creates an InventoryItem from a row when it
- * decides to hold that material: "Stock this" opens the same item form as "New
- * item", already filled in from the row, and saving links the two. Everything
- * else stays here rather than filling the stock screen with hundreds of zero
- * rows. `version` ticks whenever the inventory changes, so the open section
- * re-reads which rows are now stocked.
- */
-
 const panel = {
   background: 'var(--surface-color)',
   border: '1px solid var(--border-color)',

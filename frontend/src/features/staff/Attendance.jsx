@@ -1,15 +1,3 @@
-/**
- * Attendance: check in, check out, and read the week back.
- *
- * Two audiences on one tab, deliberately not two screens:
- *   - a staff member gets one big button and their own week,
- *   - the owner or a supervisor gets the floor's day and anyone's timesheet.
- *
- * The server is authoritative about time. Nothing here sends a timestamp for a
- * check-in or a check-out; the elapsed counter is display only, recomputed from
- * the server's own check_in stamp, so a device with a wrong clock shows a wrong
- * counter and still records the right hours.
- */
 
 import { useState, useEffect, useCallback } from 'react';
 import { Clock, LogIn, LogOut, Pencil, Plus, X } from 'lucide-react';
@@ -155,8 +143,7 @@ function MyDay({ onChanged }) {
     return () => clearTimeout(t);
   }, [load]);
 
-  // Only while a session is open, and only once a minute -- the display shows
-  // minutes, so a faster tick would repaint for nothing.
+
   useEffect(() => {
     if (state?.state !== 'WORKING') return undefined;
     const id = setInterval(() => setNow(Date.now()), 60000);
@@ -258,9 +245,6 @@ function MyDay({ onChanged }) {
   );
 }
 
-// datetime-local wants "YYYY-MM-DDTHH:mm" with no zone; the server reads a
-// naive value in the boutique's own timezone, which is what the person typing
-// it means.
 const forInput = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
@@ -569,9 +553,6 @@ function Timesheet({ canSeeTeam, isOwner, roster, onCorrect }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Derived, not defaulted through an effect: the first roster entry IS the
-  // selection until someone picks another, so there is no state to synchronise
-  // and no render where the select and the request disagree about who is shown.
   const selected = staff || String(roster[0]?.id || '');
 
   const load = useCallback(async () => {
@@ -649,8 +630,7 @@ function Timesheet({ canSeeTeam, isOwner, roster, onCorrect }) {
               No attendance recorded for this week.
             </div>
           ) : (
-            // Cards rather than a table: at 320px a five-column table either
-            // scrolls sideways or crushes, and this is read on a phone.
+            
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {sheet.sessions.map((s) => (
                 <div key={s.id} style={{ ...panel, padding: '12px 14px' }}>
@@ -685,18 +665,7 @@ function Timesheet({ canSeeTeam, isOwner, roster, onCorrect }) {
   );
 }
 
-/* The monthly muster roll: staff down the side, every date across the top,
- * one status letter per cell.
- *
- *   P  present   -- an attendance session exists that day (never editable here)
- *   L  leave     -- owner-marked
- *   WO weekly off -- owner-marked
- *   A  absent    -- a past day with none of the above
- *   (blank)      -- a future day, nothing to show yet
- *
- * The owner cycles a non-present cell A -> L -> WO -> A by clicking it; present
- * cells are real attendance and cannot be overwritten from here.
- */
+
 const STATUS_STYLE = {
   P: { bg: 'rgba(46,196,182,0.18)', fg: '#1e8a5c' },
   L: { bg: 'rgba(240,136,62,0.18)', fg: '#c0864b' },

@@ -7,22 +7,9 @@ import { api } from '../../services/api';
 import { formatDate, orderRef } from '../../services/format';
 import { IconTile } from '../../components/ui/Atelier';
 
-/**
- * The order book as a board: one column per stage of the boutique's workflow,
- * one card per order, sitting in the stage the work is at.
- *
- * A view, not a workflow. Columns are BoutiqueSettings.workflow_config in its
- * own order; a card's column is read off the order's OrderStage rows; a drop
- * is a series of ordinary POST /orders/{id}/transition/ calls, so every rule
- * the stage modal obeys -- roles, prerequisites, measurements, tailor, settled
- * stages -- applies here unchanged. Nothing on this screen writes a status.
- */
 
 const SETTLED = new Set(['COMPLETED', 'SKIPPED']);
-const DUE_SOON_DAYS = 7; // the dashboard's own "due soon" window
-
-// Not started, in progress, completed: a step shows nothing else. A pause or
-// a pending confirmation is how a step is in progress; skipped is settled.
+const DUE_SOON_DAYS = 7; 
 const STATUS_LABEL = {
   NOT_STARTED: 'Not started',
   IN_PROGRESS: 'In progress',
@@ -32,10 +19,6 @@ const STATUS_LABEL = {
   SKIPPED: 'Completed',
 };
 
-// How each default stage is drawn: an icon, a tint and a one-line gloss on
-// what sits in the column. Presentation only -- the stage list itself comes
-// from the boutique's workflow config, and a stage this map does not know
-// gets a neutral tile and no gloss.
 const STAGE_LOOK = {
   created:               ['amber',   Sparkles,     'New orders to be processed'],
   measurements_completed:['amber',   Ruler,        'Awaiting / in progress'],
@@ -57,18 +40,12 @@ const STAGE_LOOK = {
   delivered:             ['green',   Truck,        'With the customer'],
 };
 
-/** The stage the work is at: the first unsettled stage in workflow order --
- *  the rule notify_next_stage_owners and queue_order_ids already use on the
- *  server. Everything settled puts the card in the last column. */
 function liveStage(order, columns) {
   if (!(order.stages || []).length) {
-    // A row written before stage tracking existed carries only
-    // current_stage_key -- the same rows the list's timeline shows as "No
-    // production stages recorded". Placed by that key, but inert: there is
-    // no stage row to open or to transition.
+    
     return { stage_key: order.current_stage_key, status: null, legacy: true };
   }
-  // A per-garment stage has a row per garment: the first still open places the card.
+  
   for (const col of columns) {
     const stage = rowsOf(order, col.key).find((s) => !SETTLED.has(s.status));
     if (stage) return stage;
@@ -103,10 +80,6 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
   const [overColumn, setOverColumn] = useState(null);
   const [busyOrder, setBusyOrder] = useState(null);
 
-  // Columns are the boutique's configured workflow. Before settings arrive,
-  // the first order's own stage rows are the same list in the same order.
-  // A stage no order on the board carries is not a column: with two paths
-  // through the workroom, a boutique doing no maggam sees no maggam columns.
   const carried = new Set(orders.flatMap((o) => (o.stages || []).map((s) => s.stage_key)));
   const columns = (workflow && workflow.length)
     ? workflow.filter((s) => s.key && (carried.size === 0 || carried.has(s.key)))
@@ -131,8 +104,6 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
     if (from === -1 || to === -1 || to === from) return;
 
     if (to < from) {
-      // Forward-only, like the stage modal. The server would refuse this too;
-      // saying so here saves a round trip and names the door that does exist.
       alert(`${target.name} is already settled for ${orderRef(order)}. `
         + 'Moving a settled stage backwards needs a supervisor: open the card '
         + 'and use Reopen Stage (or Fail QC for rework).');
@@ -144,8 +115,7 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
       alert(`${orderRef(order)} does not go through ${target.name}: it is on the other path.`);
       return;
     }
-    // Only the stages this order carries; the other path's columns are
-    // passed over, not completed.
+    
     const hops = keys.slice(from, to).filter((k) => stageOf(k));
     if (hops.length > 1) {
       const names = hops.map((k) => columns.find((c) => c.key === k)?.name || k).join(', ');
@@ -157,9 +127,7 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
     try {
       for (const key of hops) {
         const col = columns.find((c) => c.key === key);
-        // Every garment's row of the stage. An optional stage nobody started
-        // is skipped, as update-status does; one that was begun is finished,
-        // because the work happened.
+        
         for (const row of rowsOf(order, key)) {
           if (SETTLED.has(row.status)) continue;
           const status = (col?.optional && row.status === 'NOT_STARTED') ? 'SKIPPED' : 'COMPLETED';

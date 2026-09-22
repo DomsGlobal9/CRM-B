@@ -6,15 +6,6 @@ import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { Field, Modal, SelectField } from './ItemFormModal';
 
-/**
- * Where stock physically is, and moving it between places.
- *
- * The total on an item is authoritative; this is the breakdown of where that
- * total sits. A transfer never changes the total -- material stops being in one
- * place and starts being in another -- which is why the form asks for a source
- * as well as a destination and refuses to send material from somewhere that
- * does not hold it.
- */
 
 const panel = {
   background: 'var(--surface-color)',
@@ -44,8 +35,6 @@ export default function LocationsTab({ items, isOwner, onMoved }) {
     .finally(() => setLoading(false)), []);
   useEffect(() => { loadLocations(); }, [loadLocations]);
 
-  // Only Main Store is seeded; the boutique names its own places. One that
-  // still holds material, or is the default, cannot go -- the server says so.
   const remove = async (location) => {
     if (!window.confirm(`${t('inventoryPage.removeLocationConfirm', 'Remove this location?')} ${location.name}`)) return;
     try { await api.deleteStockLocation(location.id); setError(null); loadLocations(); }

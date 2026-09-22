@@ -1,16 +1,3 @@
-/**
- * Weekly payroll: draft it, read where every number came from, approve it.
- *
- * Owner-only. The server refuses everyone else on every endpoint, so nothing
- * here is a security control -- it is there so a Master or a tailor is never
- * shown a button that would only refuse them.
- *
- * Nothing in this file multiplies anything by a rate. Every figure on screen
- * arrives calculated from apps/payroll/services.py; the one calculation the
- * browser does is minutes into "8h 30m" for display. That is deliberate: a
- * second implementation of payroll arithmetic in JavaScript is how the invoice
- * and the payslip would come to disagree.
- */
 
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle, Check, ChevronLeft, CheckCircle2, Lock, RefreshCw, X } from 'lucide-react';

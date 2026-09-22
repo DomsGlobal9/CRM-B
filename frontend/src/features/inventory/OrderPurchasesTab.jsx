@@ -21,7 +21,7 @@ export default function OrderPurchasesTab({ suppliers = [], isOwner }) {
   const [rows, setRows] = useState([]);
   const [showDone, setShowDone] = useState(false);
   const [error, setError] = useState('');
-  const [step, setStep] = useState(null); // { row, kind: 'purchased' | 'received' | 'use' }
+  const [step, setStep] = useState(null); 
 
   const refresh = useCallback(() => {
     api.getOrderPurchases(showDone ? {} : { open: 1 })

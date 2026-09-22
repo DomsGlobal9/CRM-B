@@ -1104,8 +1104,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
                 alt={partLabels[ref.part] || ref.part}
                 height="150px"
                 picked
-                // The card itself opens it; removing is the × in the corner, so
-                // a mis-click looks rather than deletes.
                 onClick={() => window.open(
                   ref.source_url || resolveMediaUrl(ref.image_url, FALLBACK), '_blank', 'noopener')}
               >
