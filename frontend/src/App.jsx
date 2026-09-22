@@ -4577,11 +4577,11 @@ function App() {
                             <button type="button" className="at-pipeline-tile at-stat--green" style={{ flex: 1 }}
                                     onClick={() => setDashboardTab('staff')}>
                               <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{today.staff_working ?? 0}</span>
-                              <span className="at-pipeline-label">{t('dashboard.onFloorNow', 'on the floor now')}</span>
+                              <span className="at-pipeline-label">{t('dashboard.onFloorNow', 'Working now')}</span>
                             </button>
                             <div className="at-pipeline-tile at-stat--neutral" style={{ flex: 1, cursor: 'default' }}>
                               <span className="at-pipeline-value">{today.staff_present ?? 0}</span>
-                              <span className="at-pipeline-label">{t('dashboard.presentToday', 'present today')}</span>
+                              <span className="at-pipeline-label">{t('dashboard.presentToday', 'Present today')}</span>
                             </div>
                           </div>
                           {appts.length === 0 ? (
@@ -4617,7 +4617,7 @@ function App() {
                     New Order and the sidebar already carry every shortcut the
                     Quick Actions card duplicated. */}
                 <SectionCard icon={ShoppingBag} tone="blue" title={t('dashboard.recentOrders', 'Latest orders')}
-                             subtitle={t('dashboard.latestOrdersSub', 'The latest orders across the floor')}
+                             subtitle={t('dashboard.latestOrdersSub', 'Recently placed orders')}
                              action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View all')}>
                   {!dashboardData?.recent_orders || dashboardData.recent_orders.length === 0 ? (
                     <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
@@ -6997,10 +6997,10 @@ function App() {
                             </div>
                             <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                               {draft.customer_name
-                                ? (garments.length ? garments.join(', ') : t('wizard.noGarmentChosen', 'No garment chosen yet'))
+                                ? (garments.length ? garments.join(', ') : t('wizard.noGarmentChosen', 'No garment yet'))
                                 : t('entry.customerNotYet', 'Customer not added yet')}
                               {' · '}{(() => { const total = WIZARD_STEPS[draft.payload?.service === 'design' ? 'design' : 'stitch'].length; return t('entry.stepXofY', 'Step {step} of {total}', { step: Math.min(draft.current_step, total), total }); })()}
-                              {' · '}{t('entry.lastSaved', 'last saved')} {new Date(draft.updated_at).toLocaleString()}
+                              {' · '}{t('entry.lastSaved', 'saved')} {fmtDateTime(draft.updated_at)}
                             </div>
                           </div>
                           <button type="button" className="btn-primary" onClick={() => hydrateWizard(draft)}>
