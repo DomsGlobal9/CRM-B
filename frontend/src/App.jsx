@@ -195,15 +195,15 @@ const sinceLabel = (iso) => {
 const StyleProfileCard = ({ customer }) => {
   const dna = customer?.style_dna || {};
   const rows = [
-    ['Revenue from this client', dna.revenue ?? dna.budget, Wallet], ['Style preferences', dna.style, Shirt],
-    ['Measurement version', dna.size, Ruler], ['Visit pattern', dna.visit_pattern, CalendarDays],
+    ['Total spent', dna.revenue ?? dna.budget, Wallet], ['Style preferences', dna.style, Shirt],
+    ['Size', dna.size, Ruler], ['Visit pattern', dna.visit_pattern, CalendarDays],
   ].filter(([, v]) => v);
   const riskColor = dna.risk_level === 'danger' ? 'var(--danger-color)'
     : dna.risk_level === 'warning' ? 'var(--warning-color)' : 'var(--success-color)';
   const hasAny = rows.length || dna.risk_status || dna.next_action;
   return (
     <SectionCard icon={Sparkles} tone="amber"
-                 title={customer?.first_name ? `${customer.first_name}'s style profile` : 'Style Profile'}>
+                 title="Style profile">
       {!hasAny && (
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No AI style profile for this customer yet.</div>
       )}
@@ -215,7 +215,7 @@ const StyleProfileCard = ({ customer }) => {
       ))}
       {dna.risk_status && (
         <div className="at-dna-row">
-          <span className="at-dna-label"><ShieldCheck size={16} /> Risk status</span>
+          <span className="at-dna-label"><ShieldCheck size={16} /> Activity</span>
           <strong style={{ color: riskColor, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: riskColor }} />
             {dna.risk_status}
@@ -224,13 +224,13 @@ const StyleProfileCard = ({ customer }) => {
       )}
       {dna.next_action && (
         <div className="at-dna-row">
-          <span className="at-dna-label"><Target size={16} /> Next action</span>
-          <strong style={{ color: 'var(--accent-text)', fontStyle: 'italic' }}>&ldquo;{dna.next_action}&rdquo;</strong>
+          <span className="at-dna-label"><Target size={16} /> Suggested next step</span>
+          <strong style={{ color: 'var(--accent-text)', fontStyle: 'italic' }}>{dna.next_action}</strong>
         </div>
       )}
       {hasAny && (
         <InfoNote tone="green" icon={Leaf} style={{ marginTop: 'var(--space-3)', padding: '10px 14px' }}>
-          <em>Read automatically from your sales data — not entered by hand.</em>
+          <em>Calculated from sales data.</em>
         </InfoNote>
       )}
     </SectionCard>
@@ -5752,7 +5752,7 @@ function App() {
               <div className="customer-detail-view-container at-stack">
                 <div className="at-toolbar" style={{ margin: 0 }}>
                   <button type="button" className="at-link" onClick={() => setSelectedDirectoryCustomer(null)}>
-                    <ArrowLeft size={16} /> Back to Customer Directory
+                    <ArrowLeft size={16} /> Back to Customers
                   </button>
                   {isOwner && (
                     <div className="at-toolbar-right">
@@ -5760,7 +5760,7 @@ function App() {
                         <Copy size={16} /> Go with Existing Design
                       </button>
                       <button className="btn-primary" onClick={() => handleSelectExistingCustomer(c)}>
-                        <Sparkles size={16} /> Create New Order
+                        <Sparkles size={16} /> New order
                       </button>
                     </div>
                   )}
@@ -5802,7 +5802,7 @@ function App() {
 
                 <div className="responsive-profile-grid">
                   <div className="at-stack">
-                    <SectionCard icon={Ruler} tone="amber" title="Body Measurements & Sizing"
+                    <SectionCard icon={Ruler} tone="amber" title="Measurements"
                                  subtitle={parts.length > 0 ? `Stitching: ${parts.join(', ')}` : undefined}>
                       {c.measurements ? (
                         <>
@@ -5814,7 +5814,7 @@ function App() {
                               </div>
                             ))}
                             <div className="at-measure-row">
-                              <span>Occasion Preference</span>
+                              <span>Occasion</span>
                               <strong>{c.occasion || '—'}</strong>
                             </div>
                           </div>
@@ -5851,7 +5851,7 @@ function App() {
                       {directoryDetailLoading && !c.orders ? (
                         <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>Loading order history…</p>
                       ) : orders.length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>No orders have been placed by this customer yet.</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>No orders yet.</p>
                       ) : orders.map(order => {
                         // The row opens the order's production progress, so
                         // "where is my dress?" is answered from the profile.
