@@ -193,19 +193,20 @@ const sinceLabel = (iso) => {
 // ("premium designer") for every customer with no style_dna, which read as
 // real client data.
 const StyleProfileCard = ({ customer }) => {
+  const { t } = useLanguage();
   const dna = customer?.style_dna || {};
   const rows = [
-    ['Total spent', dna.revenue ?? dna.budget, Wallet], ['Style preferences', dna.style, Shirt],
-    ['Size', dna.size, Ruler], ['Visit pattern', dna.visit_pattern, CalendarDays],
+    [t('customersPage.totalSpent', 'Total spent'), dna.revenue ?? dna.budget, Wallet], [t('customersPage.stylePreferences', 'Style preferences'), dna.style, Shirt],
+    [t('customersPage.size', 'Size'), dna.size, Ruler], [t('customersPage.visitPattern', 'Visit pattern'), dna.visit_pattern, CalendarDays],
   ].filter(([, v]) => v);
   const riskColor = dna.risk_level === 'danger' ? 'var(--danger-color)'
     : dna.risk_level === 'warning' ? 'var(--warning-color)' : 'var(--success-color)';
   const hasAny = rows.length || dna.risk_status || dna.next_action;
   return (
     <SectionCard icon={Sparkles} tone="amber"
-                 title="Style profile">
+                 title={t('customersPage.styleProfile', 'Style profile')}>
       {!hasAny && (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No AI style profile for this customer yet.</div>
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{t('customersPage.noStyleProfile', 'No style profile for this customer yet.')}</div>
       )}
       {rows.map(([label, value, Icon]) => (
         <div key={label} className="at-dna-row">
@@ -215,7 +216,7 @@ const StyleProfileCard = ({ customer }) => {
       ))}
       {dna.risk_status && (
         <div className="at-dna-row">
-          <span className="at-dna-label"><ShieldCheck size={16} /> Activity</span>
+          <span className="at-dna-label"><ShieldCheck size={16} /> {t('customersPage.activity', 'Activity')}</span>
           <strong style={{ color: riskColor, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: riskColor }} />
             {dna.risk_status}
@@ -224,13 +225,13 @@ const StyleProfileCard = ({ customer }) => {
       )}
       {dna.next_action && (
         <div className="at-dna-row">
-          <span className="at-dna-label"><Target size={16} /> Suggested next step</span>
+          <span className="at-dna-label"><Target size={16} /> {t('customersPage.suggestedNextStep', 'Suggested next step')}</span>
           <strong style={{ color: 'var(--accent-text)', fontStyle: 'italic' }}>{dna.next_action}</strong>
         </div>
       )}
       {hasAny && (
         <InfoNote tone="green" icon={Leaf} style={{ marginTop: 'var(--space-3)', padding: '10px 14px' }}>
-          <em>Calculated from sales data.</em>
+          <em>{t('customersPage.calculatedFromSales', 'Calculated from sales data.')}</em>
         </InfoNote>
       )}
     </SectionCard>
@@ -5752,15 +5753,15 @@ function App() {
               <div className="customer-detail-view-container at-stack">
                 <div className="at-toolbar" style={{ margin: 0 }}>
                   <button type="button" className="at-link" onClick={() => setSelectedDirectoryCustomer(null)}>
-                    <ArrowLeft size={16} /> Back to Customers
+                    <ArrowLeft size={16} /> {t('customersPage.backToCustomers', 'Back to Customers')}
                   </button>
                   {isOwner && (
                     <div className="at-toolbar-right">
                       <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
-                        <Copy size={16} /> Go with Existing Design
+                        <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
                       </button>
                       <button className="btn-primary" onClick={() => handleSelectExistingCustomer(c)}>
-                        <Sparkles size={16} /> New order
+                        <Sparkles size={16} /> {t('customersPage.newOrder', 'New order')}
                       </button>
                     </div>
                   )}
@@ -5787,23 +5788,23 @@ function App() {
                   <div className="at-profile-stats">
                     <div className="at-profile-stat">
                       <IconTile icon={CalendarDays} tone="blue" size={36} iconSize={16} />
-                      <div><div className="at-measure-label">Customer since</div><div className="at-measure-value">{fmtDate(c.created_at)}</div></div>
+                      <div><div className="at-measure-label">{t('customersPage.customerSince', 'Customer since')}</div><div className="at-measure-value">{fmtDate(c.created_at)}</div></div>
                     </div>
                     <div className="at-profile-stat">
                       <IconTile icon={ShoppingBag} tone="amber" size={36} iconSize={16} />
-                      <div><div className="at-measure-label">Total orders</div><div className="at-measure-value">{orderCount}</div></div>
+                      <div><div className="at-measure-label">{t('customersPage.totalOrders', 'Total orders')}</div><div className="at-measure-value">{orderCount}</div></div>
                     </div>
                     <div className="at-profile-stat">
                       <IconTile icon={Heart} tone="rose" size={36} iconSize={16} />
-                      <div><div className="at-measure-label">Preference</div><div className="at-measure-value">{c.occasion || c.garment_type || '—'}</div></div>
+                      <div><div className="at-measure-label">{t('customersPage.preference', 'Preference')}</div><div className="at-measure-value">{c.occasion || c.garment_type || '—'}</div></div>
                     </div>
                   </div>
                 </div>
 
                 <div className="responsive-profile-grid">
                   <div className="at-stack">
-                    <SectionCard icon={Ruler} tone="amber" title="Measurements"
-                                 subtitle={parts.length > 0 ? `Stitching: ${parts.join(', ')}` : undefined}>
+                    <SectionCard icon={Ruler} tone="amber" title={t('customersPage.measurementsTitle', 'Measurements')}
+                                 subtitle={parts.length > 0 ? t('customersPage.stitchingParts', 'Stitching: {parts}', { parts: parts.join(', ') }) : undefined}>
                       {c.measurements ? (
                         <>
                           <div className="at-measure-cols">
@@ -5814,14 +5815,14 @@ function App() {
                               </div>
                             ))}
                             <div className="at-measure-row">
-                              <span>Occasion</span>
+                              <span>{t('customersPage.occasionLabel', 'Occasion')}</span>
                               <strong>{c.occasion || '—'}</strong>
                             </div>
                           </div>
                           {c.measurement_history && c.measurement_history.length > 0 && (
                             <div style={{ marginTop: 'var(--space-4)' }}>
                               <div className="ui-eyebrow" style={{ color: 'var(--accent-text)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: 'var(--space-3)' }}>
-                                <History size={13} /> Sizing Version History
+                                <History size={13} /> {t('customersPage.sizingHistory', 'Measurement history')}
                               </div>
                               <div className="at-stack" style={{ gap: 'var(--space-2)', maxHeight: '300px', overflowY: 'auto', paddingRight: '4px' }}>
                                 {[...c.measurement_history].reverse().map((hist, idx, arr) => (
@@ -5846,12 +5847,12 @@ function App() {
                       )}
                     </SectionCard>
 
-                    <SectionCard icon={ShoppingBag} tone="amber" title="Order History"
+                    <SectionCard icon={ShoppingBag} tone="amber" title={t('customersPage.orderHistory', 'Order History')}
                                  action={orders.length > 0 ? () => setDashboardTab('orders') : undefined} actionLabel="View All">
                       {directoryDetailLoading && !c.orders ? (
                         <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>Loading order history…</p>
                       ) : orders.length === 0 ? (
-                        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>No orders yet.</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>{t('customersPage.noOrdersYet', 'No orders yet.')}</p>
                       ) : orders.map(order => {
                         // The row opens the order's production progress, so
                         // "where is my dress?" is answered from the profile.
