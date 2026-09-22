@@ -4803,7 +4803,27 @@ table.data-table tbody tr:hover {
 .gh-callout.gh-side::after {
   top: 50%; left: -7px; margin: -7px 0 0; border: 7px solid transparent; border-right-color: var(--primary-color); border-left: 0;
 }
-@media (prefers-reduced-motion: reduce) { .gh > .gh-ring, .gh-callout, .portal-menu-item.gh-nav { animation: none; } }
+/* Express orders and the garments inside them, in the same visual language:
+   the row/card itself carries the ring and pulse, with a small callout that
+   names the rush garment. .gh-express is a modifier on the element that is
+   already there, so nothing about the row's own layout changes. */
+@keyframes gh-express-glow {
+  0%, 100% { box-shadow: inset 3px 0 0 var(--danger-color), 0 0 0 1px var(--danger-color), 0 0 0 0 rgba(180, 35, 24, 0); }
+  50%      { box-shadow: inset 3px 0 0 var(--danger-color), 0 0 0 1px var(--danger-color), 0 0 0 8px rgba(180, 35, 24, 0.14); }
+}
+.gh-express { position: relative; animation: gh-express-glow 1.8s ease-in-out infinite; }
+tr.gh-express > td:first-child { box-shadow: inset 3px 0 0 var(--danger-color); }
+tr.gh-express { animation: none; background: color-mix(in srgb, var(--danger-bg) 45%, transparent); }
+.gh-express-tag {
+  display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; vertical-align: middle;
+  padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  background: var(--danger-color); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  animation: gh-bob-y 1.2s ease-in-out infinite; transform-origin: center;
+}
+/* The tag bobs in place rather than around a centre point like the callouts. */
+@keyframes gh-tag-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.gh-express-tag { animation-name: gh-tag-bob; }
+@media (prefers-reduced-motion: reduce) { .gh > .gh-ring, .gh-callout, .portal-menu-item.gh-nav, .gh-express, .gh-express-tag { animation: none; } }
 .portal-flyout { position: fixed; transform: translateY(-50%); background: var(--primary-color); color: var(--text-on-dark); font-size: var(--text-xs); font-weight: 600; padding: 6px 10px; border-radius: 8px; white-space: nowrap; box-shadow: var(--shadow-md); z-index: 1200; pointer-events: none; }
 .portal-flyout::before { content: ''; position: absolute; left: -5px; top: 50%; transform: translateY(-50%); border: 5px solid transparent; border-right-color: var(--primary-color); border-left: 0; }
 .portal-layout { transition: grid-template-columns .2s ease; }

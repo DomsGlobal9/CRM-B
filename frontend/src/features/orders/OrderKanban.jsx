@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import {
   Calendar, CheckCircle2, ClipboardList, Hand, IndianRupee, Package, PackageCheck, PenTool, Ruler, Scissors,
-  Shirt, ShieldCheck, Sparkles, Truck, User,
+  Shirt, ShieldCheck, Sparkles, Truck, User, Zap,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatDate, orderRef } from '../../services/format';
 import { IconTile } from '../../components/ui/Atelier';
+import { expressLabel, isExpressOrder } from './express';
 
 
 const SETTLED = new Set(['COMPLETED', 'SKIPPED']);
@@ -204,7 +205,7 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
                 return (
                   <article
                     key={order.id}
-                    className={`kanban-card ui-card ui-card--tap${busy ? ' kanban-card--busy' : ''}`}
+                    className={`kanban-card ui-card ui-card--tap${busy ? ' kanban-card--busy' : ''}${isExpressOrder(order) ? ' gh-express' : ''}`}
                     draggable={canDrag && !inert}
                     onDragStart={(e) => {
                       e.dataTransfer.setData('text/plain', String(order.id));
@@ -228,7 +229,11 @@ export default function OrderKanban({ orders, workflow, onOpen, onChanged, canDr
                     </div>
                     <div className="kanban-card-body">
                       <div className="kanban-card-head">
-                        <span className="kanban-card-ref">{orderRef(order)}</span>
+                        <span className="kanban-card-ref">{orderRef(order)}
+                          {isExpressOrder(order) && (
+                            <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
+                          )}
+                        </span>
                         <span className={`ui-badge ui-badge--${statusTone}`}>
                           {stage?.legacy ? 'No stages' : (STATUS_LABEL[stage?.status] || stage?.status || '—')}
                         </span>

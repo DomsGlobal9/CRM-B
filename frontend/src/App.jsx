@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
-import { Users, ShoppingBag, Scissors, Upload, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
@@ -36,6 +36,7 @@ import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import GarmentSummary from './features/catalog/GarmentSummary';
 import { AddCustomerChooser, CustomerForm } from './features/customers/AddCustomer';
 import OrderKanban from './features/orders/OrderKanban';
+import { expressLabel, isExpressOrder } from './features/orders/express';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import useAutosave from './hooks/useAutosave';
 import { applyTenantTheme } from './theme';
@@ -4843,8 +4844,13 @@ function App() {
                           : null;
                         return (
                         <React.Fragment key={order.id}>
-                        <tr style={isCancelled ? { opacity: 0.55 } : undefined}>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)} <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
+                        <tr className={isExpressOrder(order) && !isDelivered && !isCancelled ? 'gh-express' : undefined}
+                            style={isCancelled ? { opacity: 0.55 } : undefined}>
+                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}
+                            {isExpressOrder(order) && !isDelivered && !isCancelled && (
+                              <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
+                            )}
+                            <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
                           <td className="at-desk-only">{order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td className="at-desk-only">{order.customer_name}</td>
                           <td data-label={t('ordersPage.estDelivery', 'Delivery')}>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>

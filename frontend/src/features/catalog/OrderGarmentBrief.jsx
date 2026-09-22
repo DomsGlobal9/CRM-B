@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../../services/api';
 import GarmentSummary from './GarmentSummary';
+import { isExpressJob } from '../orders/express';
 import { SpeakButton, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 
 /**
@@ -68,7 +69,7 @@ export default function OrderGarmentBrief({ jobs, specialInstructions, voiceNote
       }
     });
     const template = templates[job.template_key] || fallbackTemplate(job);
-    return { key: job.id, template, values };
+    return { key: job.id, template, values, express: isExpressJob(job) };
   });
 
   const loading = keys.some((key) => templates[key] === undefined);

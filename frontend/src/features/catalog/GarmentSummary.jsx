@@ -182,9 +182,11 @@ export default function GarmentSummary({ jobs, onEdit, inventoryNames: providedN
 
         /* organism: one dress. */
         return (
-          <div key={job.key} className="ui-card garment-card">
+          <div key={job.key} className={`ui-card garment-card${job.express ? ' gh-express' : ''}`}>
             <div className="garment-card-head">
-              <span className="garment-card-name">{job.template.name}</span>
+              <span className="garment-card-name">{job.template.name}
+                {job.express && <span className="gh-express-tag">EXPRESS</span>}
+              </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                 <span className="ui-badge ui-badge--neutral">
                   {total} detail{total === 1 ? '' : 's'}

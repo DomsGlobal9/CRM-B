@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseIcon } from 'lucide-react';
 
 import { api } from '../../services/api';
+import { expressLabel, isExpressJob, isExpressOrder } from '../orders/express';
 import { orderRef, formatDate, formatDateTime } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { imageFilesError } from '../../services/validate';
@@ -138,10 +139,20 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
 
   const done = (msg) => { setOpen(null); setToast(msg); onChanged?.(); };
 
+  // A stage belonging to one garment is Express only when that garment is;
+  // an order-wide stage is Express when any garment on the order is.
+  const stageIsExpress = (order, stage) => (stage?.garment_job
+    ? (order.garment_jobs || []).some((j) => j.id === stage.garment_job && isExpressJob(j))
+    : isExpressOrder(order));
+
   const card = ({ order, stage }, extra) => (
-    <button type="button" key={`${order.id}-${stage.id}`} className="wk-card" onClick={() => setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null })}>
+    <button type="button" key={`${order.id}-${stage.id}`} className={`wk-card${stageIsExpress(order, stage) ? ' gh-express' : ''}`} onClick={() => setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null })}>
       <div className="wk-card-head">
-        <div className="wk-card-title">{jobTitle(order, stage, t)}</div>
+        <div className="wk-card-title">{jobTitle(order, stage, t)}
+          {stageIsExpress(order, stage) && (
+            <span className="gh-express-tag" title={expressLabel(order)}>EXPRESS</span>
+          )}
+        </div>
         {extra.chip}
       </div>
       <div className="wk-card-sub">{orderRef(order)} · {order.customer_name}</div>
