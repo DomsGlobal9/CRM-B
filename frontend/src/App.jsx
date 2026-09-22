@@ -4723,7 +4723,7 @@ function App() {
                     </button>
                     <button className={`tab-btn ${designsView === 'library' ? 'active' : ''}`}
                             onClick={() => setDesignsView('library')}>
-                      Boutique Designs
+                      {t('designsPage.boutiqueDesignsTab', 'Boutique designs')}
                     </button>
                     <button className={`tab-btn ${designsView === 'requests' ? 'active' : ''}`}
                             onClick={() => setDesignsView('requests')}>
