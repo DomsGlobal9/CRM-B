@@ -1061,7 +1061,11 @@ function Roster({ isOwner, canSeeTeam }) {
                 </td>
 
                 <td>
-                  {member.status ? (
+                  {member.status && canSeeTeam && !member.isDesigner
+                   && !attendanceToday.some((s) => String(s.staff) === String(member.id)) ? (
+                    // Not marked in today: the stored Available/Busy is stale until they arrive.
+                    <span className="ui-badge ui-badge--danger">● Absent</span>
+                  ) : member.status ? (
                     <span className={`ui-badge ui-badge--${member.status === 'Available' ? 'success' : member.status === 'Busy' ? 'warning' : 'neutral'}`}>
                       ● {member.status}
                     </span>
