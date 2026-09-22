@@ -10,14 +10,45 @@
  * same thing in superadmin/metrics.py.
  */
 
-import { useCallback, useMemo, useState } from 'react';
-import { Building2, Database, Pause, Play, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Building2, Database, MoreHorizontal, Pause, Play, Trash2 } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import {
   Async, Confirm, Empty, Pill, SearchBox, SectionHead, Select, Stat,
   count, day, money, since, useApi, useToast,
 } from '../ui';
+
+/* The row's actions behind one ⋯ button. The open menu is one piece of
+   state on the screen (`menu`), so opening a second row's closes the first.
+   Positioned fixed from the button's rectangle: the table scrolls sideways
+   inside .sa-table-wrap, so an absolute menu would be clipped at its edge. */
+function RowMenu({ id, menu, setMenu, items }) {
+  const open = menu?.id === id;
+  const toggle = (e) => {
+    e.stopPropagation();
+    if (open) { setMenu(null); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    setMenu({ id, top: r.bottom + 4, right: window.innerWidth - r.right });
+  };
+  return (
+    <>
+      <button className="sa-btn sa-menu-btn" onClick={toggle} aria-haspopup="menu" aria-expanded={open} aria-label="Actions">
+        <MoreHorizontal size={16} />
+      </button>
+      {open && (
+        <div className="sa-menu" role="menu" style={{ top: menu.top, right: menu.right }} onClick={(e) => e.stopPropagation()}>
+          {items.map((item) => (
+            <button key={item.label} role="menuitem" className={`sa-menu-item ${item.danger ? 'danger' : ''}`}
+              onClick={() => { setMenu(null); item.onClick(); }}>
+              {item.icon} {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
 const SORTS = [
   { value: 'name', label: 'Name' },
@@ -35,6 +66,20 @@ export default function Boutiques({ route }) {
   const [sort, setSort] = useState('name');
   const [pending, setPending] = useState(null);
   const [deleting, setDeleting] = useState(null); // { boutique, agreed, busy }
+  const [menu, setMenu] = useState(null); // { id, top, right } of the one open row menu
+  useEffect(() => {
+    if (!menu) return undefined;
+    const close = () => setMenu(null);
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('click', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
 
   const state = useApi(useCallback(() => consoleApi.overview(), []));
 
@@ -138,7 +183,7 @@ export default function Boutiques({ route }) {
                       <th className="sa-num">Staff</th><th className="sa-num">Customers</th>
                       <th className="sa-num">Orders</th><th className="sa-num">Open</th>
                       <th className="sa-num">Booked</th><th className="sa-num">Collected</th>
-                      <th>Last order</th><th className="sa-sticky-end" />
+                      <th>Last order</th><th className="sa-sticky-end">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -171,22 +216,20 @@ export default function Boutiques({ route }) {
                             {b.last_order && <div className="sa-schema">{day(b.last_order)}</div>}
                           </td>
                           <td className="sa-actions sa-sticky-end">
-                            <button className="sa-btn"
-                              onClick={() => route.go(`boutiques/${b.schema_name}/data`)}>
-                              <Database size={13} /> Data
-                            </button>
-                            <button className={`sa-btn ${b.is_active ? 'danger' : ''}`}
-                              style={{ marginLeft: 6 }}
-                              onClick={() => setPending({ boutique: b, next: !b.is_active })}>
-                              {b.is_active ? <><Pause size={13} /> Suspend</> : <><Play size={13} /> Reactivate</>}
-                            </button>
-                            {/* The template schema is what signup clones; it is not a boutique. */}
-                            {b.schema_name !== 'tenant_base' && (
-                              <button className="sa-btn danger" style={{ marginLeft: 6 }}
-                                onClick={() => setDeleting({ boutique: b, agreed: false, busy: false })}>
-                                <Trash2 size={13} /> Delete
-                              </button>
-                            )}
+                            <RowMenu id={b.schema_name} menu={menu} setMenu={setMenu} items={[
+                              { label: 'Data', icon: <Database size={14} />,
+                                onClick: () => route.go(`boutiques/${b.schema_name}/data`) },
+                              b.is_active
+                                ? { label: 'Suspend', icon: <Pause size={14} />, danger: true,
+                                    onClick: () => setPending({ boutique: b, next: false }) }
+                                : { label: 'Reactivate', icon: <Play size={14} />,
+                                    onClick: () => setPending({ boutique: b, next: true }) },
+                              // The template schema is what signup clones; it is not a boutique.
+                              ...(b.schema_name === 'tenant_base' ? [] : [{
+                                label: 'Delete', icon: <Trash2 size={14} />, danger: true,
+                                onClick: () => setDeleting({ boutique: b, agreed: false, busy: false }),
+                              }]),
+                            ]} />
                           </td>
                         </tr>
                       );

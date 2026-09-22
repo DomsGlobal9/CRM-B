@@ -238,6 +238,32 @@ table.sa-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .sa-pill.warn { background: var(--warn-bg); color: var(--warn-color); }
 .sa-pill.info { background: var(--info-bg); color: var(--info-color); }
 
+/* The ⋯ row menu (Boutiques.jsx RowMenu): one column of actions, dropped
+   under the button. Fixed, because the table scrolls sideways inside
+   .sa-table-wrap and an absolute menu would be clipped at its edge. */
+.sa-menu-btn { padding: 6px 10px; line-height: 0; }
+.sa-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 170px;
+  padding: 6px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  display: flex; flex-direction: column;
+}
+.sa-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 12px;
+  font: inherit; font-size: 13.5px; text-align: left;
+  background: none; border: 0; border-radius: 8px;
+  color: var(--text-primary); cursor: pointer;
+}
+.sa-menu-item:hover { background: var(--bg-color); }
+.sa-menu-item.danger { color: var(--danger-color); }
+.sa-menu-item.danger:hover { background: var(--danger-bg); }
+
 .sa-btn {
   font: inherit;
   font-size: 13.5px;
