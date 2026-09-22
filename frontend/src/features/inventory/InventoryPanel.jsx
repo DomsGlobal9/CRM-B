@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, History, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, History, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -364,6 +364,7 @@ function ItemsTab({
   // search, category and reorder filters keep working exactly as before,
   // this only decides which of their results are shown.
   const [groupKey, setGroupKey] = useState('all');
+  const [previewItem, setPreviewItem] = useState(null);
   const group = MATERIAL_GROUPS.find((g) => g.key === groupKey) || MATERIAL_GROUPS[0];
   const shown = items.filter((item) => inGroup(item, group));
   const groupCategories = group.categories === null
@@ -437,6 +438,9 @@ function ItemsTab({
                   <span style={{ ...pill, left: 10 }} title={item.item_code}>{item.item_code}</span>
                   <span style={{ ...pill, right: 10 }} title={categoryLabel[item.category] || item.category}>{categoryLabel[item.category] || item.category}</span>
                   <div style={{ position: 'absolute', right: 10, bottom: 10, display: 'flex', gap: 6 }}>
+                    <button type="button" style={circleBtn} title={t('inventoryPage.view', 'View')} aria-label={t('inventoryPage.view', 'View')} onClick={() => setPreviewItem(item)}>
+                      <Eye size={14} />
+                    </button>
                     <button type="button" style={circleBtn} title={t('inventoryPage.history', 'History')} aria-label={t('inventoryPage.history', 'History')} onClick={() => onLedger(item)}>
                       <History size={14} />
                     </button>
@@ -475,6 +479,34 @@ function ItemsTab({
               </div>
             );
           })}
+        </div>
+      )}
+      {previewItem && (
+        <div onClick={() => setPreviewItem(null)} style={{
+          position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,0.88)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
+        }}>
+          <figure onClick={(e) => e.stopPropagation()} style={{
+            margin: 0, position: 'relative', display: 'flex', flexDirection: 'column', maxWidth: '92vw', maxHeight: '90vh',
+            background: '#111', borderRadius: 14, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          }}>
+            <button type="button" aria-label="Close" onClick={() => setPreviewItem(null)} style={{
+              position: 'absolute', top: 12, right: 12, zIndex: 1, width: 36, height: 36, borderRadius: '50%', border: 'none',
+              background: 'rgba(0,0,0,0.55)', color: '#fff', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <X size={18} />
+            </button>
+            <img src={inventoryImage(previewItem)} alt={previewItem.name}
+                 style={{ display: 'block', maxWidth: '92vw', maxHeight: 'calc(90vh - 72px)', objectFit: 'contain' }} />
+            <figcaption style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ background: '#fff', color: '#111', borderRadius: 999, padding: '6px 14px', fontSize: '15px', fontWeight: 700, lineHeight: 1.2 }}>
+                {previewItem.name}
+              </span>
+              <span style={{ background: '#fff', color: '#333', borderRadius: 999, padding: '6px 14px', fontSize: '12px', fontWeight: 600, letterSpacing: '0.05em', lineHeight: 1.2 }}>
+                {previewItem.item_code}{previewItem.color ? ` · ${previewItem.color}` : ''}
+              </span>
+            </figcaption>
+          </figure>
         </div>
       )}
     </>
