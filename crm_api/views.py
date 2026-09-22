@@ -49,6 +49,7 @@ from .serializers import (
 )
 from apps.design_studio.models import DesignAsset
 from domains.customers.repositories import CustomerRepository
+from domains.customers.services import import_customers
 from domains.orders import drafts
 from domains.orders.messaging import send_customer_message
 from domains.orders.notifications import create_order_notifications
@@ -77,6 +78,23 @@ class CustomerViewSet(viewsets.ModelViewSet):
         base = (CustomerRepository.summary_queryset() if self.action == 'list'
                 else CustomerRepository.get_all())
         return visible_customers(base, self.request.user)
+
+    @action(detail=False, methods=['POST'], url_path='import')
+    def import_customers(self, request):
+        """A spreadsheet of customers: validated on every call, saved only with commit=1.
+
+        The confirmation dialog shows the first call's answer; the second
+        call re-sends the same file, so nothing is parked on the server
+        between the two.
+        """
+        upload = request.FILES.get('file')
+        if upload is None:
+            return Response({'error': 'Choose a spreadsheet to upload.'}, status=status.HTTP_400_BAD_REQUEST)
+        commit = str(request.data.get('commit', '')).lower() in ('1', 'true', 'yes')
+        try:
+            return Response(import_customers(upload, commit=commit))
+        except ValidationError as exc:
+            return _refused(exc)
 
     @action(detail=True, methods=['GET'], url_path='measurement-history')
     def measurement_history(self, request, pk=None):

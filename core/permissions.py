@@ -171,6 +171,8 @@ class RolePermission(ModuleAccess):
         # What the cutting table actually used, and what became offcuts, is
         # recorded by the Master standing at it.
         'consume',
+        # A spreadsheet of customers is counter work too.
+        'import_customers',
     })
 
     def has_role_permission(self, request, view):

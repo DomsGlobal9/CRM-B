@@ -37,6 +37,7 @@ import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview'
 import OrderAlterations, { RequestAlterationModal } from './features/alterations/OrderAlterations';
 import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import GarmentSummary from './features/catalog/GarmentSummary';
+import { AddCustomerChooser, CustomerForm } from './features/customers/AddCustomer';
 import OrderKanban from './features/orders/OrderKanban';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import useAutosave from './hooks/useAutosave';
@@ -3035,7 +3036,10 @@ function App() {
     setView('wizard');
   };
   /** "Take a new order": ask which service first. */
-  const handleStartNewCustomer = () => setView('order-selector');
+  const handleStartNewCustomer = () => setCustomerAddMode('choose');
+
+  // Customers -> Add Customer: null (the list), 'choose' (Excel or by hand), 'manual' (the form).
+  const [customerAddMode, setCustomerAddMode] = useState(null);
   const handleSelectExistingCustomer = (cust) => startService('stitch', cust);
 
   /** Customers whose number contains what has been typed so far. */
@@ -3103,10 +3107,12 @@ function App() {
       // as unknown at confirm.
       const own = new Set(((job.template?.sections || []).find(sec => sec.key === 'measurements')?.fields || []).map(f => f.key));
       const values = { ...(job.values || {}) };
-      Object.entries(MEASURE_KEYS).forEach(([key, sheetKey]) => {
-        // "12.00" on the sheet reads as "12" in the box.
-        const kept = sheetGet(sheet, sheetKey);
-        if (own.has(key) && (values[key] === undefined || values[key] === '') && kept) values[key] = /^\d/.test(String(kept)) ? String(Number(kept)) : kept;
+      own.forEach((key) => {
+        // "12.00" on the sheet reads as "12" in the box. A key the alias map
+        // does not name (blouse_length, floor_length...) is stored under its
+        // own name by the spreadsheet import.
+        const kept = sheetGet(sheet, MEASURE_KEYS[key] || key);
+        if ((values[key] === undefined || values[key] === '') && kept) values[key] = /^\d/.test(String(kept)) ? String(Number(kept)) : kept;
       });
       return { ...job, values };
     }));
@@ -5507,7 +5513,15 @@ function App() {
             )}
 
             {/* 5. CUSTOMERS TAB */}
-            {dashboardTab === 'customers' && !selectedDirectoryCustomer && (
+            {dashboardTab === 'customers' && !selectedDirectoryCustomer && customerAddMode === 'choose' && (
+              <AddCustomerChooser onBack={() => setCustomerAddMode(null)} onManual={() => setCustomerAddMode('manual')}
+                                  onImported={() => fetchDashboardAndConfig()} />
+            )}
+            {dashboardTab === 'customers' && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
+              <CustomerForm onBack={() => setCustomerAddMode('choose')}
+                            onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
+            )}
+            {dashboardTab === 'customers' && !selectedDirectoryCustomer && !customerAddMode && (
               <>
                 <PageHeader
                   title={t('customersPage.title')}
@@ -6955,7 +6969,7 @@ function App() {
                 sections={navSections}
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
-                onPick={(tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setMobileNavOpen(false); }}
+                onPick={(tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); }}
               />
               <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
                        onClick={() => { setShowLogoutConfirm(true); setMobileNavOpen(false); }} />

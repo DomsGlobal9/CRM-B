@@ -19,3 +19,4 @@ requests
 upstash-redis==1.8.0
 gunicorn
 tblib==3.2.2
+openpyxl==3.1.5

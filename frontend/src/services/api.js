@@ -333,30 +333,38 @@ export const api = {
   },
 
   // Get boutique fabrics
-  // Create customer profile (Step 1)
-  async createCustomer(customerData, profilePhotoFile) {
-    const formData = new FormData();
-    
-    // Append all text fields
-    Object.keys(customerData).forEach(key => {
-      if (customerData[key] !== null && customerData[key] !== undefined) {
-        if (typeof customerData[key] === 'object') {
-          formData.append(key, JSON.stringify(customerData[key]));
-        } else {
-          formData.append(key, customerData[key]);
-        }
-      }
+  // A spreadsheet of customers. Without commit the server only validates and
+  // reports; with it, the same file is sent again and the valid rows are saved.
+  async importCustomers(file, { commit = false } = {}) {
+    const body = new FormData();
+    body.append('file', file);
+    if (commit) body.append('commit', '1');
+    const res = await guardedFetch(`${BASE_URL}/customers/import/`, {
+      method: 'POST', headers: getHeaders(true), body,
     });
+    if (!res.ok) await failWith(res, 'Failed to read the spreadsheet');
+    return res.json();
+  },
 
+  // Create customer profile (Step 1). Multipart only when a photo rides
+  // along; otherwise JSON, so nested measurements arrive as an object.
+  async createCustomer(customerData, profilePhotoFile) {
+    let body, headers;
     if (profilePhotoFile) {
-      formData.append('profile_photo', profilePhotoFile);
+      body = new FormData();
+      Object.keys(customerData).forEach(key => {
+        if (customerData[key] !== null && customerData[key] !== undefined) {
+          body.append(key, typeof customerData[key] === 'object' ? JSON.stringify(customerData[key]) : customerData[key]);
+        }
+      });
+      body.append('profile_photo', profilePhotoFile);
+      headers = getHeaders(true); // true = multipart (no Content-Type header)
+    } else {
+      body = JSON.stringify(customerData);
+      headers = getHeaders();
     }
 
-    const res = await guardedFetch(`${BASE_URL}/customers/`, {
-      method: 'POST',
-      headers: getHeaders(true), // true = multipart (no Content-Type header)
-      body: formData,
-    });
+    const res = await guardedFetch(`${BASE_URL}/customers/`, { method: 'POST', headers, body });
     // failWith reads the body itself; consuming it here first would leave it
     // with nothing to unpack.
     if (!res.ok) await failWith(res, 'Failed to create customer');
