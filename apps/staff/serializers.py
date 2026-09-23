@@ -217,7 +217,7 @@ class AttendanceSessionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'staff', 'staff_name', 'staff_role',
             'staff_name_snapshot', 'staff_role_snapshot', 'date',
-            'check_in', 'check_out', 'minutes', 'source', 'note',
+            'check_in', 'check_out', 'minutes', 'source', 'auto_checked_out', 'note',
             'is_open', 'was_corrected',
             'original_check_in', 'original_check_out',
             'corrected_at', 'correction_reason',

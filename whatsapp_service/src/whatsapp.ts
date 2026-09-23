@@ -183,15 +183,24 @@ export async function resetWhatsApp(sessionId: string = 'default', forceClean: b
 
 export function getWhatsAppStatus(sessionId: string = 'default'): { status: ConnectionStatus; connected: boolean; sessionId: string; qrCode: string | null } {
   const session = getSessionData(sessionId);
-  if (session.status === 'disconnected' && !session.isInitializing && !session.sock) {
+
+  // A session with no socket cannot send, whatever its status says. This used
+  // to report connected on `status` alone, so a session that lost its socket
+  // without a `connection.close` sat there claiming to be healthy: /status
+  // answered connected, every send was refused with "is not connected
+  // (current status: connected)", and the auto-init below never fired because
+  // it only looked at `status`. Both now agree on one question -- is there a
+  // socket -- so such a session re-initialises itself instead of going quiet.
+  const usable = session.status === 'connected' && !!session.sock;
+  if (!usable && !session.isInitializing && !session.sock) {
     initWhatsApp(sessionId).catch((err) => {
       console.error(`[whatsapp_service] Failed to auto-init session '${sessionId}':`, err);
     });
   }
   return {
     sessionId,
-    status: session.status,
-    connected: session.status === 'connected',
+    status: usable ? session.status : (session.isInitializing ? 'connecting' : 'disconnected'),
+    connected: usable,
     qrCode: session.qrCode
   };
 }

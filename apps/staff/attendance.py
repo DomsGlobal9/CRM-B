@@ -21,6 +21,14 @@ from core.formatting import to_local
 from .models import AttendanceSession
 
 
+#: A session left open this long was a forgotten check-out, not a shift. The
+#: sweep below closes it at check_in + this, never at "now": a cleanup that ran
+#: late would otherwise pay for the hours it was late by, and re-running it
+#: would keep moving the same stamp. Twelve hours is longer than any real day at
+#: the bench and short enough that one forgotten tap does not poison a week.
+MAX_SESSION_HOURS = 12
+
+
 class AttendanceError(ValueError):
     """This attendance action cannot happen, and nothing has been written.
 
@@ -60,6 +68,7 @@ def check_in(staff, *, user, source=AttendanceSession.Source.SELF, note=''):
     holds when two taps race past it, because the partial unique index is the
     only thing that can decide a tie.
     """
+    auto_close_stale_sessions(staff=staff)
     if open_session(staff) is not None:
         raise AttendanceError(
             f"{staff.name} is already checked in. Check out before starting "
@@ -75,6 +84,43 @@ def check_in(staff, *, user, source=AttendanceSession.Source.SELF, note=''):
         raise AttendanceError(
             f"{staff.name} is already checked in. Check out before starting "
             f"another session.")
+
+
+def auto_close_stale_sessions(staff=None, now=None):
+    """Close every session left open longer than MAX_SESSION_HOURS.
+
+    Returns the sessions it closed. Each is stamped at its OWN
+    `check_in + MAX_SESSION_HOURS`, so the result does not depend on when this
+    ran -- a cleanup at 22:30 closes a 10:00 check-in at 22:00, and running it
+    again changes nothing because the session is no longer open.
+
+    `staff` narrows it to one person, which is what the check-in paths use so
+    that a forgotten session from last week cannot block today's shift even if
+    the scheduled sweep has not run.
+    """
+    cutoff = (now or timezone.now()) - timedelta(hours=MAX_SESSION_HOURS)
+    queryset = AttendanceSession.objects.filter(
+        check_out__isnull=True, check_in__lte=cutoff)
+    if staff is not None:
+        queryset = queryset.filter(staff=staff)
+
+    closed = []
+    # One transaction per session: a boutique whose one row cannot be written
+    # must not stop the sweep finishing every other boutique's.
+    for session in list(queryset):
+        with transaction.atomic():
+            # Re-read under the lock: a real check-out may have landed between
+            # the query and here, and that stamp is the true one.
+            locked = AttendanceSession.objects.select_for_update().filter(
+                pk=session.pk, check_out__isnull=True).first()
+            if locked is None:
+                continue
+            locked.check_out = locked.check_in + timedelta(hours=MAX_SESSION_HOURS)
+            locked.minutes = locked.duration_minutes()
+            locked.auto_checked_out = True
+            locked.save(update_fields=['check_out', 'minutes', 'auto_checked_out', 'updated_at'])
+            closed.append(locked)
+    return closed
 
 
 @transaction.atomic
@@ -108,6 +154,7 @@ def record_for_staff(staff, *, user, check_in_at, check_out_at=None, note=''):
         raise AttendanceError('A check-in time is required.')
     if check_out_at is not None and check_out_at < check_in_at:
         raise AttendanceError('The check-out time is before the check-in time.')
+    auto_close_stale_sessions(staff=staff)
     if check_out_at is None and open_session(staff) is not None:
         raise AttendanceError(
             f"{staff.name} already has an open session. Close it before adding "

@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { createPortal } from 'react-dom';
 import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
@@ -1320,21 +1319,6 @@ function GuidedHighlight({ show, text, children }) {
 
 function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
   const [flyout, setFlyout] = useState(null);
-  // The spotlight callout sits just right of the item, over the page. Fixed
-  // from the item's rectangle, re-measured when the window changes, and
-  // rendered on <body> so nothing in the shell can paint over it.
-  const itemRef = useRef(null);
-  const [hintAt, setHintAt] = useState(null);
-  useEffect(() => {
-    if (!hint || collapsed) { setHintAt(null); return undefined; }
-    const place = () => {
-      const r = itemRef.current?.getBoundingClientRect();
-      if (r) setHintAt({ top: r.top + r.height / 2, left: r.right + 14 });
-    };
-    place();
-    window.addEventListener('resize', place);
-    return () => window.removeEventListener('resize', place);
-  }, [hint, collapsed]);
   const show = (e) => {
     if (!collapsed) return;
     const r = e.currentTarget.getBoundingClientRect();
@@ -1343,7 +1327,6 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
   const hide = () => setFlyout(null);
   return (
     <a
-      ref={itemRef}
       className={`portal-menu-item${active ? ' active' : ''}${hint && !collapsed ? ' gh-nav' : ''}`}
       role="button"
       tabIndex={0}
@@ -1357,12 +1340,9 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
     >
       <Icon size={16} />
       <span className="portal-menu-label">{label}</span>
-      {/* On <body>: the sticky sidebar is its own stacking layer, so a callout
-          left inside it would paint under the page it points across. */}
-      {hint && !collapsed && hintAt && createPortal(
-        <span className="gh-callout gh-side" role="note" style={{ top: hintAt.top, left: hintAt.left }}>{hint}</span>,
-        document.body,
-      )}
+      {/* Notched into the item's own top border, so it scrolls with the item
+          and can never reach past the sidebar. */}
+      {hint && !collapsed && <span className="gh-nav-label" role="note">{hint}</span>}
       {collapsed && flyout && (
         <span className="portal-flyout" role="tooltip" style={{ top: flyout.top, left: flyout.left }}>{label}</span>
       )}
@@ -2297,6 +2277,9 @@ function App() {
   const blankAppointmentForm = {
     customer: '', appointment_type: 'TRIAL', scheduled_time: '',
     assigned_staff: '', notes: '', status: 'SCHEDULED',
+    // Booking for somebody not in the book yet: the three things the counter
+    // has at the door. Sent as `new_customer`; the server writes the customer.
+    isNewCustomer: false, new_first_name: '', new_last_name: '', new_mobile: '', new_gender: '',
   };
 
   /** Reload the panel under whichever view it is showing. */
@@ -2315,6 +2298,7 @@ function App() {
       .toISOString().slice(0, 16);
     setEditingAppointment(appt);
     setAppointmentForm({
+      ...blankAppointmentForm,
       customer: appt.customer,
       appointment_type: appt.appointment_type,
       scheduled_time: local,
@@ -2338,13 +2322,29 @@ function App() {
       alert('The appointment cannot be in the past.');
       return;
     }
+    const bookingForNew = !editingAppointment && appointmentForm.isNewCustomer;
+    if (bookingForNew) {
+      const problem = nameError(appointmentForm.new_first_name, { label: 'First name' })
+        || mobileError(appointmentForm.new_mobile);
+      if (problem) { alert(problem); return; }
+    }
     setSavingAppointment(true);
     try {
+      const { isNewCustomer, new_first_name, new_last_name, new_mobile, new_gender, ...rest } = appointmentForm;
       const payload = {
-        ...appointmentForm,
+        ...rest,
         assigned_staff: appointmentForm.assigned_staff || null,
         scheduled_time: new Date(appointmentForm.scheduled_time).toISOString(),
       };
+      if (bookingForNew) {
+        delete payload.customer;
+        payload.new_customer = {
+          first_name: cleanName(new_first_name).trim(),
+          last_name: cleanName(new_last_name).trim(),
+          mobile_number: cleanMobile(new_mobile),
+          gender: new_gender,
+        };
+      }
       if (editingAppointment) {
         delete payload.customer;
         await api.updateAppointment(editingAppointment.id, payload);
@@ -3225,7 +3225,7 @@ function App() {
   // under ten orders. Independent of each other; each hides on its own tab,
   // where the page's button carries the guidance instead.
   const sidebarHint = {
-    ...(guideCustomers && dashboardTab !== 'customers' ? { customers: t('onboard.sidebarCustomers', 'Add your customers') } : {}),
+    ...(guideCustomers && dashboardTab !== 'customers' ? { customers: t('onboard.sidebarCustomers', 'Add new customers') } : {}),
     ...(guideOrders && dashboardTab !== 'orders' ? { orders: ordersList.length ? t('onboard.sidebarOrders', 'Create orders here') : t('onboard.sidebarFirstOrder', 'Create your first order') } : {}),
   };
 
@@ -3994,7 +3994,11 @@ function App() {
                 })()}
 
                 {/* Needs attention | Today */}
-                <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)' }}>
+                {/* alignItems: the class sets `start`, which leaves the right
+                    column at its content height. Stretching makes both columns
+                    the height of the row, which is what lets the two cards on
+                    the right add up to the attention list beside them. */}
+                <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)', alignItems: 'stretch' }}>
                   <SectionCard icon={AlertCircle} tone="rose" title={t('dashboard.needsAttention', 'Needs attention')}
                                action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View All')}>
                     {(() => {
@@ -4036,49 +4040,113 @@ function App() {
                     })()}
                   </SectionCard>
 
+                  {/* The right column: two separate cards, one under the other
+                      with the stack's own gap between them. The column is
+                      stretched to the row, attendance keeps its natural height,
+                      and appointments below takes whatever is left -- so
+                      attendance + gap + appointments is exactly the height of
+                      the attention card on the left. */}
+                  <div className="at-stack" style={{ minHeight: 0 }}>
                   <SectionCard icon={CalendarDays} tone="green" title={t('dashboard.today', 'Today')}>
                     {(() => {
                       const today = dashboardData?.today || {};
-                      const appts = today.appointments || [];
                       return (
-                        <>
-                          <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-                            <button type="button" className="at-pipeline-tile at-stat--green" style={{ flex: 1 }}
-                                    onClick={() => setDashboardTab('staff')}>
-                              <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{today.staff_working ?? 0}</span>
-                              <span className="at-pipeline-label">{t('dashboard.onFloorNow', 'Working now')}</span>
-                            </button>
-                            <div className="at-pipeline-tile at-stat--neutral" style={{ flex: 1, cursor: 'default' }}>
-                              <span className="at-pipeline-value">{today.staff_present ?? 0}</span>
-                              <span className="at-pipeline-label">{t('dashboard.presentToday', 'Present today')}</span>
-                            </div>
+                        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
+                          <button type="button" className="at-pipeline-tile at-stat--green" style={{ flex: 1 }}
+                                  onClick={() => setDashboardTab('staff')}>
+                            <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{today.staff_working ?? 0}</span>
+                            <span className="at-pipeline-label">{t('dashboard.onFloorNow', 'Working now')}</span>
+                          </button>
+                          <div className="at-pipeline-tile at-stat--neutral" style={{ flex: 1, cursor: 'default' }}>
+                            <span className="at-pipeline-value">{today.staff_present ?? 0}</span>
+                            <span className="at-pipeline-label">{t('dashboard.presentToday', 'Present today')}</span>
                           </div>
-                          {appts.length === 0 ? (
-                            <div style={{ textAlign: 'center', padding: 'var(--space-2) 0' }}>
-                              <IconTile icon={Calendar} tone="neutral" size={40} iconSize={18} />
-                              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 'var(--space-2) 0 var(--space-3)' }}>
-                                {t('dashboard.noAppointmentsToday', 'No appointments booked for today.')}
-                              </div>
-                              <button type="button" className="btn-primary at-btn-sm" style={{ margin: '0 auto' }}
-                                      onClick={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}>
-                                <Plus size={14} /> {t('dashboard.bookAppointment', 'Book Appointment')}
-                              </button>
-                            </div>
-                          ) : (
-                            <div>
-                              {appts.map((a) => (
-                                <div key={a.id} className="at-row">
-                                  <span className="at-row-main" style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>
-                                    <b>{a.time}</b> · {a.customer || t('dashboard.customer', 'Customer')}</span>
-                                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>{a.type}{a.with ? ` · ${a.with}` : ''}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </>
+                        </div>
                       );
                     })()}
                   </SectionCard>
+                  {/* Appointments, in their own card under attendance. They used
+                      to share the attendance card, where Book Appointment sat
+                      inside the empty state -- so the moment the first booking
+                      was made the button vanished and there was no way to make a
+                      second. It belongs in the header, where it is there whether
+                      the list is empty or not. */}
+                  <SectionCard icon={Calendar} tone="green" style={{ flex: 1 }}
+                               title={t('dashboard.appointments', 'Appointments')}
+                               subtitle={t('dashboard.appointmentsSub', 'Consultations, trials and deliveries still to come')}
+                               action={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}
+                               actionLabel={t('dashboard.bookAppointment', 'Book Appointment')}>
+                    {(() => {
+                      // The upcoming list, not the dashboard's today-only
+                      // summary: the table shows the date, so a booking
+                      // further out belongs in it, and today's rows are the
+                      // ones tinted.
+                      if (appointments.length === 0) {
+                        return (
+                          <div style={{ textAlign: 'center', padding: 'var(--space-2) 0' }}>
+                            <IconTile icon={Calendar} tone="neutral" size={40} iconSize={18} />
+                            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 'var(--space-2) 0 var(--space-3)' }}>
+                              {t('dashboard.noAppointments', 'No appointments booked.')}
+                            </div>
+                            <button type="button" className="btn-primary at-btn-sm" style={{ margin: '0 auto' }}
+                                    onClick={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}>
+                              <Plus size={14} /> {t('dashboard.bookAppointment', 'Book Appointment')}
+                            </button>
+                          </div>
+                        );
+                      }
+                      const today = todayIso();
+                      return (
+                        <div className="at-table-wrap">
+                          <table className="at-table at-table--fit">
+                            <thead>
+                              <tr>
+                                <th>{t('dashboard.apptCustomer', 'Customer')}</th>
+                                <th>{t('dashboard.apptReason', 'Reason')}</th>
+                                <th>{t('dashboard.apptDate', 'Date')}</th>
+                                <th>{t('dashboard.apptTime', 'Time')}</th>
+                                <th>{t('dashboard.apptWith', 'With')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {appointments.map((a) => {
+                                const when = new Date(a.scheduled_time);
+                                const isToday = isoDay(when) === today;
+                                const customer = a.customer_detail
+                                  ? `${a.customer_detail.first_name || ''} ${a.customer_detail.last_name || ''}`.trim()
+                                  : '';
+                                return (
+                                  <tr key={a.id} className={`at-row--tap${isToday ? ' appt-today' : ''}`}
+                                      onClick={() => openAppointment(a)}>
+                                    <td data-label={t('dashboard.apptCustomer', 'Customer')}
+                                        style={{ fontWeight: 'var(--weight-semibold)' }}>
+                                      {customer || t('dashboard.customer', 'Customer')}
+                                    </td>
+                                    <td data-label={t('dashboard.apptReason', 'Reason')}>
+                                      {APPOINTMENT_TYPE_LABELS[a.appointment_type] || a.appointment_type}
+                                    </td>
+                                    <td data-label={t('dashboard.apptDate', 'Date')} style={{ whiteSpace: 'nowrap' }}>
+                                      {isToday
+                                        ? <strong>{t('dashboard.apptToday', 'Today')}</strong>
+                                        : fmtDate(a.scheduled_time)}
+                                    </td>
+                                    <td data-label={t('dashboard.apptTime', 'Time')} style={{ whiteSpace: 'nowrap' }}>
+                                      {when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                    </td>
+                                    <td data-label={t('dashboard.apptWith', 'With')}
+                                        style={{ color: 'var(--text-secondary)' }}>
+                                      {a.assigned_staff_detail?.name || t('dashboard.apptUnassigned', 'Unassigned')}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
+                  </SectionCard>
+                  </div>
                 </div>
 
                 {/* Recent orders, full width: a ref / customer / amount list
@@ -6087,15 +6155,55 @@ function App() {
                   <div>
                     <label className="form-label">Client *</label>
                     {/* Whose appointment this is cannot be edited -- moving it
-                        to another person is a different booking. */}
-                    <select className="form-control" required disabled={!!editingAppointment}
-                            value={appointmentForm.customer}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, customer: e.target.value })}>
-                      <option value="">Select a client</option>
-                      {allCustomers.map(c => (
-                        <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-                      ))}
-                    </select>
+                        to another person is a different booking. So the
+                        existing/new chooser is only on a fresh booking. */}
+                    {!editingAppointment && (
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                        {[[false, 'Existing client'], [true, 'New client']].map(([isNew, label]) => (
+                          <button key={label} type="button"
+                                  className={appointmentForm.isNewCustomer === isNew ? 'btn-primary' : 'btn-secondary'}
+                                  style={{ flex: 1, padding: '8px 10px', fontSize: '13px' }}
+                                  onClick={() => setAppointmentForm({
+                                    ...appointmentForm, isNewCustomer: isNew, customer: '' })}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {appointmentForm.isNewCustomer && !editingAppointment ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <div className="form-grid-2">
+                          <input className="form-control" placeholder="First name *" required
+                                 maxLength={LIMITS.name} value={appointmentForm.new_first_name}
+                                 onChange={(e) => setAppointmentForm({ ...appointmentForm, new_first_name: cleanName(e.target.value) })} />
+                          <input className="form-control" placeholder="Last name"
+                                 maxLength={LIMITS.name} value={appointmentForm.new_last_name}
+                                 onChange={(e) => setAppointmentForm({ ...appointmentForm, new_last_name: cleanName(e.target.value) })} />
+                        </div>
+                        <div className="form-grid-2">
+                          <input className="form-control" type="tel" inputMode="numeric" placeholder="Mobile number *" required
+                                 value={appointmentForm.new_mobile}
+                                 onChange={(e) => setAppointmentForm({ ...appointmentForm, new_mobile: cleanMobile(e.target.value) })} />
+                          <select className="form-control" value={appointmentForm.new_gender}
+                                  onChange={(e) => setAppointmentForm({ ...appointmentForm, new_gender: e.target.value })}>
+                            <option value="">Gender</option>
+                            <option value="Female">Female</option>
+                            <option value="Male">Male</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        <span className="od-hint">They are added to your customers, and the confirmation goes to this number.</span>
+                      </div>
+                    ) : (
+                      <select className="form-control" required disabled={!!editingAppointment}
+                              value={appointmentForm.customer}
+                              onChange={(e) => setAppointmentForm({ ...appointmentForm, customer: e.target.value })}>
+                        <option value="">Select a client</option>
+                        {allCustomers.map(c => (
+                          <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                   <div>
                     <label className="form-label">Type</label>
