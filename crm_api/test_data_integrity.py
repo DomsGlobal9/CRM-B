@@ -57,7 +57,7 @@ class CustomerValidationTests(IntegrityTestBase):
 
     def test_creating_a_customer_always_creates_a_measurement_row(self):
         response = self.client.post(reverse("customer-list"), {
-            "first_name": "D", "last_name": "Four", "mobile_number": "9444444444",
+            "first_name": "Dia", "last_name": "Four", "mobile_number": "9444444444",
         }, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         customer = Customer.objects.get(mobile_number="919444444444")

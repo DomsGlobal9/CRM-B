@@ -955,10 +955,14 @@ class WorkStartCheckInTests(AttendanceTestCase):
 
     def test_a_stage_start_checks_the_tailor_in(self):
         """End to end: the workroom transition itself opens the session."""
-        from crm_api.models import Customer, Order, OrderStage
+        from crm_api.models import Customer, Measurement, Order, OrderStage
         from domains.orders.services import OrderService
         customer = Customer.objects.create(
             first_name='Test', last_name='Client', mobile_number='9000000001')
+        # Stitching needs the numbers: an order that names no garment and
+        # carries no measurement is one nobody can sew, and the workroom
+        # refuses it. Not this test's subject, but its precondition.
+        Measurement.objects.create(customer=customer, bust=36, waist=30, hips=38)
         order = Order.objects.create(order_id='T2B-ATT-1', customer=customer,
                                      tailor=self.anita)
         # Everything before stitching is done, so the tailor may start it.

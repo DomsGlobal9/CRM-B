@@ -462,6 +462,11 @@ class BoutiqueCRMTests(TenantTestCase):
         self.authenticate_client()
         customer = self._customer_with_order()
         order = Order.objects.get(customer=customer)
+        # A hand-built order on the old single line: that is where maggam was
+        # ever optional. A stitching order simply has no maggam stage now, and
+        # a maggam order cannot skip the work it exists for.
+        order.flow = 'legacy'
+        order.save(update_fields=['flow'])
         stage = OrderStage.objects.create(order=order, stage_key='maggam_work',
                                           stage_name='Maggam Work', sequence=4)
         settle_stages_before(order, 'maggam_work')
@@ -499,16 +504,20 @@ class BoutiqueCRMTests(TenantTestCase):
             )
             self.assertEqual(order.stages.get(stage_key=key).status, lands_in)
 
-    def test_new_orders_get_the_full_fifteen_stage_workflow(self):
+    def test_new_orders_get_the_stitching_line_in_workroom_order(self):
+        """The default path, since the workroom split in two: cut, stitch,
+        finish, press, check. Embroidery belongs to the maggam path and is
+        not on this one at all -- see crm_api.test_workflow.FlowTests."""
         self.authenticate_client()
         customer = Customer.objects.create(first_name="Nita", last_name="R", mobile_number="9600000001")
         from domains.orders.services import OrderService
         order = OrderService.create_order_for_customer(customer, {'base_price': 1000}, user=self.user)
 
         keys = list(order.stages.order_by('sequence').values_list('stage_key', flat=True))
-        for expected in ('maggam_work', 'finishing', 'pressing'):
+        for expected in ('pattern_cutting', 'stitching_in_progress', 'finishing', 'pressing'):
             self.assertIn(expected, keys)
-        self.assertLess(keys.index('maggam_work'), keys.index('stitching_in_progress'))
+        self.assertNotIn('maggam_work', keys)
+        self.assertLess(keys.index('pattern_cutting'), keys.index('stitching_in_progress'))
         self.assertLess(keys.index('finishing'), keys.index('pressing'))
         self.assertLess(keys.index('pressing'), keys.index('master_quality_check'))
 

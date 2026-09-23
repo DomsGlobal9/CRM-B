@@ -97,16 +97,26 @@ class AuthModulePayloadTests(TenantTestCase):
     def test_switching_a_module_off_for_the_boutique_takes_it_from_the_owner(self):
         # Entitlement outranks the role map: the owner distributes access, but
         # cannot hand out what the platform has not sold the boutique.
+        # Switched on a sellable module: the roster is infrastructure now --
+        # no order can be assigned without it -- so it is not switchable.
         before = self.login(OWNER_EMAIL, OWNER_PASSWORD)['user']
-        self.assertIn('tailors', before['modules'])
+        self.assertIn('staff', before['modules'])
 
+        self.set_enabled_modules({'staff': False})
+
+        after = self.login(OWNER_EMAIL, OWNER_PASSWORD)['user']
+        self.assertNotIn('staff', after['modules'])
+        self.assertNotIn('staff',
+                         [k for keys in after['module_groups'].values() for k in keys])
+        self.assertNotIn('staff', self.me(self.token_for(self.owner))['modules'])
+
+    def test_infrastructure_cannot_be_switched_off(self):
+        """The roster is not a feature anybody buys: every order names a
+        tailor and a master, so a boutique without it cannot take one."""
         self.set_enabled_modules({'tailors': False})
 
         after = self.login(OWNER_EMAIL, OWNER_PASSWORD)['user']
-        self.assertNotIn('tailors', after['modules'])
-        self.assertNotIn('tailors',
-                         [k for keys in after['module_groups'].values() for k in keys])
-        self.assertNotIn('tailors', self.me(self.token_for(self.owner))['modules'])
+        self.assertIn('tailors', after['modules'])
 
     def test_the_owner_can_take_a_module_off_a_role_but_keeps_it(self):
         tailor_before = self.login(TAILOR_EMAIL, TAILOR_PASSWORD)['user']['modules']

@@ -218,12 +218,27 @@ class SequencingGuardTests(WorkflowTestBase):
 
     def test_cannot_start_stitching_without_a_tailor(self):
         order = self.make_order(tailor=False)
+        # Cutting first, or the refusal we get is about cutting.
+        self.reach(order, "stitching_in_progress")
         with self.assertRaises(ValueError) as ctx:
             OrderService.transition_order_stage(
                 order=order, stage_key="stitching_in_progress",
-                new_status="IN_PROGRESS", user=self.owner,
+                new_status="IN_PROGRESS", user=self.tailor_user,
             )
         self.assertIn("tailor", str(ctx.exception).lower())
+
+    def test_a_supervisor_starting_the_stitching_is_the_stitcher(self):
+        """The owner of a one-person boutique has nobody to hand it to, and a
+        Master does every job. The rule stops the floor, not the supervisor."""
+        order = self.make_order(tailor=False)
+        self.reach(order, "stitching_in_progress")
+
+        OrderService.transition_order_stage(
+            order=order, stage_key="stitching_in_progress",
+            new_status="IN_PROGRESS", user=self.owner,
+        )
+
+        self.assertEqual(self.stage(order, "stitching_in_progress").status, "IN_PROGRESS")
 
     def test_cannot_start_stitching_without_measurements(self):
         customer = self.make_customer(mobile="9800000009", with_measurements=False)
@@ -375,8 +390,8 @@ class OrderCreationTests(WorkflowTestBase):
         # starts at Order taken and goes straight to the workroom.
         order = self.make_order()
         keys = list(order.stages.order_by("sequence").values_list("stage_key", flat=True))
-        self.assertNotIn("pattern_cutting", keys)
-        self.assertNotIn("pattern_cutting", keys)
+        self.assertNotIn("measurements_completed", keys)
+        self.assertNotIn("fabric_confirmed", keys)
         self.assertEqual(keys[:2], ["created", "pattern_cutting"])
         self.assertEqual(order.current_stage_key, "created")
 
@@ -2138,8 +2153,9 @@ class FlowTests(WorkflowTestBase):
         keys = self.keys(order)
         self.assertNotIn("pattern_cutting", keys)
         self.assertIn("maggam_work", keys)
-        # Fabric stayed completed; the new stages start from nothing.
-        self.assertEqual(self.stage(order, "pattern_cutting").status, "COMPLETED")
+        # What was already settled stayed settled; the new stages start from
+        # nothing. Cutting itself is gone -- it belongs to the other path.
+        self.assertEqual(self.stage(order, "created").status, "COMPLETED")
         self.assertEqual(self.stage(order, "paper_cutting").status, "NOT_STARTED")
         # Once cutting has begun, the path is fixed.
         self.step(order, "paper_cutting", status="IN_PROGRESS")

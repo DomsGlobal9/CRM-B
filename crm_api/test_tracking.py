@@ -20,8 +20,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from crm_api.models import (
-    BoutiqueSettings, Customer, CustomerMessage, GarmentImage, Order, Tailor,
-    whatsapp_number, Measurement,
+    BoutiqueSettings, Customer, CustomerMessage, GarmentImage, Measurement, Order,
+    Tailor, whatsapp_number,
 )
 from domains.orders.messaging import send_customer_message
 from domains.orders.services import OrderService
@@ -62,6 +62,10 @@ class TrackingTestBase(TenantTestCase):
             email_address="anita@example.com",
             garment_type="Lehenga",
         )
+        # The workroom refuses to stitch an order that names no garment and
+        # carries no measurement. These tests are about the messages a stage
+        # sends, so give the customer numbers and let the stages run.
+        Measurement.objects.create(customer=self.customer, bust=36, waist=30, hips=38)
         with self.captureOnCommitCallbacks(execute=True):
             self.order = OrderService.create_order_for_customer(self.customer, {})
 
@@ -253,9 +257,6 @@ class CustomerMessageTests(TrackingTestBase):
         self.order.tailor = tailor
         self.order.save()
 
-        # The customer is measured while the order is taken; the workflow
-        # will not hand the garment to a tailor without it.
-        Measurement.objects.create(customer=self.order.customer, bust=36, waist=28, hips=38)
 
         # Prerequisite intermediate stages
         OrderService.transition_order_stage(self.order, 'pattern_cutting', 'COMPLETED', user=owner)

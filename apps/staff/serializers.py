@@ -169,7 +169,14 @@ class StaffProfileSerializer(serializers.ModelSerializer):
         # deposit is a figure typed in the wrong box.
         total = attrs.get('deposit_total', getattr(self.instance, 'deposit_total', None))
         weekly = attrs.get('deposit_weekly', getattr(self.instance, 'deposit_weekly', None))
-        if total is not None and weekly is not None and weekly > total:
+        if 'deposit_total' in attrs and total is not None and total <= 0:
+            # Cancelling the deposit cancels its recovery. Refusing this as
+            # "the weekly deduction is more than the deposit" made cancelling
+            # impossible in one step -- the owner had to know to zero the
+            # weekly figure first, and until they did, payroll went on
+            # collecting against a deposit they had tried to call off.
+            attrs['deposit_weekly'] = weekly.__class__(0) if weekly is not None else 0
+        elif total is not None and weekly is not None and weekly > total:
             raise serializers.ValidationError(
                 {'deposit_weekly': 'The weekly deduction cannot be more than the deposit.'})
         return attrs

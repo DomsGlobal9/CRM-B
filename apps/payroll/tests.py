@@ -784,8 +784,14 @@ class PayrollModuleGateTests(PayrollTestCase):
         self.assertEqual(module_for_path('/api/payroll/periods/'), 'payroll')
 
     def test_switching_payroll_off_does_not_switch_staff_off(self):
-        from core.modules import module_for_path
-        self.assertEqual(module_for_path('/api/staff/attendance/'), 'staff')
+        from core.modules import PARENT, module_for_path
+        # Attendance became its own switch under Staff; what matters here is
+        # that it is not governed by payroll, so turning wages off leaves the
+        # floor able to record its hours.
+        gate = module_for_path('/api/staff/attendance/')
+        self.assertEqual(gate, 'staff_attendance')
+        self.assertEqual(PARENT[gate], 'staff')
+        self.assertEqual(module_for_path('/api/payroll/'), 'payroll')
 
     def test_payroll_is_on_for_a_boutique_with_no_opinion(self):
         from core.modules import default_enabled, is_enabled
@@ -1608,8 +1614,12 @@ class DepositReviewFixTests(PayrollTestCase):
         self.assertEqual(deposits.deposit_state(self.anita)['remaining'],
                          Decimal('5000.00'))
 
-        owner.patch(reverse('staff-profile-detail', args=[created.data['id']]),
-                    {'deposit_total': '0.00'}, format='json')
+        cancelled = owner.patch(
+            reverse('staff-profile-detail', args=[created.data['id']]),
+            {'deposit_total': '0.00'}, format='json')
+        self.assertEqual(cancelled.status_code, 200, cancelled.data)
+        # Cancelling the deposit cancels the weekly recovery with it.
+        self.assertEqual(Decimal(cancelled.data['deposit_weekly']), Decimal('0.00'))
 
         state = deposits.deposit_state(self.anita)
         self.assertEqual(state['agreed'], Decimal('0.00'))

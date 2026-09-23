@@ -614,6 +614,13 @@ class OrderViewSet(viewsets.ModelViewSet):
         except ValueError as ve:
             return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)
         order.refresh_from_db()
+        # The caller named a status; the stages are how we get there, not a
+        # vote on where we end up. Completing stitching derives 'Quality
+        # Check' on its own, so asking for 'Design & Creation' used to answer
+        # 200 and leave the order somewhere else entirely.
+        if order.order_status != new_status:
+            order.order_status = new_status
+            order.save(update_fields=['order_status'])
         return Response({'status': 'status updated', 'order_status': order.order_status})
 
     @action(detail=True, methods=['POST'], url_path='complete-all')
