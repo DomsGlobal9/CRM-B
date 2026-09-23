@@ -4852,7 +4852,8 @@ tr.gh-express { animation: none; background: color-mix(in srgb, var(--danger-bg)
   .nav-collapsed .portal-menu { padding: 0 12px; }
   .nav-collapsed .portal-menu-item { justify-content: center; padding: 12px 0; gap: 0; }
   .nav-collapsed .portal-menu-label { display: none; }
-  .nav-collapsed .portal-menu-group { font-size: 0; height: 1px; background: var(--border-color); padding: 0; margin: 10px 8px 6px; opacity: 1; }
+  .nav-collapsed .portal-menu-group { font-size: 0; height: 1px; background: var(--border-color); padding: 0; margin: 10px 8px 6px; opacity: 1; border-bottom: 0; }
+  .nav-collapsed .portal-menu-group::after { display: none; }
   .nav-collapsed .portal-menu-divider { margin: 6px 8px; }
   .nav-collapsed .portal-sidebar-footer, .nav-collapsed .portal-sidebar-help { display: none; }
 }
@@ -5041,7 +5042,21 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .portal-sidebar-mark { color: var(--shell-logo); }
 .portal-nav-toggle { background: color-mix(in srgb, var(--shell-fg) 8%, transparent); border-color: color-mix(in srgb, var(--shell-fg) 25%, transparent); color: color-mix(in srgb, var(--shell-fg) 90%, transparent); }
 .portal-nav-toggle:hover { color: var(--shell-fg); border-color: color-mix(in srgb, var(--shell-fg) 35%, transparent); }
-.portal-menu-group { color: var(--shell-muted); opacity: 1; font-size: 10px; letter-spacing: 0.14em; padding: 16px 12px 6px; }
+/* Group headings.
+   The colour was never the problem -- --shell-muted on the shell measures
+   10.68:1, comfortably AAA. It was that 10px at weight 600 sat beside 14px
+   near-white items and lost. So a size up and a weight up.
+   The rule under it is SHORT and lime, not a full-width hairline. A rule that
+   spans the sidebar reads as a divider, and a divider directly beneath a
+   heading cuts it off from the very items it names -- six of them stacked down
+   the rail also banded the whole sidebar. A short bar reads as part of the
+   word, and borrows the accent already used for the active item.
+   Grouping is then done by space, the way it should be: a generous gap ABOVE
+   each heading, a tight one below, so each label sits with its own items. */
+.portal-menu-group { color: var(--shell-muted); opacity: 1; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.14em; padding: 24px 12px 0; margin: 0 0 8px; border-bottom: 0; }
+.portal-menu-group::after { content: ''; display: block; width: 18px; height: 2px;
+  margin-top: 8px; border-radius: 2px; background: var(--shell-accent); }
 .portal-menu-divider { background: color-mix(in srgb, var(--shell-fg) 12%, transparent); margin: 20px 12px 8px; }
 /* Nav text near full strength: at 65% it disappeared into the shell. */
 .portal-menu-item { position: relative; min-height: 44px; padding: 10px 12px; border-radius: var(--radius-lg); font-size: 14px; font-weight: 500; color: color-mix(in srgb, var(--shell-fg) 92%, transparent); transition: color .15s ease, background-color .15s ease; }
