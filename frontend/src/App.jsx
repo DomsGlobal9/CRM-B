@@ -1278,10 +1278,15 @@ const navSectionsFor = (user, t) => {
         { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
+        // A Master works the floor like everyone else on it: without this
+        // entry they had no way to record a day at all, though the server
+        // accepted their check-in the whole time.
+        { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
       ] },
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
         { tab: 'designs', icon: Palette, label: t('nav.designStudio'), phone: true },
+        { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
       ] },
     ] : [
       { key: 'production', items: [

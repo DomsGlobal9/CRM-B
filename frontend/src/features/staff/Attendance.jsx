@@ -27,6 +27,21 @@ const clockText = (iso) =>
 const dayText = (iso) =>
   iso ? new Date(iso).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : '—';
 
+/** True when a stamp does not belong to today, so the card must say which day
+ *  it was. "Since 3:03 PM" under a heading that reads Today says nothing
+ *  about WHICH 3:03 PM -- which is the whole question on a night shift, and
+ *  was an outright lie back when a forgotten session could stay open for
+ *  days. The server now closes anything past a shift's length, so this is a
+ *  night shift rather than an abandoned one, and the wording stays neutral. */
+const isAnotherDay = (iso) => {
+  if (!iso) return false;
+  const then = new Date(iso);
+  const now = new Date();
+  return then.getFullYear() !== now.getFullYear()
+    || then.getMonth() !== now.getMonth()
+    || then.getDate() !== now.getDate();
+};
+
 /** The Monday of the week a date falls in, as yyyy-mm-dd. */
 const mondayOf = (value) => {
   const d = new Date(value);
@@ -170,6 +185,8 @@ function MyDay({ onChanged }) {
   const elapsed = session && state.state === 'WORKING'
     ? Math.max(0, Math.floor((now - new Date(session.check_in).getTime()) / 60000))
     : 0;
+  // An open session that began yesterday: a night shift. Name the day.
+  const startedEarlier = state.state === 'WORKING' && isAnotherDay(session?.check_in);
 
   return (
     <div style={{ ...panel, padding: '20px', marginBottom: '18px' }}>
@@ -179,7 +196,7 @@ function MyDay({ onChanged }) {
         fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
         color: 'var(--text-muted)', marginBottom: '10px',
       }}>
-        Today
+        {startedEarlier ? 'Your shift' : 'Today'}
       </div>
 
       {state.state === 'NOT_CHECKED_IN' && (
@@ -207,7 +224,8 @@ function MyDay({ onChanged }) {
             <span style={{ fontSize: '18px', fontWeight: 600 }}>You&rsquo;re checked in</span>
           </div>
           <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
-            Since {clockText(session.check_in)} · {hoursText(elapsed)} so far
+            Since {startedEarlier ? `${dayText(session.check_in)}, ` : ''}{clockText(session.check_in)}
+            {' \u00b7 '}{hoursText(elapsed)} so far
           </div>
           <button
             type="button" className="btn-primary" disabled={busy}
