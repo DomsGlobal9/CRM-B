@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { createPortal } from 'react-dom';
 import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
@@ -1320,21 +1319,6 @@ function GuidedHighlight({ show, text, children }) {
 
 function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
   const [flyout, setFlyout] = useState(null);
-  // The spotlight callout sits just right of the item, over the page. Fixed
-  // from the item's rectangle, re-measured when the window changes, and
-  // rendered on <body> so nothing in the shell can paint over it.
-  const itemRef = useRef(null);
-  const [hintAt, setHintAt] = useState(null);
-  useEffect(() => {
-    if (!hint || collapsed) { setHintAt(null); return undefined; }
-    const place = () => {
-      const r = itemRef.current?.getBoundingClientRect();
-      if (r) setHintAt({ top: r.top + r.height / 2, left: r.right + 14 });
-    };
-    place();
-    window.addEventListener('resize', place);
-    return () => window.removeEventListener('resize', place);
-  }, [hint, collapsed]);
   const show = (e) => {
     if (!collapsed) return;
     const r = e.currentTarget.getBoundingClientRect();
@@ -1343,7 +1327,6 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
   const hide = () => setFlyout(null);
   return (
     <a
-      ref={itemRef}
       className={`portal-menu-item${active ? ' active' : ''}${hint && !collapsed ? ' gh-nav' : ''}`}
       role="button"
       tabIndex={0}
@@ -1357,12 +1340,9 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
     >
       <Icon size={16} />
       <span className="portal-menu-label">{label}</span>
-      {/* On <body>: the sticky sidebar is its own stacking layer, so a callout
-          left inside it would paint under the page it points across. */}
-      {hint && !collapsed && hintAt && createPortal(
-        <span className="gh-callout gh-side" role="note" style={{ top: hintAt.top, left: hintAt.left }}>{hint}</span>,
-        document.body,
-      )}
+      {/* Notched into the item's own top border, so it scrolls with the item
+          and can never reach past the sidebar. */}
+      {hint && !collapsed && <span className="gh-nav-label" role="note">{hint}</span>}
       {collapsed && flyout && (
         <span className="portal-flyout" role="tooltip" style={{ top: flyout.top, left: flyout.left }}>{label}</span>
       )}
@@ -3211,7 +3191,7 @@ function App() {
   // under ten orders. Independent of each other; each hides on its own tab,
   // where the page's button carries the guidance instead.
   const sidebarHint = {
-    ...(guideCustomers && dashboardTab !== 'customers' ? { customers: t('onboard.sidebarCustomers', 'Add your customers') } : {}),
+    ...(guideCustomers && dashboardTab !== 'customers' ? { customers: t('onboard.sidebarCustomers', 'Add new customers') } : {}),
     ...(guideOrders && dashboardTab !== 'orders' ? { orders: ordersList.length ? t('onboard.sidebarOrders', 'Create orders here') : t('onboard.sidebarFirstOrder', 'Create your first order') } : {}),
   };
 

@@ -4789,19 +4789,22 @@ table.data-table tbody tr:hover {
   content: ''; position: absolute; top: 100%; left: 50%; margin-left: -7px;
   border: 7px solid transparent; border-top-color: var(--shell-bg); border-bottom: 0;
 }
-/* Sidebar variant: the ring is drawn on the item and the callout sits to its
-   right, over the page, pointing left at it (fixed, like .portal-flyout). */
-.portal-menu-item.gh-nav { box-shadow: 0 0 0 2px var(--primary-color); animation: gh-nav-glow 1.6s ease-in-out infinite; }
+/* Sidebar variant: a lime ring around the item with the guidance notched into
+   its top edge, like a fieldset legend. The label carries the shell's own
+   background, which is what cuts the ring where it sits; the ring is a
+   box-shadow, so the item's size and the menu's rhythm do not change. The
+   margin gives the label the room it borrows from above. */
+.portal-menu-item.gh-nav { margin-top: 8px; animation: gh-nav-glow 2.4s ease-in-out infinite; }
 @keyframes gh-nav-glow {
-  0%, 100% { box-shadow: 0 0 0 2px var(--primary-color), 0 0 0 2px rgba(185, 213, 60, 0); }
-  50%      { box-shadow: 0 0 0 2px var(--primary-color), 0 0 0 10px rgba(185, 213, 60, 0.30); }
+  0%, 100% { box-shadow: 0 0 0 1.5px var(--primary-color), 0 0 0 1.5px rgba(185, 213, 60, 0); }
+  50%      { box-shadow: 0 0 0 1.5px var(--primary-color), 0 0 0 7px rgba(185, 213, 60, 0.16); }
 }
-.gh-callout.gh-side {
-  position: fixed; bottom: auto; left: auto; background: var(--primary-color); color: var(--primary-foreground);
-  z-index: 1200; animation: gh-bob-x 1.2s ease-in-out infinite;
-}
-.gh-callout.gh-side::after {
-  top: 50%; left: -7px; margin: -7px 0 0; border: 7px solid transparent; border-right-color: var(--primary-color); border-left: 0;
+.gh-nav-label {
+  position: absolute; top: 0; left: 50%; transform: translate(-50%, -50%);
+  max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 0 6px; background: var(--shell-bg);
+  font-size: 10px; font-weight: 600; letter-spacing: 0.04em; line-height: 1;
+  color: var(--primary-color); pointer-events: none;
 }
 /* Express orders and the garments inside them, in the same visual language:
    the row/card itself carries the ring and pulse, with a small callout that
