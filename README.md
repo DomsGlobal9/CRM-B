@@ -180,6 +180,16 @@ afterwards does not undo.
   more than 3 days ago (`--days N` to change it), in every boutique. Until this
   job is scheduled nothing is ever deleted; a Delivery reopened inside the
   window still has all its media. See `domains/orders/retention.py`.
+* **Hourly cron (Render Cron Job, same repo and env vars):**
+  ```bash
+  python manage.py close_stale_attendance
+  ```
+  Checks out anybody whose attendance session has been open longer than 12
+  hours (`apps.staff.attendance.MAX_SESSION_HOURS`), in every boutique. The
+  stamp written is that session's own `check_in + 12h`, never the moment the
+  job ran, so a late run does not inflate anybody's hours and a repeat run
+  changes nothing. Until this is scheduled a forgotten check-out stays open
+  until that person's next check-in, which sweeps their own stale session.
 * **Region:** put the service in the same region as the Supabase database
   (`ap-southeast-1`). Every request makes several database round trips, so a
   cross-region service pays that latency several times over per request. This is

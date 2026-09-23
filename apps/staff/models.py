@@ -228,6 +228,13 @@ class AttendanceSession(models.Model):
 
     source = models.CharField(
         max_length=10, choices=Source.choices, default=Source.SELF, db_index=True)
+    #: True when nobody checked out and the shift was closed by the
+    #: MAX_SESSION_HOURS rule (apps.staff.attendance.auto_close_stale_sessions).
+    #: Its own column rather than a word in `note`, because payroll pays these
+    #: minutes and "this figure is a ceiling, not an observation" is the kind of
+    #: thing a wage query has to be able to filter on. `source` is not the place
+    #: for it: that records who OPENED the session and must stay true.
+    auto_checked_out = models.BooleanField(default=False, db_index=True)
     note = models.TextField(blank=True, default='')
 
     #: Who actually wrote the row -- the staff member themselves, or the owner
