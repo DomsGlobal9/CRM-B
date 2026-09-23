@@ -5585,6 +5585,12 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
    looking like a field of its own. */
 .apt-custom-type { margin-top: 8px; }
 
+/* Workshop load: a rule under each tile's heading, so the label sits over its
+   number the way a column heading sits over a column. Scoped to this card --
+   .at-pipeline-label is shared with the stage pipeline and the attendance
+   tiles, which are not headed this way. */
+.wl-tiles .at-pipeline-label { padding-bottom: 6px; border-bottom: 1px solid var(--border-color); }
+
 
 /* Existing / New client: one track, two halves, so it reads as a single
    either-or control rather than two competing buttons. */
