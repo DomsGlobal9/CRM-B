@@ -5892,19 +5892,19 @@ function App() {
 
                     <div className="at-stack">
                       <SectionCard icon={Scissors} tone="blue" title={t('analyticsPage.staffWorkloadOverview', 'Staff & Workload Overview')}
-                                   subtitle="Current team status and capacity" action={() => setDashboardTab('staff')} actionLabel="Manage team">
+                                   subtitle="Who is working, and who is free" action={() => setDashboardTab('staff')} actionLabel="Manage team">
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--space-3)' }}>
                           <div className="at-pipeline-tile at-stat--blue" style={{ cursor: 'default' }}>
                             <span className="at-pipeline-label">{t('analyticsPage.totalTailoringTeam', 'Total Tailoring Team')}</span>
-                            <span className="at-pipeline-value">{tailors.length} <small style={{ fontSize: 'var(--text-xs)', fontWeight: 500 }}>{tailors.length === 1 ? t('analyticsPage.tailorSingle', 'Tailor') : t('analyticsPage.tailorPlural', 'Tailors')}</small></span>
+                            <span className="at-pipeline-value">{tailors.length}</span>
                           </div>
                           <div className="at-pipeline-tile at-stat--amber" style={{ cursor: 'default' }}>
                             <span className="at-pipeline-label">{t('analyticsPage.busyAssignedTailors', 'Busy / Assigned Tailors')}</span>
-                            <span className="at-pipeline-value" style={{ color: 'var(--tone-amber-fg)' }}>{busyTailors} <small style={{ fontSize: 'var(--text-xs)', fontWeight: 500 }}>{t('analyticsPage.busyStatus', 'Busy')}</small></span>
+                            <span className="at-pipeline-value" style={{ color: 'var(--tone-amber-fg)' }}>{busyTailors}</span>
                           </div>
                           <div className="at-pipeline-tile at-stat--green" style={{ cursor: 'default' }}>
                             <span className="at-pipeline-label">{t('analyticsPage.availableStaffCapacity', 'Available Staff capacity')}</span>
-                            <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{tailors.length - busyTailors} <small style={{ fontSize: 'var(--text-xs)', fontWeight: 500 }}>{t('analyticsPage.freeStatus', 'Free')}</small></span>
+                            <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{tailors.length - busyTailors}</span>
                           </div>
                         </div>
                       </SectionCard>
