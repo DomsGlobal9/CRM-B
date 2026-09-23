@@ -58,12 +58,13 @@
 .wk-sentback .at-note { border-color: var(--danger-color); }
 .wk-reject { display: flex; gap: 10px; align-items: flex-start; margin-top: var(--space-2); font-size: var(--text-base); color: var(--danger-color); }
 
-/* Big enough to hit with a thumb: the read-aloud button, the mic, a photo's remove. */
+/* Big enough to hit with a thumb: the read-aloud button, a photo's remove. */
 .wk-listen { display: inline-flex; vertical-align: middle; margin: -12px 0; }
 .wk-listen button { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; }
-.wk-note-box button { width: 44px !important; height: 44px !important; top: 2px !important; right: 2px !important; }
-.wk-note-box > div > span { right: 50px !important; }
-.wk-note-box textarea { padding-right: 50px !important; }
+/* The note box holds a plain textarea and the voice recorder below it. Its
+   buttons are Record / Stop / Send / Delete -- labelled, so they size to their
+   own text and never get squared off into a 44px icon. */
+.wk-note-box .voice-recorder button { min-height: 40px; flex-shrink: 0; white-space: nowrap; }
 .wk-tiles .at-photo-remove { width: 32px; height: 32px; }
 .wk-tiles .at-photo-remove::after { content: ''; position: absolute; inset: -6px; }
 
