@@ -242,7 +242,10 @@ class CustomerViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class TailorViewSet(viewsets.ModelViewSet):
-    queryset = Tailor.objects.all().order_by('-rating')
+    # staff_profile is a reverse one-to-one the serializer reads for the
+    # phone number: without this it is one query per person on every roster,
+    # assignment dropdown and order screen that lists the floor.
+    queryset = Tailor.objects.select_related('staff_profile').order_by('-rating')
     serializer_class = TailorSerializer
 
     def perform_create(self, serializer):

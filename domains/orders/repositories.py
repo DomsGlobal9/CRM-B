@@ -1,18 +1,31 @@
+from django.db.models import Prefetch
+
 from crm_api.models import Order
 
 from domains.orders.services import _SETTLED_ORDER_STATUSES
 
-ORDER_SELECT_RELATED = ('customer', 'tailor', 'master', 'customer__measurements')
+ORDER_SELECT_RELATED = ('customer', 'tailor', 'master', 'customer__measurements',
+                        # The order an alteration came back from, for its number.
+                        'alteration_of', 'alteration_garment__template')
+#: Everything OrderSerializer reads. A relation missing from this list is one
+#: query per order on a list endpoint -- 500 orders read 3,018 times before
+#: purchases, garment images and alterations were added to it.
 ORDER_PREFETCH = (
     'stages',
     'stages__performed_by',
     'stages__assigned_to',
+    'stages__garment_job__template',
     'activities',
     'activities__user',
     'stage_histories',
     'garment_jobs',
     'garment_jobs__template',
     'garment_jobs__materials',
+    'purchases',
+    'garment_images',
+    # Ordered here rather than in the serializer: an .order_by() on a
+    # prefetched relation throws the prefetch away and queries again.
+    Prefetch('alterations', queryset=Order.objects.order_by('alteration_seq')),
 )
 
 

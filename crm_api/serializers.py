@@ -158,6 +158,17 @@ class TailorSerializer(serializers.ModelSerializer):
             self._write_phone(tailor, phone)
         return tailor
 
+    def _reader_role(self, request):
+        """The caller's role, worked out once for the whole list.
+
+        resolve_user_role reads the caller's own roster row; asking it again
+        for every person in the list is a query per row for an answer that
+        cannot change between them."""
+        if not hasattr(self, '_role_cache'):
+            from core.roles import resolve_user_role
+            self._role_cache = resolve_user_role(request.user)
+        return self._role_cache
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')
@@ -167,8 +178,8 @@ class TailorSerializer(serializers.ModelSerializer):
 
         if request is not None:
             from core.permissions import SUPERVISOR_ROLES
-            from core.roles import OWNER, resolve_user_role
-            role = resolve_user_role(request.user)
+            from core.roles import OWNER
+            role = self._reader_role(request)
             if role != OWNER:
                 data.pop('email', None)
                 data.pop('user', None)
@@ -398,10 +409,11 @@ class OrderSerializer(serializers.ModelSerializer):
     alterations = serializers.SerializerMethodField()
 
     def get_alterations(self, obj):
+        # .all() so the prefetch is used; the ordering lives on the Prefetch.
         return [{'id': a.id, 'order_reference': a.reference, 'order_status': a.order_status,
                  'current_stage_key': a.current_stage_key, 'order_date': a.order_date,
                  'garment_label': a.alteration_garment_name, 'total_amount': a.total_amount}
-                for a in obj.alterations.order_by('alteration_seq')]
+                for a in obj.alterations.all()]
 
     class Meta:
         model = Order
