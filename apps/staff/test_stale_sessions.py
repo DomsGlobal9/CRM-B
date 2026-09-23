@@ -7,7 +7,10 @@ across days, which refused them tomorrow's check-in ("already checked in"),
 kept their timesheet at zero, and then banked every hour since -- 44 of them
 -- the moment anybody finally tapped Check out.
 """
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
+from datetime import timezone as _dt_timezone
+
+timezone_utc = _dt_timezone.utc
 
 from django.urls import reverse
 from django.utils import timezone
@@ -112,3 +115,37 @@ class StaleSessionTests(StaffProfileTestCase):
         self.open_session(self.anita, days_ago=1)
 
         self.assertEqual(len(attendance.close_stale_sessions(staff=self.anita)), 1)
+
+
+class DefaultWindowTests(StaffProfileTestCase):
+    """An unfiltered attendance read used to return every session ever."""
+
+    def session_on(self, day):
+        start = datetime.combine(day, time(9, 30), tzinfo=timezone_utc)
+        return AttendanceSession.objects.create(
+            staff=self.anita, date=day, check_in=start,
+            check_out=start + timedelta(hours=8), minutes=480, source='SELF')
+
+    def test_an_unasked_read_stops_at_the_default_window(self):
+        today = attendance.business_date(timezone.now())
+        self.session_on(today - timedelta(days=5))
+        self.session_on(today - timedelta(days=400))
+
+        res = self.client_for(self.owner).get(reverse('staff-attendance-list'))
+
+        self.assertEqual(res.status_code, 200)
+        days = {row['date'] for row in res.json()}
+        self.assertIn(str(today - timedelta(days=5)), days)
+        self.assertNotIn(str(today - timedelta(days=400)), days)
+
+    def test_asking_for_older_days_still_reaches_them(self):
+        today = attendance.business_date(timezone.now())
+        self.session_on(today - timedelta(days=400))
+
+        res = self.client_for(self.owner).get(
+            reverse('staff-attendance-list'),
+            {'since': str(today - timedelta(days=500)), 'until': str(today)})
+
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(str(today - timedelta(days=400)),
+                      {row['date'] for row in res.json()})

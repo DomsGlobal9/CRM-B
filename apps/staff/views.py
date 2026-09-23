@@ -271,12 +271,23 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
         # safe to honour, though -- it only ever narrows a person's own days.
         return self._apply_range(queryset.filter(staff=profile))
 
+    #: How far back an unfiltered attendance read goes.
+    #:
+    #: Every screen that reads this asks for a day, a week or a month; only a
+    #: caller with no window at all reaches this. Without it that caller gets
+    #: every session the boutique has ever recorded -- 4.6MB after one year
+    #: of fifty staff, and growing for ever. A quarter is longer than any
+    #: screen asks for and bounded, and `since=` still reaches older days.
+    DEFAULT_WINDOW_DAYS = 90
+
     def _apply_range(self, queryset):
         """Narrow to [since, until] inclusive; a malformed bound narrows to none."""
+        asked = False
         for param, lookup in (('since', 'date__gte'), ('until', 'date__lte')):
             raw = self.request.query_params.get(param)
             if not raw:
                 continue
+            asked = True
             try:
                 parsed = parse_date(raw)
             except ValueError:
@@ -284,6 +295,9 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
             if parsed is None:
                 return queryset.none()
             queryset = queryset.filter(**{lookup: parsed})
+        if not asked and not self.request.query_params.get('date'):
+            queryset = queryset.filter(
+                date__gte=timezone.localdate() - timedelta(days=self.DEFAULT_WINDOW_DAYS))
         return queryset
 
     @action(detail=False, methods=['GET'])
