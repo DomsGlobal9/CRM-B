@@ -5776,7 +5776,6 @@ function App() {
               const topSleevesList = Object.entries(sleeveDist).sort((a, b) => b[1] - a[1]).slice(0, 4);
 
               const busyTailors = tailors.filter(t => t.status === 'Busy').length;
-              const avgTailorRating = tailors.length > 0 ? (tailors.reduce((sum, t) => sum + parseFloat(t.rating), 0) / tailors.length) : 5.0;
 
               const segments = (() => {
                 const total = customersList.length || 1;
@@ -5906,10 +5905,6 @@ function App() {
                           <div className="at-pipeline-tile at-stat--green" style={{ cursor: 'default' }}>
                             <span className="at-pipeline-label">{t('analyticsPage.availableStaffCapacity', 'Available Staff capacity')}</span>
                             <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{tailors.length - busyTailors} <small style={{ fontSize: 'var(--text-xs)', fontWeight: 500 }}>{t('analyticsPage.freeStatus', 'Free')}</small></span>
-                          </div>
-                          <div className="at-pipeline-tile at-stat--violet" style={{ cursor: 'default' }}>
-                            <span className="at-pipeline-label">{t('analyticsPage.atelierAvgRating', 'Atelier Average Rating')}</span>
-                            <span className="at-pipeline-value">⭐ {avgTailorRating.toFixed(2)} <small style={{ fontSize: 'var(--text-xs)', fontWeight: 500 }}>out of 5</small></span>
                           </div>
                         </div>
                       </SectionCard>
