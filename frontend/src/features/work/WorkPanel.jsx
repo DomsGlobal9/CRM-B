@@ -7,7 +7,7 @@ import { orderRef, formatDate, formatDateTime } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { imageFilesError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import VoiceTextarea, { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
+import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
 import { Lightbox } from '../designStudio/GarmentPartPicker';
@@ -537,8 +537,8 @@ function SubmitForm({ stage, busy, error, isSupervisor, save }) {
         )}
         {problem && <div className="wk-error" role="alert">{problem}</div>}
         <div className="wk-note-box">
-          <VoiceTextarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)}
-                         placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} />
+          <textarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)}
+                    placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} />
           <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} />
         </div>
       </div>
@@ -573,8 +573,8 @@ function NoteForm({ stage, busy, error, save }) {
         <div className="wk-calm">{t('workPage.sentForChecking', 'Sent for checking. The master will look at it.')}</div>
         {openNote && (
           <div className="wk-note-box">
-            <VoiceTextarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)}
-                           placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} autoFocus />
+            <textarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)}
+                      placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} autoFocus />
             <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} />
           </div>
         )}
@@ -611,8 +611,8 @@ function CheckForm({ stage, busy, error, save }) {
       {sending && (
         <div className="wk-form" ref={boxRef}>
           <div className="wk-note-box">
-            <VoiceTextarea className="form-control" rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
-                           placeholder={t('workPage.sendBackReason', 'Say what needs to be redone')} autoFocus />
+            <textarea className="form-control" rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
+                      placeholder={t('workPage.sendBackReason', 'Say what needs to be redone')} autoFocus />
             <StageVoiceNote stage={stage} busy={busy} text={reason} save={save} onRecordingChange={setRecording} />
           </div>
         </div>
