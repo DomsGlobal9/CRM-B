@@ -18,7 +18,7 @@ from core.permissions import (
 )
 from core.roles import OWNER, resolve_user_role
 from core.validators import (
-    MAX_NOTE, MAX_REASON, validate_amount, validate_email_address, validate_image_upload,
+    MAX_NOTE, MAX_REASON, to_id, validate_amount, validate_email_address, validate_image_upload,
     validate_http_url, validate_image_uploads, validate_mobile, validate_not_past, validate_phone, validate_text,
 )
 from django.conf import settings
@@ -1118,12 +1118,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         order = self.get_object()
 
         def pick(field, roles, label):
-            raw = request.data.get(field)
-            if raw in (None, '', 'null'):
+            staff_id = to_id(request.data.get(field))
+            if staff_id is None:
                 return None
-            try:
-                staff = Tailor.objects.get(id=int(raw))
-            except (Tailor.DoesNotExist, TypeError, ValueError):
+            staff = Tailor.objects.filter(id=staff_id).first()
+            if staff is None:
                 raise ValueError(f'That {label} is not on this boutique\'s staff list.')
             if staff.role not in roles:
                 raise ValueError(f'{staff.name} is a {staff.role} and cannot be the {label} on this order.')

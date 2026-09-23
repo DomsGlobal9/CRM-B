@@ -553,3 +553,4 @@ def record_frontend(request, *, name, message, stack='', route=''):
         severity='high',
         source='browser',
     )
+

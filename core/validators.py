@@ -352,3 +352,19 @@ def validate_image_uploads(files, *, label='Photos', max_count=MAX_IMAGES_PER_UP
     if len(files) > max_count:
         raise serializers.ValidationError(f'{label}: at most {max_count} at a time.')
     return [validate_image_upload(f, label=label) for f in files]
+
+
+def to_id(value):
+    """A row id from a request body, or None when it is not one.
+
+    `int(True)` is 1, so a client sending `{"tailor": true}` used to assign
+    whoever happens to be staff member #1 -- a real write, from a value that
+    names nobody. Booleans are rejected before anything else for that reason;
+    everything else that is not a whole number simply is not an id.
+    """
+    if isinstance(value, bool) or value in (None, '', 'null'):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None

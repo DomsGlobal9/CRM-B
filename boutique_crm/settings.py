@@ -310,6 +310,12 @@ REST_FRAMEWORK = {
         'client_error': os.environ.get('CLIENT_ERROR_RATE', '30/hour'),
     },
     'EXCEPTION_HANDLER': 'core.exceptions.platform_exception_handler',
+    # A malformed body is a 400, not a traceback. See the parser's docstring.
+    'DEFAULT_PARSER_CLASSES': [
+        'core.parsers.ObjectOnlyJSONParser',
+        'rest_framework.parsers.FormParser',
+        'rest_framework.parsers.MultiPartParser',
+    ],
 }
 
 

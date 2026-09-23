@@ -1,3 +1,4 @@
+import datetime
 import re
 import hashlib
 
@@ -438,6 +439,11 @@ class OrderSerializer(serializers.ModelSerializer):
         'total_amount', 'advance_paid', 'amount_paid',
     )
 
+    #: How far ahead a boutique can promise. A bridal order booked a year out
+    #: is real; the year 9999 is a typo that then sorts to the end of every
+    #: list and makes every "days left" figure meaningless.
+    MAX_PROMISE_DAYS = 730
+
     def validate(self, attrs):
         for field in self.MONEY_FIELDS:
             if field in attrs:
@@ -446,6 +452,22 @@ class OrderSerializer(serializers.ModelSerializer):
                         attrs[field], label=field.replace('_', ' ').capitalize())
                 except serializers.ValidationError as exc:
                     raise serializers.ValidationError({field: exc.detail})
+
+        # A promised date only has to make sense when somebody CHANGES it.
+        # Judging it on every save would refuse an edit to the phone number of
+        # an order that is already late, which is the moment you most want to
+        # be able to edit it.
+        promised = attrs.get('estimated_delivery')
+        if promised and promised != getattr(self.instance, 'estimated_delivery', None):
+            today = datetime.date.today()
+            if promised < today:
+                raise serializers.ValidationError(
+                    {'estimated_delivery': 'A delivery date cannot be in the past.'})
+            if (promised - today).days > self.MAX_PROMISE_DAYS:
+                raise serializers.ValidationError(
+                    {'estimated_delivery':
+                     f'A delivery date more than {self.MAX_PROMISE_DAYS // 365} years out '
+                     f'is probably a typo.'})
         return attrs
 
     def _get_lang(self):

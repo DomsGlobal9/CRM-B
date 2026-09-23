@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from apps.activities.models import UniversalActivity
 from core import formatting as core_formatting
 from core.permissions import OwnerOnly, SUPERVISOR_ROLES, StaffSelfOrOwner
-from core.validators import MAX_NOTE, MAX_REASON, validate_text
+from core.validators import MAX_NOTE, MAX_REASON, to_id, validate_text
 from core.roles import OWNER, resolve_user_role
 from crm_api.models import Tailor
 
@@ -373,10 +373,7 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
         # A BODY id, parsed like the query-string ones: IntegerField raises on
         # 'abc' and TypeError on {}, and neither is a DRF exception, so a
         # malformed body was a 500 rather than the 404 below.
-        try:
-            staff_id = int(request.data.get('staff'))
-        except (TypeError, ValueError):
-            staff_id = None
+        staff_id = to_id(request.data.get('staff'))
         staff = (Tailor.objects.filter(id=staff_id).first()
                  if staff_id is not None else None)
         if staff is None:
