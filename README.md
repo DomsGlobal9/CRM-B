@@ -180,6 +180,30 @@ afterwards does not undo.
   more than 3 days ago (`--days N` to change it), in every boutique. Until this
   job is scheduled nothing is ever deleted; a Delivery reopened inside the
   window still has all its media. See `domains/orders/retention.py`.
+* **Nightly cron (second job, same repo and env vars):**
+  ```bash
+  python manage.py close_open_attendance
+  ```
+  Closes attendance sessions nobody checked out of, in every boutique. The
+  workroom opens a session when somebody starts a task without checking in,
+  and that session has no second tap coming: left alone it stays open for
+  days, refuses the person tomorrow's check-in, holds their timesheet at
+  zero, and then banks every hour since -- 44 of them, measured -- the
+  moment anybody finally closes it. Payroll pays that. The sweep also runs
+  on check-in, check-out and the "what am I doing now" read, so the lockout
+  clears itself even unscheduled; the cron is what keeps the timesheet
+  honest for somebody who never opens the app again. See
+  `apps/staff/attendance.py` (`MAX_SHIFT_HOURS`).
+* **Database connections:** each gunicorn thread holds its own connection for
+  `DB_CONN_MAX_AGE` seconds (default 60), so one instance holds up to
+  `workers x threads` of them -- 8 with the defaults above. Multiply by the
+  instance count and keep the total under what the Supabase plan allows, or
+  requests start failing with *sorry, too many clients already* rather than
+  queueing. `WEB_CONCURRENCY`, `GUNICORN_THREADS` and `DB_CONN_MAX_AGE` are
+  the three levers. Note the host must stay the **session-mode** pooler
+  (port 5432): django_tenants sets `search_path` per request, and a
+  transaction-mode pooler hands that connection to another boutique
+  mid-flight.
 * **Region:** put the service in the same region as the Supabase database
   (`ap-southeast-1`). Every request makes several database round trips, so a
   cross-region service pays that latency several times over per request. This is
