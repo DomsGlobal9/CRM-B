@@ -4405,7 +4405,10 @@ table.data-table tbody tr:hover {
 /* "See style notes" on the customer card: readable, and a thumb's height on a phone. */
 .at-customer-notes { font-size: var(--text-base); }
 @media (max-width: 640px) { .at-customer-notes { min-height: 44px; } }
-.at-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4); }
+/* align-items: start so a short card keeps its own height instead of being
+   stretched to the tallest in its row -- the dashboard's attendance card
+   holds two tiles and sat beside a ten-row list. */
+.at-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-4); align-items: start; }
 .at-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); }
 .at-stack { display: flex; flex-direction: column; gap: var(--space-4); }
 
@@ -4806,6 +4809,17 @@ table.data-table tbody tr:hover {
   font-size: 10px; font-weight: 600; letter-spacing: 0.04em; line-height: 1;
   color: var(--primary-color); pointer-events: none;
 }
+/* Today's appointments, in the dashboard's appointment table. A tinted row
+   with a left bar rather than a badge: the point is to find today's bookings
+   while scanning a list that also holds next week's. Quiet on purpose -- it
+   is a "look here first", not a warning, so it stays clear of the red an
+   Express order uses. */
+.appt-today > td { background: var(--success-bg); }
+.appt-today > td:first-child { box-shadow: inset 3px 0 0 var(--success-color); }
+/* The row's own hover paints behind the cells, so a tinted row would have no
+   hover at all: it gets its own, one step deeper. */
+.appt-today:hover > td { background: color-mix(in srgb, var(--success-bg) 78%, var(--success-color)); }
+
 /* Express orders and the garments inside them, in the same visual language:
    the row/card itself carries the ring and pulse, with a small callout that
    names the rush garment. .gh-express is a modifier on the element that is

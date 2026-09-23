@@ -3,6 +3,7 @@ from rest_framework import viewsets
 from core.permissions import visible_customers
 from crm_api.models import Customer
 from .models import Appointment
+from .notifications import send_appointment_booked
 from .serializers import AppointmentSerializer
 from apps.activities.models import UniversalActivity
 
@@ -29,6 +30,9 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         appointment = serializer.save()
+        # The customer hears about it as soon as the booking is real; a
+        # WhatsApp that cannot be delivered never fails the booking.
+        send_appointment_booked(appointment)
         UniversalActivity.objects.create(
             user=self.request.user if self.request.user.is_authenticated else None,
             user_name_snapshot=self.request.user.get_full_name() or self.request.user.username if self.request.user.is_authenticated else "System",
