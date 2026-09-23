@@ -5,6 +5,7 @@ import { api } from '../../services/api';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { Field, Modal, SelectField } from './ItemFormModal';
+import Loader from '../../components/ui/Loader';
 
 
 const panel = {
@@ -215,12 +216,22 @@ function TransferModal({ items, locations, onClose, onDone }) {
   const [to, setTo] = useState('');
   const [quantity, setQuantity] = useState('');
   const [breakdown, setBreakdown] = useState(null);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!item) { setBreakdown(null); return; }
-    api.getItemLocations(item).then(setBreakdown).catch(() => setBreakdown(null));
+    if (!item) { setBreakdown(null); setBreakdownLoading(false); return undefined; }
+    // A material picked, then picked again before the first answer arrives:
+    // only the last choice may write, or the line under the select can end up
+    // describing the material the user has already moved on from.
+    let current = true;
+    setBreakdownLoading(true);
+    api.getItemLocations(item)
+      .then((data) => { if (current) setBreakdown(data); })
+      .catch(() => { if (current) setBreakdown(null); })
+      .finally(() => { if (current) setBreakdownLoading(false); });
+    return () => { current = false; };
   }, [item]);
 
   const submit = async () => {
@@ -265,7 +276,11 @@ function TransferModal({ items, locations, onClose, onDone }) {
           ))}
         </select>
 
-        {breakdown && breakdown.breakdown?.length > 0 && (
+        {breakdownLoading && (
+          <div style={{ marginBottom: '12px' }}><Loader inline label="Loading stock by location…" /></div>
+        )}
+
+        {!breakdownLoading && breakdown && breakdown.breakdown?.length > 0 && (
           <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '12px' }}>
             Currently:{' '}
             {breakdown.breakdown.map((row) => `${row.quantity} at ${row.location}`).join(' · ')}

@@ -54,6 +54,7 @@ import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
+import Loader from './components/ui/Loader';
 
 
 const WIZARD_STEPS = {
@@ -242,9 +243,7 @@ const HeaderClock = () => {
   );
 };
 
-const ScreenLoading = () => (
-  <div style={{ padding: '48px', textAlign: 'center', color: '#8a8a8a' }}>Loading...</div>
-);
+const ScreenLoading = () => <Loader page />;
 import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 
 
@@ -1052,7 +1051,7 @@ function CuttingUsage({ orderId }) {
     .catch(() => setLoaded(true));
   useEffect(() => { refresh(); }, [orderId]);
 
-  if (!loaded) return <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Loading materials…</div>;
+  if (!loaded) return <Loader inline label="Loading materials…" />;
   const lines = (plan?.lines || []).filter((l) => l.item && !l.is_customer_supplied);
   if (!lines.length) {
     return <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No stock material is planned on this order.</div>;
@@ -1129,7 +1128,7 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
       </button>
     );
   }
-  if (!loaded) return <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '6px 0' }}>Loading materials…</div>;
+  if (!loaded) return <div style={{ padding: '6px 0' }}><Loader inline label="Loading materials…" /></div>;
   if (!plan || !(plan.lines || []).length) {
     return <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '6px 0' }}>No materials were planned on this order.</div>;
   }
@@ -2187,37 +2186,51 @@ function App() {
       }
     };
 
-    await load('dashboard', api.getDashboard, (data) => {
-      setDashboardData(data);
-      if (data.recent_orders?.length > 0) {
-        setSelectedDashboardOrder((current) => {
-          if (!current) return data.recent_orders[0];
-          return data.recent_orders.find(o => o.id === current.id) || current;
-        });
-      }
-    });
+    // Concurrently, which is what the note above always claimed: every one of
+    // these reads a different endpoint and none of them looks at state another
+    // one writes, so awaiting them one after another only added up their
+    // latencies. Against a database a region away that was nine round trips in
+    // series before the first screen was usable. Each still applies its own
+    // result the moment it lands and still reports its own failure by name --
+    // load() swallows per-collection errors, so one slow or broken endpoint
+    // cannot hold up or fail the rest.
+    //
+    // Which requests are made is UNCHANGED: the same hasModule gates, the same
+    // Owner-only check on queued messages. A role that could not fetch a
+    // collection before still does not fetch it, and the server still decides.
+    await Promise.all([
+      load('dashboard', api.getDashboard, (data) => {
+        setDashboardData(data);
+        if (data.recent_orders?.length > 0) {
+          setSelectedDashboardOrder((current) => {
+            if (!current) return data.recent_orders[0];
+            return data.recent_orders.find(o => o.id === current.id) || current;
+          });
+        }
+      }),
 
-    await load('customers', api.getCustomers, (data) => {
-      setCustomersList(data);
-      setAllCustomers(data);
-    });
+      load('customers', api.getCustomers, (data) => {
+        setCustomersList(data);
+        setAllCustomers(data);
+      }),
 
-    await load('orders', api.getOrders, setOrdersList);
+      load('orders', api.getOrders, setOrdersList),
 
-    if (hasModule(user, 'tailors')) await load('tailors', api.getTailors, setTailors);
-    if (hasModule(user, 'scheduling')) await load('appointments', () => api.getAppointments({ upcoming: 'true' }), setAppointments);
-    if (hasModule(user, 'inventory')) await load('fabrics', () => api.getInventoryItems({ picker: 'true' }), setFabrics);
-    if (hasModule(user, 'design_studio')) await load('designs', api.getAllBoutiqueDesigns, setAllDesigns);
-    await load('settings', api.getBoutiqueSettings, (data) => {
-      setBoutiqueSettings(data);
-      setBoutiqueTimeZone(data?.timezone);
-    });
-    
-    if (hasModule(user, 'notifications')) await load('notifications', () => fetchNotifications(user), () => {});
+      hasModule(user, 'tailors') && load('tailors', api.getTailors, setTailors),
+      hasModule(user, 'scheduling') && load('appointments', () => api.getAppointments({ upcoming: 'true' }), setAppointments),
+      hasModule(user, 'inventory') && load('fabrics', () => api.getInventoryItems({ picker: 'true' }), setFabrics),
+      hasModule(user, 'design_studio') && load('designs', api.getAllBoutiqueDesigns, setAllDesigns),
 
-    if (!user?.role || user.role === 'Owner') {
-      await load('customer messages', api.getQueuedCustomerMessages, setQueuedMessages);
-    }
+      load('settings', api.getBoutiqueSettings, (data) => {
+        setBoutiqueSettings(data);
+        setBoutiqueTimeZone(data?.timezone);
+      }),
+
+      hasModule(user, 'notifications') && load('notifications', () => fetchNotifications(user), () => {}),
+
+      (!user?.role || user.role === 'Owner')
+        && load('customer messages', api.getQueuedCustomerMessages, setQueuedMessages),
+    ]);
 
     setLoading(false);
   };
@@ -4186,7 +4199,7 @@ function App() {
                     </button>
                   </div>
 
-                  <Suspense fallback={<div className="content-card">Loading…</div>}>
+                  <Suspense fallback={<div className="content-card"><Loader page /></div>}>
                     {designsView === 'requests' ? (
                       <DesignWork currentUser={currentUser} />
                     ) : designsView === 'dashboard' ? (
@@ -5283,7 +5296,7 @@ function App() {
                     <SectionCard icon={ShoppingBag} tone="amber" title={t('customersPage.orderHistory', 'Order History')}
                                  action={orders.length > 0 ? () => setDashboardTab('orders') : undefined} actionLabel="View All">
                       {directoryDetailLoading && !c.orders ? (
-                        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>Loading order history…</p>
+                        <Loader section label="Loading order history…" />
                       ) : orders.length === 0 ? (
                         <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>{t('customersPage.noOrdersYet', 'No orders yet.')}</p>
                       ) : orders.map(order => {

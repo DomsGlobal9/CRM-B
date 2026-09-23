@@ -8,6 +8,7 @@ import { resolveMediaUrl } from '../../services/media';
 import { Dropzone, Field, FormModal } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, tenDigits, mobileError, cleanName, nameError, cleanEmail, emailError, imageFilesError } from '../../services/validate';
+import Loader from '../../components/ui/Loader';
 
 /**
  * A customer's own designs, captured in the studio.
@@ -513,7 +514,7 @@ export default function CustomerDesigns({ customerId, customers = [], orders = [
       </div>
 
       {loading && (
-        <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', padding: '18px 0' }}>Loading customer designs…</div>
+        <Loader section label="Loading customer designs…" />
       )}
 
       {error && (

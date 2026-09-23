@@ -3,6 +3,7 @@ import { ImageOff } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
+import Loader from '../../components/ui/Loader';
 
 /**
  * A garment's parts as tabs, and the photographs filed under the active one.
@@ -228,6 +229,12 @@ export default function GarmentPartTabs({
                 : 'loading…'}
             </span>
           </div>
+
+          {/* Nothing had been drawn here while the part's images were in
+              flight, so switching tab left a blank panel. The answer for this
+              tab has not arrived when `current` is null -- a stale answer for
+              the previous tab does not count as one. */}
+          {!current && <Loader section label="Loading designs…" />}
 
           {current?.error && (
             <div style={{ fontSize: '13px', color: 'var(--danger-color)', padding: '24px 0' }}>

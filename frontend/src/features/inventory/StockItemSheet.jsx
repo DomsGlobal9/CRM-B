@@ -49,9 +49,18 @@ export default function StockItemSheet({ catalogItem = null, options, suppliers,
   const [matches, setMatches] = useState([]);
 
   useEffect(() => { api.getCatalogSections().then((rows) => setSections(rows || [])).catch(() => {}); }, []);
+  // A section chosen, then another before the first list lands: only the last
+  // choice may fill the Item select, or it lists a different section's items.
+  const [itemsLoading, setItemsLoading] = useState(false);
   useEffect(() => {
-    if (mode !== 'choose' || !sectionId) return;
-    api.getCatalogItems({ section: sectionId, stockable: 'true' }).then((rows) => setGroupItems(rows || [])).catch((err) => setError(err.message));
+    if (mode !== 'choose' || !sectionId) { setItemsLoading(false); return undefined; }
+    let current = true;
+    setItemsLoading(true);
+    api.getCatalogItems({ section: sectionId, stockable: 'true' })
+      .then((rows) => { if (current) setGroupItems(rows || []); })
+      .catch((err) => { if (current) setError(err.message); })
+      .finally(() => { if (current) setItemsLoading(false); });
+    return () => { current = false; };
   }, [mode, sectionId, saves]);
   useEffect(() => {
     const term = query.trim();
@@ -180,8 +189,9 @@ export default function StockItemSheet({ catalogItem = null, options, suppliers,
               <div className="at-field">
                 <label className="at-field-label">{t('inventoryPage.item', 'Item')}</label>
                 <select className="form-control" value={picked && String(picked.section) === String(sectionId) ? picked.id : ''}
+                        disabled={itemsLoading}
                         onChange={(e) => pick(groupItems.find((i) => String(i.id) === e.target.value))}>
-                  <option value="">—</option>
+                  <option value="">{itemsLoading ? t('common.loading', 'Loading…') : '—'}</option>
                   {groupItems.map((i) => (
                     <option key={i.id} value={i.id}>{i.name}{i.stocked_item_id ? ` · ${alreadyStocked.toLowerCase()}` : ''}</option>
                   ))}

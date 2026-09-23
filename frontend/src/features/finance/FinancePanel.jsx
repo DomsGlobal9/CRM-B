@@ -17,6 +17,7 @@ import { api } from '../../services/api';
 import { Dropzone, Field, FormModal, IconTile, InfoNote, PageHeader, SectionCard, StatCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount, amountError, todayIso } from '../../services/validate';
+import Loader from '../../components/ui/Loader';
 
 const errorBox = {
   background: 'var(--danger-bg)',
@@ -254,7 +255,7 @@ export default function FinancePanel() {
       {error && <div style={{ ...errorBox, marginBottom: '14px' }}>{error}</div>}
 
       {loading || !pnl ? (
-        <div style={{ padding: '32px', color: 'var(--text-secondary)' }}>Loading…</div>
+        <Loader page />
       ) : (
         <div className="at-stack">
           <div className="at-stat-grid">

@@ -10,6 +10,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, todayIso } from '../../services/validate';
+import Loader from '../../components/ui/Loader';
 
 const STATUS_STYLE = {
   ASSIGNED: { label: 'Assigned', tone: 'neutral', icon: ClipboardList },
@@ -364,7 +365,7 @@ export default function DesignWork({ currentUser }) {
       )}
 
       {loading ? (
-        <p style={{ color: 'var(--text-secondary)' }}>{t('common.loading', 'Loading…')}</p>
+        <Loader page label={t('common.loading', 'Loading…')} />
       ) : isSupervisor ? (
         <SectionCard icon={ClipboardList} tone="green" title="Assigned Design Work"
                      subtitle="Track all design assignments and their status.">

@@ -19,6 +19,7 @@ import {
   LIMITS, tenDigits, mobileError, emailError, nameError, cleanAmount, amountError,
   cleanDocumentNumber, documentNumberError, todayIso, imageFilesError,
 } from '../../services/validate';
+import Loader from '../../components/ui/Loader';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -288,6 +289,9 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       ? { ...EMPTY_FORM, ...Object.fromEntries(Object.keys(EMPTY_FORM).map((k) => [k, terms[k] ?? ''])) }
       : EMPTY_FORM);
   const [docs, setDocs] = useState([]);
+  // Editing an existing person opens with their documents still in flight, so
+  // the list says so instead of reading as "no documents on file".
+  const [docsLoading, setDocsLoading] = useState(Boolean(member));
   const [docsError, setDocsError] = useState(null);
   const [pending, setPending] = useState([]);
   const [docForm, setDocForm] = useState({ kind: 'AADHAAR', number: '', label: '' });
@@ -298,11 +302,14 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
 
   const loadDocs = useCallback(async () => {
     if (!member) return;
+    setDocsLoading(true);
     try {
       const rows = await api.getStaffDocuments(member.isDesigner ? { designer: member.id } : { staff: member.id });
       setDocs(Array.isArray(rows) ? rows : []);
     } catch (err) {
       setDocsError(err.message || 'Could not load documents.');
+    } finally {
+      setDocsLoading(false);
     }
   }, [member]);
   useEffect(() => {
@@ -609,7 +616,8 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
         <FormSection icon={FileText} tone="green" title="Documents"
                      subtitle="Identity and employment documents. Files added here are uploaded when you save.">
           {docsError && <div style={errorBox}>{docsError}</div>}
-          {(docs.length > 0 || pending.length > 0) && (
+          {docsLoading && !docsError && <Loader section label="Loading documents…" />}
+          {!docsLoading && (docs.length > 0 || pending.length > 0) && (
             <div className="at-form-section" style={{ gap: 0, padding: 'var(--space-2) var(--space-4)' }}>
               {docs.map((doc) => (
                 <div key={doc.id} className="at-row">
@@ -837,7 +845,7 @@ function Roster({ isOwner, canSeeTeam }) {
 
 
   if (loading) {
-    return <div style={{ padding: '32px', color: 'var(--text-muted)' }}>Loading staff…</div>;
+    return <Loader page label="Loading staff…" />;
   }
 
   return (

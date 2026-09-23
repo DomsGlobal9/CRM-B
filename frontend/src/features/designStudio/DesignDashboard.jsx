@@ -5,6 +5,7 @@ import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
+import Loader from '../../components/ui/Loader';
 /**
  * The module's landing counters and leaderboards.
  *
@@ -73,7 +74,7 @@ function CategoriesPanel({ onOpenLibrary }) {
   return (
     <SectionCard icon={LayoutGrid} tone="neutral" title="Categories" action={onOpenLibrary} actionLabel="Manage">
       {categories === null ? (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Loading…</div>
+        <Loader section />
       ) : categories.length === 0 ? (
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No garment categories yet.</div>
       ) : (
@@ -114,8 +115,13 @@ function DesignerRoster() {
   const [adding, setAdding] = useState(false);
   const inFlight = useRef(false);
 
+  const [loading, setLoading] = useState(true);
   const load = () => {
-    api.getDesigners().then(setDesigners).catch((err) => setError(err.message));
+    setLoading(true);
+    api.getDesigners()
+      .then(setDesigners)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   };
 
   useEffect(load, []);
@@ -187,7 +193,9 @@ function DesignerRoster() {
         </button>
       </form>
 
-      {designers.length === 0 ? (
+      {loading ? (
+        <Loader section label="Loading designers…" />
+      ) : designers.length === 0 ? (
         <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
           No designers yet. Add one above to credit them on a design.
         </div>
@@ -275,7 +283,7 @@ export default function DesignDashboard({ onOpenLibrary, canManageDesigners = fa
     );
   }
 
-  if (!data) return <div className="content-card">{t('common.loading', 'Loading…')}</div>;
+  if (!data) return <Loader page label={t('common.loading', 'Loading…')} />;
 
   return (
     <div className="at-stack">

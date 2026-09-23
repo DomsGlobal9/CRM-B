@@ -3,6 +3,7 @@ import { api } from '../../services/api';
 import { InvoiceRenderer, normalizeInvoiceData } from './InvoiceTemplates';
 import { Check, Sparkles, AlertCircle, Loader2, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
+import Loader from '../ui/Loader';
 
 const TEMPLATE_OPTIONS = [
   {
@@ -192,10 +193,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
         )}
 
         {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            <Loader2 className="spin" size={22} style={{ margin: '0 auto 8px auto' }} />
-            <p style={{ margin: 0, fontSize: '12px' }}>{t('settingsPage.loadingTemplates', 'Loading template settings...')}</p>
-          </div>
+          <Loader page label={t('settingsPage.loadingTemplates', 'Loading template settings...')} />
         ) : (
           <div style={{ position: 'relative', marginTop: '12px' }}>
             {/* Single Displayed Template Card */}

@@ -7,6 +7,7 @@ import { resolveMediaUrl } from '../../services/media';
 import { PartTabStrip } from './GarmentPartTabs';
 import DesignCatalogueFilter from './DesignCatalogueFilter';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
+import Loader from '../../components/ui/Loader';
 
 
 const FALLBACK =
@@ -936,11 +937,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
         </div>
       )}
 
-      {loading && (
-        <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', padding: '18px 0' }}>
-          Loading designs…
-        </div>
-      )}
+      {loading && <Loader section label="Loading designs…" />}
 
       {/* The customer's own reference for THIS part -- ownOnly, so only in the
           References tab. The Design Studio tab is for picking off the

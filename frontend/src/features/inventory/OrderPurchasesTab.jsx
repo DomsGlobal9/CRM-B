@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { api } from '../../services/api';
 import { Field, Modal, SelectField } from './ItemFormModal';
+import Loader from '../../components/ui/Loader';
 
 /**
  * Things to buy for particular orders: the pink zari a customer asked for
@@ -22,11 +23,16 @@ export default function OrderPurchasesTab({ suppliers = [], isOwner }) {
   const [showDone, setShowDone] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState(null); 
+  // Without this the empty state claimed "nothing to buy" for as long as the
+  // request ran -- the wrong answer, not merely an early one.
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
+    setLoading(true);
     api.getOrderPurchases(showDone ? {} : { open: 1 })
       .then((data) => { setRows(Array.isArray(data) ? data : (data?.results || [])); setError(''); })
-      .catch((e) => setError(e.message || 'Could not load purchases.'));
+      .catch((e) => setError(e.message || 'Could not load purchases.'))
+      .finally(() => setLoading(false));
   }, [showDone]);
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -49,7 +55,9 @@ export default function OrderPurchasesTab({ suppliers = [], isOwner }) {
 
       {error && <div style={{ ...panel, padding: '16px', marginTop: '16px', color: 'var(--danger-color)' }}>{error}</div>}
 
-      {!error && rows.length === 0 ? (
+      {!error && loading ? (
+        <div style={{ ...panel, marginTop: '16px' }}><Loader page label="Loading purchases…" /></div>
+      ) : !error && rows.length === 0 ? (
         <div style={{ ...panel, padding: '48px', textAlign: 'center', marginTop: '16px', color: 'var(--text-muted)' }}>
           <ShoppingCart size={22} style={{ marginBottom: '8px' }} />
           <div>Nothing to buy for orders right now.</div>

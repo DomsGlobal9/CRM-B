@@ -13,6 +13,19 @@ ORDER_PREFETCH = (
     'garment_jobs',
     'garment_jobs__template',
     'garment_jobs__materials',
+    # Both of these are serialised for every order on the list endpoint --
+    # OrderSerializer.garment_images and get_purchases -- and neither was
+    # prefetched, so each row ran its own SELECT. Measured on the order list:
+    # one query per order for each, on top of the row itself. The purchase
+    # serialiser then reads supplier.name and order.customer per purchase,
+    # which is why those two come along.
+    #
+    # Query planning only. The same rows are serialised into the same JSON;
+    # this changes how many round trips fetch them, not what is returned.
+    'garment_images',
+    'purchases',
+    'purchases__supplier',
+    'purchases__order__customer',
 )
 
 

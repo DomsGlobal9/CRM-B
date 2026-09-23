@@ -10,6 +10,7 @@ import OutsideGarmentIntake from './OutsideGarmentIntake';
 import AdjustmentsTable from './AdjustmentsTable';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import Loader from '../../components/ui/Loader';
 
 /**
  * The alterations register and one alteration's whole file.
@@ -294,7 +295,7 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
     }
   };
 
-  if (loading) return <div style={{ padding: '32px', color: 'var(--text-muted)' }}>Loading alteration…</div>;
+  if (loading) return <Loader page label="Loading alteration…" />;
   if (!alteration) return (
     <div style={{ padding: '24px' }}>
       <ErrorNote error={error} />
@@ -929,7 +930,7 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
       </div>
 
       {loading && rows.length === 0 ? (
-        <div style={{ ...panel, padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>Loading alterations…</div>
+        <div style={panel}><Loader page label="Loading alterations…" /></div>
       ) : rows.length === 0 ? (
         <div style={{ ...panel, padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
           <Scissors size={22} style={{ marginBottom: '10px' }} />

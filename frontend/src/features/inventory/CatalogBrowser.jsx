@@ -4,6 +4,7 @@ import { Check, ChevronRight, Package, Plus, Search } from 'lucide-react';
 import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile } from '../../components/ui/Atelier';
+import Loader from '../../components/ui/Loader';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -130,9 +131,10 @@ export default function CatalogBrowser({ isOwner, onStock, version }) {
           <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-color)', fontSize: '13px', fontWeight: 600 }}>
             {openSection ? openSection.full_name : `Search: “${search.trim()}”`}
             <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '8px' }}>
-              {loading ? 'loading…' : `${items.length} shown`}
+              {loading ? '' : `${items.length} shown`}
             </span>
           </div>
+          {loading && <Loader section />}
           {!loading && items.length === 0 && (
             <div style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
               {t('inventoryPage.nothingMatches', 'Nothing matches.')}

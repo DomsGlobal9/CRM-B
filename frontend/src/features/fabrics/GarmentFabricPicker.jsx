@@ -5,6 +5,7 @@ import { inventoryImage, inventoryTile } from '../../services/inventoryImages';
 import { LIMITS, cleanAmount } from '../../services/validate';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 import { ACCESSORY_OPTIONS } from '../designStudio/GarmentPartPicker';
+import Loader from '../../components/ui/Loader';
 
 // "m" for cloth, "pcs" for anything counted; the ledger's own unit otherwise.
 const unitShort = (f) => (
@@ -394,11 +395,7 @@ export default function GarmentFabricPicker({
   }
 
   if (loading) {
-    return (
-      <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', padding: '18px 0' }}>
-        Loading {accessoriesOnly ? 'accessories' : 'fabrics'}…
-      </div>
-    );
+    return <Loader section label={`Loading ${accessoriesOnly ? 'accessories' : 'fabrics'}…`} />;
   }
 
   return (

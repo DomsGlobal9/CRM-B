@@ -10,6 +10,7 @@ import ItemFormModal from '../inventory/ItemFormModal';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount } from '../../services/validate';
+import Loader from '../../components/ui/Loader';
 
 
 const CARD_IMAGE_FALLBACK =
@@ -114,13 +115,18 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
     return [...groups.entries()];
   }, [design.images]);
   const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [note, setNote] = useState('');
   const [reviewing, setReviewing] = useState(false);
   const isPending = design.status === 'PENDING';
   const inFlight = useRef(false);
 
   useEffect(() => {
-    api.getDesignApprovalHistory(design.id).then(setHistory).catch(() => setHistory([]));
+    setHistoryLoading(true);
+    api.getDesignApprovalHistory(design.id)
+      .then(setHistory)
+      .catch(() => setHistory([]))
+      .finally(() => setHistoryLoading(false));
   }, [design.id]);
 
   const decide = async (decision) => {
@@ -245,7 +251,8 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
           </div>
         )}
 
-        {history.length > 0 && (
+        {historyLoading && <Loader section label="Loading review history…" />}
+        {!historyLoading && history.length > 0 && (
           <div style={{ marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
             <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: '6px' }}>
               Review history

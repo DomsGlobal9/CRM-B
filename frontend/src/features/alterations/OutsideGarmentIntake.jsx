@@ -36,9 +36,22 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
+  // The two lists this form's selects are built from. Both are requested at
+  // once rather than one after the other, and `listsLoading` keeps the empty
+  // selects from reading as "this boutique has no customers".
+  const [listsLoading, setListsLoading] = useState(true);
   useEffect(() => {
-    api.getCustomers().then((d) => setCustomers(d.results || d || [])).catch(() => setCustomers([]));
-    api.getGarmentTemplates().then((d) => setTemplates(d.results || d || [])).catch(() => setTemplates([]));
+    let cancelled = false;
+    Promise.all([
+      api.getCustomers().catch(() => []),
+      api.getGarmentTemplates().catch(() => []),
+    ]).then(([c, tpl]) => {
+      if (cancelled) return;
+      setCustomers(c.results || c || []);
+      setTemplates(tpl.results || tpl || []);
+      setListsLoading(false);
+    });
+    return () => { cancelled = true; };
   }, []);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
@@ -120,15 +133,15 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
         <div className="form-grid-2" style={{ gap: '12px' }}>
           <div style={field}>
             <label style={label}><User size={12} style={{ verticalAlign: '-2px' }} /> Customer</label>
-            <select className="form-control" value={form.customer_id} onChange={set('customer_id')}>
-              <option value="">Choose a customer…</option>
+            <select className="form-control" value={form.customer_id} onChange={set('customer_id')} disabled={listsLoading}>
+              <option value="">{listsLoading ? 'Loading customers…' : 'Choose a customer…'}</option>
               <option value={NEW}>+ New customer (walk-in)</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{customerName(c)}{c.mobile_number ? ` · ${c.mobile_number}` : ''}</option>)}
             </select>
           </div>
           <div style={field}>
             <label style={label}><Shirt size={12} style={{ verticalAlign: '-2px' }} /> Garment type</label>
-            <select className="form-control" value={form.garment_template_id} onChange={set('garment_template_id')}>
+            <select className="form-control" value={form.garment_template_id} onChange={set('garment_template_id')} disabled={listsLoading}>
               <option value="">Other (describe below)</option>
               {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>

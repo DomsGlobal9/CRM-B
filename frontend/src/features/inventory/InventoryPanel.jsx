@@ -15,6 +15,7 @@ import LocationsTab from './LocationsTab';
 import RecipesTab from './RecipesTab';
 import ReportsTab from './ReportsTab';
 import OrderPurchasesTab from './OrderPurchasesTab';
+import Loader from '../../components/ui/Loader';
 
 const MOVEMENTS = [
   { key: 'stock-in', label: 'Stock In', help: 'Goods received into the boutique.' },
@@ -74,6 +75,10 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
   const [movementItem, setMovementItem] = useState(restockItem);
   const [ledgerItem, setLedgerItem] = useState(null);
   const [ledger, setLedger] = useState([]);
+  // The history dialog opened on an empty list, which the render below reads
+  // as "no movements recorded yet" -- so an item WITH a history announced it
+  // had none for as long as the request took. Loading is its own state.
+  const [ledgerLoading, setLedgerLoading] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   
   const [stocking, setStocking] = useState(null);
@@ -119,10 +124,13 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
   const openLedger = async (item) => {
     setLedgerItem(item);
     setLedger([]);
+    setLedgerLoading(true);
     try {
       setLedger(await api.getItemMovements(item.id));
     } catch (err) {
       setLedger([]);
+    } finally {
+      setLedgerLoading(false);
     }
   };
 
@@ -249,7 +257,9 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
       {ledgerItem && (
         <Modal title={`Stock history · ${ledgerItem.name}`} onClose={() => setLedgerItem(null)} width="720px">
-          {ledger.length === 0 ? (
+          {ledgerLoading ? (
+            <Loader modal label="Loading stock history…" />
+          ) : ledger.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No movements recorded yet.</p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -393,7 +403,7 @@ function ItemsTab({
       </div>
 
       {loading && items.length === 0 ? (
-        <div style={{ ...panel, padding: '48px', textAlign: 'center', marginTop: '20px', color: 'var(--text-muted)' }}>{t('inventoryPage.loadingInventory', 'Loading inventory…')}</div>
+        <div style={{ ...panel, marginTop: '20px' }}><Loader page label={t('inventoryPage.loadingInventory', 'Loading inventory…')} /></div>
       ) : shown.length === 0 ? (
         <div style={{ ...panel, padding: '48px', textAlign: 'center', marginTop: '20px', color: 'var(--text-muted)' }}>
           {t('inventoryPage.noMatchingItems', 'No items match these filters.')}
@@ -506,18 +516,36 @@ function MovementModal({ item, onClose, onDone }) {
   const [orderId, setOrderId] = useState('');
   const [fromLocation, setFromLocation] = useState('');
   const [orders, setOrders] = useState([]);
-  const [locations, setLocations] = useState([]);
+  // idle -> loading -> ready. A separate flag rather than "orders is empty",
+  // so a boutique with no orders is not mistaken for a request still running.
+  const [ordersState, setOrdersState] = useState('idle');
+  const [locations, setLocations] = useState(null);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const chosen = MOVEMENTS.find((m) => m.key === movement);
+  const wantsOrder = ORDER_LINKED.has(movement);
 
   useEffect(() => {
-    api.getOrders().then((rows) => setOrders(rows || [])).catch(() => setOrders([]));
+    setLocations(null);
     api.getItemLocations(item.id)
       .then((data) => setLocations(data?.breakdown || []))
       .catch(() => setLocations([]));
   }, [item.id]);
+
+  // The order list is the heaviest list in the app and the select that uses it
+  // is hidden unless the movement is tied to an order -- and the default
+  // movement is not. So it is fetched the first time it is actually needed
+  // rather than on every open of this dialog, and once per dialog: `orders`
+  // stays non-null afterwards, so switching movement back and forth does not
+  // re-request it.
+  useEffect(() => {
+    if (!wantsOrder || ordersState !== 'idle') return;
+    setOrdersState('loading');
+    api.getOrders()
+      .then((rows) => { setOrders(rows || []); setOrdersState('ready'); })
+      .catch(() => setOrdersState('ready'));
+  }, [wantsOrder, ordersState]);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -570,7 +598,7 @@ function MovementModal({ item, onClose, onDone }) {
           />
         </div>
 
-        {ORDER_LINKED.has(movement) && (
+        {wantsOrder && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600 }}>Against order (optional)</label>
             <select className="form-control" value={orderId} onChange={(e) => setOrderId(e.target.value)}>
@@ -580,12 +608,14 @@ function MovementModal({ item, onClose, onDone }) {
               ))}
             </select>
             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              Needed for the cost-per-order and consumption reports.
+              {ordersState === 'ready'
+                ? 'Needed for the cost-per-order and consumption reports.'
+                : <Loader inline label="Loading orders…" />}
             </span>
           </div>
         )}
 
-        {STOCK_OUT.has(movement) && locations.length > 0 && (
+        {STOCK_OUT.has(movement) && (locations || []).length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600 }}>From location</label>
             <select className="form-control" value={fromLocation} onChange={(e) => setFromLocation(e.target.value)}>

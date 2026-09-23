@@ -37,9 +37,42 @@ const trackRequest = (promise) => {
 };
 
 const inFlightMutations = new Map();
+
+/**
+ * The same collapse, applied to reads.
+ *
+ * Two components mounting in the same tick and asking for the same list --
+ * the designer roster wanted by three screens, the dashboard fetched by the
+ * bootstrap and again by the overview tab's own effect -- used to be two
+ * round trips for one answer. Against a database a region away that is
+ * seconds of duplicated wait on the very first paint.
+ *
+ * Still not a cache, and deliberately so: the entry is dropped the moment the
+ * request settles, so a refetch after a save always goes to the server and
+ * nobody can read a stale list. All this removes is the case where the second
+ * request was sent before the first had answered -- where sharing the answer
+ * is not an optimisation but simply correct.
+ *
+ * Authorisation is untouched. The key includes the URL and the method, every
+ * request still carries the caller's own token, and the server still decides.
+ * Two different people cannot share a response: a sign-in replaces the token
+ * and nothing in this map outlives a request in flight.
+ */
+const inFlightReads = new Map();
+
 const guardedFetch = (url, options = {}) => {
   const method = (options.method || 'GET').toUpperCase();
-  if (method === 'GET' || (options.body && typeof options.body !== 'string')) {
+  if (method === 'GET') {
+    const key = `GET ${url}`;
+    const running = inFlightReads.get(key);
+    if (running) return running.then((res) => res.clone());
+    const read = trackRequest(fetch(url, options));
+    inFlightReads.set(key, read);
+    read.then(() => inFlightReads.delete(key),
+              () => inFlightReads.delete(key));
+    return read.then((res) => res.clone());
+  }
+  if (options.body && typeof options.body !== 'string') {
     return trackRequest(fetch(url, options));
   }
   const key = `${method} ${url} ${options.body || ''}`;

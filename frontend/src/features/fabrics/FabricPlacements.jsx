@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { Field, Segmented } from '../../components/ui/Atelier';
 import { emptyClassification } from './taxonomy';
+import Loader from '../../components/ui/Loader';
 
 const GARMENT = 'GARMENT';
 const ACCESSORY = 'ACCESSORY';
@@ -134,7 +135,7 @@ export default function FabricPlacements({ taxonomy, value, onChange }) {
     setAdding(false);
   };
 
-  if (!taxonomy) return <div className="at-field-hint">Loading…</div>;
+  if (!taxonomy) return <Loader inline />;
 
   return (
     <div className="at-stack" style={{ gap: 'var(--space-4)' }}>

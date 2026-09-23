@@ -17,6 +17,7 @@ import { CalendarDays, CheckCircle2, ClipboardList, Clock, Star } from 'lucide-r
 import { api } from '../../services/api';
 import { fmtDate, orderRef, orderGarmentNames } from '../../services/format';
 import { AvatarInitials, StatCard } from '../../components/ui/Atelier';
+import Loader from '../../components/ui/Loader';
 
 const todayIso = () => {
   const d = new Date();
@@ -176,7 +177,7 @@ export default function TeamTasks({ currentUser, canSeeTeam }) {
       </div>
 
       {error && <div className="od-error">{error}</div>}
-      {loading && <div className="od-empty">Loading the team’s work…</div>}
+      {loading && <Loader section label="Loading the team’s work…" />}
 
       {!loading && groups.length === 0 && (
         <div className="ui-card od-empty" style={{ padding: 'var(--space-8)' }}>

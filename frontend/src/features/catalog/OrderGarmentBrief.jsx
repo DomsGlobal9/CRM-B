@@ -4,6 +4,7 @@ import { api } from '../../services/api';
 import GarmentSummary from './GarmentSummary';
 import { isExpressJob } from '../orders/express';
 import { SpeakButton, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
+import Loader from '../../components/ui/Loader';
 
 /**
  * "What to make", for a garment that has already been ordered.
@@ -78,7 +79,7 @@ export default function OrderGarmentBrief({ jobs, specialInstructions, voiceNote
     <div className="garment-brief">
       <div className="garment-brief-head">
         <span className="ui-eyebrow">What to make</span>
-        {loading && <span className="ui-badge ui-badge--neutral">Loading details…</span>}
+        {loading && <Loader inline label="Loading details…" />}
       </div>
       <GarmentSummary jobs={shaped} inventoryNames={inventoryNames} measurementsAsTable />
       {(specialInstructions || voiceNote) && (

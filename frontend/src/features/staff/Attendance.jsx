@@ -4,6 +4,7 @@ import { Clock, LogIn, LogOut, Pencil, Plus, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { LIMITS } from '../../services/validate';
+import Loader from '../../components/ui/Loader';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -465,7 +466,7 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
       )}
 
       {loading ? (
-        <div style={{ padding: '24px', color: 'var(--text-muted)' }}>Loading attendance…</div>
+        <Loader section label="Loading attendance…" />
       ) : rows.length === 0 ? (
         <div style={{ ...panel, padding: '28px', textAlign: 'center', color: 'var(--text-secondary)' }}>
           No staff on the roster yet.
@@ -605,7 +606,7 @@ function Timesheet({ canSeeTeam, isOwner, roster, onCorrect }) {
       {error && <Banner text={error} />}
 
       {loading ? (
-        <div style={{ padding: '20px', color: 'var(--text-muted)' }}>Loading timesheet…</div>
+        <Loader section label="Loading timesheet…" />
       ) : !sheet ? null : (
         <>
           <div style={{ ...panel, padding: '14px 16px', marginBottom: '12px' }}>

@@ -4,6 +4,7 @@ import { AlertTriangle, Check, ChevronLeft, CheckCircle2, Lock, RefreshCw, X } f
 
 import { api } from '../../services/api';
 import { LIMITS } from '../../services/validate';
+import Loader from '../../components/ui/Loader';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -533,7 +534,7 @@ export default function Payroll() {
       {error && <Banner text={error} />}
 
       {loading ? (
-        <div style={{ padding: '28px', color: 'var(--text-muted)' }}>Loading payroll…</div>
+        <Loader page label="Loading payroll…" />
       ) : !period ? (
         <div style={{ ...panel, padding: '32px', textAlign: 'center' }}>
           <p style={{ fontSize: '14px', margin: '0 0 6px' }}>

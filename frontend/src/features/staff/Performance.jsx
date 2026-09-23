@@ -4,6 +4,7 @@ import { AlertCircle, Check, ChevronLeft, Lock, Star, X } from 'lucide-react';
 import { api } from '../../services/api';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, todayIso } from '../../services/validate';
+import Loader from '../../components/ui/Loader';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -511,7 +512,7 @@ export default function Performance({ isOwner, canSeeTeam }) {
       {error && <Banner tone="error" icon={AlertCircle} text={error} />}
 
       {loading ? (
-        <div style={{ padding: '28px', color: 'var(--text-muted)' }}>Loading performance…</div>
+        <Loader page label="Loading performance…" />
       ) : !data || data.results.length === 0 ? (
         <div style={{ ...panel, padding: '32px', textAlign: 'center',
                       color: 'var(--text-secondary)' }}>
