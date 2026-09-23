@@ -3854,7 +3854,7 @@ function App() {
                         <span>{loading ? t('common.loading', 'Loading...') : t('common.refresh', 'Refresh')}</span>
                       </button>
                       <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
-                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
+                        <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                           <Plus size={16} />
                           {t('dashboard.newOrder')}
                         </button>
@@ -4780,7 +4780,7 @@ function App() {
                       )}
                       {(!currentUser?.role || currentUser.role === 'Owner') && (
                         <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
-                          <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
+                          <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                             <Plus size={16} /> {t('ordersPage.newOrder')}
                           </button>
                         </GuidedHighlight>

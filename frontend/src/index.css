@@ -4974,6 +4974,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .at-btn-sm { min-height: 36px !important; padding: 0 14px !important; font-size: 12px !important; border-radius: var(--radius-md) !important; }
 .at-btn-danger { background: var(--surface-color) !important; color: var(--danger-color) !important; border-color: color-mix(in srgb, var(--danger-color) 40%, transparent) !important; }
 .at-btn-danger:hover { background: var(--danger-color) !important; color: var(--surface-color) !important; border-color: var(--danger-color) !important; }
+/* New Order, in the dashboard header and on the Orders page: the gold of the
+   waving hand beside "Welcome back", so the one button that starts the day's
+   work is not the same lime as every other primary button around it. Dark
+   text on it, like the lime, because gold this bright takes black at 10:1. */
+.btn-primary.btn-gold { background: #F5B92E; border-color: #F5B92E; color: #1A1508; }
+.btn-primary.btn-gold:hover:not(:disabled) { background: #E0A61C; border-color: #E0A61C; color: #1A1508; }
+
 .btn-ghost { background: transparent; color: var(--text-primary); border-color: transparent; }
 .btn-ghost:hover { background: var(--surface-inset); }
 .btn-link { background: transparent; color: var(--brand-link); border-color: transparent; padding: 0 4px; min-height: 32px; }
