@@ -2932,6 +2932,8 @@ function App() {
   });
 
   const boutiqueFormRef = useRef(null);
+  // The appointment dialog's date field, so Done can dismiss the calendar.
+  const appointmentDateRef = useRef(null);
   const boutiqueFormError = (form) =>
     phoneError(form.boutiquePhone.value) || emailError(form.boutiqueEmail.value, { required: true });
   const pickLogo = (file) => {
@@ -6141,28 +6143,27 @@ function App() {
               the customer's tracking page already renders a trial card from
               them; there was simply no way to create one from the product. */}
           {showAppointmentModal && (
-            <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-              <div className="search-modal-card" style={{ maxWidth: '460px', width: '100%' }}>
-                <div className="search-modal-header">
-                  <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)' }}>
+            <div className="existing-customer-search-modal apt-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+              <div className="search-modal-card apt-card">
+                <div className="search-modal-header apt-head">
+                  <h3>
                     {editingAppointment
                       ? t('dashboard.appointmentDetails', 'Appointment Details')
                       : t('dashboard.bookAppointment', 'Book an Appointment')}
                   </h3>
                   <button className="close-btn" onClick={closeAppointmentModal}><X size={20} /></button>
                 </div>
-                <form onSubmit={handleSaveAppointment} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <form onSubmit={handleSaveAppointment} className="apt-form">
                   <div>
                     <label className="form-label">Client *</label>
                     {/* Whose appointment this is cannot be edited -- moving it
                         to another person is a different booking. So the
                         existing/new chooser is only on a fresh booking. */}
                     {!editingAppointment && (
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <div className="apt-seg">
                         {[[false, 'Existing client'], [true, 'New client']].map(([isNew, label]) => (
                           <button key={label} type="button"
                                   className={appointmentForm.isNewCustomer === isNew ? 'btn-primary' : 'btn-secondary'}
-                                  style={{ flex: 1, padding: '8px 10px', fontSize: '13px' }}
                                   onClick={() => setAppointmentForm({
                                     ...appointmentForm, isNewCustomer: isNew, customer: '' })}>
                             {label}
@@ -6218,9 +6219,28 @@ function App() {
                   <div>
                     <label className="form-label">Date & time *</label>
                     <input className="form-control" type="datetime-local" required
+                           ref={appointmentDateRef}
                            min={editingAppointment ? undefined : `${todayIso()}T00:00`}
                            value={appointmentForm.scheduled_time}
                            onChange={(e) => setAppointmentForm({ ...appointmentForm, scheduled_time: e.target.value })} />
+                    {/* The calendar itself is the browser's, drawn outside the
+                        page, so its Clear/Today row cannot be added to. This
+                        is the page's own confirmation: what has been picked,
+                        in words, and a Done that shuts the calendar. The value
+                        is already committed by then -- the field writes on
+                        every change -- so this confirms, it does not save. */}
+                    <div className="apt-when">
+                      <span className={appointmentForm.scheduled_time ? 'apt-when-set' : ''}>
+                        {appointmentForm.scheduled_time
+                          ? fmtDateTime(appointmentForm.scheduled_time)
+                          : t('dashboard.pickDateTime', 'No date and time chosen yet')}
+                      </span>
+                      <button type="button" className="btn-secondary at-btn-sm"
+                              disabled={!appointmentForm.scheduled_time}
+                              onClick={() => appointmentDateRef.current?.blur()}>
+                        {t('common.done', 'Done')}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="form-label">With</label>
@@ -6249,7 +6269,7 @@ function App() {
                               value={appointmentForm.notes}
                               onChange={(e) => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} />
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'flex-end' }}>
+                  <div className="apt-foot">
                     {editingAppointment && appointmentForm.status !== 'CANCELLED' && (
                       <button type="button" className="btn-secondary" disabled={savingAppointment}
                               style={{ marginRight: 'auto', color: 'var(--danger-color)', borderColor: 'rgba(192,57,43,0.3)' }}

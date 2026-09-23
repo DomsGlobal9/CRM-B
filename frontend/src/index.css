@@ -5501,3 +5501,108 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .ld-ring { animation: ld-fade 1.4s ease-in-out infinite; border-top-color: var(--border-color); }
   .ld-row { animation: none; }
 }
+
+/* ===== Book an appointment (App.jsx) =====
+   Scoped to .apt-*: .search-modal-card is shared by five dialogs and none of
+   this may reach them.
+
+   What it fixes: the card carried 32px of its own padding and the form added
+   20px more, so every field sat in ~52px of air; the labels were full-size
+   uppercase with wide tracking, which made four short words read louder than
+   the values under them; and only the phone breakpoint bounded the height, so
+   on a laptop the dialog ran past the bottom of the screen with Book a fitting
+   out of reach and nothing to scroll.
+
+   Now: one padding, a quieter label, a header and action row that stay put
+   while the fields scroll between them. */
+.apt-card { max-width: 560px; width: 100%; padding: 0; gap: 0; overflow: hidden;
+  max-height: min(86vh, 740px); }
+
+.apt-head { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+.apt-head h3 { font-family: var(--font-serif); font-size: var(--text-lg); font-weight: 600;
+  line-height: 1.25; color: var(--text-primary); margin: 0; }
+
+/* Two columns, because the short fields are short: Type beside Date, With
+   beside Status. Stacking every one of them full-width made a five-field form
+   taller than a laptop screen, which is the only reason it needed a scrollbar
+   at all. Client, Notes and the action row still span the pair.
+   Addressed by position, not by nth-child counting: Status is conditional, so
+   any fixed numbering would shift the moment an existing booking is opened.
+   Client is always first, Notes always sits directly above the actions. */
+.apt-form { display: grid; grid-template-columns: 1fr 1fr; align-content: start;
+  gap: var(--space-4) var(--space-3);
+  padding: var(--space-5); overflow-y: auto; min-height: 0; }
+.apt-form > div { min-width: 0; }
+.apt-form > div:first-child,
+.apt-form > div:nth-last-child(2),
+.apt-form > .apt-foot { grid-column: 1 / -1; }
+/* The half-field directly above Notes, when it has landed in the left column
+   with nothing beside it, takes the whole row rather than leaving a hole.
+   That is With on a new booking (three half-fields, so the third is orphaned)
+   and nobody on an existing one, where Status pairs with it and the count is
+   even again. :nth-child(even) is what asks "did this one start a row". */
+.apt-form > div:nth-last-child(3):nth-child(even) { grid-column: 1 / -1; }
+
+/* When it does still scroll -- a phone, or New client with its four extra
+   fields -- it scrolls on a thin quiet rail rather than the platform's full
+   scrollbar with its arrow buttons parked inside the dialog. */
+.apt-form { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.apt-form::-webkit-scrollbar { width: 8px; }
+.apt-form::-webkit-scrollbar-track { background: transparent; }
+.apt-form::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px;
+  border: 2px solid var(--surface-color); background-clip: padding-box; }
+.apt-form::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+
+/* A label is a quiet caption for the control under it, not a heading: same
+   uppercase idiom as the rest of the app, one step down in size and weight. */
+.apt-form .form-label { display: block; margin-bottom: 6px; font-size: var(--text-2xs);
+  font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+.apt-form .form-control { font-size: var(--text-sm); min-height: 42px; border-radius: var(--radius-md); }
+.apt-form textarea.form-control { min-height: 78px; }
+.apt-form .form-grid-2 { gap: var(--space-3); }
+.apt-form .od-hint { font-size: var(--text-2xs); line-height: 1.45; }
+
+/* Under the date field: what has been picked, and a Done that shuts the
+   browser's calendar. The calendar is drawn outside the page, so this is the
+   only surface the app owns -- the row confirms the choice in words rather
+   than leaving dd-mm-yyyy as the only feedback. */
+.apt-when { display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-2); margin-top: 6px; min-height: 28px; }
+.apt-when > span { font-size: var(--text-2xs); color: var(--text-muted); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apt-when .apt-when-set { color: var(--text-primary); font-weight: 600; }
+.apt-when .btn-secondary { flex-shrink: 0; min-height: 28px; padding: 4px 12px !important; }
+.apt-when .btn-secondary:disabled { opacity: .45; }
+
+/* Existing / New client: one track, two halves, so it reads as a single
+   either-or control rather than two competing buttons. */
+.apt-seg { display: flex; gap: 4px; margin-bottom: var(--space-2); padding: 3px;
+  background: var(--surface-inset); border-radius: var(--radius-md); }
+.apt-seg button { flex: 1; min-height: 36px; padding: 0 10px; font-size: var(--text-sm);
+  font-weight: 600; border-radius: calc(var(--radius-md) - 2px); }
+/* The unselected half is the track itself, not a second outlined button. */
+.apt-seg .btn-secondary { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.apt-seg .btn-secondary:hover { background: var(--surface-color); border-color: transparent; color: var(--text-primary); }
+
+.apt-foot { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end;
+  position: sticky; bottom: calc(-1 * var(--space-5)); margin: var(--space-2) calc(-1 * var(--space-5)) calc(-1 * var(--space-5));
+  padding: var(--space-4) var(--space-5); background: var(--surface-color); border-top: 1px solid var(--border-color); }
+.apt-foot .btn-primary, .apt-foot .btn-secondary { min-height: 42px; font-size: var(--text-sm); }
+
+/* Tablet and below: the dialog is the screen. A booking form is mostly selects
+   and a date picker, and those want the full width on a small screen. */
+@media (max-width: 640px) {
+  .apt-modal { padding: 0; align-items: stretch; }
+  .apt-card { max-width: none; max-height: 100dvh; height: 100dvh; border: none; border-radius: 0; }
+  .apt-head { padding: var(--space-4); }
+  /* One column: two half-width selects side by side on a phone leaves neither
+     of them readable. */
+  .apt-form { grid-template-columns: 1fr; padding: var(--space-4); gap: var(--space-3); }
+  .apt-foot { margin: var(--space-2) calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+    bottom: calc(-1 * var(--space-4));
+    padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom)); }
+  /* Thumb-sized, and side by side rather than stacked into a wall. */
+  .apt-form .form-control { min-height: 46px; font-size: var(--text-base); }
+  .apt-foot .btn-primary, .apt-foot .btn-secondary { flex: 1 1 130px; min-height: 46px; justify-content: center; }
+  .apt-foot .btn-secondary[style] { flex-basis: 100%; }
+}
