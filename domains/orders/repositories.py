@@ -43,6 +43,19 @@ class OrderRepository:
         return Order.objects.select_related(*ORDER_SELECT_RELATED).prefetch_related(*ORDER_PREFETCH)
 
     @staticmethod
+    def list_queryset():
+        """What a row needs and nothing else -- see OrderListSerializer."""
+        return (Order.objects
+                .select_related('customer', 'tailor', 'master',
+                                'alteration_of', 'alteration_garment__template')
+                .prefetch_related(
+                    'stages', 'stages__performed_by', 'stages__assigned_to',
+                    'stages__garment_job__template',
+                    'garment_jobs__template',
+                    Prefetch('alterations', queryset=Order.objects.order_by('alteration_seq')))
+                .order_by('-order_date'))
+
+    @staticmethod
     def get_all():
         return OrderRepository.base_queryset().order_by('-order_date')
 

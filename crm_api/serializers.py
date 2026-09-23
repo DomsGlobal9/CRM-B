@@ -362,6 +362,24 @@ class OrderStageSerializer(serializers.ModelSerializer):
         model = OrderStage
         fields = '__all__'
 
+class OrderStageRowSerializer(serializers.ModelSerializer):
+    """A stage on a LIST row: where the order stands, and who has it.
+
+    The full OrderStageSerializer is `__all__` -- attachments, reviews,
+    voice notes, SLA bookkeeping -- times fifteen stages times every order
+    on the screen. The order book reads none of it; it draws a strip.
+    """
+    garment_name = serializers.CharField(source='garment_job.template.name', read_only=True, default=None)
+    performed_by_name = serializers.CharField(source='performed_by.name', read_only=True)
+    assigned_to_name = serializers.CharField(source='assigned_to.name', read_only=True)
+
+    class Meta:
+        model = OrderStage
+        fields = ['id', 'stage_key', 'stage_name', 'status', 'sequence',
+                  'started_at', 'completed_at', 'garment_job', 'garment_name',
+                  'performed_by_name', 'assigned_to_name', 'voice_note']
+
+
 class OrderActivitySerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.first_name', read_only=True)
 
@@ -558,6 +576,44 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_garment_label(self, obj):
         from domains.orders.garments import garment_label
         return garment_label(obj)
+
+
+class OrderListSerializer(OrderSerializer):
+    """One row of the order book, the workshop or the board.
+
+    The full serializer carries an order's whole history -- every activity,
+    every stage history row, its photographs, its purchases and each
+    garment's full specification. That is the right answer for ONE order and
+    the wrong one five hundred times over: it made the list 3.4MB and growing
+    for a boutique two years old, on the screen every user opens first.
+
+    Everything the list screens actually read is here. The detail screen
+    fetches the whole order by id, which is one request, once, when somebody
+    asks for it.
+    """
+    stages = OrderStageRowSerializer(many=True, read_only=True)
+    garment_jobs = serializers.SerializerMethodField()
+
+    def get_garment_jobs(self, obj):
+        # Names only: enough for the garment filter and the alteration
+        # picker. The specification is the detail screen's business.
+        return [{'id': job.id, 'template_name': job.template.name if job.template_id else None}
+                for job in obj.garment_jobs.all()]
+
+    class Meta(OrderSerializer.Meta):
+        fields = [
+            'id', 'order_id', 'order_number', 'order_reference',
+            'customer', 'customer_name', 'customer_garment_type',
+            'garments', 'garment_label', 'garment_jobs',
+            'alteration_of', 'alteration_of_reference', 'alteration_seq',
+            'alteration_garment', 'alteration_garment_name', 'alterations',
+            'tailor', 'tailor_name', 'master', 'master_name',
+            'order_status', 'order_status_display', 'payment_status', 'flow',
+            'total_amount', 'amount_paid', 'advance_paid',
+            'order_date', 'estimated_delivery',
+            'current_stage_key', 'production_status', 'stages',
+            'special_instructions',
+        ]
 
 
 def build_style_dna(obj, revenue=None, last_order_date=None):

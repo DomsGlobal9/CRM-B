@@ -41,6 +41,7 @@ from .models import (
     OrderStage, OrderActivity
 )
 from .serializers import (
+    OrderListSerializer,
     CustomerSerializer, MeasurementSerializer, DesignPreferenceSerializer,
     FabricSelectionSerializer, TailorSerializer, OrderSerializer,
     BoutiqueDesignSerializer, NotificationSerializer, OrderStageHistorySerializer, BoutiqueSettingsSerializer,
@@ -451,8 +452,17 @@ class BoutiqueDesignViewSet(viewsets.ModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
 
+    def get_serializer_class(self):
+        # A list row is a row; the whole order is what you get when you open
+        # one. See OrderListSerializer.
+        if self.action == 'list':
+            return OrderListSerializer
+        return OrderSerializer
+
     def get_queryset(self):
-        return visible_orders(OrderRepository.get_all(), self.request.user)
+        repo = (OrderRepository.list_queryset() if self.action == 'list'
+                else OrderRepository.get_all())
+        return visible_orders(repo, self.request.user)
 
     def perform_update(self, serializer):
         old_status = serializer.instance.order_status

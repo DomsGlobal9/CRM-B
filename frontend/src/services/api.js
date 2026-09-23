@@ -966,6 +966,17 @@ export const api = {
     return res.json();
   },
 
+  /** One whole order: its activities, photos, purchases and each garment's
+   *  full specification. The list carries a row's worth; this is what the
+   *  order screen opens on. */
+  async getOrder(orderId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) await failWith(res, 'Failed to fetch the order');
+    return res.json();
+  },
+
   // --- Inventory ---
   async getInventoryItems(params = {}) {
     const url = new URL(`${BASE_URL}/inventory/items/`);

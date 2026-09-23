@@ -1995,12 +1995,28 @@ function App() {
   const [ordersGarmentFilter, setOrdersGarmentFilter] = useState('All');
   const [ordersStageFilter, setOrdersStageFilter] = useState('All');
   const [ordersView, setOrdersView] = useState('list');
-  const openOrder = openOrdersRowId ? ordersList.find((o) => o.id === openOrdersRowId) : null;
+  // The order book carries a row's worth of each order (OrderListSerializer);
+  // the whole thing -- activities, photos, purchases, each garment's
+  // specification -- is fetched when somebody opens one. The row stands in
+  // until it arrives, so the page draws immediately rather than blank.
+  const [openOrderFull, setOpenOrderFull] = useState(null);
+  const openOrderRow = openOrdersRowId ? ordersList.find((o) => o.id === openOrdersRowId) : null;
+  // Only when it is the order actually open: a stale one must never show.
+  const openOrder = openOrderFull && openOrderFull.id === openOrdersRowId
+    ? { ...openOrderRow, ...openOrderFull }
+    : openOrderRow;
   useEffect(() => {
-    if (!openOrdersRowId) return;
+    if (!openOrdersRowId) return undefined;
     window.scrollTo({ top: 0 });
     document.querySelector('.portal-main')?.scrollTo?.(0, 0);
-  }, [openOrdersRowId]);
+    let live = true;
+    api.getOrder(openOrdersRowId)
+      .then((full) => { if (live) setOpenOrderFull(full); })
+      .catch(() => {});
+    return () => { live = false; };
+    // ordersList is the dependency on purpose: every mutation refetches the
+    // book, and the open order should show the same new truth.
+  }, [openOrdersRowId, ordersList]);
 
  
   const orderMatchesFilters = (order) => {
