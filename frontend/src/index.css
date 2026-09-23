@@ -5574,6 +5574,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .apt-when .btn-secondary { flex-shrink: 0; min-height: 28px; padding: 4px 12px !important; }
 .apt-when .btn-secondary:disabled { opacity: .45; }
 
+/* The box that only 'Other' asks for, tucked under its select rather than
+   looking like a field of its own. */
+.apt-custom-type { margin-top: 8px; }
+
+
 /* Existing / New client: one track, two halves, so it reads as a single
    either-or control rather than two competing buttons. */
 .apt-seg { display: flex; gap: 4px; margin-bottom: var(--space-2); padding: 3px;

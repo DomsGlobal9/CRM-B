@@ -297,6 +297,7 @@ const APPOINTMENT_TYPE_LABELS = {
   MEASUREMENT: 'Measurement Fitting',
   TRIAL: 'Garment Trial',
   DELIVERY: 'Final Delivery',
+  OTHER: 'Other',
 };
 
 
@@ -2275,7 +2276,7 @@ function App() {
   };
 
   const blankAppointmentForm = {
-    customer: '', appointment_type: 'TRIAL', scheduled_time: '',
+    customer: '', appointment_type: 'TRIAL', custom_type: '', scheduled_time: '',
     assigned_staff: '', notes: '', status: 'SCHEDULED',
     // Booking for somebody not in the book yet: the three things the counter
     // has at the door. Sent as `new_customer`; the server writes the customer.
@@ -2301,6 +2302,7 @@ function App() {
       ...blankAppointmentForm,
       customer: appt.customer,
       appointment_type: appt.appointment_type,
+      custom_type: appt.custom_type || '',
       scheduled_time: local,
       assigned_staff: appt.assigned_staff || '',
       notes: appt.notes || '',
@@ -4125,7 +4127,9 @@ function App() {
                                       {customer || t('dashboard.customer', 'Customer')}
                                     </td>
                                     <td data-label={t('dashboard.apptReason', 'Reason')}>
-                                      {APPOINTMENT_TYPE_LABELS[a.appointment_type] || a.appointment_type}
+                                      {a.custom_type
+                                        || APPOINTMENT_TYPE_LABELS[a.appointment_type]
+                                        || a.appointment_type}
                                     </td>
                                     <td data-label={t('dashboard.apptDate', 'Date')} style={{ whiteSpace: 'nowrap' }}>
                                       {isToday
@@ -6210,11 +6214,25 @@ function App() {
                     <label className="form-label">Type</label>
                     <select className="form-control"
                             value={appointmentForm.appointment_type}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, appointment_type: e.target.value })}>
+                            onChange={(e) => setAppointmentForm({
+                              ...appointmentForm,
+                              appointment_type: e.target.value,
+                              // Moving off Other drops what was typed, so a
+                              // standard booking cannot be saved carrying a
+                              // stale label nothing will ever show.
+                              custom_type: e.target.value === 'OTHER' ? appointmentForm.custom_type : '',
+                            })}>
                       {Object.entries(APPOINTMENT_TYPE_LABELS).map(([value, label]) => (
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
+                    {appointmentForm.appointment_type === 'OTHER' && (
+                      <input className="form-control apt-custom-type" required
+                             maxLength={50} autoFocus
+                             placeholder={t('dashboard.customTypePlaceholder', 'What kind of appointment?')}
+                             value={appointmentForm.custom_type}
+                             onChange={(e) => setAppointmentForm({ ...appointmentForm, custom_type: e.target.value })} />
+                    )}
                   </div>
                   <div>
                     <label className="form-label">Date & time *</label>
@@ -6265,7 +6283,7 @@ function App() {
                   )}
                   <div>
                     <label className="form-label">Notes</label>
-                    <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note}
+                    <textarea className="form-control" rows={2} maxLength={LIMITS.note}
                               value={appointmentForm.notes}
                               onChange={(e) => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} />
                   </div>
