@@ -1270,7 +1270,7 @@ export default function StaffPanel({ currentUser }) {
 
   // A tailor opens this to record their hours, not to browse a roster of one.
   // Managers open it on the team. Same screen, different first thing.
-  const [tab, setTab] = useState(canSeeTeam ? 'roster' : 'attendance');
+  const [tab, setTab] = useState(isOwner ? 'roster' : 'attendance');
 
   return (
     <>
