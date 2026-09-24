@@ -47,7 +47,7 @@ export function Modal({ title, onClose, children, width = '520px' }) {
   );
 }
 
-export default function ItemFormModal({ item, options, suppliers, onClose, onSaved }) {
+export default function ItemFormModal({ item = {}, options, suppliers, onClose, onSaved }) {
   const { t } = useLanguage();
   
   const [loadedOptions, setLoadedOptions] = useState(null);
@@ -58,30 +58,30 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
   }, [options, suppliers]);
   const opts = options || loadedOptions || EMPTY_OPTIONS;
   const sups = suppliers || loadedSuppliers || [];
-  const isNew = !item.id;
+  const isNew = !item?.id;
   const [form, setForm] = useState({
-    item_code: item.item_code || '',
-    name: item.name || '',
-    category: item.category || 'FABRIC',
-    unit: item.unit || '',
-    color: item.color || '',
-    purchase_price: item.purchase_price || '',
-    selling_price: item.selling_price || '',
-    reorder_level: item.reorder_level || '',
-    minimum_stock: item.minimum_stock || '',
-    rack_location: item.rack_location || '',
-    supplier: item.supplier || '',
-    status: item.status || 'ACTIVE',
-    sub_category: item.sub_category || '',
-    catalog_item: item.catalog_item || '',
-    design_asset: item.design_asset || '',
-    material_type: item.material_type || '',
-    color_hex: item.color_hex || '',
-    image_urls: item.image_urls || [],
-    image_url: item.image_url || '',
-    kind: item.kind || '',
-    variant: item.variant || '',
-    placements: (item.placements || []).map(({ garment, section, slot }) => ({ garment, section, slot })),
+    item_code: item?.item_code || '',
+    name: item?.name || '',
+    category: item?.category || 'FABRIC',
+    unit: item?.unit || '',
+    color: item?.color || '',
+    purchase_price: item?.purchase_price || '',
+    selling_price: item?.selling_price || '',
+    reorder_level: item?.reorder_level || '',
+    minimum_stock: item?.minimum_stock || '',
+    rack_location: item?.rack_location || '',
+    supplier: item?.supplier || '',
+    status: item?.status || 'ACTIVE',
+    sub_category: item?.sub_category || '',
+    catalog_item: item?.catalog_item || '',
+    design_asset: item?.design_asset || '',
+    material_type: item?.material_type || '',
+    color_hex: item?.color_hex || '',
+    image_urls: item?.image_urls || [],
+    image_url: item?.image_url || '',
+    kind: item?.kind || '',
+    variant: item?.variant || '',
+    placements: (item?.placements || []).map(({ garment, section, slot }) => ({ garment, section, slot })),
     opening_stock: '',
   });
   const taxonomy = useFabricTaxonomy();
@@ -133,7 +133,7 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
         payload[k] = payload[k] === '' ? 0 : payload[k];
       });
       ['supplier', 'sub_category', 'catalog_item', 'design_asset'].forEach((k) => { if (!payload[k]) delete payload[k]; });
-      const saved = await api.saveInventoryItem(payload, item.id || null);
+      const saved = await api.saveInventoryItem(payload, item?.id || null);
       if (isNew && Number(openingStock) > 0) {
         await api.moveStock(saved.id, 'stock-in', { quantity: openingStock, remarks: 'Opening stock' });
       }
@@ -146,7 +146,7 @@ export default function ItemFormModal({ item, options, suppliers, onClose, onSav
   };
 
   return (
-    <Modal title={isNew ? t('inventoryPage.newItemTitle', 'New inventory item') : `${t('inventoryPage.editTitle', 'Edit')} · ${item.name}`} onClose={onClose} width="760px">
+    <Modal title={isNew ? t('inventoryPage.newItemTitle', 'New inventory item') : `${t('inventoryPage.editTitle', 'Edit')} · ${item?.name || ''}`} onClose={onClose} width="760px">
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
           <Field label={t('inventoryPage.itemCode', 'Item code')} required={!linked} value={form.item_code} onChange={(v) => set('item_code', v)} maxLength={50}
