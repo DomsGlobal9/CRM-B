@@ -200,7 +200,7 @@ const en = {
     showUpcomingOnly: "Coming up only",
     allAppointments: "All fittings & visits",
     openAppointment: "Open this visit",
-    bookAppointmentBtn: "Book a fitting",
+    bookAppointmentBtn: "Submit",
     revenueThisMonth: "Revenue this month",
     allTime: "{amount} all time",
     toCollect: "To collect",
