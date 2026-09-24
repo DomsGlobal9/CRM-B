@@ -4601,17 +4601,19 @@ table.data-table tbody tr:hover {
 @media (max-width: 560px) { .at-form-grid, .at-form-grid--3 { grid-template-columns: 1fr; } }
 
 .at-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.at-field-label { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
-.at-field-req { color: var(--danger-color); }
+.at-field-label { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-primary); }
+.at-field-req { color: var(--danger-color, #ef4444); font-weight: 700; margin-left: 2px; }
 .at-field-opt { font-weight: 400; color: var(--text-secondary); }
-.at-field-control { display: flex; align-items: stretch; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-color); min-height: 46px; overflow: hidden; transition: border-color .15s ease, box-shadow .15s ease; }
-.at-field-control:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(22, 53, 42, .08); }
-.at-field-icon { width: 46px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface-inset); color: var(--primary-color); border-right: 1px solid var(--border-color); }
+.at-field-control { display: flex; align-items: center; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface-2); min-height: 44px; overflow: hidden; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease; }
+.at-field-control:hover { border-color: color-mix(in srgb, var(--text-primary) 35%, var(--border-strong)); }
+.at-field-control:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 30%, transparent); background: var(--surface-color); }
+.at-field-icon { width: 38px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: transparent !important; color: var(--text-secondary); border-right: none !important; margin-left: 6px; transition: color .15s ease; }
+.at-field-control:focus-within .at-field-icon { color: var(--primary-color); }
 .at-field-control > input, .at-field-control > select, .at-field-control > textarea,
 .at-field-control > input.form-control, .at-field-control > select.form-control, .at-field-control > textarea.form-control,
 .at-field-control > input.form-input, .at-field-control > select.form-input, .at-field-control > textarea.form-input {
   flex: 1; min-width: 0; border: none !important; background: transparent !important; box-shadow: none !important; outline: none;
-  padding: 12px 14px; font: inherit; font-size: var(--text-base); color: var(--text-primary); margin: 0; border-radius: 0;
+  padding: 10px 14px 10px 4px; font: inherit; font-size: 14px; font-weight: 500; color: var(--text-primary); margin: 0; border-radius: 0;
 }
 .at-field-control > textarea { min-height: 88px; resize: vertical; }
 .at-field-control > select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23545e58' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>") !important; background-repeat: no-repeat !important; background-position: right 14px center !important; padding-right: 36px; }
@@ -4923,7 +4925,7 @@ h1, h2, h3, .at-page-title, .at-section-title, .at-modal-title, .auth-logo, .por
 .at-section-title { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
 .at-modal-title { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
 .ui-eyebrow, .at-stat-label { font-size: 12px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--text-secondary); }
-.at-field-label, .form-label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); }
+.at-field-label, .form-label { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-primary); margin-bottom: 2px; }
 .at-field-hint { font-size: 12px; color: var(--text-secondary); }
 .at-link, a.lime-link { color: var(--brand-link); font-weight: 600; }
 .at-link:hover, a.lime-link:hover { color: color-mix(in srgb, var(--brand-link) 78%, var(--text-primary)); }
@@ -4937,9 +4939,9 @@ input:where([type="text"], [type="email"], [type="number"], [type="date"], [type
 select, textarea,
 input.form-control, select.form-control, textarea.form-control, input.form-input, select.form-input, textarea.form-input {
   font-family: var(--font-sans); font-size: 14px; color: var(--text-primary);
-  background: var(--surface-color); border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
+  background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
   padding: 8px 14px; min-height: 44px; box-sizing: border-box; outline: none;
-  transition: border-color .15s ease, box-shadow .15s ease;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
 }
 textarea, textarea.form-control, textarea.form-input { min-height: 96px; line-height: 1.5; }
 .form-control:focus, .form-input:focus, .at-search input:focus,
@@ -4953,9 +4955,9 @@ input.form-control:focus, select.form-control:focus, textarea.form-control:focus
 input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color); }
 .at-search input { border-radius: var(--radius-lg); padding-left: 38px; }
 /* Atelier fields carry the border on their wrapper; the wrapper gets the recipe. */
-.at-field-control { border-color: var(--border-strong); border-radius: var(--radius-lg); min-height: 44px; background: var(--surface-color); }
-.at-field-control:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 35%, transparent); }
-.at-field-icon { color: var(--text-secondary); background: var(--surface-inset); border-right-color: var(--border-color); }
+.at-field-control { border-color: var(--border-strong); border-radius: var(--radius-lg); min-height: 44px; background: var(--surface-2); }
+.at-field-control:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 30%, transparent); }
+.at-field-icon { color: var(--text-secondary); background: transparent !important; border-right: none !important; }
 
 /* Buttons: filled primary (a step deeper on hover) and outline secondary. */
 .btn-primary, .btn-secondary {
