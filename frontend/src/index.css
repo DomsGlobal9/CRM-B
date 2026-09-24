@@ -4386,7 +4386,7 @@ table.data-table tbody tr:hover {
 .at-stat--blue   { background: var(--tone-blue-bg);   border-color: var(--tone-blue-line); }
 .at-stat--rose   { background: var(--tone-rose-bg);   border-color: var(--tone-rose-line); }
 .at-stat-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.at-stat-label { font-size: var(--text-sm); color: var(--text-secondary); }
+.at-stat-label { font-size: 14px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-primary); margin-bottom: 2px; }
 .at-stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--text-primary); line-height: 1.15; margin-top: 2px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .at-stat--green .at-stat-value { color: var(--tone-green-fg); }
 .at-stat--amber .at-stat-value { color: var(--tone-amber-fg); }
@@ -4923,7 +4923,7 @@ h1, h2, h3, .at-page-title, .at-section-title, .at-modal-title, .auth-logo, .por
 .at-page-sub { font-size: 15px; line-height: 1.6; color: var(--text-secondary); }
 .at-section-title { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
 .at-modal-title { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
-.ui-eyebrow, .at-stat-label { font-size: 12px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--text-secondary); }
+.ui-eyebrow { font-size: 12px; font-weight: 600; letter-spacing: 0.13em; text-transform: uppercase; color: var(--text-secondary); }
 .at-field-label, .form-label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-secondary); }
 .at-field-hint { font-size: 12px; color: var(--text-secondary); }
 .at-link, a.lime-link { color: var(--brand-link); font-weight: 600; }
@@ -5015,6 +5015,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .ui-card, .at-section, .at-form-section, .at-stat, .at-cat, .surface-card { border-radius: var(--radius-lg); border: 1px solid var(--border-color); background: var(--surface-color); box-shadow: var(--shadow-card); }
 .ui-card--tap:hover, .at-cat:hover, .at-stat--tap:hover { border-color: color-mix(in srgb, var(--text-primary) 30%, transparent); box-shadow: var(--shadow-card); transform: none; }
 .at-stat { padding: 20px; }
+.at-stat-label { font-size: 14px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-primary); margin-bottom: 2px; }
 .at-stat-value { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; color: var(--text-primary); }
 .at-stat--green .at-stat-value, .at-stat--amber .at-stat-value, .at-stat--rose .at-stat-value { color: var(--text-primary); }
 .at-tile { border-radius: var(--radius-lg); }
