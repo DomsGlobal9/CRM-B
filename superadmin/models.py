@@ -15,6 +15,7 @@ class AuditLog(models.Model):
         ('user.password_reset', 'Password reset triggered'),
         ('user.access_link', 'Sign-in link issued'),
         ('lead.update', 'Lead updated'),
+        ('lead.approve', 'Access request approved, boutique created'),
         ('flag.change', 'Feature flag changed'),
         ('setting.change', 'Platform setting changed'),
         ('error.acknowledge', 'Error acknowledged'),

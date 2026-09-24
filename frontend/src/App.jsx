@@ -1439,14 +1439,14 @@ function App() {
 
   const [signupStep, setSignupStep] = useState(1);
 
+  // "Request access": nobody creates their own boutique. The request is
+  // emailed a welcome, and the platform team sends sign-in details once the
+  // boutique is set up.
   const [signupForm, setSignupForm] = useState({
     first_name: '',
     last_name: '',
     email_address: '',
     mobile_number: '',
-    password: '',
-    confirm_password: '',
-    terms: false
   });
   const [signupBusy, setSignupBusy] = useState(false);
 
@@ -1455,12 +1455,14 @@ function App() {
   const [boutiqueName, setBoutiqueName] = useState('');
   const [boutiqueAddress, setBoutiqueAddress] = useState('');
   
-  const passwordMismatch = !!signupForm.confirm_password && signupForm.confirm_password !== signupForm.password;
   const signupReady = !!(boutiqueName.trim() && boutiqueAddress.trim()
     && signupForm.first_name.trim() && signupForm.last_name.trim()
-    && signupForm.email_address.trim() && signupForm.mobile_number
-    && signupForm.password.length >= 8 && signupForm.confirm_password === signupForm.password
-    && signupForm.terms);
+    && signupForm.email_address.trim() && signupForm.mobile_number);
+
+  // First sign-in with the temporary password the platform team sent.
+  const [changeCurrent, setChangeCurrent] = useState('');
+  const [changeNew, setChangeNew] = useState('');
+  const [changeConfirm, setChangeConfirm] = useState('');
 
   const [currentStep, setCurrentStep] = useState(1);
   
@@ -2148,18 +2150,7 @@ function App() {
   const checkAuthSession = async () => {
     try {
       const user = await api.getMe();
-      if (user) {
-        setCurrentUser(user);
-        setView('dashboard');
-        if (user.role === 'Designer') {
-          openDesignRequests();
-          return;
-        }
-        if (isProductionStaff(user.role)) {
-          setDashboardTab('work');
-        } else {
-          setDashboardTab('overview');
-        }
+      if (user && enterWorkspace(user)) {
         await fetchDashboardAndConfig(user);
       }
     } catch (e) {
@@ -2269,7 +2260,8 @@ function App() {
   }, [view, dashboardTab]);
 
   useEffect(() => {
-    if (view === 'login' || view === 'signup' || view === 'forgot' || view === 'reset') return;
+    if (view === 'login' || view === 'signup' || view === 'forgot' || view === 'reset'
+        || view === 'change-password') return;
     const here = { atelier: true, view, tab: dashboardTab };
     const current = window.history.state;
     if (current?.atelier && current.view === view && current.tab === dashboardTab) return;
@@ -2509,18 +2501,8 @@ function App() {
     try {
       const res = await api.login(loginEmail, loginPassword);
       setJustRegistered(false);
-      setCurrentUser(res.user);
-      setView('dashboard');
-      if (res.user.role === 'Designer') {
-        openDesignRequests();
-        return;
-      }
-      if (isProductionStaff(res.user.role)) {
-        setDashboardTab('work');
-      } else {
-        setDashboardTab('overview');
-      }
-      fetchDashboardAndConfig(res.user);
+      if (res.user.must_change_password) setChangeCurrent(loginPassword);
+      if (enterWorkspace(res.user)) fetchDashboardAndConfig(res.user);
     } catch (err) {
       setAuthError(err.message || 'Invalid credentials.');
     } finally {
@@ -2540,27 +2522,70 @@ function App() {
     setSignupBusy(true);
     setSignupError(null);
     try {
-      const res = await api.signup({
-        first_name: signupForm.first_name,
-        last_name: signupForm.last_name,
-        email_address: signupForm.email_address,
-        mobile_number: signupForm.mobile_number,
-        password: signupForm.password,
-        business_name: boutiqueName,
-        business_address: boutiqueAddress
+      await api.requestAccess({
+        name: `${signupForm.first_name.trim()} ${signupForm.last_name.trim()}`,
+        email: signupForm.email_address.trim(),
+        phone: signupForm.mobile_number,
+        boutique: boutiqueName.trim(),
+        address: boutiqueAddress.trim(),
       });
-      setJustRegistered(true);
-      if (!res.token) { setView('login'); return; }
-      setCurrentUser(res.user);
       setSignupStep(2);
-      setTimeout(() => {
-        setView('dashboard');
-        fetchDashboardAndConfig(res.user);
-      }, 1500);
     } catch (err) {
-      setSignupError(err.message || 'Registration failed.');
+      setSignupError(err.message || 'Your request could not be sent. Please try again.');
     } finally {
       setSignupBusy(false);
+    }
+  };
+
+  // Where a signed-in user goes: the change-password screen while the
+  // account still has its temporary password, otherwise their workspace.
+  const enterWorkspace = (user) => {
+    setCurrentUser(user);
+    if (user.must_change_password) {
+      setChangeCurrent('');
+      setChangeNew('');
+      setChangeConfirm('');
+      setAuthError(null);
+      setView('change-password');
+      return false;
+    }
+    setView('dashboard');
+    if (user.role === 'Designer') {
+      openDesignRequests();
+      return false;
+    }
+    setDashboardTab(isProductionStaff(user.role) ? 'work' : 'overview');
+    return true;
+  };
+
+  const handleChangePasswordSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (authBusy) return;
+    if (changeNew.length < 8) {
+      setAuthError('The new password needs at least 8 characters.');
+      return;
+    }
+    if (changeNew !== changeConfirm) {
+      setAuthError('Those two passwords do not match.');
+      return;
+    }
+    if (changeNew === changeCurrent) {
+      setAuthError('Choose a password different from the temporary one.');
+      return;
+    }
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      const res = await api.changePassword(changeCurrent, changeNew);
+      setChangeCurrent('');
+      setChangeNew('');
+      setChangeConfirm('');
+      setJustRegistered(true);
+      if (enterWorkspace(res.user)) fetchDashboardAndConfig(res.user);
+    } catch (err) {
+      setAuthError(err.message || 'Could not change your password.');
+    } finally {
+      setAuthBusy(false);
     }
   };
 
@@ -3013,14 +3038,6 @@ function App() {
     return getSubtotal() + getTaxes();
   };
 
-  const getPasswordStrength = () => {
-    const len = signupForm.password.length;
-    if (len === 0) return '';
-    if (len < 8) return 'weak';
-    if (len < 12) return 'medium';
-    return 'strong';
-  };
-
   
   const partSelection = React.useMemo(
     () => Object.fromEntries(garmentJobs.map(job => [job.key, job.design?.parts || {}])),
@@ -3285,8 +3302,8 @@ function App() {
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
           <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>{justRegistered ? 'Your boutique is ready 🎉' : 'Welcome back 👋'}</h2>
-            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 32px 0' }}>{justRegistered ? 'Sign in with the email and password you just created.' : 'Login to continue your custom creation journey.'}</p>
+            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>Welcome back 👋</h2>
+            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 32px 0' }}>Login to continue your custom creation journey.</p>
             
             <form onSubmit={handleLoginSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -3350,9 +3367,9 @@ function App() {
             </form>
 
             <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '32px', paddingTop: '20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-              Don't have a boutique account?{' '}
-              <a href="#" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }} onClick={() => { setSignupStep(1); setView('signup'); }}>
-                Signup
+              New to Scaleezy?{' '}
+              <a href="#" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }} onClick={(e) => { e.preventDefault(); setSignupStep(1); setSignupError(null); setView('signup'); }}>
+                Request access
               </a>
             </div>
           </div>
@@ -3463,6 +3480,67 @@ function App() {
         </div>
       )}
 
+      {/* First sign-in on a boutique the platform team created: the owner
+          replaces the temporary password before anything else. The server
+          refuses every other request from this account until they do. */}
+      {view === 'change-password' && currentUser && (
+        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+          <div className="auth-card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)', marginTop: '24px' }}>
+            <h2 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Choose your password</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.6, marginTop: 0 }}>
+              Welcome, {currentUserName}. You signed in with a temporary password. Choose your
+              own to continue — the temporary one stops working once you save.
+            </p>
+            <form onSubmit={handleChangePasswordSubmit}>
+              <label htmlFor="change-current" className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Temporary password</label>
+              <input
+                id="change-current"
+                type="password"
+                autoComplete="current-password"
+                value={changeCurrent}
+                onChange={(e) => setChangeCurrent(e.target.value)}
+                placeholder="From your welcome email"
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', margin: '6px 0 14px', boxSizing: 'border-box' }}
+              />
+              <label htmlFor="change-new" className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>New password</label>
+              <input
+                id="change-new"
+                type="password"
+                autoComplete="new-password"
+                autoFocus
+                value={changeNew}
+                minLength={8}
+                onChange={(e) => setChangeNew(e.target.value)}
+                placeholder="At least 8 characters, not all numbers"
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', margin: '6px 0 10px', boxSizing: 'border-box' }}
+              />
+              <input
+                id="change-confirm"
+                type="password"
+                autoComplete="new-password"
+                aria-label="Repeat new password"
+                value={changeConfirm}
+                onChange={(e) => setChangeConfirm(e.target.value)}
+                placeholder="Repeat new password"
+                style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
+              />
+              {authError && (
+                <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
+                  {authError}
+                </div>
+              )}
+              <button type="submit" className="btn-primary" disabled={authBusy || !changeCurrent || !changeNew || !changeConfirm} style={{ width: '100%', justifyContent: 'center', padding: '13px', borderRadius: '8px', fontWeight: 600, opacity: authBusy ? 0.6 : 1, cursor: authBusy ? 'wait' : 'pointer' }}>
+                {authBusy ? 'Saving…' : 'Save and continue'}
+              </button>
+              <button type="button" disabled={logoutBusy} onClick={() => { setAuthError(null); handleLogout(); }} style={{ width: '100%', marginTop: '10px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>
+                Sign out
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {view === 'signup' && (
         <div className="auth-page auth-page--signup" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)' }}>
           
@@ -3505,8 +3583,8 @@ function App() {
             {signupStep === 1 && (
               <form onSubmit={handleSignupSubmit} className="auth-form" style={{ gap: '10px' }}>
                 <div>
-                  <h2 className="auth-title" style={{ fontSize: '24px' }}>Create your boutique account</h2>
-                  <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>Fill in the boxes below. The button lights up when everything is filled.</p>
+                  <h2 className="auth-title" style={{ fontSize: '24px' }}>Request access</h2>
+                  <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>Tell us about your boutique. Our team will set it up and email you your sign-in details.</p>
                 </div>
 
                 <div className="signup-section-title"><span className="signup-section-num">1</span>Your boutique</div>
@@ -3592,48 +3670,6 @@ function App() {
                       />
                     </div>
                   </div>
-                  <div className="form-group">
-                    <div className="signup-label-row">
-                      <label className="form-label">Password</label>
-                      <span className="password-strength-text">
-                        {signupForm.password ? <>Strength: <span>{getPasswordStrength()}</span></> : '8 or more characters'}
-                      </span>
-                    </div>
-                    <input
-                      type="password"
-                      placeholder="At least 8 characters"
-                      value={signupForm.password}
-                      minLength={8}
-                      onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
-                      required
-                      className="form-control"
-                    />
-                    {/* Always rendered, so typing the first character does
-                        not push the row below it down. */}
-                    <div className="password-strength-bar">
-                      <div className={`password-strength-fill ${getPasswordStrength()}`}></div>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <div className="signup-label-row">
-                      <label className="form-label">Type the password again</label>
-                      <span className="password-strength-text" style={passwordMismatch ? { color: '#ba1a1a' } : undefined}>
-                        {passwordMismatch ? 'Not the same' : signupForm.confirm_password ? 'Matches' : 'Same as the first'}
-                      </span>
-                    </div>
-                    <input
-                      type="password"
-                      placeholder="Same password once more"
-                      value={signupForm.confirm_password}
-                      onChange={(e) => setSignupForm({...signupForm, confirm_password: e.target.value})}
-                      required
-                      className="form-control"
-                      style={passwordMismatch ? { borderColor: '#ba1a1a' } : undefined}
-                    />
-                    <div className="password-strength-bar">
-                      <div className={`password-strength-fill ${signupForm.confirm_password ? (passwordMismatch ? 'weak' : 'strong') : ''}`}></div>
-                    </div>
-                  </div>
                 </div>
 
                 {signupError && (
@@ -3643,10 +3679,7 @@ function App() {
                 )}
 
                 <div className="mobile-stack-grid signup-footer">
-                  <label className="remember-me-checkbox" style={{ fontSize: '12.5px' }}>
-                    <input type="checkbox" checked={signupForm.terms} onChange={(e) => setSignupForm({...signupForm, terms: e.target.checked})} />
-                    I agree to the Terms & Conditions and Privacy Policy
-                  </label>
+                  <span />
                   <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setView('login')}>
                     Log in instead
                   </button>
@@ -3657,7 +3690,7 @@ function App() {
                     title={signupReady ? undefined : 'Fill every box above to continue'}
                     style={{ justifyContent: 'center', opacity: signupReady ? 1 : 0.5, cursor: signupReady ? 'pointer' : 'not-allowed' }}
                   >
-                    {signupBusy ? 'Creating your boutique…' : 'Create Account'}
+                    {signupBusy ? 'Sending your request…' : 'Request access'}
                   </button>
                 </div>
               </form>
@@ -3666,8 +3699,15 @@ function App() {
             {signupStep === 2 && (
               <div style={{ textAlign: 'center', padding: '32px' }}>
                 <div className="success-circle" style={{ margin: '0 auto 20px' }}><Check size={36} /></div>
-                <h2 className="auth-title">Registration Complete!</h2>
-                <p style={{ color: 'var(--text-secondary)' }}>Welcome to Scaleezy. Redirecting you to the portal workspace...</p>
+                <h2 className="auth-title">Request received</h2>
+                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  Thank you. We've emailed <strong>{signupForm.email_address}</strong> to confirm.
+                  Our team will review your request and send your sign-in details once your
+                  boutique is set up.
+                </p>
+                <button type="button" className="btn-primary" style={{ justifyContent: 'center', margin: '20px auto 0' }} onClick={() => { setSignupStep(1); setView('login'); }}>
+                  Back to sign in
+                </button>
               </div>
             )}
           </div>

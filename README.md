@@ -264,6 +264,24 @@ afterwards does not undo.
     `PASSWORD_RESET_BASE_URL` is the **frontend** origin including the entry
     file, e.g. `https://boutique.scaleezy.com/app`; it is not `TRACKING_BASE_URL`,
     which must point at Django because `/track/<token>/` is a Django route.
+  * **Email goes out through Resend's SMTP relay.** Set `EMAIL_HOST=smtp.resend.com`,
+    `EMAIL_PORT=587`, `EMAIL_USE_TLS=True`, `EMAIL_HOST_USER=resend` and
+    `EMAIL_HOST_PASSWORD` to the Resend API key. `DEFAULT_FROM_EMAIL` must be an
+    address on the domain verified in Resend (SPF and DKIM records added, or Resend
+    refuses to send), e.g. `Scaleezy <no-reply@yourdomain.com>`. `EMAIL_REPLY_TO`
+    is added to every outgoing message that sets no Reply-To of its own, so
+    replies reach the team's inbox. `APP_LOGIN_URL` is the sign-in page the "your
+    boutique is ready" email links to; it defaults to `PASSWORD_RESET_BASE_URL`.
+  * **There is no self-signup.** The app's *Request access* screen and the
+    website's demo form both post to `/demo-request/`; the requester is emailed a
+    welcome. A platform administrator approves the request in the console
+    (*Access requests → Approve*), which creates the boutique with a temporary
+    owner password, emails it, and shows it once. The owner must choose their
+    own password at first sign-in; until then their account can reach nothing
+    else. New boutiques start with customer messaging switched off.
+  * **Pricing** stays hidden until the console's *Config → Pricing* switch is
+    turned on (PlatformSetting `pricing_enabled` = `{"enabled": true}`).
+    `GET /api/auth/platform/` and the login payload's `pricing_enabled` report it.
   * `LOGIN_RATE` and `PASSWORD_RESET_RATE` (defaults `20/hour` and `5/hour`,
     counted per IP) cap password guessing on the two login doors and the reset
     form. Both count in the local-memory cache, so the effective ceiling is the

@@ -10,8 +10,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
-from core.validators import validate_email_address, validate_mobile, validate_name
+from core.validators import (
+    validate_email_address, validate_mobile, validate_name, validate_text,
+)
 
+from .emails import send_request_received
 from .models import DemoRequest
 
 logger = logging.getLogger(__name__)
@@ -40,7 +43,8 @@ class DemoRequestForm(ModelForm):
     class Meta:
         model = DemoRequest
         fields = ['name', 'boutique', 'email', 'phone',
-                  'makes', 'orders_per_month', 'people', 'problem']
+                  'makes', 'orders_per_month', 'people', 'problem',
+                  'source', 'address']
 
     def __init__(self, data=None, **kwargs):
         if data is not None:
@@ -48,6 +52,7 @@ class DemoRequestForm(ModelForm):
             for key in data:
                 data[key] = data[key].replace('\r\n', '\n')
         super().__init__(data, **kwargs)
+        self.fields['source'].required = False
 
     def clean_name(self):
         return _rule(validate_name, self.cleaned_data.get('name'))
@@ -62,6 +67,18 @@ class DemoRequestForm(ModelForm):
 
     def clean_email(self):
         return _rule(validate_email_address, self.cleaned_data.get('email'))
+
+    def clean_boutique(self):
+        return _rule(validate_text, self.cleaned_data.get('boutique'),
+                     label='Boutique name', max_length=100, required=True)
+
+    def clean_address(self):
+        return _rule(validate_text, self.cleaned_data.get('address'),
+                     label='Boutique address', max_length=500)
+
+    def clean_source(self):
+        # The website's form predates this field and does not send it.
+        return self.cleaned_data.get('source') or 'website'
 
 
 def _client_ip(request):
@@ -104,4 +121,15 @@ def demo_request(request):
     lead = form.save(commit=False)
     lead.ip = ip
     lead.save()
+
+    # The request is saved whatever happens to the email: a mail outage must
+    # not lose a lead. The console shows which requests were never welcomed.
+    try:
+        sent = send_request_received(lead)
+    except Exception:
+        logger.exception('welcome email failed for access request %s', lead.pk)
+        sent = False
+    if sent:
+        lead.welcome_emailed_at = timezone.now()
+        lead.save(update_fields=['welcome_emailed_at'])
     return JsonResponse({'ok': True}, status=201)

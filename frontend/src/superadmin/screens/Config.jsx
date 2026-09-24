@@ -13,10 +13,14 @@
  * maintenance_mode is lifted out of the settings table into its own control. It
  * is the one row here that takes the whole platform down, and editing it as raw
  * JSON in a list of five would let someone do that without being told.
+ *
+ * pricing_enabled is lifted out the same way: it decides whether boutiques and
+ * the website see subscription prices at all, and stays off until the payment
+ * gateway is live. The server treats anything but {"enabled": true} as off.
  */
 
 import { useCallback, useState } from 'react';
-import { Info, Lock, Power, Server } from 'lucide-react';
+import { IndianRupee, Info, Lock, Power, Server } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import { LIMITS } from '../../services/validate';
@@ -34,6 +38,7 @@ const CREDENTIAL_NAMES = {
 };
 
 const MAINTENANCE = 'maintenance_mode';
+const PRICING = 'pricing_enabled';
 
 /**
  * The middleware's reading of the stored value, not a friendlier one.
@@ -107,7 +112,10 @@ export default function Config() {
         {(data) => {
           const stored = maintenanceOf(data.settings);
           const message = draft ?? stored.message;
-          const rows = data.settings.filter((s) => s.key !== MAINTENANCE);
+          const rows = data.settings.filter((s) => s.key !== MAINTENANCE && s.key !== PRICING);
+          const pricingRaw = data.settings.find((s) => s.key === PRICING)?.value;
+          const pricingOn = Boolean(pricingRaw && typeof pricingRaw === 'object'
+            && !Array.isArray(pricingRaw) && pricingRaw.enabled === true);
           const env = data.environment || {};
 
           return (
@@ -164,6 +172,27 @@ export default function Config() {
                       : 'Unsaved message.'}
                   </span>
                 </div>
+              </div>
+
+              <SectionHead title="Pricing"
+                subtitle="Whether boutiques and the website see subscription prices. Keep this off until the payment gateway is live." />
+
+              <div className="sa-card" style={{ marginBottom: 32 }}>
+                <h4>
+                  <IndianRupee size={14} />
+                  <Pill value={pricingOn ? 'enabled' : 'not_configured'}
+                    label={pricingOn ? 'Prices shown' : 'Prices hidden'} />
+                </h4>
+                <p className="sa-muted" style={{ fontSize: 13.5, margin: '10px 0 12px' }}>
+                  {pricingOn
+                    ? 'Boutiques and the website can see plans and prices.'
+                    : 'No prices or plan upgrades are shown anywhere. Plans are set per boutique from Features per boutique.'}
+                </p>
+                <button className={`sa-btn ${pricingOn ? '' : 'primary-inline'}`} disabled={busy === PRICING}
+                  onClick={() => write(PRICING, { enabled: !pricingOn }, '',
+                    pricingOn ? 'Pricing is hidden again.' : 'Pricing is now shown.')}>
+                  <IndianRupee size={13} /> {pricingOn ? 'Hide pricing' : 'Show pricing'}
+                </button>
               </div>
 
               <SectionHead title="Platform settings"

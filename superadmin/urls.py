@@ -5,7 +5,8 @@ from rest_framework.routers import SimpleRouter
 from .api_views import (AuditView, BoutiqueModulesView, BoutiqueAppearanceView, ConfigView, ErrorDetailView,
                         ErrorsView, ErrorSummaryView, FlagDetailView, FlagsView,
                         HealthView, ModulesView, OnboardingView, OrdersMonitorView,
-                        SearchView, SigninsView, SupportView, UserActionView, UsersView)
+                        SearchView, SigninsView, SupportView, UserActionView, UsersView,
+                        LeadApproveView)
 from .views import (BoutiqueDataView, LeadViewSet, OverviewView,
                     PlatformLoginView, PlatformLogoutView, PlatformMeView,
                     TenantViewSet)
@@ -68,6 +69,9 @@ urlpatterns = [
 
     path('search/', SearchView.as_view(), name='superadmin-search'),
     path('support/<str:schema_name>/', SupportView.as_view(), name='superadmin-support'),
+
+    path('leads/<int:pk>/approve/', LeadApproveView.as_view(),
+         name='superadmin-lead-approve'),
 
     path('', include(router.urls)),
 ]

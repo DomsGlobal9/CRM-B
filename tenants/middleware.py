@@ -52,7 +52,7 @@ def clear_tenant_cache():
     _tenant_cache.clear()
 
 
-_CONTROL_COLUMNS = ('is_active', 'plan', 'enabled_modules')
+_CONTROL_COLUMNS = ('is_active', 'plan', 'enabled_modules', 'owner_password_temporary')
 
 
 class TenantGone(Exception):
@@ -93,6 +93,31 @@ def _maintenance_mode():
 
     _platform_cache['maintenance_mode'] = (value, now + _TENANT_CACHE_TTL)
     return value
+
+
+def platform_switch(key):
+    """True when PlatformSetting `key` is stored as {"enabled": true}.
+
+    Same shape, cache and five-minute lag as maintenance mode. A missing row,
+    an unreadable table or any other value is off, so a switch fails closed.
+    """
+    cache_key = f'switch:{key}'
+    hit = _platform_cache.get(cache_key)
+    now = time.monotonic()
+    if hit is not None and hit[1] > now:
+        return hit[0]
+
+    enabled = False
+    try:
+        from superadmin.models import PlatformSetting
+        with schema_context(get_public_schema_name()):
+            row = PlatformSetting.objects.filter(key=key).first()
+        enabled = bool(row and isinstance(row.value, dict) and row.value.get('enabled') is True)
+    except Exception:
+        enabled = False
+
+    _platform_cache[cache_key] = (enabled, now + _TENANT_CACHE_TTL)
+    return enabled
 
 
 def _activate_tenant_timezone(tenant):
@@ -183,7 +208,8 @@ class TenantHeaderMiddleware(TenantMainMiddleware):
             except domain_model.DoesNotExist:
                 tenant = _get_tenant_by_schema(tenant_model, public_schema_name)
 
-        control = {'is_active': True, 'plan': 'atelier', 'enabled_modules': {}}
+        control = {'is_active': True, 'plan': 'atelier', 'enabled_modules': {},
+                   'owner_password_temporary': False}
         if tenant is not None and tenant.schema_name != public_schema_name:
             try:
                 control = _control_state(tenant_model, tenant)
@@ -223,6 +249,10 @@ class TenantHeaderMiddleware(TenantMainMiddleware):
                      "module": module},
                     403, reason=f'ModuleDisabled:{module}',
                     boutique=getattr(tenant, 'schema_name', ''))
+
+        # Read by core.authentication, which refuses the owner's token for
+        # anything but changing the password while this is set.
+        request.owner_password_temporary = bool(control.get('owner_password_temporary'))
 
         if tenant and tenant.schema_name != public_schema_name:
             tenant.domain_url = request.get_host()

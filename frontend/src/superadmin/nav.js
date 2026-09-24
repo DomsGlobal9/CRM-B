@@ -34,7 +34,7 @@ export const NAV = [
       { key: 'boutiques', label: 'All boutiques', icon: Building2 },
       { key: 'users', label: 'Staff accounts', icon: Users },
       { key: 'onboarding', label: 'Setup progress', icon: Sparkles },
-      { key: 'leads', label: 'Demo requests', icon: Mail },
+      { key: 'leads', label: 'Access requests', icon: Mail },
       { key: 'support', label: 'One boutique in depth', icon: Wrench },
     ],
   },

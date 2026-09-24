@@ -1,14 +1,11 @@
 import logging
-import uuid
 
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from django.utils.text import slugify
 from rest_framework import status, views
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -18,18 +15,18 @@ from rest_framework.throttling import AnonRateThrottle
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import connection, transaction
-from tenants.models import BoutiqueTenant, Domain
-from tenants.provision import provision_tenant
+from tenants.middleware import platform_switch
+from tenants.models import BoutiqueTenant
 from django_tenants.utils import schema_context
 from superadmin import signins
-from core.modules import DEFAULT_PLAN, MODULE_GROUP, effective_modules
-from core.validators import (
-    validate_email_address, validate_mobile, validate_name, validate_text,
-)
+from core.modules import MODULE_GROUP, effective_modules
 from core.roles import OWNER, resolve_user_role
 from apps.email_service.services import EmailService
 
 logger = logging.getLogger(__name__)
+
+#: PlatformSetting key the console's Pricing switch writes ({"enabled": bool}).
+PRICING_SWITCH = 'pricing_enabled'
 
 
 def _role_modules():
@@ -75,8 +72,31 @@ def _role_modules():
     return stored if isinstance(stored, dict) else {}
 
 
+def _must_change_password(user, role):
+    """True while this is the owner of a boutique still on its temporary password.
+
+    Read from the registry row, not from connection.tenant: the middleware
+    caches tenant objects for five minutes, and a stale True would send an
+    owner back to the change-password screen on another server worker right
+    after they had changed it.
+    """
+    schema = connection.schema_name
+    if role != OWNER or schema == 'public':
+        return False
+    try:
+        # `schema` is captured above: inside schema_context('public') the
+        # connection reports 'public', not the boutique being asked about.
+        with schema_context('public'):
+            return bool(BoutiqueTenant.objects.filter(
+                schema_name=schema).values_list(
+                    'owner_password_temporary', flat=True).first())
+    except Exception:
+        logger.exception('owner_password_temporary unreadable for %s', schema)
+        return False
+
+
 def user_payload(user, role=None):
-    """The ONE user object /auth/login/, /auth/me/ and /auth/signup/ return.
+    """The ONE user object /auth/login/, /auth/me/ and /auth/change-password/ return.
 
     Written once because it used to be written three times. Login and
     /auth/me/ disagreeing about the same account is a bug this codebase has
@@ -84,8 +104,8 @@ def user_payload(user, role=None):
     that the frontend gates its navigation on "modules": a login reporting a
     different set from /auth/me/ makes the nav change shape on first refresh.
 
-    `role` is passed in only where it is already a fact (signup creates the
-    owner); everywhere else it is resolved.
+    `role` is passed in only where it is already a fact; everywhere else it
+    is resolved.
     """
     if role is None:
         role = resolve_user_role(user)
@@ -139,6 +159,8 @@ def user_payload(user, role=None):
 
     return {
         "id": user.id,
+        "must_change_password": _must_change_password(user, role),
+        "pricing_enabled": platform_switch(PRICING_SWITCH),
         "first_name": user.first_name,
         "last_name": user.last_name,
         "email": user.email,
@@ -203,118 +225,21 @@ class LoginThrottle(AnonRateThrottle):
 
 
 class SignupView(views.APIView):
-    permission_classes = [AllowAny]
+    """Closed. Boutiques are created by the platform team on approval.
 
-    #: The floor the sign-up form promises; Django's validators re-check it.
-    PASSWORD_MIN_LENGTH = 8
+    Kept at its old URL so a stale app build gets a sentence rather than a
+    404: request access instead (POST /demo-request/, source=app), and the
+    console's approve action creates the boutique (tenants.onboarding).
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
-        first_name = request.data.get('first_name')
-        last_name = request.data.get('last_name')
-        email = (request.data.get('email_address') or '').strip().lower()
-        mobile = request.data.get('mobile_number')
-        password = request.data.get('password')
+        return Response(
+            {"error": "New boutiques are set up by our team. "
+                      "Please use Request access and we'll be in touch."},
+            status=status.HTTP_410_GONE)
 
-        if not email or not password or not first_name or not last_name:
-            return Response(
-                {"error": "Please provide first_name, last_name, email_address and password"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # One rule set with the customer book and the staff roster: the name
-        # becomes the tenant's, the mobile the boutique's WhatsApp identity.
-        try:
-            first_name = validate_name(first_name, label='First name', max_length=150)
-            last_name = validate_name(last_name, label='Last name', max_length=150)
-            email = validate_email_address(email)
-            mobile = validate_mobile(mobile)
-            business_name = validate_text(request.data.get('business_name'),
-                                          label='Boutique name', max_length=100)
-            business_address = validate_text(request.data.get('business_address'),
-                                             label='Boutique address', max_length=500)
-        except ValidationError as exc:
-            return Response({"error": str(exc.detail[0])}, status=status.HTTP_400_BAD_REQUEST)
-
-        if len(password) < self.PASSWORD_MIN_LENGTH:
-            return Response(
-                {"error": f"Password needs at least {self.PASSWORD_MIN_LENGTH} characters."},
-                status=status.HTTP_400_BAD_REQUEST)
-        try:
-            validate_password(password)
-        except DjangoValidationError as exc:
-            return Response({"error": " ".join(exc.messages)},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        if BoutiqueTenant.objects.filter(owner_email=email).exists():
-            return Response(
-                {"error": "A user with this email address already exists"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            with transaction.atomic():
-                base = slugify(email).replace('-', '_')[:50].strip('_') or 'boutique'
-                if not base[0].isalpha():
-                    base = f"b_{base}"[:50]
-                schema_name = f"{base}_{uuid.uuid4().hex[:8]}"
-            
-                tenant = provision_tenant(
-                    schema_name=schema_name,
-                    owner_email=email,
-                    name=business_name or f"{first_name}'s Boutique",
-                    # The business decision lives here, not in the column
-                    # default: a boutique that signs up starts on the smallest
-                    # plan and is moved up from the console.
-                    plan=DEFAULT_PLAN,
-                )
-            
-                Domain.objects.create(
-                    domain=f"{schema_name}.localhost",
-                    tenant=tenant,
-                    is_primary=True
-                )
-            
-                from tenants.middleware import clear_tenant_cache
-                clear_tenant_cache()
-
-                connection.set_tenant(tenant)
-
-                from crm_api.utils import seed_tenant_defaults
-                seed_tenant_defaults(demo=False)
-
-                from crm_api.models import BoutiqueSettings
-                BoutiqueSettings.objects.update_or_create(
-                    id=1,
-                    defaults={
-                        'name': business_name or f"{first_name}'s Boutique",
-                        'email': email,
-                        **({'phone': mobile} if mobile else {}),
-                        **({'address': business_address} if business_address else {}),
-                    },
-                )
-
-                user = User.objects.create_user(
-                    username=email,
-                    email=email,
-                    password=password,
-                    first_name=first_name,
-                    last_name=last_name
-                )
-            
-                token, created = Token.objects.get_or_create(user=user)
-            
-                return Response({
-                    "token": token.key,
-                    "tenant_id": tenant.schema_name,
-                    # This account IS the owner -- it is what signup just made
-                    # -- so the role is asserted rather than looked up.
-                    "user": user_payload(user, role=OWNER),
-                }, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            logger.exception('%s failed', self.__class__.__name__)
-            connection.set_schema_to_public()
-            return Response({"error": "Something went wrong. Please try again."},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class LoginView(views.APIView):
     permission_classes = [AllowAny]
@@ -536,9 +461,81 @@ class PasswordResetConfirmView(views.APIView):
 
             Token.objects.filter(user=user).delete()
 
+        # A reset link is proof of the mailbox, so it also ends a temporary
+        # password: the owner has chosen their own.
+        _clear_temporary_password(tenant, user)
+
         return Response({"detail": "Your password has been changed. "
                                    "Please sign in."},
                         status=status.HTTP_200_OK)
+
+
+def _clear_temporary_password(tenant, user):
+    owner = (tenant.owner_email or '').lower()
+    if owner not in {(user.email or '').lower(), (user.username or '').lower()}:
+        return
+    with schema_context('public'):
+        BoutiqueTenant.objects.filter(pk=tenant.pk).update(
+            owner_password_temporary=False)
+    from tenants.middleware import clear_tenant_cache
+    clear_tenant_cache()
+
+
+class ChangePasswordView(views.APIView):
+    """A signed-in user replaces their password, knowing the current one.
+
+    The first thing an owner does after signing in with the temporary
+    password the console issued. Every other session of the account is
+    signed out, and a fresh token is returned so this device stays in.
+    """
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [LoginThrottle]
+
+    def post(self, request):
+        current = request.data.get('current_password') or ''
+        new = request.data.get('new_password') or ''
+        user = request.user
+
+        if not current or not new:
+            return Response({"error": "Enter your current password and a new one."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if not user.check_password(current):
+            LoginThrottle.record_failure(request)
+            return Response({"error": "Your current password is not correct."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if new == current:
+            return Response({"error": "Choose a password different from the current one."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(new, user)
+        except DjangoValidationError as exc:
+            return Response({"error": " ".join(exc.messages)},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            user.set_password(new)
+            user.save(update_fields=['password'])
+            Token.objects.filter(user=user).delete()
+            token = Token.objects.create(user=user)
+
+        tenant = getattr(connection, 'tenant', None)
+        if tenant is not None and connection.schema_name != 'public':
+            _clear_temporary_password(tenant, user)
+
+        return Response({
+            "token": token.key,
+            "tenant_id": connection.schema_name,
+            "user": user_payload(user),
+        }, status=status.HTTP_200_OK)
+
+
+class PlatformView(views.APIView):
+    """Public platform switches the website and the app read before sign-in."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        return Response({"pricing_enabled": platform_switch(PRICING_SWITCH)})
 
 
 class SeedDataView(views.APIView):

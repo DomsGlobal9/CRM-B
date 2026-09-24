@@ -124,13 +124,15 @@ class Command(BaseCommand):
         owner_email = f'smoke-{tag}@smoke.test'
         password = 'SmokeJourney!2026'
 
-        j.phase("[1] Signup provisions a boutique")
-        r = APIClient().post('/api/auth/signup/', {
-            'first_name': 'Smoke', 'last_name': 'Test',
-            'email_address': owner_email, 'mobile_number': '9600000000',
-            'password': password}, format='json')
-        if not j.check('signup succeeds', r.status_code in (200, 201),
-                       f'{r.status_code} {getattr(r, "data", None)}'):
+        j.phase("[1] Approval provisions a boutique")
+        from tenants.onboarding import create_boutique
+        try:
+            create_boutique(email=owner_email, first_name='Smoke', last_name='Test',
+                            password=password, phone='9600000000')
+            provisioned, detail = True, ''
+        except Exception as exc:
+            provisioned, detail = False, repr(exc)
+        if not j.check('provisioning succeeds', provisioned, detail):
             return
         tenant = BoutiqueTenant.objects.filter(owner_email=owner_email).first()
         if not j.check('tenant row created', tenant is not None):
@@ -392,11 +394,13 @@ class Command(BaseCommand):
         j.check('anonymous refused the order book',
                 anon.get('/api/orders/').status_code in (401, 403))
 
-        second = APIClient().post('/api/auth/signup/', {
-            'first_name': 'Second', 'last_name': 'House',
-            'email_address': f'second-{tag}@smoke.test', 'mobile_number': '9600000001',
-            'password': password}, format='json')
-        if j.check('a second boutique provisions', second.status_code in (200, 201)):
+        try:
+            create_boutique(email=f'second-{tag}@smoke.test', first_name='Second',
+                            last_name='House', password=password, phone='9600000001')
+            second_ok = True
+        except Exception:
+            second_ok = False
+        if j.check('a second boutique provisions', second_ok):
             other = BoutiqueTenant.objects.filter(
                 owner_email=f'second-{tag}@smoke.test').first()
             if other:

@@ -451,18 +451,3 @@ class DesignLibraryTests(ValidationTestBase):
         self.assertIn('image', self.error_of(response))
 
 
-class SignupTests(ValidationTestBase):
-    def signup(self, **overrides):
-        body = {'first_name': 'Rohan', 'last_name': 'Verma', 'email_address': 'rohan@signup.test',
-                'mobile_number': '9876500000', 'password': 'rohanpassword123'}
-        body.update(overrides)
-        client = APIClient()  # public schema: no tenant header
-        return client.post(reverse('auth-signup'), body, format='json')
-
-    def test_junk_is_refused_before_anything_is_provisioned(self):
-        self.assertIn('10-digit', self.error_of(self.signup(mobile_number='98765000001')))
-        self.assertIn('letters', self.error_of(self.signup(first_name='R0han')))
-        self.assertIn('valid email', self.error_of(self.signup(email_address='rohan@')))
-        self.assertIn('100', self.error_of(self.signup(business_name='b' * 101)))
-        self.assertIn('8 characters', self.error_of(self.signup(password='short1')))
-        self.assertFalse(User.objects.filter(username='rohan@signup.test').exists())

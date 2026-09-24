@@ -20,8 +20,16 @@ class BoutiqueTenant(TenantMixin):
     # The bundle this boutique is on (core.modules.PLANS). The column default
     # is the largest so that boutiques from before plans existed (and every
     # test fixture) keep the whole product; signup sets the smallest
-    # explicitly (crm_api/auth_views.py), which is where that decision belongs.
+    # explicitly (tenants/onboarding.py), which is where that decision belongs.
     plan = models.CharField(max_length=20, default='atelier')
+
+    # True from the moment the console creates this boutique with a temporary
+    # password until the owner chooses their own. While it is set the owner's
+    # token reaches only the change-password screen (core.authentication).
+    # Read fresh on every request by the tenant middleware, never from its
+    # five-minute tenant cache, so changing the password takes effect at once
+    # on every server worker.
+    owner_password_temporary = models.BooleanField(default=False)
 
     enabled_modules = models.JSONField(
         default=dict, blank=True,
@@ -84,6 +92,18 @@ class WhatsAppAccount(models.Model):
 
 
 class DemoRequest(models.Model):
+    """A request for access: the website's demo form or the app's Request access.
+
+    Nobody creates their own boutique. A request lands here, the requester is
+    sent a welcome email, and a platform administrator approves it from the
+    console, which creates the boutique (tenants.onboarding.create_boutique)
+    and links it back through `tenant`.
+    """
+
+    SOURCE_CHOICES = [
+        ('website', 'Website demo form'),
+        ('app', 'App access request'),
+    ]
 
     STATUS_CHOICES = [
         ('NEW', 'New'),
@@ -103,8 +123,20 @@ class DemoRequest(models.Model):
     people = models.CharField(max_length=40, blank=True)
     problem = models.CharField(max_length=2000, blank=True)
 
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='website')
+    address = models.CharField(max_length=500, blank=True)
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='NEW', db_index=True)
     notes = models.TextField(blank=True)
+
+    welcome_emailed_at = models.DateTimeField(null=True, blank=True)
+
+    # Set once, by the console's approve action, in the same transaction that
+    # creates the boutique. A request with a tenant cannot be approved again.
+    tenant = models.ForeignKey(BoutiqueTenant, null=True, blank=True,
+                               on_delete=models.SET_NULL, related_name='access_requests')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.CharField(max_length=150, blank=True)
 
     ip = models.GenericIPAddressField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

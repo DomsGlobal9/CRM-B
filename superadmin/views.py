@@ -235,7 +235,7 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     permission_classes = [IsPlatformAdmin]
     serializer_class = LeadSerializer
-    queryset = DemoRequest.objects.all()
+    queryset = DemoRequest.objects.select_related('tenant')
     http_method_names = ['get', 'patch', 'head', 'options']
 
     def perform_update(self, serializer):

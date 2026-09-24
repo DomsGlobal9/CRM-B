@@ -6,17 +6,29 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+import logging
+
+from django.utils import timezone
+
 from core import modules as module_registry
-from core.validators import MAX_NOTE, MAX_REASON, validate_text
+from core.validators import (
+    MAX_NOTE, MAX_REASON, validate_email_address, validate_mobile, validate_name,
+    validate_text,
+)
+from tenants import emails as onboarding_emails
 from tenants.middleware import clear_platform_cache, clear_tenant_cache
-from tenants.models import BoutiqueTenant
+from tenants.models import BoutiqueTenant, DemoRequest
+from tenants.onboarding import BoutiqueExists, create_boutique, generate_temporary_password
 
 from . import audit, health, onboarding, search as search_module, users as users_module, signins
 from .metrics import operational_metrics, tenant_metrics
 from .models import AuditLog, ErrorEvent, FeatureFlag, PlatformSetting
 from .permissions import IsPlatformAdmin
 from .schemas import public_scope
+from .serializers import LeadSerializer
 from .views import _boutiques
+
+logger = logging.getLogger(__name__)
 
 
 def _int(value, default, low=1, high=None):
@@ -64,6 +76,103 @@ class ConsoleView(APIView):
 
     permission_classes = [IsPlatformAdmin]
 
+
+
+class LeadApproveView(ConsoleView):
+    """Approve an access request: create the boutique and its owner.
+
+    The owner gets a generated temporary password, which is emailed to them
+    and returned here once so the administrator can also share it by hand.
+    It is never stored in plain text or written to the audit log. The owner
+    must replace it at first sign-in.
+
+    The new boutique starts with customer messaging OFF, so loading the
+    client's existing orders cannot message their customers.
+
+    Idempotent against double clicks: the request row is locked, and a
+    request that already has a boutique is refused with 409.
+    """
+
+    def post(self, request, pk):
+        reason = _audit_reason(request)
+        data = request.data
+        try:
+            first_name = validate_name(data.get('first_name'), label='First name',
+                                       max_length=150)
+            last_name = validate_name(data.get('last_name'), label='Last name',
+                                      max_length=150)
+            email = validate_email_address(data.get('email'))
+            if not email:
+                raise ValidationError('Owner email is required.')
+            business_name = validate_text(data.get('business_name'), label='Boutique name',
+                                          max_length=100, required=True)
+            phone = validate_mobile(data.get('phone'))
+            address = validate_text(data.get('address'), label='Boutique address',
+                                    max_length=500)
+        except ValidationError as exc:
+            detail = exc.detail[0] if isinstance(exc.detail, list) else exc.detail
+            return Response({'error': str(detail)}, status=status.HTTP_400_BAD_REQUEST)
+
+        plan = data.get('plan')
+        if plan not in module_registry.PLANS:
+            return Response({'error': 'Choose a plan for this boutique.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        password = generate_temporary_password()
+        try:
+            with public_scope(), transaction.atomic():
+                lead = DemoRequest.objects.select_for_update().filter(pk=pk).first()
+                if lead is None:
+                    return Response({'error': 'That request no longer exists.'},
+                                    status=status.HTTP_404_NOT_FOUND)
+                if lead.tenant_id:
+                    return Response({'error': 'This request has already been approved.'},
+                                    status=status.HTTP_409_CONFLICT)
+                before = {'status': lead.status}
+
+                tenant, _owner = create_boutique(
+                    email=email, first_name=first_name, last_name=last_name,
+                    password=password, business_name=business_name,
+                    phone=phone, address=address, plan=plan,
+                    temporary_password=True, customer_messaging_enabled=False,
+                )
+
+                lead.status = 'CONVERTED'
+                lead.tenant = tenant
+                lead.approved_at = timezone.now()
+                lead.approved_by = request.user.username
+                lead.save(update_fields=['status', 'tenant', 'approved_at', 'approved_by'])
+        except BoutiqueExists:
+            return Response({'error': f'{email} already owns a boutique.'},
+                            status=status.HTTP_409_CONFLICT)
+        except Exception:
+            logger.exception('approving access request %s failed', pk)
+            return Response({'error': 'The boutique could not be created. Nothing was '
+                                      'saved; you can try again.'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        clear_tenant_cache()
+        audit.record(request, 'lead.approve', target=f'lead:{lead.pk}',
+                     boutique=tenant.schema_name, before=before,
+                     after={'status': 'CONVERTED', 'plan': plan, 'owner': email},
+                     reason=reason)
+
+        try:
+            emailed = onboarding_emails.send_boutique_ready(
+                email=email, first_name=first_name, boutique_name=tenant.name,
+                temporary_password=password)
+        except Exception:
+            logger.exception('credentials email failed for boutique %s', tenant.schema_name)
+            emailed = False
+
+        return Response({
+            'lead': LeadSerializer(lead).data,
+            'boutique': {'schema_name': tenant.schema_name, 'name': tenant.name,
+                         'plan': tenant.plan},
+            'login': {'email': email, 'temporary_password': password,
+                      'login_url': onboarding_emails.login_url()},
+            'emailed': emailed,
+        }, status=status.HTTP_201_CREATED)
 
 
 class UsersView(ConsoleView):

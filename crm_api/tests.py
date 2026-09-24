@@ -62,34 +62,18 @@ class BoutiqueCRMTests(TenantTestCase):
             HTTP_X_TENANT_ID=self.tenant.schema_name
         )
 
-    def test_signup_success(self):
-        url = reverse('auth-signup')
-        data = {
-            "first_name": "Rohan",
-            "last_name": "Verma",
-            "email_address": "rohan@test.com",
-            "mobile_number": "9876500000",
-            "password": "rohanpassword123"
-        }
-        self.client.credentials()  # clear default tenant header to hit public schema
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIn("token", response.data)
-        self.assertEqual(response.data["user"]["email"], "rohan@test.com")
-
-    def test_signup_already_exists(self):
-        url = reverse('auth-signup')
-        data = {
-            "first_name": "Duplicate",
-            "last_name": "User",
-            "email_address": "amara@test.com",
-            "mobile_number": "9876500001",
-            "password": "anotherpassword123"
-        }
+    def test_public_signup_is_closed(self):
+        # Boutiques are created from the console on approval of an access
+        # request (tenants/test_access_requests.py); the old endpoint only
+        # answers with where to go instead.
         self.client.credentials()
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("error", response.data)
+        response = self.client.post(reverse('auth-signup'), {
+            "first_name": "Rohan", "last_name": "Verma",
+            "email_address": "rohan@test.com", "mobile_number": "9876500000",
+            "password": "rohanpassword123",
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_410_GONE)
+        self.assertNotIn("token", response.data)
 
     def test_login_success(self):
         url = reverse('auth-login')

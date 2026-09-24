@@ -195,27 +195,50 @@ export const api = {
     return data;
   },
 
-  async signup(signupData) {
-    const res = await guardedFetch(`${BASE_URL}/auth/signup/`, {
+  // Nobody creates their own boutique: this files a request the platform
+  // team approves in the console, and the requester is emailed. It posts to
+  // the same /demo-request/ intake as the website's form (outside /api/),
+  // as form data so it needs no CORS preflight.
+  async requestAccess(fields) {
+    const intake = `${BASE_URL.replace(/\/api\/?$/, '')}/demo-request/`;
+    // A string body, so guardedFetch collapses a double-click into one request.
+    const res = await guardedFetch(intake, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(signupData)
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ ...fields, source: 'app' }).toString(),
     });
-    // Parsed defensively: an HTML 502 page from the proxy made res.json()
-    // throw "Unexpected token '<'", which is what the owner saw at the two
-    // moments a clear message matters most.
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // {errors: {field: ["sentence"]}} from the form, or {error} for the
+      // rate limit. Every sentence is shown; the form names the field.
+      const sentences = Object.values(data.errors || {}).flat();
+      throw new Error(sentences.join(' ') || data.error || describeApiError(res, data));
+    }
+    return data;
+  },
+
+  // The owner of a boutique created with a temporary password lands here
+  // first. The server signs out every other session and hands back a new
+  // token, which replaces the one this device held.
+  async changePassword(currentPassword, newPassword) {
+    const res = await guardedFetch(`${BASE_URL}/auth/change-password/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || describeApiError(res, data));
-    
-    if (data.token) {
-      sessionCheckInFlight = false;
-      localStorage.setItem('token', data.token);
-    }
-    if (data.tenant_id) {
-      localStorage.setItem('tenant_id', data.tenant_id);
-    }
+    if (data.token) localStorage.setItem('token', data.token);
+    if (data.tenant_id) localStorage.setItem('tenant_id', data.tenant_id);
+    return data;
+  },
+
+  // Public platform switches. pricing_enabled stays false until the console
+  // turns pricing on (when the payment gateway is live).
+  async getPlatform() {
+    const res = await guardedFetch(`${BASE_URL}/auth/platform/`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(describeApiError(res, data));
     return data;
   },
 

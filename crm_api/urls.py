@@ -4,6 +4,7 @@ from .views import CustomerViewSet, TailorViewSet, BoutiqueDesignViewSet, OrderV
 from .client_errors import ClientErrorView
 from .auth_views import (
     SignupView, LoginView, LogoutView, MeView, SeedDataView,
+    ChangePasswordView, PlatformView,
     PasswordResetRequestView, PasswordResetConfirmView,
 )
 
@@ -25,6 +26,8 @@ urlpatterns = [
     path('voice-notes/', VoiceNoteUploadView.as_view(), name='voice-note-upload'),
     path('client-errors/', ClientErrorView.as_view(), name='client-errors'),
     path('auth/signup/', SignupView.as_view(), name='auth-signup'),
+    path('auth/change-password/', ChangePasswordView.as_view(), name='auth-change-password'),
+    path('auth/platform/', PlatformView.as_view(), name='auth-platform'),
     path('auth/login/', LoginView.as_view(), name='auth-login'),
     path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
     path('auth/me/', MeView.as_view(), name='auth-me'),

@@ -122,6 +122,11 @@ export const consoleApi = {
 
   leads: () => request('/leads/'),
   updateLead: (id, fields) => request(`/leads/${id}/`, { method: 'PATCH', body: fields }),
+  // Creates the boutique and its owner. Returns {boutique, login:
+  // {email, temporary_password, login_url}, emailed, lead}. The password is
+  // shown once and never stored by this client or written to the audit log.
+  approveLead: (id, body) =>
+    request(`/leads/${id}/approve/`, { method: 'POST', body }),
 
   // Everything inside one boutique. `datasets` is the sidebar (every table with
   // its row count); `dataset` is a page of one of them.

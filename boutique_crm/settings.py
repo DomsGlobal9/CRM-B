@@ -252,15 +252,24 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+# Production sends through Resend's SMTP relay: EMAIL_HOST=smtp.resend.com,
+# EMAIL_PORT=587, EMAIL_HOST_USER=resend, EMAIL_HOST_PASSWORD=<Resend API key>,
+# and DEFAULT_FROM_EMAIL on the domain verified in Resend. The backend adds
+# EMAIL_REPLY_TO to every message that does not set its own, so replies to
+# platform mail reach the team's inbox rather than the no-reply sender.
 EMAIL_BACKEND = (
-    'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST
-    else 'django.core.mail.backends.console.EmailBackend'
+    'core.mail.ReplyToSMTPBackend' if EMAIL_HOST
+    else 'core.mail.ReplyToConsoleBackend'
 )
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@scaleezy.com')
+EMAIL_REPLY_TO = os.environ.get('EMAIL_REPLY_TO', '')
 
 PASSWORD_RESET_BASE_URL = os.environ.get(
     'PASSWORD_RESET_BASE_URL', 'http://localhost:5173/app.html'
 )
+
+# Where the "your boutique is ready" email sends a new owner to sign in.
+APP_LOGIN_URL = os.environ.get('APP_LOGIN_URL', PASSWORD_RESET_BASE_URL)
 
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT', '3600'))
 
@@ -295,8 +304,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        # DRF's own, plus the temporary-password gate (core/authentication.py).
+        'core.authentication.TokenAuthentication',
+        'core.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'core.permissions.RolePermission',
