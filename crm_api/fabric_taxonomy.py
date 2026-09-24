@@ -84,14 +84,13 @@ GARMENTS = {
     'lehenga': {
         'label': 'Lehenga',
         'section_label': 'Lehenga Section',
+        # The skirt only: the order's Lehenga template is the skirt, and its
+        # blouse and dupatta are their own garments (lehenga_blouse, dupatta).
         'sections': {
-            'BLOUSE': _BLOUSE,
             'SKIRT': ['MAIN_FABRIC', 'LINING', 'BACKING_FABRIC', 'BORDER',
                       'FLAIR', 'WAISTBAND', 'CAN_CAN', 'ZIPPER_HOOKS'],
-            'DUPATTA': _DUPATTA,
         },
-        'section_labels': {'BLOUSE': 'Blouse', 'SKIRT': 'Skirt',
-                           'DUPATTA': 'Dupatta'},
+        'section_labels': {'SKIRT': 'Skirt'},
     },
     'lehenga_blouse': {
         'label': 'Lehenga Blouse',
