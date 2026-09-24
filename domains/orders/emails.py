@@ -117,6 +117,19 @@ def _deliver(subject, address, body, html):
     )
 
 
+def _customer_messaging_enabled():
+    """The boutique's own switch for messages to its customers.
+
+    One switch for both channels: domains.orders.messaging reads the same row
+    before any WhatsApp message. A boutique onboarded by the platform starts
+    with it off, so back-loading its existing orders cannot email every
+    customer it has.
+    """
+    from crm_api.models import BoutiqueSettings
+    config, _ = BoutiqueSettings.objects.get_or_create(id=1)
+    return config.customer_messaging_enabled
+
+
 def send_order_confirmation(order):
     """Queue the confirmation email, after the order is safely committed.
 
@@ -130,6 +143,8 @@ def send_order_confirmation(order):
     if not address:
         # Plenty of walk-in customers give a phone number and nothing else.
         # They still get the WhatsApp message; there is simply no email to send.
+        return
+    if not _customer_messaging_enabled():
         return
 
     def _send():
@@ -206,6 +221,8 @@ def send_stage_update_email(order, stage_name=None, custom_message=None):
     """Queue the stage update email, after the order transaction is safely committed."""
     address = (getattr(order.customer, 'email_address', '') or '').strip()
     if not address:
+        return
+    if not _customer_messaging_enabled():
         return
 
     def _send():

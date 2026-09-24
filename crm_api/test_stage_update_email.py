@@ -7,7 +7,7 @@ from django_tenants.test.cases import TenantTestCase
 
 from crm_api.models import BoutiqueSettings, Customer, Order
 from domains.orders.notifications import create_order_notifications
-from domains.orders.emails import send_stage_update_email
+from domains.orders.emails import send_order_confirmation, send_stage_update_email
 
 
 class StageUpdateEmailTests(TenantTestCase):
@@ -70,3 +70,28 @@ class StageUpdateEmailTests(TenantTestCase):
         self.assertIn("Pattern Cutting", args['subject'])
         self.assertIn("Pattern Cutting", args['html_message'])
 
+    def _messaging(self, enabled):
+        BoutiqueSettings.objects.filter(id=1).update(customer_messaging_enabled=enabled)
+
+    @patch("apps.email_service.services.email_job_service.EmailJobService.enqueue_job")
+    def test_switched_off_messaging_sends_no_stage_email(self, mock_enqueue):
+        # A boutique the platform onboards starts with messaging off, so
+        # loading its existing orders must not email its customers.
+        self._messaging(False)
+        with self.captureOnCommitCallbacks(execute=True):
+            send_stage_update_email(self.order, stage_name="Pattern Cutting")
+            create_order_notifications(self.order, created=False, status_changed=True,
+                                       stage_name="Pattern Cutting")
+        mock_enqueue.assert_not_called()
+
+    @patch("apps.email_service.services.email_job_service.EmailJobService.enqueue_job")
+    def test_switched_off_messaging_sends_no_order_confirmation(self, mock_enqueue):
+        self._messaging(False)
+        with self.captureOnCommitCallbacks(execute=True):
+            send_order_confirmation(self.order)
+        mock_enqueue.assert_not_called()
+
+        self._messaging(True)
+        with self.captureOnCommitCallbacks(execute=True):
+            send_order_confirmation(self.order)
+        mock_enqueue.assert_called_once()
