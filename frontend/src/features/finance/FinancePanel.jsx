@@ -14,7 +14,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Calendar, FileText, IndianRupee, LayoutGrid, Lightbulb, PieChart, Plus, Receipt, Shield, Trash2, TrendingUp, User, Wallet, X } from 'lucide-react';
 
 import { api } from '../../services/api';
-import { Dropzone, Field, FormModal, IconTile, InfoNote, PageHeader, SectionCard, StatCard } from '../../components/ui/Atelier';
+import { Dropzone, Field, FormModal, IconTile, InfoNote, PageHeader, SectionCard, Segmented, StatCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount, amountError, todayIso } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
@@ -45,19 +45,30 @@ const EXPENSE_CATEGORIES = [
   ['OTHER', 'Other'],
 ];
 
-// First and last day of the current month, as yyyy-mm-dd, for the default
-// window. Kept in the browser's local time -- the owner means "this month here".
+// Format the LOCAL date parts, never toISOString(): that converts to UTC, so
+// in a timezone ahead of UTC local Sep 1 midnight becomes Aug 31, and a
+// month's P&L would silently start and end a day early.
+const iso = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// First and last day of the current month, for the custom pickers' starting
+// values only. The named periods are resolved by the server, which is what
+// stops the two disagreeing about where a week begins.
 const monthWindow = () => {
   const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  // Format the LOCAL date parts, never toISOString(): that converts to UTC,
-  // so in a timezone ahead of UTC local Sep 1 midnight becomes Aug 31, and the
-  // month's P&L would silently start and end a day early.
-  const iso = (d) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return { since: iso(first), until: iso(last) };
+  return {
+    since: iso(new Date(now.getFullYear(), now.getMonth(), 1)),
+    until: iso(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
+  };
 };
+
+const PERIODS = [
+  { key: 'day', label: 'Day' },
+  { key: 'week', label: 'Week' },
+  { key: 'month', label: 'Month' },
+  { key: 'year', label: 'Year' },
+  { key: 'custom', label: 'Custom' },
+];
 
 function AddExpenseForm({ onCancel, onSaved }) {
   const [form, setForm] = useState({
@@ -195,6 +206,7 @@ function CostRow({ label, amount, auto }) {
 }
 
 export default function FinancePanel() {
+  const [period, setPeriod] = useState('month');
   const [win, setWin] = useState(monthWindow);
   const [pnl, setPnl] = useState(null);
   const [expenses, setExpenses] = useState([]);
@@ -203,13 +215,15 @@ export default function FinancePanel() {
   const [adding, setAdding] = useState(false);
   const [tipOpen, setTipOpen] = useState(true);
 
+  // A named period sends only its name: the server resolves the dates, so the
+  // expense list and the report can never be asked for different windows.
+  const query = period === 'custom' ? win : { period };
+
   const refresh = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const [report, rows] = await Promise.all([
-        api.getProfitLoss(win),
-        api.getExpenses(win),
-      ]);
+      const report = await api.getProfitLoss(query);
+      const rows = await api.getExpenses(report.window);
       setPnl(report);
       setExpenses(Array.isArray(rows) ? rows : (rows?.results ?? []));
     } catch (err) {
@@ -217,7 +231,8 @@ export default function FinancePanel() {
     } finally {
       setLoading(false);
     }
-  }, [win]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, win.since, win.until]);
 
   useEffect(() => {
     const t = setTimeout(refresh, 0);
@@ -225,8 +240,8 @@ export default function FinancePanel() {
   }, [refresh]);
 
   const profit = pnl ? Number(pnl.profit) : 0;
-  const margin = pnl && Number(pnl.revenue.total) > 0
-    ? Math.round((profit / Number(pnl.revenue.total)) * 100) : null;
+  // From the server: one definition of margin, not a second one computed here.
+  const margin = pnl?.margin_percent == null ? null : Math.round(Number(pnl.margin_percent));
 
   return (
     <>
@@ -235,16 +250,19 @@ export default function FinancePanel() {
         subtitle="What the boutique earned, what it spent, and what is left, for the period you pick."
         actions={(
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--border-color)',
-                          borderRadius: 'var(--radius-md)', padding: '4px 10px', background: 'var(--surface-color)' }}>
-              <input className="form-input" type="date" value={win.since} aria-label="From"
-                     onChange={(e) => setWin({ ...win, since: e.target.value })}
-                     style={{ border: 'none', background: 'transparent', padding: '6px 2px', margin: 0, width: 'auto' }} />
-              <span style={{ color: 'var(--text-muted)' }}>→</span>
-              <input className="form-input" type="date" value={win.until} aria-label="To"
-                     onChange={(e) => setWin({ ...win, until: e.target.value })}
-                     style={{ border: 'none', background: 'transparent', padding: '6px 2px', margin: 0, width: 'auto' }} />
-            </div>
+            <Segmented options={PERIODS} value={period} onChange={setPeriod} ariaLabel="Period" />
+            {period === 'custom' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid var(--border-color)',
+                            borderRadius: 'var(--radius-md)', padding: '4px 10px', background: 'var(--surface-color)' }}>
+                <input className="form-input" type="date" value={win.since} aria-label="From"
+                       onChange={(e) => setWin({ ...win, since: e.target.value })}
+                       style={{ border: 'none', background: 'transparent', padding: '6px 2px', margin: 0, width: 'auto' }} />
+                <span style={{ color: 'var(--text-muted)' }}>→</span>
+                <input className="form-input" type="date" value={win.until} aria-label="To"
+                       onChange={(e) => setWin({ ...win, until: e.target.value })}
+                       style={{ border: 'none', background: 'transparent', padding: '6px 2px', margin: 0, width: 'auto' }} />
+              </div>
+            )}
             <button type="button" className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setAdding(true)}>
               <Plus size={16} /> Add a cost
             </button>
@@ -260,11 +278,15 @@ export default function FinancePanel() {
         <div className="at-stack">
           <div className="at-stat-grid">
             <StatCard icon={TrendingUp} tone="green" label="Revenue" value={money(pnl.revenue.total)}
-                      sub="collected in this period" />
+                      sub={Number(pnl.revenue.estimated) > 0
+                        ? `includes ${money(pnl.revenue.estimated)} dated from the order`
+                        : 'received in this period'} />
             <StatCard icon={Wallet} tone="rose" label="Total Costs" value={money(pnl.costs.total)}
                       sub={Number(pnl.costs.total) > 0 ? 'salaries, inventory and entered costs' : 'No costs recorded'} />
             <StatCard icon={PieChart} tone={profit >= 0 ? 'blue' : 'rose'} label={profit >= 0 ? 'Profit' : 'Loss'}
                       value={money(Math.abs(profit))} sub={margin === null ? 'no revenue yet' : `${margin}% margin`} />
+            <StatCard icon={Receipt} tone="amber" label="Outstanding" value={money(pnl.outstanding)}
+                      sub="still owed on open orders" />
           </div>
 
           <div className="at-grid-2">

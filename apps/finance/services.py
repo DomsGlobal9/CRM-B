@@ -1,5 +1,11 @@
 """Profit & loss: the one place revenue and every cost meet.
 
+Revenue is read from finance.Payment -- dated rows of money actually received
+-- NOT from Order.amount_paid. The snapshot cannot answer "what came in during
+September": it carries no date, so the only window available to it was the
+order's own date, which files a March payment under the January the order was
+written in. See apps.finance.models.Payment.
+
 Costs come from three sources, and only ONE of them is this app's own:
 
   * salaries  -- read from apps.payroll Payout rows (cash actually paid out)
@@ -12,7 +18,7 @@ is the same number payroll and purchasing already computed, so the three can
 never drift, and nobody has to enter a cost twice.
 """
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db.models import Q, Sum
@@ -31,31 +37,91 @@ def _money(value):
     return (Decimal(value or 0)).quantize(TWO_DP)
 
 
-def _window(since, until):
-    """Default to the current calendar month when nothing is asked for.
+#: The named periods the report offers, resolved against the boutique's own
+#: today. 'custom' is the absence of a name: whatever since/until were sent.
+PERIODS = ('day', 'week', 'month', 'year', 'custom')
 
-    A P&L with no period is not a useful number, and 'this month so far' is the
-    figure an owner glances at most. Explicit since/until override it.
+
+def resolve_window(period=None, since=None, until=None):
+    """The dates a report actually runs over, and the name of the period.
+
+    One place, so the frontend cannot compute a window the backend disagrees
+    with -- the selector sends a name, this decides the dates. An unknown name
+    falls back to the month, which is what the report defaulted to before
+    periods existed.
+
+    A named period wins over since/until. Both ends are inclusive, and a
+    window given backwards is swapped rather than refused: it is a picker
+    mistake, not a reason to show nothing.
     """
     today = timezone.localdate()
-    if since is None:
-        since = today.replace(day=1)
-    if until is None:
-        until = today
-    return since, until
+    name = (period or '').strip().lower()
+
+    if name == 'day':
+        return today, today, 'day'
+    if name == 'week':
+        start = today - timedelta(days=today.weekday())
+        return start, today, 'week'
+    if name == 'year':
+        return today.replace(month=1, day=1), today, 'year'
+    if name == 'month':
+        return today.replace(day=1), today, 'month'
+
+    if since is None and until is None:
+        return today.replace(day=1), today, 'month'
+
+    since = since or today.replace(day=1)
+    until = until or today
+    if until < since:
+        since, until = until, since
+    return since, until, 'custom'
+
+
+def _window(since, until):
+    """Kept for callers that pass explicit dates and want the old default."""
+    start, end, _ = resolve_window(None, since, until)
+    return start, end
 
 
 def revenue_for(since, until):
-    from crm_api.models import Order
-    orders = Order.objects.filter(order_date__date__gte=since,
-                                  order_date__date__lte=until)
-    agg = orders.aggregate(
-        paid=Sum('total_amount', filter=Q(payment_status='Paid')),
-        partial=Sum('advance_paid', filter=Q(payment_status='Partially Paid')),
+    """Money received in the window, by the date it was received.
+
+    Cancelled orders are excluded: money taken against an order that was then
+    cancelled has been refunded or is owed back, and counting it as revenue
+    overstates what the boutique earned. Everything else counts, whether the
+    order is finished or not -- an advance is money in the till.
+    """
+    from .models import Payment
+
+    rows = Payment.objects.filter(received_on__gte=since, received_on__lte=until)
+    rows = rows.exclude(order__order_status='Cancelled')
+    agg = rows.aggregate(
+        total=Sum('amount'),
+        dated=Sum('amount', filter=~Q(source=Payment.Source.BACKFILL)),
+        estimated=Sum('amount', filter=Q(source=Payment.Source.BACKFILL)),
     )
-    paid, partial = _money(agg['paid']), _money(agg['partial'])
-    return {'total': paid + partial, 'paid_orders': paid,
-            'partial_advances': partial}
+    return {
+        'total': _money(agg['total']),
+        # What part of the figure is real dated money and what part was
+        # inferred from an order's date by the backfill. A report that cannot
+        # say which is which invites the owner to trust an approximation.
+        'dated': _money(agg['dated']),
+        'estimated': _money(agg['estimated']),
+    }
+
+
+def outstanding_now():
+    """What customers still owe on orders that are not closed.
+
+    Deliberately NOT windowed: a debt is a position at a moment, not a flow
+    over a period. Delivered and Cancelled orders drop out -- the same two
+    statuses the order book treats as closed.
+    """
+    from crm_api.models import Order
+    from . import payments
+
+    live = Order.objects.exclude(order_status__in=('Delivered', 'Cancelled'))
+    return _money(payments.outstanding_for(live))
 
 
 def salaries_for(since, until):
@@ -104,16 +170,18 @@ def manual_costs_for(since, until):
     return breakdown, sum((b['amount'] for b in breakdown), ZERO)
 
 
-def profit_and_loss(since=None, until=None):
-    since, until = _window(since, until)
+def profit_and_loss(period=None, since=None, until=None):
+    since, until, name = resolve_window(period, since, until)
     revenue = revenue_for(since, until)
     salaries = salaries_for(since, until)
     inventory = inventory_for(since, until)
     manual, manual_total = manual_costs_for(since, until)
 
     total_costs = salaries + inventory + manual_total
+    profit = revenue['total'] - total_costs
     return {
-        'window': {'since': since.isoformat(), 'until': until.isoformat()},
+        'window': {'since': since.isoformat(), 'until': until.isoformat(),
+                   'period': name},
         'revenue': revenue,
         'costs': {
             'salaries': salaries,
@@ -122,5 +190,45 @@ def profit_and_loss(since=None, until=None):
             'manual_total': manual_total,
             'total': total_costs,
         },
-        'profit': revenue['total'] - total_costs,
+        'profit': profit,
+        # Margin against revenue, in percent. None rather than zero when
+        # nothing came in: a period with no revenue has no margin, and 0%
+        # would read as "sold at cost".
+        'margin_percent': (_money(profit / revenue['total'] * 100)
+                           if revenue['total'] > ZERO else None),
+        'outstanding': outstanding_now(),
     }
+
+
+def trend(period=None, since=None, until=None, points=12):
+    """The same report, one bucket at a time, oldest first.
+
+    Buckets follow the period the report is on -- a year of months, a month of
+    days -- so the series and the headline figure are always the same question
+    asked at two resolutions.
+    """
+    since, until, name = resolve_window(period, since, until)
+    step = {'day': 'day', 'week': 'day', 'month': 'day'}.get(name, 'month')
+
+    buckets = []
+    if step == 'day':
+        cursor = since
+        while cursor <= until and len(buckets) < 366:
+            buckets.append((cursor, cursor))
+            cursor += timedelta(days=1)
+    else:
+        cursor = since.replace(day=1)
+        while cursor <= until and len(buckets) < points:
+            nxt = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+            buckets.append((max(cursor, since), min(nxt - timedelta(days=1), until)))
+            cursor = nxt
+
+    series = []
+    for start, end in buckets:
+        revenue = revenue_for(start, end)['total']
+        costs = (salaries_for(start, end) + inventory_for(start, end)
+                 + manual_costs_for(start, end)[1])
+        series.append({'since': start.isoformat(), 'until': end.isoformat(),
+                       'revenue': revenue, 'costs': costs,
+                       'profit': revenue - costs})
+    return {'step': step, 'series': series}

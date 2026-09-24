@@ -82,3 +82,73 @@ class Expense(models.Model):
 
     def __str__(self):
         return f"{self.get_category_display()} · {self.amount} · {self.incurred_on}"
+
+
+class Payment(models.Model):
+    """One instalment of money actually received against an order, with its date.
+
+    WHY THIS EXISTS
+    ===============
+    `Order.amount_paid` is a SNAPSHOT, not a ledger: every write path
+    (`domains.orders.services.apply_advance`, `OrderViewSet._reconcile_payment`)
+    SETS it to the new running total and keeps no record of when the money
+    arrived. So "revenue in September" could only ever be computed by windowing
+    on `Order.order_date` -- which attributes a March payment to the January the
+    order was written in, and silently moves the whole figure if an old order is
+    settled today.
+
+    Each row here is one receipt: an amount, and the day it was received. The
+    snapshot stays authoritative for "how much has this order been paid"; these
+    rows are authoritative for "how much came in during this period". Both must
+    agree in total, which is what `finance.payments.sync_from_order` keeps true.
+
+    `received_on` is a date, not a timestamp: a boutique books takings by the
+    day, and a date is what every window in this app compares against
+    (Expense.incurred_on does the same).
+    """
+
+    class Method(models.TextChoices):
+        CASH = 'CASH', 'Cash'
+        UPI = 'UPI', 'UPI'
+        CARD = 'CARD', 'Card'
+        BANK = 'BANK', 'Bank transfer'
+        OTHER = 'OTHER', 'Other'
+
+    class Source(models.TextChoices):
+        #: Entered as a payment, with its own date.
+        RECORDED = 'RECORDED', 'Recorded at the counter'
+        #: Derived from a change to Order.amount_paid, because the order screens
+        #: still write the snapshot. Dated the day the change was seen.
+        SNAPSHOT = 'SNAPSHOT', 'Derived from the order total'
+        #: Written by the backfill for money taken before this table existed.
+        #: Dated the order's own date, which is the best attribution available
+        #: for it -- see the migration.
+        BACKFILL = 'BACKFILL', 'Recorded before payments were dated'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    order = models.ForeignKey('crm_api.Order', on_delete=models.CASCADE,
+                              related_name='payments', db_index=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2,
+                                 validators=[MinValueValidator(0)])
+    received_on = models.DateField(db_index=True)
+    method = models.CharField(max_length=10, choices=Method.choices,
+                              default=Method.CASH)
+    source = models.CharField(max_length=10, choices=Source.choices,
+                              default=Source.RECORDED, db_index=True)
+    reference = models.CharField(max_length=100, blank=True, default='')
+    note = models.TextField(blank=True, default='')
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True,
+                                   blank=True, related_name='payments_recorded')
+
+    class Meta:
+        ordering = ['-received_on', '-created_at']
+        indexes = [models.Index(fields=['received_on', 'order'])]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(amount__gte=0),
+                                   name='finance_payment_amount_not_negative'),
+        ]
+
+    def __str__(self):
+        return f"{self.amount} on {self.received_on} for {self.order_id}"

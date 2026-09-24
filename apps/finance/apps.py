@@ -6,3 +6,6 @@ class FinanceConfig(AppConfig):
     name = 'apps.finance'
     label = 'finance'
     verbose_name = 'Cost & P&L'
+
+    def ready(self):
+        from . import signals  # noqa: F401 - connects the payment-ledger bridge
