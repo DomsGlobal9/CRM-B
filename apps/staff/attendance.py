@@ -20,6 +20,24 @@ from core.formatting import to_local
 
 from .models import AttendanceSession
 
+#: The longest a single session may run before it is treated as abandoned,
+#: and the most an abandoned one may be credited with.
+#:
+#: A session only ever closes because somebody taps Check out -- so one that
+#: was opened by the workroom (Source.WORK) and forgotten used to stay open
+#: for days, and then bank every hour of them the moment anybody closed it: a
+#: forgotten Monday shift closed on Wednesday paid 44 hours. Nobody works 44
+#: hours, so a figure like that is not evidence, it is a bug wearing a number.
+#:
+#: Measured from the check-in rather than from the calendar day, because a
+#: night shift is a real thing: somebody who starts at 23:00 and is still on
+#: the floor at 00:30 has worked ninety minutes, and closing them at midnight
+#: would be the same kind of invented number in the other direction. Capped
+#: shifts say so in the note and are ordinary corrections for the owner to
+#: make, which is the honest answer: the person WAS here, and we do not know
+#: until when.
+MAX_SHIFT_HOURS = 12
+
 
 #: A session left open this long was a forgotten check-out, not a shift. The
 #: sweep below closes it at check_in + this, never at "now": a cleanup that ran
@@ -51,9 +69,49 @@ def business_date(moment, tenant=None):
 
 
 def open_session(staff):
-    """The session this person has not finished yet, or None."""
+    """The session this person has not finished yet, or None.
+
+    Sweeps first: an open session left over from an earlier day is not
+    "working now", and treating it as such is what used to lock somebody out
+    of checking in the next morning.
+    """
+    close_stale_sessions(staff=staff)
     return AttendanceSession.objects.filter(
         staff=staff, check_out__isnull=True).first()
+
+
+def _end_of_shift(session):
+    """When an abandoned session is deemed to have ended."""
+    return session.check_in + timedelta(hours=MAX_SHIFT_HOURS)
+
+
+def close_stale_sessions(staff=None, *, now=None):
+    """Close sessions that have been open longer than a shift can last.
+
+    Returns the sessions it closed. Idempotent, and safe to call on any read
+    path: a session inside the cap is never touched, so somebody genuinely on
+    the floor -- including overnight -- keeps their running clock.
+    """
+    now = now or timezone.now()
+    stale = AttendanceSession.objects.filter(
+        check_out__isnull=True,
+        check_in__lt=now - timedelta(hours=MAX_SHIFT_HOURS))
+    if staff is not None:
+        stale = stale.filter(staff=staff)
+
+    closed = []
+    for session in stale:
+        session.check_out = _end_of_shift(session)
+        session.minutes = session.duration_minutes()
+        session.note = (
+            f"{session.note}\n" if session.note else ""
+        ) + (
+            "Closed automatically: nobody checked out. The hours are a "
+            "guess -- correct them if they are wrong."
+        )
+        session.save(update_fields=['check_out', 'minutes', 'note', 'updated_at'])
+        closed.append(session)
+    return closed
 
 
 @transaction.atomic
@@ -131,8 +189,15 @@ def check_out(staff, *, user):
     would otherwise close the same session twice, the second one recomputing
     minutes against a check_out that had already moved.
     """
+    # Sweep first: closing a forgotten session from an earlier day with
+    # today's clock is exactly the 44-hour shift the cap exists to prevent.
+    # Whoever tapped Check out gets that closed session back, because closing
+    # it is what they were asking for.
+    swept = close_stale_sessions(staff=staff)
     session = AttendanceSession.objects.select_for_update().filter(
         staff=staff, check_out__isnull=True).first()
+    if session is None and swept:
+        return swept[-1]
     if session is None:
         raise AttendanceError(
             f"{staff.name} is not checked in, so there is nothing to check out of.")
@@ -191,6 +256,8 @@ def check_in_from_work(staff, *, user, started_at, note=''):
     if staff is None or started_at is None:
         return None
     day = business_date(started_at)
+    # Yesterday's forgotten session must not swallow today's auto check-in.
+    close_stale_sessions(staff=staff)
     if AttendanceSession.objects.filter(staff=staff).filter(
             Q(check_out__isnull=True) | Q(date=day)).exists():
         return None

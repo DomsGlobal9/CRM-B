@@ -1277,14 +1277,16 @@ export default function StaffPanel({ currentUser }) {
   const canSeeTeam = isOwner || isSupervisor;
 
   // A tailor opens this to record their hours, not to browse a roster of one.
-  // Managers open it on the team. Same screen, different first thing.
+  // The owner opens it on the team. A Master is both: they supervise the
+  // floor AND work it, and their sidebar entry says My attendance -- so that
+  // is what it must open, or the one thing they came to do is a tab away.
   const [tab, setTab] = useState(isOwner ? 'roster' : 'attendance');
 
   return (
     <>
       <PageHeader
-        title={canSeeTeam ? 'Your team' : 'My attendance'}
-        subtitle={canSeeTeam
+        title={isOwner ? 'Your team' : 'My attendance'}
+        subtitle={isOwner
           ? 'Tailors, masters, karigars and designers: who is in, what they are paid, and how they are doing.'
           : 'Check in and out, and see the hours recorded for you.'}
       />
