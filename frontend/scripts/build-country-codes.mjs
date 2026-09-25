@@ -1,10 +1,4 @@
-// Builds src/data/countryCodes.js from scripts/data/country-codes.csv
-// (the datasets/country-codes table: 249 countries, 56 columns).
-//
-// The browser needs three of those columns, so the app ships a small generated
-// list rather than the whole CSV. Run it again after replacing the CSV:
-//
-//   node scripts/build-country-codes.mjs
+
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const source = join(here, 'data', 'country-codes.csv');
 const target = join(here, '..', 'src', 'data', 'countryCodes.js');
 
-// RFC 4180: quoted fields may hold commas, doubled quotes and line breaks.
+
 function parseCsv(text) {
   const rows = [];
   let row = [], field = '', quoted = false;
@@ -40,8 +34,7 @@ const col = (name) => {
   if (i === -1) throw new Error(`country-codes.csv has no "${name}" column`);
   return i;
 };
-// The CLDR short names are what people say, except two abbreviations that
-// would sort and read oddly in a list of names.
+
 const RENAME = { US: 'United States', GB: 'United Kingdom' };
 
 const ISO = col('ISO3166-1-Alpha-2'), DIAL = col('Dial');
@@ -51,9 +44,7 @@ const countries = data
   .map((r) => ({
     iso: r[ISO].trim(),
     name: (RENAME[r[ISO].trim()] || r[SHORT] || r[OFFICIAL]).trim(),
-    // "1-876" is +1 with an area code, "1-809,1-829" several of them: the
-    // country code is the part before the dash; the area code is typed with
-    // the number, as it is dialled.
+
     dial: r[DIAL].split(',')[0].split('-')[0].replace(/\D/g, ''),
   }))
   .filter((c) => c.iso && c.name && c.dial)

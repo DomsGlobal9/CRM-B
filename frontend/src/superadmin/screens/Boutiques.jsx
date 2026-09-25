@@ -10,7 +10,7 @@
  * same thing in superadmin/metrics.py.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Building2, Database, MoreHorizontal, Pause, Play, Trash2 } from 'lucide-react';
 
@@ -24,22 +24,42 @@ import {
    state on the screen (`menu`), so opening a second row's closes the first.
    Rendered through a portal on <body>, fixed at the button's rectangle: the
    Action cells are position: sticky with their own backgrounds, so a menu
-   left inside the table is painted under the rows below it. */
+   left inside the table is painted under the rows below it. It drops below
+   the button, or opens upwards when the window has no room under it (the
+   last rows of the table), so every action stays on screen. */
+const MENU_GAP = 4;
+const MENU_EDGE = 8;
+
 function RowMenu({ id, menu, setMenu, items }) {
   const open = menu?.id === id;
+  const menuRef = useRef(null);
   const toggle = (e) => {
     e.stopPropagation();
     if (open) { setMenu(null); return; }
     const r = e.currentTarget.getBoundingClientRect();
-    setMenu({ id, top: r.bottom + 4, right: window.innerWidth - r.right });
+    setMenu({ id, top: r.bottom + MENU_GAP, buttonTop: r.top, right: window.innerWidth - r.right });
   };
+  // Measured before paint: below the button if it fits, else above it, else
+  // as low as the window allows.
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!open || !el) return;
+    const height = el.offsetHeight;
+    const limit = window.innerHeight - MENU_EDGE;
+    const above = menu.buttonTop - MENU_GAP - height;
+    let top = menu.top;
+    if (top + height > limit) top = above >= MENU_EDGE ? above : Math.max(MENU_EDGE, limit - height);
+    el.style.top = `${top}px`;
+    el.style.visibility = 'visible';
+  }, [open, menu]);
   return (
     <>
       <button className="sa-btn sa-menu-btn" onClick={toggle} aria-haspopup="menu" aria-expanded={open} aria-label="Actions">
         <MoreHorizontal size={16} />
       </button>
       {open && createPortal(
-        <div className="sa-menu" role="menu" style={{ top: menu.top, right: menu.right }} onClick={(e) => e.stopPropagation()}>
+        <div ref={menuRef} className="sa-menu" role="menu" style={{ top: menu.top, right: menu.right, visibility: 'hidden' }}
+             onClick={(e) => e.stopPropagation()}>
           {items.map((item) => (
             <button key={item.label} role="menuitem" className={`sa-menu-item ${item.danger ? 'danger' : ''}`}
               onClick={() => { setMenu(null); item.onClick(); }}>
