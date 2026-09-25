@@ -54,7 +54,37 @@ import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
 import Loader from './components/ui/Loader';
+function getCustomerMeasurement(m, key) {
+  if (!m) return undefined;
+  const flat = { ...m, ...(m.additional_measurements || {}) };
+  if (flat[key] !== undefined && flat[key] !== null && flat[key] !== '') return flat[key];
 
+  const ALIASES = {
+    chest: ['bust', 'upper_chest'],
+    bust: ['chest', 'upper_chest'],
+    hip: ['hips', 'hip_round'],
+    hips: ['hip', 'hip_round'],
+    hip_round: ['hip', 'hips'],
+    sleeve_length: ['arm_length'],
+    arm_length: ['sleeve_length'],
+    waist: ['lehenga_waist', 'pant_waist', 'high_waist'],
+    lehenga_waist: ['waist'],
+    pant_waist: ['waist'],
+    full_length: ['length', 'bottom_full_length', 'pant_length', 'lehenga_length'],
+    floor_length: ['waist_to_floor', 'length', 'lehenga_length'],
+    waist_to_floor: ['floor_length', 'length'],
+    neck: ['neck_circumference', 'collar_neck'],
+    neck_circumference: ['neck', 'collar_neck'],
+  };
+
+  const candidates = ALIASES[key] || [];
+  for (const alt of candidates) {
+    if (flat[alt] !== undefined && flat[alt] !== null && flat[alt] !== '') {
+      return flat[alt];
+    }
+  }
+  return undefined;
+}
 
 const WIZARD_STEPS = {
   stitch: [
@@ -7237,15 +7267,36 @@ function App() {
                 {garmentJobs.map((job) => {
                   const section = job.template.sections.find((sec) => sec.key === 'measurements');
                   if (!section) return null;
+
+                  const customerM = customerForm?.measurements || {};
+                  const mergedValues = { ...job.values };
+                  let autoPrefilled = false;
+                  (section.fields || []).forEach((f) => {
+                    if ((mergedValues[f.key] === undefined || mergedValues[f.key] === null || mergedValues[f.key] === '') && f.unit) {
+                      const fetched = getCustomerMeasurement(customerM, f.key);
+                      if (fetched !== undefined && fetched !== null && fetched !== '') {
+                        mergedValues[f.key] = fetched;
+                        autoPrefilled = true;
+                      }
+                    }
+                  });
+
                   return (
                     <div className="content-card wz-card" key={job.key} id={`wz-garment-${job.key}`}>
-                      <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-                        <Scissors size={20} /> {job.template.name}
+                      <div className="card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '14px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Scissors size={20} /> {job.template.name}
+                        </div>
+                        {autoPrefilled && (
+                          <span style={{ fontSize: '12px', color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: '12px', border: '1px solid #a7f3d0', fontWeight: 500 }}>
+                            ✓ Customer measurements loaded
+                          </span>
+                        )}
                       </div>
                       <TemplateForm
                         template={job.template}
                         section="measurements"
-                        values={job.values}
+                        values={mergedValues}
                         errors={garmentErrors[job.key] || {}}
                         onChange={(values) => updateGarmentValues(job.key, values)}
                       />
