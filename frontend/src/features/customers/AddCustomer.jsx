@@ -13,12 +13,16 @@ const CORE = [['bust', 'Bust'], ['waist', 'Waist'], ['hips', 'Hips'], ['shoulder
 // The template keys the spreadsheet import accepts, grouped as the sample sheet groups them.
 const MORE = {
   'Upper body (blouse / kurta / shirt)': [
-    'blouse_length', 'upper_chest', 'underbust', 'armhole', 'upper_arm', 'elbow', 'wrist', 'sleeve_length',
-    'shoulder_to_bust', 'shoulder_to_waist', 'front_neck_depth', 'back_neck_depth', 'full_length',
+    'collar_neck', 'front_shoulder', 'back_shoulder', 'upper_chest', 'bust', 'underbust', 'waist', 'armhole',
+    'bicep_length', 'bicep_round', 'elbow_length', 'elbow_round', 'full_length', 'full_sleeves_round',
+    'front_neck_depth', 'back_neck_depth', 'blouse_length', 'upper_arm', 'elbow', 'wrist', 'sleeve_length',
+    'shoulder_to_bust', 'shoulder_to_waist',
   ],
   'Lower body (lehenga / skirt / churidar / trouser)': [
+    'hip_round', 'bottom_full_length', 'knee_length', 'ankle_length', 'lehenga_length', 'lehenga_waist',
+    'pant_waist', 'pant_length', 'high_round', 'inseam', 'ankle_round', 'crotch_length',
     'floor_length', 'height', 'high_waist', 'waist_to_hip', 'waist_to_floor', 'waist_to_ankle', 'heel_height',
-    'total_ghera', 'hem_circumference', 'thigh', 'knee', 'calf', 'ankle', 'inseam', 'outseam', 'crotch',
+    'total_ghera', 'hem_circumference', 'thigh', 'knee', 'calf', 'ankle', 'outseam', 'crotch',
   ],
 };
 const label = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
