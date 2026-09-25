@@ -456,11 +456,13 @@ export default function TemplateForm({
   onGoToInventory = null,
 }) {
   const definition = getSection(template, section);
- 
+  const isMeasurements = definition?.key === 'measurements';
+
   const fields = (definition?.fields || [])
     .filter((f) => f.field_type !== 'file')
     .filter((f) => (only ? only(f) : true))
-    .filter((f) => isVisible(f, values));
+    .filter((f) => isVisible(f, values))
+    .filter((f) => !isMeasurements || !f.validation?.group);
 
   const inventoryCategories = fields
     .filter((f) => f.field_type === 'inventory_ref')

@@ -7237,29 +7237,18 @@ function App() {
                 {garmentJobs.map((job) => {
                   const section = job.template.sections.find((sec) => sec.key === 'measurements');
                   if (!section) return null;
-                  const groups = [...new Set(section.fields.filter((f) => isVisible(f, job.values)).map((f) => f.validation?.group).filter(Boolean))];
                   return (
                     <div className="content-card wz-card" key={job.key} id={`wz-garment-${job.key}`}>
-                      <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                         <Scissors size={20} /> {job.template.name}
                       </div>
-                      <TemplateForm template={job.template} section="measurements" values={job.values}
-                                    errors={garmentErrors[job.key] || {}}
-                                    only={(f) => f.key !== 'measurement_notes' && !(groups.length && f.validation?.group)}
-                                    onChange={(values) => updateGarmentValues(job.key, values)} />
-                      {groups.map((group) => (
-                        <details key={group} className="wz-more">
-                          <summary><Plus size={14} /> {group} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <TemplateForm template={job.template} section="measurements" values={job.values}
-                                        errors={garmentErrors[job.key] || {}}
-                                        only={(f) => f.validation?.group === group}
-                                        onChange={(values) => updateGarmentValues(job.key, values)} />
-                        </details>
-                      ))}
-                      {/* The note (spoken or typed) for whatever the numbers cannot say, last. */}
-                      <TemplateForm template={job.template} section="measurements" values={job.values}
-                                    errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'measurement_notes'}
-                                    onChange={(values) => updateGarmentValues(job.key, values)} />
+                      <TemplateForm
+                        template={job.template}
+                        section="measurements"
+                        values={job.values}
+                        errors={garmentErrors[job.key] || {}}
+                        onChange={(values) => updateGarmentValues(job.key, values)}
+                      />
                     </div>
                   );
                 })}
