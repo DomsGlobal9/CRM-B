@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Check, Contact, FileSpreadsheet, Ruler, Upload, User } from 'lucide-react';
+import { ArrowLeft, Check, Contact, FileSpreadsheet, Ruler, Trash2, Upload, User } from 'lucide-react';
 import { api } from '../../services/api';
 import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, nameError } from '../../services/validate';
 import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
-import { DEFAULT_COUNTRY, composeMobile, phoneNumberError } from '../../services/phone';
+import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../services/phone';
 import { FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same
@@ -201,22 +201,94 @@ const INCH_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, min
 
 const inch = (value) => (value === '' || value === undefined || value === null ? '' : value);
 
-export function CustomerForm({ onBack, onSaved }) {
-  const [form, setForm] = useState(EMPTY);
+const MORE_KEYS = Object.values(MORE).flat();
+const asInch = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? '' : String(Number(v)));
+
+/** An existing customer as the form holds them: the mobile split into its
+ *  country and number, the inch figures as plain numbers. */
+function customerToForm(customer) {
+  const m = customer.measurements || {};
+  const extra = m.additional_measurements || {};
+  const measurements = {};
+  CORE.forEach(([key]) => { measurements[key] = asInch(m[key]); });
+  MORE_KEYS.forEach((key) => { measurements[key] = asInch(extra[key]); });
+  const text = (key) => (customer[key] === null || customer[key] === undefined ? '' : String(customer[key]));
+  return {
+    first_name: text('first_name'), last_name: text('last_name'),
+    mobile_number: splitStoredMobile(customer.mobile_number).national,
+    email_address: text('email_address'), gender: text('gender'), address: text('address'),
+    city_region: text('city_region'), source: text('source') || 'Walk In',
+    customer_type: text('customer_type') || 'Silver', date_of_birth: text('date_of_birth'),
+    notes: text('notes'), measurements,
+  };
+}
+
+/** New customer, or -- given `customer` -- an existing one to edit (the
+ *  Owner's; the server refuses an edit from any other role). An edit sends
+ *  only what changed, so a value from before today's rules (a legacy source,
+ *  an old mobile spelling) never blocks saving something else. */
+export function CustomerForm({ customer = null, onBack, onSaved }) {
+  const editing = Boolean(customer);
+  const [initial] = useState(() => (customer ? customerToForm(customer) : EMPTY));
+  const [form, setForm] = useState(initial);
   // The mobile's country; form.mobile_number holds the number without its code.
-  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_COUNTRY);
+  const [initialCountry] = useState(() => (customer ? splitStoredMobile(customer.mobile_number).iso : DEFAULT_COUNTRY));
+  const [phoneCountry, setPhoneCountry] = useState(initialCountry);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const setInch = (key, value) => setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: value } }));
 
+  const mobileChanged = !editing || phoneCountry !== initialCountry || form.mobile_number !== initial.mobile_number;
+
+  /** Only the fields that moved, in the shape PATCH /customers/<id>/ takes. */
+  const changes = () => {
+    const out = {};
+    Object.keys(EMPTY).forEach((key) => {
+      if (key === 'measurements' || key === 'mobile_number' || form[key] === initial[key]) return;
+      if (key === 'first_name' || key === 'last_name') out[key] = cleanName(form[key]).trim();
+      else if (key === 'date_of_birth') out[key] = form[key] || null;
+      else out[key] = form[key];
+    });
+    if (mobileChanged) out.mobile_number = composeMobile(phoneCountry, form.mobile_number);
+    const moved = (key) => (form.measurements[key] ?? '') !== (initial.measurements[key] ?? '');
+    const core = {};
+    CORE.forEach(([key]) => { if (moved(key)) core[key] = form.measurements[key] === '' ? null : Number(form.measurements[key]); });
+    if (MORE_KEYS.some(moved)) {
+      // The whole extras object is replaced on save, so it starts from what
+      // the customer already has -- keys this form does not show survive.
+      const extras = { ...((customer.measurements || {}).additional_measurements || {}) };
+      MORE_KEYS.forEach((key) => {
+        if (form.measurements[key] === '') delete extras[key];
+        else extras[key] = Number(form.measurements[key]);
+      });
+      core.additional_measurements = extras;
+    }
+    if (Object.keys(core).length) out.measurements = core;
+    return out;
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     const problem = nameError(form.first_name, { label: 'First name' })
       || nameError(form.last_name, { label: 'Last name', required: false, min: 1 })
-      || phoneNumberError(phoneCountry, form.mobile_number)
+      || (mobileChanged ? phoneNumberError(phoneCountry, form.mobile_number) : '')
       || emailError(form.email_address);
     if (problem) { setError(problem); return; }
+    if (editing) {
+      const payload = changes();
+      if (!Object.keys(payload).length) { onBack?.(); return; }
+      setBusy(true);
+      setError(null);
+      try {
+        const row = await api.updateCustomer(customer.id, payload);
+        await onSaved?.(row);
+      } catch (err) {
+        setError(err.message);
+        setBusy(false);
+      }
+      return;
+    }
     setBusy(true);
     setError(null);
     // Inches typed go on the sheet's own columns; template keys ride in
@@ -253,11 +325,14 @@ export function CustomerForm({ onBack, onSaved }) {
   return (
     <form className="selector-container" onSubmit={submit} noValidate>
       <button type="button" onClick={onBack} style={BACK}>
-        <ArrowLeft size={16} /> Add customer
+        <ArrowLeft size={16} /> {editing ? 'Back' : 'Add customer'}
       </button>
       <div className="page-title-group">
-        <h1 className="page-title">New customer</h1>
-        <p className="page-subtitle">Their details and measurements. Only the name and mobile are needed to start.</p>
+        <h1 className="page-title">{editing ? 'Edit customer' : 'New customer'}</h1>
+        <p className="page-subtitle">
+          {editing ? 'Change their details and measurements. Only what you change is saved.'
+            : 'Their details and measurements. Only the name and mobile are needed to start.'}
+        </p>
       </div>
 
       <div className="content-card wz-card">
@@ -361,8 +436,66 @@ export function CustomerForm({ onBack, onSaved }) {
       {error && <p className="form-error" role="alert" style={{ marginTop: 12, color: 'var(--danger, #b42318)' }}>{error}</p>}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
         <button type="button" className="btn-secondary" onClick={onBack} disabled={busy}>Cancel</button>
-        <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save customer'}</button>
+        <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Save customer'}</button>
       </div>
     </form>
+  );
+}
+
+/** Delete every customer at once -- the Owner's. The server keeps anyone with
+ *  orders or alterations (their invoices and payments would go with them), so
+ *  the answer says how many went and how many stayed. Typed confirmation, so
+ *  a slip of the mouse cannot empty the book. */
+export function DeleteAllCustomersDialog({ total, onClose, onDeleted }) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
+  const ready = typed.trim().toUpperCase() === 'DELETE ALL';
+
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const done = await api.deleteAllCustomers();
+      setResult(done);
+      await onDeleted?.(done);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <FormModal icon={Trash2} tone="rose" onClose={busy ? undefined : onClose}
+      title={result ? 'Customers deleted' : 'Delete all customers?'}
+      subtitle={result
+        ? `${plural(result.deleted, 'customer')} deleted.${result.kept ? ` ${plural(result.kept, 'customer')} with orders or alterations ${result.kept === 1 ? 'was' : 'were'} kept.` : ''}`
+        : `Your book has ${plural(total, 'customer')}. Every one without an order is deleted, with their measurements, appointments and saved designs. This cannot be undone.`}
+      footer={result ? (
+        <button type="button" className="btn-primary" onClick={onClose}>Done</button>
+      ) : (
+        <>
+          <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="button" className="btn-secondary at-btn-danger" onClick={run} disabled={!ready || busy}>
+            <Trash2 size={16} /> {busy ? 'Deleting…' : 'Delete all customers'}
+          </button>
+        </>
+      )}>
+      {!result && (
+        <>
+          <InfoNote tone="amber" title="Customers with orders are kept">
+            Anyone with an order or an alteration stays, because deleting them would also delete their invoices and payments.
+          </InfoNote>
+          <div className="form-group">
+            <label className="form-label" htmlFor="delete-all-confirm">Type DELETE ALL to confirm</label>
+            <input id="delete-all-confirm" className="form-control" value={typed} autoComplete="off" autoFocus
+                   onChange={(e) => setTyped(e.target.value)} placeholder="DELETE ALL" disabled={busy} />
+          </div>
+          {error && <p className="form-error" role="alert" style={{ color: 'var(--danger, #b42318)', margin: 0 }}>{error}</p>}
+        </>
+      )}
+    </FormModal>
   );
 }

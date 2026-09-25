@@ -33,7 +33,7 @@ import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview'
 import OrderAlterations, { RequestAlterationModal } from './features/alterations/OrderAlterations';
 import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import GarmentSummary from './features/catalog/GarmentSummary';
-import { AddCustomerChooser, CustomerForm } from './features/customers/AddCustomer';
+import { AddCustomerChooser, CustomerForm, DeleteAllCustomersDialog } from './features/customers/AddCustomer';
 import OrderKanban from './features/orders/OrderKanban';
 import { expressLabel, isExpressOrder } from './features/orders/express';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
@@ -2671,6 +2671,38 @@ function App() {
   const handleStartNewCustomer = () => setCustomerAddMode('choose');
 
   const [customerAddMode, setCustomerAddMode] = useState(null);
+  // The Owner's edit / delete on the customer book. The server holds the same
+  // rule: PATCH and DELETE on /customers/ are refused to every other role.
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [deletingAllCustomers, setDeletingAllCustomers] = useState(false);
+  const [customerActionId, setCustomerActionId] = useState(null);
+  /** Open the edit form on the full record (a list row is a summary). */
+  const startEditCustomer = async (row) => {
+    if (customerActionId) return;
+    setCustomerActionId(row.id);
+    try {
+      setEditingCustomer(await api.getCustomer(row.id));
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCustomerActionId(null);
+    }
+  };
+  const handleDeleteCustomer = async (row) => {
+    if (customerActionId) return;
+    const name = `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'this customer';
+    if (!window.confirm(`Delete ${name}?\n\nTheir measurements, appointments and saved designs are deleted too. This cannot be undone.`)) return;
+    setCustomerActionId(row.id);
+    try {
+      await api.deleteCustomer(row.id);
+      setSelectedDirectoryCustomer((current) => (current && current.id === row.id ? null : current));
+      await fetchDashboardAndConfig();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCustomerActionId(null);
+    }
+  };
   const handleSelectExistingCustomer = (cust) => startService('stitch', cust);
 
   /** Customers whose number contains what has been typed so far. */
@@ -3827,6 +3859,7 @@ function App() {
                 onPick={(tab) => {
                   setDashboardTab(tab);
                   setSelectedDirectoryCustomer(null);
+                  setEditingCustomer(null);
                   setOpenOrdersRowId(null);
                   setSelectedDashboardOrder(null);
                   setSectionVisit(n => n + 1);
@@ -5076,15 +5109,33 @@ function App() {
             )}
 
             {/* 5. CUSTOMERS TAB */}
-            {dashboardTab === 'customers' && !selectedDirectoryCustomer && customerAddMode === 'choose' && (
+            {dashboardTab === 'customers' && editingCustomer && (
+              <CustomerForm key={editingCustomer.id} customer={editingCustomer}
+                            onBack={() => setEditingCustomer(null)}
+                            onSaved={async () => {
+                              const id = editingCustomer.id;
+                              setEditingCustomer(null);
+                              await fetchDashboardAndConfig();
+                              if (selectedDirectoryCustomer?.id === id) {
+                                const full = await api.getCustomer(id).catch(() => null);
+                                if (full) setSelectedDirectoryCustomer(full);
+                              }
+                            }} />
+            )}
+            {deletingAllCustomers && (
+              <DeleteAllCustomersDialog total={customersList.length}
+                                        onClose={() => setDeletingAllCustomers(false)}
+                                        onDeleted={() => fetchDashboardAndConfig()} />
+            )}
+            {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'choose' && (
               <AddCustomerChooser onBack={() => setCustomerAddMode(null)} onManual={() => setCustomerAddMode('manual')}
                                   onImported={() => fetchDashboardAndConfig()} />
             )}
-            {dashboardTab === 'customers' && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
+            {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
               <CustomerForm onBack={() => setCustomerAddMode('choose')}
                             onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
             )}
-            {dashboardTab === 'customers' && !selectedDirectoryCustomer && !customerAddMode && (
+            {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (
               <>
                 <PageHeader
                   title={t('customersPage.title')}
@@ -5101,11 +5152,19 @@ function App() {
                     </>
                   )}
                   actions={canAddCustomer && (
-                    <GuidedHighlight show={guideCustomers} text={customersList.length ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
-                      <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                        <Plus size={16} /> Add Customer
-                      </button>
-                    </GuidedHighlight>
+                    <>
+                      {customersList.length > 0 && (
+                        <button type="button" className="btn-secondary at-btn-danger" style={{ padding: '10px 18px' }}
+                                onClick={() => setDeletingAllCustomers(true)}>
+                          <Trash2 size={16} /> Delete all
+                        </button>
+                      )}
+                      <GuidedHighlight show={guideCustomers} text={customersList.length ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
+                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                          <Plus size={16} /> Add Customer
+                        </button>
+                      </GuidedHighlight>
+                    </>
                   )}
                 />
 
@@ -5180,11 +5239,11 @@ function App() {
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: '30%' }}>Customer</th>
-                            <th style={{ width: '26%' }}>Body measurements</th>
-                            <th style={{ width: '14%' }}>Style notes</th>
-                            <th style={{ width: '15%' }}>Orders</th>
-                            <th style={{ width: '15%' }}></th>
+                            <th style={{ width: canAddCustomer ? '27%' : '30%' }}>Customer</th>
+                            <th style={{ width: canAddCustomer ? '24%' : '26%' }}>Body measurements</th>
+                            <th style={{ width: canAddCustomer ? '13%' : '14%' }}>Style notes</th>
+                            <th style={{ width: canAddCustomer ? '13%' : '15%' }}>Orders</th>
+                            <th style={{ width: canAddCustomer ? '23%' : '15%' }}></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -5279,6 +5338,18 @@ function App() {
                             >
                               <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
                             </button>
+                            {canAddCustomer && (
+                              <span className="at-row-actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                <button type="button" className="at-icon-btn" title="Edit customer" aria-label={`Edit ${cust.first_name} ${cust.last_name}`}
+                                        disabled={customerActionId === cust.id} onClick={() => startEditCustomer(cust)}>
+                                  <Edit2 size={15} />
+                                </button>
+                                <button type="button" className="at-icon-btn at-icon-btn--danger" title="Delete customer" aria-label={`Delete ${cust.first_name} ${cust.last_name}`}
+                                        disabled={customerActionId === cust.id} onClick={() => handleDeleteCustomer(cust)}>
+                                  <Trash2 size={15} />
+                                </button>
+                              </span>
+                            )}
                             <ChevronRight size={16} style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
                           </td>
                         </tr>
@@ -5340,6 +5411,12 @@ function App() {
                   </button>
                   {isOwner && (
                     <div className="at-toolbar-right">
+                      <button type="button" className="btn-secondary" disabled={customerActionId === c.id} onClick={() => startEditCustomer(c)}>
+                        <Edit2 size={16} /> Edit
+                      </button>
+                      <button type="button" className="btn-secondary at-btn-danger" disabled={customerActionId === c.id} onClick={() => handleDeleteCustomer(c)}>
+                        <Trash2 size={16} /> Delete
+                      </button>
                       <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
                         <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
                       </button>
@@ -6550,7 +6627,7 @@ function App() {
               { key: 'more', label: t('nav.menu', 'Menu'), icon: Menu }
             ]}
             activeTab={dashboardTab}
-            onChangeTab={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); }}
+            onChangeTab={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); }}
             onOpenMore={() => setMobileNavOpen(true)}
           />
         </div>

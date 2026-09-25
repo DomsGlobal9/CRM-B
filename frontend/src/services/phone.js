@@ -65,3 +65,12 @@ export function phoneNumberError(iso, national, { required = true } = {}) {
   }
   return '';
 }
+
+/** A mobile as the server stores it ("919876543210", "17035981657") split
+ *  back into its country and the number, for a form that edits it. */
+export function splitStoredMobile(stored) {
+  const digits = String(stored || '').replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return { iso: 'IN', national: digits.slice(2) };
+  if (digits.length <= 10) return { iso: DEFAULT_COUNTRY, national: digits };
+  return splitInternational(`+${digits}`, DEFAULT_COUNTRY) || { iso: DEFAULT_COUNTRY, national: digits };
+}
