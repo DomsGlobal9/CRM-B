@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { ArrowLeft, Contact, Ruler, Upload, User } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Check, Contact, FileSpreadsheet, Ruler, Upload, User } from 'lucide-react';
 import { api } from '../../services/api';
 import { LIMITS, cleanEmail, cleanMobile, cleanName, displayMobile, emailError, mobileError, nameError } from '../../services/validate';
 import { FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
@@ -90,6 +90,51 @@ export function ImportCustomersDialog({ state, onClose, onConfirm }) {
   );
 }
 
+/* While the sheet is on its way: a moving picture, the steps it goes through
+   and the seconds so far, so a big file never looks like a frozen screen.
+   The server answers in one go, so the steps follow the clock -- the last one
+   stays live until the answer lands. */
+const IMPORT_STEPS = {
+  checking: [[0, 'Uploading the file'], [2, 'Reading the rows'], [5, 'Checking each customer']],
+  saving: [[0, 'Sending the confirmed rows'], [3, 'Saving customers and measurements']],
+};
+
+function ImportProgress({ phase, file, count }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const id = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 500);
+    return () => clearInterval(id);
+  }, [phase]);
+  const steps = IMPORT_STEPS[phase];
+  const current = steps.reduce((at, [from], i) => (seconds >= from ? i : at), 0);
+  const size = file?.size ? ` · ${file.size < 1048576 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / 1048576).toFixed(1)} MB`}` : '';
+  return (
+    <FormModal icon={FileSpreadsheet} tone="green"
+      title={phase === 'saving' ? 'Saving customers…' : 'Checking your sheet…'}
+      subtitle={phase === 'saving' ? `Adding ${plural(count || 0, 'customer')}. Please keep this page open.` : `${file?.name || 'Spreadsheet'}${size}`}>
+      <div className="imp-progress" role="status" aria-live="polite" aria-busy="true">
+        <div className="imp-sheet" aria-hidden="true">
+          <FileSpreadsheet size={40} strokeWidth={1.5} />
+          <span className="imp-scan" />
+        </div>
+        <div className="imp-bar" aria-hidden="true"><span /></div>
+        <ol className="imp-steps">
+          {steps.map(([, text], i) => (
+            <li key={text} className={i < current ? 'imp-step--done' : i === current ? 'imp-step--live' : ''}>
+              <span className="imp-step-mark">{i < current ? <Check size={12} /> : null}</span>
+              {text}
+            </li>
+          ))}
+        </ol>
+        <div className="imp-time">
+          {seconds}s{seconds >= 10 ? ' · Large sheets can take a minute or two.' : ''}
+        </div>
+      </div>
+    </FormModal>
+  );
+}
+
 export function AddCustomerChooser({ onBack, onManual, onImported }) {
   const fileRef = useRef(null);
   const [imp, setImp] = useState(null); // { file, preview?, result?, busy }
@@ -131,7 +176,7 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
         <button type="button" className="wz-service" onClick={() => fileRef.current?.click()} disabled={imp?.busy}>
           <IconTile icon={Upload} tone="green" size={48} iconSize={22} />
           <span className="wz-service-title">Upload Excel sheet</span>
-          <span className="wz-service-desc">An .xlsx or .csv of customers with their measurements, up to 100 at a time. Checked first, saved only after you confirm.</span>
+          <span className="wz-service-desc">An .xlsx or .csv of customers with their measurements, up to 2000 at a time. Checked first, saved only after you confirm.</span>
         </button>
         <button type="button" className="wz-service" onClick={onManual}>
           <IconTile icon={Contact} tone="amber" size={48} iconSize={22} />
@@ -139,7 +184,10 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
           <span className="wz-service-desc">One customer, typed in: profile and measurements on a single page.</span>
         </button>
       </div>
-      {imp?.preview && (
+      {imp?.busy && (
+        <ImportProgress phase={imp.preview ? 'saving' : 'checking'} file={imp.file} count={imp.preview?.valid.length} />
+      )}
+      {imp?.preview && !imp.busy && (
         <ImportCustomersDialog state={imp} onClose={() => { const done = !!imp.result; setImp(null); if (done) onBack(); }} onConfirm={confirm} />
       )}
     </div>

@@ -18,7 +18,7 @@ from crm_api.models import Customer, Measurement, whatsapp_number
 from crm_api.serializers import INCH_FIELDS, CustomerSerializer, GENDERS, SOURCES, TIERS
 from domains.orders.drafts import first_error
 
-MAX_ROWS = 100
+MAX_ROWS = 2000
 
 # Spreadsheet header (normalised) -> Customer field.
 PROFILE_COLUMNS = {
@@ -94,8 +94,13 @@ def _choice(field, value):
 def _row_payload(headers, row, measurement_keys, ignored):
     """One row -> (serializer payload, sheet_extras) or a row-level error."""
     profile, sheet, extras = {}, {}, {}
+    full_name = None
     for header, raw in zip(headers, row):
         if not header or raw == '':
+            continue
+        # One name column: the first word is the first name, the rest the last.
+        if header == 'full_name':
+            full_name = ' '.join(raw.split()).partition(' ')
             continue
         if header in PROFILE_COLUMNS:
             field = PROFILE_COLUMNS[header]
@@ -110,6 +115,10 @@ def _row_payload(headers, row, measurement_keys, ignored):
             (sheet if key in INCH_FIELDS else extras)[key] = number
         else:
             ignored.add(header)
+    if full_name:
+        profile.setdefault('first_name', full_name[0])
+        if full_name[2]:
+            profile.setdefault('last_name', full_name[2])
     if 'mobile_number' not in profile:
         raise drf_serializers.ValidationError('Mobile number is missing.')
     return profile, sheet, extras
@@ -149,8 +158,8 @@ def import_customers(upload, *, commit=False):
     if len(data) > MAX_ROWS:
         raise drf_serializers.ValidationError(
             f'Up to {MAX_ROWS} customers per upload; this sheet has {len(data)}.')
-    if 'first_name' not in headers:
-        raise drf_serializers.ValidationError('The sheet needs a "first_name" column.')
+    if 'full_name' not in headers and 'first_name' not in headers:
+        raise drf_serializers.ValidationError('The sheet needs a "full_name" column (or "first_name").')
 
     measurement_keys = _template_measurement_keys()
     ignored = set()

@@ -5639,3 +5639,22 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .apt-foot .btn-primary, .apt-foot .btn-secondary { flex: 1 1 130px; min-height: 46px; justify-content: center; }
   .apt-foot .btn-secondary[style] { flex-basis: 100%; }
 }
+
+/* Customer import: the wait while a spreadsheet is checked or saved
+   (features/customers/AddCustomer.jsx, ImportProgress). */
+.imp-progress { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding: var(--space-2) 0 var(--space-3); }
+.imp-sheet { position: relative; width: 88px; height: 88px; border-radius: var(--radius-xl); display: flex; align-items: center; justify-content: center; background: var(--accent-color); color: var(--brand-link); overflow: hidden; animation: imp-float 1.8s ease-in-out infinite; }
+.imp-scan { position: absolute; left: 10px; right: 10px; height: 3px; border-radius: 3px; background: var(--primary-color); box-shadow: 0 0 10px var(--primary-color); animation: imp-scan 1.6s ease-in-out infinite; }
+.imp-bar { width: 100%; max-width: 360px; height: 6px; border-radius: 999px; background: var(--surface-inset); overflow: hidden; position: relative; }
+.imp-bar > span { position: absolute; top: 0; bottom: 0; width: 40%; border-radius: 999px; background: var(--primary-color); animation: imp-sweep 1.2s ease-in-out infinite; }
+.imp-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px; }
+.imp-steps li { display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); color: var(--text-muted); }
+.imp-step-mark { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border-strong); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.imp-steps li.imp-step--done { color: var(--text-secondary); }
+.imp-steps li.imp-step--done .imp-step-mark { background: var(--success-color); border-color: var(--success-color); color: #fff; }
+.imp-steps li.imp-step--live { color: var(--text-primary); font-weight: var(--weight-semibold); }
+.imp-steps li.imp-step--live .imp-step-mark { border-color: var(--border-color); border-top-color: var(--primary-color); animation: ld-spin .7s linear infinite; }
+.imp-time { font-size: var(--text-xs); color: var(--text-secondary); font-variant-numeric: tabular-nums; text-align: center; }
+@keyframes imp-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes imp-scan { 0% { top: 12px; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: 72px; opacity: 0; } }
+@keyframes imp-sweep { 0% { left: -40%; } 100% { left: 100%; } }
