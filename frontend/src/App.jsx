@@ -89,6 +89,39 @@ function getCustomerMeasurement(m, key) {
   return undefined;
 }
 
+const MEASUREMENT_LABEL_MAP = {
+  bust: 'Bust', waist: 'Waist', hips: 'Hips', shoulder: 'Shoulder', arm_length: 'Arm Length', neck: 'Neck', length: 'Length',
+  collar_neck: 'Collar Neck', front_shoulder: 'Front Shoulder', back_shoulder: 'Back Shoulder', upper_chest: 'Upper Chest', underbust: 'Underbust',
+  armhole: 'Armhole', bicep_length: 'Bicep Length', bicep_round: 'Bicep Round', elbow_length: 'Elbow Length', elbow_round: 'Elbow Round',
+  full_length: 'Full Length', full_sleeves_round: 'Full Sleeves Round', front_neck_depth: 'Front Neck Depth', back_neck_depth: 'Back Neck Depth',
+  blouse_length: 'Blouse Length', upper_arm: 'Upper Arm', elbow: 'Elbow', wrist: 'Wrist', sleeve_length: 'Sleeve Length',
+  shoulder_to_bust: 'Shoulder to Bust', shoulder_to_waist: 'Shoulder to Waist', sleeve_opening: 'Sleeve Opening',
+  neck_circumference: 'Neck Circumference', across_chest: 'Across Chest', across_back: 'Across Back', chest: 'Chest', lower_bust: 'Lower Bust',
+  jacket_length: 'Jacket Length', kurti_length: 'Kurti Length', suit_length: 'Suit Length', sherwani_length: 'Sherwani Length',
+  gown_length: 'Gown Length', coat_length: 'Coat Length', choli_length: 'Choli Length',
+  hip_round: 'Hip Round', bottom_full_length: 'Bottom Full Length', knee_length: 'Knee Length', ankle_length: 'Ankle Length',
+  lehenga_length: 'Lehenga Length', lehenga_waist: 'Lehenga Waist', pant_waist: 'Pant Waist', pant_length: 'Pant Length',
+  high_round: 'High Round', inseam: 'Inseam', ankle_round: 'Ankle Round', crotch_length: 'Crotch Length', floor_length: 'Floor Length',
+  height: 'Height', high_waist: 'High Waist', waist_to_hip: 'Waist to Hip', waist_to_floor: 'Waist to Floor', waist_to_ankle: 'Waist to Ankle',
+  heel_height: 'Heel Height', total_ghera: 'Total Ghera', hem_circumference: 'Hem Circumference', thigh: 'Thigh', knee: 'Knee',
+  calf: 'Calf', ankle: 'Ankle', outseam: 'Outseam', crotch: 'Crotch', hip: 'Hip', bottom_length: 'Bottom Length', seat: 'Seat',
+  petticoat_length: 'Petticoat Length', petticoat_waist: 'Petticoat Waist',
+};
+
+function formatMeasurementLabel(key) {
+  if (!key) return '';
+  if (MEASUREMENT_LABEL_MAP[key]) return MEASUREMENT_LABEL_MAP[key];
+  return String(key).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatMeasurementValue(val) {
+  if (val === undefined || val === null || val === '') return '—';
+  const str = String(val).trim();
+  if (str === '—') return '—';
+  if (!Number.isNaN(Number(str))) return `${str} in`;
+  return str;
+}
+
 const WIZARD_STEPS = {
   stitch: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
@@ -1986,6 +2019,7 @@ function App() {
   const [updatingOrderStatusId, setUpdatingOrderStatusId] = useState(null);
   const [styleNotesFor, setStyleNotesFor] = useState(null);
   const [selectedDirectoryCustomer, setSelectedDirectoryCustomer] = useState(null);
+  const [viewAllCustomerMeasurements, setViewAllCustomerMeasurements] = useState(false);
   
   const [alterationOrder, setAlterationOrder] = useState(null);
   
@@ -3229,6 +3263,7 @@ function App() {
 
   
   const openDirectoryCustomer = async (summaryRow) => {
+    setViewAllCustomerMeasurements(false);
     setSelectedDirectoryCustomer(summaryRow);
     setDirectoryDetailLoading(true);
     try {
@@ -5433,22 +5468,65 @@ function App() {
               const FIELDS = [['bust', 'Bust'], ['waist', 'Waist'], ['hips', 'Hips'], ['shoulder', 'Shoulder'],
                               ['arm_length', 'Arm Length'], ['neck', 'Neck'], ['length', 'Length']];
               const shown = FIELDS.filter(([k]) => visible.includes(k));
+              const allCustomerMeasurements = (() => {
+                if (!c?.measurements) return [];
+                const rawCore = c.measurements || {};
+                const rawExtra = c.measurements.additional_measurements || {};
+                const merged = { ...rawCore, ...rawExtra };
+                
+                delete merged.additional_measurements;
+                delete merged.stitch_parts;
+                delete merged.id;
+                delete merged.customer_id;
+                delete merged.created_at;
+                delete merged.updated_at;
+
+                const result = [];
+                const seenKeys = new Set();
+
+                Object.entries(merged).forEach(([k, val]) => {
+                  if (seenKeys.has(k)) return;
+                  if (val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '—') {
+                    seenKeys.add(k);
+                    result.push({
+                      key: k,
+                      label: formatMeasurementLabel(k),
+                      value: formatMeasurementValue(val)
+                    });
+                  }
+                });
+
+                return result;
+              })();
+
+              const displayedMeasurements = viewAllCustomerMeasurements
+                ? allCustomerMeasurements
+                : (allCustomerMeasurements.length > 0
+                    ? (shown.length > 0
+                        ? shown.map(([k]) => {
+                            const found = allCustomerMeasurements.find(m => m.key === k);
+                            return found || { key: k, label: formatMeasurementLabel(k), value: formatMeasurementValue(c.measurements[k]) };
+                          })
+                        : allCustomerMeasurements.slice(0, 8)
+                      )
+                    : []
+                  );
+
               const orders = c.orders || [];
               const orderCount = c.order_count ?? orders.length;
               
               const goExisting = () => {
-                
                 startService('stitch', c);
                 if (c.design_preferences?.length > 0) {
                   setDesignNotes(c.design_preferences[0].notes || '');
                 }
               };
               const reorder = (order) => {
-                
                 startService('stitch', c);
                 setQuotePrices({ packaging: order.packaging_handling, discount: order.discount || 0 });
               };
               const statusTone = (st) => st === 'Delivered' ? 'success' : st === 'Cancelled' ? 'neutral' : 'warning';
+
               return (
               <div className="customer-detail-view-container at-stack">
                 <div className="at-toolbar" style={{ margin: 0 }}>
@@ -5510,21 +5588,52 @@ function App() {
                 <div className="responsive-profile-grid">
                   <div className="at-stack">
                     <SectionCard icon={Ruler} tone="amber" title={t('customersPage.measurementsTitle', 'Measurements')}
-                                 subtitle={parts.length > 0 ? t('customersPage.stitchingParts', 'Stitching: {parts}', { parts: parts.join(', ') }) : undefined}>
-                      {c.measurements ? (
+                                 subtitle={parts.length > 0 ? t('customersPage.stitchingParts', 'Stitching: {parts}', { parts: parts.join(', ') }) : undefined}
+                                 action={allCustomerMeasurements.length > 0 ? () => setViewAllCustomerMeasurements(!viewAllCustomerMeasurements) : undefined}
+                                 actionLabel={viewAllCustomerMeasurements ? 'View Less' : 'View All'}>
+                      {c.measurements && allCustomerMeasurements.length > 0 ? (
                         <>
                           <div className="at-measure-cols">
-                            {shown.map(([k, label]) => (
-                              <div key={k} className="at-measure-row">
-                                <span>{label}</span>
-                                <strong>{c.measurements[k] ? `${c.measurements[k]} in` : '—'}</strong>
+                            {displayedMeasurements.map((mItem) => (
+                              <div key={mItem.key} className="at-measure-row">
+                                <span>{mItem.label}</span>
+                                <strong>{mItem.value}</strong>
                               </div>
                             ))}
-                            <div className="at-measure-row">
-                              <span>{t('customersPage.occasionLabel', 'Occasion')}</span>
-                              <strong>{c.occasion || '—'}</strong>
-                            </div>
+                            {!viewAllCustomerMeasurements && (
+                              <div className="at-measure-row">
+                                <span>{t('customersPage.occasionLabel', 'Occasion')}</span>
+                                <strong>{c.occasion || '—'}</strong>
+                              </div>
+                            )}
                           </div>
+
+                          {!viewAllCustomerMeasurements && allCustomerMeasurements.length > displayedMeasurements.length && (
+                            <div style={{ marginTop: '14px', textAlign: 'right' }}>
+                              <button
+                                type="button"
+                                className="at-link"
+                                style={{ fontSize: 'var(--text-xs)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                onClick={() => setViewAllCustomerMeasurements(true)}
+                              >
+                                View all {allCustomerMeasurements.length} measurements <ArrowRight size={13} />
+                              </button>
+                            </div>
+                          )}
+
+                          {viewAllCustomerMeasurements && (
+                            <div style={{ marginTop: '14px', textAlign: 'right' }}>
+                              <button
+                                type="button"
+                                className="at-link"
+                                style={{ fontSize: 'var(--text-xs)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                onClick={() => setViewAllCustomerMeasurements(false)}
+                              >
+                                View less
+                              </button>
+                            </div>
+                          )}
+
                           {c.measurement_history && c.measurement_history.length > 0 && (
                             <div style={{ marginTop: 'var(--space-4)' }}>
                               <div className="ui-eyebrow" style={{ color: 'var(--accent-text)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: 'var(--space-3)' }}>
@@ -5538,9 +5647,11 @@ function App() {
                                       <span style={{ color: 'var(--text-secondary)' }}>{fmtDateTime(hist.changed_at)}</span>
                                     </div>
                                     <div className="at-version-grid">
-                                      {FIELDS.filter(([k]) => visible.includes(k)).map(([k, label]) => (
-                                        <span key={k}>{label.replace(' Length', '')} <strong>{hist[k] || '—'}</strong></span>
-                                      ))}
+                                      {Object.entries(hist)
+                                        .filter(([k, v]) => k !== 'id' && k !== 'changed_at' && k !== 'customer_id' && v !== null && v !== undefined && String(v).trim() !== '' && String(v).trim() !== '—')
+                                        .map(([k, v]) => (
+                                          <span key={k}>{formatMeasurementLabel(k).replace(' Length', '')} <strong>{formatMeasurementValue(v)}</strong></span>
+                                        ))}
                                     </div>
                                   </div>
                                 ))}
