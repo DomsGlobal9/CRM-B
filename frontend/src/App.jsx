@@ -33,10 +33,13 @@ import GarmentSelectionsReview from './features/catalog/GarmentSelectionsReview'
 import OrderAlterations, { RequestAlterationModal } from './features/alterations/OrderAlterations';
 import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import GarmentSummary from './features/catalog/GarmentSummary';
-import { AddCustomerChooser, CustomerForm } from './features/customers/AddCustomer';
+import { AddCustomerChooser, CustomerForm, DeleteAllCustomersDialog } from './features/customers/AddCustomer';
+import CustomerFilters from './features/customers/CustomerFilters';
+import { EMPTY_CUSTOMER_FILTERS, activeFilterCount, applyCustomerFilters } from './features/customers/filterRules';
 import OrderKanban from './features/orders/OrderKanban';
 import { expressLabel, isExpressOrder } from './features/orders/express';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
+import { formatInternational } from './services/phone';
 import useAutosave from './hooks/useAutosave';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
@@ -155,6 +158,44 @@ const UserAvatar = ({ user, size }) => {
 
 
 const TIERS = ['Platinum', 'Gold', 'Silver'];
+
+// Customers per page in the customer book: 20 to 50.
+const CUSTOMER_PAGE_SIZES = [20, 30, 40, 50];
+/** Page numbers to show: the first, the last, and the current one with its
+ *  neighbours; a gap between them is drawn as '…'. */
+const pageNumbers = (page, count) => {
+  const pages = [...new Set([1, page - 1, page, page + 1, count])].filter((n) => n >= 1 && n <= count).sort((a, b) => a - b);
+  return pages.flatMap((n, i) => (i && n - pages[i - 1] > 1 ? [`gap-${n}`, n] : [n]));
+};
+
+function Pager({ page, pageCount, pageSize, sizes, onPage, onSize, label = 'Per page' }) {
+  return (
+    <nav className="at-pager" aria-label="Pages">
+      <label className="at-pager-size">
+        {label}
+        <select className="form-control" value={pageSize} onChange={(e) => onSize(Number(e.target.value))}>
+          {sizes.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </label>
+      <div className="at-pager-pages">
+        <button type="button" className="btn-secondary at-btn-sm" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
+          <ArrowLeft size={14} /> Prev
+        </button>
+        {pageNumbers(page, pageCount).map((n) => (typeof n === 'string'
+          ? <span key={n} className="at-pager-gap">…</span>
+          : (
+            <button key={n} type="button" aria-current={n === page ? 'page' : undefined}
+                    className={`at-pager-num${n === page ? ' at-pager-num--on' : ''}`} onClick={() => onPage(n)}>
+              {n}
+            </button>
+          )))}
+        <button type="button" className="btn-secondary at-btn-sm" disabled={page >= pageCount} onClick={() => onPage(page + 1)} aria-label="Next page">
+          Next <ArrowRight size={14} />
+        </button>
+      </div>
+    </nav>
+  );
+}
 const customerTier = (record) => (TIERS.includes(record?.customer_type) ? record.customer_type : 'Silver');
 const tierCounts = (customers) =>
   TIERS.reduce((acc, tier) => ({ ...acc, [tier]: customers.filter((c) => customerTier(c) === tier).length }), {});
@@ -306,7 +347,8 @@ const formatMobile = (raw) => {
     return `+91 ${n.slice(0, 5)} ${n.slice(5)}`;
   }
   if (digits.length === 10) return `${digits.slice(0, 5)} ${digits.slice(5)}`;
-  return raw || '';
+  // A foreign number is stored as its digits; show it with its + and code.
+  return formatInternational(raw);
 };
 
 
@@ -327,6 +369,7 @@ const APPOINTMENT_TYPE_LABELS = {
   MEASUREMENT: 'Measurement Fitting',
   TRIAL: 'Garment Trial',
   DELIVERY: 'Final Delivery',
+  OTHER: 'Other',
 };
 
 
@@ -1992,6 +2035,10 @@ function App() {
   // Search & Filters for dashboard
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
+  const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
+  const [customerPageSize, setCustomerPageSize] = useState(CUSTOMER_PAGE_SIZES[0]);
+  // Country code, first letter, orders, measurements... (CustomerFilters).
+  const [customerFilters, setCustomerFilters] = useState(EMPTY_CUSTOMER_FILTERS);
   const [ordersSearch, setOrdersSearch] = useState('');
   const [ordersTabPick, setOrdersFilterTab] = useState(null);
   const ordersFilterTab = dashboardTab === 'workshop' ? 'workshop' : (ordersTabPick || 'new');
@@ -2305,7 +2352,7 @@ function App() {
   };
 
   const blankAppointmentForm = {
-    customer: '', appointment_type: 'TRIAL', scheduled_time: '',
+    customer: '', appointment_type: 'TRIAL', custom_type: '', scheduled_time: '',
     assigned_staff: '', notes: '', status: 'SCHEDULED',
     // Booking for somebody not in the book yet: the three things the counter
     // has at the door. Sent as `new_customer`; the server writes the customer.
@@ -2331,6 +2378,7 @@ function App() {
       ...blankAppointmentForm,
       customer: appt.customer,
       appointment_type: appt.appointment_type,
+      custom_type: appt.custom_type || '',
       scheduled_time: local,
       assigned_staff: appt.assigned_staff || '',
       notes: appt.notes || '',
@@ -2659,6 +2707,38 @@ function App() {
   const handleStartNewCustomer = () => setCustomerAddMode('choose');
 
   const [customerAddMode, setCustomerAddMode] = useState(null);
+  // The Owner's edit / delete on the customer book. The server holds the same
+  // rule: PATCH and DELETE on /customers/ are refused to every other role.
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [deletingAllCustomers, setDeletingAllCustomers] = useState(false);
+  const [customerActionId, setCustomerActionId] = useState(null);
+  /** Open the edit form on the full record (a list row is a summary). */
+  const startEditCustomer = async (row) => {
+    if (customerActionId) return;
+    setCustomerActionId(row.id);
+    try {
+      setEditingCustomer(await api.getCustomer(row.id));
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCustomerActionId(null);
+    }
+  };
+  const handleDeleteCustomer = async (row) => {
+    if (customerActionId) return;
+    const name = `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'this customer';
+    if (!window.confirm(`Delete ${name}?\n\nTheir measurements, appointments and saved designs are deleted too. This cannot be undone.`)) return;
+    setCustomerActionId(row.id);
+    try {
+      await api.deleteCustomer(row.id);
+      setSelectedDirectoryCustomer((current) => (current && current.id === row.id ? null : current));
+      await fetchDashboardAndConfig();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCustomerActionId(null);
+    }
+  };
   const handleSelectExistingCustomer = (cust) => startService('stitch', cust);
 
   /** Customers whose number contains what has been typed so far. */
@@ -2962,6 +3042,8 @@ function App() {
   });
 
   const boutiqueFormRef = useRef(null);
+  // The appointment dialog's date field, so Done can dismiss the calendar.
+  const appointmentDateRef = useRef(null);
   const boutiqueFormError = (form) =>
     phoneError(form.boutiquePhone.value) || emailError(form.boutiqueEmail.value, { required: true });
   const pickLogo = (file) => {
@@ -3202,15 +3284,28 @@ function App() {
   
   const directoryCustomers = React.useMemo(() => {
     const term = searchQuery.toLowerCase();
-    return customersList.filter(cust => {
+    return applyCustomerFilters(customersList.filter(cust => {
       const matchesSearch =
         ((cust.first_name || '') + ' ' + (cust.last_name || '')).toLowerCase().includes(term) ||
         (cust.mobile_number || '').includes(term) ||
         (cust.email_address || '').toLowerCase().includes(term);
       const matchesType = customerTypeFilter === 'All' || customerTier(cust) === customerTypeFilter;
       return matchesSearch && matchesType;
-    });
-  }, [customersList, searchQuery, customerTypeFilter]);
+    }), customerFilters);
+  }, [customersList, searchQuery, customerTypeFilter, customerFilters]);
+  // One page of the book at a time. The page belongs to the search, tier and
+  // page size it was picked under: change any of them and it is page 1 again.
+  // A list that shrank under the page shows its last page.
+  const customerPageKey = `${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
+  const customerPage = customerPageAt.key === customerPageKey ? customerPageAt.page : 1;
+  const customerPageCount = Math.max(1, Math.ceil(directoryCustomers.length / customerPageSize));
+  const customerPageNow = Math.min(customerPage, customerPageCount);
+  const customerPageFrom = (customerPageNow - 1) * customerPageSize;
+  const pagedCustomers = directoryCustomers.slice(customerPageFrom, customerPageFrom + customerPageSize);
+  const goToCustomerPage = (n) => {
+    setCustomerPageAt({ key: customerPageKey, page: n });
+    document.querySelector('.customers-list-container')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
 
   if (globalError) {
     return (
@@ -3800,6 +3895,7 @@ function App() {
                 onPick={(tab) => {
                   setDashboardTab(tab);
                   setSelectedDirectoryCustomer(null);
+                  setEditingCustomer(null);
                   setOpenOrdersRowId(null);
                   setSelectedDashboardOrder(null);
                   setSectionVisit(n => n + 1);
@@ -3884,7 +3980,7 @@ function App() {
                         <span>{loading ? t('common.loading', 'Loading...') : t('common.refresh', 'Refresh')}</span>
                       </button>
                       <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
-                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
+                        <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                           <Plus size={16} />
                           {t('dashboard.newOrder')}
                         </button>
@@ -4153,7 +4249,9 @@ function App() {
                                       {customer || t('dashboard.customer', 'Customer')}
                                     </td>
                                     <td data-label={t('dashboard.apptReason', 'Reason')}>
-                                      {APPOINTMENT_TYPE_LABELS[a.appointment_type] || a.appointment_type}
+                                      {a.custom_type
+                                        || APPOINTMENT_TYPE_LABELS[a.appointment_type]
+                                        || a.appointment_type}
                                     </td>
                                     <td data-label={t('dashboard.apptDate', 'Date')} style={{ whiteSpace: 'nowrap' }}>
                                       {isToday
@@ -4810,7 +4908,7 @@ function App() {
                       )}
                       {(!currentUser?.role || currentUser.role === 'Owner') && (
                         <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
-                          <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
+                          <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                             <Plus size={16} /> {t('ordersPage.newOrder')}
                           </button>
                         </GuidedHighlight>
@@ -5047,15 +5145,33 @@ function App() {
             )}
 
             {/* 5. CUSTOMERS TAB */}
-            {dashboardTab === 'customers' && !selectedDirectoryCustomer && customerAddMode === 'choose' && (
+            {dashboardTab === 'customers' && editingCustomer && (
+              <CustomerForm key={editingCustomer.id} customer={editingCustomer}
+                            onBack={() => setEditingCustomer(null)}
+                            onSaved={async () => {
+                              const id = editingCustomer.id;
+                              setEditingCustomer(null);
+                              await fetchDashboardAndConfig();
+                              if (selectedDirectoryCustomer?.id === id) {
+                                const full = await api.getCustomer(id).catch(() => null);
+                                if (full) setSelectedDirectoryCustomer(full);
+                              }
+                            }} />
+            )}
+            {deletingAllCustomers && (
+              <DeleteAllCustomersDialog total={customersList.length}
+                                        onClose={() => setDeletingAllCustomers(false)}
+                                        onDeleted={() => fetchDashboardAndConfig()} />
+            )}
+            {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'choose' && (
               <AddCustomerChooser onBack={() => setCustomerAddMode(null)} onManual={() => setCustomerAddMode('manual')}
                                   onImported={() => fetchDashboardAndConfig()} />
             )}
-            {dashboardTab === 'customers' && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
+            {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
               <CustomerForm onBack={() => setCustomerAddMode('choose')}
                             onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
             )}
-            {dashboardTab === 'customers' && !selectedDirectoryCustomer && !customerAddMode && (
+            {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (
               <>
                 <PageHeader
                   title={t('customersPage.title')}
@@ -5072,11 +5188,19 @@ function App() {
                     </>
                   )}
                   actions={canAddCustomer && (
-                    <GuidedHighlight show={guideCustomers} text={customersList.length ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
-                      <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                        <Plus size={16} /> Add Customer
-                      </button>
-                    </GuidedHighlight>
+                    <>
+                      {customersList.length > 0 && (
+                        <button type="button" className="btn-secondary at-btn-danger" style={{ padding: '10px 18px' }}
+                                onClick={() => setDeletingAllCustomers(true)}>
+                          <Trash2 size={16} /> Delete all
+                        </button>
+                      )}
+                      <GuidedHighlight show={guideCustomers} text={customersList.length ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
+                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                          <Plus size={16} /> Add Customer
+                        </button>
+                      </GuidedHighlight>
+                    </>
                   )}
                 />
 
@@ -5104,9 +5228,15 @@ function App() {
                           ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
                         ]} />
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                          Showing {directoryCustomers.length} of {customersList.length}
+                          {directoryCustomers.length
+                            ? `Showing ${customerPageFrom + 1}–${customerPageFrom + pagedCustomers.length} of ${directoryCustomers.length}`
+                            : 'Showing 0'}
+                          {directoryCustomers.length !== customersList.length ? ` (${customersList.length} in total)` : ''}
                         </span>
                       </div>
+                      {customersList.length > 0 && (
+                        <CustomerFilters customers={customersList} filters={customerFilters} onChange={setCustomerFilters} />
+                      )}
                     </>
                   );
                 })()}
@@ -5134,7 +5264,14 @@ function App() {
                           </button>
                         </div>
                       ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>{t('customersPage.noMatchingCustomers')}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{t('customersPage.noMatchingCustomers')}</span>
+                          {activeFilterCount(customerFilters) > 0 && (
+                            <button type="button" className="btn-secondary" onClick={() => setCustomerFilters(EMPTY_CUSTOMER_FILTERS)}>
+                              Clear filters
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   ) : (
@@ -5143,19 +5280,20 @@ function App() {
                     // so every row is the same two-line height and the
                     // columns line up down the page. A row opens the
                     // customer, as the card did.
+                    <>
                     <div className="at-table-wrap">
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: '30%' }}>Customer</th>
-                            <th style={{ width: '26%' }}>Body measurements</th>
-                            <th style={{ width: '14%' }}>Style notes</th>
-                            <th style={{ width: '15%' }}>Orders</th>
-                            <th style={{ width: '15%' }}></th>
+                            <th style={{ width: canAddCustomer ? '27%' : '30%' }}>Customer</th>
+                            <th style={{ width: canAddCustomer ? '24%' : '26%' }}>Body measurements</th>
+                            <th style={{ width: canAddCustomer ? '13%' : '14%' }}>Style notes</th>
+                            <th style={{ width: canAddCustomer ? '13%' : '15%' }}>Orders</th>
+                            <th style={{ width: canAddCustomer ? '23%' : '15%' }}></th>
                           </tr>
                         </thead>
                         <tbody>
-                    {directoryCustomers.map(cust => {
+                    {pagedCustomers.map(cust => {
                       const m = cust.measurements;
                       const parts = m?.additional_measurements?.stitch_parts || [];
                       const visible = m ? getVisibleMeasurementFields(parts) : [];
@@ -5246,6 +5384,18 @@ function App() {
                             >
                               <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
                             </button>
+                            {canAddCustomer && (
+                              <span className="at-row-actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                <button type="button" className="at-icon-btn" title="Edit customer" aria-label={`Edit ${cust.first_name} ${cust.last_name}`}
+                                        disabled={customerActionId === cust.id} onClick={() => startEditCustomer(cust)}>
+                                  <Edit2 size={15} />
+                                </button>
+                                <button type="button" className="at-icon-btn at-icon-btn--danger" title="Delete customer" aria-label={`Delete ${cust.first_name} ${cust.last_name}`}
+                                        disabled={customerActionId === cust.id} onClick={() => handleDeleteCustomer(cust)}>
+                                  <Trash2 size={15} />
+                                </button>
+                              </span>
+                            )}
                             <ChevronRight size={16} style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
                           </td>
                         </tr>
@@ -5254,6 +5404,12 @@ function App() {
                         </tbody>
                       </table>
                     </div>
+                    {directoryCustomers.length > CUSTOMER_PAGE_SIZES[0] && (
+                      <Pager page={customerPageNow} pageCount={customerPageCount} pageSize={customerPageSize}
+                             sizes={CUSTOMER_PAGE_SIZES} onPage={goToCustomerPage} onSize={setCustomerPageSize}
+                             label="Customers per page" />
+                    )}
+                    </>
                   )}
                 </div>
               </>
@@ -5301,6 +5457,12 @@ function App() {
                   </button>
                   {isOwner && (
                     <div className="at-toolbar-right">
+                      <button type="button" className="btn-secondary" disabled={customerActionId === c.id} onClick={() => startEditCustomer(c)}>
+                        <Edit2 size={16} /> Edit
+                      </button>
+                      <button type="button" className="btn-secondary at-btn-danger" disabled={customerActionId === c.id} onClick={() => handleDeleteCustomer(c)}>
+                        <Trash2 size={16} /> Delete
+                      </button>
                       <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
                         <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
                       </button>
@@ -5800,7 +5962,6 @@ function App() {
               const topSleevesList = Object.entries(sleeveDist).sort((a, b) => b[1] - a[1]).slice(0, 4);
 
               const busyTailors = tailors.filter(t => t.status === 'Busy').length;
-              const avgTailorRating = tailors.length > 0 ? (tailors.reduce((sum, t) => sum + parseFloat(t.rating), 0) / tailors.length) : 5.0;
 
               const segments = (() => {
                 const total = customersList.length || 1;
@@ -5917,23 +6078,19 @@ function App() {
 
                     <div className="at-stack">
                       <SectionCard icon={Scissors} tone="blue" title={t('analyticsPage.staffWorkloadOverview', 'Staff & Workload Overview')}
-                                   subtitle="Current team status and capacity" action={() => setDashboardTab('staff')} actionLabel="Manage team">
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--space-3)' }}>
+                                   subtitle="Who is working, and who is free" action={() => setDashboardTab('staff')} actionLabel="Manage team">
+                        <div className="wl-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--space-3)' }}>
                           <div className="at-pipeline-tile at-stat--blue" style={{ cursor: 'default' }}>
-                            <span className="at-pipeline-label">{t('analyticsPage.totalTailoringTeam', 'Total Tailoring Team')}</span>
-                            <span className="at-pipeline-value">{tailors.length} <small style={{ fontSize: 'var(--text-xs)', fontWeight: 500 }}>{tailors.length === 1 ? t('analyticsPage.tailorSingle', 'Tailor') : t('analyticsPage.tailorPlural', 'Tailors')}</small></span>
+                            <span className="at-pipeline-label ui-eyebrow">{t('analyticsPage.totalTailoringTeam', 'Total Tailoring Team')}</span>
+                            <span className="at-pipeline-value">{tailors.length}</span>
                           </div>
                           <div className="at-pipeline-tile at-stat--amber" style={{ cursor: 'default' }}>
-                            <span className="at-pipeline-label">{t('analyticsPage.busyAssignedTailors', 'Busy / Assigned Tailors')}</span>
-                            <span className="at-pipeline-value" style={{ color: 'var(--tone-amber-fg)' }}>{busyTailors} <small style={{ fontSize: 'var(--text-xs)', fontWeight: 500 }}>{t('analyticsPage.busyStatus', 'Busy')}</small></span>
+                            <span className="at-pipeline-label ui-eyebrow">{t('analyticsPage.busyAssignedTailors', 'Busy / Assigned Tailors')}</span>
+                            <span className="at-pipeline-value" style={{ color: 'var(--tone-amber-fg)' }}>{busyTailors}</span>
                           </div>
                           <div className="at-pipeline-tile at-stat--green" style={{ cursor: 'default' }}>
-                            <span className="at-pipeline-label">{t('analyticsPage.availableStaffCapacity', 'Available Staff capacity')}</span>
-                            <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{tailors.length - busyTailors} <small style={{ fontSize: 'var(--text-xs)', fontWeight: 500 }}>{t('analyticsPage.freeStatus', 'Free')}</small></span>
-                          </div>
-                          <div className="at-pipeline-tile at-stat--violet" style={{ cursor: 'default' }}>
-                            <span className="at-pipeline-label">{t('analyticsPage.atelierAvgRating', 'Atelier Average Rating')}</span>
-                            <span className="at-pipeline-value">⭐ {avgTailorRating.toFixed(2)} <small style={{ fontSize: 'var(--text-xs)', fontWeight: 500 }}>out of 5</small></span>
+                            <span className="at-pipeline-label ui-eyebrow">{t('analyticsPage.availableStaffCapacity', 'Available Staff capacity')}</span>
+                            <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{tailors.length - busyTailors}</span>
                           </div>
                         </div>
                       </SectionCard>
@@ -6171,28 +6328,27 @@ function App() {
               the customer's tracking page already renders a trial card from
               them; there was simply no way to create one from the product. */}
           {showAppointmentModal && (
-            <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-              <div className="search-modal-card" style={{ maxWidth: '460px', width: '100%' }}>
-                <div className="search-modal-header">
-                  <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)' }}>
+            <div className="existing-customer-search-modal apt-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
+              <div className="search-modal-card apt-card">
+                <div className="search-modal-header apt-head">
+                  <h3>
                     {editingAppointment
                       ? t('dashboard.appointmentDetails', 'Appointment Details')
                       : t('dashboard.bookAppointment', 'Book an Appointment')}
                   </h3>
                   <button className="close-btn" onClick={closeAppointmentModal}><X size={20} /></button>
                 </div>
-                <form onSubmit={handleSaveAppointment} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <form onSubmit={handleSaveAppointment} className="apt-form">
                   <div>
                     <label className="form-label">Client *</label>
                     {/* Whose appointment this is cannot be edited -- moving it
                         to another person is a different booking. So the
                         existing/new chooser is only on a fresh booking. */}
                     {!editingAppointment && (
-                      <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <div className="apt-seg">
                         {[[false, 'Existing client'], [true, 'New client']].map(([isNew, label]) => (
                           <button key={label} type="button"
                                   className={appointmentForm.isNewCustomer === isNew ? 'btn-primary' : 'btn-secondary'}
-                                  style={{ flex: 1, padding: '8px 10px', fontSize: '13px' }}
                                   onClick={() => setAppointmentForm({
                                     ...appointmentForm, isNewCustomer: isNew, customer: '' })}>
                             {label}
@@ -6239,18 +6395,51 @@ function App() {
                     <label className="form-label">Type</label>
                     <select className="form-control"
                             value={appointmentForm.appointment_type}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, appointment_type: e.target.value })}>
+                            onChange={(e) => setAppointmentForm({
+                              ...appointmentForm,
+                              appointment_type: e.target.value,
+                              // Moving off Other drops what was typed, so a
+                              // standard booking cannot be saved carrying a
+                              // stale label nothing will ever show.
+                              custom_type: e.target.value === 'OTHER' ? appointmentForm.custom_type : '',
+                            })}>
                       {Object.entries(APPOINTMENT_TYPE_LABELS).map(([value, label]) => (
                         <option key={value} value={value}>{label}</option>
                       ))}
                     </select>
+                    {appointmentForm.appointment_type === 'OTHER' && (
+                      <input className="form-control apt-custom-type" required
+                             maxLength={50} autoFocus
+                             placeholder={t('dashboard.customTypePlaceholder', 'What kind of appointment?')}
+                             value={appointmentForm.custom_type}
+                             onChange={(e) => setAppointmentForm({ ...appointmentForm, custom_type: e.target.value })} />
+                    )}
                   </div>
                   <div>
                     <label className="form-label">Date & time *</label>
                     <input className="form-control" type="datetime-local" required
+                           ref={appointmentDateRef}
                            min={editingAppointment ? undefined : `${todayIso()}T00:00`}
                            value={appointmentForm.scheduled_time}
                            onChange={(e) => setAppointmentForm({ ...appointmentForm, scheduled_time: e.target.value })} />
+                    {/* The calendar itself is the browser's, drawn outside the
+                        page, so its Clear/Today row cannot be added to. This
+                        is the page's own confirmation: what has been picked,
+                        in words, and a Done that shuts the calendar. The value
+                        is already committed by then -- the field writes on
+                        every change -- so this confirms, it does not save. */}
+                    <div className="apt-when">
+                      <span className={appointmentForm.scheduled_time ? 'apt-when-set' : ''}>
+                        {appointmentForm.scheduled_time
+                          ? fmtDateTime(appointmentForm.scheduled_time)
+                          : t('dashboard.pickDateTime', 'No date and time chosen yet')}
+                      </span>
+                      <button type="button" className="btn-secondary at-btn-sm"
+                              disabled={!appointmentForm.scheduled_time}
+                              onClick={() => appointmentDateRef.current?.blur()}>
+                        {t('common.done', 'Done')}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="form-label">With</label>
@@ -6275,11 +6464,11 @@ function App() {
                   )}
                   <div>
                     <label className="form-label">Notes</label>
-                    <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note}
+                    <textarea className="form-control" rows={2} maxLength={LIMITS.note}
                               value={appointmentForm.notes}
                               onChange={(e) => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} />
                   </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'flex-end' }}>
+                  <div className="apt-foot">
                     {editingAppointment && appointmentForm.status !== 'CANCELLED' && (
                       <button type="button" className="btn-secondary" disabled={savingAppointment}
                               style={{ marginRight: 'auto', color: 'var(--danger-color)', borderColor: 'rgba(192,57,43,0.3)' }}
@@ -6484,7 +6673,7 @@ function App() {
               { key: 'more', label: t('nav.menu', 'Menu'), icon: Menu }
             ]}
             activeTab={dashboardTab}
-            onChangeTab={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); }}
+            onChangeTab={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); }}
             onOpenMore={() => setMobileNavOpen(true)}
           />
         </div>

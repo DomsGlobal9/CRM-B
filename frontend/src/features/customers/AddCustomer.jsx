@@ -1,7 +1,9 @@
-import React, { useRef, useState, useMemo } from 'react';
-import { ArrowLeft, Contact, Ruler, Upload, User, Search, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Check, CheckCircle2, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User } from 'lucide-react';
 import { api } from '../../services/api';
-import { LIMITS, cleanEmail, cleanMobile, cleanName, displayMobile, emailError, mobileError, nameError } from '../../services/validate';
+import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, nameError } from '../../services/validate';
+import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
+import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../services/phone';
 import { FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same
@@ -71,13 +73,20 @@ const MEASUREMENT_ZONES = [
 
 
 const EMPTY = {
-  first_name: '', last_name: '', mobile_number: '', email_address: '', gender: '', address: '', city_region: '',
+  full_name: '', mobile_number: '', email_address: '', gender: '', address: '', city_region: '',
   source: 'Walk In', customer_type: 'Silver', date_of_birth: '', notes: '', measurements: {},
 };
 
 // A bare green link at the top-left, not a stretched button.
 const BACK = { alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: 0, marginTop: -16,
                background: 'none', border: 0, cursor: 'pointer', font: 'inherit', fontSize: 14, fontWeight: 600, color: 'var(--brand-link)' };
+
+/** One "Full name" box, stored as the customer's first and last name the way
+ *  the Excel import splits full_name: the first word, then the rest. */
+const splitFullName = (raw) => {
+  const [first, ...rest] = cleanName(raw).trim().split(' ');
+  return { first_name: first || '', last_name: rest.join(' ') };
+};
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -137,6 +146,51 @@ export function ImportCustomersDialog({ state, onClose, onConfirm }) {
   );
 }
 
+/* While the sheet is on its way: a moving picture, the steps it goes through
+   and the seconds so far, so a big file never looks like a frozen screen.
+   The server answers in one go, so the steps follow the clock -- the last one
+   stays live until the answer lands. */
+const IMPORT_STEPS = {
+  checking: [[0, 'Uploading the file'], [2, 'Reading the rows'], [5, 'Checking each customer']],
+  saving: [[0, 'Sending the confirmed rows'], [3, 'Saving customers and measurements']],
+};
+
+function ImportProgress({ phase, file, count }) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const id = setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 500);
+    return () => clearInterval(id);
+  }, [phase]);
+  const steps = IMPORT_STEPS[phase];
+  const current = steps.reduce((at, [from], i) => (seconds >= from ? i : at), 0);
+  const size = file?.size ? ` · ${file.size < 1048576 ? `${Math.max(1, Math.round(file.size / 1024))} KB` : `${(file.size / 1048576).toFixed(1)} MB`}` : '';
+  return (
+    <FormModal icon={FileSpreadsheet} tone="green"
+      title={phase === 'saving' ? 'Saving customers…' : 'Checking your sheet…'}
+      subtitle={phase === 'saving' ? `Adding ${plural(count || 0, 'customer')}. Please keep this page open.` : `${file?.name || 'Spreadsheet'}${size}`}>
+      <div className="imp-progress" role="status" aria-live="polite" aria-busy="true">
+        <div className="imp-sheet" aria-hidden="true">
+          <FileSpreadsheet size={40} strokeWidth={1.5} />
+          <span className="imp-scan" />
+        </div>
+        <div className="imp-bar" aria-hidden="true"><span /></div>
+        <ol className="imp-steps">
+          {steps.map(([, text], i) => (
+            <li key={text} className={i < current ? 'imp-step--done' : i === current ? 'imp-step--live' : ''}>
+              <span className="imp-step-mark">{i < current ? <Check size={12} /> : null}</span>
+              {text}
+            </li>
+          ))}
+        </ol>
+        <div className="imp-time">
+          {seconds}s{seconds >= 10 ? ' · Large sheets can take a minute or two.' : ''}
+        </div>
+      </div>
+    </FormModal>
+  );
+}
+
 export function AddCustomerChooser({ onBack, onManual, onImported }) {
   const fileRef = useRef(null);
   const [imp, setImp] = useState(null); // { file, preview?, result?, busy }
@@ -178,7 +232,7 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
         <button type="button" className="wz-service" onClick={() => fileRef.current?.click()} disabled={imp?.busy}>
           <IconTile icon={Upload} tone="green" size={48} iconSize={22} />
           <span className="wz-service-title">Upload Excel sheet</span>
-          <span className="wz-service-desc">An .xlsx or .csv of customers with their measurements, up to 100 at a time. Checked first, saved only after you confirm.</span>
+          <span className="wz-service-desc">An .xlsx or .csv of customers with their measurements, up to 2000 at a time. Checked first, saved only after you confirm.</span>
         </button>
         <button type="button" className="wz-service" onClick={onManual}>
           <IconTile icon={Contact} tone="amber" size={48} iconSize={22} />
@@ -186,7 +240,10 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
           <span className="wz-service-desc">One customer, typed in: profile and measurements on a single page.</span>
         </button>
       </div>
-      {imp?.preview && (
+      {imp?.busy && (
+        <ImportProgress phase={imp.preview ? 'saving' : 'checking'} file={imp.file} count={imp.preview?.valid.length} />
+      )}
+      {imp?.preview && !imp.busy && (
         <ImportCustomersDialog state={imp} onClose={() => { const done = !!imp.result; setImp(null); if (done) onBack(); }} onConfirm={confirm} />
       )}
     </div>
@@ -198,8 +255,43 @@ const INCH_GRID = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, min
 
 const inch = (value) => (value === '' || value === undefined || value === null ? '' : value);
 
-export function CustomerForm({ onBack, onSaved }) {
-  const [form, setForm] = useState(EMPTY);
+// Every extra key the form can hold: the Excel groups and the measurement
+// zones, minus the core columns (bust, waist...) the customer row keeps itself.
+const CORE_KEYS = new Set(CORE.map(([key]) => key));
+const MORE_KEYS = [...new Set([...Object.values(MORE).flat(), ...MEASUREMENT_ZONES.flatMap((zone) => zone.keys)])]
+  .filter((key) => !CORE_KEYS.has(key));
+const asInch = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? '' : String(Number(v)));
+
+/** An existing customer as the form holds them: the mobile split into its
+ *  country and number, the inch figures as plain numbers. */
+function customerToForm(customer) {
+  const m = customer.measurements || {};
+  const extra = m.additional_measurements || {};
+  const measurements = {};
+  CORE.forEach(([key]) => { measurements[key] = asInch(m[key]); });
+  MORE_KEYS.forEach((key) => { measurements[key] = asInch(extra[key]); });
+  const text = (key) => (customer[key] === null || customer[key] === undefined ? '' : String(customer[key]));
+  return {
+    full_name: [text('first_name'), text('last_name')].map((v) => v.trim()).filter(Boolean).join(' '),
+    mobile_number: splitStoredMobile(customer.mobile_number).national,
+    email_address: text('email_address'), gender: text('gender'), address: text('address'),
+    city_region: text('city_region'), source: text('source') || 'Walk In',
+    customer_type: text('customer_type') || 'Silver', date_of_birth: text('date_of_birth'),
+    notes: text('notes'), measurements,
+  };
+}
+
+/** New customer, or -- given `customer` -- an existing one to edit (the
+ *  Owner's; the server refuses an edit from any other role). An edit sends
+ *  only what changed, so a value from before today's rules (a legacy source,
+ *  an old mobile spelling) never blocks saving something else. */
+export function CustomerForm({ customer = null, onBack, onSaved }) {
+  const editing = Boolean(customer);
+  const [initial] = useState(() => (customer ? customerToForm(customer) : EMPTY));
+  const [form, setForm] = useState(initial);
+  // The mobile's country; form.mobile_number holds the number without its code.
+  const [initialCountry] = useState(() => (customer ? splitStoredMobile(customer.mobile_number).iso : DEFAULT_COUNTRY));
+  const [phoneCountry, setPhoneCountry] = useState(initialCountry);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [activeZone, setActiveZone] = useState('core');
@@ -207,6 +299,35 @@ export function CustomerForm({ onBack, onSaved }) {
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const setInch = (key, value) => setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: value } }));
+
+  const mobileChanged = !editing || phoneCountry !== initialCountry || form.mobile_number !== initial.mobile_number;
+
+  /** Only the fields that moved, in the shape PATCH /customers/<id>/ takes. */
+  const changes = () => {
+    const out = {};
+    Object.keys(EMPTY).forEach((key) => {
+      if (key === 'measurements' || key === 'mobile_number' || form[key] === initial[key]) return;
+      if (key === 'full_name') Object.assign(out, splitFullName(form.full_name));
+      else if (key === 'date_of_birth') out[key] = form[key] || null;
+      else out[key] = form[key];
+    });
+    if (mobileChanged) out.mobile_number = composeMobile(phoneCountry, form.mobile_number);
+    const moved = (key) => (form.measurements[key] ?? '') !== (initial.measurements[key] ?? '');
+    const core = {};
+    CORE.forEach(([key]) => { if (moved(key)) core[key] = form.measurements[key] === '' ? null : Number(form.measurements[key]); });
+    if (MORE_KEYS.some(moved)) {
+      // The whole extras object is replaced on save, so it starts from what
+      // the customer already has -- keys this form does not show survive.
+      const extras = { ...((customer.measurements || {}).additional_measurements || {}) };
+      MORE_KEYS.forEach((key) => {
+        if (form.measurements[key] === '') delete extras[key];
+        else extras[key] = Number(form.measurements[key]);
+      });
+      core.additional_measurements = extras;
+    }
+    if (Object.keys(core).length) out.measurements = core;
+    return out;
+  };
 
   // Count total recorded measurements
   const filledCount = useMemo(() => {
@@ -224,11 +345,24 @@ export function CustomerForm({ onBack, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    const problem = nameError(form.first_name, { label: 'First name' })
-      || nameError(form.last_name, { label: 'Last name', required: false, min: 1 })
-      || mobileError(form.mobile_number)
+    const problem = nameError(form.full_name, { label: 'Full name' })
+      || (mobileChanged ? phoneNumberError(phoneCountry, form.mobile_number) : '')
       || emailError(form.email_address);
     if (problem) { setError(problem); return; }
+    if (editing) {
+      const payload = changes();
+      if (!Object.keys(payload).length) { onBack?.(); return; }
+      setBusy(true);
+      setError(null);
+      try {
+        const row = await api.updateCustomer(customer.id, payload);
+        await onSaved?.(row);
+      } catch (err) {
+        setError(err.message);
+        setBusy(false);
+      }
+      return;
+    }
     setBusy(true);
     setError(null);
     // Inches typed go on the sheet's own columns; template keys ride in
@@ -239,10 +373,9 @@ export function CustomerForm({ onBack, onSaved }) {
       (CORE.some(([k]) => k === key) ? core : extras)[key] = Number(value);
     });
     const payload = {
-      ...Object.fromEntries(Object.entries(form).filter(([k, v]) => k !== 'measurements' && v !== '')),
-      first_name: cleanName(form.first_name).trim(),
-      last_name: cleanName(form.last_name).trim(),
-      mobile_number: cleanMobile(form.mobile_number),
+      ...Object.fromEntries(Object.entries(form).filter(([k, v]) => k !== 'measurements' && k !== 'full_name' && v !== '')),
+      ...splitFullName(form.full_name),
+      mobile_number: composeMobile(phoneCountry, form.mobile_number),
     };
     if (Object.keys(core).length || Object.keys(extras).length) payload.measurements = { ...core, additional_measurements: extras };
     try {
@@ -294,11 +427,14 @@ export function CustomerForm({ onBack, onSaved }) {
   return (
     <form className="selector-container" onSubmit={submit} noValidate>
       <button type="button" onClick={onBack} style={BACK}>
-        <ArrowLeft size={16} /> Add customer
+        <ArrowLeft size={16} /> {editing ? 'Back' : 'Add customer'}
       </button>
       <div className="page-title-group">
-        <h1 className="page-title">New customer</h1>
-        <p className="page-subtitle">Their details and measurements. Only the name and mobile are needed to start.</p>
+        <h1 className="page-title">{editing ? 'Edit customer' : 'New customer'}</h1>
+        <p className="page-subtitle">
+          {editing ? 'Change their details and measurements. Only what you change is saved.'
+            : 'Their details and measurements. Only the name and mobile are needed to start.'}
+        </p>
       </div>
 
       <div className="content-card wz-card">
@@ -306,27 +442,16 @@ export function CustomerForm({ onBack, onSaved }) {
           <IconTile icon={User} tone="green" size={36} iconSize={16} />
           <strong>Profile</strong>
         </div>
-        <div className="form-grid-2">
-          <div className="form-group">
-            <label className="form-label" htmlFor="cf-first">First name <span className="required">*</span></label>
-            <input id="cf-first" type="text" className="form-control" value={form.first_name} maxLength={LIMITS.name} autoFocus
-                   onChange={(e) => set('first_name', cleanName(e.target.value))} placeholder="e.g. Amara" />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="cf-last">Last name</label>
-            <input id="cf-last" type="text" className="form-control" value={form.last_name} maxLength={LIMITS.name}
-                   onChange={(e) => set('last_name', cleanName(e.target.value))} placeholder="e.g. Singh" />
-          </div>
+        <div className="form-group">
+          <label className="form-label" htmlFor="cf-name">Full name <span className="required">*</span></label>
+          <input id="cf-name" type="text" className="form-control" value={form.full_name} maxLength={LIMITS.name} autoFocus
+                 onChange={(e) => set('full_name', cleanName(e.target.value))} placeholder="e.g. Amara Singh" />
         </div>
         <div className="form-grid-2">
           <div className="form-group">
             <label className="form-label" htmlFor="cf-mobile">Mobile number <span className="required">*</span></label>
-            <div className="input-wrapper">
-              <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
-              <input id="cf-mobile" type="tel" inputMode="numeric" value={form.mobile_number}
-                     onChange={(e) => set('mobile_number', cleanMobile(e.target.value))}
-                     style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
-            </div>
+            <CountryPhoneInput id="cf-mobile" country={phoneCountry} onCountryChange={setPhoneCountry}
+                               value={form.mobile_number} onChange={(value) => set('mobile_number', value)} />
           </div>
           <div className="form-group">
             <label className="form-label" htmlFor="cf-gender">Gender</label>
@@ -526,8 +651,66 @@ export function CustomerForm({ onBack, onSaved }) {
       {error && <p className="form-error" role="alert" style={{ marginTop: 12, color: 'var(--danger, #b42318)' }}>{error}</p>}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
         <button type="button" className="btn-secondary" onClick={onBack} disabled={busy}>Cancel</button>
-        <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save customer'}</button>
+        <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Save customer'}</button>
       </div>
     </form>
+  );
+}
+
+/** Delete every customer at once -- the Owner's. The server keeps anyone with
+ *  orders or alterations (their invoices and payments would go with them), so
+ *  the answer says how many went and how many stayed. Typed confirmation, so
+ *  a slip of the mouse cannot empty the book. */
+export function DeleteAllCustomersDialog({ total, onClose, onDeleted }) {
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
+  const ready = typed.trim().toUpperCase() === 'DELETE ALL';
+
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const done = await api.deleteAllCustomers();
+      setResult(done);
+      await onDeleted?.(done);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <FormModal icon={Trash2} tone="rose" onClose={busy ? undefined : onClose}
+      title={result ? 'Customers deleted' : 'Delete all customers?'}
+      subtitle={result
+        ? `${plural(result.deleted, 'customer')} deleted.${result.kept ? ` ${plural(result.kept, 'customer')} with orders or alterations ${result.kept === 1 ? 'was' : 'were'} kept.` : ''}`
+        : `Your book has ${plural(total, 'customer')}. Every one without an order is deleted, with their measurements, appointments and saved designs. This cannot be undone.`}
+      footer={result ? (
+        <button type="button" className="btn-primary" onClick={onClose}>Done</button>
+      ) : (
+        <>
+          <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="button" className="btn-secondary at-btn-danger" onClick={run} disabled={!ready || busy}>
+            <Trash2 size={16} /> {busy ? 'Deleting…' : 'Delete all customers'}
+          </button>
+        </>
+      )}>
+      {!result && (
+        <>
+          <InfoNote tone="amber" title="Customers with orders are kept">
+            Anyone with an order or an alteration stays, because deleting them would also delete their invoices and payments.
+          </InfoNote>
+          <div className="form-group">
+            <label className="form-label" htmlFor="delete-all-confirm">Type DELETE ALL to confirm</label>
+            <input id="delete-all-confirm" className="form-control" value={typed} autoComplete="off" autoFocus
+                   onChange={(e) => setTyped(e.target.value)} placeholder="DELETE ALL" disabled={busy} />
+          </div>
+          {error && <p className="form-error" role="alert" style={{ color: 'var(--danger, #b42318)', margin: 0 }}>{error}</p>}
+        </>
+      )}
+    </FormModal>
   );
 }

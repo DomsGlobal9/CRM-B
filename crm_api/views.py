@@ -79,6 +79,59 @@ class CustomerViewSet(viewsets.ModelViewSet):
                 else CustomerRepository.get_all())
         return visible_customers(base, self.request.user)
 
+    @staticmethod
+    def _money_records(customer):
+        """What deleting this customer would take with it that the books need."""
+        return customer.orders.count(), customer.alteration_requests.count()
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete one customer -- the Owner only (RolePermission refuses every
+        other role a DELETE here).
+
+        Order, AlterationRequest and their invoices and payments all CASCADE
+        from Customer, so deleting a customer with any of them would silently
+        erase money the boutique has billed or taken. Those customers are
+        refused with the reason; everything else hung on the customer
+        (measurements, appointments, saved designs) goes with them.
+        """
+        customer = self.get_object()
+        orders, alterations = self._money_records(customer)
+        if orders or alterations:
+            name = f'{customer.first_name} {customer.last_name}'.strip()
+            held = ' and '.join(p for p in (
+                f'{orders} order' + ('' if orders == 1 else 's') if orders else '',
+                f'{alterations} alteration' + ('' if alterations == 1 else 's') if alterations else '',
+            ) if p)
+            return Response(
+                {'error': f'{name} has {held}, so they cannot be deleted: their invoices and '
+                          'payments would be deleted with them.'},
+                status=status.HTTP_400_BAD_REQUEST)
+        customer.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['POST'], url_path='delete-all')
+    def delete_all(self, request):
+        """Delete every customer who has no orders and no alterations.
+
+        The Owner only, and only with {"confirm": "DELETE ALL"} in the body, so
+        a stray request cannot empty the book. Customers with orders or
+        alterations are kept for the reason destroy() gives, and counted.
+        """
+        if resolve_user_role(request.user) != OWNER:
+            return Response({'error': 'Only the owner can delete customers.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        if request.data.get('confirm') != 'DELETE ALL':
+            return Response({'error': 'Type DELETE ALL to confirm.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        with_records = Customer.objects.filter(
+            Q(orders__isnull=False) | Q(alteration_requests__isnull=False)).values('pk')
+        doomed = Customer.objects.exclude(pk__in=with_records)
+        with transaction.atomic():
+            deleted = doomed.count()
+            doomed.delete()
+        kept = Customer.objects.count()
+        return Response({'deleted': deleted, 'kept': kept})
+
     @action(detail=False, methods=['POST'], url_path='import')
     def import_customers(self, request):
         """A spreadsheet of customers: validated on every call, saved only with commit=1.

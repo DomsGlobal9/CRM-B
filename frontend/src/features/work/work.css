@@ -75,13 +75,25 @@
 .wk-strip-hint { font-size: var(--text-base); color: var(--text-muted); text-align: center; margin-top: 6px; }
 
 /* Form bits above the action row: pickers, picked photos, the note box. */
-.wk-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: var(--space-3); }
+/* The action row below is sticky, so once the sheet scrolls it floats over
+   whatever comes before it -- and the last control in this form (Record voice
+   note) sat underneath it, half readable and hard to press. Reserve the bar's
+   height here so the form can always scroll clear of it.
+   Short screens are unaffected: .wk-actions has margin-top:auto, which simply
+   absorbs less free space. */
+.wk-form { display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: calc(var(--space-3) + var(--wk-actions-h)); }
 .wk-pickers { display: flex; gap: 10px; }
 .wk-pickers > * { flex: 1; }
 .wk-pickers .btn-secondary { width: 100%; min-height: 52px; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); }
 
 /* Action row: only the button(s), their hint and the save error stick to the
-   bottom of the sheet. The sheet sits above the app's bottom nav already. */
+   bottom of the sheet. The sheet sits above the app's bottom nav already.
+   --wk-actions-h is what this row costs at its usual height -- 12px padding,
+   a one-line hint, the 10px gap, the 52px button and 12px padding again --
+   and it is what the scrolling content above reserves so nothing hides under
+   it. Kept next to the padding and min-height it is derived from. */
+.wk-sheet { --wk-actions-h: 108px; }
 .wk-actions { position: sticky; bottom: 0; margin: auto calc(-1 * var(--space-4)) calc(-1 * var(--space-6));
   padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom));
   background: var(--surface-color); border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 10px; }

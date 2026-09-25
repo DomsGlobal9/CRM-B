@@ -427,6 +427,28 @@ export const api = {
     return res.json();
   },
 
+  // Owner only; the server refuses a customer who has orders or alterations,
+  // because their invoices and payments would be deleted with them.
+  async deleteCustomer(customerId) {
+    const res = await guardedFetch(`${BASE_URL}/customers/${customerId}/`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) await failWith(res, 'Could not delete the customer');
+  },
+
+  // Owner only. Deletes every customer with no orders and no alterations;
+  // answers { deleted, kept }.
+  async deleteAllCustomers() {
+    const res = await guardedFetch(`${BASE_URL}/customers/delete-all/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ confirm: 'DELETE ALL' }),
+    });
+    if (!res.ok) await failWith(res, 'Could not delete the customers');
+    return res.json();
+  },
+
   // --- Appointments ---------------------------------------------------------
   // apps/scheduling has had full CRUD since it was written and the customer's
   // tracking page already renders a trial card from it, but no frontend code

@@ -4852,7 +4852,8 @@ tr.gh-express { animation: none; background: color-mix(in srgb, var(--danger-bg)
   .nav-collapsed .portal-menu { padding: 0 12px; }
   .nav-collapsed .portal-menu-item { justify-content: center; padding: 12px 0; gap: 0; }
   .nav-collapsed .portal-menu-label { display: none; }
-  .nav-collapsed .portal-menu-group { font-size: 0; height: 1px; background: var(--border-color); padding: 0; margin: 10px 8px 6px; opacity: 1; }
+  .nav-collapsed .portal-menu-group { font-size: 0; height: 1px; background: var(--border-color); padding: 0; margin: 10px 8px 6px; opacity: 1; border-bottom: 0; }
+  .nav-collapsed .portal-menu-group::after { display: none; }
   .nav-collapsed .portal-menu-divider { margin: 6px 8px; }
   .nav-collapsed .portal-sidebar-footer, .nav-collapsed .portal-sidebar-help { display: none; }
 }
@@ -4974,6 +4975,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .at-btn-sm { min-height: 36px !important; padding: 0 14px !important; font-size: 12px !important; border-radius: var(--radius-md) !important; }
 .at-btn-danger { background: var(--surface-color) !important; color: var(--danger-color) !important; border-color: color-mix(in srgb, var(--danger-color) 40%, transparent) !important; }
 .at-btn-danger:hover { background: var(--danger-color) !important; color: var(--surface-color) !important; border-color: var(--danger-color) !important; }
+/* New Order, in the dashboard header and on the Orders page: the gold of the
+   waving hand beside "Welcome back", so the one button that starts the day's
+   work is not the same lime as every other primary button around it. Dark
+   text on it, like the lime, because gold this bright takes black at 10:1. */
+.btn-primary.btn-gold { background: #F5B92E; border-color: #F5B92E; color: #1A1508; }
+.btn-primary.btn-gold:hover:not(:disabled) { background: #E0A61C; border-color: #E0A61C; color: #1A1508; }
+
 .btn-ghost { background: transparent; color: var(--text-primary); border-color: transparent; }
 .btn-ghost:hover { background: var(--surface-inset); }
 .btn-link { background: transparent; color: var(--brand-link); border-color: transparent; padding: 0 4px; min-height: 32px; }
@@ -5034,7 +5042,21 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .portal-sidebar-mark { color: var(--shell-logo); }
 .portal-nav-toggle { background: color-mix(in srgb, var(--shell-fg) 8%, transparent); border-color: color-mix(in srgb, var(--shell-fg) 25%, transparent); color: color-mix(in srgb, var(--shell-fg) 90%, transparent); }
 .portal-nav-toggle:hover { color: var(--shell-fg); border-color: color-mix(in srgb, var(--shell-fg) 35%, transparent); }
-.portal-menu-group { color: var(--shell-muted); opacity: 1; font-size: 10px; letter-spacing: 0.14em; padding: 16px 12px 6px; }
+/* Group headings.
+   The colour was never the problem -- --shell-muted on the shell measures
+   10.68:1, comfortably AAA. It was that 10px at weight 600 sat beside 14px
+   near-white items and lost. So a size up and a weight up.
+   The rule under it is SHORT and lime, not a full-width hairline. A rule that
+   spans the sidebar reads as a divider, and a divider directly beneath a
+   heading cuts it off from the very items it names -- six of them stacked down
+   the rail also banded the whole sidebar. A short bar reads as part of the
+   word, and borrows the accent already used for the active item.
+   Grouping is then done by space, the way it should be: a generous gap ABOVE
+   each heading, a tight one below, so each label sits with its own items. */
+.portal-menu-group { color: var(--shell-muted); opacity: 1; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.14em; padding: 24px 12px 0; margin: 0 0 8px; border-bottom: 0; }
+.portal-menu-group::after { content: ''; display: block; width: 18px; height: 2px;
+  margin-top: 8px; border-radius: 2px; background: var(--shell-accent); }
 .portal-menu-divider { background: color-mix(in srgb, var(--shell-fg) 12%, transparent); margin: 20px 12px 8px; }
 /* Nav text near full strength: at 65% it disappeared into the shell. */
 .portal-menu-item { position: relative; min-height: 44px; padding: 10px 12px; border-radius: var(--radius-lg); font-size: 14px; font-weight: 500; color: color-mix(in srgb, var(--shell-fg) 92%, transparent); transition: color .15s ease, background-color .15s ease; }
@@ -5501,3 +5523,185 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .ld-ring { animation: ld-fade 1.4s ease-in-out infinite; border-top-color: var(--border-color); }
   .ld-row { animation: none; }
 }
+
+/* ===== Book an appointment (App.jsx) =====
+   Scoped to .apt-*: .search-modal-card is shared by five dialogs and none of
+   this may reach them.
+
+   What it fixes: the card carried 32px of its own padding and the form added
+   20px more, so every field sat in ~52px of air; the labels were full-size
+   uppercase with wide tracking, which made four short words read louder than
+   the values under them; and only the phone breakpoint bounded the height, so
+   on a laptop the dialog ran past the bottom of the screen with Book a fitting
+   out of reach and nothing to scroll.
+
+   Now: one padding, a quieter label, a header and action row that stay put
+   while the fields scroll between them. */
+.apt-card { max-width: 560px; width: 100%; padding: 0; gap: 0; overflow: hidden;
+  max-height: min(86vh, 740px); }
+
+.apt-head { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+.apt-head h3 { font-family: var(--font-serif); font-size: var(--text-lg); font-weight: 600;
+  line-height: 1.25; color: var(--text-primary); margin: 0; }
+
+/* Two columns, because the short fields are short: Type beside Date, With
+   beside Status. Stacking every one of them full-width made a five-field form
+   taller than a laptop screen, which is the only reason it needed a scrollbar
+   at all. Client, Notes and the action row still span the pair.
+   Addressed by position, not by nth-child counting: Status is conditional, so
+   any fixed numbering would shift the moment an existing booking is opened.
+   Client is always first, Notes always sits directly above the actions. */
+.apt-form { display: grid; grid-template-columns: 1fr 1fr; align-content: start;
+  gap: var(--space-4) var(--space-3);
+  padding: var(--space-5); overflow-y: auto; min-height: 0; }
+.apt-form > div { min-width: 0; }
+.apt-form > div:first-child,
+.apt-form > div:nth-last-child(2),
+.apt-form > .apt-foot { grid-column: 1 / -1; }
+/* The half-field directly above Notes, when it has landed in the left column
+   with nothing beside it, takes the whole row rather than leaving a hole.
+   That is With on a new booking (three half-fields, so the third is orphaned)
+   and nobody on an existing one, where Status pairs with it and the count is
+   even again. :nth-child(even) is what asks "did this one start a row". */
+.apt-form > div:nth-last-child(3):nth-child(even) { grid-column: 1 / -1; }
+
+/* When it does still scroll -- a phone, or New client with its four extra
+   fields -- it scrolls on a thin quiet rail rather than the platform's full
+   scrollbar with its arrow buttons parked inside the dialog. */
+.apt-form { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.apt-form::-webkit-scrollbar { width: 8px; }
+.apt-form::-webkit-scrollbar-track { background: transparent; }
+.apt-form::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px;
+  border: 2px solid var(--surface-color); background-clip: padding-box; }
+.apt-form::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+
+/* A label is a quiet caption for the control under it, not a heading: same
+   uppercase idiom as the rest of the app, one step down in size and weight. */
+.apt-form .form-label { display: block; margin-bottom: 6px; font-size: var(--text-2xs);
+  font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+.apt-form .form-control { font-size: var(--text-sm); min-height: 42px; border-radius: var(--radius-md); }
+.apt-form textarea.form-control { min-height: 78px; }
+.apt-form .form-grid-2 { gap: var(--space-3); }
+.apt-form .od-hint { font-size: var(--text-2xs); line-height: 1.45; }
+
+/* Under the date field: what has been picked, and a Done that shuts the
+   browser's calendar. The calendar is drawn outside the page, so this is the
+   only surface the app owns -- the row confirms the choice in words rather
+   than leaving dd-mm-yyyy as the only feedback. */
+.apt-when { display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-2); margin-top: 6px; min-height: 28px; }
+.apt-when > span { font-size: var(--text-2xs); color: var(--text-muted); min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.apt-when .apt-when-set { color: var(--text-primary); font-weight: 600; }
+.apt-when .btn-secondary { flex-shrink: 0; min-height: 28px; padding: 4px 12px !important; }
+.apt-when .btn-secondary:disabled { opacity: .45; }
+
+/* The box that only 'Other' asks for, tucked under its select rather than
+   looking like a field of its own. */
+.apt-custom-type { margin-top: 8px; }
+
+/* Workshop load: a rule under each tile's heading, so the label sits over its
+   number the way a column heading sits over a column. Scoped to this card --
+   .at-pipeline-label is shared with the stage pipeline and the attendance
+   tiles, which are not headed this way. */
+.wl-tiles .at-pipeline-label { padding-bottom: 6px; border-bottom: 1px solid var(--border-color); }
+
+
+/* Existing / New client: one track, two halves, so it reads as a single
+   either-or control rather than two competing buttons. */
+.apt-seg { display: flex; gap: 4px; margin-bottom: var(--space-2); padding: 3px;
+  background: var(--surface-inset); border-radius: var(--radius-md); }
+.apt-seg button { flex: 1; min-height: 36px; padding: 0 10px; font-size: var(--text-sm);
+  font-weight: 600; border-radius: calc(var(--radius-md) - 2px); }
+/* The unselected half is the track itself, not a second outlined button. */
+.apt-seg .btn-secondary { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.apt-seg .btn-secondary:hover { background: var(--surface-color); border-color: transparent; color: var(--text-primary); }
+
+.apt-foot { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: flex-end;
+  position: sticky; bottom: calc(-1 * var(--space-5)); margin: var(--space-2) calc(-1 * var(--space-5)) calc(-1 * var(--space-5));
+  padding: var(--space-4) var(--space-5); background: var(--surface-color); border-top: 1px solid var(--border-color); }
+.apt-foot .btn-primary, .apt-foot .btn-secondary { min-height: 42px; font-size: var(--text-sm); }
+
+/* Tablet and below: the dialog is the screen. A booking form is mostly selects
+   and a date picker, and those want the full width on a small screen. */
+@media (max-width: 640px) {
+  .apt-modal { padding: 0; align-items: stretch; }
+  .apt-card { max-width: none; max-height: 100dvh; height: 100dvh; border: none; border-radius: 0; }
+  .apt-head { padding: var(--space-4); }
+  /* One column: two half-width selects side by side on a phone leaves neither
+     of them readable. */
+  .apt-form { grid-template-columns: 1fr; padding: var(--space-4); gap: var(--space-3); }
+  .apt-foot { margin: var(--space-2) calc(-1 * var(--space-4)) calc(-1 * var(--space-4));
+    bottom: calc(-1 * var(--space-4));
+    padding: var(--space-3) var(--space-4) calc(var(--space-3) + env(safe-area-inset-bottom)); }
+  /* Thumb-sized, and side by side rather than stacked into a wall. */
+  .apt-form .form-control { min-height: 46px; font-size: var(--text-base); }
+  .apt-foot .btn-primary, .apt-foot .btn-secondary { flex: 1 1 130px; min-height: 46px; justify-content: center; }
+  .apt-foot .btn-secondary[style] { flex-basis: 100%; }
+}
+
+/* Customer import: the wait while a spreadsheet is checked or saved
+   (features/customers/AddCustomer.jsx, ImportProgress). */
+.imp-progress { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding: var(--space-2) 0 var(--space-3); }
+.imp-sheet { position: relative; width: 88px; height: 88px; border-radius: var(--radius-xl); display: flex; align-items: center; justify-content: center; background: var(--accent-color); color: var(--brand-link); overflow: hidden; animation: imp-float 1.8s ease-in-out infinite; }
+.imp-scan { position: absolute; left: 10px; right: 10px; height: 3px; border-radius: 3px; background: var(--primary-color); box-shadow: 0 0 10px var(--primary-color); animation: imp-scan 1.6s ease-in-out infinite; }
+.imp-bar { width: 100%; max-width: 360px; height: 6px; border-radius: 999px; background: var(--surface-inset); overflow: hidden; position: relative; }
+.imp-bar > span { position: absolute; top: 0; bottom: 0; width: 40%; border-radius: 999px; background: var(--primary-color); animation: imp-sweep 1.2s ease-in-out infinite; }
+.imp-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px; }
+.imp-steps li { display: flex; align-items: center; gap: 10px; font-size: var(--text-sm); color: var(--text-muted); }
+.imp-step-mark { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--border-strong); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.imp-steps li.imp-step--done { color: var(--text-secondary); }
+.imp-steps li.imp-step--done .imp-step-mark { background: var(--success-color); border-color: var(--success-color); color: #fff; }
+.imp-steps li.imp-step--live { color: var(--text-primary); font-weight: var(--weight-semibold); }
+.imp-steps li.imp-step--live .imp-step-mark { border-color: var(--border-color); border-top-color: var(--primary-color); animation: ld-spin .7s linear infinite; }
+.imp-time { font-size: var(--text-xs); color: var(--text-secondary); font-variant-numeric: tabular-nums; text-align: center; }
+@keyframes imp-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes imp-scan { 0% { top: 12px; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: 72px; opacity: 0; } }
+@keyframes imp-sweep { 0% { left: -40%; } 100% { left: 100%; } }
+
+/* Page controls under a long list (App.jsx Pager): the page size on the left,
+   Prev / numbers / Next on the right; stacked on a phone. */
+.at-pager { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) 0; }
+.at-pager-size { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-sm); color: var(--text-secondary); }
+.at-pager-size select.form-control { width: auto; min-height: 36px; padding: 4px 30px 4px 12px; margin: 0; }
+.at-pager-pages { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.at-pager-num { min-width: 36px; min-height: 36px; padding: 0 8px; border-radius: var(--radius-md); border: 1px solid transparent; background: transparent; color: var(--text-secondary); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums; }
+.at-pager-num:hover { background: var(--surface-inset); color: var(--text-primary); }
+.at-pager-num--on, .at-pager-num--on:hover { background: var(--primary-color); color: var(--primary-foreground); border-color: var(--primary-color); }
+.at-pager-gap { min-width: 20px; text-align: center; color: var(--text-muted); }
+@media (max-width: 640px) { .at-pager { justify-content: center; } .at-pager-pages { justify-content: center; } }
+
+/* Mobile number with its country code (components/ui/CountryPhoneInput.jsx):
+   the code picker and the number read as one control. The native select is
+   laid invisibly over the short "IN +91" label, so the list itself is the
+   browser's own -- full names, type-to-find, keyboard and screen reader. */
+.cp-field { display: flex; align-items: stretch; min-width: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface-color); transition: border-color .15s ease, box-shadow .15s ease; }
+.cp-field:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 35%, transparent); }
+.cp-country { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 12px; border-right: 1px solid var(--border-color); background: var(--surface-inset); border-radius: var(--radius-lg) 0 0 var(--radius-lg); color: var(--text-primary); font-size: 14px; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+.cp-country svg { color: var(--text-secondary); }
+.cp-iso { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--text-secondary); }
+.cp-country select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; min-height: 0; padding: 0; margin: 0; border: 0; }
+.cp-field input.cp-number { flex: 1; min-width: 0; border: 0; box-shadow: none; background: transparent; border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+.cp-field input.cp-number:focus { border: 0; box-shadow: none; }
+
+/* Edit / delete icons at the end of a customer row (App.jsx, Owner only). */
+.at-row-actions { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px; vertical-align: middle; }
+.at-icon-btn { width: 32px; height: 32px; min-height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.at-icon-btn:hover:not(:disabled) { background: var(--surface-inset); color: var(--text-primary); }
+.at-icon-btn--danger:hover:not(:disabled) { background: var(--danger-bg); color: var(--danger-color); }
+.at-icon-btn:disabled { opacity: .5; cursor: progress; }
+
+/* Customer filters (features/customers/CustomerFilters.jsx): a row of small
+   labelled selects, "More filters" for the rest, and the A-Z name strip. */
+.cf-bar { padding: var(--space-4); border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--surface-color); margin-bottom: var(--space-3); }
+.cf-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
+.cf-bar select.cf-select { min-height: 38px; height: 38px; padding: 4px 30px 4px 12px; margin: 0; font-size: var(--text-sm); width: 100%; }
+.cf-bar select.cf-select--on { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 10%, var(--surface-color)); font-weight: 600; }
+.cf-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 14px; font-size: var(--text-sm); white-space: nowrap; }
+.cf-btn:disabled { opacity: 1; cursor: default; }
+.cf-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary-color); color: var(--primary-foreground); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.cf-letter { min-width: 30px; height: 30px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.cf-letter:hover:not(:disabled) { background: var(--surface-inset); }
+.cf-letter:disabled { color: var(--text-muted); opacity: .45; cursor: default; }
+.cf-letter--on, .cf-letter--on:hover:not(:disabled) { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); }
+@media (max-width: 640px) { .cf-bar .cf-field { max-width: none !important; flex-basis: 100% !important; } }
