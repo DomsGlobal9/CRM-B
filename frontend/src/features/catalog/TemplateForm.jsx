@@ -67,7 +67,11 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
   let control;
   switch (field.field_type) {
     case 'textarea':
-      control = <VoiceTextarea {...common} rows={3} placeholder={field.help_text || ''} />;
+      control = field.key === 'measurement_notes' ? (
+        <textarea {...common} rows={3} placeholder={field.help_text || ''} />
+      ) : (
+        <VoiceTextarea {...common} rows={3} placeholder={field.help_text || ''} />
+      );
       break;
 
     case 'number':
