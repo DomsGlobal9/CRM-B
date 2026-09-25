@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, Contact, FileSpreadsheet, Ruler, Upload, User } from 'lucide-react';
 import { api } from '../../services/api';
-import { LIMITS, cleanEmail, cleanMobile, cleanName, displayMobile, emailError, mobileError, nameError } from '../../services/validate';
+import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, nameError } from '../../services/validate';
+import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
+import { DEFAULT_COUNTRY, composeMobile, phoneNumberError } from '../../services/phone';
 import { FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same
@@ -201,6 +203,8 @@ const inch = (value) => (value === '' || value === undefined || value === null ?
 
 export function CustomerForm({ onBack, onSaved }) {
   const [form, setForm] = useState(EMPTY);
+  // The mobile's country; form.mobile_number holds the number without its code.
+  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_COUNTRY);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
@@ -210,7 +214,7 @@ export function CustomerForm({ onBack, onSaved }) {
     e.preventDefault();
     const problem = nameError(form.first_name, { label: 'First name' })
       || nameError(form.last_name, { label: 'Last name', required: false, min: 1 })
-      || mobileError(form.mobile_number)
+      || phoneNumberError(phoneCountry, form.mobile_number)
       || emailError(form.email_address);
     if (problem) { setError(problem); return; }
     setBusy(true);
@@ -226,7 +230,7 @@ export function CustomerForm({ onBack, onSaved }) {
       ...Object.fromEntries(Object.entries(form).filter(([k, v]) => k !== 'measurements' && v !== '')),
       first_name: cleanName(form.first_name).trim(),
       last_name: cleanName(form.last_name).trim(),
-      mobile_number: cleanMobile(form.mobile_number),
+      mobile_number: composeMobile(phoneCountry, form.mobile_number),
     };
     if (Object.keys(core).length || Object.keys(extras).length) payload.measurements = { ...core, additional_measurements: extras };
     try {
@@ -276,12 +280,8 @@ export function CustomerForm({ onBack, onSaved }) {
         <div className="form-grid-2">
           <div className="form-group">
             <label className="form-label" htmlFor="cf-mobile">Mobile number <span className="required">*</span></label>
-            <div className="input-wrapper">
-              <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
-              <input id="cf-mobile" type="tel" inputMode="numeric" value={form.mobile_number}
-                     onChange={(e) => set('mobile_number', cleanMobile(e.target.value))}
-                     style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
-            </div>
+            <CountryPhoneInput id="cf-mobile" country={phoneCountry} onCountryChange={setPhoneCountry}
+                               value={form.mobile_number} onChange={(value) => set('mobile_number', value)} />
           </div>
           <div className="form-group">
             <label className="form-label" htmlFor="cf-gender">Gender</label>

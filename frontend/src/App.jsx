@@ -125,6 +125,44 @@ const UserAvatar = ({ user, size }) => {
 
 
 const TIERS = ['Platinum', 'Gold', 'Silver'];
+
+// Customers per page in the customer book: 20 to 50.
+const CUSTOMER_PAGE_SIZES = [20, 30, 40, 50];
+/** Page numbers to show: the first, the last, and the current one with its
+ *  neighbours; a gap between them is drawn as '…'. */
+const pageNumbers = (page, count) => {
+  const pages = [...new Set([1, page - 1, page, page + 1, count])].filter((n) => n >= 1 && n <= count).sort((a, b) => a - b);
+  return pages.flatMap((n, i) => (i && n - pages[i - 1] > 1 ? [`gap-${n}`, n] : [n]));
+};
+
+function Pager({ page, pageCount, pageSize, sizes, onPage, onSize, label = 'Per page' }) {
+  return (
+    <nav className="at-pager" aria-label="Pages">
+      <label className="at-pager-size">
+        {label}
+        <select className="form-control" value={pageSize} onChange={(e) => onSize(Number(e.target.value))}>
+          {sizes.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </label>
+      <div className="at-pager-pages">
+        <button type="button" className="btn-secondary at-btn-sm" disabled={page <= 1} onClick={() => onPage(page - 1)} aria-label="Previous page">
+          <ArrowLeft size={14} /> Prev
+        </button>
+        {pageNumbers(page, pageCount).map((n) => (typeof n === 'string'
+          ? <span key={n} className="at-pager-gap">…</span>
+          : (
+            <button key={n} type="button" aria-current={n === page ? 'page' : undefined}
+                    className={`at-pager-num${n === page ? ' at-pager-num--on' : ''}`} onClick={() => onPage(n)}>
+              {n}
+            </button>
+          )))}
+        <button type="button" className="btn-secondary at-btn-sm" disabled={page >= pageCount} onClick={() => onPage(page + 1)} aria-label="Next page">
+          Next <ArrowRight size={14} />
+        </button>
+      </div>
+    </nav>
+  );
+}
 const customerTier = (record) => (TIERS.includes(record?.customer_type) ? record.customer_type : 'Silver');
 const tierCounts = (customers) =>
   TIERS.reduce((acc, tier) => ({ ...acc, [tier]: customers.filter((c) => customerTier(c) === tier).length }), {});
@@ -1963,6 +2001,8 @@ function App() {
   // Search & Filters for dashboard
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
+  const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
+  const [customerPageSize, setCustomerPageSize] = useState(CUSTOMER_PAGE_SIZES[0]);
   const [ordersSearch, setOrdersSearch] = useState('');
   const [ordersTabPick, setOrdersFilterTab] = useState(null);
   const ordersFilterTab = dashboardTab === 'workshop' ? 'workshop' : (ordersTabPick || 'new');
@@ -3185,6 +3225,19 @@ function App() {
       return matchesSearch && matchesType;
     });
   }, [customersList, searchQuery, customerTypeFilter]);
+  // One page of the book at a time. The page belongs to the search, tier and
+  // page size it was picked under: change any of them and it is page 1 again.
+  // A list that shrank under the page shows its last page.
+  const customerPageKey = `${searchQuery}|${customerTypeFilter}|${customerPageSize}`;
+  const customerPage = customerPageAt.key === customerPageKey ? customerPageAt.page : 1;
+  const customerPageCount = Math.max(1, Math.ceil(directoryCustomers.length / customerPageSize));
+  const customerPageNow = Math.min(customerPage, customerPageCount);
+  const customerPageFrom = (customerPageNow - 1) * customerPageSize;
+  const pagedCustomers = directoryCustomers.slice(customerPageFrom, customerPageFrom + customerPageSize);
+  const goToCustomerPage = (n) => {
+    setCustomerPageAt({ key: customerPageKey, page: n });
+    document.querySelector('.customers-list-container')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
 
   if (globalError) {
     return (
@@ -5080,7 +5133,10 @@ function App() {
                           ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
                         ]} />
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                          Showing {directoryCustomers.length} of {customersList.length}
+                          {directoryCustomers.length
+                            ? `Showing ${customerPageFrom + 1}–${customerPageFrom + pagedCustomers.length} of ${directoryCustomers.length}`
+                            : 'Showing 0'}
+                          {directoryCustomers.length !== customersList.length ? ` (${customersList.length} in total)` : ''}
                         </span>
                       </div>
                     </>
@@ -5119,6 +5175,7 @@ function App() {
                     // so every row is the same two-line height and the
                     // columns line up down the page. A row opens the
                     // customer, as the card did.
+                    <>
                     <div className="at-table-wrap">
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
@@ -5131,7 +5188,7 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                    {directoryCustomers.map(cust => {
+                    {pagedCustomers.map(cust => {
                       const m = cust.measurements;
                       const parts = m?.additional_measurements?.stitch_parts || [];
                       const visible = m ? getVisibleMeasurementFields(parts) : [];
@@ -5230,6 +5287,12 @@ function App() {
                         </tbody>
                       </table>
                     </div>
+                    {directoryCustomers.length > CUSTOMER_PAGE_SIZES[0] && (
+                      <Pager page={customerPageNow} pageCount={customerPageCount} pageSize={customerPageSize}
+                             sizes={CUSTOMER_PAGE_SIZES} onPage={goToCustomerPage} onSize={setCustomerPageSize}
+                             label="Customers per page" />
+                    )}
+                    </>
                   )}
                 </div>
               </>

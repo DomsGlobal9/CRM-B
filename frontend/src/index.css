@@ -5658,3 +5658,28 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 @keyframes imp-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 @keyframes imp-scan { 0% { top: 12px; opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { top: 72px; opacity: 0; } }
 @keyframes imp-sweep { 0% { left: -40%; } 100% { left: 100%; } }
+
+/* Page controls under a long list (App.jsx Pager): the page size on the left,
+   Prev / numbers / Next on the right; stacked on a phone. */
+.at-pager { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: var(--space-3) 0; }
+.at-pager-size { display: inline-flex; align-items: center; gap: 8px; font-size: var(--text-sm); color: var(--text-secondary); }
+.at-pager-size select.form-control { width: auto; min-height: 36px; padding: 4px 30px 4px 12px; margin: 0; }
+.at-pager-pages { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.at-pager-num { min-width: 36px; min-height: 36px; padding: 0 8px; border-radius: var(--radius-md); border: 1px solid transparent; background: transparent; color: var(--text-secondary); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; font-variant-numeric: tabular-nums; }
+.at-pager-num:hover { background: var(--surface-inset); color: var(--text-primary); }
+.at-pager-num--on, .at-pager-num--on:hover { background: var(--primary-color); color: var(--primary-foreground); border-color: var(--primary-color); }
+.at-pager-gap { min-width: 20px; text-align: center; color: var(--text-muted); }
+@media (max-width: 640px) { .at-pager { justify-content: center; } .at-pager-pages { justify-content: center; } }
+
+/* Mobile number with its country code (components/ui/CountryPhoneInput.jsx):
+   the code picker and the number read as one control. The native select is
+   laid invisibly over the short "IN +91" label, so the list itself is the
+   browser's own -- full names, type-to-find, keyboard and screen reader. */
+.cp-field { display: flex; align-items: stretch; min-width: 0; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface-color); transition: border-color .15s ease, box-shadow .15s ease; }
+.cp-field:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ring) 35%, transparent); }
+.cp-country { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px 0 12px; border-right: 1px solid var(--border-color); background: var(--surface-inset); border-radius: var(--radius-lg) 0 0 var(--radius-lg); color: var(--text-primary); font-size: 14px; white-space: nowrap; cursor: pointer; flex-shrink: 0; }
+.cp-country svg { color: var(--text-secondary); }
+.cp-iso { font-size: 11px; font-weight: 700; letter-spacing: .04em; color: var(--text-secondary); }
+.cp-country select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; min-height: 0; padding: 0; margin: 0; border: 0; }
+.cp-field input.cp-number { flex: 1; min-width: 0; border: 0; box-shadow: none; background: transparent; border-radius: 0 var(--radius-lg) var(--radius-lg) 0; }
+.cp-field input.cp-number:focus { border: 0; box-shadow: none; }
