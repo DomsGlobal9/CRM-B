@@ -5690,3 +5690,18 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .at-icon-btn:hover:not(:disabled) { background: var(--surface-inset); color: var(--text-primary); }
 .at-icon-btn--danger:hover:not(:disabled) { background: var(--danger-bg); color: var(--danger-color); }
 .at-icon-btn:disabled { opacity: .5; cursor: progress; }
+
+/* Customer filters (features/customers/CustomerFilters.jsx): a row of small
+   labelled selects, "More filters" for the rest, and the A-Z name strip. */
+.cf-bar { padding: var(--space-4); border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--surface-color); margin-bottom: var(--space-3); }
+.cf-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
+.cf-bar select.cf-select { min-height: 38px; height: 38px; padding: 4px 30px 4px 12px; margin: 0; font-size: var(--text-sm); width: 100%; }
+.cf-bar select.cf-select--on { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 10%, var(--surface-color)); font-weight: 600; }
+.cf-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 14px; font-size: var(--text-sm); white-space: nowrap; }
+.cf-btn:disabled { opacity: 1; cursor: default; }
+.cf-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary-color); color: var(--primary-foreground); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.cf-letter { min-width: 30px; height: 30px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.cf-letter:hover:not(:disabled) { background: var(--surface-inset); }
+.cf-letter:disabled { color: var(--text-muted); opacity: .45; cursor: default; }
+.cf-letter--on, .cf-letter--on:hover:not(:disabled) { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); }
+@media (max-width: 640px) { .cf-bar .cf-field { max-width: none !important; flex-basis: 100% !important; } }

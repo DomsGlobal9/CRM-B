@@ -34,6 +34,8 @@ import OrderAlterations, { RequestAlterationModal } from './features/alterations
 import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import GarmentSummary from './features/catalog/GarmentSummary';
 import { AddCustomerChooser, CustomerForm, DeleteAllCustomersDialog } from './features/customers/AddCustomer';
+import CustomerFilters from './features/customers/CustomerFilters';
+import { EMPTY_CUSTOMER_FILTERS, activeFilterCount, applyCustomerFilters } from './features/customers/filterRules';
 import OrderKanban from './features/orders/OrderKanban';
 import { expressLabel, isExpressOrder } from './features/orders/express';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
@@ -2005,6 +2007,8 @@ function App() {
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
   const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
   const [customerPageSize, setCustomerPageSize] = useState(CUSTOMER_PAGE_SIZES[0]);
+  // Country code, first letter, orders, measurements... (CustomerFilters).
+  const [customerFilters, setCustomerFilters] = useState(EMPTY_CUSTOMER_FILTERS);
   const [ordersSearch, setOrdersSearch] = useState('');
   const [ordersTabPick, setOrdersFilterTab] = useState(null);
   const ordersFilterTab = dashboardTab === 'workshop' ? 'workshop' : (ordersTabPick || 'new');
@@ -3250,19 +3254,19 @@ function App() {
   
   const directoryCustomers = React.useMemo(() => {
     const term = searchQuery.toLowerCase();
-    return customersList.filter(cust => {
+    return applyCustomerFilters(customersList.filter(cust => {
       const matchesSearch =
         ((cust.first_name || '') + ' ' + (cust.last_name || '')).toLowerCase().includes(term) ||
         (cust.mobile_number || '').includes(term) ||
         (cust.email_address || '').toLowerCase().includes(term);
       const matchesType = customerTypeFilter === 'All' || customerTier(cust) === customerTypeFilter;
       return matchesSearch && matchesType;
-    });
-  }, [customersList, searchQuery, customerTypeFilter]);
+    }), customerFilters);
+  }, [customersList, searchQuery, customerTypeFilter, customerFilters]);
   // One page of the book at a time. The page belongs to the search, tier and
   // page size it was picked under: change any of them and it is page 1 again.
   // A list that shrank under the page shows its last page.
-  const customerPageKey = `${searchQuery}|${customerTypeFilter}|${customerPageSize}`;
+  const customerPageKey = `${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
   const customerPage = customerPageAt.key === customerPageKey ? customerPageAt.page : 1;
   const customerPageCount = Math.max(1, Math.ceil(directoryCustomers.length / customerPageSize));
   const customerPageNow = Math.min(customerPage, customerPageCount);
@@ -5200,6 +5204,9 @@ function App() {
                           {directoryCustomers.length !== customersList.length ? ` (${customersList.length} in total)` : ''}
                         </span>
                       </div>
+                      {customersList.length > 0 && (
+                        <CustomerFilters customers={customersList} filters={customerFilters} onChange={setCustomerFilters} />
+                      )}
                     </>
                   );
                 })()}
@@ -5227,7 +5234,14 @@ function App() {
                           </button>
                         </div>
                       ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>{t('customersPage.noMatchingCustomers')}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>{t('customersPage.noMatchingCustomers')}</span>
+                          {activeFilterCount(customerFilters) > 0 && (
+                            <button type="button" className="btn-secondary" onClick={() => setCustomerFilters(EMPTY_CUSTOMER_FILTERS)}>
+                              Clear filters
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   ) : (
