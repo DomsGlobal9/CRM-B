@@ -1,3 +1,4 @@
+import { formatInternational } from './phone';
 /**
  * How money and time are written down, in the browser.
  *
@@ -96,7 +97,8 @@ export function formatMobile(raw) {
     return `+91 ${n.slice(0, 5)} ${n.slice(5)}`;
   }
   if (digits.length === 10) return `${digits.slice(0, 5)} ${digits.slice(5)}`;
-  return raw || '';
+  // A foreign number is stored as its digits; show it with its + and code.
+  return formatInternational(raw);
 }
 
 export function orderGarmentNames(order) {

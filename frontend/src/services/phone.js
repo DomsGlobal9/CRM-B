@@ -74,3 +74,18 @@ export function splitStoredMobile(stored) {
   if (digits.length <= 10) return { iso: DEFAULT_COUNTRY, national: digits };
   return splitInternational(`+${digits}`, DEFAULT_COUNTRY) || { iso: DEFAULT_COUNTRY, national: digits };
 }
+
+/** A foreign number as the server stores it -- bare digits with the country
+ *  code, "13175291732" -- written the way people read it: "+1 (317) 529-1732",
+ *  "+44 7557359393". Anything that is not such a digit string (an Indian
+ *  number, a landline typed with spaces) comes back unchanged. */
+export function formatInternational(raw) {
+  const text = String(raw || '').trim();
+  if (!/^\+?\d{11,15}$/.test(text)) return raw || '';
+  const found = splitInternational(`+${text.replace(/^\+/, '')}`, null);
+  if (!found || !found.national) return `+${text.replace(/^\+/, '')}`;
+  const { dial } = countryOf(found.iso);
+  const n = found.national;
+  if (dial === '1' && n.length === 10) return `+1 (${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6)}`;
+  return `+${dial} ${n}`;
+}
