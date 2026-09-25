@@ -32,14 +32,12 @@ const MEASUREMENT_ZONES = [
     id: 'core',
     label: 'Core Body Baseline',
     garments: 'General Baseline (All Garments)',
-    icon: '⭐',
     keys: ['bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length']
   },
   {
     id: 'upper_body',
     label: 'Blouse, Kurti & Tops',
     garments: 'Blouse, Kurti, Suit, Shirt, Sherwani, Jacket',
-    icon: '👚',
     keys: [
       'collar_neck', 'front_shoulder', 'back_shoulder', 'front_neck_depth', 'back_neck_depth',
       'upper_chest', 'underbust', 'armhole', 'bicep_length', 'bicep_round',
@@ -52,7 +50,6 @@ const MEASUREMENT_ZONES = [
     id: 'lehenga_gown',
     label: 'Lehenga, Skirt & Gown',
     garments: 'Lehenga, Petticoat, Skirt, Anarkali, Gown',
-    icon: '💃',
     keys: [
       'lehenga_length', 'lehenga_waist', 'high_round', 'floor_length', 'height',
       'high_waist', 'waist_to_hip', 'waist_to_floor', 'waist_to_ankle', 'heel_height',
@@ -63,7 +60,6 @@ const MEASUREMENT_ZONES = [
     id: 'pants_bottoms',
     label: 'Pants, Salwar & Trouser',
     garments: 'Pants, Churidar, Salwar, Sharara, Trouser, Jeans, Shorts',
-    icon: '👖',
     keys: [
       'hip_round', 'pant_waist', 'pant_length', 'knee_length', 'ankle_length',
       'inseam', 'ankle_round', 'crotch_length', 'outseam', 'crotch',
@@ -454,10 +450,12 @@ export function CustomerForm({ onBack, onSaved }) {
           </div>
         ) : (
           <>
-            {/* Garment-Aligned Measurement Tabs */}
+            {/* Garment-Aligned Measurement Grid Cards */}
             <div style={{
-              display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, marginBottom: 14,
-              borderBottom: '1px solid var(--border-color, #e5e7eb)'
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+              gap: 10,
+              marginBottom: 16,
             }}>
               {MEASUREMENT_ZONES.map((zone) => {
                 const isActive = activeZone === zone.id;
@@ -468,31 +466,38 @@ export function CustomerForm({ onBack, onSaved }) {
                     type="button"
                     onClick={() => setActiveZone(zone.id)}
                     style={{
-                      display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, padding: '8px 14px',
-                      borderRadius: '12px', fontSize: '13px', fontWeight: isActive ? 600 : 500,
-                      cursor: 'pointer', whiteSpace: 'nowrap', textAlign: 'left',
-                      border: isActive ? '1.5px solid var(--brand-primary, #047857)' : '1px solid var(--border-color, #e5e7eb)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, padding: '10px 14px',
+                      borderRadius: '10px', fontSize: '13px', fontWeight: isActive ? 700 : 600,
+                      cursor: 'pointer', textAlign: 'left', width: '100%',
+                      border: isActive ? '1.5px solid var(--brand-primary, #047857)' : '1px solid var(--border-color, #cbd5e1)',
                       background: isActive ? 'var(--brand-surface, #ecfdf5)' : 'var(--surface-1, #ffffff)',
-                      color: isActive ? 'var(--brand-primary, #047857)' : 'var(--text-primary, #1f2937)',
-                      boxShadow: isActive ? '0 2px 4px rgba(4, 120, 87, 0.12)' : 'none',
+                      color: isActive ? 'var(--brand-primary, #047857)' : '#0f172a',
+                      boxShadow: isActive ? '0 2px 6px rgba(4, 120, 87, 0.15)' : '0 1px 2px rgba(0,0,0,0.03)',
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>{zone.icon}</span>
-                      <span>{zone.label}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, width: '100%' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: isActive ? 'var(--brand-primary, #047857)' : '#0f172a' }}>
+                        {zone.label}
+                      </span>
                       {count > 0 && (
                         <span style={{
                           fontSize: '11px', fontWeight: 700, padding: '1px 6px', borderRadius: '10px',
-                          background: isActive ? 'var(--brand-primary, #047857)' : 'var(--border-color, #e5e7eb)',
-                          color: isActive ? '#ffffff' : 'var(--text-secondary, #4b5563)',
+                          background: isActive ? 'var(--brand-primary, #047857)' : '#e2e8f0',
+                          color: isActive ? '#ffffff' : '#334155',
+                          flexShrink: 0,
                         }}>
                           {count}
                         </span>
                       )}
                     </div>
-                    <span style={{ fontSize: '11px', color: isActive ? 'var(--brand-primary, #047857)' : 'var(--text-tertiary, #6b7280)', opacity: 0.85 }}>
-                      {zone.garments.split(',').slice(0, 3).join(', ')}...
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 500,
+                      color: isActive ? 'var(--brand-primary, #047857)' : '#475569',
+                      lineHeight: '1.3',
+                    }}>
+                      {zone.garments}
                     </span>
                   </button>
                 );
