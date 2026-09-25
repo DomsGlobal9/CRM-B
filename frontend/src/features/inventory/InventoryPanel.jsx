@@ -87,8 +87,14 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
   const isOwner = currentUser?.role === 'Owner';
 
-  // "Stock this" on a catalogue row opens the stock sheet on that row.
-  const stockFromCatalog = (row) => setStocking({ catalogItem: row });
+  // "Stock this" on a catalogue row opens the full item form pre-filled.
+  const stockFromCatalog = (row) => setEditingItem({
+    name: row.name,
+    catalog_item: row.id,
+    sub_category: row.section_full_name,
+    category: row.legacy_category || 'FABRIC',
+    unit: row.default_unit || '',
+  });
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -146,7 +152,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
         title={t('inventoryPage.title')}
         subtitle={t('inventoryPage.subtitle')}
         actions={isOwner && (
-          <button type="button" className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setStocking({ catalogItem: null })}>
+          <button type="button" className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setEditingItem({})}>
             <Plus size={16} />
             {t('inventoryPage.newItem')}
           </button>
