@@ -455,6 +455,7 @@ TEMPLATES = [
                     measurement('hip', 'Hip'),
                     measurement('hip_round', 'Hip Round'),
                     measurement('waist_to_hip', 'Waist-to-Hip'),
+                    measurement('waist_to_floor', 'Waist-to-Floor'),
                     measurement('waist_to_ankle', 'Waist-to-Ankle'),
                     measurement('finished_length', 'Desired Finished Length'),
                     measurement('heel_height', 'Heel Height'),
@@ -651,6 +652,17 @@ TEMPLATES = [
                 measurement('chest', 'Chest'),
                 measurement('waist', 'Waist'),
                 measurement('hip', 'Hip'),
+                measurement('underbust', 'Underbust'),
+                measurement('armhole', 'Armhole'),
+                measurement('sleeve_length', 'Sleeve Length'),
+                measurement('front_neck_depth', 'Front Neck Depth'),
+                measurement('back_neck_depth', 'Back Neck Depth'),
+                measurement('bicep_round', 'Bicep Round'),
+                measurement('wrist', 'Wrist'),
+                measurement('across_chest', 'Across Chest'),
+                measurement('across_back', 'Across Back'),
+                measurement('shoulder_to_bust', 'Shoulder-to-Bust'),
+                measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
             ],
             'style': [
                 field('front_neck', 'Front Neck', 'text'),
@@ -776,6 +788,8 @@ TEMPLATES = [
             'measurements': [
                 measurement('length', 'Length', required=True),
                 measurement('waist', 'Waist', required=True),
+                measurement('hip', 'Hip'),
+                measurement('waist_to_floor', 'Waist-to-Floor'),
             ],
             'style': [
                 field('waist_finish', 'Waist Finish', 'multiselect', options=WAIST_FINISH),
@@ -926,6 +940,15 @@ TEMPLATES = [
                 measurement('waist', 'Waist'),
                 measurement('hip', 'Hip'),
                 measurement('armhole', 'Armhole'),
+                measurement('underbust', 'Underbust'),
+                measurement('high_waist', 'High Waist'),
+                measurement('sleeve_length', 'Sleeve Length'),
+                measurement('front_neck_depth', 'Front Neck Depth'),
+                measurement('back_neck_depth', 'Back Neck Depth'),
+                measurement('shoulder_to_bust', 'Shoulder-to-Bust'),
+                measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
+                measurement('waist_to_floor', 'Waist-to-Floor'),
+                measurement('heel_height', 'Heel Height'),
             ],
             'style': [
                 *sleeve_and_neck(),
@@ -966,6 +989,15 @@ TEMPLATES = [
                 measurement('hip', 'Hip'),
                 measurement('armhole', 'Armhole'),
                 measurement('arm_length', 'Arm Length'),
+                measurement('underbust', 'Underbust'),
+                measurement('front_neck_depth', 'Front Neck Depth'),
+                measurement('back_neck_depth', 'Back Neck Depth'),
+                measurement('bicep_round', 'Bicep Round'),
+                measurement('wrist', 'Wrist'),
+                measurement('across_chest', 'Across Chest'),
+                measurement('across_back', 'Across Back'),
+                measurement('shoulder_to_bust', 'Shoulder-to-Bust'),
+                measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
             ],
             'style': [
                 *sleeve_and_neck(),
@@ -1005,6 +1037,10 @@ TEMPLATES = [
                 measurement('hip', 'Hip'),
                 measurement('arm_length', 'Arm Length'),
                 measurement('neck', 'Neck'),
+                measurement('upper_chest', 'Upper Chest'),
+                measurement('armhole', 'Armhole'),
+                measurement('bicep_round', 'Bicep Round'),
+                measurement('wrist', 'Wrist'),
             ],
             'style': [
                 field('collar_style', 'Collar Style', 'select', options=[
@@ -1051,6 +1087,10 @@ TEMPLATES = [
                 measurement('hip', 'Hip'),
                 measurement('arm_length', 'Arm Length'),
                 measurement('neck', 'Neck'),
+                measurement('upper_chest', 'Upper Chest'),
+                measurement('armhole', 'Armhole'),
+                measurement('bicep_round', 'Bicep Round'),
+                measurement('wrist', 'Wrist'),
             ],
             'style': [
                 field('collar_style', 'Collar Style', 'select', options=[
@@ -1186,6 +1226,9 @@ TEMPLATES = [
                 measurement('waist', 'Waist'),
                 measurement('sleeve_length', 'Sleeve Length'),
                 measurement('bicep', 'Bicep'),
+                measurement('upper_chest', 'Upper Chest'),
+                measurement('armhole', 'Armhole'),
+                measurement('neck', 'Neck'),
             ],
             'style': [
                 field('sleeve_style', 'Sleeve', 'select', options=[
@@ -1227,6 +1270,9 @@ TEMPLATES = [
                 measurement('bicep', 'Bicep'),
                 measurement('cuff', 'Cuff'),
                 measurement('slit_length', 'Slit Length'),
+                measurement('upper_chest', 'Upper Chest'),
+                measurement('wrist', 'Wrist'),
+                measurement('collar_neck', 'Collar Neck'),
             ],
             'style': [
                 field('collar_style', 'Collar', 'select', options=[
@@ -1276,6 +1322,10 @@ TEMPLATES = [
                             when=one_of('indo_western_type', [
                                 'jacket', 'kurta_with_jacket', 'kurta_with_waistcoat',
                                 'kurta_with_nehru_jacket'])),
+                measurement('upper_chest', 'Upper Chest'),
+                measurement('armhole', 'Armhole'),
+                measurement('bicep', 'Bicep'),
+                measurement('wrist', 'Wrist'),
             ],
             'style': [
                 field('collar_style', 'Collar', 'select', options=[
@@ -1328,6 +1378,11 @@ TEMPLATES = [
                 measurement('thigh', 'Thigh'),
                 measurement('knee', 'Knee'),
                 measurement('bottom_opening', 'Bottom Opening'),
+                measurement('upper_chest', 'Upper Chest'),
+                measurement('armhole', 'Armhole'),
+                measurement('wrist', 'Wrist'),
+                measurement('crotch', 'Crotch'),
+                measurement('outseam', 'Outseam'),
                 measurement('waistcoat_length', 'Waistcoat Length',
                             when=eq('suit_type', 'three_piece')),
             ],
@@ -1450,6 +1505,9 @@ TEMPLATES = [
                 measurement('bottom_opening', 'Bottom Opening'),
                 measurement('inseam', 'Inseam'),
                 measurement('crotch', 'Crotch'),
+                measurement('outseam', 'Outseam'),
+                measurement('calf', 'Calf'),
+                measurement('ankle', 'Ankle'),
             ],
             'style': [
                 field('rise', 'Rise', 'select', options=['Low', 'Mid', 'High']),
@@ -1483,6 +1541,8 @@ TEMPLATES = [
                 measurement('thigh', 'Thigh'),
                 measurement('bottom_opening', 'Bottom Opening'),
                 measurement('inseam', 'Inseam'),
+                measurement('crotch', 'Crotch'),
+                measurement('outseam', 'Outseam'),
             ],
             'style': [
                 field('waist_finish', 'Waist Finish', 'select', options=[
@@ -1531,6 +1591,8 @@ TEMPLATES = [
                 measurement('ankle_length', 'Ankle Length'),
                 measurement('high_round', 'High Round'),
                 measurement('inseam', 'Inseam'),
+                measurement('outseam', 'Outseam'),
+                measurement('bottom_opening', 'Bottom Opening'),
             ],
             'style': [
                 field('waist_finish', 'Waist Finish', 'select', options=WAIST_FINISH),
@@ -1565,6 +1627,9 @@ TEMPLATES = [
                 measurement('neck', 'Neck'),
                 measurement('arm_length', 'Arm Length'),
                 measurement('bicep', 'Bicep'),
+                measurement('upper_chest', 'Upper Chest'),
+                measurement('armhole', 'Armhole'),
+                measurement('wrist', 'Wrist'),
             ],
             'style': [
                 field('lapel', 'Lapel / Collar', 'select', options=[
@@ -1608,6 +1673,16 @@ TEMPLATES = [
                             when=one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants',
                                                         'tracksuit', 'co_ord_set'])),
                 measurement('inseam', 'Inseam',
+                            when=one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants',
+                                                        'tracksuit', 'co_ord_set'])),
+                measurement('armhole', 'Armhole',
+                            when=not_one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants'])),
+                measurement('bicep', 'Bicep',
+                            when=not_one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants'])),
+                measurement('thigh', 'Thigh',
+                            when=one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants',
+                                                        'tracksuit', 'co_ord_set'])),
+                measurement('bottom_opening', 'Bottom Opening',
                             when=one_of('casual_type', ['joggers', 'lounge_pants', 'track_pants',
                                                         'tracksuit', 'co_ord_set'])),
             ],
