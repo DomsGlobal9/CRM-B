@@ -26,13 +26,20 @@ const MORE = {
 const label = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 const EMPTY = {
-  first_name: '', last_name: '', mobile_number: '', email_address: '', gender: '', address: '', city_region: '',
+  full_name: '', mobile_number: '', email_address: '', gender: '', address: '', city_region: '',
   source: 'Walk In', customer_type: 'Silver', date_of_birth: '', notes: '', measurements: {},
 };
 
 // A bare green link at the top-left, not a stretched button.
 const BACK = { alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: 0, marginTop: -16,
                background: 'none', border: 0, cursor: 'pointer', font: 'inherit', fontSize: 14, fontWeight: 600, color: 'var(--brand-link)' };
+
+/** One "Full name" box, stored as the customer's first and last name the way
+ *  the Excel import splits full_name: the first word, then the rest. */
+const splitFullName = (raw) => {
+  const [first, ...rest] = cleanName(raw).trim().split(' ');
+  return { first_name: first || '', last_name: rest.join(' ') };
+};
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
@@ -214,7 +221,7 @@ function customerToForm(customer) {
   MORE_KEYS.forEach((key) => { measurements[key] = asInch(extra[key]); });
   const text = (key) => (customer[key] === null || customer[key] === undefined ? '' : String(customer[key]));
   return {
-    first_name: text('first_name'), last_name: text('last_name'),
+    full_name: [text('first_name'), text('last_name')].map((v) => v.trim()).filter(Boolean).join(' '),
     mobile_number: splitStoredMobile(customer.mobile_number).national,
     email_address: text('email_address'), gender: text('gender'), address: text('address'),
     city_region: text('city_region'), source: text('source') || 'Walk In',
@@ -246,7 +253,7 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
     const out = {};
     Object.keys(EMPTY).forEach((key) => {
       if (key === 'measurements' || key === 'mobile_number' || form[key] === initial[key]) return;
-      if (key === 'first_name' || key === 'last_name') out[key] = cleanName(form[key]).trim();
+      if (key === 'full_name') Object.assign(out, splitFullName(form.full_name));
       else if (key === 'date_of_birth') out[key] = form[key] || null;
       else out[key] = form[key];
     });
@@ -270,8 +277,7 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    const problem = nameError(form.first_name, { label: 'First name' })
-      || nameError(form.last_name, { label: 'Last name', required: false, min: 1 })
+    const problem = nameError(form.full_name, { label: 'Full name' })
       || (mobileChanged ? phoneNumberError(phoneCountry, form.mobile_number) : '')
       || emailError(form.email_address);
     if (problem) { setError(problem); return; }
@@ -299,9 +305,8 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
       (CORE.some(([k]) => k === key) ? core : extras)[key] = Number(value);
     });
     const payload = {
-      ...Object.fromEntries(Object.entries(form).filter(([k, v]) => k !== 'measurements' && v !== '')),
-      first_name: cleanName(form.first_name).trim(),
-      last_name: cleanName(form.last_name).trim(),
+      ...Object.fromEntries(Object.entries(form).filter(([k, v]) => k !== 'measurements' && k !== 'full_name' && v !== '')),
+      ...splitFullName(form.full_name),
       mobile_number: composeMobile(phoneCountry, form.mobile_number),
     };
     if (Object.keys(core).length || Object.keys(extras).length) payload.measurements = { ...core, additional_measurements: extras };
@@ -340,17 +345,10 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
           <IconTile icon={User} tone="green" size={36} iconSize={16} />
           <strong>Profile</strong>
         </div>
-        <div className="form-grid-2">
-          <div className="form-group">
-            <label className="form-label" htmlFor="cf-first">First name <span className="required">*</span></label>
-            <input id="cf-first" type="text" className="form-control" value={form.first_name} maxLength={LIMITS.name} autoFocus
-                   onChange={(e) => set('first_name', cleanName(e.target.value))} placeholder="e.g. Amara" />
-          </div>
-          <div className="form-group">
-            <label className="form-label" htmlFor="cf-last">Last name</label>
-            <input id="cf-last" type="text" className="form-control" value={form.last_name} maxLength={LIMITS.name}
-                   onChange={(e) => set('last_name', cleanName(e.target.value))} placeholder="e.g. Singh" />
-          </div>
+        <div className="form-group">
+          <label className="form-label" htmlFor="cf-name">Full name <span className="required">*</span></label>
+          <input id="cf-name" type="text" className="form-control" value={form.full_name} maxLength={LIMITS.name} autoFocus
+                 onChange={(e) => set('full_name', cleanName(e.target.value))} placeholder="e.g. Amara Singh" />
         </div>
         <div className="form-grid-2">
           <div className="form-group">
