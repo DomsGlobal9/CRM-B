@@ -324,6 +324,15 @@ TEMPLATES = [
             # collar already have a field, so they are not asked twice.
             'measurements': [
                 *blouse_measurements(),
+                field('sleeve_length', 'Sleeve Length', 'select', options=[
+                    'Sleeveless', 'Cap', 'Short', 'Elbow', ('three_quarter', '3/4'), 'Full']),
+                field('hand_rounding', 'Hand Rounding', 'select',
+                      options=['HR1', 'HR2', 'HR3', 'HR4'],
+                      when=neq('sleeve_length', 'sleeveless')),
+                field('front_neck', 'Front Neck', 'text'),
+                field('back_neck', 'Back Neck', 'text'),
+                field('collar', 'Collar', 'text'),
+                field('dot_point', 'Dot Point', 'text'),
                 *grouped('Body Measurements',
                     measurement('bust', 'Bust'),
                     measurement('underbust', 'Underbust'),
@@ -389,8 +398,6 @@ TEMPLATES = [
                 ),
             ],
             'style': [
-                *sleeve_and_neck(),
-                field('dot_point', 'Dot Point', 'text'),
                 field('padding', 'Padding', 'select',
                       options=[('padded', 'Padded'), ('non_padded', 'Non-Padded')]),
                 field('dori_required', 'Dori', 'boolean'),
@@ -552,6 +559,14 @@ TEMPLATES = [
             ],
             'measurements': [
                 *blouse_measurements(),
+                field('sleeve_length', 'Sleeve Length', 'select', options=[
+                    'Sleeveless', 'Cap', 'Short', 'Elbow', ('three_quarter', '3/4'), 'Full']),
+                field('hand_rounding', 'Hand Rounding', 'select',
+                      options=['HR1', 'HR2', 'HR3', 'HR4'],
+                      when=neq('sleeve_length', 'sleeveless')),
+                field('front_neck', 'Front Neck', 'text'),
+                field('back_neck', 'Back Neck', 'text'),
+                field('collar', 'Collar', 'text'),
                 *grouped('Body Measurements',
                     measurement('bust', 'Bust'),
                     measurement('underbust', 'Underbust'),
@@ -574,7 +589,7 @@ TEMPLATES = [
                     measurement('shoulder_to_bust', 'Shoulder-to-Bust'),
                     measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
                 ),
-                *grouped('Neck',
+                *grouped('Neck & Sleeves',
                     measurement('collar_neck', 'Collar Neck'),
                     measurement('neck_width', 'Neck Width'),
                     measurement('front_neck_depth', 'Front Neck Depth'),
@@ -584,7 +599,6 @@ TEMPLATES = [
                 ),
             ],
             'style': [
-                *sleeve_and_neck(),
                 field('padding', 'Padding', 'boolean'),
                 measurement('flare_length', 'Flare Length', when=eq('blouse_style', 'peplum')),
                 field('flare_type', 'Flare Type', 'select',
@@ -666,13 +680,11 @@ TEMPLATES = [
                 measurement('wrist', 'Wrist'),
                 measurement('across_chest', 'Across Chest'),
                 measurement('across_back', 'Across Back'),
-                measurement('shoulder_to_bust', 'Shoulder-to-Bust'),
-                measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
-            ],
-            'style': [
                 field('front_neck', 'Front Neck', 'text'),
                 field('back_neck', 'Back Neck', 'text'),
                 field('collar', 'Collar', 'text'),
+            ],
+            'style': [
                 field('slit', 'Slit', 'select', options=['Left', 'Right', 'Both', 'None']),
                 field('zip_position', 'Zip', 'select',
                       options=['Side', 'Front', 'Back', 'None']),
@@ -709,9 +721,9 @@ TEMPLATES = [
                 measurement('chest', 'Chest'),
                 measurement('waist', 'Waist'),
                 measurement('hip', 'Hip'),
-                # The seven above stay as they were. The rest is optional and
-                # folds behind a "+" per group. Shoulder, bust (chest), waist,
-                # hip and the finished length (top length) are asked above.
+                field('front_neck', 'Front Neck', 'text'),
+                field('back_neck', 'Back Neck', 'text'),
+                field('collar', 'Collar', 'text'),
                 *grouped('Body',
                     measurement('underbust', 'Underbust'),
                     measurement('high_waist', 'High Waist'),
@@ -768,9 +780,6 @@ TEMPLATES = [
                 ),
             ],
             'style': [
-                field('front_neck', 'Front Neck', 'text'),
-                field('back_neck', 'Back Neck', 'text'),
-                field('collar', 'Collar', 'text'),
                 field('padding', 'Padding', 'boolean'),
                 field('zip', 'Zip', 'boolean'),
                 field('pocket', 'Pocket', 'boolean'),
@@ -834,6 +843,9 @@ TEMPLATES = [
                 measurement('pant_length', 'Pant Length'),
                 measurement('high_round', 'High Round'),
                 measurement('bottom_full_length', 'Full Length (Lower)'),
+                field('bottom_width', 'Bottom Width', 'select', options=[
+                    ('11', '11"'), ('15', '15"'), ('17', '17"'),
+                    ('20', '20"'), ('24', '24"')]),
                 # Sharara only, like the can-can material below: every other
                 # bottom type sees exactly the list above. All optional, folded
                 # behind a "+" per group. Waist, hip and full length are asked
@@ -914,9 +926,6 @@ TEMPLATES = [
                 field('waist_finish', 'Waist Finish', 'select', options=WAIST_FINISH),
                 field('bottom_finish', 'Bottom Finish', 'select',
                       options=['Round', 'Flared', 'Ankle', 'Straight']),
-                field('bottom_width', 'Bottom Width', 'select', options=[
-                    ('11', '11"'), ('15', '15"'), ('17', '17"'),
-                    ('20', '20"'), ('24', '24"')]),
                 field('pocket_required', 'Pockets', 'boolean'),
             ],
             'materials': bottom_materials(extra=[
@@ -954,9 +963,16 @@ TEMPLATES = [
                 measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
                 measurement('waist_to_floor', 'Waist-to-Floor'),
                 measurement('heel_height', 'Heel Height'),
+                field('sleeve_length', 'Sleeve Length', 'select', options=[
+                    'Sleeveless', 'Cap', 'Short', 'Elbow', ('three_quarter', '3/4'), 'Full']),
+                field('hand_rounding', 'Hand Rounding', 'select',
+                      options=['HR1', 'HR2', 'HR3', 'HR4'],
+                      when=neq('sleeve_length', 'sleeveless')),
+                field('front_neck', 'Front Neck', 'text'),
+                field('back_neck', 'Back Neck', 'text'),
+                field('collar', 'Collar', 'text'),
             ],
             'style': [
-                *sleeve_and_neck(),
                 field('back_style', 'Back Style', 'select', options=[
                     ('deep_u', 'Deep U'), 'Keyhole', 'Backless', 'Standard']),
                 field('padding', 'Padding', 'boolean'),
@@ -1003,9 +1019,16 @@ TEMPLATES = [
                 measurement('across_back', 'Across Back'),
                 measurement('shoulder_to_bust', 'Shoulder-to-Bust'),
                 measurement('shoulder_to_waist', 'Shoulder-to-Waist'),
+                field('sleeve_length', 'Sleeve Length', 'select', options=[
+                    'Sleeveless', 'Cap', 'Short', 'Elbow', ('three_quarter', '3/4'), 'Full']),
+                field('hand_rounding', 'Hand Rounding', 'select',
+                      options=['HR1', 'HR2', 'HR3', 'HR4'],
+                      when=neq('sleeve_length', 'sleeveless')),
+                field('front_neck', 'Front Neck', 'text'),
+                field('back_neck', 'Back Neck', 'text'),
+                field('collar', 'Collar', 'text'),
             ],
             'style': [
-                *sleeve_and_neck(),
                 field('slit', 'Side Slit', 'select', options=['Left', 'Right', 'Both', 'None']),
                 field('zip_position', 'Zip', 'select', options=['Side', 'Front', 'Back', 'None']),
                 field('pocket', 'Pocket', 'boolean'),
