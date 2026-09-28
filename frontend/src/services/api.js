@@ -935,6 +935,17 @@ export const api = {
     return data;
   },
 
+  // Owner only. The server deactivates the designer's login rather than
+  // deleting it, as it does for a roster member.
+  async deleteDesigner(id) {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/designers/${id}/`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!res.ok) await failWith(res, 'Failed to delete designer');
+    return true;
+  },
+
   async deleteTailor(id) {
     const res = await guardedFetch(`${BASE_URL}/tailors/${id}/`, {
       method: 'DELETE',

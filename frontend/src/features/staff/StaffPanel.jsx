@@ -20,6 +20,7 @@ import {
   cleanDocumentNumber, documentNumberError, todayIso, imageFilesError,
 } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
+import RowMenu from '../../components/ui/RowMenu';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -269,13 +270,31 @@ function AdvanceForm({ member, onCancel, onSaved }) {
  * copy to read, so the modal stays open on the credential until it is
  * dismissed deliberately.
  */
+/** A saved document's picture, or the file icon for a PDF or a picture that
+ *  will not load. Opens the file in a new tab. */
+function DocumentThumb({ url }) {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed || /\.pdf(\?|#|$)/i.test(url)) {
+    return <IconTile icon={FileText} tone="green" size={38} iconSize={17} />;
+  }
+  return (
+    <a href={url} target="_blank" rel="noreferrer" title="Open the document"
+       style={{ flexShrink: 0, width: 38, height: 38, borderRadius: 'var(--radius-md)', overflow: 'hidden',
+                border: '1px solid var(--border-color)', background: 'var(--surface-inset)', display: 'block' }}>
+      <img src={url} alt="" onError={() => setFailed(true)}
+           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+    </a>
+  );
+}
+
 function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
   const editing = Boolean(member);
   const [form, setForm] = useState({
     name: member?.name || '',
     phone: member?.phone || '',
     email: member?.email || '',
-    specialty: member?.specialty || '',
+    // A designer's is `specialisation`; a roster row's is `specialty`.
+    specialty: member?.specialty || member?.specialisation || '',
     role: member?.role || 'Tailor',
     status: member?.status || 'Available',
   });
@@ -344,14 +363,26 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
   const isDesigner = form.role === 'Designer';
+  // The photo already on file: a roster row keeps it in profile_photo, a
+  // designer in profile_image.
+  const savedPhoto = member?.profile_photo || member?.profile_image || '';
 
   const submit = async (e) => {
     e.preventDefault();
     if (roleChoice === '__custom__' && !customRole.trim()) {
       setError('Type a name for the custom role.'); return;
     }
+    // A document typed into the Documents fields but not added with "Add
+    // document" is still the owner's intent: it goes up with this save
+    // rather than being silently dropped.
+    const typedNumber = docForm.number.trim();
+    const unqueued = docFile
+      ? { ...docForm, number: typedNumber, label: docForm.label.trim(), file: docFile }
+      : null;
     const problem = nameError(form.name) || mobileError(form.phone, { required: false }) || emailError(form.email)
-      || (isDesigner ? '' : termsError(termsForm));
+      || (isDesigner ? '' : termsError(termsForm))
+      || (docFile && docNumberProblem ? docNumberProblem : '')
+      || (!docFile && typedNumber ? `Choose the file for the ${kindLabel(docForm.kind)} document, or clear its number.` : '');
     if (problem) { setError(problem); return; }
     setBusy(true);
     setError(null);
@@ -373,6 +404,12 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
           email: payload.email,
           specialisation: form.specialty.trim(),
         };
+        // Designer.profile_image holds a URL, so the photo is stored first
+        // (the same image upload the design library uses) and its URL saved.
+        if (photo) {
+          const uploaded = await api.uploadBoutiqueDesignImage(photo);
+          if (uploaded?.image_url) designerPayload.profile_image = uploaded.image_url;
+        }
         saved = existing
           ? await api.updateDesigner(existing.id, designerPayload)
           : await api.createDesigner(designerPayload);
@@ -412,7 +449,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       }
 
       // Documents, one request each, dropped from the queue as they land.
-      for (const doc of pending) {
+      for (const doc of (unqueued ? [...pending, unqueued] : pending)) {
         const body = new FormData();
         body.append(isDesigner ? 'designer' : 'staff', saved.id);
         body.append('kind', doc.kind);
@@ -420,7 +457,12 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
         body.append('label', doc.label);
         body.append('file', doc.file);
         await api.uploadStaffDocument(body);
-        setPending((p) => p.filter((d) => d !== doc));
+        if (doc === unqueued) {
+          setDocFile(null);
+          setDocForm({ kind: 'AADHAAR', number: '', label: '' });
+        } else {
+          setPending((p) => p.filter((d) => d !== doc));
+        }
       }
 
       if (cred) setCreated(cred);
@@ -516,47 +558,47 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
           <input className="form-input" value={form.name} onChange={set('name')} maxLength={LIMITS.name}
                  placeholder="Full name" autoFocus />
         </Field>
-        {form.role !== 'Designer' && (
-          <div className="at-field">
-            <span className="at-field-label">Profile photo</span>
-            <div className="at-form-section" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-4)', background: 'var(--surface-2)' }}>
-              <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
-                            background: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: 'var(--text-muted)' }}>
-                {(photo || member?.profile_photo)
-                  ? <img src={photo ? URL.createObjectURL(photo) : member.profile_photo} alt=""
-                         style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <User size={26} />}
+        <div className="at-field">
+          <span className="at-field-label">Profile photo</span>
+          <div className="at-form-section" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-4)', background: 'var(--surface-2)' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                          background: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--text-muted)' }}>
+              {(photo || savedPhoto)
+                ? <img src={photo ? URL.createObjectURL(photo) : savedPhoto} alt=""
+                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <User size={26} />}
+            </div>
+            <div style={{ minWidth: 0, flex: 1, borderLeft: '1px solid var(--border-color)', paddingLeft: 'var(--space-4)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <button type="button" className="btn-secondary at-btn-sm"
+                        onClick={() => document.getElementById('add-staff-photo').click()}>
+                  <Upload size={14} /> Choose file
+                </button>
+                <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                  {photo ? photo.name : (savedPhoto ? 'Current photo' : 'No file chosen')}
+                </span>
+                <input id="add-staff-photo" type="file" accept="image/*" hidden
+                       onChange={(e) => {
+                         const file = e.target.files?.[0] || null;
+                         const bad = file ? imageFilesError([file]) : '';
+                         setError(bad || null);
+                         setPhoto(bad ? null : file);
+                       }} />
+                <CameraButton onFiles={([f]) => {
+                  const bad = f ? imageFilesError([f]) : '';
+                  setError(bad || null);
+                  setPhoto(bad ? null : (f || null));
+                }} />
               </div>
-              <div style={{ minWidth: 0, flex: 1, borderLeft: '1px solid var(--border-color)', paddingLeft: 'var(--space-4)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <button type="button" className="btn-secondary at-btn-sm"
-                          onClick={() => document.getElementById('add-staff-photo').click()}>
-                    <Upload size={14} /> Choose file
-                  </button>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                    {photo ? photo.name : 'No file chosen'}
-                  </span>
-                  <input id="add-staff-photo" type="file" accept="image/*" hidden
-                         onChange={(e) => {
-                           const file = e.target.files?.[0] || null;
-                           const bad = file ? imageFilesError([file]) : '';
-                           setError(bad || null);
-                           setPhoto(bad ? null : file);
-                         }} />
-                  <CameraButton onFiles={([f]) => {
-                    const bad = f ? imageFilesError([f]) : '';
-                    setError(bad || null);
-                    setPhoto(bad ? null : (f || null));
-                  }} />
-                </div>
-                <div className="at-field-hint" style={{ marginTop: '6px' }}>
-                  Shows on their login. They can change it themselves from My Account.
-                </div>
+              <div className="at-field-hint" style={{ marginTop: '6px' }}>
+                {isDesigner
+                  ? 'Kept on their designer profile.'
+                  : 'Shows on their login. They can change it themselves from My Account.'}
               </div>
             </div>
           </div>
-        )}
+        </div>
         <Field label="Mobile number" icon={Smartphone}>
           <input className="form-input" type="tel" value={form.phone} inputMode="numeric"
                  onChange={(e) => setForm({ ...form, phone: tenDigits(e.target.value) })}
@@ -621,10 +663,10 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
             <div className="at-form-section" style={{ gap: 0, padding: 'var(--space-2) var(--space-4)' }}>
               {docs.map((doc) => (
                 <div key={doc.id} className="at-row">
-                  <IconTile icon={FileText} tone="green" size={38} iconSize={17} />
+                  <DocumentThumb url={doc.file_url} />
                   <div className="at-row-main">
                     <div className="at-row-title">{doc.kind_display}{doc.label ? ` · ${doc.label}` : ''}</div>
-                    <div className="at-row-sub">{doc.number || 'No number recorded'}</div>
+                    <div className="at-row-sub">{doc.number ? `No. ${doc.number}` : 'No number recorded'}</div>
                   </div>
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     {doc.file_url && (
@@ -709,6 +751,37 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
   );
 }
 
+/** "Delete this team member?" -- what goes, what stays, and a red button. */
+function DeleteMemberDialog({ state, onCancel, onConfirm }) {
+  const { member, busy, error } = state;
+  return (
+    <Modal
+      icon={Trash2}
+      tone="rose"
+      title={`Delete ${member.name}?`}
+      subtitle={member.isDesigner ? 'Designer' : member.role}
+      onClose={onCancel}
+      width="480px"
+      footer={(
+        <>
+          <button type="button" className="btn-secondary" onClick={onCancel} disabled={busy}>Cancel</button>
+          <button type="button" className="btn-secondary at-btn-danger" onClick={onConfirm} disabled={busy}>
+            <Trash2 size={16} /> {busy ? 'Deleting…' : 'Delete'}
+          </button>
+        </>
+      )}
+    >
+      {error && <div style={errorBox} role="alert">{error}</div>}
+      <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        {member.isDesigner
+          ? `${member.name} is removed from the team and their sign-in stops working straight away. `
+          : `${member.name} is removed from the team, their sign-in stops working straight away, and their employment details and documents are deleted. `}
+        Orders, attendance and pay records they appear on are kept. This cannot be undone.
+      </p>
+    </Modal>
+  );
+}
+
 function Roster({ isOwner, canSeeTeam }) {
   const [roster, setRoster] = useState([]);
   const [designers, setDesigners] = useState([]);
@@ -726,6 +799,9 @@ function Roster({ isOwner, canSeeTeam }) {
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
   const [person, setPerson] = useState(null);
+  // The team member whose Delete was picked from the row menu, while the
+  // confirmation is open: { member, busy, error }.
+  const [removing, setRemoving] = useState(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -960,7 +1036,7 @@ function Roster({ isOwner, canSeeTeam }) {
                 <th>Work type</th>
                 {showPay && <th>Pay</th>}
                 {showPay && <th>Advances</th>}
-                {isOwner && <th style={{ textAlign: 'right' }}></th>}
+                {isOwner && <th style={{ textAlign: 'right' }}>Action</th>}
               </tr>
             </thead>
             <tbody>
@@ -1075,16 +1151,16 @@ function Roster({ isOwner, canSeeTeam }) {
                           <Plus size={14} /> Advance
                         </button>
                       )}
-                      {/* One door: details, employment and documents are all
-                          behind it. Primary until employment is set up. */}
-                      <button
-                        type="button"
-                        className={`${t || member.isDesigner ? 'btn-secondary' : 'btn-primary'} at-btn-sm`}
-                        onClick={() => setPerson(member)}
-                        title="Edit details, employment and documents"
-                      >
-                        <Pencil size={14} /> Edit
-                      </button>
+                      {/* Edit (details, employment and documents) and
+                          Delete, behind one ⋯ button. */}
+                      <RowMenu
+                        label={`Actions for ${member.name}`}
+                        items={[
+                          { label: 'Edit', icon: <Pencil size={14} />, onClick: () => setPerson(member) },
+                          { label: 'Delete', icon: <Trash2 size={14} />, danger: true,
+                            onClick: () => setRemoving({ member, busy: false, error: null }) },
+                        ]}
+                      />
                       {hasDetail && (
                         <button type="button" className="btn-secondary at-btn-sm"
                                 onClick={() => toggle(member.id)}
@@ -1252,6 +1328,28 @@ function Roster({ isOwner, canSeeTeam }) {
           onCancel={() => setPerson(null)}
           onSaved={refresh}
           customRoles={rosterRoles}
+        />
+      )}
+
+      {removing && (
+        <DeleteMemberDialog
+          state={removing}
+          onCancel={() => { if (!removing.busy) setRemoving(null); }}
+          onConfirm={async () => {
+            const { member } = removing;
+            setRemoving((prev) => ({ ...prev, busy: true, error: null }));
+            try {
+              if (member.isDesigner) await api.deleteDesigner(member.id);
+              else await api.deleteTailor(member.id);
+              setRemoving(null);
+              refresh();
+            } catch (err) {
+              setRemoving((prev) => prev && ({
+                ...prev, busy: false,
+                error: err.message || `Could not delete ${member.name}. Please try again.`,
+              }));
+            }
+          }}
         />
       )}
 
