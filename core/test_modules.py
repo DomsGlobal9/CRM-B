@@ -260,9 +260,9 @@ class CatalogueTests(SimpleTestCase):
                 self.assertIn(entry['group'], catalogue()['groups'])
 
     def test_all_roles_covers_owner_designer_and_the_floor(self):
-        # Owner, Designer, and the six the boutique kept: Master, Tailor,
-        # Maggam Master, Karigar, Packaging Staff, QC Staff.
-        self.assertEqual(len(ALL_ROLES), 8)
+        # Owner, Designer, and the seven on the floor: Master, Tailor,
+        # Maggam Master, Karigar, Maggam Karigar, Packaging Staff, QC Staff.
+        self.assertEqual(len(ALL_ROLES), 9)
         self.assertEqual(set(ALL_ROLES), {'Owner', 'Designer'} | set(PRODUCTION_ROLES))
 
 
