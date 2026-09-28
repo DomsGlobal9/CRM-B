@@ -13,15 +13,6 @@ import { PurchaseDetails } from './GarmentPurchases';
 
 const BUY_OPTION = '__buy__';
 
-/**
- * Renders one section of a garment template.
- *
- * This replaces the hardcoded garment dropdown, stitch-part grid and seven fixed
- * measurement inputs the wizard used to carry. Everything shown here comes from
- * /api/catalog/templates/, so adding Sharara or a new saree type is a data
- * change.
- */
-
 function useInventoryOptions(categories) {
   const [byCategory, setByCategory] = useState({});
 
@@ -198,13 +189,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
     case 'inventory_ref': {
       const items = inventory[field.inventory_category] || [];
       const selected = items.find((item) => String(item.id) === String(value ?? ''));
-      // Where this material comes from is a property of the material, not of
-      // the garment: the customer brings the saree and the boutique still
-      // supplies the fall cloth, the lining and the thread. That is what
-      // "Mixed" on the order means, and the only place it can be recorded
-      // truthfully is here, line by line.
       const fromCustomer = source === 'CUSTOMER';
-      // Not in stock and not the customer's: bought for this one order.
       const toBuy = source === 'PURCHASE';
       const unit = brought.unit || DEFAULT_UNIT[field.inventory_category] || 'UNIT';
       const setBrought = (patch) => onBroughtChange(field.key, { ...brought, unit, ...patch });

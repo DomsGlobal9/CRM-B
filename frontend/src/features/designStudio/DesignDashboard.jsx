@@ -6,14 +6,6 @@ import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
 import Loader from '../../components/ui/Loader';
-/**
- * The module's landing counters and leaderboards.
- *
- * One request. The library opens on a gallery deliberately fetched narrowly
- * (see DesignLibrary); this screen is the same idea applied to the numbers --
- * a single endpoint rather than the main dashboard's pattern of firing one
- * request per widget.
- */
 
 const CARD_IMAGE_FALLBACK =
   'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
@@ -62,8 +54,7 @@ function DesignStrip({ title, subtitle, icon, tone, designs, emptyText, metric, 
   );
 }
 
-/** Categories at a glance: counts per garment, straight from the library's
- *  own category endpoint, with a way into the library to manage them. */
+
 function CategoriesPanel({ onOpenLibrary }) {
   const [categories, setCategories] = useState(null);
   useEffect(() => {
@@ -93,18 +84,6 @@ function CategoriesPanel({ onOpenLibrary }) {
   );
 }
 
-/**
- * Owner-only: the roster of credited designers, where one is added and where a
- * login is switched on. There is no separate "Manage Designers" screen yet, so
- * this is where both step 7's account-creation and the roster itself get used
- * from.
- *
- * Adding is here rather than on its own screen because until it was, a
- * boutique had no way to add a designer at all: the POST endpoint existed and
- * was Owner-gated, but nothing called it, so the only rows that ever existed
- * were the ones migration 0003 backfilled out of free-text credits. A studio
- * set up after that migration ran had an empty roster with no way to fill it.
- */
 function DesignerRoster() {
   const [designers, setDesigners] = useState([]);
   const [error, setError] = useState(null);

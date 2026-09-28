@@ -947,7 +947,7 @@ TEMPLATES = [
                 measurement('armhole', 'Armhole'),
                 measurement('underbust', 'Underbust'),
                 measurement('high_waist', 'High Waist'),
-                measurement('sleeve_length', 'Sleeve Length'),
+                measurement('arm_length', 'Arm Length'),
                 measurement('front_neck_depth', 'Front Neck Depth'),
                 measurement('back_neck_depth', 'Back Neck Depth'),
                 measurement('shoulder_to_bust', 'Shoulder-to-Bust'),

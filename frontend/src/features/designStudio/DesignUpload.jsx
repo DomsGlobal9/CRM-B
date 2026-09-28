@@ -21,16 +21,6 @@ const urlError = (value, label) => {
   return /^https?:\/\/\S+$/i.test(v) ? '' : `${label} must start with http:// or https://.`;
 };
 
-/**
- * Uploading a design into the library.
- *
- * The style tags are not a hand-written list of dropdowns. Picking a garment
- * loads its template and renders that garment's own style section, so a design
- * is tagged with exactly the values an order for that garment can hold. A
- * hardcoded "Half / Full" sleeve list here would tag designs with words the
- * order form never produces, and the two sides would stop matching.
- */
-
 /** @param initialGarmentKey  The garment the library was open on, so the
  *                             form starts there rather than at Uncategorised.
  *  @param initialCatalogue    {category, subcategory, option} the owner was
@@ -200,9 +190,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
     }
   };
 
-  // The chosen part, or the first one when the garment changed underneath it.
   const activePart = designParts.some((p) => p.key === selectedPart) ? selectedPart : designParts[0].key;
-  // Every photograph in display order: the first is the cover.
   const shots = designParts.flatMap(({ key, label }) =>
     (partPreviews[key] || []).map((src, i) => ({ key, label, src, i })));
 

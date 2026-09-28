@@ -91,12 +91,6 @@ function SectionGroup({ title, entries }) {
   );
 }
 
-/** molecule: the measurements as a tailor's sheet -- one row per measure,
- *  the name on the left, the figure on the right where a tape-reader's eye
- *  lands. Same entries, same text (unit included), same order as the grid it
- *  replaces on the production stage; only the shape is different. Kept opt-in
- *  so the wizard's own review, which also renders this component, is untouched.
- */
 function MeasurementTable({ title, entries }) {
   const cell = { padding: '10px 14px', borderTop: '1px solid var(--border-color)',
                  display: 'flex', alignItems: 'center', minWidth: 0 };
