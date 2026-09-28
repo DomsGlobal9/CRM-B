@@ -312,8 +312,10 @@ TEMPLATES = [
                 # decides the cut, and the conditional fields below hang off
                 # the same answer the counter staff already give.
                 field('blouse_type', 'Blouse Type', 'select', required=True, options=[
-                    'Plain', 'Princess', 'One-Tuck', 'Three Point', 'Katori',
-                    'Portable Katori', 'Peplum', 'Ruffled', ('jacket', 'Jacket Style'),
+                    'Plain', 'Princess', ('belted_princess', 'Belted Princess'),
+                    'One-Tuck', 'Three Point', 'Katori', 'Portable Katori',
+                    ('cross_cutting', 'Cross Cutting'), ('belted_cross_cutting', 'Belted Cross Cutting'),
+                    'Peplum', 'Ruffled', ('jacket', 'Jacket Style'),
                     ('cape', 'Cape Style'), 'Long Waist', 'Corset']),
             ],
             # The six shared measurements stay as they were (required, drawn
@@ -542,7 +544,10 @@ TEMPLATES = [
         'sections': {
             'basic': [
                 field('blouse_style', 'Style', 'select', required=True, options=[
-                    'Standard', 'Peplum', 'Ruffled', ('jacket', 'Jacket Style'),
+                    'Standard', ('cross_cutting', 'Cross Cutting'),
+                    ('belted_cross_cutting', 'Belted Cross Cutting'),
+                    ('belted_princess', 'Belted Princess'),
+                    'Peplum', 'Ruffled', ('jacket', 'Jacket Style'),
                     ('cape', 'Cape Style'), 'Long Waist', 'Corset']),
             ],
             'measurements': [
