@@ -486,13 +486,6 @@ export default function TemplateForm({
         .filter((f) => f.validation?.group)
     : [];
 
-  const groupedByHeading = {};
-  groupedFields.forEach((f) => {
-    const groupName = f.validation?.group || 'Additional';
-    if (!groupedByHeading[groupName]) groupedByHeading[groupName] = [];
-    groupedByHeading[groupName].push(f);
-  });
-
   return (
     <div>
       {inventoryEmpty && onGoToInventory && (
@@ -532,38 +525,41 @@ export default function TemplateForm({
       ))}
       </div>
 
-      {Object.keys(groupedByHeading).length > 0 && (
-        <details className="wz-more" style={{ marginTop: '16px' }}>
-          <summary>More measurements <span className="od-hint">(optional)</span></summary>
-          {Object.entries(groupedByHeading).map(([groupName, gFields]) => (
-            <div key={groupName} style={{ marginTop: '12px' }}>
-              <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px', color: 'var(--text-secondary)' }}>
-                {groupName}
-              </div>
-              <div className="form-grid-2">
-                {gFields.map((field) => (
-                  <Field
-                    key={field.key}
-                    field={field}
-                    value={values[field.key]}
-                    error={errors[field.key]}
-                    onChange={handleChange}
-                    inventory={inventory}
-                    quantity={quantities[field.key]}
-                    quantityError={quantityErrors[field.key]}
-                    onQuantityChange={onQuantityChange}
-                    source={sources[field.key] || defaultSource}
-                    brought={brought[field.key] || {}}
-                    onSourceChange={onSourceChange}
-                    onBroughtChange={onBroughtChange}
-                    purchase={purchases.find((r) => r.field_key === field.key) || null}
-                    onPurchaseChange={onPurchaseChange}
-                  />
-                ))}
-              </div>
+      {groupedFields.length > 0 && (
+        <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px dashed var(--border-color, #e5e7eb)' }}>
+          <details style={{ cursor: 'pointer' }}>
+            <summary style={{
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'var(--primary-color, #4f46e5)',
+              userSelect: 'none',
+              padding: '4px 0',
+            }}>
+              + Additional Measurements <span className="od-hint" style={{ fontWeight: 'normal' }}>(optional)</span>
+            </summary>
+            <div className="form-grid-2" style={{ marginTop: '12px' }}>
+              {groupedFields.map((field) => (
+                <Field
+                  key={field.key}
+                  field={field}
+                  value={values[field.key]}
+                  error={errors[field.key]}
+                  onChange={handleChange}
+                  inventory={inventory}
+                  quantity={quantities[field.key]}
+                  quantityError={quantityErrors[field.key]}
+                  onQuantityChange={onQuantityChange}
+                  source={sources[field.key] || defaultSource}
+                  brought={brought[field.key] || {}}
+                  onSourceChange={onSourceChange}
+                  onBroughtChange={onBroughtChange}
+                  purchase={purchases.find((r) => r.field_key === field.key) || null}
+                  onPurchaseChange={onPurchaseChange}
+                />
+              ))}
             </div>
-          ))}
-        </details>
+          </details>
+        </div>
       )}
     </div>
   );
