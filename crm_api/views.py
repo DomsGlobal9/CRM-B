@@ -24,7 +24,7 @@ from core.validators import (
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import (
     Count, DecimalField, ExpressionWrapper, F, Q, Sum, Value,
 )
@@ -246,8 +246,68 @@ class TailorViewSet(viewsets.ModelViewSet):
     # staff_profile is a reverse one-to-one the serializer reads for the
     # phone number: without this it is one query per person on every roster,
     # assignment dropdown and order screen that lists the floor.
-    queryset = Tailor.objects.select_related('staff_profile').order_by('-rating')
+    queryset = Tailor.objects.select_related('staff_profile', 'user').order_by('-rating')
     serializer_class = TailorSerializer
+
+    @action(detail=True, methods=['POST'], url_path='revoke-access')
+    def revoke_access(self, request, pk=None):
+        """Stop this person signing in, and sign them out everywhere, now.
+
+        What an owner needs the day someone leaves. Unlike deleting them from
+        the roster it keeps everything that points at them -- employment
+        terms, attendance, documents, payroll history, the orders and stages
+        they worked on -- and it can be undone with restore-access.
+
+        Owner-only: RolePermission admits no non-owner to an action it does
+        not list.
+        """
+        tailor = self.get_object()
+        user = tailor.user
+        if user is None:
+            return Response({'error': f'{tailor.name} has no login to revoke.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        tenant_owner = (getattr(connection.tenant, 'owner_email', '') or '').lower()
+        if tenant_owner and (user.email or '').lower() == tenant_owner:
+            return Response({'error': "This is the owner's own account; it cannot be revoked here."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        # One account, two jobs: a Design Studio login shares this User, and
+        # closing it here would cut off the design work they still do.
+        if getattr(user, 'designer_profile', None) is not None:
+            return Response({'error': f'{tailor.name} also signs in to Design Studio. '
+                                      'Remove them there first.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            if user.is_active:
+                user.is_active = False
+                user.save(update_fields=['is_active'])
+            Token.objects.filter(user=user).delete()
+        tailor.refresh_from_db()
+        return Response(self.get_serializer(tailor).data)
+
+    @action(detail=True, methods=['POST'], url_path='restore-access')
+    def restore_access(self, request, pk=None):
+        """Let a revoked person sign in again, with a NEW password shown once.
+
+        The same rule as re-hiring (_ensure_user_account): coming back must
+        not restore the credential they left with.
+        """
+        tailor = self.get_object()
+        user = tailor.user
+        if user is None:
+            return Response({'error': f'{tailor.name} has no login. Add an email to create one.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if user.is_active:
+            return Response({'error': f'{tailor.name} can already sign in.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        bootstrap = secrets.token_urlsafe(9)
+        with transaction.atomic():
+            user.is_active = True
+            user.set_password(bootstrap)
+            user.save(update_fields=['is_active', 'password'])
+            Token.objects.filter(user=user).delete()
+        tailor.refresh_from_db()
+        tailor._bootstrap_password = bootstrap
+        return Response(self.get_serializer(tailor).data)
 
     def perform_create(self, serializer):
         tailor = serializer.save()

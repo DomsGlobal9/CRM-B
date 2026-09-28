@@ -2,6 +2,9 @@
 OWNER = 'Owner'
 DESIGNER = 'Designer'
 
+#: Roles that come from what an account is, not from a staff row's free text.
+RESERVED_ROLE_NAMES = frozenset({OWNER.lower(), DESIGNER.lower()})
+
 
 def resolve_user_role(user):
     if user is None or not getattr(user, 'is_authenticated', False):
@@ -19,6 +22,14 @@ def resolve_user_role(user):
 
     profile = getattr(user, 'tailor_profile', None)
     if profile:
+        # A staff row's role is free text. Owner and Designer are established
+        # above and below from what the account IS, never from a word someone
+        # typed: a roster entry saved as "Owner" (a partner, a spouse) used to
+        # resolve to the boutique owner and open payroll, finance and deletes.
+        # Such a row is a custom role like any other, and custom roles get the
+        # floor defaults (core.modules.role_allows).
+        if (profile.role or '').strip().lower() in RESERVED_ROLE_NAMES:
+            return f'{profile.role.strip()} (staff)'
         return profile.role
     designer_profile = getattr(user, 'designer_profile', None)
     if designer_profile:

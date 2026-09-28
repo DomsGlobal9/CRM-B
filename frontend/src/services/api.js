@@ -903,6 +903,25 @@ export const api = {
     return data;
   },
 
+  // Owner-only. Revoke signs the person out everywhere and stops them signing
+  // in, keeping their roster row, employment and history. Restore lets them
+  // back in with a NEW password, returned once as bootstrap_password.
+  async revokeTailorAccess(id) {
+    const res = await guardedFetch(`${BASE_URL}/tailors/${id}/revoke-access/`, {
+      method: 'POST', headers: getHeaders(),
+    });
+    if (!res.ok) await failWith(res, 'Could not revoke access');
+    return res.json();
+  },
+
+  async restoreTailorAccess(id) {
+    const res = await guardedFetch(`${BASE_URL}/tailors/${id}/restore-access/`, {
+      method: 'POST', headers: getHeaders(),
+    });
+    if (!res.ok) await failWith(res, 'Could not restore access');
+    return res.json();
+  },
+
   async deleteTailor(id) {
     const res = await guardedFetch(`${BASE_URL}/tailors/${id}/`, {
       method: 'DELETE',

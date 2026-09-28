@@ -125,7 +125,21 @@ class TailorSerializer(serializers.ModelSerializer):
         return validate_text(value, label='Specialty', max_length=100)
 
     def validate_role(self, value):
-        return validate_text(value, label='Role', max_length=50, required=True)
+        value = validate_text(value, label='Role', max_length=50, required=True)
+        # Owner and Designer are what an account is (core.roles), never a
+        # roster entry. Refused rather than stored, whatever the capitalisation.
+        from core.roles import RESERVED_ROLE_NAMES
+        if value.lower() in RESERVED_ROLE_NAMES:
+            raise serializers.ValidationError(
+                f'"{value}" cannot be given to a staff member. The owner is the '
+                f'account the boutique was set up with; designers are added in '
+                f'Design Studio. Pick a role from the list or type another name.')
+        # "master" meant Master: store a built-in role in its own spelling so
+        # it gets that role's access rather than falling back to custom.
+        for known, _label in Tailor.ROLE_CHOICES:
+            if value.lower() == known.lower():
+                return known
+        return value
 
     def validate_email(self, value):
         return validate_email_address(value) or None
@@ -180,7 +194,12 @@ class TailorSerializer(serializers.ModelSerializer):
             from core.permissions import SUPERVISOR_ROLES
             from core.roles import OWNER
             role = self._reader_role(request)
-            if role != OWNER:
+            if role == OWNER:
+                # Whether this person can sign in right now: None when they
+                # have no login at all, False once access has been revoked.
+                data['login_active'] = (instance.user.is_active
+                                        if instance.user_id else None)
+            else:
                 data.pop('email', None)
                 data.pop('user', None)
                 # A Master has to be able to reach their team -- the same

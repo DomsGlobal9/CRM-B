@@ -295,6 +295,36 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
   const [savedMember, setSavedMember] = useState(null);
   const [savedTerms, setSavedTerms] = useState(terms || null);
   const [credential, setCredential] = useState(null);
+  // null: no login; true/false: whether they can sign in. Only the owner's
+  // roster carries login_active, so undefined means "not ours to show".
+  const [loginActive, setLoginActive] = useState(member?.login_active);
+  const [accessStep, setAccessStep] = useState(null); // null | 'confirm' | 'busy'
+  const [accessError, setAccessError] = useState(null);
+
+  const revokeAccess = async () => {
+    setAccessStep('busy'); setAccessError(null);
+    try {
+      const saved = await api.revokeTailorAccess(member.id);
+      setLoginActive(saved.login_active);
+      setAccessStep(null);
+    } catch (err) {
+      setAccessError(err.message || 'Could not revoke access.');
+      setAccessStep(null);
+    }
+  };
+  const restoreAccess = async () => {
+    setAccessStep('busy'); setAccessError(null);
+    try {
+      const saved = await api.restoreTailorAccess(member.id);
+      setLoginActive(saved.login_active);
+      setAccessStep(null);
+      // The new password is shown once, on the same screen as a new account.
+      setCreated({ ...saved, restored: true });
+    } catch (err) {
+      setAccessError(err.message || 'Could not restore access.');
+      setAccessStep(null);
+    }
+  };
 
   const loadDocs = useCallback(async () => {
     if (!member) return;
@@ -428,9 +458,9 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
   if (created) {
     const done = () => { onSaved(); onCancel(); };
     return (
-      <Modal title="Account created" onClose={done}>
+      <Modal title={created.restored ? 'Access restored' : 'Account created'} onClose={done}>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-          {created.name} can sign in with the details below. This password is
+          {created.name} can sign in with the details below{created.restored ? ' — their old password no longer works' : ''}. This password is
           shown once and is not stored anywhere it can be read again.
         </p>
         <div style={{ ...panel, padding: '14px 16px', marginTop: '12px' }}>
@@ -504,6 +534,49 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       <form id="add-staff-form" onSubmit={submit} className="at-stack">
         {error && (
           <div style={errorBox}>{error}</div>
+        )}
+        {editing && !isDesigner && loginActive !== undefined && loginActive !== null && (
+          <div className="at-form-section" style={{ gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div>
+                <div className="at-field-label">Sign-in access</div>
+                <div style={{ fontSize: 'var(--text-sm)', color: loginActive ? 'var(--success-color)' : 'var(--danger-color, #a3261b)', fontWeight: 600 }}>
+                  {loginActive ? 'Can sign in' : 'Access revoked — cannot sign in'}
+                </div>
+              </div>
+              {loginActive ? (
+                accessStep === 'confirm' ? (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button type="button" className="btn-secondary at-btn-sm" onClick={() => setAccessStep(null)}>Keep access</button>
+                    <button type="button" className="btn-primary at-btn-sm" onClick={revokeAccess}
+                            style={{ background: 'var(--danger-color, #a3261b)', borderColor: 'var(--danger-color, #a3261b)' }}>
+                      Yes, sign them out now
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" className="btn-secondary at-btn-sm" disabled={accessStep === 'busy'}
+                          onClick={() => setAccessStep('confirm')}>
+                    {accessStep === 'busy' ? 'Revoking…' : 'Revoke access'}
+                  </button>
+                )
+              ) : (
+                <button type="button" className="btn-secondary at-btn-sm" disabled={accessStep === 'busy'}
+                        onClick={restoreAccess}>
+                  {accessStep === 'busy' ? 'Restoring…' : 'Restore access'}
+                </button>
+              )}
+            </div>
+            <div className="at-field-hint">
+              {accessStep === 'confirm'
+                ? `${member.name} will be signed out on every device and cannot sign in again until you restore access. Their record, attendance and history stay.`
+                : loginActive
+                  ? (termsForm.exit_date
+                    ? `Marked as left on ${termsForm.exit_date} but can still sign in. Revoke access to stop that.`
+                    : 'Use this the day someone leaves. Nothing on their record is deleted.')
+                  : 'Restoring gives them a new password, shown once. The old one stays dead.'}
+            </div>
+            {accessError && <div style={errorBox}>{accessError}</div>}
+          </div>
         )}
         <Field label="Name" icon={User}>
           <input className="form-input" value={form.name} onChange={set('name')} maxLength={LIMITS.name}
