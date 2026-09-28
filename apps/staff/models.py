@@ -57,11 +57,24 @@ class StaffProfile(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    #: The roster member these terms belong to. CASCADE because employment terms
-    #: for a deleted staff member are not a thing anyone can use, and OneToOne
-    #: because a person has one set of terms at a time.
+    #: The person these terms belong to: a roster member (`staff`) or a
+    #: designer (`designer`), exactly one -- see the constraint below, the same
+    #: rule StaffDocument keeps. A designer is not a Tailor (design_studio.
+    #: Designer is its own table), so a designer added on the staff screen with
+    #: a work type and pay could not hold terms at all while this was a
+    #: required link to Tailor. CASCADE because employment terms for a deleted
+    #: person are not a thing anyone can use, and OneToOne because a person has
+    #: one set of terms at a time.
+    #:
+    #: A designer's terms are a record of what was agreed. Payroll pays
+    #: attended time, and attendance is kept for roster members only, so
+    #: payroll.services.eligible_profiles leaves designer rows out.
     staff = models.OneToOneField(
-        Tailor, on_delete=models.CASCADE, related_name='staff_profile')
+        Tailor, on_delete=models.CASCADE, related_name='staff_profile',
+        null=True, blank=True)
+    designer = models.OneToOneField(
+        'design_studio.Designer', on_delete=models.CASCADE,
+        related_name='staff_profile', null=True, blank=True)
 
     employment_type = models.CharField(
         max_length=20, choices=EmploymentType.choices,
@@ -124,10 +137,25 @@ class StaffProfile(models.Model):
             models.CheckConstraint(
                 condition=models.Q(weekly_hours__gte=0),
                 name='staff_profile_weekly_hours_not_negative'),
+            # Terms for nobody are unreachable by every scoping branch in the
+            # viewset; terms for two people would pay one agreement twice.
+            models.CheckConstraint(
+                condition=(
+                    models.Q(staff__isnull=False, designer__isnull=True)
+                    | models.Q(staff__isnull=True, designer__isnull=False)
+                ),
+                name='staff_profile_belongs_to_exactly_one',
+            ),
         ]
 
+    @property
+    def holder(self):
+        """The person these terms belong to, whichever table they are in."""
+        return self.staff if self.staff_id else self.designer
+
     def __str__(self):
-        return f"Employment terms for {self.staff.name}"
+        holder = self.holder
+        return f"Employment terms for {holder.name if holder else 'nobody'}"
 
 
 class AttendanceSession(models.Model):

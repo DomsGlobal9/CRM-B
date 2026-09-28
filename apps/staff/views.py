@@ -130,6 +130,10 @@ class StaffProfileViewSet(viewsets.ModelViewSet):
         Writes are already Owner-only (StaffSelfOrOwner), so reaching this means
         the owner did it.
         """
+        # The deposit ledger is kept for roster members, whose pay it is
+        # recovered from; a designer's agreed deposit stays on their terms.
+        if profile.staff_id is None:
+            return
         from apps.payroll import deposits
         current = profile.deposit_total or 0
         if previous is None:
@@ -157,19 +161,22 @@ class StaffProfileViewSet(viewsets.ModelViewSet):
         `staff.role` on every row -- without it a roster of twenty staff is
         twenty-one queries.
         """
-        queryset = StaffProfile.objects.select_related('staff')
+        queryset = StaffProfile.objects.select_related('staff', 'designer')
         role = resolve_user_role(self.request.user)
         if role == OWNER or role in SUPERVISOR_ROLES:
             return queryset
 
-        # Everyone else: their own profile, reached through the Tailor row their
-        # login is attached to. An account with no roster profile -- a
-        # design-only designer, an orphaned login -- matches nothing, which is
-        # the right answer rather than an error.
+        # Everyone else: their own profile, reached through the Tailor row or
+        # the designer record their login is attached to. An account with
+        # neither -- an orphaned login -- matches nothing, which is the right
+        # answer rather than an error.
         profile = getattr(self.request.user, 'tailor_profile', None)
-        if profile is None:
-            return queryset.none()
-        return queryset.filter(staff=profile)
+        if profile is not None:
+            return queryset.filter(staff=profile)
+        designer = getattr(self.request.user, 'designer_profile', None)
+        if designer is not None:
+            return queryset.filter(designer=designer)
+        return queryset.none()
 
 
 def _staff_for(user):
