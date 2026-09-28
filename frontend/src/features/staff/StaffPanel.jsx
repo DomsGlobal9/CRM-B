@@ -380,7 +380,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       ? { ...docForm, number: typedNumber, label: docForm.label.trim(), file: docFile }
       : null;
     const problem = nameError(form.name) || mobileError(form.phone, { required: false }) || emailError(form.email)
-      || (isDesigner ? '' : termsError(termsForm))
+      || termsError(termsForm)
       || (docFile && docNumberProblem ? docNumberProblem : '')
       || (!docFile && typedNumber ? `Choose the file for the ${kindLabel(docForm.kind)} document, or clear its number.` : '');
     if (problem) { setError(problem); return; }
@@ -432,19 +432,21 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       
       const cred = saved?.bootstrap_password ? saved : credential;
       if (saved?.bootstrap_password) setCredential(saved);
-      if (!isDesigner) {
-        const employment = cleaned({ ...termsForm, phone: termsForm.phone || payload.phone });
-        const filledIn = Object.keys(employment).some((k) => !['employment_type', 'phone'].includes(k));
-        let profile = savedTerms;
-        if (!profile && filledIn) {
-          const rows = await api.getStaffProfiles();
-          profile = (Array.isArray(rows) ? rows : []).find((r) => String(r.staff) === String(saved.id)) || null;
-        }
-        if (profile) {
-          await api.updateStaffProfile(profile.id, employment);
-          setSavedTerms(profile);
-        } else if (filledIn) {
+      const employment = cleaned({ ...termsForm, phone: termsForm.phone || payload.phone });
+      const filledIn = Object.keys(employment).some((k) => !['employment_type', 'phone'].includes(k));
+      let profile = savedTerms;
+      if (!profile && filledIn) {
+        const rows = await api.getStaffProfiles();
+        profile = (Array.isArray(rows) ? rows : []).find((r) => String(r.staff) === String(saved.id)) || null;
+      }
+      if (profile) {
+        await api.updateStaffProfile(profile.id, employment);
+        setSavedTerms(profile);
+      } else if (filledIn) {
+        try {
           setSavedTerms(await api.createStaffProfile({ ...employment, staff: saved.id }));
+        } catch (err) {
+          console.warn('Could not save staff profile terms:', err);
         }
       }
 
@@ -648,12 +650,10 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
           </Field>
         )}
 
-        {!isDesigner && (
-          <FormSection icon={Briefcase} tone="amber" title="Employment"
-                       subtitle={savedTerms ? 'Employment type, pay and dates.' : 'Optional: leave blank to set it up later from Edit.'}>
-            <TermsFields form={termsForm} setForm={setTermsForm} memberName={form.name.trim() || 'this person'} />
-          </FormSection>
-        )}
+        <FormSection icon={Briefcase} tone="amber" title="Employment"
+                     subtitle={savedTerms ? 'Employment type, pay and dates.' : 'Optional: leave blank to set it up later from Edit.'}>
+          <TermsFields form={termsForm} setForm={setTermsForm} memberName={form.name.trim() || 'this person'} />
+        </FormSection>
 
         <FormSection icon={FileText} tone="green" title="Documents"
                      subtitle="Identity and employment documents. Files added here are uploaded when you save.">
@@ -873,7 +873,7 @@ function Roster({ isOwner, canSeeTeam }) {
         
           ...designers.map((d) => ({
             member: { ...d, role: 'Designer', isDesigner: true },
-            terms: undefined,
+            terms: termsByStaff.get(String(d.id)) || (d.staff ? termsByStaff.get(String(d.staff)) : undefined),
           })),
         ]
       : terms.map((t) => ({
