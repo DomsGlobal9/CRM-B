@@ -190,7 +190,7 @@ const en = {
     tailorNotes: "Tailor's notes",
     selectOrderHint: "Pick an order on the left to see how far along it is.",
     upcomingAppointments: "Fittings & visits coming up",
-    noAppointments: "No fittings booked.",
+    noAppointments: "No appointment booked.",
     appointment: "Visit",
     withStaff: "· with {name}",
     moreAppointments: "+{count} more booked",
