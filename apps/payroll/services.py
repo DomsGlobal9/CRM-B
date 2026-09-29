@@ -263,7 +263,9 @@ def eligible_profiles():
     member whose employment has not been set up, and inventing pay for them
     would be the same mistake as inventing the profile.
     """
-    return StaffProfile.objects.select_related('staff').all()
+    # Roster members only: payroll pays attended time, and a designer's terms
+    # (StaffProfile.designer) have no attendance behind them.
+    return StaffProfile.objects.select_related('staff').filter(staff__isnull=False)
 
 
 @transaction.atomic

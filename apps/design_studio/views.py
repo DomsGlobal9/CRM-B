@@ -12,6 +12,7 @@ from django.db.models import Count, F, Min, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, serializers, status, viewsets, views
+from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -768,17 +769,35 @@ class DesignCategoryView(views.APIView):
         })
 
 
+def _is_owner_account(user):
+    from django.db import connection
+    owner = (getattr(connection.tenant, 'owner_email', '') or '').lower()
+    return bool(owner) and (user.email or '').lower() == owner
+
+
 class DesignerViewSet(viewsets.ModelViewSet):
 
     serializer_class = DesignerSerializer
     permission_classes = [DesignStudioPermission]
 
+    @transaction.atomic
     def perform_destroy(self, instance):
+        """Remove the designer and their login with them.
+
+        The login is deleted outright, so the address is free to be given to
+        a designer again with a fresh password. Its tokens and avatar go with
+        it; everything that credits the account (designs, approvals, activity)
+        keeps its row with the link cleared. A login that still belongs to
+        someone else here -- the owner, or a roster member who is also this
+        designer -- is left alone.
+        """
         user = instance.user
         super().perform_destroy(instance)
-        if user is not None and user.is_active:
-            user.is_active = False
-            user.save(update_fields=['is_active'])
+        if user is None or user.is_superuser or _is_owner_account(user):
+            return
+        if getattr(user, 'tailor_profile', None) is not None:
+            return
+        user.delete()
 
     def get_queryset(self):
         queryset = Designer.objects.annotate(design_count=Count('designs'))
@@ -791,6 +810,7 @@ class DesignerViewSet(viewsets.ModelViewSet):
         return queryset
 
     @action(detail=True, methods=['POST'], url_path='create-login')
+    @transaction.atomic
     def create_login(self, request, pk=None):
         designer = self.get_object()
         if designer.user_id:
@@ -807,9 +827,7 @@ class DesignerViewSet(viewsets.ModelViewSet):
         bootstrap = None
 
         if user is not None:
-            from django.db import connection
-            tenant_owner = (getattr(connection.tenant, 'owner_email', '') or '').lower()
-            if tenant_owner and (user.email or '').lower() == tenant_owner:
+            if _is_owner_account(user):
                 return Response(
                     {'email': 'That address belongs to the boutique owner. '
                               'Use a separate address for this designer.'},
@@ -819,6 +837,21 @@ class DesignerViewSet(viewsets.ModelViewSet):
                     {'email': f'That address already belongs to {user.tailor_profile.name} '
                               f'({user.tailor_profile.role}). Use a separate address.'},
                     status=status.HTTP_400_BAD_REQUEST)
+            other = getattr(user, 'designer_profile', None)
+            if other is not None:
+                return Response(
+                    {'email': f'That address already belongs to the designer {other.name}. '
+                              'Use a separate address.'},
+                    status=status.HTTP_400_BAD_REQUEST)
+            # A login nobody holds any more -- left by a designer removed before
+            # logins were deleted with them. It is re-issued like a new one: a
+            # fresh password shown once, and no session from before survives.
+            bootstrap = secrets.token_urlsafe(9)
+            user.set_password(bootstrap)
+            user.is_active = True
+            user.first_name = designer.name
+            user.save(update_fields=['password', 'is_active', 'first_name'])
+            Token.objects.filter(user=user).delete()
 
         if user is None:
             username = email.split('@')[0].lower()
