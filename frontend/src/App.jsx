@@ -1596,6 +1596,7 @@ function App() {
 
   const [quotePrices, setQuotePrices] = useState({ packaging: 500, discount: 0 });
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [activeDesignTab, setActiveDesignTab] = useState({});
 
   const fabricTaxonomy = useFabricTaxonomy();
 
@@ -7478,51 +7479,166 @@ function App() {
                           <div><div className="wz-garment-name">{job.template.name}</div></div>
                         </div>
 
-                        <details className="wz-more" open>
-                          <summary><Sparkles size={14} /> {t('wizard.sheetCatalogue', 'Pick a look from our catalogue')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker
-                              garmentKey={job.template?.key || job.key}
-                              garmentName={job.template?.name || job.key}
-                              selection={partSelection[job.key] || {}}
-                              onChange={(next) => handlePartSelection(job.key, next)} />
-                          </Suspense>
-                        </details>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
+                          <button
+                            type="button"
+                            className={`wz-service ${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'wz-choice--on' : '' }`}
+                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'catalogue' }))}
+                            style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
+                              borderRadius: 'var(--radius-lg, 12px)',
+                              border: partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                              background: 'var(--surface-color, #ffffff)',
+                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
+                            }}
+                          >
+                            <IconTile icon={Sparkles} tone={partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'green' : 'neutral'} size={44} iconSize={20} />
+                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetCatalogue', 'Pick a look from our catalogue')}</span>
+                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Browse and choose design looks directly from your boutique catalogue.</span>
+                            {partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? (
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>✓ Design selected (Click to view/change)</span>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to open catalogue →</span>
+                            )}
+                          </button>
 
-                        <details className="wz-more" open>
-                          <summary><Camera size={14} /> {t('wizard.sheetPhotos', 'Photos & references from the customer')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker ownOnly
-                                               garmentKey={job.template?.key || job.key}
-                                               garmentName={job.template?.name || job.key}
-                                               references={partReferences[job.key] || {}}
-                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
-                          </Suspense>
-                        </details>
+                          <button
+                            type="button"
+                            className={`wz-service ${ partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'wz-choice--on' : '' }`}
+                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'references' }))}
+                            style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
+                              borderRadius: 'var(--radius-lg, 12px)',
+                              border: partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                              background: 'var(--surface-color, #ffffff)',
+                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
+                            }}
+                          >
+                            <IconTile icon={Camera} tone={partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'amber' : 'neutral'} size={44} iconSize={20} />
+                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetPhotos', 'Photos & references from customer')}</span>
+                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Upload customer photos or add web links as reference for this garment.</span>
+                            {partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? (
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>
+                                ✓ {Object.values(partReferences[job.key]).flat().length} reference(s) added
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to add photos or links →</span>
+                            )}
+                          </button>
 
-                        {/* Customer Designs: a design the customer described, captured
-                            by the studio -- a photograph of a paper sketch, or drawn
-                            here. Order-level, as its tab on the old Design Studio
-                            screen was; its own rows kept for the customer, nothing on
-                            the draft. */}
-                        <details className="wz-more">
-                          <summary><PenTool size={14} /> {t('wizard.sheetCustomerDesigns', 'Customer Designs')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <CustomerDesigns
-                              customerId={customerId}
-                              customers={allCustomers}
-                              orders={ordersList}
-                              garmentTemplates={garmentTemplates}
-                              templateId={job.template?.id}
-                              garmentName={job.template?.name}
-                              newCustomer={customerForm}
-                              onCustomerCreated={(row) => {
-                                setCustomerId(row.id);
-                                setAllCustomers((prev) => [row, ...prev]);
-                              }}
-                            />
-                          </Suspense>
-                        </details>
+                          <button
+                            type="button"
+                            className="wz-service"
+                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'customer_designs' }))}
+                            style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
+                              borderRadius: 'var(--radius-lg, 12px)',
+                              border: '1px solid var(--border-color)',
+                              background: 'var(--surface-color, #ffffff)',
+                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
+                            }}
+                          >
+                            <IconTile icon={PenTool} tone="blue" size={44} iconSize={20} />
+                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetCustomerDesigns', 'Customer Designs')}</span>
+                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Capture paper sketches, custom drawn notes, or customer descriptions.</span>
+                            <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to add sketch / notes →</span>
+                          </button>
+                        </div>
+
+                        {activeDesignTab[job.key] === 'catalogue' && (
+                          <FormModal
+                            icon={Sparkles}
+                            tone="green"
+                            title={`Catalogue Looks — ${job.template?.name || job.key}`}
+                            subtitle="Browse and choose design looks directly from your boutique catalogue."
+                            width="960px"
+                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                            footer={
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                style={{ padding: '8px 24px', fontSize: '13px' }}
+                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                              >
+                                Done
+                              </button>
+                            }
+                          >
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentPartPicker
+                                garmentKey={job.template?.key || job.key}
+                                garmentName={job.template?.name || job.key}
+                                selection={partSelection[job.key] || {}}
+                                onChange={(next) => handlePartSelection(job.key, next)} />
+                            </Suspense>
+                          </FormModal>
+                        )}
+
+                        {activeDesignTab[job.key] === 'references' && (
+                          <FormModal
+                            icon={Camera}
+                            tone="amber"
+                            title={`Customer References — ${job.template?.name || job.key}`}
+                            subtitle="Upload customer photos or add web links as reference for this garment."
+                            width="920px"
+                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                            footer={
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                style={{ padding: '8px 24px', fontSize: '13px' }}
+                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                              >
+                                Done
+                              </button>
+                            }
+                          >
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentPartPicker ownOnly
+                                                 garmentKey={job.template?.key || job.key}
+                                                 garmentName={job.template?.name || job.key}
+                                                 references={partReferences[job.key] || {}}
+                                                 onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                            </Suspense>
+                          </FormModal>
+                        )}
+
+                        {activeDesignTab[job.key] === 'customer_designs' && (
+                          <FormModal
+                            icon={PenTool}
+                            tone="blue"
+                            title={`Customer Designs — ${job.template?.name || job.key}`}
+                            subtitle="Capture paper sketches, custom drawn notes, or customer descriptions."
+                            width="920px"
+                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                            footer={
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                style={{ padding: '8px 24px', fontSize: '13px' }}
+                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                              >
+                                Done
+                              </button>
+                            }
+                          >
+                            <Suspense fallback={<ScreenLoading />}>
+                              <CustomerDesigns
+                                customerId={customerId}
+                                customers={allCustomers}
+                                orders={ordersList}
+                                garmentTemplates={garmentTemplates}
+                                templateId={job.template?.id}
+                                garmentName={job.template?.name}
+                                newCustomer={customerForm}
+                                onCustomerCreated={(row) => {
+                                  setCustomerId(row.id);
+                                  setAllCustomers((prev) => [row, ...prev]);
+                                }}
+                              />
+                            </Suspense>
+                          </FormModal>
+                        )}
                       </div>
                   ))}
 
