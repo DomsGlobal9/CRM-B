@@ -1024,6 +1024,28 @@ export const api = {
     return res.json();
   },
 
+  // The customers this customer referred (GET), or record a new one (POST).
+  // The POST body describes the referred customer -- first_name, last_name,
+  // mobile_number -- plus an optional note. The server finds them by mobile or
+  // adds them; `created` in the answer says which.
+  async getCustomerReferrals(customerId) {
+    const res = await guardedFetch(`${BASE_URL}/customers/${customerId}/referrals/`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) await failWith(res, 'Could not load the referrals');
+    return res.json();
+  },
+
+  async addCustomerReferral(customerId, payload) {
+    const res = await guardedFetch(`${BASE_URL}/customers/${customerId}/referrals/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) await failWith(res, 'Could not record the referral');
+    return res.json();
+  },
+
   async getOrders() {
     const res = await guardedFetch(`${BASE_URL}/orders/`, {
       headers: getHeaders()

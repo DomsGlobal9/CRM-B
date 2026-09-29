@@ -11,7 +11,7 @@ CUSTOMER_MOBILE_ERROR = 'Enter a 10-digit mobile number, or a full international
 
 from apps.design_studio.models import DesignAsset
 from .models import (
-    Customer, CustomerMessage, GarmentImage, Measurement, DesignPreference,
+    Customer, CustomerMessage, CustomerReferral, GarmentImage, Measurement, DesignPreference,
     FabricSelection, Tailor, Order, BoutiqueDesign,
     Notification, OrderStageHistory, BoutiqueSettings, MeasurementHistory,
     OrderStage, OrderActivity, national_mobile, whatsapp_number
@@ -617,6 +617,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     segment = serializers.SerializerMethodField()
     total_spend = serializers.SerializerMethodField()
     order_count = serializers.SerializerMethodField()
+    referred_by = serializers.SerializerMethodField()
 
     def get_orders(self, obj):
         from core.permissions import visible_orders
@@ -689,7 +690,8 @@ class CustomerSerializer(serializers.ModelSerializer):
             'custom_requirements', 'date_of_birth', 'occupation',
             'preferred_communication', 'notes', 'profile_photo',
             'measurements', 'measurement_history', 'design_preferences', 'fabric_selections', 'orders',
-            'style_dna', 'segment', 'total_spend', 'order_count', 'created_at', 'updated_at'
+            'style_dna', 'segment', 'total_spend', 'order_count', 'referred_by',
+            'created_at', 'updated_at'
         ]
         extra_kwargs = {
             'last_name': {'required': False, 'allow_blank': True},
@@ -697,6 +699,17 @@ class CustomerSerializer(serializers.ModelSerializer):
             'notes': {'max_length': MAX_NOTE},
             'custom_requirements': {'max_length': MAX_NOTE},
         }
+
+    def get_referred_by(self, obj):
+        """Who referred this customer: {id, name}, or None. `id` is None once the
+        referrer has been deleted; the name then comes from the snapshot."""
+        referral = obj.referrals_received.select_related('referrer').first()
+        if referral is None:
+            return None
+        referrer = referral.referrer
+        if referrer is None:
+            return {'id': None, 'name': referral.referrer_name_snapshot}
+        return {'id': str(referrer.pk), 'name': f"{referrer.first_name} {referrer.last_name}".strip()}
 
     def get_total_spend(self, obj):
         return sum(float(o.total_amount) for o in obj.orders.all())
@@ -825,6 +838,35 @@ class CustomerSummarySerializer(serializers.ModelSerializer):
             revenue=getattr(obj, 'orders_total_spend', None),
             last_order_date=getattr(obj, 'orders_last_date', None),
         )
+
+class CustomerReferralSerializer(serializers.ModelSerializer):
+    referrer_name = serializers.SerializerMethodField()
+    referred_name = serializers.SerializerMethodField()
+    referred_mobile = serializers.CharField(source='referred.mobile_number', read_only=True)
+    created_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomerReferral
+        fields = [
+            'id', 'referrer', 'referrer_name', 'referred', 'referred_name', 'referred_mobile',
+            'created_by', 'created_by_name', 'created_at', 'note',
+        ]
+        read_only_fields = fields
+
+    def get_referrer_name(self, obj):
+        if obj.referrer is not None:
+            return f"{obj.referrer.first_name} {obj.referrer.last_name}".strip()
+        return obj.referrer_name_snapshot
+
+    def get_referred_name(self, obj):
+        return f"{obj.referred.first_name} {obj.referred.last_name}".strip()
+
+    def get_created_by_name(self, obj):
+        user = obj.created_by
+        if user is None:
+            return ''
+        return user.get_full_name() or user.username
+
 
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:

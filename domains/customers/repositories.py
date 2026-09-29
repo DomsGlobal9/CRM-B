@@ -1,4 +1,4 @@
-from crm_api.models import Customer
+from crm_api.models import Customer, whatsapp_number
 
 CUSTOMER_PREFETCH = (
     'measurement_history',
@@ -39,6 +39,13 @@ class CustomerRepository:
     @staticmethod
     def get_by_id(customer_id):
         return CustomerRepository.base_queryset().filter(id=customer_id).first()
+
+    @staticmethod
+    def find_by_mobile(raw_mobile):
+        raw = str(raw_mobile or '').strip()
+        if not raw:
+            return None
+        return Customer.objects.filter(mobile_number=whatsapp_number(raw) or raw).first()
 
     @staticmethod
     def search(query):

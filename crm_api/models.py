@@ -125,6 +125,58 @@ class Customer(models.Model):
             self.mobile_number = whatsapp_number(self.mobile_number) or self.mobile_number
         super().save(*args, **kwargs)
 
+
+class CustomerReferral(models.Model):
+    """Customer A (referrer) brought in customer B (referred).
+
+    A row of its own rather than a field on Customer, so recording a referral
+    for a customer already in the book never edits their profile. B has at most
+    one referrer; A may refer any number of customers.
+
+    The referrer link is SET_NULL with a frozen name and mobile beside it, the
+    same trade AttendanceSession makes for its staff member: deleting A keeps
+    the fact that B came through them. Deleting B takes the referral with it.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    referrer = models.ForeignKey(
+        Customer, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='referrals_made')
+    referred = models.ForeignKey(
+        Customer, on_delete=models.CASCADE, related_name='referrals_received')
+    referrer_name_snapshot = models.CharField(max_length=201, blank=True, default='')
+    referrer_mobile_snapshot = models.CharField(max_length=20, blank=True, default='')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    note = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(referrer=models.F('referred')),
+                name='customer_referral_not_self'),
+            models.UniqueConstraint(
+                fields=['referred'], name='customer_referral_one_referrer'),
+            models.UniqueConstraint(
+                fields=['referrer', 'referred'], name='customer_referral_unique_pair'),
+        ]
+
+    def __str__(self):
+        return f"{self.referrer_name_snapshot or 'Former customer'} referred {self.referred}"
+
+    def save(self, *args, **kwargs):
+        """Freeze the referrer's identity on the way in, once."""
+        if self.referrer_id and not self.referrer_name_snapshot:
+            self.referrer_name_snapshot = f"{self.referrer.first_name} {self.referrer.last_name}".strip()
+            self.referrer_mobile_snapshot = self.referrer.mobile_number
+            update_fields = kwargs.get('update_fields')
+            if update_fields is not None:
+                kwargs['update_fields'] = set(update_fields) | {
+                    'referrer_name_snapshot', 'referrer_mobile_snapshot'}
+        super().save(*args, **kwargs)
+
+
 class Measurement(models.Model):
     customer = models.OneToOneField(Customer, on_delete=models.CASCADE, related_name='measurements')
     bust = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)

@@ -45,10 +45,12 @@ from .serializers import (
     FabricSelectionSerializer, TailorSerializer, OrderSerializer,
     BoutiqueDesignSerializer, NotificationSerializer, OrderStageHistorySerializer, BoutiqueSettingsSerializer,
     MeasurementHistorySerializer, CustomerSummarySerializer, OrderSummarySerializer,
-    OrderStageSerializer, CustomerMessageSerializer, GarmentImageSerializer
+    OrderStageSerializer, CustomerMessageSerializer, GarmentImageSerializer,
+    CustomerReferralSerializer,
 )
 from apps.design_studio.models import DesignAsset
 from domains.customers.repositories import CustomerRepository
+from domains.customers.referrals import record_referral
 from domains.customers.services import import_customers
 from domains.orders import drafts
 from domains.orders.messaging import send_customer_message
@@ -148,6 +150,30 @@ class CustomerViewSet(viewsets.ModelViewSet):
             return Response(import_customers(upload, commit=commit))
         except ValidationError as exc:
             return _refused(exc)
+
+    @action(detail=True, methods=['GET', 'POST'], url_path='referrals')
+    def referrals(self, request, pk=None):
+        """GET: the customers this customer referred. POST: record a new one.
+
+        The body describes the referred customer with the customer fields
+        (first_name, last_name, mobile_number, ...) plus an optional `note`.
+        Writes are the Owner's: RolePermission refuses every other role a POST.
+        """
+        referrer = self.get_object()
+        if request.method == 'GET':
+            rows = referrer.referrals_made.select_related('referrer', 'referred', 'created_by')
+            return Response(CustomerReferralSerializer(rows, many=True).data)
+
+        try:
+            result = record_referral(referrer, request.data, user=request.user)
+        except ValidationError as exc:
+            return _refused(exc)
+        return Response({
+            'created': result.created,
+            'name_differs': result.name_differs,
+            'customer': CustomerSerializer(result.referral.referred, context={'request': request}).data,
+            'referral': CustomerReferralSerializer(result.referral).data,
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['GET'], url_path='measurement-history')
     def measurement_history(self, request, pk=None):

@@ -35,6 +35,7 @@ import OrderGarmentBrief from './features/catalog/OrderGarmentBrief';
 import GarmentSummary from './features/catalog/GarmentSummary';
 import { AddCustomerChooser, CustomerForm, DeleteAllCustomersDialog } from './features/customers/AddCustomer';
 import CustomerFilters from './features/customers/CustomerFilters';
+import CustomerReferrals from './features/customers/CustomerReferrals';
 import { EMPTY_CUSTOMER_FILTERS, activeFilterCount, applyCustomerFilters } from './features/customers/filterRules';
 import OrderKanban from './features/orders/OrderKanban';
 import { expressLabel, isExpressOrder } from './features/orders/express';
@@ -5770,6 +5771,14 @@ function App() {
 
                   <div className="at-stack">
                     <StyleProfileCard customer={c} />
+
+                    <CustomerReferrals
+                      customer={c}
+                      canAdd={isOwner}
+                      customers={customersList}
+                      onOpenCustomer={(id) => openDirectoryCustomer({ id })}
+                      onCustomerAdded={() => api.getCustomers().then(setCustomersList).catch(() => {})}
+                    />
 
                     <SectionCard icon={ImageIcon} tone="green" title="Saved Designs & Inspiration">
                       {!c.design_preferences || c.design_preferences.length === 0 ? (
