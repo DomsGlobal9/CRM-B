@@ -1171,6 +1171,66 @@ class DesignerLoginTests(StudioTestCase):
         priya.refresh_from_db()
         self.assertEqual(priya.user_id, existing.id)
 
+    def _grant(self, designer, email):
+        return self.client.post(f'/api/design-studio/designers/{designer.id}/create-login/',
+                                {'email': email}, format='json')
+
+    def test_deleting_a_designer_deletes_their_login(self):
+        priya = self._designer()
+        self._grant(priya, 'priya@studio.test')
+        priya.refresh_from_db()
+        user_id = priya.user_id
+        self.assertEqual(self.client.delete(f'/api/design-studio/designers/{priya.id}/').status_code, 204)
+        self.assertFalse(User.objects.filter(pk=user_id).exists())
+
+    def test_the_address_can_be_given_to_a_new_designer_after_a_delete(self):
+        priya = self._designer()
+        first = self._grant(priya, 'priya@studio.test')
+        self.client.delete(f'/api/design-studio/designers/{priya.id}/')
+
+        again = self._designer('Priya Again')
+        response = self._grant(again, 'priya@studio.test')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertIn('bootstrap_password', response.data)
+        again.refresh_from_db()
+        self.assertTrue(again.user.is_active)
+        self.assertTrue(again.user.check_password(response.data['bootstrap_password']))
+        self.assertFalse(again.user.check_password(first.data['bootstrap_password']))
+
+    def test_a_leftover_login_is_reissued_with_a_new_password(self):
+        from rest_framework.authtoken.models import Token
+        stale = User.objects.create_user(username='priya', email='priya@studio.test',
+                                         password='old-secret-1', is_active=False)
+        old_token = Token.objects.create(user=stale).key
+        priya = self._designer()
+        response = self._grant(priya, 'priya@studio.test')
+        self.assertEqual(response.status_code, 200, response.data)
+        stale.refresh_from_db()
+        self.assertTrue(stale.is_active)
+        self.assertTrue(stale.check_password(response.data['bootstrap_password']))
+        self.assertFalse(stale.check_password('old-secret-1'))
+        self.assertFalse(Token.objects.filter(key=old_token).exists())
+        priya.refresh_from_db()
+        self.assertEqual(priya.user_id, stale.id)
+
+    def test_another_designers_address_is_refused(self):
+        ira = self._designer('Ira Nathan')
+        self._grant(ira, 'ira@studio.test')
+        priya = self._designer()
+        response = self._grant(priya, 'ira@studio.test')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Ira Nathan', str(response.data))
+        priya.refresh_from_db()
+        self.assertIsNone(priya.user_id)
+
+    def test_deleting_a_designer_keeps_a_login_that_is_also_on_the_roster(self):
+        user = User.objects.create_user(username='rekha', email='rekha@studio.test', password='x')
+        Tailor.objects.create(name='Rekha', specialty='Blouses', role='Tailor', user=user)
+        rekha = Designer.objects.create(name='Rekha', email='rekha@studio.test', user=user)
+        self.client.delete(f'/api/design-studio/designers/{rekha.id}/')
+        user.refresh_from_db()
+        self.assertTrue(user.is_active)
+
     def test_login_requires_an_email(self):
         priya = self._designer()
         response = self.client.post(
@@ -1406,5 +1466,4 @@ class DesignerBoundaryTests(StudioTestCase):
 
         self.client.delete(f'/api/design-studio/designers/{designer.id}/')
 
-        user.refresh_from_db()
-        self.assertFalse(user.is_active)
+        self.assertFalse(User.objects.filter(pk=user.pk).exists())
