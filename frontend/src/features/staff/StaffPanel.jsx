@@ -434,20 +434,20 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       if (saved?.bootstrap_password) setCredential(saved);
       const employment = cleaned({ ...termsForm, phone: termsForm.phone || payload.phone });
       const filledIn = Object.keys(employment).some((k) => !['employment_type', 'phone'].includes(k));
+      // Terms hang off the roster row for staff and off the designer record
+      // for a designer (StaffProfile.staff / StaffProfile.designer).
+      const holder = isDesigner ? 'designer' : 'staff';
       let profile = savedTerms;
       if (!profile && filledIn) {
         const rows = await api.getStaffProfiles();
-        profile = (Array.isArray(rows) ? rows : []).find((r) => String(r.staff) === String(saved.id)) || null;
+        profile = (Array.isArray(rows) ? rows : [])
+          .find((r) => r[holder] !== null && String(r[holder]) === String(saved.id)) || null;
       }
       if (profile) {
         await api.updateStaffProfile(profile.id, employment);
         setSavedTerms(profile);
       } else if (filledIn) {
-        try {
-          setSavedTerms(await api.createStaffProfile({ ...employment, staff: saved.id }));
-        } catch (err) {
-          console.warn('Could not save staff profile terms:', err);
-        }
+        setSavedTerms(await api.createStaffProfile({ ...employment, [holder]: saved.id }));
       }
 
       // Documents, one request each, dropped from the queue as they land.
@@ -857,34 +857,39 @@ function Roster({ isOwner, canSeeTeam }) {
     return map;
   }, [deposits]);
 
+  // Employment terms belong to a roster row (`staff`) or to a designer
+  // (`designer`) -- two tables whose ids can collide -- so the key says which.
   const termsByStaff = useMemo(() => {
     const map = new Map();
-    terms.forEach((t) => map.set(String(t.staff), t));
+    terms.forEach((t) => map.set(t.designer ? `designer:${t.designer}` : `staff:${t.staff}`, t));
     return map;
   }, [terms]);
+  const termsFor = useCallback((member) => (member.isDesigner
+    ? termsByStaff.get(`designer:${member.id}`)
+      || (member.staff ? termsByStaff.get(`staff:${member.staff}`) : undefined)
+    : termsByStaff.get(`staff:${member.id}`)), [termsByStaff]);
 
   /** Owners see the roster; a staff member sees only the row their own terms name. */
   const rows = useMemo(() => {
     const source = canSeeTeam
       ? [
-          ...roster.map((person) => ({
-            member: person, terms: termsByStaff.get(String(person.id)),
-          })),
-        
-          ...designers.map((d) => ({
-            member: { ...d, role: 'Designer', isDesigner: true },
-            terms: termsByStaff.get(String(d.id)) || (d.staff ? termsByStaff.get(String(d.staff)) : undefined),
-          })),
+          ...roster.map((person) => ({ member: person, terms: termsFor(person) })),
+          ...designers.map((d) => {
+            const member = { ...d, role: 'Designer', isDesigner: true };
+            return { member, terms: termsFor(member) };
+          }),
         ]
       : terms.map((t) => ({
-          member: { id: t.staff, name: t.staff_name, role: t.staff_role },
+          member: t.designer
+            ? { id: t.designer, name: t.staff_name, role: t.staff_role, isDesigner: true }
+            : { id: t.staff, name: t.staff_name, role: t.staff_role },
           terms: t,
         }));
     const needle = search.trim().toLowerCase();
     if (!needle) return source;
     return source.filter(({ member }) =>
       `${member.name} ${member.role}`.toLowerCase().includes(needle));
-  }, [canSeeTeam, roster, designers, terms, termsByStaff, search]);
+  }, [canSeeTeam, roster, designers, terms, termsFor, search]);
 
   const withTerms = rows.filter((r) => r.terms).length;
 
@@ -940,7 +945,7 @@ function Roster({ isOwner, canSeeTeam }) {
             <StatCard icon={Clock} tone="blue" label="Present today" value={analytics.presentToday}
                       sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'Marked in attendance'} />
             <StatCard icon={Briefcase} tone="violet" label="Pay details added" value={withTerms}
-                      sub={`${withTerms} of ${roster.length}`} />
+                      sub={`${withTerms} of ${roster.length + designers.length}`} />
           </div>
         );
       })()}
@@ -1133,7 +1138,7 @@ function Roster({ isOwner, canSeeTeam }) {
 
                 {showPay && (
                   <td style={cell}>
-                    {t && showsPay(t) ? (
+                    {t && showsPay(t) && !member.isDesigner ? (
                       <>
                         <div>{outstanding > 0 ? money(outstanding) : <span style={{ color: 'var(--text-muted)' }}>None</span>}</div>
                         {outstanding > 0 && <div style={sub}>{advances.length} outstanding</div>}
@@ -1145,7 +1150,7 @@ function Roster({ isOwner, canSeeTeam }) {
                 {isOwner && (
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
-                      {t && showsPay(t) && (
+                      {t && showsPay(t) && !member.isDesigner && (
                         <button type="button" className="btn-secondary at-btn-sm"
                                 onClick={() => setIssuingFor(member)} title="Issue an advance">
                           <Plus size={14} /> Advance
@@ -1241,7 +1246,9 @@ function Roster({ isOwner, canSeeTeam }) {
                 })()
               )}
 
-              {isOwner && t && showsPay(t) && (
+              {/* Advances are paid back out of payroll, which covers the
+                  roster only, so a designer has no advances section. */}
+              {isOwner && t && showsPay(t) && !member.isDesigner && (
                 <div style={{
                   marginTop: '12px', paddingTop: '12px',
                   borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))',
@@ -1324,7 +1331,7 @@ function Roster({ isOwner, canSeeTeam }) {
       {person && (
         <AddStaffForm
           member={person}
-          terms={termsByStaff.get(String(person.id))}
+          terms={termsFor(person)}
           onCancel={() => setPerson(null)}
           onSaved={refresh}
           customRoles={rosterRoles}

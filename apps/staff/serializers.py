@@ -68,13 +68,15 @@ class StaffProfileSerializer(serializers.ModelSerializer):
     #: Read-only passengers from the roster, so a staff row renders without a
     #: second request. They are the Tailor's own public fields; nothing
     #: confidential travels this way.
-    staff_name = serializers.CharField(source='staff.name', read_only=True)
-    staff_role = serializers.CharField(source='staff.role', read_only=True)
+    #: Method fields rather than source='staff.name': a designer's terms have
+    #: no `staff`, and that spelling would render null for every one of them.
+    staff_name = serializers.SerializerMethodField()
+    staff_role = serializers.SerializerMethodField()
 
     class Meta:
         model = StaffProfile
         fields = [
-            'id', 'staff', 'staff_name', 'staff_role',
+            'id', 'staff', 'designer', 'staff_name', 'staff_role',
             'employment_type', 'joined_at', 'exit_date',
             'hourly_rate', 'weekly_hours',
             'deposit_total', 'deposit_weekly',
@@ -82,6 +84,15 @@ class StaffProfileSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_staff_name(self, instance):
+        holder = instance.holder
+        return holder.name if holder else ''
+
+    def get_staff_role(self, instance):
+        if instance.staff_id:
+            return instance.staff.role
+        return 'Designer' if instance.designer_id else ''
 
     def validate_phone(self, value):
         return validate_mobile(value)
@@ -146,6 +157,9 @@ class StaffProfileSerializer(serializers.ModelSerializer):
         viewer = getattr(request.user, 'tailor_profile', None)
         if viewer is not None and instance.staff_id == viewer.id:
             return data
+        designer = getattr(request.user, 'designer_profile', None)
+        if designer is not None and instance.designer_id == designer.id:
+            return data
 
         for field in CONFIDENTIAL_FIELDS:
             data.pop(field, None)
@@ -159,6 +173,16 @@ class StaffProfileSerializer(serializers.ModelSerializer):
         stored -- validating the payload alone would let the two fields be made
         inconsistent one request at a time.
         """
+        # Exactly one holder, refused here as well as by the constraint: the
+        # database check is the guarantee, this turns it into a 400 with a
+        # sentence instead of a 500 with an IntegrityError.
+        staff = attrs.get('staff', getattr(self.instance, 'staff', None))
+        designer = attrs.get('designer', getattr(self.instance, 'designer', None))
+        if bool(staff) == bool(designer):
+            raise serializers.ValidationError(
+                'Employment terms belong to exactly one person: send either '
+                'staff or designer, not both and not neither.')
+
         joined = attrs.get('joined_at', getattr(self.instance, 'joined_at', None))
         exited = attrs.get('exit_date', getattr(self.instance, 'exit_date', None))
         if joined and exited and exited < joined:
