@@ -47,7 +47,7 @@ const DEFAULT_UNIT = {
 };
 
 function Field({ field, value, error, onChange, inventory, quantity, quantityError, onQuantityChange,
-                 source, brought, onSourceChange, onBroughtChange, purchase, onPurchaseChange }) {
+  source, brought, onSourceChange, onBroughtChange, purchase, onPurchaseChange }) {
   const common = {
     className: 'form-control',
     id: `tf-${field.key}`,
@@ -113,7 +113,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       control = (
         <>
           <select {...common} value={buying ? BUY_OPTION : typed ? OTHER_PREFIX : (value ?? '')}
-                  onChange={(e) => pick(e.target.value)}>
+            onChange={(e) => pick(e.target.value)}>
             <option value="">Select</option>
             {field.options.map((option) => (
               <option key={option.value} value={option.value}>
@@ -125,16 +125,16 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
           </select>
           {typed && !buying && (
             <input className="form-control" type="text" style={{ marginTop: '8px' }} autoFocus
-                   maxLength={OTHER_MAX_LENGTH} value={typedOtherText(value)}
-                   placeholder={`Type the ${field.label.toLowerCase()} you want`}
-                   onChange={(e) => onChange(field.key, OTHER_PREFIX + e.target.value)} />
+              maxLength={OTHER_MAX_LENGTH} value={typedOtherText(value)}
+              placeholder={`Type the ${field.label.toLowerCase()} you want`}
+              onChange={(e) => onChange(field.key, OTHER_PREFIX + e.target.value)} />
           )}
           {buying && (
             <div style={{ marginTop: '8px', padding: '12px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--surface-2)' }}>
               <input className="form-control" type="text" autoFocus maxLength={OTHER_MAX_LENGTH}
-                     placeholder={`What do you need? e.g. the ${field.label.toLowerCase()} the customer asked for`}
-                     aria-label={`What to buy for ${field.label}`} value={purchase.name || ''}
-                     onChange={(e) => { onChange(field.key, OTHER_PREFIX + e.target.value); onPurchaseChange(field.key, { ...purchase, name: e.target.value }); }} />
+                placeholder={`What do you need? e.g. the ${field.label.toLowerCase()} the customer asked for`}
+                aria-label={`What to buy for ${field.label}`} value={purchase.name || ''}
+                onChange={(e) => { onChange(field.key, OTHER_PREFIX + e.target.value); onPurchaseChange(field.key, { ...purchase, name: e.target.value }); }} />
               <div style={{ marginTop: '8px' }}>
                 <PurchaseDetails row={purchase} onChange={(next) => onPurchaseChange(field.key, next)} />
               </div>
@@ -212,7 +212,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
           ))}
         </div>
       );
-     
+
       control = toBuy ? (
         <>
           {sourceToggle}
@@ -394,7 +394,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       control = (
         <>
           <input className="form-control" id={`tf-${field.key}`} type="file" accept="image/*"
-                 multiple={field.is_repeatable} onChange={upload} />
+            multiple={field.is_repeatable} onChange={upload} />
           <div style={{ marginTop: '6px' }}>
             <CameraButton multiple={field.is_repeatable} onFiles={(files) => upload({ target: { files, value: '' } })} />
           </div>
@@ -438,10 +438,10 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
 export default function TemplateForm({
   template, section, values, errors = {}, onChange,
   only = null,
-  quantities = {}, quantityErrors = {}, onQuantityChange = () => {},
+  quantities = {}, quantityErrors = {}, onQuantityChange = () => { },
   sources = {}, brought = {}, defaultSource = 'STORE',
-  onSourceChange = () => {}, onBroughtChange = () => {},
-  purchases = [], onPurchaseChange = () => {},
+  onSourceChange = () => { }, onBroughtChange = () => { },
+  purchases = [], onPurchaseChange = () => { },
   onGoToInventory = null,
 }) {
   const definition = getSection(template, section);
@@ -464,7 +464,7 @@ export default function TemplateForm({
     && inventoryCategories.every((c) => (inventory[c] || []).length === 0);
 
   const handleChange = (key, value) => {
-    
+
     onChange(pruneHidden(template, { ...values, [key]: value }));
   };
 
@@ -477,14 +477,6 @@ export default function TemplateForm({
       </div>
     );
   }
-
-  const groupedFields = isMeasurements
-    ? (definition?.fields || [])
-        .filter((f) => f.field_type !== 'file')
-        .filter((f) => (only ? only(f) : true))
-        .filter((f) => isVisible(f, values))
-        .filter((f) => f.validation?.group)
-    : [];
 
   return (
     <div>
@@ -504,63 +496,26 @@ export default function TemplateForm({
         </div>
       )}
       <div className="form-grid-2">
-      {fields.map((field) => (
-        <Field
-          key={field.key}
-          field={field}
-          value={values[field.key]}
-          error={errors[field.key]}
-          onChange={handleChange}
-          inventory={inventory}
-          quantity={quantities[field.key]}
-          quantityError={quantityErrors[field.key]}
-          onQuantityChange={onQuantityChange}
-          source={sources[field.key] || defaultSource}
-          brought={brought[field.key] || {}}
-          onSourceChange={onSourceChange}
-          onBroughtChange={onBroughtChange}
-          purchase={purchases.find((r) => r.field_key === field.key) || null}
-          onPurchaseChange={onPurchaseChange}
-        />
-      ))}
+        {fields.map((field) => (
+          <Field
+            key={field.key}
+            field={field}
+            value={values[field.key]}
+            error={errors[field.key]}
+            onChange={handleChange}
+            inventory={inventory}
+            quantity={quantities[field.key]}
+            quantityError={quantityErrors[field.key]}
+            onQuantityChange={onQuantityChange}
+            source={sources[field.key] || defaultSource}
+            brought={brought[field.key] || {}}
+            onSourceChange={onSourceChange}
+            onBroughtChange={onBroughtChange}
+            purchase={purchases.find((r) => r.field_key === field.key) || null}
+            onPurchaseChange={onPurchaseChange}
+          />
+        ))}
       </div>
-
-      {groupedFields.length > 0 && (
-        <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px dashed var(--border-color, #e5e7eb)' }}>
-          <details style={{ cursor: 'pointer' }}>
-            <summary style={{
-              fontSize: '13px',
-              fontWeight: 500,
-              color: 'var(--primary-color, #4f46e5)',
-              userSelect: 'none',
-              padding: '4px 0',
-            }}>
-              + Additional Measurements <span className="od-hint" style={{ fontWeight: 'normal' }}>(optional)</span>
-            </summary>
-            <div className="form-grid-2" style={{ marginTop: '12px' }}>
-              {groupedFields.map((field) => (
-                <Field
-                  key={field.key}
-                  field={field}
-                  value={values[field.key]}
-                  error={errors[field.key]}
-                  onChange={handleChange}
-                  inventory={inventory}
-                  quantity={quantities[field.key]}
-                  quantityError={quantityErrors[field.key]}
-                  onQuantityChange={onQuantityChange}
-                  source={sources[field.key] || defaultSource}
-                  brought={brought[field.key] || {}}
-                  onSourceChange={onSourceChange}
-                  onBroughtChange={onBroughtChange}
-                  purchase={purchases.find((r) => r.field_key === field.key) || null}
-                  onPurchaseChange={onPurchaseChange}
-                />
-              ))}
-            </div>
-          </details>
-        </div>
-      )}
     </div>
   );
 }
