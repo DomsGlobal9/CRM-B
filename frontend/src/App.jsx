@@ -1387,6 +1387,7 @@ const navSectionsFor = (user, t) => {
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
         { tab: 'designs', icon: Palette, label: t('nav.designStudio'), phone: true },
+        { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
       ] },
     ] : [
       { key: 'production', items: [

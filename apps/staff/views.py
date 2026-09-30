@@ -181,7 +181,44 @@ class StaffProfileViewSet(viewsets.ModelViewSet):
 
 def _staff_for(user):
     """The roster row this login belongs to, or None."""
-    return getattr(user, 'tailor_profile', None)
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return None
+    profile = getattr(user, 'tailor_profile', None)
+    if profile is not None:
+        return profile
+    tailor = Tailor.objects.filter(user=user).first()
+    if tailor is not None:
+        return tailor
+
+    designer = getattr(user, 'designer_profile', None)
+    if designer is not None:
+        if getattr(designer, 'staff', None):
+            return designer.staff
+        if user.email:
+            tailor_by_email = Tailor.objects.filter(email__iexact=user.email).first()
+            if tailor_by_email:
+                if tailor_by_email.user is None and not Tailor.objects.filter(user=user).exists():
+                    try:
+                        tailor_by_email.user = user
+                        tailor_by_email.save(update_fields=['user'])
+                    except Exception:
+                        pass
+                return tailor_by_email
+        try:
+            name = designer.name or user.get_full_name() or user.email or user.username
+            already_has_tailor = Tailor.objects.filter(user=user).exists()
+            new_tailor = Tailor.objects.create(
+                name=name,
+                role='Tailor',
+                email=user.email or f"designer_{designer.id}@boutique.local",
+                user=user if not already_has_tailor else None,
+            )
+            designer.staff = new_tailor
+            designer.save(update_fields=['staff'])
+            return new_tailor
+        except Exception:
+            return Tailor.objects.filter(user=user).first() or Tailor.objects.filter(email__iexact=user.email).first()
+    return None
 
 
 def _is_owner(user):
