@@ -3229,11 +3229,8 @@ function App() {
   const colourFilteredFabrics = React.useMemo(() => {
     const q = fabricColorQuery.trim().toLowerCase();
     if (!q) return fabrics;
-    const chosen = new Set(
-      Object.values(fabricSelection).flatMap(bySlot => Object.values(bySlot).flat()));
-    return fabrics.filter(f =>
-      fabricMatchesColour(f, q) || chosen.has(String(f.id)));
-  }, [fabrics, fabricColorQuery, fabricSelection]);
+    return fabrics.filter(f => fabricMatchesColour(f, q));
+  }, [fabrics, fabricColorQuery]);
 
   
   const partReferences = React.useMemo(
