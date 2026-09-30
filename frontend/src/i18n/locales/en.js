@@ -44,6 +44,8 @@ const en = {
     designWork: "Design requests",
     myAssignments: "My work",
     myWork: "My work",
+    toCheck: "To check",
+    doneWork: "Done",
     designStudio: "Design Studio",
     account: "My Profile",
     staffManagement: "Staff",
