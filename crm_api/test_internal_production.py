@@ -8,7 +8,9 @@ from django_tenants.test.cases import TenantTestCase
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from apps.catalog.models import GarmentJob, GarmentTemplate
+from apps.catalog.models import (
+    GarmentJob, GarmentTemplate, TemplateField, TemplateFieldOption, TemplateSection,
+)
 from apps.design_studio.models import DesignAsset
 from apps.inventory.models import Category, InventoryItem, StockMovement
 from apps.production.models import ProductionTask
@@ -370,6 +372,18 @@ class InternalProductionDesignAndFabricTests(TenantTestCase):
             email='owner@internal-material.test', password='x')
         self.blouse = GarmentTemplate.objects.create(
             key='blouse', name='Blouse', version=1, sequence=0)
+        # A real section and field, so the template's own rules are what the
+        # run's spec is validated against.
+        style = TemplateSection.objects.create(
+            template=self.blouse, key='style', title='Style', sequence=0)
+        sleeve = TemplateField.objects.create(
+            section=style, key='sleeve_style', label='Sleeve', field_type='select', sequence=0)
+        TemplateFieldOption.objects.create(field=sleeve, value='cap', label='Cap', sequence=0)
+        measurements = TemplateSection.objects.create(
+            template=self.blouse, key='measurements', title='Measurements', sequence=1)
+        TemplateField.objects.create(
+            section=measurements, key='bust', label='Bust', field_type='number',
+            unit='in', sequence=0)
         self.silk = self.stocked('FAB-SLK-001', 'Emerald Silk', 20)
         self.design = DesignAsset.objects.create(
             title='Peacock Blouse', source=DesignAsset.SOURCE_CATALOGUE,
@@ -385,16 +399,33 @@ class InternalProductionDesignAndFabricTests(TenantTestCase):
         item.refresh_from_db()
         return item
 
-    def make_run(self, **extra):
+    def run_with(self, garment=None, **extra):
         return create_internal_production(
-            {'template': str(self.blouse.pk), 'quantity': 3, **extra}, user=self.owner)
+            {'template': str(self.blouse.pk), 'quantity': 3,
+             'garment': garment or {}, **extra}, user=self.owner)
+
+    def fabric_garment(self, quantity='2.5', **extra):
+        """The garment as the configurator hands it over: the roll on a slot,
+        how much of it, and the material line that carries it."""
+        slot = 'MAIN_FABRIC'
+        return {
+            'fabrics': {slot: [str(self.silk.pk)]},
+            'fabric_qty': {f'{slot}:{self.silk.pk}': float(quantity)},
+            'materials': [{'field_key': slot, 'inventory_item': str(self.silk.pk),
+                           'source': 'STORE', 'quantity': quantity}],
+            **extra,
+        }
+
+    def design_garment(self):
+        return {'design': {'parts': {'overall': {
+            'id': str(self.design.pk), 'image_url': self.design.image_url,
+            'design_title': self.design.title, 'part_label': 'Design'}}}}
 
     def test_the_design_is_saved_on_every_garment(self):
-        order = self.make_run(design=str(self.design.pk))
+        order = self.run_with(self.design_garment())
         jobs = list(order.garment_jobs.all())
         self.assertEqual(len(jobs), 3)
         for job in jobs:
-            self.assertEqual(job.selections['design_asset_id'], str(self.design.pk))
             # The shape GarmentSelectionsReview reads: the photograph chosen
             # for a part of the garment, keyed by that part.
             chosen = job.selections['design']['parts']['overall']
@@ -405,7 +436,7 @@ class InternalProductionDesignAndFabricTests(TenantTestCase):
     def test_the_fabric_is_saved_as_a_material_line_on_every_garment(self):
         from apps.catalog.models import JobMaterial
 
-        order = self.make_run(fabric=str(self.silk.pk), fabric_quantity='2.5')
+        order = self.run_with(self.fabric_garment())
         lines = JobMaterial.objects.filter(job__order=order)
         self.assertEqual(lines.count(), 3)
         for line in lines:
@@ -420,7 +451,7 @@ class InternalProductionDesignAndFabricTests(TenantTestCase):
     def test_the_fabric_is_reserved_the_moment_the_run_starts(self):
         from apps.inventory.models import OrderMaterialPlan
 
-        order = self.make_run(fabric=str(self.silk.pk), fabric_quantity='2.5')
+        order = self.run_with(self.fabric_garment())
         self.silk.refresh_from_db()
         self.assertEqual(self.silk.reserved_stock, Decimal('7.500'))
         self.assertEqual(self.silk.current_stock, Decimal('20.000'))
@@ -431,29 +462,35 @@ class InternalProductionDesignAndFabricTests(TenantTestCase):
     def test_a_run_with_no_fabric_reserves_nothing(self):
         from apps.catalog.models import JobMaterial
 
-        order = self.make_run()
+        order = self.run_with()
         self.silk.refresh_from_db()
         self.assertEqual(self.silk.reserved_stock, Decimal('0.000'))
         self.assertFalse(JobMaterial.objects.filter(job__order=order).exists())
         self.assertEqual(order.garment_jobs.count(), 3)
 
-    def test_a_design_or_fabric_that_does_not_exist_is_refused(self):
-        for body, message in (
-            ({'design': '00000000-0000-0000-0000-000000000000'}, 'design'),
-            ({'design': 'not-an-id'}, 'design'),
-            ({'fabric': '00000000-0000-0000-0000-000000000000'}, 'fabric'),
-            ({'fabric': str(self.silk.pk), 'fabric_quantity': '0'}, 'how much fabric'),
-            ({'fabric': str(self.silk.pk), 'fabric_quantity': 'lots'}, 'must be a number'),
-        ):
-            with self.subTest(body=body):
-                with self.assertRaises(ValueError) as caught:
-                    self.make_run(**body)
-                self.assertIn(message, str(caught.exception))
+    def test_a_fabric_that_does_not_exist_is_refused_and_nothing_is_created(self):
+        garment = {'materials': [{'field_key': 'MAIN_FABRIC', 'source': 'STORE',
+                                  'inventory_item': '00000000-0000-0000-0000-000000000000',
+                                  'quantity': '2'}]}
+        with self.assertRaises(ValueError):
+            self.run_with(garment)
         self.assertFalse(Order.objects.filter(kind=Order.KIND_INTERNAL).exists())
 
+    def test_a_spec_the_template_refuses_is_refused(self):
+        with self.assertRaises(ValueError):
+            self.run_with({'spec': {'sleeve_style': 'not-an-option'}})
+        self.assertFalse(Order.objects.filter(kind=Order.KIND_INTERNAL).exists())
+
+    def test_the_configured_spec_and_measurements_land_in_their_own_columns(self):
+        order = self.run_with({'spec': {'sleeve_style': 'cap'},
+                               'measurements': {'bust': 36}})
+        for job in order.garment_jobs.all():
+            self.assertEqual(job.spec['sleeve_style'], 'cap')
+            self.assertEqual(float(job.measurements['bust']), 36.0)
+            self.assertEqual(job.template_version, self.blouse.version)
+
     def test_the_run_still_finishes_into_stock_with_a_design_and_fabric(self):
-        order = self.make_run(design=str(self.design.pk),
-                              fabric=str(self.silk.pk), fabric_quantity='2')
+        order = self.run_with({**self.fabric_garment('2'), **self.design_garment()})
         config = BoutiqueSettings.objects.get(id=1).workflow_config
         optional = {s['key']: s.get('optional', False) for s in config}
         for stage in list(order.stages.all().order_by('sequence', 'id')):

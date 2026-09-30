@@ -17,6 +17,16 @@ from apps.inventory.services import InventoryService
 RECEIPT_REMARK = 'Finished in boutique production {reference}'
 
 
+def _design_id(job):
+    """The design this garment was made to, out of the parts it was configured
+    with: the whole-garment one where there is one, else the first part that
+    names a design."""
+    parts = ((job.selections or {}).get('design') or {}).get('parts') or {}
+    chosen = parts.get('overall') or next(
+        (p for p in parts.values() if isinstance(p, dict) and p.get('id')), None)
+    return (chosen or {}).get('id') or None
+
+
 def _item_for(job):
     """The stock line this finished garment belongs on, created on first use.
 
@@ -32,8 +42,7 @@ def _item_for(job):
     item = InventoryItem.objects.filter(item_code=code).first()
     if item is not None:
         return item
-    design_id = (job.selections or {}).get('design_asset_id')
-    design = DesignAsset.objects.filter(pk=design_id).first() if design_id else None
+    design = DesignAsset.objects.filter(pk=_design_id(job)).first()
     return InventoryItem.objects.create(
         item_code=code, name=template.name, category=Category.FINISHED,
         unit=Unit.PIECE, design_asset=design)

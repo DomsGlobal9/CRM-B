@@ -213,90 +213,36 @@ def _next_internal_number():
     return highest + 1
 
 
-def primary_fabric_slot(template):
-    """The slot a garment's main cloth goes on, from the fabric taxonomy."""
-    from crm_api.fabric_taxonomy import GARMENTS
+def _internal_job(order, template, sequence, garment, user):
+    """One physical garment of the run, written the way Confirm writes one.
 
-    sections = (GARMENTS.get(template.key) or {}).get('sections') or {}
-    for slots in sections.values():
-        if slots:
-            return slots[0]
-    return 'MAIN_FABRIC'
-
-
-def _internal_design(design_id):
-    from apps.design_studio.models import DesignAsset
-
-    if not design_id:
-        return None
-    try:
-        design = DesignAsset.objects.filter(pk=design_id).first()
-    except (DjangoValidationError, ValueError, TypeError):
-        design = None
-    if design is None:
-        raise ValueError('That design is not in the library.')
-    return design
-
-
-def _internal_fabric(fabric_id, quantity):
-    from apps.inventory.models import InventoryItem
-
-    if not fabric_id:
-        return None, None
-    try:
-        fabric = InventoryItem.objects.filter(pk=fabric_id).first()
-    except (DjangoValidationError, ValueError, TypeError):
-        fabric = None
-    if fabric is None:
-        raise ValueError('That fabric is not in the inventory.')
-    try:
-        per_garment = Decimal(str(quantity)) if quantity not in (None, '') else Decimal('1')
-    except (InvalidOperation, TypeError, ValueError):
-        raise ValueError('Fabric quantity must be a number.')
-    if per_garment <= 0:
-        raise ValueError('Enter how much fabric each garment takes.')
-    return fabric, per_garment
-
-
-def _internal_draft(design, fabric, quantity, slot):
-    """The run's choices in the shape the order wizard's draft uses, so the
-    selections on the job read the same either way."""
-    if design is None and fabric is None:
-        return {}
-    draft = {}
-    if design is not None:
-        # `parts`, not `items`: the stage panel reads the chosen photograph per
-        # part of the garment. One design for the whole garment is the
-        # `overall` part, the same part an uploaded photograph files under.
-        draft['design'] = {
-            'parts': {
-                'overall': {
-                    'id': str(design.pk),
-                    'image_url': design.image_url or '',
-                    'design_title': design.title,
-                    'part_label': 'Design',
-                },
-            },
-            'design_asset_id': str(design.pk),
-        }
-    if fabric is not None:
-        draft['fabrics'] = {slot: [str(fabric.pk)]}
-        draft['fabric_qty'] = {f'{slot}:{fabric.pk}': float(quantity)}
-    return draft
-
-
-def _internal_selections(draft, template):
-    """Resolved through the wizard's own reader, so the workroom panel shows a
-    run's design and cloth the way it shows a customer order's."""
+    Straight through GarmentJobSerializer -- so the template's own rules
+    validate the spec, and the measurements land in their own column -- and
+    then through the wizard's own reader for the design and cloth it was
+    configured with.
+    """
+    from apps.catalog.serializers import GarmentJobSerializer
     from crm_api.views import _selections_from_draft
+    from domains.orders.drafts import first_error
 
-    if not draft:
-        return {}
-    selections = _selections_from_draft(draft, template)
-    asset_id = (draft.get('design') or {}).get('design_asset_id')
-    if asset_id:
-        selections['design_asset_id'] = asset_id
-    return selections
+    known = {f.key for sec in template.sections.all() for f in sec.fields.all()}
+    serializer = GarmentJobSerializer(data={
+        'order': order.id,
+        'template': str(template.id),
+        'spec': {k: v for k, v in (garment.get('spec') or {}).items() if k in known},
+        'measurements': {k: v for k, v in (garment.get('measurements') or {}).items() if k in known},
+        'materials': garment.get('materials') or [],
+    })
+    if not serializer.is_valid():
+        raise ValueError(first_error(serializer.errors))
+    job = serializer.save(sequence=sequence)
+    job.selections = _selections_from_draft(garment, template)
+    job.save(update_fields=['selections'])
+
+    from crm_api.views import _record_order_purchases
+    _record_order_purchases(order, job, garment.get('materials') or [], user,
+                            garment.get('purchases') or [])
+    return job
 
 
 def create_internal_production(data, user=None):
@@ -308,11 +254,12 @@ def create_internal_production(data, user=None):
     are created because a GarmentJob is one physical garment; five sarees are
     five jobs, each cut and stitched on its own.
 
-    data: template (GarmentTemplate id, required), design (DesignAsset id),
-    fabric (InventoryItem id), fabric_quantity (per garment), quantity, flow,
-    tailor_id, master_id, notes, priority, ready_by, spec.
+    data: template (GarmentTemplate id, required), quantity, flow, tailor_id,
+    master_id, notes, priority, ready_by, and `garment` -- the configured
+    garment in the shape an order draft carries one (spec, measurements,
+    design, fabrics, fabric_qty, materials).
     """
-    from apps.catalog.models import GarmentJob, GarmentTemplate, JobMaterial
+    from apps.catalog.models import GarmentTemplate
 
     try:
         template = GarmentTemplate.objects.filter(pk=data.get('template')).first()
@@ -321,8 +268,8 @@ def create_internal_production(data, user=None):
     if template is None:
         raise ValueError('Choose what the boutique is making.')
 
-    design = _internal_design(data.get('design'))
-    fabric, fabric_quantity = _internal_fabric(data.get('fabric'), data.get('fabric_quantity'))
+    garment = data.get('garment')
+    garment = garment if isinstance(garment, dict) else {}
 
     # `or 1` would read a typed 0 as "one of them"; an empty box means one,
     # a zero means the person has not said how many yet.
@@ -376,26 +323,15 @@ def create_internal_production(data, user=None):
             production_status='IN_PROGRESS',
         )
 
-        slot = primary_fabric_slot(template)
-        draft = _internal_draft(design, fabric, fabric_quantity, slot)
         for sequence in range(quantity):
-            job = GarmentJob.objects.create(
-                order=order, template=template, template_version=template.version,
-                spec=data.get('spec') or {}, sequence=sequence)
-            job.selections = _internal_selections(draft, template)
-            job.save(update_fields=['selections'])
-            if fabric is not None:
-                JobMaterial.objects.create(
-                    job=job, field_key=slot, inventory_item=fabric,
-                    quantity=fabric_quantity, unit=fabric.unit,
-                    source=JobMaterial.Source.STORE)
+            _internal_job(order, template, sequence, garment, user)
 
         seed_workflow(order, config, tailor, master, priority=priority)
         ensure_garment_stages(order)
 
         # The cloth is spoken for the moment the run is started, exactly as it
         # is when a customer's order is confirmed.
-        if fabric is not None:
+        if garment.get('materials'):
             from apps.inventory import order_materials
             order_materials.sync_order_materials(order, 'created', 'COMPLETED', user=user)
 
