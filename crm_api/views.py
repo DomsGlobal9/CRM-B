@@ -362,6 +362,31 @@ class CustomerViewSet(viewsets.ModelViewSet):
         serializer = OrderSerializer(order, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+def issue_new_password(user, name):
+    """Replace a staff login's password with a generated one.
+
+    Returns (data, None) with the new password, or (None, reason) when the
+    person has no login or the login is the owner's own account.
+    """
+    if user is None:
+        return None, (f'{name} has no login yet. Add an email address '
+                      'with Edit to create one.')
+    from django.db import connection as _conn
+    owner = (getattr(_conn.tenant, 'owner_email', '') or '').lower()
+    if user.is_superuser or (owner and (user.email or '').lower() == owner):
+        return None, "This login is the boutique owner's account and cannot be reset here."
+    bootstrap = secrets.token_urlsafe(9)
+    user.set_password(bootstrap)
+    user.save(update_fields=['password'])
+    Token.objects.filter(user=user).delete()
+    return {
+        'name': name,
+        'email': user.email,
+        'username': user.username,
+        'bootstrap_password': bootstrap,
+    }, None
+
+
 class TailorViewSet(viewsets.ModelViewSet):
     queryset = Tailor.objects.all().order_by('-rating')
     serializer_class = TailorSerializer
@@ -532,6 +557,23 @@ class TailorViewSet(viewsets.ModelViewSet):
             if tailor.user != user:
                 tailor.user = user
                 tailor.save()
+
+    @action(detail=True, methods=['POST'], url_path='reset-password')
+    def reset_password(self, request, pk=None):
+        """Issue a fresh password for a staff member who has forgotten theirs.
+
+        Owner only. The old password stops working and every session signed
+        in with it is ended; the new one is returned once, like the password
+        printed when the account was created.
+        """
+        if resolve_user_role(request.user) != OWNER:
+            return Response({'detail': 'Only the boutique owner can reset a staff password.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        tailor = self.get_object()
+        data, error = issue_new_password(tailor.user, tailor.name)
+        if error:
+            return Response({'detail': error}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(data, status=status.HTTP_200_OK)
 
     @staticmethod
     def _unique_username(base, exclude_pk=None):
