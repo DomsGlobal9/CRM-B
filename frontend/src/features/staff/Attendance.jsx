@@ -178,69 +178,86 @@ function MyDay({ onChanged }) {
 
       <div style={{
         fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
-        color: 'var(--text-muted)', marginBottom: '10px',
+        color: 'var(--text-muted)', marginBottom: '12px',
       }}>
         Today
       </div>
 
       {state.state === 'NOT_CHECKED_IN' && (
-        <>
-          <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '14px' }}>
-            Not checked in
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>
+              Not checked in
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Click to record your attendance for today
+            </div>
           </div>
           <button
             type="button" className="btn-primary" disabled={busy}
             onClick={() => act(() => api.checkIn())}
-            style={{ width: '100%', minHeight: '48px', fontSize: '16px',
-                     display: 'inline-flex', alignItems: 'center',
-                     justifyContent: 'center', gap: '8px' }}
+            style={{
+              padding: '9px 20px', fontSize: '14px', fontWeight: 600,
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '8px'
+            }}
           >
-            <LogIn size={18} /> {busy ? 'Checking in…' : 'Check in'}
+            <LogIn size={16} /> {busy ? 'Checking in…' : 'Check in'}
           </button>
-        </>
+        </div>
       )}
 
       {state.state === 'WORKING' && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span style={{ width: '9px', height: '9px', borderRadius: '50%',
-                           background: '#2ec4b6', display: 'inline-block' }} />
-            <span style={{ fontSize: '18px', fontWeight: 600 }}>You&rsquo;re checked in</span>
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
-            Since {clockText(session.check_in)} · {hoursText(elapsed)} so far
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ width: '9px', height: '9px', borderRadius: '50%',
+                             background: '#2ec4b6', display: 'inline-block' }} />
+              <span style={{ fontSize: '18px', fontWeight: 600 }}>You&rsquo;re checked in</span>
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Since {clockText(session.check_in)} · {hoursText(elapsed)} so far
+            </div>
           </div>
           <button
             type="button" className="btn-primary" disabled={busy}
             onClick={() => act(() => api.checkOut())}
-            style={{ width: '100%', minHeight: '48px', fontSize: '16px',
-                     display: 'inline-flex', alignItems: 'center',
-                     justifyContent: 'center', gap: '8px' }}
+            style={{
+              padding: '9px 20px', fontSize: '14px', fontWeight: 600,
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#ffffff',
+              boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
+              border: '1px solid #dc2626'
+            }}
           >
-            <LogOut size={18} /> {busy ? 'Checking out…' : 'Check out'}
+            <LogOut size={16} /> {busy ? 'Checking out…' : 'Check out'}
           </button>
-        </>
+        </div>
       )}
 
       {state.state === 'CHECKED_OUT' && (
-        <>
-          <div style={{ fontSize: '18px', fontWeight: 600 }}>
-            {clockText(session.check_in)} → {clockText(session.check_out)}
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px',
-                        marginBottom: '14px' }}>
-            {hoursText(state.today_minutes)} today
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>
+              {clockText(session.check_in)} → {clockText(session.check_out)}
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              {hoursText(state.today_minutes)} today
+            </div>
           </div>
           <button
             type="button" className="btn-secondary" disabled={busy}
             onClick={() => act(() => api.checkIn())}
-            style={{ width: '100%', minHeight: '44px',
-                     display: 'inline-flex', alignItems: 'center',
-                     justifyContent: 'center', gap: '8px' }}
+            style={{
+              padding: '9px 20px', fontSize: '14px', fontWeight: 600,
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '8px'
+            }}
           >
             <LogIn size={16} /> Start another session
           </button>
-        </>
+        </div>
       )}
     </div>
   );
@@ -822,6 +839,238 @@ function MusterGrid({ isOwner, roster, sessions, dayMarks, since, until, onChang
   );
 }
 
+function MonthlyAttendanceLogs({ reloadKey }) {
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [filterText, setFilterText] = useState('');
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const fetchMonthData = async () => {
+      setLoading(true);
+      try {
+        const [yearStr, monthStr] = selectedMonth.split('-');
+        const year = parseInt(yearStr, 10);
+        const month = parseInt(monthStr, 10);
+        const since = `${yearStr}-${monthStr}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const until = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+
+        const res = await api.getAttendance({ since, until }).catch(() => []);
+        if (!active) return;
+
+        const sessionsList = Array.isArray(res) ? res : (res?.results || []);
+        
+        const sessionsByDate = new Map();
+        sessionsList.forEach((s) => {
+          const dStr = s.date || (s.check_in ? s.check_in.slice(0, 10) : '');
+          if (dStr) {
+            const list = sessionsByDate.get(dStr) || [];
+            list.push(s);
+            sessionsByDate.set(dStr, list);
+          }
+        });
+
+        const todayStr = localISO(new Date());
+        const rows = [];
+
+        for (let day = 1; day <= lastDay; day++) {
+          const dayStr = String(day).padStart(2, '0');
+          const isoDate = `${yearStr}-${monthStr}-${dayStr}`;
+          if (isoDate > todayStr) break;
+
+          const daySessions = sessionsByDate.get(isoDate) || [];
+          const dateFormatted = `${dayStr}-${monthStr}-${yearStr}`;
+
+          if (daySessions.length > 0) {
+            daySessions.forEach((s) => {
+              const formatTime = (iso) => {
+                if (!iso) return '';
+                const d = new Date(iso);
+                return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+              };
+
+              const checkInTime = formatTime(s.check_in);
+              const checkOutTime = s.check_out ? formatTime(s.check_out) : '';
+              const isWFH = (s.note && s.note.toLowerCase().includes('wfh')) || (s.reason && s.reason.toLowerCase().includes('wfh'));
+
+              rows.push({
+                id: s.id || `${isoDate}-${Math.random()}`,
+                date: dateFormatted,
+                isoDate,
+                status: isWFH ? 'WFH' : 'Present',
+                entry: checkInTime,
+                exit: checkOutTime,
+                remarks: s.note || (isWFH ? 'WFH (approved)' : ''),
+              });
+            });
+          } else {
+            const dObj = new Date(year, month - 1, day);
+            const isWeekend = dObj.getDay() === 0 || dObj.getDay() === 6;
+            if (!isWeekend) {
+              rows.push({
+                id: isoDate,
+                date: dateFormatted,
+                isoDate,
+                status: 'Absent',
+                entry: '',
+                exit: '',
+                remarks: '',
+              });
+            }
+          }
+        }
+
+        setLogs(rows);
+      } catch (err) {
+        console.error('Failed to fetch month logs', err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchMonthData();
+    return () => { active = false; };
+  }, [selectedMonth, reloadKey]);
+
+  const presentCount = logs.filter((l) => l.status === 'Present').length;
+  const wfhCount = logs.filter((l) => l.status === 'WFH').length;
+
+  const filteredLogs = logs.filter((l) => {
+    if (!filterText.trim()) return true;
+    const q = filterText.toLowerCase();
+    return (
+      l.date.toLowerCase().includes(q) ||
+      l.status.toLowerCase().includes(q) ||
+      l.entry.toLowerCase().includes(q) ||
+      l.exit.toLowerCase().includes(q) ||
+      l.remarks.toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <div style={{ marginTop: '28px' }}>
+      <div style={{
+        fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
+        color: 'var(--text-muted)', marginBottom: '8px'
+      }}>
+        MONTH
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '14px' }}>
+        <input
+          type="month"
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          style={{
+            padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)',
+            fontSize: '14px', fontWeight: 500, background: 'var(--surface-color)',
+            color: 'var(--text-primary)', cursor: 'pointer'
+          }}
+        />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px',
+            borderRadius: '16px', fontSize: '12.5px', fontWeight: 600,
+            background: 'rgba(46, 196, 182, 0.15)', color: '#1e8a5c'
+          }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#2ec4b6' }} />
+            Present {presentCount}
+          </span>
+          {wfhCount > 0 && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px',
+              borderRadius: '16px', fontSize: '12.5px', fontWeight: 600,
+              background: 'rgba(138, 30, 141, 0.12)', color: '#8a1e8d'
+            }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#8a1e8d' }} />
+              WFH {wfhCount}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: '14px', maxWidth: '300px', position: 'relative' }}>
+        <input
+          type="text"
+          placeholder="Filter..."
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+          style={{
+            width: '100%', padding: '8px 12px 8px 32px', borderRadius: '8px',
+            border: '1px solid var(--border-color)', fontSize: '13px',
+            background: 'var(--surface-color)', color: 'var(--text-primary)'
+          }}
+        />
+        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '12px' }}>
+          🔍
+        </span>
+      </div>
+
+      <div style={{
+        ...panel,
+        overflow: 'hidden', padding: 0
+      }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: 'var(--surface-2, #F4F2EC)', borderBottom: '1px solid var(--border-color)' }}>
+                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>DATE</th>
+                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>STATUS</th>
+                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>ENTRY</th>
+                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>EXIT</th>
+                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>REMARKS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    Loading monthly logs…
+                  </td>
+                </tr>
+              ) : filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    No logs found for this month.
+                  </td>
+                </tr>
+              ) : (
+                filteredLogs.map((row, idx) => (
+                  <tr key={row.id} style={{
+                    background: idx % 2 === 1 ? 'var(--surface-2, rgba(0,0,0,0.015))' : 'transparent',
+                    borderBottom: '1px solid var(--border-color)'
+                  }}>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 500 }}>{row.date}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{
+                        padding: '3px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+                        display: 'inline-block',
+                        background: row.status === 'Present' ? 'rgba(46,196,182,0.18)' : row.status === 'WFH' ? 'rgba(138, 30, 141, 0.12)' : 'rgba(220,80,60,0.12)',
+                        color: row.status === 'Present' ? '#1e8a5c' : row.status === 'WFH' ? '#8a1e8d' : 'var(--danger-color)'
+                      }}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{row.entry || '—'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{row.exit || '—'}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{row.remarks || ''}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Attendance({ isOwner, canSeeTeam }) {
   const [roster, setRoster] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -910,13 +1159,7 @@ export default function Attendance({ isOwner, canSeeTeam }) {
         </>
       )}
 
-      <Timesheet
-        key={reloadKey}
-        canSeeTeam={canSeeTeam}
-        isOwner={isOwner}
-        roster={roster}
-        onCorrect={setCorrecting}
-      />
+      <MonthlyAttendanceLogs reloadKey={reloadKey} />
 
       {correcting && (
         <Modal title="Correct attendance" onClose={() => setCorrecting(null)}>

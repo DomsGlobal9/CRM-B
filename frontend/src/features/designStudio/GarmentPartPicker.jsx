@@ -648,7 +648,40 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     }
     if (searchTerm.trim()) {
       const q = searchTerm.trim().toLowerCase();
-      filtered = filtered.filter(d => (d.title || '').toLowerCase().includes(q));
+      const tokens = q.split(/\s+/).filter(Boolean);
+
+      const scored = [];
+      filtered.forEach((d) => {
+        const title = (d.title || '').toLowerCase();
+        const desc = (d.description || '').toLowerCase();
+        const cat = (d.catalogue?.category || '').toLowerCase();
+        const subcat = (d.catalogue?.subcategory || '').toLowerCase();
+        const opt = (d.catalogue?.option || '').toLowerCase();
+        const gType = (d.garment_type || d.template || '').toLowerCase();
+        const neck = (d.neckline_style || '').toLowerCase();
+        const sleeve = (d.sleeve_style || '').toLowerCase();
+        const designer = (d.designer_name || '').toLowerCase();
+        const imgParts = (d.images || []).map(i => `${i.part || ''} ${i.caption || ''}`).join(' ').toLowerCase();
+
+        const combinedText = `${title} ${desc} ${cat} ${subcat} ${opt} ${gType} ${neck} ${sleeve} ${designer} ${imgParts}`;
+
+        let matchCount = 0;
+        tokens.forEach(token => {
+          if (combinedText.includes(token)) matchCount++;
+        });
+
+        if (matchCount > 0) {
+          let score = matchCount * 10;
+          if (title.includes(q)) score += 100;
+          else if (tokens.every(t => title.includes(t))) score += 50;
+          else if (tokens.every(t => combinedText.includes(t))) score += 30;
+
+          scored.push({ design: d, score });
+        }
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      filtered = scored.map(s => s.design);
     }
     return filtered;
   }, [allDesigns, catalogueFilter, searchTerm]);
@@ -983,14 +1016,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
             </button>
           )}
         </div>
-      )}
-
-      {!loading && !ownOnly && !isFabric && !accessoriesOnly && (
-        <DesignCatalogueFilter
-          garmentKey={garmentKey}
-          value={catalogueFilter}
-          onChange={setCatalogueFilter}
-        />
       )}
 
       {!loading && (

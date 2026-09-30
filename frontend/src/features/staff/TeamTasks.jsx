@@ -69,7 +69,7 @@ export default function TeamTasks({ currentUser, canSeeTeam }) {
     try {
       const [roster, rows] = await Promise.all([
         canSeeTeam ? api.getTailors().catch(() => []) : Promise.resolve([]),
-        api.getOrders(),
+        api.getOrders().catch(() => []),
       ]);
       setPeople(canSeeTeam
         ? (Array.isArray(roster) ? roster : [])
