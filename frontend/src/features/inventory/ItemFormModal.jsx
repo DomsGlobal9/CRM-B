@@ -149,8 +149,6 @@ export default function ItemFormModal({ item = {}, options, suppliers, onClose, 
     <Modal title={isNew ? t('inventoryPage.newItemTitle', 'New inventory item') : `${t('inventoryPage.editTitle', 'Edit')} · ${item?.name || ''}`} onClose={onClose} width="760px">
       <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
-          <Field label={t('inventoryPage.itemCode', 'Item code')} required={!linked} value={form.item_code} onChange={(v) => set('item_code', v)} maxLength={50}
-            placeholder={linked ? t('inventoryPage.codeGenerated', 'Generated on save') : ''} />
           <Field label={t('inventoryPage.itemName', 'Name')} required value={form.name} onChange={(v) => set('name', v)} maxLength={200} />
           <SelectField label={t('inventoryPage.category', 'Category')} value={form.category} onChange={(v) => { set('category', v); set('unit', ''); }}
             options={opts.categories} />
@@ -162,7 +160,6 @@ export default function ItemFormModal({ item = {}, options, suppliers, onClose, 
             hint={!form.unit && unitForCategory ? t('inventoryPage.defaultForCategory', 'Default for this category') : ''}
           />
           <Field label={t('inventoryPage.colour', 'Colour')} value={form.color} onChange={(v) => set('color', v)} maxLength={50} />
-          <Field label={t('inventoryPage.materialType', 'Material')} value={form.material_type} onChange={(v) => set('material_type', v)} maxLength={100} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.colourCode', 'Colour code')}</label>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -173,20 +170,9 @@ export default function ItemFormModal({ item = {}, options, suppliers, onClose, 
                      onChange={(e) => { const v = e.target.value.trim(); set('color_hex', v && !v.startsWith('#') ? `#${v}` : v); }} />
             </div>
           </div>
-          <Field label={t('inventoryPage.rackLocation', 'Rack location')} value={form.rack_location} onChange={(v) => set('rack_location', v)} maxLength={100} />
-          <Field label={t('inventoryPage.purchasePrice', 'Purchase price')} type="number" value={form.purchase_price} onChange={(v) => set('purchase_price', v)} />
           <Field label={t('inventoryPage.sellingPrice', 'Selling price')} type="number" value={form.selling_price} onChange={(v) => set('selling_price', v)} />
-          <Field label={t('inventoryPage.reorderLevel', 'Reorder level')} type="number" decimals={3} max={LIMITS.quantity} value={form.reorder_level} onChange={(v) => set('reorder_level', v)} />
-          <Field label={t('inventoryPage.minimumStock', 'Minimum stock')} type="number" decimals={3} max={LIMITS.quantity} value={form.minimum_stock} onChange={(v) => set('minimum_stock', v)} />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.supplier', 'Supplier')}</label>
-            <select className="form-control" value={form.supplier || ''} onChange={(e) => set('supplier', e.target.value)}>
-              <option value="">—</option>
-              {sups.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
           {isNew && (
-            <Field label={t('inventoryPage.openingStock', 'Opening stock (quantity on the shelf now)')} type="number" decimals={3} max={LIMITS.quantity}
+            <Field label={t('inventoryPage.initialStock', 'Initial Quantity in Stock')} type="number" decimals={3} max={LIMITS.quantity}
                    value={form.opening_stock} onChange={(v) => set('opening_stock', v)} />
           )}
         </div>
