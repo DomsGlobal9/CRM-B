@@ -218,6 +218,33 @@ def _staff_for(user):
             return new_tailor
         except Exception:
             return Tailor.objects.filter(user=user).first() or Tailor.objects.filter(email__iexact=user.email).first()
+
+    if user.email:
+        tailor_by_email = Tailor.objects.filter(email__iexact=user.email).first()
+        if tailor_by_email:
+            if tailor_by_email.user is None and not Tailor.objects.filter(user=user).exists():
+                try:
+                    tailor_by_email.user = user
+                    tailor_by_email.save(update_fields=['user'])
+                except Exception:
+                    pass
+            return tailor_by_email
+
+    try:
+        already_has_tailor = Tailor.objects.filter(user=user).exists()
+        if not already_has_tailor:
+            name = user.get_full_name() or user.username or (user.email.split('@')[0] if user.email else 'Staff')
+            role = 'Master' if resolve_user_role(user) == OWNER else 'Tailor'
+            new_tailor = Tailor.objects.create(
+                name=name,
+                role=role,
+                email=user.email or f"user_{user.id}@boutique.local",
+                user=user,
+            )
+            return new_tailor
+    except Exception:
+        pass
+
     return None
 
 

@@ -215,7 +215,8 @@ function MyDay({ onChanged }) {
             onClick={() => act(() => api.checkOut())}
             style={{ width: '100%', minHeight: '48px', fontSize: '16px',
                      display: 'inline-flex', alignItems: 'center',
-                     justifyContent: 'center', gap: '8px' }}
+                     justifyContent: 'center', gap: '8px',
+                     backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#ffffff' }}
           >
             <LogOut size={18} /> {busy ? 'Checking out…' : 'Check out'}
           </button>
