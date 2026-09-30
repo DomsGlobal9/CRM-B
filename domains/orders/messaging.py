@@ -70,6 +70,9 @@ def send_customer_message(order, template_key, body, sent_by=None):
     config, _ = BoutiqueSettings.objects.get_or_create(id=1)
     if not config.customer_messaging_enabled:
         return None
+    # A boutique's own production run has no customer and no number.
+    if order.customer_id is None:
+        return None
 
     message = CustomerMessage.objects.create(
         order=order,

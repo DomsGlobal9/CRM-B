@@ -338,7 +338,19 @@ class Order(models.Model):
     # every lookup, token and cross-app reference uses; this column is display
     # only. Nullable so a row written outside the service still saves.
     order_number = models.PositiveIntegerField(unique=True, null=True, blank=True, db_index=True)
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='orders')
+    # Null on a boutique's own production run: the garments are made for
+    # stock, so there is nobody to bill, notify or deliver to. `kind` is what
+    # says so -- a null customer is never read as the reason on its own.
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True,
+                                 related_name='orders')
+    KIND_CUSTOMER = 'customer'
+    KIND_INTERNAL = 'internal'
+    KIND_CHOICES = [(KIND_CUSTOMER, 'Customer order'), (KIND_INTERNAL, 'Boutique stock')]
+    kind = models.CharField(max_length=20, choices=KIND_CHOICES, default=KIND_CUSTOMER,
+                            db_index=True)
+    # IP-001, IP-002... its own series, so a run for stock never takes a
+    # number out of the customer's #1, #2, #3.
+    internal_number = models.PositiveIntegerField(unique=True, null=True, blank=True, db_index=True)
     tailor = models.ForeignKey(Tailor, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     master = models.ForeignKey(Tailor, on_delete=models.SET_NULL, null=True, blank=True, related_name='supervised_orders')
     payment_status = models.CharField(max_length=50, default="Pending", db_index=True) # Pending, Paid
@@ -411,13 +423,21 @@ class Order(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def is_internal(self):
+        return self.kind == self.KIND_INTERNAL
+
+    @property
     def reference(self):
         """What to print for this order wherever a customer might read it."""
+        if self.is_internal:
+            return f"IP-{self.internal_number:03d}" if self.internal_number else self.order_id
         if self.alteration_of_id and self.alteration_seq:
             return f"{self.alteration_of.reference}-A{self.alteration_seq}"
         return f"#{self.order_number}" if self.order_number else self.order_id
 
     def __str__(self):
+        if self.customer_id is None:
+            return f"Boutique production {self.reference}"
         return f"Order {self.reference} - {self.customer.first_name} {self.customer.last_name}"
 
 class OrderStage(models.Model):

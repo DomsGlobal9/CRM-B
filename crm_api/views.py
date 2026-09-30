@@ -58,7 +58,7 @@ from domains.orders.notifications import create_order_notifications
 from domains.orders.tracking import tracking_url
 from domains.orders.repositories import OrderRepository
 from domains.orders.services import (
-    OrderService, ensure_garment_stages, fail_quality_check, refresh_staff_availability,
+    OrderService, create_internal_production, ensure_garment_stages, fail_quality_check, refresh_staff_availability,
     reopen_order_stage, stage_row,
 )
 
@@ -570,7 +570,26 @@ class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
 
     def get_queryset(self):
-        return visible_orders(OrderRepository.get_all(), self.request.user)
+        queryset = visible_orders(OrderRepository.get_all(), self.request.user)
+        kind = self.request.query_params.get('kind')
+        if kind in (Order.KIND_CUSTOMER, Order.KIND_INTERNAL):
+            queryset = queryset.filter(kind=kind)
+        return queryset
+
+    @action(detail=False, methods=['POST'], url_path='internal-production')
+    def internal_production(self, request):
+        """Start a production run for the boutique's own stock.
+
+        No customer, no price, no payment -- the garments go onto the same
+        configured line, into the same workroom, as a customer's order, and
+        end up in inventory rather than with anybody.
+        """
+        try:
+            order = create_internal_production(request.data, user=request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(OrderSerializer(order, context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)
 
     def perform_update(self, serializer):
         old_status = serializer.instance.order_status
@@ -1511,7 +1530,11 @@ class DashboardView(views.APIView):
     CLOSED_STATUSES = ('Delivered', 'Cancelled')
 
     def get(self, request):
-        orders = visible_orders(Order.objects.all(), request.user)
+        # The boutique's own production runs carry no customer, no price and
+        # no payment: they are work, not sales, so every figure on this
+        # screen is asked of customer orders only.
+        orders = visible_orders(
+            Order.objects.exclude(kind=Order.KIND_INTERNAL), request.user)
         customers = visible_customers(Customer.objects.all(), request.user)
         today = timezone.localdate()
         month_start = today.replace(day=1)

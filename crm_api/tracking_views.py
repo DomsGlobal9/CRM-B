@@ -58,7 +58,9 @@ def order_tracking(request, token):
             .filter(order_id=order_id)
             .first()
         )
-        if order is None:
+        # A boutique's own production run is not tracked: nobody is waiting
+        # for it, and it carries no customer for the page to address.
+        if order is None or order.customer_id is None:
             raise Http404
 
         boutique = BoutiqueSettings.objects.filter(id=1).first()

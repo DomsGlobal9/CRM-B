@@ -1054,6 +1054,16 @@ export const api = {
     return res.json();
   },
 
+  // Garments the boutique makes for its own stock: the same workroom as a
+  // customer's order, with no customer, no price and no payment on it.
+  async createInternalProduction(payload) {
+    const res = await guardedFetch(`${BASE_URL}/orders/internal-production/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(payload),
+    });
+    if (!res.ok) await failWith(res, 'Could not start this production run');
+    return res.json();
+  },
+
   // --- Inventory ---
   async getInventoryItems(params = {}) {
     const url = new URL(`${BASE_URL}/inventory/items/`);

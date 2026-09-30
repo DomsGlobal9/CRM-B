@@ -405,7 +405,8 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'order_id', 'order_number', 'order_reference', 'customer', 'customer_name', 'customer_garment_type', 'customer_measurements',
+            'id', 'order_id', 'order_number', 'order_reference', 'kind', 'internal_number',
+            'customer', 'customer_name', 'customer_garment_type', 'customer_measurements',
             'garments', 'garment_label',
             'alteration_of', 'alteration_of_reference', 'alteration_seq', 'alteration_garment', 'alteration_garment_name', 'alterations',
             'customer_mobile', 'customer_email', 'customer_address', 'customer_type', 'customer_occasion',
@@ -429,6 +430,10 @@ class OrderSerializer(serializers.ModelSerializer):
             # Stamped by the server (OrderViewSet.perform_update), never taken from the body.
             'instructions_voice_note_by': {'read_only': True},
             'instructions_voice_note_at': {'read_only': True},
+            # Settled when the run is created; a PATCH cannot turn a customer's
+            # order into boutique stock or the other way round.
+            'kind': {'read_only': True},
+            'internal_number': {'read_only': True},
         }
 
     #: Every rupee column a PATCH can set: not negative, not absurd.
@@ -507,7 +512,7 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_customer_name(self, obj):
         if obj.customer:
             return f"{obj.customer.first_name} {obj.customer.last_name}"
-        return 'Unknown Customer'
+        return 'Boutique Stock' if obj.is_internal else 'Unknown Customer'
 
     def get_garment_jobs(self, obj):
         from apps.catalog.serializers import GarmentJobSerializer
@@ -772,7 +777,8 @@ class OrderSummarySerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'order_id', 'order_number', 'order_reference', 'customer', 'customer_name', 'customer_garment_type',
+            'id', 'order_id', 'order_number', 'order_reference', 'kind', 'internal_number',
+            'customer', 'customer_name', 'customer_garment_type',
             'garments', 'garment_label',
             'tailor', 'tailor_name', 'master', 'master_name',
             'payment_status', 'order_status', 'total_amount', 'advance_paid', 'amount_paid',
@@ -784,7 +790,7 @@ class OrderSummarySerializer(serializers.ModelSerializer):
     def get_customer_name(self, obj):
         if obj.customer:
             return f"{obj.customer.first_name} {obj.customer.last_name}"
-        return 'Unknown Customer'
+        return 'Boutique Stock' if obj.is_internal else 'Unknown Customer'
 
     def get_garments(self, obj):
         from domains.orders.garments import garment_names

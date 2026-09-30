@@ -34,6 +34,8 @@ class Category(models.TextChoices):
     # The boutique's own designs: not a material, but the owner's stock all
     # the same, so the library can file one here and the ledger counts it.
     DESIGN = 'DESIGN', 'Design'
+    # A garment the workroom finished for stock rather than for a customer.
+    FINISHED = 'FINISHED', 'Finished garment'
     OTHER = 'OTHER', 'Other'
 
 
@@ -46,6 +48,7 @@ DEFAULT_UNIT_BY_CATEGORY = {
     Category.PACKAGING: Unit.PIECE,
     Category.MAGGAM: Unit.PIECE,
     Category.DESIGN: Unit.PIECE,
+    Category.FINISHED: Unit.PIECE,
     Category.OTHER: Unit.UNIT,
 }
 

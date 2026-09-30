@@ -91,10 +91,13 @@ def revenue_for(since, until):
     overstates what the boutique earned. Everything else counts, whether the
     order is finished or not -- an advance is money in the till.
     """
+    from crm_api.models import Order
     from .models import Payment
 
     rows = Payment.objects.filter(received_on__gte=since, received_on__lte=until)
     rows = rows.exclude(order__order_status='Cancelled')
+    # A boutique's own production run is a cost, never a sale.
+    rows = rows.exclude(order__kind=Order.KIND_INTERNAL)
     agg = rows.aggregate(
         total=Sum('amount'),
         dated=Sum('amount', filter=~Q(source=Payment.Source.BACKFILL)),
@@ -120,7 +123,8 @@ def outstanding_now():
     from crm_api.models import Order
     from . import payments
 
-    live = Order.objects.exclude(order_status__in=('Delivered', 'Cancelled'))
+    live = Order.objects.exclude(
+        order_status__in=('Delivered', 'Cancelled')).exclude(kind=Order.KIND_INTERNAL)
     return _money(payments.outstanding_for(live))
 
 

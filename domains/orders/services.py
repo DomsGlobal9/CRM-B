@@ -1,12 +1,19 @@
 import datetime
 import secrets
+from decimal import Decimal, InvalidOperation
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import models, transaction
 from core.permissions import SUPERVISOR_ROLES
 from core.roles import OWNER, resolve_user_role
 from crm_api.models import Order, OrderStage, OrderActivity, Tailor, BoutiqueSettings
 from core.formatting import format_money
+from core.validators import MAX_NOTE, validate_text
 from domains.orders.notifications import create_order_notifications
 from domains.orders import workflow
+
+#: A run for stock is a workroom batch, not a factory order.
+MAX_INTERNAL_QUANTITY = 50
+INTERNAL_PRIORITIES = ('LOW', 'MEDIUM', 'HIGH', 'URGENT')
 
 
 def _generate_order_id():
@@ -190,6 +197,276 @@ def ensure_garment_stages(order):
             placeholder.delete()
 
 
+def _generate_internal_id():
+    today = datetime.date.today().strftime('%y%m%d')
+    for _ in range(20):
+        candidate = f"IP-{today}-{secrets.randbelow(9000) + 1000}"
+        if not Order.objects.filter(order_id=candidate).exists():
+            return candidate
+    return f"IP-{today}-{secrets.token_hex(4)}"
+
+
+def _next_internal_number():
+    """IP-001, IP-002... its own series, serialised the way order_number is."""
+    BoutiqueSettings.objects.select_for_update().get_or_create(id=1)
+    highest = Order.objects.aggregate(n=models.Max('internal_number'))['n'] or 0
+    return highest + 1
+
+
+def primary_fabric_slot(template):
+    """The slot a garment's main cloth goes on, from the fabric taxonomy."""
+    from crm_api.fabric_taxonomy import GARMENTS
+
+    sections = (GARMENTS.get(template.key) or {}).get('sections') or {}
+    for slots in sections.values():
+        if slots:
+            return slots[0]
+    return 'MAIN_FABRIC'
+
+
+def _internal_design(design_id):
+    from apps.design_studio.models import DesignAsset
+
+    if not design_id:
+        return None
+    try:
+        design = DesignAsset.objects.filter(pk=design_id).first()
+    except (DjangoValidationError, ValueError, TypeError):
+        design = None
+    if design is None:
+        raise ValueError('That design is not in the library.')
+    return design
+
+
+def _internal_fabric(fabric_id, quantity):
+    from apps.inventory.models import InventoryItem
+
+    if not fabric_id:
+        return None, None
+    try:
+        fabric = InventoryItem.objects.filter(pk=fabric_id).first()
+    except (DjangoValidationError, ValueError, TypeError):
+        fabric = None
+    if fabric is None:
+        raise ValueError('That fabric is not in the inventory.')
+    try:
+        per_garment = Decimal(str(quantity)) if quantity not in (None, '') else Decimal('1')
+    except (InvalidOperation, TypeError, ValueError):
+        raise ValueError('Fabric quantity must be a number.')
+    if per_garment <= 0:
+        raise ValueError('Enter how much fabric each garment takes.')
+    return fabric, per_garment
+
+
+def _internal_draft(design, fabric, quantity, slot):
+    """The run's choices in the shape the order wizard's draft uses, so the
+    selections on the job read the same either way."""
+    if design is None and fabric is None:
+        return {}
+    draft = {}
+    if design is not None:
+        # `parts`, not `items`: the stage panel reads the chosen photograph per
+        # part of the garment. One design for the whole garment is the
+        # `overall` part, the same part an uploaded photograph files under.
+        draft['design'] = {
+            'parts': {
+                'overall': {
+                    'id': str(design.pk),
+                    'image_url': design.image_url or '',
+                    'design_title': design.title,
+                    'part_label': 'Design',
+                },
+            },
+            'design_asset_id': str(design.pk),
+        }
+    if fabric is not None:
+        draft['fabrics'] = {slot: [str(fabric.pk)]}
+        draft['fabric_qty'] = {f'{slot}:{fabric.pk}': float(quantity)}
+    return draft
+
+
+def _internal_selections(draft, template):
+    """Resolved through the wizard's own reader, so the workroom panel shows a
+    run's design and cloth the way it shows a customer order's."""
+    from crm_api.views import _selections_from_draft
+
+    if not draft:
+        return {}
+    selections = _selections_from_draft(draft, template)
+    asset_id = (draft.get('design') or {}).get('design_asset_id')
+    if asset_id:
+        selections['design_asset_id'] = asset_id
+    return selections
+
+
+def create_internal_production(data, user=None):
+    """A production run the boutique makes for its own stock.
+
+    Same workflow, same workroom, same tasks as a customer's order -- the
+    difference is that there is nobody on the other end, so it carries no
+    customer, no price, no payment and no notification. `quantity` garments
+    are created because a GarmentJob is one physical garment; five sarees are
+    five jobs, each cut and stitched on its own.
+
+    data: template (GarmentTemplate id, required), design (DesignAsset id),
+    fabric (InventoryItem id), fabric_quantity (per garment), quantity, flow,
+    tailor_id, master_id, notes, priority, ready_by, spec.
+    """
+    from apps.catalog.models import GarmentJob, GarmentTemplate, JobMaterial
+
+    try:
+        template = GarmentTemplate.objects.filter(pk=data.get('template')).first()
+    except (DjangoValidationError, ValueError, TypeError):
+        template = None
+    if template is None:
+        raise ValueError('Choose what the boutique is making.')
+
+    design = _internal_design(data.get('design'))
+    fabric, fabric_quantity = _internal_fabric(data.get('fabric'), data.get('fabric_quantity'))
+
+    # `or 1` would read a typed 0 as "one of them"; an empty box means one,
+    # a zero means the person has not said how many yet.
+    raw_quantity = data.get('quantity')
+    try:
+        quantity = 1 if raw_quantity in (None, '') else int(raw_quantity)
+    except (TypeError, ValueError):
+        raise ValueError('Quantity must be a whole number.')
+    if quantity < 1 or quantity > MAX_INTERNAL_QUANTITY:
+        raise ValueError(f'Make between 1 and {MAX_INTERNAL_QUANTITY} at a time.')
+
+    tailor_id = data.get('tailor_id')
+    tailor = Tailor.objects.filter(id=tailor_id).first() if tailor_id else None
+    if tailor_id and tailor is None:
+        raise ValueError(f'No staff member with id {tailor_id}.')
+    master_id = data.get('master_id')
+    master = Tailor.objects.filter(id=master_id).first() if master_id else None
+    if master_id and master is None:
+        raise ValueError(f'No master with id {master_id}.')
+
+    priority = data.get('priority')
+    if priority is not None and priority not in INTERNAL_PRIORITIES:
+        raise ValueError(f"Priority must be one of {', '.join(INTERNAL_PRIORITIES)}.")
+
+    ready_by = data.get('ready_by')
+    if isinstance(ready_by, str):
+        try:
+            ready_by = datetime.date.fromisoformat(ready_by)
+        except ValueError:
+            ready_by = None
+
+    config, _ = BoutiqueSettings.objects.get_or_create(id=1)
+    flow = data.get('flow') if data.get('flow') in ('stitching', 'maggam') else 'stitching'
+
+    with transaction.atomic():
+        order = Order.objects.create(
+            order_id=_generate_internal_id(),
+            kind=Order.KIND_INTERNAL,
+            internal_number=_next_internal_number(),
+            customer=None,
+            tailor=tailor,
+            master=master,
+            flow=flow,
+            # Nothing is billed, taken or owed on a run for stock.
+            payment_status='Pending',
+            order_status='Received',
+            estimated_delivery=ready_by,
+            special_instructions=validate_text(
+                data.get('notes'), label='Notes for the workroom', max_length=MAX_NOTE) or '',
+            current_stage_key='created',
+            production_status='IN_PROGRESS',
+        )
+
+        slot = primary_fabric_slot(template)
+        draft = _internal_draft(design, fabric, fabric_quantity, slot)
+        for sequence in range(quantity):
+            job = GarmentJob.objects.create(
+                order=order, template=template, template_version=template.version,
+                spec=data.get('spec') or {}, sequence=sequence)
+            job.selections = _internal_selections(draft, template)
+            job.save(update_fields=['selections'])
+            if fabric is not None:
+                JobMaterial.objects.create(
+                    job=job, field_key=slot, inventory_item=fabric,
+                    quantity=fabric_quantity, unit=fabric.unit,
+                    source=JobMaterial.Source.STORE)
+
+        seed_workflow(order, config, tailor, master, priority=priority)
+        ensure_garment_stages(order)
+
+        # The cloth is spoken for the moment the run is started, exactly as it
+        # is when a customer's order is confirmed.
+        if fabric is not None:
+            from apps.inventory import order_materials
+            order_materials.sync_order_materials(order, 'created', 'COMPLETED', user=user)
+
+        creator = user if (user and user.is_authenticated) else None
+        OrderActivity.objects.create(
+            order=order, event_type='ORDER_CREATED', user=creator,
+            metadata={'message': f'Boutique production {order.reference} created: '
+                                 f'{quantity} x {template.name}.',
+                      'kind': Order.KIND_INTERNAL, 'quantity': quantity})
+
+    refresh_staff_availability(tailor, master)
+    return order
+
+
+def seed_workflow(order, config, tailor=None, master=None, priority=None):
+    """Lay the order's stage rows and production tasks out from the workflow.
+
+    Shared by both creation paths: a customer's order and a boutique's own
+    production run take the same configured line, so the rows that carry them
+    are written in one place.
+    """
+    from django.utils import timezone
+
+    from apps.production.models import ProductionTask
+
+    workflow_stages = workflow.stages_for_flow(config.workflow_config, order.flow)
+
+    stages_to_create = []
+    for index, s_conf in enumerate(workflow_stages):
+        s_key = s_conf['key']
+        s_status = 'NOT_STARTED'
+        started_at = None
+        completed_at = None
+
+        if s_key == 'created':
+            s_status = 'COMPLETED'
+            started_at = timezone.now()
+            completed_at = timezone.now()
+
+        stages_to_create.append(OrderStage(
+            order=order,
+            stage_key=s_key,
+            stage_name=s_conf['name'],
+            status=s_status,
+            started_at=started_at,
+            completed_at=completed_at,
+            sequence=index,
+            sla_hours=s_conf.get('sla_hours', 24)
+        ))
+
+    OrderStage.objects.bulk_create(stages_to_create)
+
+    # One task per workroom stage the order has, named for the stage, so
+    # a maggam order's task list is the maggam path and a plain one's is
+    # not padded with embroidery it will never do.
+    tailor_stages = {'stitching_in_progress', 'finishing', 'alteration_work'}
+    tasks_to_create = [
+        ProductionTask(
+            order=order, title=s_conf['name'], stage_key=s_conf['key'],
+            assigned_to=tailor if s_conf['key'] in tailor_stages else (master or tailor),
+            sequence=index,
+            priority=priority or (
+                'URGENT' if s_conf['key'] in ('stitching_in_progress', 'alteration_work')
+                else 'HIGH' if s_conf['key'] in ('pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
+                else 'MEDIUM'))
+        for index, s_conf in enumerate(workflow_stages, start=1)
+        if s_conf['key'] not in ('created', 'payment', 'delivered')
+    ]
+    ProductionTask.objects.bulk_create(tasks_to_create)
+
+
 class OrderService:
     @staticmethod
     @transaction.atomic
@@ -305,54 +582,9 @@ class OrderService:
             flow=data.get('flow') if data.get('flow') in ('stitching', 'maggam', 'alteration') else 'stitching',
         )
 
-        workflow_stages = workflow.stages_for_flow(config.workflow_config, order.flow)
-        from django.utils import timezone
+        seed_workflow(order, config, tailor, master)
 
-        stages_to_create = []
-        for index, s_conf in enumerate(workflow_stages):
-            s_key = s_conf['key']
-            s_name = s_conf['name']
-            s_status = 'NOT_STARTED'
-            started_at = None
-            completed_at = None
-
-            if s_key == 'created':
-                s_status = 'COMPLETED'
-                started_at = timezone.now()
-                completed_at = timezone.now()
-
-            stages_to_create.append(OrderStage(
-                order=order,
-                stage_key=s_key,
-                stage_name=s_name,
-                status=s_status,
-                started_at=started_at,
-                completed_at=completed_at,
-                sequence=index,
-                sla_hours=s_conf.get('sla_hours', 24)
-            ))
-
-        OrderStage.objects.bulk_create(stages_to_create)
-
-        from apps.production.models import ProductionTask
         from apps.activities.models import UniversalActivity
-
-        # One task per workroom stage the order has, named for the stage, so
-        # a maggam order's task list is the maggam path and a plain one's is
-        # not padded with embroidery it will never do.
-        tailor_stages = {'stitching_in_progress', 'finishing', 'alteration_work'}
-        tasks_to_create = [
-            ProductionTask(
-                order=order, title=s_conf['name'], stage_key=s_conf['key'],
-                assigned_to=tailor if s_conf['key'] in tailor_stages else (master or tailor),
-                sequence=index,
-                priority='URGENT' if s_conf['key'] in ('stitching_in_progress', 'alteration_work')
-                         else 'HIGH' if s_conf['key'] in ('pattern_cutting', 'fabric_cutting', 'maggam_work', 'maggam_handwork', 'master_quality_check')
-                         else 'MEDIUM')
-            for index, s_conf in enumerate(workflow_stages, start=1)
-            if s_conf['key'] not in ('created', 'payment', 'delivered')
-        ]
-        ProductionTask.objects.bulk_create(tasks_to_create)
 
         creator_user = user if (user and user.is_authenticated) else None
         OrderActivity.objects.create(
@@ -628,6 +860,12 @@ class OrderService:
         order.current_stage_key = stage_key
         pending = order.stages.exclude(status__in=['COMPLETED', 'SKIPPED']).exists()
         order.production_status = 'IN_PROGRESS' if pending else 'COMPLETED'
+
+        # A run for stock ends on the shelf rather than with a customer: once
+        # every stage is settled the garments are received into inventory.
+        if not pending and order.is_internal:
+            from apps.inventory.finished_goods import receive_finished_goods
+            receive_finished_goods(order, user=user)
 
         status_map = {
             'created': 'Received',

@@ -23,5 +23,9 @@ def read_token(token):
 
 def tracking_url(order):
 
+    # Nothing to follow on a boutique's own production run: there is no
+    # customer, so no tracking page is minted for it.
+    if order.customer_id is None:
+        return ''
     base = getattr(settings, 'TRACKING_BASE_URL', '') or ''
     return f"{base.rstrip('/')}/track/{build_token(order)}/"

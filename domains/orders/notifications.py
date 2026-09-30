@@ -10,6 +10,10 @@ from domains.orders.tracking import tracking_url
 
 
 def create_order_notifications(order, created=False, status_changed=True, stage_name=None, stage_key=None):
+    # A boutique's own production run has no customer to write to, no
+    # confirmation to send and no tracking page to link.
+    if order.customer_id is None:
+        return
     client_name = f"{order.customer.first_name} {order.customer.last_name}"
     client_email = order.customer.email_address
     

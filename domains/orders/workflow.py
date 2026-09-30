@@ -78,6 +78,10 @@ def _requires_measurements(order, stage, *, supervisor):
 
     from domains.orders.services import (
         customer_has_measurements, order_needs_measurements)
+    # A run for the boutique's own stock has nobody to measure; the numbers
+    # the tailor works to are on the garment job itself.
+    if order.customer_id is None:
+        return None
     if customer_has_measurements(order.customer):
         return None
 

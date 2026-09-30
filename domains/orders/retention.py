@@ -176,7 +176,7 @@ def orders_due_for_purge(days=PURGE_AFTER_DAYS, now=None):
         order_status='Delivered', media_purged_at__isnull=True,
         stages__stage_key='delivered', stages__status='COMPLETED',
         stages__completed_at__lte=cutoff,
-    ).distinct()
+    ).exclude(kind=Order.KIND_INTERNAL).distinct()
 
 
 def purge_due_orders(days=PURGE_AFTER_DAYS):

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
@@ -36,6 +36,7 @@ import GarmentSummary from './features/catalog/GarmentSummary';
 import { AddCustomerChooser, CustomerForm, DeleteAllCustomersDialog } from './features/customers/AddCustomer';
 import CustomerFilters from './features/customers/CustomerFilters';
 import CustomerReferrals from './features/customers/CustomerReferrals';
+import BoutiqueProductionDialog from './features/production/BoutiqueProduction';
 import { EMPTY_CUSTOMER_FILTERS, activeFilterCount, applyCustomerFilters } from './features/customers/filterRules';
 import OrderKanban from './features/orders/OrderKanban';
 import { expressLabel, isExpressOrder } from './features/orders/express';
@@ -2058,6 +2059,8 @@ function App() {
   const [fabrics, setFabrics] = useState([]);
   const [allDesigns, setAllDesigns] = useState([]);
   const [customersList, setCustomersList] = useState([]);
+  // The "Stitch for the boutique" dialog on the New order screen.
+  const [startingBoutiqueRun, setStartingBoutiqueRun] = useState(false);
   const [ordersList, setOrdersList] = useState([]);
   const [queuedMessages, setQueuedMessages] = useState([]);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
@@ -5097,7 +5100,12 @@ function App() {
                             )}
                             <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
                           <td className="at-desk-only">{order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
-                          <td className="at-desk-only">{order.customer_name}</td>
+                          <td className="at-desk-only">
+                            {order.customer_name}
+                            {order.kind === 'internal' && (
+                              <span className="ui-badge ui-badge--neutral" style={{ marginLeft: 6 }}>Boutique stock</span>
+                            )}
+                          </td>
                           <td data-label={t('ordersPage.estDelivery', 'Delivery')}>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
                           <td data-label={t('ordersPage.whereItStands', 'Where it stands')}>
                             {bucket === 'done' && (
@@ -6956,7 +6964,24 @@ function App() {
                   <span className="wz-service-title">{t('entry.serviceDesign', 'Design something new')}</span>
                   <span className="wz-service-desc">{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
                 </button>
+                {(!currentUser?.role || currentUser.role === 'Owner') && (
+                  <button type="button" className="wz-service" onClick={() => setStartingBoutiqueRun(true)}>
+                    <IconTile icon={Factory} tone="violet" size={48} iconSize={22} />
+                    <span className="wz-service-title">{t('entry.serviceBoutique', 'Stitch for the boutique')}</span>
+                    <span className="wz-service-desc">{t('entry.serviceBoutiqueDesc', 'Garments for our own stock or the showroom. No customer — they go into inventory when they are done.')}</span>
+                  </button>
+                )}
               </div>
+              {startingBoutiqueRun && (
+                <BoutiqueProductionDialog
+                  onClose={() => setStartingBoutiqueRun(false)}
+                  onCreated={async () => {
+                    setStartingBoutiqueRun(false);
+                    await fetchDashboardAndConfig();
+                    setView('dashboard');
+                    setDashboardTab('orders');
+                  }} />
+              )}
             </div>
           </main>
         </div>

@@ -5284,7 +5284,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .wz-for strong { color: var(--text-primary); }
 
 /* Order entry: the first question, three doors. */
-.wz-services { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 24px; }
+/* 220px, not 240: four doors need 4x240 + 3x16 = 1008px and .selector-container
+   is 1000px wide, so the fourth wrapped onto a row of its own. */
+.wz-services { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 24px; }
 .wz-service { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 22px; text-align: left; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-card); cursor: pointer; font-family: inherit; color: var(--text-primary); transition: border-color .15s, transform .15s; }
 .wz-service:hover:not(:disabled) { border-color: var(--primary-color); transform: translateY(-1px); }
 .wz-service:disabled { opacity: .5; cursor: not-allowed; }
