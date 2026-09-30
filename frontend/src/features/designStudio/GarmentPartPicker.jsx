@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Upload, X } from 'lucide-react';
+import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Search, Upload, X } from 'lucide-react';
 import { AddPhotoButton } from '../../components/ui/Atelier';
 
 import { api } from '../../services/api';
@@ -581,6 +581,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 
   const [allDesigns, setAllDesigns] = useState(null);
   const [catalogueFilter, setCatalogueFilter] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
   const [template, setTemplate] = useState(null);
   const [error, setError] = useState(null);
   const [openDesign, setOpenDesign] = useState(null);
@@ -635,15 +636,22 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   
   const designs = useMemo(() => {
     if (!allDesigns) return null;
+    let filtered = allDesigns;
     const { category, subcategory, option } = catalogueFilter;
-    if (!category) return allDesigns;
-    return allDesigns.filter((d) => {
-      const c = d.catalogue || {};
-      return c.category === category
-        && (!subcategory || c.subcategory === subcategory)
-        && (!option || c.option === option);
-    });
-  }, [allDesigns, catalogueFilter]);
+    if (category) {
+      filtered = filtered.filter((d) => {
+        const c = d.catalogue || {};
+        return c.category === category
+          && (!subcategory || c.subcategory === subcategory)
+          && (!option || c.option === option);
+      });
+    }
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim().toLowerCase();
+      filtered = filtered.filter(d => (d.title || '').toLowerCase().includes(q));
+    }
+    return filtered;
+  }, [allDesigns, catalogueFilter, searchTerm]);
 
   const partOrder = useMemo(
     () => (template?.design_parts || []).map(p => p.key), [template]);
@@ -956,6 +964,27 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
           the same positions Manage Designs files under, narrowing the tabs and
           the list below to designs filed there. Renders nothing for a garment
           that has no catalogue, so those look exactly as they did. */}
+      {!loading && !ownOnly && !isFabric && !accessoriesOnly && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '380px' }}>
+            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search design (e.g. Ruffle, Pattu, Velvet)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ paddingLeft: '32px', height: '34px', fontSize: '12.5px', borderRadius: '7px' }}
+            />
+          </div>
+          {searchTerm && (
+            <button type="button" className="btn-secondary" style={{ height: '34px', padding: '0 12px', fontSize: '12px' }} onClick={() => setSearchTerm('')}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
+
       {!loading && !ownOnly && !isFabric && !accessoriesOnly && (
         <DesignCatalogueFilter
           garmentKey={garmentKey}

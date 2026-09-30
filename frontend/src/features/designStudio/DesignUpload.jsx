@@ -225,28 +225,15 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           So the three are asked in that order, and the name is suggested from
           the option chosen until the owner types one of their own. */}
       <FormSection icon={Shirt} tone="green" title="About this design"
-        subtitle="Which garment, where it is filed, and what to call it.">
-        <div className="at-form-grid at-form-grid--3">
+        subtitle="Which garment and what to call it.">
+        <div className="at-form-grid at-form-grid--2">
           <Field label="Garment" icon={Shirt}>
             <select className="form-control" value={form.template_key} onChange={changeGarment}>
               <option value="">Uncategorised</option>
               {templates.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
             </select>
           </Field>
-          <DesignCataloguePicker
-            garmentKey={form.template_key}
-            value={catalogue}
-            onChange={(value, payload) => {
-              setCatalogue(value);
-              setCataloguePayload(payload);
-              if (payload && !titleTouched) {
-                const label = describePath(catalogueTree, value).split(' › ').pop();
-                if (label) setForm((f) => ({ ...f, title: label }));
-              }
-            }}
-          />
-          <Field label="Design Name" required icon={Type}
-            hint={!titleTouched && cataloguePayload ? 'Suggested from the catalogue — edit it as you like.' : undefined}>
+          <Field label="Design Name" required icon={Type}>
             <input className="form-control" value={form.title} maxLength={200}
               onChange={(e) => { setTitleTouched(true); set('title')(e); }}
               placeholder="e.g. Hand-embroidered bridal lehenga" />
