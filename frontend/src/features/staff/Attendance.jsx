@@ -1285,7 +1285,9 @@ export default function Attendance({ isOwner, canSeeTeam }) {
   const [recording, setRecording] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [period, setPeriod] = useState('day');
-  const [activeTab, setActiveTab] = useState('today');
+  // The roster tab is only for the Owner and the Master; everyone else opens
+  // straight onto their monthly log.
+  const [activeTab, setActiveTab] = useState(canSeeTeam ? 'today' : 'monthly');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1317,6 +1319,7 @@ export default function Attendance({ isOwner, canSeeTeam }) {
       <MyDay onChanged={refresh} />
 
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', margin: '20px 0 18px', gap: '8px' }}>
+        {canSeeTeam && (
         <button
           type="button"
           onClick={() => setActiveTab('today')}
@@ -1339,6 +1342,7 @@ export default function Attendance({ isOwner, canSeeTeam }) {
         >
           <Clock size={16} /> Today's Status & Roster
         </button>
+        )}
         <button
           type="button"
           onClick={() => setActiveTab('monthly')}
