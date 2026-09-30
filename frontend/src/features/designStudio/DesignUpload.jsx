@@ -296,22 +296,9 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
 
       <FormSection icon={FileText} tone="green" title="Design Details" subtitle="Who made it, and what it costs to make.">
         <div className="at-form-grid at-form-grid--3">
-          <Field label="Designer" icon={User}>
-            {select('designer_ref', designers.map(d => [d.id, d.name]), 'Unattributed')}
-          </Field>
-          <Field label="Collection" icon={Layers}>
-            <select className="form-control" value={form.collection} onChange={set('collection')}
-              disabled={!form.designer_ref}>
-              <option value="">{form.designer_ref ? 'None' : 'Pick a designer first'}</option>
-              {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </Field>
           <Field label="Price (₹)" icon={IndianRupee}>
             <input className="form-control" inputMode="decimal" value={form.estimated_price}
               onChange={(e) => setForm({ ...form, estimated_price: cleanAmount(e.target.value) })} placeholder="0" />
-          </Field>
-          <Field label="Difficulty" icon={BarChart3}>
-            {select('difficulty', [['SIMPLE', 'Simple'], ['MODERATE', 'Moderate'], ['COMPLEX', 'Complex']], 'Not set')}
           </Field>
           <Field label="Stitch Time (hours)" icon={Clock}>
             <input className="form-control" inputMode="decimal" value={form.stitch_hours}
@@ -326,19 +313,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
               placeholder="Optional video URL (https://…)" />
           </Field>
         </div>
-
-        {form.designer_ref && (
-          <div className="at-field-inline">
-            <div className="at-field-control" style={{ maxWidth: '260px', flex: '1 1 200px' }}>
-              <input className="form-control" value={newCollection} onChange={(e) => setNewCollection(e.target.value)} maxLength={150}
-                placeholder="New collection name" />
-            </div>
-            <button type="button" className="btn-secondary at-btn-sm"
-              onClick={addCollection} disabled={!newCollection.trim() || addingCollection}>
-              <Plus size={12} /> {addingCollection ? 'Adding…' : 'Add collection'}
-            </button>
-          </div>
-        )}
       </FormSection>
 
       <FormSection icon={FileText} tone="green" title="Description"
