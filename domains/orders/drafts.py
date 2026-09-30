@@ -72,8 +72,6 @@ def confirm(user, draft_id, *, create_order):
 
 
 def _with_gender(customer, payload):
-    # Customers from before the wizard asked for gender have none on file;
-    # the first order that answers it fills the gap so nobody is asked twice.
     from crm_api.serializers import GENDERS
     gender = payload.get('gender') or ''
     if gender and gender not in GENDERS:
@@ -85,18 +83,11 @@ def _with_gender(customer, payload):
 
 
 def customer_for(draft, payload):
-    # Customer.save stores the canonical form when the number parses and the
-    # raw string when it does not, so the lookup asks for the same value.
     raw = (payload.get('mobile_number') or '').strip()
     mobile = whatsapp_number(raw) or raw
-    # The draft names the customer it was started for; the wizard's "Not them"
-    # then types a different number without clearing that id, so the id only
-    # counts while the number on the draft is still theirs.
     if draft.customer_id and (not mobile or draft.customer.mobile_number == mobile):
         return _with_gender(draft.customer, payload)
-    # A returning client typed afresh into the wizard is still the same client;
-    # matching on the canonical number is what Customer.save would have
-    # tripped the unique index on anyway.
+    
     known = Customer.objects.filter(mobile_number=mobile).first() if mobile else None
     if known is not None:
         return _with_gender(known, payload)
@@ -106,9 +97,7 @@ def customer_for(draft, payload):
         'pattern_style', 'custom_requirements', 'occupation',
         'preferred_communication', 'notes',
     ) if payload.get(k) not in (None, '')}
-    # The same rules the customer book applies: a draft is the one path that
-    # wrote straight to the table, and junk typed at step one used to reach
-    # the row (or fall over as a database error) only at confirm.
+    
     from crm_api.serializers import CustomerSerializer
     serializer = CustomerSerializer(data=fields)
     if not serializer.is_valid():

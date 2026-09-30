@@ -1475,6 +1475,21 @@ export const api = {
   // Owner-only: switches a credited designer on so they can sign in for
   // themselves. Idempotent server-side -- a second call against an
   // already-linked designer is refused rather than silently reissuing.
+  // Owner only: replaces the person's password with a generated one, shown once.
+  async resetStaffPassword(id, { isDesigner = false } = {}) {
+    const url = isDesigner
+      ? `${BASE_URL}/design-studio/designers/${id}/reset-password/`
+      : `${BASE_URL}/tailors/${id}/reset-password/`;
+    const res = await guardedFetch(url, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(describeApiError(res, data));
+    return data;
+  },
+
   async createDesignerLogin(id, email) {
     const res = await guardedFetch(`${BASE_URL}/design-studio/designers/${id}/create-login/`, {
       method: 'POST',

@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, LogIn, LogOut, Pencil, Plus, X } from 'lucide-react';
+import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { LIMITS } from '../../services/validate';
@@ -489,75 +489,169 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
           No staff on the roster yet.
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {rows.map(({ person, open, minutes, days, own, status, latest }) => (
-            <div key={person.id} style={{ ...panel, padding: '14px 16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between',
-                            alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: '15px' }}>{person.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    {person.role}
-                  </div>
-                </div>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: statusColour(status) }}>
-                  {ranged ? (status === 'Working' ? 'Working now' : (own.length ? `${days} day${days === 1 ? '' : 's'}` : 'No hours')) : status}
-                </span>
-              </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+          {rows.map(({ person, open, minutes, days, own, status, latest }) => {
+            const isWorking = status === 'Working';
+            const isCheckedOut = status === 'Checked out';
 
+            const badgeBg = isWorking ? '#ecfdf5' : isCheckedOut ? '#f3f4f6' : '#fff7ed';
+            const badgeColor = isWorking ? '#047857' : isCheckedOut ? '#4b5563' : '#c2410c';
+            const badgeBorder = isWorking ? '#a7f3d0' : isCheckedOut ? '#e5e7eb' : '#fed7aa';
+            const dotColor = isWorking ? '#10b981' : isCheckedOut ? '#9ca3af' : '#f97316';
+
+            const initials = (person.name || 'U')
+              .split(' ')
+              .map((n) => n[0])
+              .join('')
+              .toUpperCase()
+              .slice(0, 2);
+
+            return (
               <div
-                className="mobile-stack-grid"
+                key={person.id}
                 style={{
-                  display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px',
-                  marginTop: '12px', paddingTop: '12px',
-                  borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))',
+                  ...panel,
+                  padding: '18px 20px',
+                  borderRadius: '14px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--surface-color)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justify: 'space-between',
                 }}
               >
-                {ranged ? (
-                  <>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Days</div>
-                      <div style={{ fontWeight: 600 }}>{days || '—'}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Sessions</div>
-                      <div style={{ fontWeight: 600 }}>{own.length || '—'}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total hours</div>
-                      <div style={{ fontWeight: 600 }}>{minutes ? hoursText(minutes) : '—'}</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Check in</div>
-                      <div style={{ fontWeight: 600 }}>{clockText(latest?.check_in)}</div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Check out</div>
-                      <div style={{ fontWeight: 600 }}>
-                        {open ? '—' : clockText(latest?.check_out)}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, var(--surface-2, #F4F2EC) 0%, var(--border-color, #E2DFD8) 100%)',
+                          color: 'var(--text-primary)',
+                          fontWeight: 700,
+                          fontSize: '14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          letterSpacing: '0.05em',
+                          boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.6), 0 2px 4px rgba(0,0,0,0.05)',
+                        }}
+                      >
+                        {initials}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                          {person.name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: 500 }}>
+                          {person.role}
+                        </div>
                       </div>
                     </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hours</div>
-                      <div style={{ fontWeight: 600 }}>{minutes ? hoursText(minutes) : '—'}</div>
-                    </div>
-                  </>
+
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '5px 12px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        background: badgeBg,
+                        color: badgeColor,
+                        border: `1px solid ${badgeBorder}`,
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          background: dotColor,
+                          boxShadow: isWorking ? `0 0 6px ${dotColor}` : 'none',
+                        }}
+                      />
+                      {ranged
+                        ? (status === 'Working' ? 'Working now' : own.length ? `${days} day${days === 1 ? '' : 's'}` : 'No hours')
+                        : status}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(3, 1fr)',
+                      gap: '8px',
+                      background: 'var(--surface-2, #F8F7F4)',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-color, rgba(0,0,0,0.04))',
+                    }}
+                  >
+                    {ranged ? (
+                      <>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Days</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{days || '—'}</div>
+                        </div>
+                        <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)' }}>
+                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sessions</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{own.length || '—'}</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total hours</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{minutes ? hoursText(minutes) : '—'}</div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Check in</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{clockText(latest?.check_in)}</div>
+                        </div>
+                        <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)' }}>
+                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Check out</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>
+                            {open ? '—' : clockText(latest?.check_out)}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Hours</div>
+                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{minutes ? hoursText(minutes) : '—'}</div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {isOwner && latest && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => onCorrect(latest)}
+                    style={{
+                      marginTop: '12px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      height: '34px',
+                      fontSize: '12.5px',
+                      borderRadius: '8px',
+                      width: '100%',
+                      fontWeight: 500,
+                    }}
+                  >
+                    <Pencil size={13} /> Correct entry
+                  </button>
                 )}
               </div>
-
-              {isOwner && latest && (
-                <button type="button" className="btn-secondary"
-                        onClick={() => onCorrect(latest)}
-                        style={{ marginTop: '12px', display: 'inline-flex',
-                                 alignItems: 'center', gap: '6px', minHeight: '38px' }}>
-                  <Pencil size={13} /> Correct
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </>
@@ -720,7 +814,7 @@ function MusterGrid({ isOwner, roster, sessions, dayMarks, since, until, onChang
     presentByStaff.set(String(s.staff), set);
   });
 
-  const markByKey = new Map(); // `${staff}|${date}` -> { id, kind }
+  const markByKey = new Map(); 
   dayMarks.forEach((m) => markByKey.set(`${m.staff}|${m.date}`, m));
 
   const statusFor = (staffId, iso) => {
@@ -731,7 +825,7 @@ function MusterGrid({ isOwner, roster, sessions, dayMarks, since, until, onChang
     return 'A';
   };
 
-  // A -> Leave -> Weekly off -> cleared. Present and future cells do nothing.
+
   const cycle = async (staffId, iso, current, mark) => {
     if (!isOwner || current === 'P' || iso > today) return;
     try {
@@ -860,10 +954,20 @@ function MonthlyAttendanceLogs({ reloadKey }) {
         const lastDay = new Date(year, month, 0).getDate();
         const until = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
 
-        const res = await api.getAttendance({ since, until }).catch(() => []);
+        // Get signed-in user's own staff ID so Monthly Log shows own attendance
+        const cur = await api.getCurrentAttendance().catch(() => null);
+        const ownStaffId = cur?.staff;
+
+        const query = { since, until };
+        if (ownStaffId) query.staff = ownStaffId;
+
+        const res = await api.getAttendance(query).catch(() => []);
         if (!active) return;
 
-        const sessionsList = Array.isArray(res) ? res : (res?.results || []);
+        let sessionsList = Array.isArray(res) ? res : (res?.results || []);
+        if (ownStaffId) {
+          sessionsList = sessionsList.filter((s) => String(s.staff) === String(ownStaffId));
+        }
         
         const sessionsByDate = new Map();
         sessionsList.forEach((s) => {
@@ -953,115 +1057,216 @@ function MonthlyAttendanceLogs({ reloadKey }) {
   });
 
   return (
-    <div style={{ marginTop: '28px' }}>
-      <div style={{
-        fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
-        color: 'var(--text-muted)', marginBottom: '8px'
-      }}>
-        MONTH
-      </div>
+    <div style={{ marginTop: '32px' }}>
+      {/* Monthly Section Header Box */}
+      <div
+        style={{
+          ...panel,
+          padding: '16px 20px',
+          marginBottom: '16px',
+          background: 'var(--surface-color)',
+          borderRadius: '14px',
+          border: '1px solid var(--border-color)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          {/* Left Side: Section Label, Month Picker & Search */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                LOG MONTH
+              </div>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '13.5px',
+                  fontWeight: 600,
+                  background: 'var(--surface-2, #F8F7F4)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              />
+            </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '14px' }}>
-        <input
-          type="month"
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          style={{
-            padding: '8px 14px', borderRadius: '8px', border: '1px solid var(--border-color)',
-            fontSize: '14px', fontWeight: 500, background: 'var(--surface-color)',
-            color: 'var(--text-primary)', cursor: 'pointer'
-          }}
-        />
+            <div style={{ position: 'relative', width: '220px', marginTop: '14px' }}>
+              <input
+                type="text"
+                placeholder="Search logs..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '7px 12px 7px 32px',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  fontSize: '13px',
+                  background: 'var(--surface-2, #F8F7F4)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+              <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '12px', pointerEvents: 'none' }}>
+                🔍
+              </span>
+              {filterText && (
+                <button
+                  type="button"
+                  onClick={() => setFilterText('')}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px',
-            borderRadius: '16px', fontSize: '12.5px', fontWeight: 600,
-            background: 'rgba(46, 196, 182, 0.15)', color: '#1e8a5c'
-          }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#2ec4b6' }} />
-            Present {presentCount}
-          </span>
-          {wfhCount > 0 && (
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 12px',
-              borderRadius: '16px', fontSize: '12.5px', fontWeight: 600,
-              background: 'rgba(138, 30, 141, 0.12)', color: '#8a1e8d'
-            }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#8a1e8d' }} />
-              WFH {wfhCount}
+          {/* Right Side: Summary Chips */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '20px',
+                fontSize: '12.5px',
+                fontWeight: 600,
+                background: '#ecfdf5',
+                color: '#047857',
+                border: '1px solid #a7f3d0',
+              }}
+            >
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10b981' }} />
+              Present: {presentCount}
             </span>
-          )}
+            {wfhCount > 0 && (
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  background: '#f3e8ff',
+                  color: '#7e22ce',
+                  border: '1px solid #e9d5ff',
+                }}
+              >
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#a855f7' }} />
+                WFH: {wfhCount}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: '14px', maxWidth: '300px', position: 'relative' }}>
-        <input
-          type="text"
-          placeholder="Filter..."
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          style={{
-            width: '100%', padding: '8px 12px 8px 32px', borderRadius: '8px',
-            border: '1px solid var(--border-color)', fontSize: '13px',
-            background: 'var(--surface-color)', color: 'var(--text-primary)'
-          }}
-        />
-        <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '12px' }}>
-          🔍
-        </span>
-      </div>
-
-      <div style={{
-        ...panel,
-        overflow: 'hidden', padding: 0
-      }}>
+      {/* Table Container */}
+      <div
+        style={{
+          ...panel,
+          overflow: 'hidden',
+          borderRadius: '14px',
+          border: '1px solid var(--border-color)',
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)',
+          padding: 0,
+        }}
+      >
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: 'var(--surface-2, #F4F2EC)', borderBottom: '1px solid var(--border-color)' }}>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>DATE</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>STATUS</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>ENTRY</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>EXIT</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-secondary)' }}>REMARKS</th>
+              <tr style={{ background: 'var(--surface-2, #F8F7F4)', borderBottom: '1px solid var(--border-color)' }}>
+                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>DATE</th>
+                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>STATUS</th>
+                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>ENTRY TIME</th>
+                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>EXIT TIME</th>
+                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>REMARKS</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
                     Loading monthly logs…
                   </td>
                 </tr>
               ) : filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                    No logs found for this month.
+                  <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    No logs found for this period.
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((row, idx) => (
-                  <tr key={row.id} style={{
-                    background: idx % 2 === 1 ? 'var(--surface-2, rgba(0,0,0,0.015))' : 'transparent',
-                    borderBottom: '1px solid var(--border-color)'
-                  }}>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', fontWeight: 500 }}>{row.date}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{
-                        padding: '3px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
-                        display: 'inline-block',
-                        background: row.status === 'Present' ? 'rgba(46,196,182,0.18)' : row.status === 'WFH' ? 'rgba(138, 30, 141, 0.12)' : 'rgba(220,80,60,0.12)',
-                        color: row.status === 'Present' ? '#1e8a5c' : row.status === 'WFH' ? '#8a1e8d' : 'var(--danger-color)'
-                      }}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{row.entry || '—'}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{row.exit || '—'}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: 'var(--text-secondary)' }}>{row.remarks || ''}</td>
-                  </tr>
-                ))
+                filteredLogs.map((row, idx) => {
+                  const isPres = row.status === 'Present';
+                  const isWfh = row.status === 'WFH';
+                  const chipBg = isPres ? '#ecfdf5' : isWfh ? '#f3e8ff' : '#fef2f2';
+                  const chipColor = isPres ? '#047857' : isWfh ? '#7e22ce' : '#b91c1c';
+                  const chipBorder = isPres ? '#a7f3d0' : isWfh ? '#e9d5ff' : '#fecaca';
+
+                  return (
+                    <tr
+                      key={row.id}
+                      style={{
+                        background: idx % 2 === 1 ? 'var(--surface-2, rgba(0,0,0,0.012))' : 'transparent',
+                        borderBottom: '1px solid var(--border-color)',
+                      }}
+                    >
+                      <td style={{ padding: '14px 18px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{row.date}</td>
+                      <td style={{ padding: '14px 18px' }}>
+                        <span
+                          style={{
+                            padding: '4px 12px',
+                            borderRadius: '20px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            background: chipBg,
+                            color: chipColor,
+                            border: `1px solid ${chipBorder}`,
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '5px',
+                              height: '5px',
+                              borderRadius: '50%',
+                              background: isPres ? '#10b981' : isWfh ? '#a855f7' : '#ef4444',
+                            }}
+                          />
+                          {row.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '14px 18px', fontSize: '13px', fontWeight: row.entry ? 600 : 400, color: row.entry ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {row.entry || '—'}
+                      </td>
+                      <td style={{ padding: '14px 18px', fontSize: '13px', fontWeight: row.exit ? 600 : 400, color: row.exit ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                        {row.exit || '—'}
+                      </td>
+                      <td style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-secondary)' }}>{row.remarks || ''}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -1080,6 +1285,9 @@ export default function Attendance({ isOwner, canSeeTeam }) {
   const [recording, setRecording] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const [period, setPeriod] = useState('day');
+  // The roster tab is only for the Owner and the Master; everyone else opens
+  // straight onto their monthly log.
+  const [activeTab, setActiveTab] = useState(canSeeTeam ? 'today' : 'monthly');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1110,7 +1318,56 @@ export default function Attendance({ isOwner, canSeeTeam }) {
     <>
       <MyDay onChanged={refresh} />
 
-      {canSeeTeam && (
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', margin: '20px 0 18px', gap: '8px' }}>
+        {canSeeTeam && (
+        <button
+          type="button"
+          onClick={() => setActiveTab('today')}
+          style={{
+            padding: '10px 18px',
+            fontSize: '14px',
+            fontWeight: activeTab === 'today' ? 600 : 500,
+            color: activeTab === 'today' ? 'var(--accent, #2ec4b6)' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'today' ? '2px solid var(--accent, #2ec4b6)' : '2px solid transparent',
+            background: 'none',
+            borderLeft: 'none',
+            borderRight: 'none',
+            borderTop: 'none',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Clock size={16} /> Today's Status & Roster
+        </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setActiveTab('monthly')}
+          style={{
+            padding: '10px 18px',
+            fontSize: '14px',
+            fontWeight: activeTab === 'monthly' ? 600 : 500,
+            color: activeTab === 'monthly' ? 'var(--accent, #2ec4b6)' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'monthly' ? '2px solid var(--accent, #2ec4b6)' : '2px solid transparent',
+            background: 'none',
+            borderLeft: 'none',
+            borderRight: 'none',
+            borderTop: 'none',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Calendar size={16} /> Monthly Attendance Log
+        </button>
+      </div>
+
+      {activeTab === 'today' && canSeeTeam && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px',
                         flexWrap: 'wrap', margin: '0 0 12px' }}>
@@ -1159,7 +1416,9 @@ export default function Attendance({ isOwner, canSeeTeam }) {
         </>
       )}
 
-      <MonthlyAttendanceLogs reloadKey={reloadKey} />
+      {activeTab === 'monthly' && (
+        <MonthlyAttendanceLogs reloadKey={reloadKey} />
+      )}
 
       {correcting && (
         <Modal title="Correct attendance" onClose={() => setCorrecting(null)}>

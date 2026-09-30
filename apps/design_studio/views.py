@@ -877,6 +877,17 @@ class DesignerViewSet(viewsets.ModelViewSet):
             data['bootstrap_password'] = bootstrap
         return Response(data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['POST'], url_path='reset-password')
+    @transaction.atomic
+    def reset_password(self, request, pk=None):
+        """Issue a fresh password for a designer who has forgotten theirs."""
+        from crm_api.views import issue_new_password
+        designer = self.get_object()
+        data, error = issue_new_password(designer.user, designer.name)
+        if error:
+            return Response({'detail': error}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(data, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['GET'])
     def portfolio(self, request, pk=None):
         designer = self.get_object()

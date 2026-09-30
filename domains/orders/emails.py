@@ -128,8 +128,7 @@ def send_order_confirmation(order):
     """
     address = (getattr(order.customer, 'email_address', '') or '').strip()
     if not address:
-        # Plenty of walk-in customers give a phone number and nothing else.
-        # They still get the WhatsApp message; there is simply no email to send.
+        
         return
 
     def _send():
@@ -137,9 +136,7 @@ def send_order_confirmation(order):
             subject, body, html = _content(order)
             _deliver(subject, address, body, html)
         except Exception:
-            # Never let a mail problem surface as a failed order: by the time
-            # this runs the order exists and the customer has been told on
-            # screen that it does.
+            
             logger.exception(
                 "Order confirmation email failed for order %s", order.order_id)
 
