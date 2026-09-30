@@ -178,70 +178,86 @@ function MyDay({ onChanged }) {
 
       <div style={{
         fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase',
-        color: 'var(--text-muted)', marginBottom: '10px',
+        color: 'var(--text-muted)', marginBottom: '12px',
       }}>
         Today
       </div>
 
       {state.state === 'NOT_CHECKED_IN' && (
-        <>
-          <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '14px' }}>
-            Not checked in
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>
+              Not checked in
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Click to record your attendance for today
+            </div>
           </div>
           <button
             type="button" className="btn-primary" disabled={busy}
             onClick={() => act(() => api.checkIn())}
-            style={{ width: '100%', minHeight: '48px', fontSize: '16px',
-                     display: 'inline-flex', alignItems: 'center',
-                     justifyContent: 'center', gap: '8px' }}
+            style={{
+              padding: '9px 20px', fontSize: '14px', fontWeight: 600,
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '8px'
+            }}
           >
-            <LogIn size={18} /> {busy ? 'Checking in…' : 'Check in'}
+            <LogIn size={16} /> {busy ? 'Checking in…' : 'Check in'}
           </button>
-        </>
+        </div>
       )}
 
       {state.state === 'WORKING' && (
-        <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span style={{ width: '9px', height: '9px', borderRadius: '50%',
-                           background: '#2ec4b6', display: 'inline-block' }} />
-            <span style={{ fontSize: '18px', fontWeight: 600 }}>You&rsquo;re checked in</span>
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
-            Since {clockText(session.check_in)} · {hoursText(elapsed)} so far
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ width: '9px', height: '9px', borderRadius: '50%',
+                             background: '#2ec4b6', display: 'inline-block' }} />
+              <span style={{ fontSize: '18px', fontWeight: 600 }}>You&rsquo;re checked in</span>
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Since {clockText(session.check_in)} · {hoursText(elapsed)} so far
+            </div>
           </div>
           <button
             type="button" className="btn-primary" disabled={busy}
             onClick={() => act(() => api.checkOut())}
-            style={{ width: '100%', minHeight: '48px', fontSize: '16px',
-                     display: 'inline-flex', alignItems: 'center',
-                     justifyContent: 'center', gap: '8px',
-                     backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#ffffff' }}
+            style={{
+              padding: '9px 20px', fontSize: '14px', fontWeight: 600,
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#ffffff',
+              boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
+              border: '1px solid #dc2626'
+            }}
           >
-            <LogOut size={18} /> {busy ? 'Checking out…' : 'Check out'}
+            <LogOut size={16} /> {busy ? 'Checking out…' : 'Check out'}
           </button>
-        </>
+        </div>
       )}
 
       {state.state === 'CHECKED_OUT' && (
-        <>
-          <div style={{ fontSize: '18px', fontWeight: 600 }}>
-            {clockText(session.check_in)} → {clockText(session.check_out)}
-          </div>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px',
-                        marginBottom: '14px' }}>
-            {hoursText(state.today_minutes)} today
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>
+              {clockText(session.check_in)} → {clockText(session.check_out)}
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              {hoursText(state.today_minutes)} today
+            </div>
           </div>
           <button
             type="button" className="btn-secondary" disabled={busy}
             onClick={() => act(() => api.checkIn())}
-            style={{ width: '100%', minHeight: '44px',
-                     display: 'inline-flex', alignItems: 'center',
-                     justifyContent: 'center', gap: '8px' }}
+            style={{
+              padding: '9px 20px', fontSize: '14px', fontWeight: 600,
+              borderRadius: '8px', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: '8px'
+            }}
           >
             <LogIn size={16} /> Start another session
           </button>
-        </>
+        </div>
       )}
     </div>
   );
