@@ -39,10 +39,7 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
             f"Expected delivery: {due}\n"
             f"Track your order: {tracking_url(order)}",
         )
-        # The third channel. The Notification row above is a dashboard feed the
-        # customer never sees, and send_customer_message needs a phone number;
-        # a customer who gave only an email had no way of hearing from us at
-        # all. Queued on commit -- see domains/orders/emails.py.
+        
         send_order_confirmation(order)
         if order.master:
             Notification.objects.create(
@@ -59,13 +56,7 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
                 recipient_email=order.tailor.user.email if order.tailor.user else None
             )
     else:
-        # Fifteen production stages map onto six customer-facing statuses, so
-        # most transitions leave the status exactly where it was. Announcing it
-        # again on every stage gave the owner four identical "Ready for
-        # Dispatch" rows, the customer three "Quality Check" ones, and the
-        # tailor the same stitching task four times -- measured on one order
-        # walked from Received to Delivered. Only a change is news. The
-        # per-stage handover is notify_next_stage_owners' job, not this one's.
+       
         status = order.order_status
         display_stage = stage_name or status
 
@@ -116,10 +107,7 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
                 else:
                     cust_msg = f"Your order {order.reference} has been successfully Delivered. We hope you love your bespoke garment!"
 
-        # Fifteen production stages map onto six customer-facing statuses, so
-        # most transitions leave the status where it was. Only a change is
-        # news -- except the four named steps above, which the customer is
-        # told about whether or not the status label moved.
+       
         if not status_changed and msg_template == 'stage_update':
             return
 
