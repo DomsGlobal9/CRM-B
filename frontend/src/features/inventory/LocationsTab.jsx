@@ -222,9 +222,6 @@ function TransferModal({ items, locations, onClose, onDone }) {
 
   useEffect(() => {
     if (!item) { setBreakdown(null); setBreakdownLoading(false); return undefined; }
-    // A material picked, then picked again before the first answer arrives:
-    // only the last choice may write, or the line under the select can end up
-    // describing the material the user has already moved on from.
     let current = true;
     setBreakdownLoading(true);
     api.getItemLocations(item)

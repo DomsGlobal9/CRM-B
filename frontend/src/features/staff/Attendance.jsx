@@ -814,7 +814,7 @@ function MusterGrid({ isOwner, roster, sessions, dayMarks, since, until, onChang
     presentByStaff.set(String(s.staff), set);
   });
 
-  const markByKey = new Map(); // `${staff}|${date}` -> { id, kind }
+  const markByKey = new Map(); 
   dayMarks.forEach((m) => markByKey.set(`${m.staff}|${m.date}`, m));
 
   const statusFor = (staffId, iso) => {
@@ -825,7 +825,7 @@ function MusterGrid({ isOwner, roster, sessions, dayMarks, since, until, onChang
     return 'A';
   };
 
-  // A -> Leave -> Weekly off -> cleared. Present and future cells do nothing.
+
   const cycle = async (staffId, iso, current, mark) => {
     if (!isOwner || current === 'P' || iso > today) return;
     try {

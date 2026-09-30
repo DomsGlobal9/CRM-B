@@ -159,13 +159,7 @@ function PayoutDialog({ record, busy, error, onCancel, onConfirm }) {
   );
 }
 
-/**
- * One person's week, opened up.
- *
- * The session list is the point of this screen. A payroll figure nobody can
- * take apart is a payroll figure nobody should sign, so every contributing
- * session is shown with the hours it added.
- */
+
 function RecordDetail({ record, onBack, onPaid }) {
   const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -444,8 +438,6 @@ export default function Payroll() {
   const [confirming, setConfirming] = useState(false);
   const [openRecord, setOpenRecord] = useState(null);
 
-  /** Find an existing run for this week. Never generates on its own -- drafting
-   *  payroll is a decision the owner makes, not a side effect of opening a tab. */
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -641,8 +633,6 @@ export default function Payroll() {
               No staff had completed attendance in this week.
             </div>
           ) : (
-            // Cards, not a table. A five-column payroll table at 320px either
-            // scrolls sideways or crushes, and this is read on a phone.
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {period.records.map((r) => (
                 <div

@@ -91,7 +91,6 @@ const EMPTY_FORM = {
   notes: '',
 };
 
-// Sanity ceilings for employment terms; the server only refuses negatives.
 const MAX_HOURLY_RATE = 10000;
 const MAX_WEEKLY_HOURS = 168;
 
@@ -252,26 +251,7 @@ function AdvanceForm({ member, onCancel, onSaved }) {
   );
 }
 
-/**
- * Onboarding: one form for the roster row, the login, the employment record
- * and the documents.
- *
- * This used to be two screens, then three buttons: Manage Tailors created the
- * person and minted their login; Staff Management set up their employment
- * separately and held their documents behind a third button. Adding somebody
- * therefore meant knowing that the roster, the employment record and the
- * document store were different things, which is an implementation detail of
- * this codebase rather than a fact about hiring a tailor. Now one Save does
- * all three, in order, and the card offers one Edit.
- *
- * POSTs to the roster endpoint, which is what mints the account: supply an
- * email and the server generates a password and returns it exactly once, in
- * `bootstrap_password`. It is shown here and never again -- there is no second
- * copy to read, so the modal stays open on the credential until it is
- * dismissed deliberately.
- */
-/** A saved document's picture, or the file icon for a PDF or a picture that
- *  will not load. Opens the file in a new tab. */
+
 function DocumentThumb({ url }) {
   const [failed, setFailed] = useState(false);
   if (!url || failed || /\.pdf(\?|#|$)/i.test(url)) {
@@ -293,7 +273,6 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
     name: member?.name || '',
     phone: member?.phone || '',
     email: member?.email || '',
-    // A designer's is `specialisation`; a roster row's is `specialty`.
     specialty: member?.specialty || member?.specialisation || '',
     role: member?.role || 'Tailor',
     status: member?.status || 'Available',
@@ -308,8 +287,6 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       ? { ...EMPTY_FORM, ...Object.fromEntries(Object.keys(EMPTY_FORM).map((k) => [k, terms[k] ?? ''])) }
       : EMPTY_FORM);
   const [docs, setDocs] = useState([]);
-  // Editing an existing person opens with their documents still in flight, so
-  // the list says so instead of reading as "no documents on file".
   const [docsLoading, setDocsLoading] = useState(Boolean(member));
   const [docsError, setDocsError] = useState(null);
   const [pending, setPending] = useState([]);
@@ -357,14 +334,11 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
   const memberRoleIsCustom = editing && form.role && !knownValues.includes(form.role);
   const [customRole, setCustomRole] = useState(memberRoleIsCustom ? form.role : '');
   const [roleChoice, setRoleChoice] = useState(memberRoleIsCustom ? '__custom__' : form.role);
-  // Custom roles already on the roster, offered for reuse.
   const reusable = customRoles.filter((r) => !knownValues.includes(r));
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
   const isDesigner = form.role === 'Designer';
-  // The photo already on file: a roster row keeps it in profile_photo, a
-  // designer in profile_image.
   const savedPhoto = member?.profile_photo || member?.profile_image || '';
 
   const submit = async (e) => {
@@ -372,9 +346,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
     if (roleChoice === '__custom__' && !customRole.trim()) {
       setError('Type a name for the custom role.'); return;
     }
-    // A document typed into the Documents fields but not added with "Add
-    // document" is still the owner's intent: it goes up with this save
-    // rather than being silently dropped.
+
     const typedNumber = docForm.number.trim();
     const unqueued = docFile
       ? { ...docForm, number: typedNumber, label: docForm.label.trim(), file: docFile }
@@ -404,8 +376,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
           email: payload.email,
           specialisation: form.specialty.trim(),
         };
-        // Designer.profile_image holds a URL, so the photo is stored first
-        // (the same image upload the design library uses) and its URL saved.
+       
         if (photo) {
           const uploaded = await api.uploadBoutiqueDesignImage(photo);
           if (uploaded?.image_url) designerPayload.profile_image = uploaded.image_url;
@@ -434,8 +405,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
       if (saved?.bootstrap_password) setCredential(saved);
       const employment = cleaned({ ...termsForm, phone: termsForm.phone || payload.phone });
       const filledIn = Object.keys(employment).some((k) => !['employment_type', 'phone'].includes(k));
-      // Terms hang off the roster row for staff and off the designer record
-      // for a designer (StaffProfile.staff / StaffProfile.designer).
+      
       const holder = isDesigner ? 'designer' : 'staff';
       let profile = savedTerms;
       if (!profile && filledIn) {
@@ -450,7 +420,6 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
         setSavedTerms(await api.createStaffProfile({ ...employment, [holder]: saved.id }));
       }
 
-      // Documents, one request each, dropped from the queue as they land.
       for (const doc of (unqueued ? [...pending, unqueued] : pending)) {
         const body = new FormData();
         body.append(isDesigner ? 'designer' : 'staff', saved.id);
@@ -787,40 +756,29 @@ function Roster({ isOwner, canSeeTeam }) {
   const [designers, setDesigners] = useState([]);
   const [terms, setTerms] = useState([]);
   const [attendanceToday, setAttendanceToday] = useState([]);
-  // Owner only. The endpoint refuses everyone else, so this stays empty for a
-  // Master and the deposit block simply does not render for them.
   const [deposits, setDeposits] = useState([]);
   const [advances, setAdvances] = useState([]);
   const [issuingFor, setIssuingFor] = useState(null);
-  // Roster rows whose pay / deposit / advance detail is open.
   const [expanded, setExpanded] = useState(() => new Set());
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
   const [person, setPerson] = useState(null);
-  // The team member whose Delete was picked from the row menu, while the
-  // confirmation is open: { member, busy, error }.
   const [removing, setRemoving] = useState(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      // Independent failures: a staff member may read their own terms but not
-      // the roster, so one refusal must not blank the whole screen.
       const d = new Date();
       const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const [people, designed, profiles, deposited, advanced, present] = await Promise.all([
         canSeeTeam ? api.getTailors().catch(() => []) : Promise.resolve([]),
-        // Designers are a separate table with a separate endpoint. They are on
-        // this screen because this is where a boutique adds a person, not
-        // because they became roster rows.
         canSeeTeam ? api.getDesigners().catch(() => []) : Promise.resolve([]),
         api.getStaffProfiles().catch(() => []),
         isOwner ? api.getDeposits().catch(() => []) : Promise.resolve([]),
         isOwner ? api.getAdvances({ active: 'true' }).catch(() => []) : Promise.resolve([]),
-        // Today's attendance, for the "on the floor now" figure in the overview.
         canSeeTeam ? api.getAttendance({ date: today }).catch(() => []) : Promise.resolve([]),
       ]);
       setRoster(Array.isArray(people) ? people : []);
@@ -857,8 +815,7 @@ function Roster({ isOwner, canSeeTeam }) {
     return map;
   }, [deposits]);
 
-  // Employment terms belong to a roster row (`staff`) or to a designer
-  // (`designer`) -- two tables whose ids can collide -- so the key says which.
+
   const termsByStaff = useMemo(() => {
     const map = new Map();
     terms.forEach((t) => map.set(t.designer ? `designer:${t.designer}` : `staff:${t.staff}`, t));
@@ -920,7 +877,7 @@ function Roster({ isOwner, canSeeTeam }) {
     return { total, available, busy, presentToday: presentIds.size, workingNow, emp };
   }, [roster, designers, attendanceToday, terms]);
 
-  // "Master" -> "Masters", but roles ending in "Staff" stay as they are.
+  
   const plural = (role, n) =>
     (n === 1 || /staff$/i.test(role)) ? role : `${role}s`;
 
@@ -1015,10 +972,7 @@ function Roster({ isOwner, canSeeTeam }) {
             : 'Your employment details have not been set up yet. Your boutique owner can add them.'}
         </div>
       ) : (
-        // A dense roster: one line per person with the money summarised
-        // inline, and the full pay / deposit / advance detail behind a
-        // chevron. Money columns only appear when someone on the list has
-        // pay set up, so a roster with no employment yet stays short.
+        
         (() => {
           const showPay = isOwner && rows.some(({ terms }) => terms && showsPay(terms));
           const cols = 4 + (showPay ? 2 : 0) + (isOwner ? 1 : 0);
@@ -1112,8 +1066,7 @@ function Roster({ isOwner, canSeeTeam }) {
                       </div>
                     </>
                   ) : member.isDesigner ? muted : (
-                    // Only a roster row can have employment terms -- StaffProfile's
-                    // FK points at Tailor -- so a designer is never "not set up".
+                    
                     <span style={{ color: 'var(--text-muted)' }}
                           title="No employment details yet — this person works exactly as before.">
                       Not added
@@ -1373,16 +1326,10 @@ const TABS = [
 ];
 
 export default function StaffPanel({ currentUser }) {
-  // Mirrors the backend: the owner manages, a Master supervises (reads the team
-  // without its pay), everyone else sees themselves. This is UX only -- every
-  // one of these boundaries is enforced again server-side, and the buttons
-  // hidden here are refused there too.
   const isOwner = !currentUser?.role || currentUser.role === 'Owner';
   const isSupervisor = currentUser?.role === 'Master';
   const canSeeTeam = isOwner || isSupervisor;
 
-  // A tailor opens this to record their hours, not to browse a roster of one.
-  // Managers open it on the team. Same screen, different first thing.
   const [tab, setTab] = useState(isOwner ? 'roster' : 'attendance');
 
   return (
@@ -1434,8 +1381,6 @@ export default function StaffPanel({ currentUser }) {
         <Attendance isOwner={isOwner} canSeeTeam={canSeeTeam} />
       )}
       {tab === 'payroll' && (
-        // Owner-only, and only the owner can reach this tab at all: the Payroll
-        // button is not rendered for anyone else (see TABS filtering above).
         isOwner ? <Payroll /> : (
           <NotBuiltYet
             title="Payroll is not yours to see"
