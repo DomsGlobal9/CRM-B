@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Upload, X } from 'lucide-react';
+import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Search, Upload, X } from 'lucide-react';
 import { AddPhotoButton } from '../../components/ui/Atelier';
 
 import { api } from '../../services/api';
@@ -22,7 +22,7 @@ const onImgError = (e) => {
   if (e.currentTarget.src !== PLACEHOLDER) e.currentTarget.src = PLACEHOLDER;
 };
 
-function PickCard({ src, alt, picked, onClick, onView, children, height = '110px' }) {
+function PickCard({ src, alt, picked, onClick, onView, onSelect, children, height = '110px' }) {
   return (
     <div
       style={{
@@ -44,26 +44,41 @@ function PickCard({ src, alt, picked, onClick, onView, children, height = '110px
         {children}
       </button>
 
-      {picked && (
-        <span style={{ position: 'absolute', top: '6px', right: '6px', width: '20px', height: '20px',
-                       borderRadius: '50%', background: 'var(--primary-color)', color: 'var(--primary-foreground)', display: 'flex',
-                       alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <Check size={12} />
-        </span>
-      )}
-
       {onView && (
         <button
           type="button"
-          title="View full size"
+          title="View all parts of this design"
           onClick={(e) => { e.stopPropagation(); onView(); }}
           style={{ position: 'absolute', top: '6px', left: '6px', display: 'flex',
                    alignItems: 'center', gap: '4px', padding: '3px 8px', cursor: 'pointer',
                    borderRadius: '5px', border: 'none', fontSize: '10.5px', fontWeight: 600,
-                   background: 'rgba(0,0,0,0.62)', color: '#fff' }}
+                   background: 'rgba(0,0,0,0.65)', color: '#fff', zIndex: 2 }}
         >
           <Eye size={11} /> View
         </button>
+      )}
+
+      {onSelect ? (
+        <button
+          type="button"
+          title={picked ? "Deselect design" : "Select design"}
+          onClick={(e) => { e.stopPropagation(); onSelect(); }}
+          style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex',
+                   alignItems: 'center', gap: '4px', padding: '3px 8px', cursor: 'pointer',
+                   borderRadius: '5px', border: 'none', fontSize: '10.5px', fontWeight: 600,
+                   background: picked ? 'var(--primary-color)' : 'rgba(0,0,0,0.65)',
+                   color: '#fff', zIndex: 2 }}
+        >
+          <Check size={11} /> {picked ? 'Selected' : 'Select'}
+        </button>
+      ) : (
+        picked && (
+          <span style={{ position: 'absolute', top: '6px', right: '6px', width: '20px', height: '20px',
+                         borderRadius: '50%', background: 'var(--primary-color)', color: 'var(--primary-foreground)', display: 'flex',
+                         alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 2 }}>
+            <Check size={12} />
+          </span>
+        )
       )}
     </div>
   );
@@ -566,6 +581,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 
   const [allDesigns, setAllDesigns] = useState(null);
   const [catalogueFilter, setCatalogueFilter] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
   const [template, setTemplate] = useState(null);
   const [error, setError] = useState(null);
   const [openDesign, setOpenDesign] = useState(null);
@@ -620,15 +636,22 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   
   const designs = useMemo(() => {
     if (!allDesigns) return null;
+    let filtered = allDesigns;
     const { category, subcategory, option } = catalogueFilter;
-    if (!category) return allDesigns;
-    return allDesigns.filter((d) => {
-      const c = d.catalogue || {};
-      return c.category === category
-        && (!subcategory || c.subcategory === subcategory)
-        && (!option || c.option === option);
-    });
-  }, [allDesigns, catalogueFilter]);
+    if (category) {
+      filtered = filtered.filter((d) => {
+        const c = d.catalogue || {};
+        return c.category === category
+          && (!subcategory || c.subcategory === subcategory)
+          && (!option || c.option === option);
+      });
+    }
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim().toLowerCase();
+      filtered = filtered.filter(d => (d.title || '').toLowerCase().includes(q));
+    }
+    return filtered;
+  }, [allDesigns, catalogueFilter, searchTerm]);
 
   const partOrder = useMemo(
     () => (template?.design_parts || []).map(p => p.key), [template]);
@@ -680,7 +703,9 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     if (ownOnly && !declared.length && !extra.length) {
       return [{ key: 'overall', label: 'Overall Design' }];
     }
-    return [...declared, ...extra];
+    const allParts = [...declared, ...extra];
+    const overallParts = allParts.filter(p => p.key.startsWith('overall') || p.label.toLowerCase().includes('overall'));
+    return overallParts.length > 0 ? overallParts : (allParts.length > 0 ? [allParts[0]] : [{ key: 'overall', label: 'Overall Design' }]);
   }, [template, imagesByPart, ownOnly, isFabric, accessoriesOnly, effectiveTaxonomy, garmentKey, garmentsByKey]);
 
   const [partTab, setPartTab] = useState(undefined);
@@ -862,6 +887,38 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     onChange?.(next);
   };
 
+  const selectDesign = (design) => {
+    const images = design.images || [];
+    const next = { ...selection };
+
+    const isDesignSelected = images.length > 0
+      ? images.every(img => next[img.part]?.id === img.id)
+      : Object.values(next).some(img => img && String(img.design_id) === String(design.id));
+
+    if (isDesignSelected) {
+      images.forEach(img => {
+        if (next[img.part]?.id === img.id) delete next[img.part];
+      });
+      Object.keys(next).forEach(key => {
+        if (next[key] && String(next[key].design_id) === String(design.id)) {
+          delete next[key];
+        }
+      });
+    } else {
+      if (images.length > 0) {
+        images.forEach(img => {
+          const partLabel = partLabels[img.part] || img.part.replace(/_/g, ' ');
+          next[img.part] = { ...img, design_id: design.id, design_title: design.title, part_label: partLabel };
+        });
+      } else {
+        const cover = coverOf(design);
+        const overallKey = (template?.design_parts || [])[0]?.key || 'overall';
+        next[overallKey] = { id: `design:${design.id}`, design_id: design.id, image_url: cover, design_title: design.title, part_label: 'Overall Design' };
+      }
+    }
+    onChange?.(next);
+  };
+
   /** The photograph that represents a whole design in the list: its overall
    *  shot where it has one, its cover otherwise. */
   const coverOf = (design) => {
@@ -908,6 +965,27 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
           the list below to designs filed there. Renders nothing for a garment
           that has no catalogue, so those look exactly as they did. */}
       {!loading && !ownOnly && !isFabric && !accessoriesOnly && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '380px' }}>
+            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Search design (e.g. Ruffle, Pattu, Velvet)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ paddingLeft: '32px', height: '34px', fontSize: '12.5px', borderRadius: '7px' }}
+            />
+          </div>
+          {searchTerm && (
+            <button type="button" className="btn-secondary" style={{ height: '34px', padding: '0 12px', fontSize: '12px' }} onClick={() => setSearchTerm('')}>
+              Clear
+            </button>
+          )}
+        </div>
+      )}
+
+      {!loading && !ownOnly && !isFabric && !accessoriesOnly && (
         <DesignCatalogueFilter
           garmentKey={garmentKey}
           value={catalogueFilter}
@@ -924,11 +1002,11 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
             activeKey={openPart || tabParts[0]?.key}
             onSelectActiveKey={(key) => { setPartTab(key); setViewIndex(null); }}
           />
-        ) : (
+        ) : isFabric ? (
           <PartTabStrip parts={tabParts} active={openPart}
-                        allLabel={ownOnly ? null : 'All Designs'}
+                        allLabel={null}
                         onChange={(part) => { setPartTab(part); setViewIndex(null); }} />
-        )
+        ) : null
       )}
 
       {!loading && accessoriesOnly && selectedAccessoryKeys.length === 0 && (
@@ -1221,15 +1299,19 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
           {designs.map((design, i) => {
             const taken = Object.values(selection)
               .filter(img => img && String(img.design_id) === String(design.id)).length;
+            const isFullyPicked = (design.images || []).length > 0
+              ? (design.images || []).every(img => selection[img.part]?.id === img.id)
+              : (taken > 0);
             return (
               <PickCard
                 key={design.id}
                 src={coverOf(design)}
                 alt={design.title}
-                picked={taken > 0}
+                picked={isFullyPicked || taken > 0}
                 height="150px"
                 onClick={() => setOpenDesign(design)}
-                onView={() => setViewIndex(i)}
+                onView={() => setOpenDesign(design)}
+                onSelect={() => selectDesign(design)}
               >
                 <div style={{ padding: '8px 10px' }}>
                   <div style={{ fontSize: '12.5px', fontWeight: 600, overflow: 'hidden',

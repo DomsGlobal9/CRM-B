@@ -27,12 +27,17 @@ const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 export const isHexQuery = (query) => HEX.test((query || '').trim());
 
 export const fabricMatchesColour = (fabric, query) => {
-  const q = (query || '').trim();
+  const q = (query || '').trim().toLowerCase();
   if (!q) return true;
+
   const wanted = rgb(q);
   if (wanted) {
     const have = rgb(fabric.color_hex);
     return Boolean(have) && distance(wanted, have) <= NEAR;
   }
-  return (fabric.color || '').toLowerCase().includes(q.toLowerCase());
+
+  const fColor = (fabric.color || '').trim().toLowerCase();
+  if (!fColor) return false;
+
+  return fColor === q;
 };

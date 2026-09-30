@@ -225,28 +225,15 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           So the three are asked in that order, and the name is suggested from
           the option chosen until the owner types one of their own. */}
       <FormSection icon={Shirt} tone="green" title="About this design"
-        subtitle="Which garment, where it is filed, and what to call it.">
-        <div className="at-form-grid at-form-grid--3">
+        subtitle="Which garment and what to call it.">
+        <div className="at-form-grid at-form-grid--2">
           <Field label="Garment" icon={Shirt}>
             <select className="form-control" value={form.template_key} onChange={changeGarment}>
               <option value="">Uncategorised</option>
               {templates.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
             </select>
           </Field>
-          <DesignCataloguePicker
-            garmentKey={form.template_key}
-            value={catalogue}
-            onChange={(value, payload) => {
-              setCatalogue(value);
-              setCataloguePayload(payload);
-              if (payload && !titleTouched) {
-                const label = describePath(catalogueTree, value).split(' › ').pop();
-                if (label) setForm((f) => ({ ...f, title: label }));
-              }
-            }}
-          />
-          <Field label="Design Name" required icon={Type}
-            hint={!titleTouched && cataloguePayload ? 'Suggested from the catalogue — edit it as you like.' : undefined}>
+          <Field label="Design Name" required icon={Type}>
             <input className="form-control" value={form.title} maxLength={200}
               onChange={(e) => { setTitleTouched(true); set('title')(e); }}
               placeholder="e.g. Hand-embroidered bridal lehenga" />
@@ -296,22 +283,9 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
 
       <FormSection icon={FileText} tone="green" title="Design Details" subtitle="Who made it, and what it costs to make.">
         <div className="at-form-grid at-form-grid--3">
-          <Field label="Designer" icon={User}>
-            {select('designer_ref', designers.map(d => [d.id, d.name]), 'Unattributed')}
-          </Field>
-          <Field label="Collection" icon={Layers}>
-            <select className="form-control" value={form.collection} onChange={set('collection')}
-              disabled={!form.designer_ref}>
-              <option value="">{form.designer_ref ? 'None' : 'Pick a designer first'}</option>
-              {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </Field>
           <Field label="Price (₹)" icon={IndianRupee}>
             <input className="form-control" inputMode="decimal" value={form.estimated_price}
               onChange={(e) => setForm({ ...form, estimated_price: cleanAmount(e.target.value) })} placeholder="0" />
-          </Field>
-          <Field label="Difficulty" icon={BarChart3}>
-            {select('difficulty', [['SIMPLE', 'Simple'], ['MODERATE', 'Moderate'], ['COMPLEX', 'Complex']], 'Not set')}
           </Field>
           <Field label="Stitch Time (hours)" icon={Clock}>
             <input className="form-control" inputMode="decimal" value={form.stitch_hours}
@@ -326,19 +300,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
               placeholder="Optional video URL (https://…)" />
           </Field>
         </div>
-
-        {form.designer_ref && (
-          <div className="at-field-inline">
-            <div className="at-field-control" style={{ maxWidth: '260px', flex: '1 1 200px' }}>
-              <input className="form-control" value={newCollection} onChange={(e) => setNewCollection(e.target.value)} maxLength={150}
-                placeholder="New collection name" />
-            </div>
-            <button type="button" className="btn-secondary at-btn-sm"
-              onClick={addCollection} disabled={!newCollection.trim() || addingCollection}>
-              <Plus size={12} /> {addingCollection ? 'Adding…' : 'Add collection'}
-            </button>
-          </div>
-        )}
       </FormSection>
 
       <FormSection icon={FileText} tone="green" title="Description"
