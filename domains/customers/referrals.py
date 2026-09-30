@@ -8,11 +8,12 @@ leaves a customer behind.
 """
 from typing import NamedTuple
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from rest_framework import serializers as drf_serializers
 
 from core.validators import MAX_NOTE, validate_text
-from crm_api.models import CustomerReferral
+from crm_api.models import Customer, CustomerReferral
 from crm_api.serializers import CustomerSerializer
 from domains.customers.repositories import CustomerRepository
 from domains.orders.drafts import first_error
@@ -38,6 +39,46 @@ def _customer_data(payload):
     return data
 
 
+def attach_referral(referrer, referred, *, user, note=''):
+    """Record that `referrer` referred the already-saved customer `referred`.
+
+    The business rules both callers share: nobody refers themselves, and a
+    customer keeps the first referrer they were given. Raises a DRF
+    ValidationError with one plain sentence when the referral is refused.
+    """
+    if referred.pk == referrer.pk:
+        raise drf_serializers.ValidationError('A customer cannot refer themselves.')
+
+    earlier = (CustomerReferral.objects.select_related('referrer')
+               .filter(referred=referred).first())
+    if earlier is not None:
+        if earlier.referrer_id == referrer.pk:
+            raise drf_serializers.ValidationError(
+                f'{_name(referrer)} has already referred {_name(referred)}.')
+        by = _name(earlier.referrer) if earlier.referrer else earlier.referrer_name_snapshot
+        raise drf_serializers.ValidationError(
+            f'{_name(referred)} was already referred by {by or "another customer"}.')
+
+    return CustomerReferral.objects.create(
+        referrer=referrer, referred=referred, created_by=user, note=note)
+
+
+def find_referrer(referrer_id):
+    """The customer `referrer_id` names, or a refusal if no such customer exists.
+
+    The referrer must already be in the book: an id nobody holds is refused
+    rather than turned into a new customer.
+    """
+    try:
+        referrer = Customer.objects.filter(pk=referrer_id).first()
+    except (DjangoValidationError, ValueError, TypeError):
+        referrer = None
+    if referrer is None:
+        raise drf_serializers.ValidationError(
+            'Choose the referring customer from the list; that one is not in the customer book.')
+    return referrer
+
+
 def record_referral(referrer, payload, *, user):
     """Record that `referrer` referred the customer `payload` describes.
 
@@ -61,21 +102,7 @@ def record_referral(referrer, payload, *, user):
                     raise drf_serializers.ValidationError(first_error(serializer.errors))
                 referred = serializer.save()
 
-            if referred.pk == referrer.pk:
-                raise drf_serializers.ValidationError('A customer cannot refer themselves.')
-
-            earlier = (CustomerReferral.objects.select_related('referrer')
-                       .filter(referred=referred).first())
-            if earlier is not None:
-                if earlier.referrer_id == referrer.pk:
-                    raise drf_serializers.ValidationError(
-                        f'{_name(referrer)} has already referred {_name(referred)}.')
-                by = _name(earlier.referrer) if earlier.referrer else earlier.referrer_name_snapshot
-                raise drf_serializers.ValidationError(
-                    f'{_name(referred)} was already referred by {by or "another customer"}.')
-
-            referral = CustomerReferral.objects.create(
-                referrer=referrer, referred=referred, created_by=user, note=note)
+            referral = attach_referral(referrer, referred, user=user, note=note)
     except IntegrityError:
         raise drf_serializers.ValidationError(
             'That customer already has a referrer, or cannot be referred by this customer.')

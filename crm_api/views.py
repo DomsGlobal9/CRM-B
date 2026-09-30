@@ -24,7 +24,7 @@ from core.validators import (
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import (
     Count, DecimalField, ExpressionWrapper, F, Q, Sum, Value,
 )
@@ -50,7 +50,7 @@ from .serializers import (
 )
 from apps.design_studio.models import DesignAsset
 from domains.customers.repositories import CustomerRepository
-from domains.customers.referrals import record_referral
+from domains.customers.referrals import attach_referral, find_referrer, record_referral
 from domains.customers.services import import_customers
 from domains.orders import drafts
 from domains.orders.messaging import send_customer_message
@@ -80,6 +80,42 @@ class CustomerViewSet(viewsets.ModelViewSet):
         base = (CustomerRepository.summary_queryset() if self.action == 'list'
                 else CustomerRepository.get_all())
         return visible_customers(base, self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """Add one customer, optionally recording who referred them.
+
+        `referred_by` is write-only and holds the id of a customer who is
+        already in the book: the form offers only customers it found, and an
+        id nobody holds is refused rather than turned into a new customer.
+        The customer and the referral are saved together, so a refused
+        referral leaves no half-added customer behind. Without it this is the
+        Add Customer request it always was.
+        """
+        referrer_id = request.data.get('referred_by')
+        # A client echoing the read shape ({id, name}) back is not a request
+        # to record a referral.
+        if not referrer_id or isinstance(referrer_id, dict):
+            return super().create(request, *args, **kwargs)
+
+        data = request.data.copy()
+        if not data.get('source'):
+            data['source'] = 'Referral'
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            with transaction.atomic():
+                referrer = find_referrer(referrer_id)
+                customer = serializer.save()
+                attach_referral(referrer, customer, user=request.user)
+        except ValidationError as exc:
+            return _refused(exc)
+        except IntegrityError:
+            return Response(
+                {'error': 'That customer already has a referrer, or cannot be '
+                          'referred by this customer.'},
+                status=status.HTTP_400_BAD_REQUEST)
+        return Response(self.get_serializer(customer).data, status=status.HTTP_201_CREATED,
+                        headers=self.get_success_headers(serializer.data))
 
     @staticmethod
     def _money_records(customer):
@@ -141,13 +177,19 @@ class CustomerViewSet(viewsets.ModelViewSet):
         The confirmation dialog shows the first call's answer; the second
         call re-sends the same file, so nothing is parked on the server
         between the two.
+
+        `referred_by_mobile` is read only for the Owner, who is the one role
+        that may record a referral; for the Master importing the same sheet
+        the column is listed as ignored and nothing is recorded from it.
         """
         upload = request.FILES.get('file')
         if upload is None:
             return Response({'error': 'Choose a spreadsheet to upload.'}, status=status.HTTP_400_BAD_REQUEST)
         commit = str(request.data.get('commit', '')).lower() in ('1', 'true', 'yes')
         try:
-            return Response(import_customers(upload, commit=commit))
+            return Response(import_customers(
+                upload, commit=commit, user=request.user,
+                referrals=resolve_user_role(request.user) == OWNER))
         except ValidationError as exc:
             return _refused(exc)
 

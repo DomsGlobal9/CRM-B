@@ -4,6 +4,11 @@ One sheet, one customer per row, keyed on the mobile number. Every row goes
 through CustomerSerializer so the file obeys exactly the rules the Add
 Customer form does. An existing customer is only ever *filled in*: a cell
 never overwrites a value the boutique already recorded.
+
+`referred_by_mobile` names the customer who referred that row, by the same
+canonical mobile the book is keyed on. The referrer must already be in the
+book or be another row of the same sheet; one that is neither is reported on
+the row and the customer is imported without a referral.
 """
 import csv
 import io
@@ -14,7 +19,7 @@ from rest_framework import serializers as drf_serializers
 
 from apps.catalog.definitions import all_templates
 from core.validators import MAX_NOTE
-from crm_api.models import Customer, Measurement, whatsapp_number
+from crm_api.models import Customer, CustomerReferral, Measurement, whatsapp_number
 from crm_api.serializers import INCH_FIELDS, CustomerSerializer, GENDERS, SOURCES, TIERS
 from domains.orders.drafts import first_error
 
@@ -31,6 +36,9 @@ PROFILE_COLUMNS = {
     'source': 'source', 'tier': 'customer_type', 'customer_type': 'customer_type',
     'date_of_birth': 'date_of_birth', 'dob': 'date_of_birth', 'notes': 'notes',
 }
+#: The column naming the referrer, by mobile. Not a Customer field: it is
+#: resolved after every row of the sheet has been saved.
+REFERRER_COLUMNS = frozenset({'referred_by_mobile', 'referred_by', 'referrer_mobile'})
 MEASURE_ALIASES = {'chest': 'bust', 'hip': 'hips'}
 CHOICES = {'gender': GENDERS, 'source': SOURCES, 'customer_type': TIERS}
 
@@ -91,16 +99,28 @@ def _choice(field, value):
     return value  # the serializer names the allowed values in its refusal
 
 
-def _row_payload(headers, row, measurement_keys, ignored):
-    """One row -> (serializer payload, sheet_extras) or a row-level error."""
+def _row_payload(headers, row, measurement_keys, ignored, referrals=True):
+    """One row -> (serializer payload, sheet extras, referrer mobile) or a row-level error.
+
+    Without `referrals` -- an import by anyone but the owner -- the referrer
+    column is read as any other unknown column is: listed as ignored, and
+    nothing is recorded from it.
+    """
     profile, sheet, extras = {}, {}, {}
     full_name = None
+    referrer = ''
     for header, raw in zip(headers, row):
         if not header or raw == '':
             continue
         # One name column: the first word is the first name, the rest the last.
         if header == 'full_name':
             full_name = ' '.join(raw.split()).partition(' ')
+            continue
+        if header in REFERRER_COLUMNS:
+            if referrals:
+                referrer = referrer or raw
+            else:
+                ignored.add(header)
             continue
         if header in PROFILE_COLUMNS:
             field = PROFILE_COLUMNS[header]
@@ -121,7 +141,7 @@ def _row_payload(headers, row, measurement_keys, ignored):
             profile.setdefault('last_name', full_name[2])
     if 'mobile_number' not in profile:
         raise drf_serializers.ValidationError('Mobile number is missing.')
-    return profile, sheet, extras
+    return profile, sheet, extras, referrer
 
 
 def _merge(target, source):
@@ -146,11 +166,84 @@ def _fill_existing(customer, profile, sheet, extras):
     return data
 
 
-def import_customers(upload, *, commit=False):
+def _plan_referrals(valid):
+    """Settle each row's `referred_by_mobile` before anything is saved.
+
+    Sets `referrer_mobile` on the rows whose referral can go ahead -- the
+    canonical mobile of a referrer who is either already in the book or
+    another row of this same sheet -- and leaves a note on the rows where it
+    cannot. A refusal here never removes the row from the import: the
+    customer is added or filled in exactly as they would be without the
+    column.
+    """
+    for item in valid:
+        item['referrer_mobile'] = ''
+    wanted = [item for item in valid if item.get('referrer')]
+    if not wanted:
+        return
+
+    in_sheet = {item['mobile'] for item in valid}
+    known = set(Customer.objects.filter(
+        mobile_number__in={whatsapp_number(item['referrer']) for item in wanted} - {''}
+    ).values_list('mobile_number', flat=True))
+    already = set(CustomerReferral.objects.filter(
+        referred__in=[item['customer'] for item in wanted if item['customer'] is not None]
+    ).values_list('referred_id', flat=True))
+
+    for item in wanted:
+        raw = item['referrer']
+        mobile = whatsapp_number(raw)
+        if not mobile:
+            item['notes'].append(f'Referrer "{raw}" is not a valid mobile number, '
+                                 'so no referral was recorded.')
+        elif mobile == item['mobile']:
+            item['notes'].append('A customer cannot refer themselves.')
+        elif mobile not in known and mobile not in in_sheet:
+            item['notes'].append(f'Referrer {raw} not found, so no referral was recorded.')
+        elif item['customer'] is not None and item['customer'].pk in already:
+            item['notes'].append('They already have a referrer on file, which was kept.')
+        else:
+            item['referrer_mobile'] = mobile
+
+
+def _save_referrals(valid, user):
+    """Record the referrals _plan_referrals settled, every customer now saved.
+
+    Runs inside the import's transaction and after every row of the sheet has
+    been written, so a referrer named by another row of the same file is found
+    here exactly as one already in the book is. The referrer's own profile is
+    not touched.
+    """
+    wanted = [item for item in valid if item.get('referrer_mobile')]
+    if not wanted:
+        return
+    user = user if getattr(user, 'is_authenticated', False) else None
+    referrers = {c.mobile_number: c for c in Customer.objects.filter(
+        mobile_number__in={item['referrer_mobile'] for item in wanted})}
+    taken = set(CustomerReferral.objects.filter(
+        referred__in=[item['customer'] for item in wanted]).values_list('referred_id', flat=True))
+    rows = []
+    for item in wanted:
+        referrer, customer = referrers.get(item['referrer_mobile']), item['customer']
+        if referrer is None or referrer.pk == customer.pk or customer.pk in taken:
+            continue
+        taken.add(customer.pk)
+        rows.append(CustomerReferral(referrer=referrer, referred=customer, created_by=user,
+                                     referrer_name_snapshot=f'{referrer.first_name} {referrer.last_name}'.strip(),
+                                     referrer_mobile_snapshot=referrer.mobile_number))
+    CustomerReferral.objects.bulk_create(rows)
+
+
+def import_customers(upload, *, commit=False, user=None, referrals=True):
     """Validate every row; with commit, save the valid ones in one transaction.
 
     Returns {'valid': [...], 'errors': [...], 'ignored_columns': [...]} and,
     after a commit, 'created' / 'updated' counts.
+
+    `referrals` is the caller's permission to record what `referred_by_mobile`
+    says, which only the owner has; without it the column is ignored. A
+    referral that cannot be recorded never costs the row its import -- the
+    customer lands either way and the reason is a note on the row.
     """
     from django.db import transaction
 
@@ -168,7 +261,8 @@ def import_customers(upload, *, commit=False):
     merged = {}
     for index, row in data:
         try:
-            profile, sheet, extras = _row_payload(headers, row, measurement_keys, ignored)
+            profile, sheet, extras, referrer = _row_payload(
+                headers, row, measurement_keys, ignored, referrals)
         except drf_serializers.ValidationError as exc:
             errors.append({'row': index, 'error': first_error(exc.detail)})
             continue
@@ -179,8 +273,10 @@ def import_customers(upload, *, commit=False):
             _merge(entry['profile'], profile)
             _merge(entry['sheet'], sheet)
             _merge(entry['extras'], extras)
+            entry['referrer'] = entry['referrer'] or referrer
         else:
-            merged[key] = {'rows': [index], 'profile': profile, 'sheet': sheet, 'extras': extras}
+            merged[key] = {'rows': [index], 'profile': profile, 'sheet': sheet,
+                           'extras': extras, 'referrer': referrer}
 
     existing = {c.mobile_number: c for c in Customer.objects.filter(mobile_number__in=list(merged))}
 
@@ -216,17 +312,22 @@ def import_customers(upload, *, commit=False):
             'rows': entry['rows'], 'mobile': key, 'serializer': serializer,
             'name': f"{profile.get('first_name', '')} {profile.get('last_name', '')}".strip(),
             'action': 'update' if customer else 'create', 'notes': notes,
+            'referrer': entry['referrer'], 'customer': customer,
         })
 
+    _plan_referrals(valid)
+
+    hidden = ('serializer', 'customer', 'referrer', 'referrer_mobile')
     result = {
-        'valid': [{k: v for k, v in item.items() if k != 'serializer'} for item in valid],
+        'valid': [{k: v for k, v in item.items() if k not in hidden} for item in valid],
         'errors': sorted(errors, key=lambda e: e['row']),
         'ignored_columns': sorted(ignored),
     }
     if commit:
         with transaction.atomic():
             for item in valid:
-                item['serializer'].save()
+                item['customer'] = item['serializer'].save()
+            _save_referrals(valid, user)
         result['created'] = sum(1 for item in valid if item['action'] == 'create')
         result['updated'] = len(valid) - result['created']
     return result

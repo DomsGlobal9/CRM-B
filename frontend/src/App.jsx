@@ -5204,7 +5204,7 @@ function App() {
                                   onImported={() => fetchDashboardAndConfig()} />
             )}
             {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
-              <CustomerForm onBack={() => setCustomerAddMode('choose')}
+              <CustomerForm customers={customersList} onBack={() => setCustomerAddMode('choose')}
                             onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
             )}
             {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (

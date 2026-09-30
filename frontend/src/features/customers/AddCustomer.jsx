@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, CheckCircle2, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, nameError } from '../../services/validate';
+import { formatMobile } from '../../services/format';
 import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
 import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../services/phone';
 import { FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
@@ -191,6 +192,35 @@ function ImportProgress({ phase, file, count }) {
   );
 }
 
+/* The sample sheet the upload card offers: the columns the import reads, with
+   a row showing what each holds. `referred_by_mobile` is the MOBILE NUMBER of
+   the customer who referred that row -- Priya below is referred by someone
+   already in the book, Anita by Rahul, who is added by this same sheet. */
+const SAMPLE_COLUMNS = ['mobile', 'full_name', 'email', 'gender', 'city', 'address', 'source',
+                        'tier', 'date_of_birth', 'notes', 'referred_by_mobile',
+                        'bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length'];
+const SAMPLE_ROWS = [
+  ['9876543210', 'Rahul Menon', 'rahul@example.com', 'Male', 'Kochi', '12 Marine Drive', 'Walk In',
+   'Silver', '1990-04-18', '', '', '', '32', '', '17', '24', '15', '40'],
+  ['9123456789', 'Priya Sharma', '', 'Female', 'Pune', '', 'Referral',
+   'Gold', '', 'Referred by an existing customer', '9000000001', '36', '30', '38', '15', '22', '14', '42'],
+  ['9988776655', 'Anita Rao', '', 'Female', 'Kochi', '', 'Referral',
+   'Silver', '', 'Referred by Rahul, who is added by this same sheet', '9876543210', '', '', '', '', '', '', ''],
+];
+
+/** The sample sheet, built here rather than shipped as a file so it can never
+ *  drift from the columns the import actually reads. */
+function downloadSampleSheet() {
+  const quote = (cell) => (/[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell);
+  const csv = [SAMPLE_COLUMNS, ...SAMPLE_ROWS].map((row) => row.map(quote).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'customers-sample.csv';
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export function AddCustomerChooser({ onBack, onManual, onImported }) {
   const fileRef = useRef(null);
   const [imp, setImp] = useState(null); // { file, preview?, result?, busy }
@@ -240,6 +270,16 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
           <span className="wz-service-desc">One customer, typed in: profile and measurements on a single page.</span>
         </button>
       </div>
+      <p style={{ margin: '14px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', textAlign: 'center' }}>
+        Not sure of the columns?{' '}
+        <button type="button" className="at-link" onClick={downloadSampleSheet}
+                style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit',
+                         fontWeight: 600, color: 'var(--brand-link)' }}>
+          Download a sample sheet
+        </button>
+        . To record who referred a customer, put the referrer&apos;s mobile number in{' '}
+        <code>referred_by_mobile</code>; they must already be a customer, or be added by the same sheet.
+      </p>
       {imp?.busy && (
         <ImportProgress phase={imp.preview ? 'saving' : 'checking'} file={imp.file} count={imp.preview?.valid.length} />
       )}
@@ -281,11 +321,75 @@ function customerToForm(customer) {
   };
 }
 
+const customerLabel = (c) => `${c?.first_name || ''} ${c?.last_name || ''}`.trim();
+
+/** Who referred a new customer: an existing customer, searched by name or
+ *  mobile and picked from the list. The referrer must already be in the book,
+ *  so a number that matches nobody cannot be entered as one. */
+function ReferredByPicker({ customers, value, onChange }) {
+  const [query, setQuery] = useState('');
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    const digits = q.replace(/\D/g, '');
+    return (customers || []).filter((c) => (
+      customerLabel(c).toLowerCase().includes(q)
+      || (digits && String(c.mobile_number || '').replace(/\D/g, '').includes(digits))
+    )).slice(0, 8);
+  }, [customers, query]);
+
+  if (value) {
+    return (
+      <div className="form-group">
+        <label className="form-label">Referred by <span className="od-hint">(optional)</span></label>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                      borderRadius: 99, background: 'var(--brand-surface, #ecfdf5)',
+                      border: '1px solid var(--brand-border, #a7f3d0)', fontSize: 'var(--text-sm)' }}>
+          <span><strong>{value.name}</strong> · {formatMobile(value.mobile)}</span>
+          <button type="button" aria-label={`Remove ${value.name} as the referrer`}
+                  onClick={() => { setQuery(''); onChange(null); }}
+                  style={{ display: 'inline-flex', background: 'none', border: 0, padding: 0,
+                           cursor: 'pointer', color: 'var(--text-secondary)' }}>
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="form-group">
+      <label className="form-label" htmlFor="cf-referrer">Referred by <span className="od-hint">(optional)</span></label>
+      <input id="cf-referrer" type="text" className="form-control" value={query} autoComplete="off"
+             onChange={(e) => setQuery(e.target.value)}
+             placeholder="Search an existing customer by name or mobile" />
+      {query.trim() && (
+        <div style={{ marginTop: 6, border: '1px solid var(--border-color, #e5e7eb)', borderRadius: 8,
+                      overflow: 'hidden', background: 'var(--surface-1, #fff)' }}>
+          {matches.length === 0 ? (
+            <p style={{ margin: 0, padding: '10px 12px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+              No customer matches that. The referrer has to be someone already in the customer book.
+            </p>
+          ) : matches.map((c) => (
+            <button key={c.id} type="button" className="at-row"
+                    onClick={() => { setQuery(''); onChange({ id: c.id, name: customerLabel(c), mobile: c.mobile_number }); }}
+                    style={{ display: 'flex', width: '100%', gap: 8, padding: '8px 12px', border: 0,
+                             background: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 'var(--text-sm)' }}>
+              <strong>{customerLabel(c)}</strong>
+              <span style={{ color: 'var(--text-secondary)' }}>{formatMobile(c.mobile_number)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** New customer, or -- given `customer` -- an existing one to edit (the
  *  Owner's; the server refuses an edit from any other role). An edit sends
  *  only what changed, so a value from before today's rules (a legacy source,
  *  an old mobile spelling) never blocks saving something else. */
-export function CustomerForm({ customer = null, onBack, onSaved }) {
+export function CustomerForm({ customer = null, customers = [], onBack, onSaved }) {
   const editing = Boolean(customer);
   const [initial] = useState(() => (customer ? customerToForm(customer) : EMPTY));
   const [form, setForm] = useState(initial);
@@ -296,6 +400,9 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
   const [error, setError] = useState(null);
   const [activeZone, setActiveZone] = useState('core');
   const [searchQuery, setSearchQuery] = useState('');
+  // Who referred them, for a new customer only. Edit Customer never shows
+  // this: a referral already recorded is the Referrals card's to change.
+  const [referredBy, setReferredBy] = useState(null);
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const setInch = (key, value) => setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: value } }));
@@ -378,6 +485,7 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
       mobile_number: composeMobile(phoneCountry, form.mobile_number),
     };
     if (Object.keys(core).length || Object.keys(extras).length) payload.measurements = { ...core, additional_measurements: extras };
+    if (referredBy) payload.referred_by = referredBy.id;
     try {
       const row = await api.createCustomer(payload);
       await onSaved?.(row);
@@ -492,7 +600,8 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
           </div>
           <div className="form-group">
             <label className="form-label" htmlFor="cf-source">Source</label>
-            <select id="cf-source" className="form-control" value={form.source} onChange={(e) => set('source', e.target.value)}>
+            <select id="cf-source" className="form-control" value={form.source}
+                    onChange={(e) => { set('source', e.target.value); if (e.target.value !== 'Referral') setReferredBy(null); }}>
               <option value="Walk In">Walk In</option>
               <option value="Instagram">Instagram</option>
               <option value="Referral">Referral</option>
@@ -504,6 +613,10 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
             <input id="cf-dob" type="date" className="form-control" value={form.date_of_birth} onChange={(e) => set('date_of_birth', e.target.value)} />
           </div>
         </div>
+        {!editing && form.source === 'Referral' && (
+          <ReferredByPicker customers={customers} value={referredBy}
+                            onChange={(picked) => { setReferredBy(picked); if (picked) set('source', 'Referral'); }} />
+        )}
         <div className="form-group">
           <label className="form-label" htmlFor="cf-notes">Notes</label>
           <textarea id="cf-notes" className="form-control" rows={2} value={form.notes} maxLength={LIMITS.note}
