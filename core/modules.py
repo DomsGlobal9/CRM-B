@@ -83,6 +83,11 @@ MODULES = {
         ('/api/production/',),
         'Production tasks and QC records. No screen calls this yet.',
     ),
+    'todos': (
+        'To-do',
+        ('/api/todos/',),
+        'To-dos staff take on or are given, with photos, notes and voice notes.',
+    ),
     'activities': (
         'Activity Feed',
         ('/api/activities/',),
@@ -235,6 +240,7 @@ MODULE_GROUP = {
     'scheduling': 'operations',
     'production_api': 'operations',
     'activities': 'operations',
+    'todos': 'operations',
     'notifications': 'operations',
     'order_tracking': 'operations',
     'email': 'platform',
@@ -255,6 +261,9 @@ INFRASTRUCTURE = frozenset({
     # boutique without it cannot take an order. Employment records, attendance
     # and pay are the sellable part (Team Management), not the names.
     'tailors',
+    # Every boutique gets the to-do list; the owner can still switch it off
+    # per role.
+    'todos',
 })
 
 #: Sold separately from the plan a boutique is on.
@@ -446,9 +455,9 @@ ALL_ROLES = (OWNER, DESIGNER) + PRODUCTION_ROLES
 #:    the module gate is a blunter instrument that was removing the brief along
 #:    with everything else. A tailor who cannot see the design cannot make it.
 _TAILOR = frozenset({'notifications', 'garment_catalog', 'staff',
-                     'order_tracking', 'design_studio', 'alterations'})
+                     'order_tracking', 'design_studio', 'alterations', 'todos'})
 _MASTER = _TAILOR | {'tailors', 'scheduling', 'production_api', 'activities'}
-_DESIGNER = frozenset({'design_studio', 'garment_catalog', 'notifications', 'staff', 'staff_attendance'})
+_DESIGNER = frozenset({'design_studio', 'garment_catalog', 'notifications', 'staff', 'staff_attendance', 'todos'})
 
 def _with_children(keys):
     # A role that has a feature has its children too, unless told otherwise.

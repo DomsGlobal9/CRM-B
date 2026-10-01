@@ -1476,6 +1476,34 @@ export const api = {
   // Owner-only: switches a credited designer on so they can sign in for
   // themselves. Idempotent server-side -- a second call against an
   // already-linked designer is refused rather than silently reissuing.
+  // ---- To-dos -------------------------------------------------------------
+  async todoRequest(path, { method = 'GET', body } = {}) {
+    const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+    const res = await guardedFetch(`${BASE_URL}/todos/${path}`, {
+      method,
+      headers: getHeaders(isForm),
+      body: body === undefined ? undefined : (isForm ? body : JSON.stringify(body)),
+    });
+    if (res.status === 204) return null;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(describeApiError(res, data));
+    return data;
+  },
+  getTodos() { return api.todoRequest(''); },
+  // Who the signed-in person may assign a to-do to: { can_assign, people }.
+  getTodoPeople() { return api.todoRequest('people/'); },
+  // FormData: title, description, due_date, assigned_to, photos (many), voice_note.
+  createTodo(formData) { return api.todoRequest('', { method: 'POST', body: formData }); },
+  updateTodo(id, body) { return api.todoRequest(`${id}/`, { method: 'PATCH', body }); },
+  deleteTodo(id) { return api.todoRequest(`${id}/`, { method: 'DELETE' }); },
+  setTodoStatus(id, status) {
+    return api.todoRequest(`${id}/status/`, { method: 'POST', body: { status } });
+  },
+  // FormData: text, photos (many), voice_note.
+  addTodoUpdate(id, formData) {
+    return api.todoRequest(`${id}/updates/`, { method: 'POST', body: formData });
+  },
+
   // Owner only: replaces the person's password with a generated one, shown once.
   async resetStaffPassword(id, { isDesigner = false } = {}) {
     const url = isDesigner

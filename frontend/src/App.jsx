@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, ListTodo } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
@@ -24,6 +24,7 @@ const CustomerDesigns = lazy(() => import('./features/designStudio/CustomerDesig
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
+const TodoPanel = lazy(() => import('./features/todo/TodoPanel'));
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
 import GarmentPurchases from './features/catalog/GarmentPurchases';
@@ -1338,6 +1339,7 @@ const NAV_MODULE = {
   inventory: 'inventory',
   staff: 'staff',
   finance: 'finance',
+  todo: 'todos',
 };
 
 const hasModule = (user, key) =>
@@ -1361,6 +1363,7 @@ const navSectionsFor = (user, t) => {
         { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
@@ -1385,17 +1388,20 @@ const navSectionsFor = (user, t) => {
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
         { tab: 'designs', icon: Palette, label: t('nav.designStudio'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ] : [
       { key: 'production', items: [
         { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ];
 
@@ -4369,6 +4375,12 @@ function App() {
             {dashboardTab === 'finance' && (
               <Suspense fallback={<ScreenLoading />}>
                 <FinancePanel />
+              </Suspense>
+            )}
+
+            {dashboardTab === 'todo' && (
+              <Suspense fallback={<ScreenLoading />}>
+                <TodoPanel currentUser={currentUser} />
               </Suspense>
             )}
 
