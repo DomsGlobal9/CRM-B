@@ -357,8 +357,9 @@ export const api = {
   },
 
   // Get all tailors
-  async getTailors() {
-    const res = await guardedFetch(`${BASE_URL}/tailors/`, {
+  // forAttendance also returns the rows designers' attendance is recorded on.
+  async getTailors({ forAttendance = false } = {}) {
+    const res = await guardedFetch(`${BASE_URL}/tailors/${forAttendance ? '?attendance=1' : ''}`, {
       headers: getHeaders()
     });
     if (!res.ok) await failWith(res, 'Failed to fetch tailors');

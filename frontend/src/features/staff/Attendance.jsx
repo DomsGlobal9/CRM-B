@@ -1294,7 +1294,7 @@ export default function Attendance({ isOwner, canSeeTeam }) {
     try {
       const bounds = period === 'month' ? monthGridBounds() : periodBounds(period);
       const [people, today, marks] = await Promise.all([
-        canSeeTeam ? api.getTailors().catch(() => []) : Promise.resolve([]),
+        canSeeTeam ? api.getTailors({ forAttendance: true }).catch(() => []) : Promise.resolve([]),
         canSeeTeam ? api.getAttendance(bounds).catch(() => []) : Promise.resolve([]),
         canSeeTeam && period === 'month'
           ? api.getDayMarks(bounds).catch(() => []) : Promise.resolve([]),

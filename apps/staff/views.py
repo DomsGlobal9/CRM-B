@@ -12,7 +12,7 @@ from apps.activities.models import UniversalActivity
 from core import formatting as core_formatting
 from core.permissions import OwnerOnly, SUPERVISOR_ROLES, StaffSelfOrOwner
 from core.validators import MAX_NOTE, MAX_REASON, validate_text
-from core.roles import OWNER, resolve_user_role
+from core.roles import DESIGNER, OWNER, resolve_user_role
 from crm_api.models import Tailor
 
 from . import attendance, performance
@@ -179,45 +179,61 @@ class StaffProfileViewSet(viewsets.ModelViewSet):
         return queryset.none()
 
 
+def _designer_attendance_row(designer, user):
+    """The roster row a designer's attendance is recorded against.
+
+    A designer is not a Tailor, but AttendanceSession points at one, so each
+    designer gets a single row of role 'Designer' reached through
+    Designer.staff. It is never linked to their login -- that would change
+    their role -- and TailorViewSet keeps it off the team list.
+    """
+    if designer.staff_id:
+        return designer.staff
+    if user.email:
+        tailor_by_email = Tailor.objects.filter(email__iexact=user.email).first()
+        if tailor_by_email:
+            # A row left behind by this designer's earlier record is taken
+            # back rather than duplicated.
+            if tailor_by_email.role == DESIGNER:
+                designer.staff = tailor_by_email
+                designer.save(update_fields=['staff'])
+            return tailor_by_email
+    with transaction.atomic():
+        # Two requests arrive together when the attendance tab opens; the lock
+        # stops each of them creating a row.
+        locked = type(designer).objects.select_for_update().get(pk=designer.pk)
+        if locked.staff_id:
+            return locked.staff
+        row = Tailor.objects.create(
+            name=designer.name or user.get_full_name() or user.email or user.username,
+            role=DESIGNER,
+            specialty=DESIGNER,
+            email=user.email or f"designer_{designer.id}@boutique.local",
+        )
+        locked.staff = row
+        locked.save(update_fields=['staff'])
+        return row
+
+
 def _staff_for(user):
     """The roster row this login belongs to, or None."""
     if user is None or not getattr(user, 'is_authenticated', False):
         return None
+    designer = getattr(user, 'designer_profile', None)
     profile = getattr(user, 'tailor_profile', None)
     if profile is not None:
+        # An attendance row made for a designer used to be linked to their
+        # login, which made core.roles answer 'Tailor' for them and showed the
+        # person twice on the team list. Undo that link for such a row.
+        if (designer is not None and designer.staff_id == profile.pk
+                and profile.role == 'Tailor'):
+            profile.user = None
+            profile.role = DESIGNER
+            profile.save(update_fields=['user', 'role'])
         return profile
-    tailor = Tailor.objects.filter(user=user).first()
-    if tailor is not None:
-        return tailor
 
-    designer = getattr(user, 'designer_profile', None)
     if designer is not None:
-        if getattr(designer, 'staff', None):
-            return designer.staff
-        if user.email:
-            tailor_by_email = Tailor.objects.filter(email__iexact=user.email).first()
-            if tailor_by_email:
-                if tailor_by_email.user is None and not Tailor.objects.filter(user=user).exists():
-                    try:
-                        tailor_by_email.user = user
-                        tailor_by_email.save(update_fields=['user'])
-                    except Exception:
-                        pass
-                return tailor_by_email
-        try:
-            name = designer.name or user.get_full_name() or user.email or user.username
-            already_has_tailor = Tailor.objects.filter(user=user).exists()
-            new_tailor = Tailor.objects.create(
-                name=name,
-                role='Tailor',
-                email=user.email or f"designer_{designer.id}@boutique.local",
-                user=user if not already_has_tailor else None,
-            )
-            designer.staff = new_tailor
-            designer.save(update_fields=['staff'])
-            return new_tailor
-        except Exception:
-            return Tailor.objects.filter(user=user).first() or Tailor.objects.filter(email__iexact=user.email).first()
+        return _designer_attendance_row(designer, user)
 
     if user.email:
         tailor_by_email = Tailor.objects.filter(email__iexact=user.email).first()

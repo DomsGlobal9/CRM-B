@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from core.permissions import (
     OwnerOnly, OwnNotifications, RolePermission, SUPERVISOR_ROLES, visible_customers, visible_orders,
 )
-from core.roles import OWNER, resolve_user_role
+from core.roles import DESIGNER, OWNER, resolve_user_role
 from core.validators import (
     MAX_NOTE, MAX_REASON, validate_amount, validate_email_address, validate_image_upload,
     validate_http_url, validate_image_uploads, validate_mobile, validate_not_past, validate_phone, validate_text,
@@ -390,6 +390,24 @@ def issue_new_password(user, name):
 class TailorViewSet(viewsets.ModelViewSet):
     queryset = Tailor.objects.all().order_by('-rating')
     serializer_class = TailorSerializer
+
+    def get_queryset(self):
+        """Keep a designer's attendance row off the roster.
+
+        apps.staff gives each designer one Tailor row to record attendance
+        against. The designer is already listed as a Designer, so that row is
+        left out of the list -- except for the attendance screens, which ask
+        for it with ?attendance=1. Rows made before the role was 'Designer'
+        are recognised by sharing the designer's login.
+        """
+        queryset = super().get_queryset()
+        if self.action != 'list':
+            return queryset
+        if self.request.query_params.get('attendance') == '1':
+            return queryset.exclude(role=DESIGNER, designer_profiles__isnull=True)
+        return queryset.exclude(role=DESIGNER).exclude(
+            role='Tailor', user__isnull=False,
+            designer_profiles__user=F('user'))
 
     def perform_create(self, serializer):
         tailor = serializer.save()

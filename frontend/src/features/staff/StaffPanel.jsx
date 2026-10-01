@@ -1146,6 +1146,11 @@ function Roster({ isOwner, canSeeTeam }) {
                     <span className={`ui-badge ui-badge--${member.status === 'Available' ? 'success' : member.status === 'Busy' ? 'warning' : 'neutral'}`}>
                       ● {member.status}
                     </span>
+                  ) : member.isDesigner && canSeeTeam ? (
+                    // A designer's attendance is recorded on their linked row (member.staff).
+                    member.staff && attendanceToday.some((s) => String(s.staff) === String(member.staff))
+                      ? <span className="ui-badge ui-badge--success">● Present</span>
+                      : <span className="ui-badge ui-badge--danger">● Absent</span>
                   ) : member.isDesigner ? (
                     <span className="ui-badge ui-badge--neutral">Designer</span>
                   ) : null}

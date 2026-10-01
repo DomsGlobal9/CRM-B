@@ -19,7 +19,7 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
     
     if created:
         Notification.objects.create(
-            title=f"New Order Received: {order.reference}",
+            title=f"New Order Received: {order.reference}", 
             message=f"A new custom order has been received for client {client_name}.",
             recipient_role="Owner"
         )
