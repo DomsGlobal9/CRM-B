@@ -78,7 +78,7 @@ class TodoViewSet(viewsets.GenericViewSet):
         return User.objects.get(pk=target_id)
 
     @staticmethod
-    def _due_date(raw):
+    def _date(raw, field='due_date'):
         if raw in (None, ''):
             return None
         try:
@@ -86,8 +86,14 @@ class TodoViewSet(viewsets.GenericViewSet):
         except ValueError:
             parsed = None
         if parsed is None:
-            raise serializers.ValidationError({'due_date': 'Enter a valid date.'})
+            raise serializers.ValidationError({field: 'Enter a valid date.'})
         return parsed
+
+    @staticmethod
+    def _check_dates(todo):
+        if todo.start_date and todo.due_date and todo.due_date < todo.start_date:
+            raise serializers.ValidationError(
+                {'due_date': 'The end date cannot be before the start date.'})
 
     def _set_assignee(self, todo, target):
         todo.assigned_to = target
@@ -137,10 +143,12 @@ class TodoViewSet(viewsets.GenericViewSet):
         todo = Todo(
             title=title,
             description=validate_text(request.data.get('description'), label='Description'),
-            due_date=self._due_date(request.data.get('due_date')),
+            start_date=self._date(request.data.get('start_date'), 'start_date'),
+            due_date=self._date(request.data.get('due_date')),
             created_by=request.user,
             created_by_name=services.display_name(request.user),
         )
+        self._check_dates(todo)
         self._set_assignee(todo, self._assignee(request.data.get('assigned_to')))
         todo.save()
         self._add_note(todo, request)
@@ -159,8 +167,11 @@ class TodoViewSet(viewsets.GenericViewSet):
                                        max_length=MAX_TITLE, required=True)
         if 'description' in data:
             todo.description = validate_text(data.get('description'), label='Description')
+        if 'start_date' in data:
+            todo.start_date = self._date(data.get('start_date'), 'start_date')
         if 'due_date' in data:
-            todo.due_date = self._due_date(data.get('due_date'))
+            todo.due_date = self._date(data.get('due_date'))
+        self._check_dates(todo)
         reassigned = False
         if 'assigned_to' in data:
             target = self._assignee(data.get('assigned_to'))

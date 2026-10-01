@@ -31,6 +31,8 @@ class Todo(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
+    #: When the work starts and when it should end (the end is `due_date`).
+    start_date = models.DateField(null=True, blank=True)
     due_date = models.DateField(null=True, blank=True)
 
     created_by = models.ForeignKey(

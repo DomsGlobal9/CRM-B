@@ -114,9 +114,25 @@ class TodoTests(TenantTestCase):
         self.make(self.other, title='ravis')
         self.make(self.designer, title='design')
         self.assertEqual(self.titles(self.tailor), ['given', 'mine'])
-        self.assertEqual(self.titles(self.designer), ['design'])
+        # A designer can look at the floor's to-dos, like the Owner and a Master.
+        self.assertEqual(self.titles(self.designer), ['design', 'given', 'mine', 'ravis'])
+        self.assertEqual(self.titles(self.other), ['ravis'])
         self.assertEqual(self.titles(self.owner), ['design', 'given', 'mine', 'ravis'])
         self.assertEqual(self.titles(self.master), ['design', 'given', 'mine', 'ravis'])
+
+    def test_a_designer_can_look_but_not_change(self):
+        todo = self.make(self.tailor)
+        path = f"/api/todos/{todo['id']}/"
+        seen = self.call(self.designer, 'get', path)
+        self.assertEqual(seen.status_code, 200)
+        self.assertFalse(seen.data['can_change_status'])
+        self.assertEqual(self.call(self.designer, 'post', path + 'status/',
+                                   {'status': 'CLOSED'}).status_code, 403)
+        self.assertEqual(self.call(self.designer, 'patch', path, {'title': 'x'}).status_code, 403)
+        self.assertEqual(self.call(self.designer, 'delete', path).status_code, 403)
+        own = self.make(self.owner, title='owners own')
+        self.assertEqual(self.call(self.designer, 'get',
+                                   f"/api/todos/{own['id']}/").status_code, 404)
 
     def test_someone_elses_todo_cannot_be_opened_or_changed(self):
         todo = self.make(self.other)
@@ -143,6 +159,16 @@ class TodoTests(TenantTestCase):
         reopened = self.call(self.owner, 'post', path, {'status': 'OPEN'})
         self.assertIsNone(reopened.data['closed_at'])
         self.assertEqual(self.call(self.tailor, 'post', path, {'status': 'DONE'}).status_code, 400)
+
+    def test_start_and_end_dates(self):
+        todo = self.make(self.tailor, start_date='2026-10-01', due_date='2026-10-05')
+        self.assertEqual((todo['start_date'], todo['due_date']), ('2026-10-01', '2026-10-05'))
+        backwards = self.call(self.tailor, 'post', '/api/todos/', {
+            'title': 'x', 'start_date': '2026-10-05', 'due_date': '2026-10-01'})
+        self.assertEqual(backwards.status_code, 400)
+        self.assertEqual(self.call(self.tailor, 'post', '/api/todos/', {
+            'title': 'x', 'start_date': 'soon'}).status_code, 400)
+        self.assertIsNone(self.make(self.tailor)['start_date'])
 
     def test_an_update_needs_something_in_it(self):
         todo = self.make(self.tailor)

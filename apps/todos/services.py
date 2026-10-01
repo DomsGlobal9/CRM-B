@@ -74,10 +74,15 @@ def assignable_people(user, role):
 
 
 def visible_todos(queryset, user, role):
-    """Owner and Master see every to-do; everyone else their own."""
+    """Owner and Master see every to-do; a Designer also sees those of the
+    people they can assign to; everyone else only their own."""
     if role in (OWNER, MASTER):
         return queryset
-    return queryset.filter(Q(assigned_to=user) | Q(created_by=user))
+    mine = Q(assigned_to=user) | Q(created_by=user)
+    if role == DESIGNER:
+        team = [p['id'] for p in assignable_people(user, role)]
+        return queryset.filter(mine | Q(assigned_to__in=team))
+    return queryset.filter(mine)
 
 
 def can_edit(todo, user, role):

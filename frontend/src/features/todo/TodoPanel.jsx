@@ -47,6 +47,10 @@ const errorBox = {
 };
 
 const muted = { fontSize: '12px', color: 'var(--text-muted)' };
+const attachLabel = {
+  display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px',
+  fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)',
+};
 
 function StatusBadge({ status }) {
   const s = statusOf(status);
@@ -81,21 +85,25 @@ function Attachments({ photos, setPhotos, voice, setVoice, setError }) {
     setPhotos(next);
   };
   return (
-    <>
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <AddPhotoButton multiple camera label="Add photos" onFiles={addPhotos}
-                        disabled={photos.length >= MAX_PHOTOS} />
-        <span style={muted}>{photos.length ? `${photos.length} photo(s) chosen` : `Up to ${MAX_PHOTOS} photos`}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+      <div>
+        <div style={attachLabel}><ImageIcon size={13} /> Photos</div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <AddPhotoButton multiple camera label="Add photos" onFiles={addPhotos}
+                          disabled={photos.length >= MAX_PHOTOS} />
+          <span style={muted}>{photos.length ? `${photos.length} photo(s) chosen` : `Up to ${MAX_PHOTOS} photos`}</span>
+        </div>
+        <PendingPhotos files={photos} onRemove={(i) => setPhotos(photos.filter((_, n) => n !== i))} />
       </div>
-      <PendingPhotos files={photos} onRemove={(i) => setPhotos(photos.filter((_, n) => n !== i))} />
-      <div style={{ marginTop: '10px' }}>
+      <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+        <div style={attachLabel}><Mic size={13} /> Voice note</div>
         <VoiceRecorder
           sent={voice ? { url: voice, by: 'you' } : null}
           onSend={async (blob) => setVoice(await api.uploadVoiceNote(blob))}
           onDelete={async () => setVoice('')}
         />
       </div>
-    </>
+    </div>
   );
 }
 
@@ -112,7 +120,7 @@ function AssigneeSelect({ id, people, value, onChange, meId }) {
 }
 
 function AddTodoForm({ people, canAssign, meId, onCancel, onSaved }) {
-  const [form, setForm] = useState({ title: '', description: '', due_date: '', assigned_to: String(meId || '') });
+  const [form, setForm] = useState({ title: '', description: '', start_date: '', due_date: '', assigned_to: String(meId || '') });
   const [photos, setPhotos] = useState([]);
   const [voice, setVoice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -122,12 +130,16 @@ function AddTodoForm({ people, canAssign, meId, onCancel, onSaved }) {
   const submit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) { setError('Give the to-do a title.'); return; }
+    if (form.start_date && form.due_date && form.due_date < form.start_date) {
+      setError('The end date cannot be before the start date.'); return;
+    }
     setBusy(true);
     setError(null);
     try {
       const body = new FormData();
       body.append('title', form.title.trim());
       body.append('description', form.description.trim());
+      if (form.start_date) body.append('start_date', form.start_date);
       if (form.due_date) body.append('due_date', form.due_date);
       if (canAssign && form.assigned_to) body.append('assigned_to', form.assigned_to);
       if (voice) body.append('voice_note', voice);
@@ -156,32 +168,41 @@ function AddTodoForm({ people, canAssign, meId, onCancel, onSaved }) {
         </>
       )}
     >
-      <form id="add-todo-form" onSubmit={submit}>
+      <form id="add-todo-form" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {error && <div style={errorBox} role="alert">{error}</div>}
         <Field label="Title" required htmlFor="todo-title">
           <input id="todo-title" value={form.title} onChange={set('title')} maxLength={MAX_TITLE}
                  placeholder="e.g. Finish the hand work on the blue blouse" autoFocus />
         </Field>
         <Field label="Details" optional htmlFor="todo-details">
-          <VoiceTextarea id="todo-details" rows={3} maxLength={LIMITS.note} value={form.description}
-                         onChange={set('description')} placeholder="Anything that helps get it done…" />
+          <textarea id="todo-details" rows={3} maxLength={LIMITS.note} value={form.description}
+                    onChange={set('description')} placeholder="Anything that helps get it done…" />
         </Field>
+        {canAssign && (
+          <Field label="Assign to" icon={UserCheck} htmlFor="todo-assignee">
+            <AssigneeSelect id="todo-assignee" people={people} meId={meId}
+                            value={form.assigned_to}
+                            onChange={(v) => setForm({ ...form, assigned_to: v })} />
+          </Field>
+        )}
         <div className="mobile-stack-grid"
-             style={{ display: 'grid', gridTemplateColumns: canAssign ? '1fr 1fr' : '1fr', gap: '14px' }}>
-          {canAssign && (
-            <Field label="Assign to" icon={UserCheck} htmlFor="todo-assignee">
-              <AssigneeSelect id="todo-assignee" people={people} meId={meId}
-                              value={form.assigned_to}
-                              onChange={(v) => setForm({ ...form, assigned_to: v })} />
-            </Field>
-          )}
-          <Field label="Due date" optional icon={Calendar} htmlFor="todo-due">
-            <input id="todo-due" type="date" value={form.due_date} onChange={set('due_date')} />
+             style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+          <Field label="Start date" optional icon={Calendar} htmlFor="todo-start">
+            <input id="todo-start" type="date" value={form.start_date} onChange={set('start_date')} />
+          </Field>
+          <Field label="End date" optional icon={Calendar} htmlFor="todo-due">
+            <input id="todo-due" type="date" min={form.start_date || undefined}
+                   value={form.due_date} onChange={set('due_date')} />
           </Field>
         </div>
-        <Field label="Photos and voice note" optional>
-          <Attachments photos={photos} setPhotos={setPhotos} voice={voice} setVoice={setVoice} setError={setError} />
-        </Field>
+        <div className="at-field">
+          <span className="at-field-label">
+            Photos and voice note<span className="at-field-opt"> (Optional)</span>
+          </span>
+          <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '14px' }}>
+            <Attachments photos={photos} setPhotos={setPhotos} voice={voice} setVoice={setVoice} setError={setError} />
+          </div>
+        </div>
       </form>
     </FormModal>
   );
@@ -325,8 +346,12 @@ function TodoDetail({ todo, people, canAssign, meId, onClose, onChanged, onDelet
           )}
         </div>
         <div>
-          <div style={muted}>Due</div>
-          <div style={{ fontWeight: 600 }}>{todo.due_date ? formatDate(todo.due_date) : '—'}</div>
+          <div style={muted}>Start · End</div>
+          <div style={{ fontWeight: 600 }}>
+            {todo.start_date ? formatDate(todo.start_date) : '—'}
+            {' → '}
+            {todo.due_date ? formatDate(todo.due_date) : '—'}
+          </div>
         </div>
       </div>
 
@@ -368,7 +393,7 @@ function TodoDetail({ todo, people, canAssign, meId, onClose, onChanged, onDelet
         <VoiceTextarea rows={2} maxLength={LIMITS.note} value={text}
                        onChange={(e) => setText(e.target.value)}
                        placeholder="What was done today…" />
-        <div style={{ marginTop: '10px' }}>
+        <div style={{ marginTop: '12px' }}>
           <Attachments photos={photos} setPhotos={setPhotos} voice={voice} setVoice={setVoice} setError={setError} />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '12px' }}>
@@ -382,42 +407,101 @@ function TodoDetail({ todo, people, canAssign, meId, onClose, onChanged, onDelet
   );
 }
 
-function TodoCard({ todo, onOpen }) {
-  const notes = (todo.updates || []).filter((u) => u.kind === 'NOTE');
-  const last = notes[notes.length - 1];
-  const photoCount = notes.reduce((n, u) => n + (u.photos?.length || 0), 0);
-  const voiceCount = notes.filter((u) => u.voice_note).length;
-  const overdue = todo.due_date && todo.status !== 'CLOSED'
-    && todo.due_date < new Date().toLocaleDateString('en-CA');
+const localDay = (value) => {
+  const d = new Date(value);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+/* The day a to-do belongs to: its start date, or the day it was added. */
+const dayOf = (todo) => todo.start_date || localDay(todo.created_at);
+
+/* The to-dos as a table, one day's work per row. With `showStaff` (several
+   people on the list at once) each person gets their own row for a day. */
+function DayTable({ todos, showStaff, onOpen }) {
+  const today = localDay(new Date());
+  const rows = useMemo(() => {
+    const map = new Map();
+    todos.forEach((todo) => {
+      const day = dayOf(todo);
+      const key = `${day}|${showStaff ? todo.assigned_to : ''}`;
+      if (!map.has(key)) {
+        map.set(key, { key, day, name: todo.assigned_to_name, role: todo.assigned_to_role, items: [] });
+      }
+      map.get(key).items.push(todo);
+    });
+    return [...map.values()].sort((a, b) =>
+      b.day.localeCompare(a.day) || String(a.name).localeCompare(String(b.name)));
+  }, [todos, showStaff]);
+
+  const cell = { verticalAlign: 'top' };
   return (
-    <button type="button" onClick={onOpen}
-            style={{ ...panel, padding: '16px', textAlign: 'left', cursor: 'pointer', width: '100%',
-                     display: 'flex', flexDirection: 'column', gap: '10px', font: 'inherit', color: 'inherit' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'flex-start' }}>
-        <div style={{ fontWeight: 600, fontSize: '15px', overflowWrap: 'anywhere' }}>{todo.title}</div>
-        <StatusBadge status={todo.status} />
-      </div>
-      {(last?.text || todo.description) && (
-        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', overflow: 'hidden',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflowWrap: 'anywhere' }}>
-          {last?.text || todo.description}
-        </div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: 'auto' }}>
-        <AvatarInitials name={todo.assigned_to_name} size={26} />
-        <span style={{ fontSize: '13px' }}>{todo.assigned_to_name || 'Unassigned'}</span>
-        <span style={{ ...muted, marginLeft: 'auto', display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
-          {photoCount > 0 && <span style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}><ImageIcon size={12} /> {photoCount}</span>}
-          {voiceCount > 0 && <span style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}><Mic size={12} /> {voiceCount}</span>}
-          {todo.due_date && (
-            <span style={{ display: 'inline-flex', gap: '4px', alignItems: 'center',
-                           color: overdue ? 'var(--danger-color)' : undefined }}>
-              <Calendar size={12} /> {formatDate(todo.due_date)}
-            </span>
-          )}
-        </span>
-      </div>
-    </button>
+    <div className="at-table-wrap" style={panel}>
+      <table className="at-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            {showStaff && <th>Staff</th>}
+            <th>Work</th>
+            <th>Photos</th>
+            <th>Voice notes</th>
+            <th>Last update</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const notes = row.items.flatMap((t) => (t.updates || []).filter((u) => u.kind === 'NOTE'));
+            const photoCount = notes.reduce((n, u) => n + (u.photos?.length || 0), 0);
+            const voiceCount = notes.filter((u) => u.voice_note).length;
+            const last = row.items.reduce((latest, t) => (t.updated_at > latest ? t.updated_at : latest), '');
+            return (
+              <tr key={row.key}>
+                <td style={{ ...cell, whiteSpace: 'nowrap' }}>
+                  <div style={{ fontWeight: 600 }}>{formatDate(row.day)}</div>
+                  {row.day === today && <div style={muted}>Today</div>}
+                </td>
+                {showStaff && (
+                  <td style={cell}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AvatarInitials name={row.name} size={28} />
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{row.name || 'Unassigned'}</div>
+                        {row.role && <div style={muted}>{row.role}</div>}
+                      </div>
+                    </div>
+                  </td>
+                )}
+                <td style={cell}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {row.items.map((todo) => {
+                      const overdue = todo.due_date && todo.status !== 'CLOSED' && todo.due_date < today;
+                      return (
+                        <div key={todo.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <button type="button" onClick={() => onOpen(todo.id)}
+                                  style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer',
+                                           font: 'inherit', fontWeight: 600, color: 'var(--text-primary)',
+                                           textAlign: 'left', textDecoration: 'underline', overflowWrap: 'anywhere' }}>
+                            {todo.title}
+                          </button>
+                          <StatusBadge status={todo.status} />
+                          {todo.due_date && (
+                            <span style={{ ...muted, display: 'inline-flex', gap: '4px', alignItems: 'center',
+                                           color: overdue ? 'var(--danger-color)' : undefined }}>
+                              <Calendar size={12} /> Ends {formatDate(todo.due_date)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </td>
+                <td style={cell}>{photoCount || '—'}</td>
+                <td style={cell}>{voiceCount || '—'}</td>
+                <td style={{ ...cell, whiteSpace: 'nowrap' }}>{last ? formatDateTime(last) : '—'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -434,7 +518,9 @@ export default function TodoPanel({ currentUser }) {
 
   const meId = currentUser?.id;
   const role = currentUser?.role;
-  const seesEveryone = !role || role === 'Owner' || role === 'Master';
+  // The Owner, a Master and a Designer look at other people's work and pick
+  // whose with the staff dropdown; everyone else sees only their own.
+  const canPick = !role || role === 'Owner' || role === 'Master' || role === 'Designer';
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -463,16 +549,25 @@ export default function TodoPanel({ currentUser }) {
 
   const counts = useMemo(() => {
     const c = { OPEN: 0, IN_PROGRESS: 0, CLOSED: 0 };
-    todos.forEach((t) => { c[t.status] = (c[t.status] || 0) + 1; });
+    todos.forEach((t) => {
+      if (who && String(t.assigned_to) !== who) return;
+      c[t.status] = (c[t.status] || 0) + 1;
+    });
     return c;
-  }, [todos]);
+  }, [todos, who]);
 
-  // Everyone a to-do on this list is assigned to, for the person filter.
-  const assignees = useMemo(() => {
+  // The staff dropdown: everyone this person can assign to, plus anyone who
+  // already has a to-do on the list.
+  const staffOptions = useMemo(() => {
     const map = new Map();
-    todos.forEach((t) => { if (t.assigned_to) map.set(t.assigned_to, t.assigned_to_name); });
-    return [...map.entries()].sort((a, b) => String(a[1]).localeCompare(String(b[1])));
-  }, [todos]);
+    people.forEach((p) => map.set(p.id, p.id === meId ? `Me (${p.name})` : `${p.name}${p.role ? ` — ${p.role}` : ''}`));
+    todos.forEach((t) => {
+      if (t.assigned_to && !map.has(t.assigned_to)) {
+        map.set(t.assigned_to, `${t.assigned_to_name}${t.assigned_to_role ? ` — ${t.assigned_to_role}` : ''}`);
+      }
+    });
+    return [...map.entries()];
+  }, [people, todos, meId]);
 
   const shown = useMemo(() => todos.filter((t) => {
     if (filter === 'ACTIVE' && t.status === 'CLOSED') return false;
@@ -489,7 +584,7 @@ export default function TodoPanel({ currentUser }) {
         icon={ListTodo}
         tone="green"
         title="To-do"
-        subtitle={seesEveryone
+        subtitle={canPick
           ? 'Work the team has taken on or been given, with photos, notes and voice notes.'
           : 'Your to-dos. Add photos, notes and voice notes as the work moves along.'}
         actions={(
@@ -509,15 +604,19 @@ export default function TodoPanel({ currentUser }) {
             { key: 'OPEN', label: `Open (${counts.OPEN})` },
             { key: 'IN_PROGRESS', label: `In progress (${counts.IN_PROGRESS})` },
             { key: 'CLOSED', label: `Closed (${counts.CLOSED})` },
-            { key: 'ALL', label: `All (${todos.length})` },
+            { key: 'ALL', label: `All (${counts.OPEN + counts.IN_PROGRESS + counts.CLOSED})` },
           ]}
         />
-        {seesEveryone && assignees.length > 1 && (
-          <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Filter by person"
-                  style={{ width: 'auto', minWidth: '180px' }}>
-            <option value="">Everyone</option>
-            {assignees.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-          </select>
+        {canPick && (
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px',
+                          color: 'var(--text-secondary)' }}>
+            Staff
+            <select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Choose a staff member"
+                    style={{ width: 'auto', minWidth: '200px' }}>
+              <option value="">All staff</option>
+              {staffOptions.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            </select>
+          </label>
         )}
       </div>
 
@@ -532,11 +631,7 @@ export default function TodoPanel({ currentUser }) {
             : 'Nothing here for this filter.'}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '14px' }}>
-          {shown.map((todo) => (
-            <TodoCard key={todo.id} todo={todo} onOpen={() => setOpenId(todo.id)} />
-          ))}
-        </div>
+        <DayTable todos={shown} showStaff={canPick && !who} onOpen={setOpenId} />
       )}
 
       {adding && (
