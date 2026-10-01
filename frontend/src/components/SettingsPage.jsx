@@ -6,20 +6,12 @@ import { Globe, ShieldCheck, CheckCircle2, Building, User, Clock, MessageSquare,
 import { getColorMode, setColorMode } from '../theme.js';
 import { api } from '../services/api.js';
 
-// Was a generic SaaS settings page on its own palette (indigo/green/amber
-// pastel chips, blue notice, non-existent --bg-primary/--bg-secondary vars).
-// Reskinned onto the atelier design system: it rides the shared primitives
-// (.ui-card / .ui-section-title / .ui-section-sub / .ui-row / .ui-badge) so it
-// cannot drift from the rest of the app, with only genuinely-local overrides
-// (the brass icon chip, the resting well on the info rows) inline.
 const iconChip = {
   width: '40px', height: '40px', borderRadius: 'var(--radius-md)', flexShrink: 0,
   display: 'flex', alignItems: 'center', justifyContent: 'center',
   background: 'var(--accent-color)', color: 'var(--accent-text)',
 };
 
-// A static (non-tappable) .ui-row needs a resting fill; the primitive is
-// transparent until --tap hover.
 const infoRow = { background: 'var(--surface-inset)' };
 const infoRowLabel = {
   display: 'flex', alignItems: 'center', gap: '10px',
@@ -41,8 +33,7 @@ export const SettingsPage = ({
     ['dark', t('settingsPage.modeDark', 'Dark'), Moon],
     ['system', t('settingsPage.modeDefault', 'Default'), Monitor],
   ];
-  // The linked WhatsApp line is the boutique's own: only the owner sees it,
-  // and only the owner's screen polls for it.
+  
   const isOwner = !currentUser?.role || currentUser?.role === 'Owner';
 
   React.useEffect(() => {

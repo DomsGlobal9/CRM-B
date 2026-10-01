@@ -37,10 +37,8 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
   
-  // State for wide popup modal
   const [previewModalTemplate, setPreviewModalTemplate] = useState(null);
 
-  // Helper function to get translated template details
   const getTemplateDetails = (tplId) => {
     switch (tplId) {
       case 'classic':
@@ -69,7 +67,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
     }
   };
 
-  // Sample data for rendering previews
+  
   const previewData = normalizeInvoiceData(null, null, currentUser);
 
   useEffect(() => {
