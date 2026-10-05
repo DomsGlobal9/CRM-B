@@ -304,14 +304,17 @@ class SlugIsNotTenantResolutionTests(TransactionTestCase):
         connection.set_schema_to_public()
         clear_tenant_cache()
         BoutiqueTenant.objects.exclude(schema_name='public').delete()
-        self.sarala = provision_tenant(schema_name='iso_sarala',
-                                       owner_email='sarala@example.test',
-                                       name='Sarala Boutique',
-                                       shop_slug='saralaboutique')
-        self.royal = provision_tenant(schema_name='iso_royal',
-                                      owner_email='royal@example.test',
-                                      name='Royal Fashion Boutique',
-                                      shop_slug='royalfashionboutique')
+        call_command('ensure_base_schema')
+        with transaction.atomic():
+            self.sarala = provision_tenant(schema_name='iso_sarala',
+                                           owner_email='sarala@example.test',
+                                           name='Sarala Boutique',
+                                           shop_slug='saralaboutique')
+        with transaction.atomic():
+            self.royal = provision_tenant(schema_name='iso_royal',
+                                          owner_email='royal@example.test',
+                                          name='Royal Fashion Boutique',
+                                          shop_slug='royalfashionboutique')
         connection.set_schema_to_public()
         clear_tenant_cache()
 
@@ -382,6 +385,7 @@ class SignupSlugTests(TransactionTestCase):
         connection.set_schema_to_public()
         clear_tenant_cache()
         BoutiqueTenant.objects.exclude(schema_name='public').delete()
+        call_command('ensure_base_schema')
         self.created = []
 
     def tearDown(self):

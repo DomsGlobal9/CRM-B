@@ -7,7 +7,7 @@ session in it.
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
-from django.db import connection
+from django.db import connection, transaction
 from django.test import TransactionTestCase
 from django_tenants.utils import schema_context
 from rest_framework.test import APIClient
@@ -39,14 +39,17 @@ class LoginSlugHintTests(TransactionTestCase):
         connection.set_schema_to_public()
         clear_tenant_cache()
         BoutiqueTenant.objects.exclude(schema_name='public').delete()
-        self.sanjeeb = provision_tenant(schema_name='hint_sanjeeb',
-                                        owner_email='owner-sanjeeb@example.test',
-                                        name='Sanjeeb Boutique',
-                                        shop_slug='sanjeebboutique')
-        self.royal = provision_tenant(schema_name='hint_royal',
-                                      owner_email='owner-royal@example.test',
-                                      name='Royal Fashion Boutique',
-                                      shop_slug='royalfashionboutique')
+        call_command('ensure_base_schema')
+        with transaction.atomic():
+            self.sanjeeb = provision_tenant(schema_name='hint_sanjeeb',
+                                            owner_email='owner-sanjeeb@example.test',
+                                            name='Sanjeeb Boutique',
+                                            shop_slug='sanjeebboutique')
+        with transaction.atomic():
+            self.royal = provision_tenant(schema_name='hint_royal',
+                                          owner_email='owner-royal@example.test',
+                                          name='Royal Fashion Boutique',
+                                          shop_slug='royalfashionboutique')
         connection.set_schema_to_public()
         clear_tenant_cache()
 
@@ -194,6 +197,7 @@ class ResetLinkSlugTests(TransactionTestCase):
         connection.set_schema_to_public()
         clear_tenant_cache()
         BoutiqueTenant.objects.exclude(schema_name='public').delete()
+        call_command('ensure_base_schema')
         self.created = []
 
     def tearDown(self):
@@ -206,9 +210,10 @@ class ResetLinkSlugTests(TransactionTestCase):
                 pass
 
     def _boutique(self, schema_name, name, **fields):
-        tenant = provision_tenant(schema_name=schema_name,
-                                  owner_email=schema_name + '@example.test',
-                                  name=name, **fields)
+        with transaction.atomic():
+            tenant = provision_tenant(schema_name=schema_name,
+                                      owner_email=schema_name + '@example.test',
+                                      name=name, **fields)
         connection.set_schema_to_public()
         self.created.append(tenant)
         return tenant
