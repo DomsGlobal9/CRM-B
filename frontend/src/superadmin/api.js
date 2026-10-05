@@ -163,6 +163,14 @@ export const consoleApi = {
   setAppearance: (schema, body) =>
     request(`/boutiques/${schema}/appearance/`, { method: 'PATCH', body }),
 
+  // Customer Portal API access. The reply to enable/rotate carries `api_key`
+  // once; every later read has api_key: null, because the server keeps only a
+  // hash of it. Nothing here may stash that value anywhere.
+  portalAccess: (schema) => request(`/boutiques/${schema}/portal-access/`),
+  setPortalAccess: (schema, action, { allowed_origin, reason } = {}) =>
+    request(`/boutiques/${schema}/portal-access/`,
+            { method: 'POST', body: { action, allowed_origin, reason } }),
+
   flags: () => request('/flags/'),
   createFlag: (body) => request('/flags/', { method: 'POST', body }),
   updateFlag: (key, body) => request(`/flags/${key}/`, { method: 'PATCH', body }),

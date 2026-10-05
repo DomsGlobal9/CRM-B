@@ -161,6 +161,16 @@ MODULES = {
         ('/track/',),
         'The link a customer follows to watch their order. Public, no sign-in.',
     ),
+    # Switchable per boutique like order_tracking, and for the same reason: it
+    # is a door onto the customer book that the boutique may not want open.
+    # Switching it off closes the portal and leaves counter entry and the
+    # spreadsheet import untouched.
+    'customer_portal': (
+        'Customer Portal',
+        ('/intake/',),
+        'The boutique\'s own website taking customer details, behind a WhatsApp '
+        'code. Public, no sign-in.',
+    ),
     # Lives in SHARED_APPS -- one mailer for the platform -- but entitlement is
     # still per boutique: a boutique that has not bought outbound email must
     # not be able to send it, and this prefix answered for all of them until
@@ -243,6 +253,7 @@ MODULE_GROUP = {
     'todos': 'operations',
     'notifications': 'operations',
     'order_tracking': 'operations',
+    'customer_portal': 'operations',
     'email': 'platform',
     'whatsapp': 'platform',
     'alterations': 'operations',
@@ -280,7 +291,8 @@ PRODUCT_MODULES = {
     'crm': ('CRM',
             'Customers, orders and how you reach them: drafts, the public tracking '
             'link, appointments, alterations, WhatsApp and email.',
-            ('order_drafts', 'order_tracking', 'scheduling', 'alterations', 'whatsapp', 'email')),
+            ('order_drafts', 'order_tracking', 'customer_portal', 'scheduling',
+             'alterations', 'whatsapp', 'email')),
     'design': ('Design Studio',
                'Design library, boards, collections, designers and search.',
                ('design_studio', 'design_collections', 'design_designers', 'design_discovery')),

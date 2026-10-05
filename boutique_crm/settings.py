@@ -244,8 +244,17 @@ else:
 from corsheaders.defaults import default_headers, default_methods
 CORS_ALLOW_HEADERS = list(default_headers) + [
     'x-tenant-id',
+    'x-portal-key',
 ]
 CORS_ALLOW_METHODS = list(default_methods)
+
+#: /intake/ is left out of corsheaders entirely. CORS_ALLOW_ALL_ORIGINS is on
+#: whenever CORS_ALLOWED_ORIGINS is unset, and the customer portal must never
+#: answer `Access-Control-Allow-Origin: *` on an endpoint that reads a
+#: customer's details. Those views decide their own origin per boutique, from
+#: the registered portal credential -- see crm_api/portal_views.py -- and this
+#: regex stops the middleware overwriting that decision on the way out.
+CORS_URLS_REGEX = r'^(?!/intake/).*$'
 
 
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
@@ -436,14 +445,15 @@ DESIGN_STUDIO_URL = os.environ.get(
     'https://api-super-admin.onrender.com/api/gateway/cat/api/v1/designstudio')
 DESIGN_STUDIO_GOOGLE_API_KEY = os.environ.get('DESIGN_STUDIO_GOOGLE_API_KEY', '')
 
-UPSTASH_REDIS_REST_URL = os.environ.get(
-    'UPSTASH_REDIS_REST_URL',
-    'https://charmed-mastiff-150004.upstash.io'
-)
-UPSTASH_REDIS_REST_TOKEN = os.environ.get(
-    'UPSTASH_REDIS_REST_TOKEN',
-    'gQAAAAAAAkn0AAIgcDFhMjY5MTkxMTQ5YzM0OTU2YTljZDMwNDQwNjNkYzc3Zg'
-)
+#: No fallback. A working URL and token were written here and in
+#: apps/email_service/services/redis_service.py, so the live credentials of the
+#: Upstash database are in the repository's history and anyone with a checkout
+#: can read and write it. They have to be rotated; leaving a default in place
+#: would mean the rotated ones are optional, and the OTP store that now depends
+#: on this cannot be optional -- see crm_api/portal_otp.py, which fails closed
+#: rather than let a verification pass without Redis.
+UPSTASH_REDIS_REST_URL = os.environ.get('UPSTASH_REDIS_REST_URL', '')
+UPSTASH_REDIS_REST_TOKEN = os.environ.get('UPSTASH_REDIS_REST_TOKEN', '')
 
 INTERNAL_API_SECRET = os.environ.get(
     'INTERNAL_API_SECRET',

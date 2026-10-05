@@ -241,6 +241,14 @@ afterwards does not undo.
     part, via the Design Discovery search. `DESIGN_DISCOVERY_URL` overrides
     the endpoint. Unset, the button does not appear. Each search costs the
     provider credits and is capped at 20 a minute per boutique.
+  * `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are now **required**
+    for the customer portal. They had working values written into
+    `settings.py` and `apps/email_service/services/redis_service.py` as
+    defaults, which put the live credentials of that Redis in this repository
+    and its history -- **rotate them in Upstash before the next deploy**. The
+    defaults are gone rather than replaced: the portal's one-time codes live in
+    Redis and `crm_api/portal_otp.py` fails closed without it, so a fallback
+    would mean a verification that only looks like one.
   * `SUPABASE_URL` and `SUPABASE_KEY` are used by the Supabase client, separately
     from the database connection above.
   * `EMAIL_HOST` (plus `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, optionally
@@ -295,6 +303,40 @@ afterwards does not undo.
 * **Instance tier:** free instances sleep after ~15 minutes idle and take tens of
   seconds to wake, which reads to a user as the whole app hanging on first load.
   No amount of application tuning covers that -- it needs a paid instance.
+
+### Customer portal API (`/intake/<shop_slug>/`)
+
+A boutique's own website takes customer details through four public endpoints.
+They resolve their own boutique from the slug -- never `X-Tenant-ID`, never the
+body -- and are governed by the `customer_portal` module, so the platform
+console can switch the portal off per boutique.
+
+```
+POST /intake/<slug>/customer/verify/request/   {mobile_number}      -> {sent, channel, expires_in}
+POST /intake/<slug>/customer/verify/           {mobile_number, code} -> {verified, token}
+GET  /intake/<slug>/customer/profile/          Bearer <token>        -> {exists, profile|null}
+POST /intake/<slug>/customers/                 Bearer <token>        -> {saved, created}
+```
+
+Every call carries `X-Portal-Key`, issued per boutique:
+
+```
+python manage.py portal_credential create --schema <schema> --origin https://their-site.example
+python manage.py portal_credential list|rotate|revoke --key-id <id>
+```
+
+The value is printed once and only its hash is stored. **It is not a secret**
+when the portal is a browser page -- a visitor can read it out of the
+JavaScript. It names the caller so a portal can be rate limited and revoked,
+and it pins that caller to one boutique; what actually protects a customer is
+the WhatsApp code and the signed, mobile-bound token. `--origin` sets the one
+browser origin allowed to read a cross-origin reply (`/intake/` is excluded
+from `CORS_URLS_REGEX` so the global `*` can never apply to it), and that is a
+courtesy to browsers, not a control -- curl ignores CORS.
+
+Requires the boutique to have a connected WhatsApp session; without one the
+portal answers "Phone verification is currently unavailable for this boutique."
+rather than letting anybody through.
 
 ### React Frontend (Vercel)
 * **Root Directory:** `frontend`

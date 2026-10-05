@@ -8,13 +8,23 @@ from upstash_redis import Redis
 logger = logging.getLogger(__name__)
 
 
-def get_redis_client() -> Redis:
+class RedisNotConfigured(RuntimeError):
+    """No Upstash URL or token in the environment."""
 
-    raw_url = str(getattr(settings, 'UPSTASH_REDIS_REST_URL', 'https://charmed-mastiff-150004.upstash.io'))
-    raw_token = str(getattr(settings, 'UPSTASH_REDIS_REST_TOKEN', 'gQAAAAAAAkn0AAIgcDFhMjY5MTkxMTQ5YzM0OTU2YTljZDMwNDQwNjNkYzc3Zg'))
-    
-    url = raw_url.strip().strip('\'"')
-    token = raw_token.strip().strip('\'"')
+
+def get_redis_client() -> Redis:
+    """The Upstash client, from configuration only.
+
+    The URL and token used to be written here as defaults, which put the live
+    credentials of the shared Redis in the repository. They are gone rather
+    than replaced: a caller that needs Redis has to be told it is missing, not
+    handed a database somebody else can also read.
+    """
+    url = str(getattr(settings, 'UPSTASH_REDIS_REST_URL', '') or '').strip().strip('\'"')
+    token = str(getattr(settings, 'UPSTASH_REDIS_REST_TOKEN', '') or '').strip().strip('\'"')
+    if not url or not token:
+        raise RedisNotConfigured(
+            'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are not set.')
     return Redis(url=url, token=token)
 
 

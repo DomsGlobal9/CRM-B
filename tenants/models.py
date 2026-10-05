@@ -95,6 +95,60 @@ class WhatsAppAccount(models.Model):
         return f"WhatsApp ({self.session_id}) for {self.tenant.name}"
 
 
+class PortalCredential(models.Model):
+    """Which customer portal is calling, and for which boutique.
+
+    NOT AN AUTHENTICATION BOUNDARY when the portal is a browser page. The value
+    ships inside JavaScript a visitor can read, so it must be assumed public:
+    it names the caller, it does not prove anything about them. What actually
+    protects customer data is further down -- a WhatsApp OTP, then a signed,
+    short-lived, mobile-and-boutique-bound token (crm_api/portal_tokens.py).
+    Nothing here is allowed to stand in for either.
+
+    What it does buy, which is why it exists: a portal can be switched off
+    without touching the boutique, rotated without a deploy, rate limited as a
+    unit, and -- the part that matters most -- pinned to exactly ONE boutique,
+    so a credential issued to one shop cannot be replayed against another's
+    slug.
+
+    Lives in the shared schema because the lookup happens before any schema is
+    chosen, the same reason BoutiqueTenant.shop_slug does.
+    """
+
+    #: Shown once, at creation, and never again -- only the hash is kept.
+    #: `key_id` is the public half: it is what the lookup is by, so a wrong
+    #: secret costs one indexed query and no timing signal about which part
+    #: was wrong.
+    tenant = models.ForeignKey(
+        BoutiqueTenant, on_delete=models.CASCADE, related_name='portal_credentials')
+    label = models.CharField(
+        max_length=100, blank=True, default='',
+        help_text="Which portal this is, for the person revoking it later.")
+    key_id = models.CharField(max_length=32, unique=True, db_index=True)
+    secret_hash = models.CharField(max_length=64)
+
+    #: The one browser origin allowed to read a cross-origin response from the
+    #: intake endpoints. A courtesy to the browser, not a control: curl ignores
+    #: CORS entirely, so this narrows who can be *tricked* into calling, never
+    #: who can call.
+    allowed_origin = models.CharField(
+        max_length=200, blank=True, default='',
+        help_text="e.g. https://sarala.example.com. Blank sends no CORS header, "
+                  "so only same-origin and non-browser callers can read a reply.")
+
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        state = 'active' if self.is_active else 'revoked'
+        return f"{self.label or self.key_id} for {self.tenant.schema_name} ({state})"
+
+
 class DemoRequest(models.Model):
 
     STATUS_CHOICES = [

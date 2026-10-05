@@ -10,6 +10,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('track/<str:token>/', order_tracking, name='order-tracking'),
     path('demo-request/', demo_request, name='demo-request'),
+    path('intake/', include('crm_api.portal_urls')),
     path('api/superadmin/', include('superadmin.urls')),
     path('api/', include('crm_api.urls')),
     path('api/production/', include('apps.production.urls')),

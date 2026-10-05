@@ -11,7 +11,8 @@ from core.validators import MAX_NOTE, MAX_REASON, validate_text
 from tenants.middleware import clear_platform_cache, clear_tenant_cache
 from tenants.models import BoutiqueTenant
 
-from . import audit, health, onboarding, search as search_module, users as users_module, signins
+from . import (audit, health, onboarding, portal_access, search as search_module,
+               signins, users as users_module)
 from .metrics import operational_metrics, tenant_metrics
 from .models import AuditLog, ErrorEvent, FeatureFlag, PlatformSetting
 from .permissions import IsPlatformAdmin
@@ -231,6 +232,78 @@ class BoutiqueModulesView(ConsoleView):
             'note': 'Other server workers apply this within 5 minutes.',
         })
 
+
+
+class BoutiquePortalAccessView(ConsoleView):
+    """Whether this boutique's customer portal may call the intake API.
+
+    Platform-set, like appearance and modules: the boutique's own Settings has
+    no control for it, because granting an outside website a door onto the
+    customer book is the platform's decision, not the owner's. IsPlatformAdmin
+    comes from ConsoleView, so a boutique owner's token reaches none of this.
+
+    GET reports. POST acts, on `action` -- enable, rotate or revoke. One view
+    rather than three routes because they are one decision with three settings,
+    and all three have to write the same audit record.
+
+    The plaintext key is in the reply to enable and rotate, once, and nowhere
+    else: GET cannot return it because only its hash is stored.
+    """
+
+    ACTIONS = ('enable', 'rotate', 'revoke')
+
+    def get(self, request, schema_name=None):
+        tenant = _tenant_or_404(schema_name)
+        if tenant is None:
+            return Response({'error': 'No such boutique.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'schema_name': schema_name, **portal_access.status(tenant)})
+
+    def post(self, request, schema_name=None):
+        tenant = _tenant_or_404(schema_name)
+        if tenant is None:
+            return Response({'error': 'No such boutique.'}, status=status.HTTP_404_NOT_FOUND)
+
+        action = request.data.get('action')
+        if action not in self.ACTIONS:
+            return Response(
+                {'error': f"Send {{\"action\": one of {', '.join(self.ACTIONS)}}}."},
+                status=status.HTTP_400_BAD_REQUEST)
+
+        origin = request.data.get('allowed_origin')
+        if origin is not None:
+            origin = validate_text(origin, label='Website address', max_length=200,
+                                   required=False)
+
+        before = portal_access.status(tenant)
+        reason = _audit_reason(request, required=(action == 'revoke'))
+
+        secret = None
+        if action == 'enable':
+            after, secret = portal_access.enable(tenant, allowed_origin=origin or '')
+        elif action == 'rotate':
+            result = portal_access.rotate(tenant, allowed_origin=origin)
+            if result is None:
+                return Response(
+                    {'error': 'There is no active key to rotate. Enable access first.'},
+                    status=status.HTTP_400_BAD_REQUEST)
+            after, secret = result
+        else:
+            after = portal_access.revoke(tenant)
+
+        # The key is NOT in the audit record. before/after carry the state --
+        # enabled, which key_id, which origin -- and the audit trail is read by
+        # more people than may hold a working credential.
+        audit.record(request, f'boutique.portal_access.{action}', target=schema_name,
+                     boutique=schema_name,
+                     before={k: before[k] for k in ('enabled', 'key_id', 'allowed_origin')},
+                     after={k: after[k] for k in ('enabled', 'key_id', 'allowed_origin')},
+                     reason=reason)
+
+        body = {'schema_name': schema_name, **after}
+        if secret:
+            body['api_key'] = secret
+            body['show_once'] = True
+        return Response(body)
 
 
 class BoutiqueAppearanceView(ConsoleView):

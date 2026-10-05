@@ -4,8 +4,9 @@ from django_tenants.utils import get_public_schema_name
 
 from superadmin.metrics import tenant_metrics
 
+from . import portal_credentials
 from .middleware import clear_tenant_cache
-from .models import BoutiqueTenant, DemoRequest, Domain
+from .models import BoutiqueTenant, DemoRequest, Domain, PortalCredential
 
 
 def _column(tenant, key):
@@ -91,6 +92,35 @@ class DomainAdmin(admin.ModelAdmin):
     list_display = ('domain', 'tenant', 'is_primary')
     search_fields = ('domain', 'tenant__name')
     list_filter = ('is_primary',)
+
+
+@admin.register(PortalCredential)
+class PortalCredentialAdmin(admin.ModelAdmin):
+    """Look and revoke, never read.
+
+    The secret is not here to be displayed -- only its hash is stored, and the
+    hash is not on this screen either, so an admin session cannot leak a
+    working credential. Issuing and rotating are the `portal_credential`
+    management command's, which prints the value once.
+    """
+
+    list_display = ('key_id', 'tenant', 'label', 'allowed_origin', 'is_active',
+                    'created_at', 'last_used_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('key_id', 'label', 'tenant__name', 'tenant__schema_name')
+    readonly_fields = ('key_id', 'tenant', 'created_at', 'revoked_at', 'last_used_at')
+    fields = ('key_id', 'tenant', 'label', 'allowed_origin', 'is_active',
+              'created_at', 'revoked_at', 'last_used_at')
+    actions = ('revoke_selected',)
+
+    def has_add_permission(self, request):
+        return False
+
+    @admin.action(description='Revoke selected portal credentials')
+    def revoke_selected(self, request, queryset):
+        for row in queryset:
+            portal_credentials.revoke(row)
+        self.message_user(request, f'{queryset.count()} credential(s) revoked.')
 
 
 @admin.register(DemoRequest)

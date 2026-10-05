@@ -24,8 +24,8 @@ import {
 
 import { consoleApi } from '../api';
 import {
-  Async, Empty, Pager, Pill, SearchBox, SectionHead, Select, Stat,
-  count, day, money, useApi, useToast,
+  Async, Confirm, Empty, Pager, Pill, SearchBox, SectionHead, Select, Stat,
+  count, day, money, moment, useApi, useToast,
 } from '../ui';
 
 /** See core.modules.is_enabled -- absent and malformed both mean ON. */
@@ -240,6 +240,150 @@ function AppearanceCard({ schema, boutique }) {
   );
 }
 
+/** Whether this boutique's customer website may call the intake API.
+ *
+ *  Platform-set, and the only place it is set: the boutique's own Settings has
+ *  no control for it. The key is shown exactly once, when it is generated --
+ *  the server keeps a hash and genuinely cannot show it again -- so the panel
+ *  that reveals it says so plainly rather than letting somebody close it and
+ *  come back.
+ */
+function PortalAccessCard({ schema }) {
+  const toast = useToast();
+  const state = useApi(useCallback(() => consoleApi.portalAccess(schema), [schema]));
+  const [access, setAccess] = useState(null);
+  const [freshKey, setFreshKey] = useState('');
+  const [origin, setOrigin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(null);
+
+  const current = access || state.data;
+
+  const act = async (action, reason) => {
+    setBusy(true);
+    try {
+      const result = await consoleApi.setPortalAccess(schema, action, {
+        allowed_origin: origin || undefined, reason,
+      });
+      setAccess(result);
+      // Held in component state only, for as long as this screen is open. It
+      // is never written to localStorage and never logged.
+      setFreshKey(result.api_key || '');
+      setConfirming(null);
+      toast(action === 'revoke'
+        ? 'Customer Portal API access revoked.'
+        : 'Done. Copy the key now — it is not shown again.');
+    } catch (e) {
+      toast(e.message, 'off');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(freshKey);
+      toast('API key copied.');
+    } catch {
+      toast('Could not copy. Select the key and copy it by hand.', 'off');
+    }
+  };
+
+  return (
+    <div className="sa-card">
+      <h4><Lock size={14} /> Access — Customer Portal API</h4>
+      <Async state={state} skeletonRows={2}>
+        {() => (
+          <>
+            <p style={{ marginBottom: 10 }}>
+              Lets this boutique&apos;s own website take customer details through{' '}
+              <code>/intake/&lt;slug&gt;/</code>. Set here by the platform only; the
+              boutique cannot grant it to itself. Recorded in the audit trail.
+            </p>
+
+            <div style={{ marginBottom: 10 }}>
+              <Pill value={current?.enabled ? 'active' : 'disabled'}
+                    label={current?.enabled ? 'Enabled' : 'Disabled'} />
+            </div>
+
+            {current?.enabled && (
+              <div style={{ display: 'grid', gap: 6, marginBottom: 10 }}>
+                <div>Key id <code>{current.key_id}</code></div>
+                <div>Website {current.allowed_origin
+                  ? <code>{current.allowed_origin}</code>
+                  : <span>— none set, so no browser on another origin can read a reply.</span>}
+                </div>
+                <div>Last used {current.last_used_at ? moment(current.last_used_at) : 'never'}</div>
+              </div>
+            )}
+
+            {freshKey ? (
+              <div className="sa-card" style={{ margin: '10px 0' }}>
+                <strong>Copy this API key now. For security, the secret will not be
+                  shown again.</strong>
+                <div style={{ margin: '8px 0', wordBreak: 'break-all' }}>
+                  <code>{freshKey}</code>
+                </div>
+                <button className="sa-btn" onClick={copy}>Copy API key</button>
+                <button className="sa-btn" style={{ marginLeft: 6 }}
+                        onClick={() => setFreshKey('')}>I have copied it</button>
+              </div>
+            ) : current?.enabled && (
+              <div style={{ marginBottom: 10 }}>
+                API key <code>••••••••••••••••••</code>{' '}
+                <span>— stored hashed, so it cannot be shown again. Rotate to issue a new one.</span>
+              </div>
+            )}
+
+            <label style={{ display: 'block', marginBottom: 10 }}>
+              <div>Website address (optional)</div>
+              <input className="sa-input" value={origin} placeholder="https://their-site.example"
+                     onChange={(e) => setOrigin(e.target.value)} />
+            </label>
+
+            {current?.enabled ? (
+              <>
+                <button className="sa-btn" disabled={busy}
+                        onClick={() => setConfirming('rotate')}>Rotate key</button>
+                <button className="sa-btn danger" style={{ marginLeft: 6 }} disabled={busy}
+                        onClick={() => setConfirming('revoke')}>Revoke access</button>
+              </>
+            ) : (
+              <button className="sa-btn" disabled={busy}
+                      onClick={() => setConfirming('enable')}>Enable access</button>
+            )}
+
+            <Confirm
+              open={confirming === 'enable'}
+              title="Enable Customer Portal API?"
+              body="A new API key is generated and shown once. Any earlier key for this boutique stops working."
+              confirmLabel="Enable access" busy={busy}
+              onCancel={() => setConfirming(null)}
+              onConfirm={() => act('enable')}
+            />
+            <Confirm
+              open={confirming === 'rotate'}
+              title="Rotate the API key?"
+              body="The current key stops working immediately. The new one is shown once."
+              confirmLabel="Rotate key" busy={busy}
+              onCancel={() => setConfirming(null)}
+              onConfirm={() => act('rotate')}
+            />
+            <Confirm
+              open={confirming === 'revoke'}
+              title="Revoke Customer Portal API access for this boutique?"
+              body="The key stops working immediately and the boutique's website can no longer take customer details."
+              confirmLabel="Revoke access" danger requireReason busy={busy}
+              onCancel={() => setConfirming(null)}
+              onConfirm={(reason) => act('revoke', reason)}
+            />
+          </>
+        )}
+      </Async>
+    </div>
+  );
+}
+
 /** Usage, onboarding, modules and appearance. Everything else links out. */
 function Overview({ schema, route }) {
   const state = useApi(useCallback(() => consoleApi.support(schema), [schema]));
@@ -325,6 +469,8 @@ function Overview({ schema, route }) {
               </div>
 
               <AppearanceCard schema={schema} boutique={boutique} />
+
+              <PortalAccessCard schema={schema} />
 
               <div className="sa-card">
                 <h4><Wrench size={14} /> Going further</h4>

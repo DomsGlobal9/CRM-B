@@ -2,7 +2,8 @@
 from django.urls import include, path
 from rest_framework.routers import SimpleRouter
 
-from .api_views import (AuditView, BoutiqueModulesView, BoutiqueAppearanceView, ConfigView, ErrorDetailView,
+from .api_views import (AuditView, BoutiqueModulesView, BoutiqueAppearanceView,
+                        BoutiquePortalAccessView, ConfigView, ErrorDetailView,
                         ErrorsView, ErrorSummaryView, FlagDetailView, FlagsView,
                         HealthView, ModulesView, OnboardingView, OrdersMonitorView,
                         SearchView, SigninsView, SupportView, UserActionView, UsersView)
@@ -48,6 +49,8 @@ urlpatterns = [
          name='superadmin-boutique-modules'),
     path('boutiques/<str:schema_name>/appearance/', BoutiqueAppearanceView.as_view(),
          name='superadmin-boutique-appearance'),
+    path('boutiques/<str:schema_name>/portal-access/',
+         BoutiquePortalAccessView.as_view(), name='superadmin-boutique-portal-access'),
 
     path('flags/', FlagsView.as_view(), name='superadmin-flags'),
     path('flags/<str:key>/', FlagDetailView.as_view(), name='superadmin-flag'),
