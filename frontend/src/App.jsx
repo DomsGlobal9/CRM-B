@@ -1588,6 +1588,10 @@ function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
 
+  const [findSlug, setFindSlug] = useState('');
+  const [findError, setFindError] = useState(null);
+  const [findBusy, setFindBusy] = useState(false);
+
   const [signupStep, setSignupStep] = useState(1);
 
   const [signupForm, setSignupForm] = useState({
@@ -2426,7 +2430,8 @@ function App() {
   }, [view, dashboardTab]);
 
   useEffect(() => {
-    if (view === 'login' || view === 'signup' || view === 'forgot' || view === 'reset') return;
+    if (view === 'login' || view === 'signup' || view === 'forgot'
+        || view === 'reset' || view === 'find') return;
     const here = { atelier: true, view, tab: dashboardTab };
     const current = window.history.state;
     if (current?.atelier && current.view === view && current.tab === dashboardTab) return;
@@ -2704,6 +2709,40 @@ function App() {
     } finally {
       setAuthBusy(false);
     }
+  };
+
+  // Takes whatever someone types for their boutique and reduces it to a slug:
+  // the boutique's name, its address, or the whole URL pasted out of an old
+  // email all have to arrive at the same answer. The last path segment first,
+  // so a pasted link does not become one long word, then the same
+  // lowercase-alphanumeric rule the server generated the slug with
+  // (tenants/slugs.py).
+  const slugFromTyped = (raw) => {
+    const typed = (raw || '').trim().split(/[?#]/)[0];
+    const tail = typed.split('/').filter(Boolean).pop() || '';
+    return tail.toLowerCase().replace(/[^a-z0-9]/g, '');
+  };
+
+  const handleFindSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (findBusy) return;
+    const slug = slugFromTyped(findSlug);
+    if (!slug) {
+      setFindError('Type your boutique name or the address you sign in at.');
+      return;
+    }
+    setFindBusy(true);
+    setFindError(null);
+    const found = await api.getBoutiqueBySlug(slug);
+    if (!found) {
+      setFindError(`No active boutique signs in at /${slug}. Check the spelling with whoever set it up.`);
+      setFindBusy(false);
+      return;
+    }
+    // A real navigation, not setView: the boutique's own address has to end up
+    // in the URL bar so a refresh, a bookmark and the back button all keep
+    // working from here on.
+    window.location.href = `/${found.shop_slug}`;
   };
 
   const handleSignupSubmit = async (e) => {
@@ -3477,7 +3516,69 @@ function App() {
     <div className="app-container">
       {/* 2. SIGN IN SCREEN (Image 2) */}
 
-      {boutiqueNotFound && (
+      {view === 'find' && (
+        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <button
+            onClick={() => { setFindError(null); setView('signup'); }}
+            style={{ position: 'absolute', top: '30px', left: '5%', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface-color)', border: '1px solid var(--border-color)', padding: '10px 18px', borderRadius: '99px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '600', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}
+          >
+            <ArrowLeft size={16} />
+            Back
+          </button>
+
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
+
+          <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
+            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>Find your boutique</h2>
+            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 28px 0' }}>Every boutique signs in at its own address. Type your boutique's name and we will take you there.</p>
+
+            <form onSubmit={handleFindSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Boutique name or address</label>
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
+                  <span style={{ padding: '12px 0 12px 14px', fontSize: '14px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{window.location.host}/</span>
+                  <input
+                    type="text"
+                    placeholder="saralaboutique"
+                    value={findSlug}
+                    onChange={(e) => { setFindSlug(e.target.value); setFindError(null); }}
+                    onBlur={() => setFindSlug((raw) => slugFromTyped(raw) || raw)}
+                    style={{ flex: 1, minWidth: 0, padding: '12px 14px 12px 2px', fontSize: '14px', border: 'none', outline: 'none', background: 'transparent', color: 'var(--text-primary)' }}
+                    autoFocus
+                    required
+                  />
+                </div>
+                {findSlug.trim() && slugFromTyped(findSlug) && (
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Goes to {window.location.host}/{slugFromTyped(findSlug)}
+                  </span>
+                )}
+              </div>
+
+              {findError && (
+                <div role="alert" style={{ fontSize: '13px', color: '#b42318', background: 'rgba(180,35,24,0.07)', padding: '10px 12px', borderRadius: '8px' }}>
+                  {findError}
+                </div>
+              )}
+
+              <button type="submit" className="btn-primary" disabled={findBusy} style={{ width: '100%' }}>
+                {findBusy ? 'Checking…' : 'Go to my boutique'}
+              </button>
+            </form>
+
+            <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '32px', paddingTop: '20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+              Don't have a boutique yet?{' '}
+              <a href="#" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}
+                 onClick={(e) => { e.preventDefault(); setFindError(null); setView('signup'); }}>
+                Register one
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {boutiqueNotFound && view !== 'find' && (
         <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
           <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
@@ -3488,10 +3589,12 @@ function App() {
               No active boutique uses the address <strong>/{portalSlug}</strong>. Check the spelling with your boutique, or create a new one.
             </p>
             <button type="button" className="btn-primary" style={{ width: '100%' }}
-                    onClick={() => { window.location.href = '/app'; }}>
-              Create your boutique
+                    onClick={() => { setFindSlug(portalSlug); setFindError(null); setView('find'); }}>
+              Try another address
             </button>
             <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '28px', paddingTop: '20px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+              <a href="/app" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Register a boutique</a>
+              {' · '}
               <a href="/" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Back to Home</a>
             </div>
           </div>
@@ -3895,7 +3998,8 @@ function App() {
                     <input type="checkbox" checked={signupForm.terms} onChange={(e) => setSignupForm({...signupForm, terms: e.target.checked})} />
                     I agree to the Terms & Conditions and Privacy Policy
                   </label>
-                  <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }} onClick={() => setView('login')}>
+                  <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }}
+                          onClick={() => { setFindError(null); setView('find'); }}>
                     Log in instead
                   </button>
                   <button
