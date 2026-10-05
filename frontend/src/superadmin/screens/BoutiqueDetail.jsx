@@ -297,7 +297,7 @@ function PortalAccessCard({ schema }) {
           <>
             <p style={{ marginBottom: 10 }}>
               Lets this boutique&apos;s own website take customer details through{' '}
-              <code>/intake/&lt;slug&gt;/</code>. Set here by the platform only; the
+              <code>/intake/</code>. Set here by the platform only; the
               boutique cannot grant it to itself. Recorded in the audit trail.
             </p>
 

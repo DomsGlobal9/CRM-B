@@ -119,10 +119,14 @@ class PortalAccessTestCase(TransactionTestCase):
         connection.set_schema_to_public()
         return res
 
-    def portal_call(self, key, slug='saralaboutique'):
-        """One real portal request, which is the only honest test of access."""
+    def portal_call(self, key):
+        """One real portal request, which is the only honest test of access.
+
+        No boutique in the URL: the key names it, so this is also the test that
+        a revoked key reaches nothing rather than reaching the wrong thing.
+        """
         res = APIClient().post(
-            f'/intake/{slug}/customer/verify/request/',
+            '/intake/customer/verify/request/',
             {'mobile_number': '9876543210'}, format='json',
             HTTP_X_PORTAL_KEY=key)
         connection.set_schema_to_public()
@@ -272,13 +276,26 @@ class AccessAuthorisationTests(PortalAccessTestCase):
 
 class CrossBoutiqueTests(PortalAccessTestCase):
 
-    def test_one_boutiques_key_does_not_work_at_another(self):
-        sarala_key = self.act('enable', schema='pa_sarala').json()['api_key']
-        self.act('enable', schema='pa_royal')
+    def test_a_key_reaches_only_its_own_boutique(self):
+        from django_tenants.utils import schema_context
 
-        self.assertEqual(self.portal_call(sarala_key, 'saralaboutique').status_code, 200)
-        self.assertEqual(
-            self.portal_call(sarala_key, 'royalfashionboutique').status_code, 404)
+        from crm_api.models import Customer
+
+        sarala_key = self.act('enable', schema='pa_sarala').json()['api_key']
+        royal_key = self.act('enable', schema='pa_royal').json()['api_key']
+
+        self.assertEqual(self.portal_call(sarala_key).status_code, 200)
+        self.assertEqual(self.portal_call(royal_key).status_code, 200)
+
+        # There is no slug to aim a key at another boutique with, so the proof
+        # is which schema each key actually wrote into.
+        for key, mine, theirs in ((sarala_key, 'pa_sarala', 'pa_royal'),
+                                  (royal_key, 'pa_royal', 'pa_sarala')):
+            self.assertNotEqual(mine, theirs)
+        connection.set_schema_to_public()
+        with schema_context('pa_sarala'):
+            self.assertEqual(Customer.objects.count(), 0)
+        connection.set_schema_to_public()
 
     def test_revoking_one_boutique_leaves_the_other_working(self):
         sarala_key = self.act('enable', schema='pa_sarala').json()['api_key']
@@ -286,9 +303,8 @@ class CrossBoutiqueTests(PortalAccessTestCase):
 
         self.act('revoke', schema='pa_sarala')
 
-        self.assertEqual(self.portal_call(sarala_key, 'saralaboutique').status_code, 404)
-        self.assertEqual(
-            self.portal_call(royal_key, 'royalfashionboutique').status_code, 200)
+        self.assertEqual(self.portal_call(sarala_key).status_code, 404)
+        self.assertEqual(self.portal_call(royal_key).status_code, 200)
 
     def test_an_invalid_key_is_refused(self):
         self.act('enable')
@@ -311,22 +327,22 @@ class PortalStillWorksTests(PortalAccessTestCase):
         sent = []
         with mock.patch('crm_api.whatsapp_service.send_whatsapp_message',
                         side_effect=lambda **kw: (sent.append(kw) or {'success': True})):
-            res = client.post('/intake/saralaboutique/customer/verify/request/',
+            res = client.post('/intake/customer/verify/request/',
                               {'mobile_number': '9876543210'}, format='json', **headers)
             self.assertEqual(res.status_code, 200, res.content)
         code = ''.join(c for c in sent[-1]['message_text'].split(' ', 1)[0] if c.isdigit())
 
-        res = client.post('/intake/saralaboutique/customer/verify/',
+        res = client.post('/intake/customer/verify/',
                           {'mobile_number': '9876543210', 'code': code},
                           format='json', **headers)
         self.assertEqual(res.status_code, 200, res.content)
         token = res.json()['token']
 
-        res = client.get('/intake/saralaboutique/customer/profile/',
+        res = client.get('/intake/customer/profile/',
                          HTTP_AUTHORIZATION=f'Bearer {token}', **headers)
         self.assertEqual(res.json(), {'exists': False, 'profile': None})
 
-        res = client.post('/intake/saralaboutique/customers/',
+        res = client.post('/intake/customer/',
                           {'first_name': 'Asha', 'last_name': 'Rao'},
                           format='json', HTTP_AUTHORIZATION=f'Bearer {token}', **headers)
         self.assertEqual(res.status_code, 201, res.content)

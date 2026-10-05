@@ -64,6 +64,38 @@ def revoke(row):
     row.save(update_fields=['is_active', 'revoked_at'])
 
 
+def resolve_any(value):
+    """The active credential `value` names, and the boutique it belongs to.
+
+    This is how the portal API learns which boutique it is serving: the
+    credential is issued to exactly one BoutiqueTenant, so the key IS the
+    tenant and the caller never names one. There is nothing for a client to
+    substitute -- no slug, no header, no body field -- which is why boutique A
+    presenting its own key can only ever reach boutique A.
+
+    Returns None for malformed, unknown, revoked, and for a credential whose
+    boutique is suspended. One return value for all of them, so a probe cannot
+    tell them apart.
+    """
+    if not value or '.' not in value:
+        return None
+    key_id, _, secret = value.partition('.')
+    if not key_id or not secret:
+        return None
+
+    row = (PortalCredential.objects
+           .select_related('tenant')
+           .filter(key_id=key_id, is_active=True)
+           .first())
+    if row is None:
+        return None
+    if not hmac.compare_digest(row.secret_hash, _hash(secret)):
+        return None
+    if not row.tenant.is_active:
+        return None
+    return row
+
+
 def resolve(value, tenant):
     """The active credential `value` names, but only if it belongs to `tenant`.
 

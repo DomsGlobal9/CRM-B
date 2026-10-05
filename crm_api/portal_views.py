@@ -1,12 +1,13 @@
-"""The customer portal's public API, at /intake/<shop_slug>/.
+"""The customer portal's public API, at /intake/.
 
 An untrusted browser on the open internet calls these, so the shape of every
 answer is part of the security, not just the code behind it:
 
-  * The boutique comes from the slug in the path and nowhere else. Not
-    X-Tenant-ID, not the body, not a query parameter -- those are all things
-    the caller writes, and the whole point is that the caller does not choose
-    the tenant.
+  * The boutique comes from X-Portal-Key and nowhere else. Not a slug in the
+    path, not X-Tenant-ID, not the body, not a query parameter -- those are
+    all things the caller writes, and the whole point is that the caller does
+    not choose the tenant. A credential belongs to one BoutiqueTenant, so the
+    key IS the boutique.
   * Nothing says whether a mobile number belongs to an existing customer until
     that number has answered a WhatsApp code. Before then every reply is the
     same for a customer, a stranger, and a number nobody has ever typed.
@@ -18,11 +19,16 @@ The gate sequence mirrors crm_api/tracking_views.py, the other public view that
 resolves its own tenant: active boutique, then the module switch, then
 schema_context. The middleware never ran either check for these, because the
 request arrives with no tenant at all.
+
+Everything a customer may describe about themselves and about what they want
+is taken from the counter's own Add Customer form (frontend/src/App.jsx,
+DEFAULT_CUSTOMER_DATA) -- same field names, same validators -- so the portal
+and the counter cannot disagree about what a customer record holds.
 """
 
 import logging
 
-from django.db import IntegrityError, connection, transaction
+from django.db import IntegrityError, transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django_tenants.utils import get_public_schema_name, schema_context
@@ -35,7 +41,6 @@ from core.validators import validate_email_address, validate_name, validate_text
 from crm_api import portal_otp, portal_tokens
 from crm_api.models import Customer, Measurement, national_mobile, whatsapp_number
 from tenants import portal_credentials
-from tenants.models import BoutiqueTenant
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +65,34 @@ PROFILE_FIELDS = (
     'gender', 'date_of_birth', 'occupation', 'preferred_communication',
 )
 
-#: What the portal may WRITE. A subset of the above -- a customer describes
-#: themselves, and everything the boutique decides about them stays the
-#: boutique's. `source` is absent on purpose and forced to Website below.
+#: What the portal may WRITE as contact details. A subset of the above -- a
+#: customer describes themselves, and everything the boutique decides about
+#: them stays the boutique's. `source` is absent on purpose and forced to
+#: Website below.
 WRITABLE_FIELDS = PROFILE_FIELDS
+
+#: What the customer wants made, taken verbatim from the counter's own Add
+#: Customer form (DEFAULT_CUSTOMER_DATA in frontend/src/App.jsx). These are
+#: columns on Customer already -- no new model, no invented field.
+#:
+#: Unlike the contact fields these are OVERWRITTEN on each submission rather
+#: than only filled when blank, and the difference is deliberate: a name or an
+#: address is a record the boutique may have corrected, while "what I want
+#: this time" is a statement only the customer can make, and a returning
+#: customer asking for a saree after last year's lehenga has to be able to say
+#: so. Nothing is lost either way -- every submission also leaves its own
+#: DesignPreference row, which is append-only.
+REQUIREMENT_FIELDS = (
+    'garment_type', 'occasion', 'neckline_style', 'sleeve_style', 'back_style',
+    'length_preference', 'silhouette', 'embellishments', 'pattern_style',
+    'custom_requirements',
+)
 
 GENDERS = ('Female', 'Male', 'Other')
 CONTACT_CHOICES = ('WhatsApp', 'Call', 'Email')
+
+#: How many inspiration links one submission may carry.
+MAX_REFERENCE_LINKS = 10
 
 #: A public POST body has no business being large; this is well past any
 #: honest submission and far short of anything worth sending to a parser.
@@ -116,34 +142,34 @@ class PortalView(views.APIView):
         response['X-Robots-Tag'] = 'noindex, nofollow'
         return response
 
-    def resolve(self, request, shop_slug):
-        """(tenant, credential, origin) or (None, None, origin).
+    def resolve(self, request):
+        """(tenant, credential, origin) or (None, None, '').
 
-        Every refusal below answers with the same sentence, because the
-        differences between them -- no such slug, suspended, module off, wrong
-        credential -- are all facts about a boutique that an anonymous caller
-        has not earned.
+        THE KEY IS THE BOUTIQUE. A PortalCredential belongs to exactly one
+        BoutiqueTenant, so the caller never names one and there is nothing for
+        it to substitute -- no slug in the path, no X-Tenant-ID, no field in
+        the body or the query string. That is the whole reason the slug came
+        out of these URLs: a value the client supplies is a value the client
+        can change, and the boutique is not the client's to choose.
+
+        Every refusal answers with the same sentence, because the differences
+        between them -- unknown key, revoked key, suspended boutique, portal
+        switched off -- are all facts an anonymous caller has not earned.
         """
-        slug = (shop_slug or '').strip().lower()
-        if not slug.isalnum():
-            return None, None, ''
-
         with schema_context(get_public_schema_name()):
-            tenant = (BoutiqueTenant.objects
-                      .filter(shop_slug=slug, is_active=True)
-                      .exclude(schema_name=get_public_schema_name())
-                      .first())
-            if tenant is None:
+            credential = portal_credentials.resolve_any(
+                request.META.get('HTTP_X_PORTAL_KEY', ''))
+            if credential is None:
                 return None, None, ''
+            tenant = credential.tenant
+            if tenant.schema_name == get_public_schema_name():
+                return None, None, ''
+            # The platform's own switch, read here for the same reason
+            # crm_api/tracking_views.py reads it: the middleware never ran a
+            # module check for a request that arrives with no tenant at all.
             if not is_enabled(getattr(tenant, 'plan', None),
                               getattr(tenant, 'enabled_modules', None), MODULE_KEY):
                 return None, None, ''
-
-            credential = portal_credentials.resolve(
-                request.META.get('HTTP_X_PORTAL_KEY', ''), tenant)
-
-        if credential is None:
-            return None, None, ''
 
         request_origin = request.META.get('HTTP_ORIGIN', '')
         origin = (credential.allowed_origin
@@ -153,7 +179,7 @@ class PortalView(views.APIView):
         return tenant, credential, origin
 
     def options(self, request, *args, **kwargs):
-        tenant, _credential, origin = self.resolve(request, kwargs.get('shop_slug'))
+        _tenant, _credential, origin = self.resolve(request)
         return self._cors(Response(status=status.HTTP_200_OK), origin)
 
     @staticmethod
@@ -173,10 +199,10 @@ class PortalView(views.APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class VerifyRequestView(PortalView):
-    """POST /intake/<shop_slug>/customer/verify/request/ -- send a code."""
+    """POST /intake/customer/verify/request/ -- send a code."""
 
-    def post(self, request, shop_slug=None):
-        tenant, credential, origin = self.resolve(request, shop_slug)
+    def post(self, request):
+        tenant, credential, origin = self.resolve(request)
         if tenant is None:
             return self._fail(UNAVAILABLE, status.HTTP_404_NOT_FOUND)
 
@@ -242,10 +268,10 @@ class VerifyRequestView(PortalView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class VerifyView(PortalView):
-    """POST /intake/<shop_slug>/customer/verify/ -- answer the code."""
+    """POST /intake/customer/verify/ -- answer the code."""
 
-    def post(self, request, shop_slug=None):
-        tenant, _credential, origin = self.resolve(request, shop_slug)
+    def post(self, request):
+        tenant, _credential, origin = self.resolve(request)
         if tenant is None:
             return self._fail(UNAVAILABLE, status.HTTP_404_NOT_FOUND)
 
@@ -274,10 +300,10 @@ class VerifyView(PortalView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class ProfileView(PortalView):
-    """GET /intake/<shop_slug>/customer/profile/ -- autofill, after verifying."""
+    """GET /intake/customer/profile/ -- autofill, after verifying."""
 
-    def get(self, request, shop_slug=None):
-        tenant, _credential, origin = self.resolve(request, shop_slug)
+    def get(self, request):
+        tenant, _credential, origin = self.resolve(request)
         if tenant is None:
             return self._fail(UNAVAILABLE, status.HTTP_404_NOT_FOUND)
 
@@ -300,10 +326,10 @@ class ProfileView(PortalView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomerIntakeView(PortalView):
-    """POST /intake/<shop_slug>/customers/ -- the customer's own details."""
+    """POST /intake/customer/ -- the customer's own details."""
 
-    def post(self, request, shop_slug=None):
-        tenant, _credential, origin = self.resolve(request, shop_slug)
+    def post(self, request):
+        tenant, _credential, origin = self.resolve(request)
         if tenant is None:
             return self._fail(UNAVAILABLE, status.HTTP_404_NOT_FOUND)
 
@@ -334,7 +360,7 @@ class CustomerIntakeView(PortalView):
             return self._fail(TEMPORARY, status.HTTP_503_SERVICE_UNAVAILABLE, origin)
 
         try:
-            fields = _clean(request.data)
+            fields = _clean(request.data, WRITABLE_FIELDS)
         except ValueError as exc:
             return self._fail(str(exc), status.HTTP_400_BAD_REQUEST, origin)
         if not fields.get('first_name'):
@@ -359,10 +385,16 @@ def _profile(customer):
     return out
 
 
-def _clean(data):
-    """Only the fields a customer owns, validated by the CRM's own rules."""
+def _clean(data, allowed=WRITABLE_FIELDS):
+    """Only the fields a customer owns, validated by the CRM's own rules.
+
+    `allowed` is the allow-list, never a deny-list: a field nobody named
+    here cannot be written however it is spelled in the body, which is what
+    keeps source, tier, notes and the rest of the boutique's own record out
+    of reach of a public form.
+    """
     out = {}
-    for field in WRITABLE_FIELDS:
+    for field in allowed:
         if field not in data:
             continue
         value = data.get(field)
@@ -433,3 +465,158 @@ def _save(mobile, fields):
                 setattr(customer, name, fields[name])
             customer.save(update_fields=changed)
     return False
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ProductsView(PortalView):
+    """GET /intake/products/ -- what this boutique makes, for the form's menu.
+
+    The boutique's own active garment templates (apps.catalog.GarmentTemplate),
+    which is what the counter's order wizard offers, so the website cannot
+    offer a garment the workroom has switched off. Key and name only: a
+    template also carries sections, fields, options and pricing hints, and none
+    of that is a customer's business.
+    """
+
+    def get(self, request):
+        tenant, _credential, origin = self.resolve(request)
+        if tenant is None:
+            return self._fail(UNAVAILABLE, status.HTTP_404_NOT_FOUND)
+
+        from apps.catalog.models import GarmentTemplate
+
+        with schema_context(tenant.schema_name):
+            # resolve() is the catalogue's own per-boutique override rule: a
+            # boutique that has forked a template sees its version, everyone
+            # else sees the global one.
+            rows = (GarmentTemplate.objects
+                    .filter(is_active=True, tenant__isnull=True)
+                    .order_by('sequence', 'name')
+                    .values('key', 'name'))
+            overrides = {
+                row['key']: row['name']
+                for row in GarmentTemplate.objects
+                .filter(is_active=True, tenant=tenant.schema_name)
+                .values('key', 'name')
+            }
+            products = [{'key': row['key'], 'name': overrides.get(row['key'], row['name'])}
+                        for row in rows]
+
+        return self._cors(Response({'products': products}), origin)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RequirementView(PortalView):
+    """POST /intake/customer/product/ -- what the customer wants made.
+
+    Deliberately NOT an Order. Creating one mints an order number, lays down
+    the whole stage line and expects a tailor and a master to be assigned --
+    decisions the boutique makes when it accepts the work, not ones a website
+    visitor can make for it. What this records is a REQUIREMENT: the garment
+    and style fields on the customer's own row, plus a DesignPreference, which
+    is the model this product already uses for "what this customer is asking
+    for" and which the CRM already shows on the customer.
+
+    So the boutique receives the enquiry in the places it already looks, and
+    decides for itself whether it becomes an order.
+    """
+
+    def post(self, request):
+        tenant, _credential, origin = self.resolve(request)
+        if tenant is None:
+            return self._fail(UNAVAILABLE, status.HTTP_404_NOT_FOUND)
+
+        payload = portal_tokens.read(portal_tokens.bearer(request),
+                                     schema_name=tenant.schema_name)
+        if payload is None:
+            return self._fail(NOT_VERIFIED, status.HTTP_401_UNAUTHORIZED, origin)
+
+        if request.data.get(HONEYPOT_FIELD):
+            return self._fail(UNAVAILABLE, status.HTTP_400_BAD_REQUEST, origin)
+
+        try:
+            fields = _clean(request.data, REQUIREMENT_FIELDS)
+            links = _reference_links(request.data)
+            notes = _text(request.data.get('notes'), 'Requirement')
+        except ValueError as exc:
+            return self._fail(str(exc), status.HTTP_400_BAD_REQUEST, origin)
+
+        if not any(fields.values()) and not notes and not links:
+            return self._fail('Tell us what you would like made.',
+                              status.HTTP_400_BAD_REQUEST, origin)
+
+        with schema_context(tenant.schema_name):
+            customer = Customer.objects.filter(mobile_number=payload['m']).first()
+            if customer is None:
+                # The details form has to land first; without a customer there
+                # is nothing to attach a requirement to.
+                return self._fail('Send your details first.',
+                                  status.HTTP_409_CONFLICT, origin)
+            _save_requirement(customer, fields, notes, links)
+
+        return self._cors(Response({'saved': True}, status=status.HTTP_201_CREATED),
+                          origin)
+
+
+def _text(value, label, limit=MAX_BODY_FIELD):
+    value = '' if value is None else str(value).strip()
+    if len(value) > limit:
+        raise ValueError(f'{label} is too long.')
+    return value
+
+
+def _reference_links(data):
+    """Inspiration URLs, http(s) only.
+
+    Anything else -- javascript:, data:, a file path -- is refused rather than
+    cleaned, because these are shown to boutique staff later and a link is only
+    safe if it is the kind of link it claims to be.
+    """
+    raw = data.get('reference_links') or []
+    if isinstance(raw, str):
+        raw = [raw]
+    if not isinstance(raw, list):
+        raise ValueError('Reference links must be a list of web addresses.')
+    if len(raw) > MAX_REFERENCE_LINKS:
+        raise ValueError(f'Up to {MAX_REFERENCE_LINKS} reference links.')
+
+    links = []
+    for item in raw:
+        link = str(item or '').strip()
+        if not link:
+            continue
+        if len(link) > MAX_BODY_FIELD or not link.lower().startswith(('http://', 'https://')):
+            raise ValueError('A reference link must be a web address starting http:// or https://.')
+        links.append(link)
+    return links
+
+
+def _save_requirement(customer, fields, notes, links):
+    """The style fields on the customer, and one DesignPreference per submission.
+
+    The DesignPreference is append-only and is what keeps this honest: the
+    customer's own words and links survive even where a style field was
+    replaced by a later submission, so the boutique can always see what was
+    actually asked for and when.
+    """
+    from crm_api.models import DesignPreference
+
+    with transaction.atomic():
+        changed = [name for name, value in fields.items() if value]
+        if changed:
+            for name in changed:
+                setattr(customer, name, fields[name])
+            customer.save(update_fields=changed)
+
+        summary = ' · '.join(f'{name.replace("_", " ")}: {fields[name]}'
+                             for name in changed if name != 'custom_requirements')
+        body = '\n'.join(part for part in (notes, summary) if part)
+        DesignPreference.objects.create(
+            customer=customer,
+            # The customer described it themselves; it is not off the
+            # boutique's catalogue and nobody has approved it yet.
+            source='CUSTOM_DESIGN',
+            notes=body or None,
+            reference_links=links,
+            is_approved=False,
+        )

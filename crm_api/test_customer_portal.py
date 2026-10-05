@@ -139,12 +139,12 @@ class PortalTestCase(TransactionTestCase):
 
     # -- helpers ---------------------------------------------------------
 
-    def url(self, slug, tail):
-        return f'/intake/{slug}/{tail}'
+    def url(self, tail):
+        return f'/intake/{tail}'
 
-    def request_code(self, slug='saralaboutique', mobile='9876543210', key=None, **extra):
+    def request_code(self, mobile='9876543210', key=None, **extra):
         return self.client.post(
-            self.url(slug, 'customer/verify/request/'),
+            self.url('customer/verify/request/'),
             {'mobile_number': mobile, **extra}, format='json',
             HTTP_X_PORTAL_KEY=self.sarala_key if key is None else key)
 
@@ -153,15 +153,15 @@ class PortalTestCase(TransactionTestCase):
         message = self.sent[-1]['message_text']
         return ''.join(ch for ch in message.split(' ', 1)[0] if ch.isdigit())
 
-    def verify(self, slug='saralaboutique', mobile='9876543210', code=None, key=None):
+    def verify(self, mobile='9876543210', code=None, key=None):
         return self.client.post(
-            self.url(slug, 'customer/verify/'),
+            self.url('customer/verify/'),
             {'mobile_number': mobile, 'code': code or self.last_code()}, format='json',
             HTTP_X_PORTAL_KEY=self.sarala_key if key is None else key)
 
-    def token_for(self, slug='saralaboutique', mobile='9876543210', key=None):
-        self.request_code(slug=slug, mobile=mobile, key=key)
-        res = self.verify(slug=slug, mobile=mobile, key=key)
+    def token_for(self, mobile='9876543210', key=None):
+        self.request_code(mobile=mobile, key=key)
+        res = self.verify(mobile=mobile, key=key)
         assert res.status_code == 200, res.content
         return res.json()['token']
 
@@ -174,14 +174,23 @@ class PortalTestCase(TransactionTestCase):
 
 
 class TenantResolutionTests(PortalTestCase):
+    """The key names the boutique. Nothing the caller writes does."""
 
-    def test_a_valid_slug_reaches_its_own_boutique(self):
+    def test_the_key_reaches_its_own_boutique(self):
         res = self.request_code()
         self.assertEqual(res.status_code, 200, res.content)
         self.assertTrue(res.json()['sent'])
+        self.assertEqual(self.sent[-1]['tenant'].schema_name, 'pt_sarala')
 
-    def test_an_unknown_slug_is_refused(self):
-        res = self.request_code(slug='nosuchboutique')
+    def test_each_key_reaches_a_different_boutique(self):
+        self.request_code(key=self.sarala_key)
+        self.assertEqual(self.sent[-1]['tenant'].schema_name, 'pt_sarala')
+        self.request_code(mobile='9000000001', key=self.royal_key)
+        self.assertEqual(self.sent[-1]['tenant'].schema_name, 'pt_royal')
+
+    def test_no_key_is_refused(self):
+        res = self.client.post(self.url('customer/verify/request/'),
+                               {'mobile_number': '9876543210'}, format='json')
         self.assertEqual(res.status_code, 404)
         self.assertNotIn('sent', res.json())
 
@@ -196,33 +205,44 @@ class TenantResolutionTests(PortalTestCase):
         clear_tenant_cache()
         self.assertEqual(self.request_code().status_code, 404)
 
-    def test_one_boutiques_credential_cannot_be_used_at_another(self):
-        res = self.request_code(slug='royalfashionboutique', key=self.sarala_key)
-        self.assertEqual(res.status_code, 404)
-
     def test_x_tenant_id_cannot_choose_the_boutique(self):
         res = self.client.post(
-            self.url('saralaboutique', 'customer/verify/request/'),
+            self.url('customer/verify/request/'),
             {'mobile_number': '9876543210'}, format='json',
             HTTP_X_PORTAL_KEY=self.sarala_key, HTTP_X_TENANT_ID='pt_royal')
         self.assertEqual(res.status_code, 200, res.content)
-        # The code went to Sarala's WhatsApp session, not Royal's.
         self.assertEqual(self.sent[-1]['tenant'].schema_name, 'pt_sarala')
 
-    def test_a_malformed_slug_never_reaches_a_lookup(self):
-        for slug in ('../etc', 'has space', 'UPPER', 'with.dot'):
-            res = self.client.post(
-                self.url(slug, 'customer/verify/request/'),
-                {'mobile_number': '9876543210'}, format='json',
-                HTTP_X_PORTAL_KEY=self.sarala_key)
-            self.assertIn(res.status_code, (404, 301), slug)
+    def test_a_tenant_named_in_the_body_is_ignored(self):
+        res = self.client.post(
+            self.url('customer/verify/request/'),
+            {'mobile_number': '9876543210', 'tenant': 'pt_royal',
+             'schema_name': 'pt_royal', 'shop_slug': 'royalfashionboutique'},
+            format='json', HTTP_X_PORTAL_KEY=self.sarala_key)
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(self.sent[-1]['tenant'].schema_name, 'pt_sarala')
+
+    def test_a_tenant_named_in_the_query_string_is_ignored(self):
+        res = self.client.post(
+            self.url('customer/verify/request/') + '?tenant=pt_royal&shop_slug=royalfashionboutique',
+            {'mobile_number': '9876543210'}, format='json',
+            HTTP_X_PORTAL_KEY=self.sarala_key)
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(self.sent[-1]['tenant'].schema_name, 'pt_sarala')
+
+    def test_the_old_slug_urls_are_gone(self):
+        res = self.client.post(
+            '/intake/saralaboutique/customer/verify/request/',
+            {'mobile_number': '9876543210'}, format='json',
+            HTTP_X_PORTAL_KEY=self.sarala_key)
+        self.assertEqual(res.status_code, 404)
 
 
 class PortalCredentialTests(PortalTestCase):
 
     def test_a_missing_credential_is_refused(self):
         res = self.client.post(
-            self.url('saralaboutique', 'customer/verify/request/'),
+            self.url('customer/verify/request/'),
             {'mobile_number': '9876543210'}, format='json')
         self.assertEqual(res.status_code, 404)
 
@@ -299,10 +319,9 @@ class OtpTests(PortalTestCase):
         self.assertEqual(res.status_code, 400)
 
     def test_a_code_cannot_be_used_at_another_boutique(self):
-        self.request_code(slug='saralaboutique')
+        self.request_code()
         code = self.last_code()
-        res = self.verify(slug='royalfashionboutique', code=code,
-                          key=self.royal_key)
+        res = self.verify(code=code, key=self.royal_key)
         self.assertEqual(res.status_code, 400)
 
     def test_too_many_wrong_answers_destroy_the_code(self):
@@ -434,7 +453,7 @@ class ProfileTests(PortalTestCase):
                            last_name='Rao', email_address='asha@example.test',
                            city_region='Hyderabad')
         token = self.token_for()
-        res = self.client.get(self.url('saralaboutique', 'customer/profile/'),
+        res = self.client.get(self.url('customer/profile/'),
                               HTTP_AUTHORIZATION=f'Bearer {token}',
                               HTTP_X_PORTAL_KEY=self.sarala_key)
         self.assertEqual(res.status_code, 200, res.content)
@@ -445,7 +464,7 @@ class ProfileTests(PortalTestCase):
 
     def test_an_unknown_mobile_says_so_without_detail(self):
         token = self.token_for(mobile='9000000001')
-        res = self.client.get(self.url('saralaboutique', 'customer/profile/'),
+        res = self.client.get(self.url('customer/profile/'),
                               HTTP_AUTHORIZATION=f'Bearer {token}',
                               HTTP_X_PORTAL_KEY=self.sarala_key)
         self.assertEqual(res.json(), {'exists': False, 'profile': None})
@@ -455,7 +474,7 @@ class ProfileTests(PortalTestCase):
                            customer_type='Platinum', source='Walk In',
                            occupation='Architect')
         token = self.token_for()
-        body = self.client.get(self.url('saralaboutique', 'customer/profile/'),
+        body = self.client.get(self.url('customer/profile/'),
                                HTTP_AUTHORIZATION=f'Bearer {token}',
                                HTTP_X_PORTAL_KEY=self.sarala_key).json()
         self.assertEqual(set(body['profile']), {
@@ -468,19 +487,19 @@ class ProfileTests(PortalTestCase):
     def test_the_customer_id_is_never_exposed(self):
         customer = self.make_customer(mobile='919876543210')
         token = self.token_for()
-        raw = self.client.get(self.url('saralaboutique', 'customer/profile/'),
+        raw = self.client.get(self.url('customer/profile/'),
                               HTTP_AUTHORIZATION=f'Bearer {token}',
                               HTTP_X_PORTAL_KEY=self.sarala_key).content.decode()
         self.assertNotIn(str(customer.pk), raw)
 
     def test_no_token_is_refused(self):
-        res = self.client.get(self.url('saralaboutique', 'customer/profile/'),
+        res = self.client.get(self.url('customer/profile/'),
                               HTTP_X_PORTAL_KEY=self.sarala_key)
         self.assertEqual(res.status_code, 401)
 
     def test_a_tampered_token_is_refused(self):
         token = self.token_for()
-        res = self.client.get(self.url('saralaboutique', 'customer/profile/'),
+        res = self.client.get(self.url('customer/profile/'),
                               HTTP_AUTHORIZATION=f'Bearer {token[:-3]}xyz',
                               HTTP_X_PORTAL_KEY=self.sarala_key)
         self.assertEqual(res.status_code, 401)
@@ -488,14 +507,14 @@ class ProfileTests(PortalTestCase):
     def test_an_expired_token_is_refused(self):
         token = self.token_for()
         with mock.patch.object(portal_tokens, 'MAX_AGE', -1):
-            res = self.client.get(self.url('saralaboutique', 'customer/profile/'),
+            res = self.client.get(self.url('customer/profile/'),
                                   HTTP_AUTHORIZATION=f'Bearer {token}',
                                   HTTP_X_PORTAL_KEY=self.sarala_key)
         self.assertEqual(res.status_code, 401)
 
     def test_a_token_from_one_boutique_is_refused_at_another(self):
-        token = self.token_for(slug='saralaboutique')
-        res = self.client.get(self.url('royalfashionboutique', 'customer/profile/'),
+        token = self.token_for()
+        res = self.client.get(self.url('customer/profile/'),
                               HTTP_AUTHORIZATION=f'Bearer {token}',
                               HTTP_X_PORTAL_KEY=self.royal_key)
         self.assertEqual(res.status_code, 401)
@@ -504,7 +523,7 @@ class ProfileTests(PortalTestCase):
         self.make_customer(mobile='919876543210', first_name='Asha')
         self.make_customer(mobile='919000000001', first_name='Other')
         token = self.token_for(mobile='9000000001')
-        body = self.client.get(self.url('saralaboutique', 'customer/profile/'),
+        body = self.client.get(self.url('customer/profile/'),
                                HTTP_AUTHORIZATION=f'Bearer {token}',
                                HTTP_X_PORTAL_KEY=self.sarala_key).json()
         self.assertEqual(body['profile']['first_name'], 'Other')
@@ -512,9 +531,9 @@ class ProfileTests(PortalTestCase):
 
 class IntakeTests(PortalTestCase):
 
-    def submit(self, token, slug='saralaboutique', key=None, **fields):
+    def submit(self, token, key=None, **fields):
         return self.client.post(
-            self.url(slug, 'customers/'),
+            self.url('customer/'),
             {'first_name': 'Asha', **fields}, format='json',
             HTTP_AUTHORIZATION=f'Bearer {token}',
             HTTP_X_PORTAL_KEY=self.sarala_key if key is None else key)
@@ -531,7 +550,7 @@ class IntakeTests(PortalTestCase):
 
     def test_an_unverified_request_cannot_create_anything(self):
         res = self.client.post(
-            self.url('saralaboutique', 'customers/'),
+            self.url('customer/'),
             {'first_name': 'Asha', 'mobile_number': '9876543210'}, format='json',
             HTTP_X_PORTAL_KEY=self.sarala_key)
         self.assertEqual(res.status_code, 401)
@@ -609,8 +628,10 @@ class IntakeTests(PortalTestCase):
             self.assertEqual(Customer.objects.count(), 1)
 
     def test_a_token_from_one_boutique_cannot_write_to_another(self):
-        token = self.token_for(slug='saralaboutique')
-        res = self.submit(token, slug='royalfashionboutique', key=self.royal_key)
+        # Sarala's token, presented with Royal's key: the key picks Royal, and
+        # the token does not belong to Royal, so it is refused.
+        token = self.token_for()
+        res = self.submit(token, key=self.royal_key)
         self.assertEqual(res.status_code, 401)
         with schema_context('pt_royal'):
             self.assertEqual(Customer.objects.count(), 0)
@@ -650,3 +671,137 @@ class TokenUnitTests(SimpleTestCase):
         self.assertGreater(len(codes), 150)
         for code in codes:
             self.assertRegex(code, r'^\d{6}$')
+
+
+class ProductsTests(PortalTestCase):
+    """The garment menu the website offers comes from the boutique's own catalogue."""
+
+    def setUp(self):
+        super().setUp()
+        from apps.catalog.services import sync_global_templates
+        with schema_context('pt_sarala'):
+            sync_global_templates()
+        connection.set_schema_to_public()
+
+    def test_the_catalogue_is_listed(self):
+        res = self.client.get(self.url('products/'),
+                              HTTP_X_PORTAL_KEY=self.sarala_key)
+        self.assertEqual(res.status_code, 200, res.content)
+        products = res.json()['products']
+        self.assertTrue(products)
+        self.assertEqual(set(products[0]), {'key', 'name'})
+
+    def test_no_key_is_refused(self):
+        self.assertEqual(self.client.get(self.url('products/')).status_code, 404)
+
+    def test_nothing_but_key_and_name_is_exposed(self):
+        body = self.client.get(self.url('products/'),
+                               HTTP_X_PORTAL_KEY=self.sarala_key).content.decode()
+        for leaked in ('sections', 'fields', 'base_price', 'design_parts', 'pt_sarala'):
+            self.assertNotIn(leaked, body, leaked)
+
+
+class RequirementTests(PortalTestCase):
+    """What the customer wants made, recorded without becoming an order."""
+
+    def submit(self, token, key=None, **fields):
+        return self.client.post(
+            self.url('customer/product/'), fields, format='json',
+            HTTP_AUTHORIZATION=f'Bearer {token}',
+            HTTP_X_PORTAL_KEY=self.sarala_key if key is None else key)
+
+    def customer_and_token(self):
+        token = self.token_for()
+        self.client.post(self.url('customer/'), {'first_name': 'Asha'}, format='json',
+                         HTTP_AUTHORIZATION=f'Bearer {token}',
+                         HTTP_X_PORTAL_KEY=self.sarala_key)
+        with mock.patch.object(portal_otp, 'cooling_down', return_value=False):
+            return self.token_for()
+
+    def test_a_requirement_is_recorded(self):
+        from crm_api.models import DesignPreference
+
+        token = self.customer_and_token()
+        res = self.submit(token, garment_type='Saree', occasion='Wedding',
+                          custom_requirements='Gold border please',
+                          notes='Something traditional',
+                          reference_links=['https://example.test/a.jpg'])
+        self.assertEqual(res.status_code, 201, res.content)
+
+        with schema_context('pt_sarala'):
+            customer = Customer.objects.get(mobile_number='919876543210')
+            self.assertEqual(customer.garment_type, 'Saree')
+            self.assertEqual(customer.occasion, 'Wedding')
+            self.assertEqual(customer.custom_requirements, 'Gold border please')
+            pref = DesignPreference.objects.get(customer=customer)
+            self.assertEqual(pref.source, 'CUSTOM_DESIGN')
+            self.assertFalse(pref.is_approved)
+            self.assertIn('Something traditional', pref.notes)
+            self.assertEqual(pref.reference_links, ['https://example.test/a.jpg'])
+
+    def test_no_order_is_created(self):
+        from crm_api.models import Order
+
+        token = self.customer_and_token()
+        self.submit(token, garment_type='Saree')
+        with schema_context('pt_sarala'):
+            self.assertEqual(Order.objects.count(), 0)
+
+    def test_an_unverified_request_is_refused(self):
+        res = self.client.post(self.url('customer/product/'),
+                               {'garment_type': 'Saree'}, format='json',
+                               HTTP_X_PORTAL_KEY=self.sarala_key)
+        self.assertEqual(res.status_code, 401)
+
+    def test_a_requirement_before_the_details_form_is_refused(self):
+        token = self.token_for()
+        res = self.submit(token, garment_type='Saree')
+        self.assertEqual(res.status_code, 409)
+
+    def test_internal_fields_cannot_be_written(self):
+        token = self.customer_and_token()
+        self.submit(token, garment_type='Saree', source='Referral',
+                    customer_type='Platinum', notes='mine', total_spend=999)
+        with schema_context('pt_sarala'):
+            customer = Customer.objects.get(mobile_number='919876543210')
+            self.assertEqual(customer.source, 'Website')
+            self.assertEqual(customer.customer_type, 'Silver')
+            # `notes` on the customer is staff-owned; the submission's words
+            # land on the DesignPreference instead.
+            self.assertFalse(customer.notes)
+
+    def test_an_empty_requirement_is_refused(self):
+        token = self.customer_and_token()
+        self.assertEqual(self.submit(token).status_code, 400)
+
+    def test_a_dangerous_reference_link_is_refused(self):
+        token = self.customer_and_token()
+        for bad in ('javascript:alert(1)', 'data:text/html,x', '/etc/passwd'):
+            res = self.submit(token, garment_type='Saree', reference_links=[bad])
+            self.assertEqual(res.status_code, 400, bad)
+
+    def test_each_submission_keeps_its_own_record(self):
+        from crm_api.models import DesignPreference
+
+        token = self.customer_and_token()
+        self.submit(token, garment_type='Saree', notes='first')
+        with mock.patch.object(portal_otp, 'cooling_down', return_value=False):
+            second = self.token_for()
+        self.submit(second, garment_type='Lehenga', notes='second')
+
+        with schema_context('pt_sarala'):
+            customer = Customer.objects.get(mobile_number='919876543210')
+            # The latest intent wins on the customer row...
+            self.assertEqual(customer.garment_type, 'Lehenga')
+            # ...and neither submission is lost.
+            notes = [p.notes for p in DesignPreference.objects.filter(customer=customer)]
+            self.assertEqual(len(notes), 2)
+            self.assertTrue(any('first' in n for n in notes))
+            self.assertTrue(any('second' in n for n in notes))
+
+    def test_tenant_isolation_holds(self):
+        token = self.customer_and_token()
+        self.submit(token, garment_type='Saree')
+        with schema_context('pt_royal'):
+            from crm_api.models import DesignPreference
+            self.assertEqual(DesignPreference.objects.count(), 0)

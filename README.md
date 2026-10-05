@@ -304,21 +304,37 @@ afterwards does not undo.
   seconds to wake, which reads to a user as the whole app hanging on first load.
   No amount of application tuning covers that -- it needs a paid instance.
 
-### Customer portal API (`/intake/<shop_slug>/`)
+### Customer portal API (`/intake/`)
 
-A boutique's own website takes customer details through four public endpoints.
-They resolve their own boutique from the slug -- never `X-Tenant-ID`, never the
-body -- and are governed by the `customer_portal` module, so the platform
-console can switch the portal off per boutique.
+A boutique's own website takes customer details and a basic requirement through
+six public endpoints. **The boutique comes from `X-Portal-Key` and nothing
+else** -- a PortalCredential belongs to exactly one BoutiqueTenant, so there is
+no slug in the path, `X-Tenant-ID` is ignored, and a tenant named in the body or
+the query string is ignored. The URLs are identical for every portal, so the
+website developer configures one value rather than two. Governed by the
+`customer_portal` module, so the platform console can switch the portal off per
+boutique.
 
 ```
-POST /intake/<slug>/customer/verify/request/   {mobile_number}      -> {sent, channel, expires_in}
-POST /intake/<slug>/customer/verify/           {mobile_number, code} -> {verified, token}
-GET  /intake/<slug>/customer/profile/          Bearer <token>        -> {exists, profile|null}
-POST /intake/<slug>/customers/                 Bearer <token>        -> {saved, created}
+GET  /intake/products/                 -> {products: [{key, name}]}
+POST /intake/customer/verify/request/  {mobile_number}       -> {sent, channel, expires_in}
+POST /intake/customer/verify/          {mobile_number, code} -> {verified, token}
+GET  /intake/customer/profile/         Bearer <token>        -> {exists, profile|null}
+POST /intake/customer/                 Bearer <token>        -> {saved, created}
+POST /intake/customer/product/         Bearer <token>        -> {saved}
 ```
 
-Every call carries `X-Portal-Key`, issued per boutique:
+`/intake/customer/` writes the contact fields the counter's own Add Customer
+form collects, and only fills ones the boutique left blank. `/intake/customer/
+product/` writes what the customer wants made -- the garment and style fields
+from that same form -- and adds a `DesignPreference` row per submission.
+Deliberately **not** an Order: accepting work, numbering it and putting it on
+the production line is the boutique's decision, not a website visitor's. The
+enquiry lands where the CRM already shows it, on the customer.
+
+Access is granted in the console -- **All boutiques → the boutique → Overview →
+"Access — Customer Portal API" → Enable access** -- which issues the credential
+and shows it once. The management command remains for internal use:
 
 ```
 python manage.py portal_credential create --schema <schema> --origin https://their-site.example
