@@ -203,13 +203,17 @@ const failWith = async (res, fallback) => {
 
 export const api = {
   // Auth API
-  async login(username, password) {
+  // shop_slug is the portal URL this screen was opened at, sent as a tenant
+  // HINT: it decides which boutique is tried first when the same address
+  // exists in more than one, and grants nothing on its own -- the password
+  // still has to be right inside that boutique's own schema.
+  async login(username, password, shopSlug = '') {
     const res = await guardedFetch(`${BASE_URL}/auth/login/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password, ...(shopSlug ? { shop_slug: shopSlug } : {}) })
     });
     // Parsed defensively: an HTML 502 page from the proxy made res.json()
     // throw "Unexpected token '<'", which is what the owner saw at the two
@@ -250,6 +254,22 @@ export const api = {
       localStorage.setItem('tenant_id', data.tenant_id);
     }
     return data;
+  },
+
+  // Which boutique the portal path in the URL bar belongs to, so the sign-in
+  // screen can name it. Unauthenticated and tenant-less by design, and null on
+  // any failure: an unknown slug is a plainly-labelled login screen, never an
+  // error page. It never writes tenant_id -- the slug labels the screen, the
+  // token decides the boutique.
+  async getBoutiqueBySlug(slug) {
+    if (!slug) return null;
+    try {
+      const res = await guardedFetch(`${BASE_URL}/auth/boutique/${encodeURIComponent(slug)}/`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
   },
 
   // Both of these are deliberately unauthenticated and deliberately vague on

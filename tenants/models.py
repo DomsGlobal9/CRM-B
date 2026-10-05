@@ -23,6 +23,18 @@ class BoutiqueTenant(TenantMixin):
     # explicitly (crm_api/auth_views.py), which is where that decision belongs.
     plan = models.CharField(max_length=20, default='atelier')
 
+    # This boutique's own portal path: boutique.scaleezy.com/<shop_slug>
+    # instead of /app. Here rather than on BoutiqueSettings because the lookup
+    # has to answer before a schema is chosen, and BoutiqueSettings lives
+    # inside the schema it would be identifying. Nullable: a boutique without
+    # one keeps using /app, which stays a working entry point.
+    shop_slug = models.SlugField(
+        max_length=63, unique=True, null=True, blank=True,
+        help_text="The boutique's portal path, e.g. 'saralaboutique' for "
+                  "boutique.scaleezy.com/saralaboutique. An alias only -- the "
+                  "tenant a request acts on is still decided by its token.",
+    )
+
     enabled_modules = models.JSONField(
         default=dict, blank=True,
         help_text="Overrides on top of the plan, as {module_key: true/false}: "

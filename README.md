@@ -250,6 +250,12 @@ afterwards does not undo.
     `PASSWORD_RESET_BASE_URL` is the **frontend** origin including the entry
     file, e.g. `https://boutique.scaleezy.com/app`; it is not `TRACKING_BASE_URL`,
     which must point at Django because `/track/<token>/` is a Django route.
+    `PORTAL_BASE_URL` is derived from it by stripping a trailing `app` or
+    `app.html` segment, and is what a reset link is built on now that each
+    boutique signs in at `/<shop_slug>`: a boutique with a slug is sent to
+    `<PORTAL_BASE_URL>/<shop_slug>?reset=…`, one without a slug still gets
+    `PASSWORD_RESET_BASE_URL`. Set `PORTAL_BASE_URL` explicitly only if the
+    two are not the same host.
   * `LOGIN_RATE` and `PASSWORD_RESET_RATE` (defaults `20/hour` and `5/hour`,
     counted per IP) cap password guessing on the two login doors and the reset
     form. Both count in the local-memory cache, so the effective ceiling is the
@@ -299,7 +305,13 @@ afterwards does not undo.
   at `/`, the boutique workspace at `/app`, and the platform console at
   `/superadmin`. The last two are Vite entries (`app.html`, `superadmin.html`)
   with a rewrite each in `vercel.json`; both are `noindex` and both are listed in
-  `public/robots.txt`.
+  `public/robots.txt`. A third rewrite, `/:slug` -> `/app.html`, is what serves
+  each boutique its own sign-in address: `/app` registers a new boutique,
+  `/<shop_slug>` signs an existing one in. It is **last** in `rewrites` and
+  matches a single segment on purpose -- Vercel resolves a static file before
+  applying a rewrite, so the marketing pages, `/assets/*` and `/sitemap.xml`
+  keep winning, and a multi-segment path still 404s rather than returning HTML
+  to something expecting JSON.
 * **Environment Variables:**
   * `VITE_API_URL` -- the Render origin including the `/api` suffix, e.g.
     `https://crm-b-sitt.onrender.com/api`. Read by the React app

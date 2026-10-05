@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import CustomerViewSet, TailorViewSet, BoutiqueDesignViewSet, OrderViewSet, OrderDraftViewSet, DashboardView, VoiceNoteUploadView, NotificationViewSet, BoutiqueSettingsViewSet
 from .client_errors import ClientErrorView
 from .auth_views import (
-    SignupView, LoginView, LogoutView, MeView, SeedDataView,
+    BoutiqueBySlugView, SignupView, LoginView, LogoutView, MeView, SeedDataView,
     PasswordResetRequestView, PasswordResetConfirmView,
 )
 
@@ -28,6 +28,8 @@ urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='auth-login'),
     path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
     path('auth/me/', MeView.as_view(), name='auth-me'),
+    path('auth/boutique/<slug:slug>/', BoutiqueBySlugView.as_view(),
+         name='auth-boutique'),
     path('auth/seed-data/', SeedDataView.as_view(), name='auth-seed-data'),
     path('auth/password-reset/', PasswordResetRequestView.as_view(),
          name='auth-password-reset'),

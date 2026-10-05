@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
 import { InvoiceTemplateSelector } from './invoice/InvoiceTemplateSelector.jsx';
-import { Globe, ShieldCheck, CheckCircle2, Building, User, Clock, MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor } from 'lucide-react';
+import { Globe, ShieldCheck, CheckCircle2, Building, Link2, User, Clock, MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor } from 'lucide-react';
 import { getColorMode, setColorMode } from '../theme.js';
 import { api } from '../services/api.js';
 
@@ -27,7 +27,19 @@ export const SettingsPage = ({
 }) => {
   const { t } = useLanguage();
   const [resetting, setResetting] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState(getColorMode);
+
+  const handleCopyUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/${currentUser.shop_slug}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* no clipboard permission; the address is on screen to read */
+    }
+  };
   const modes = [
     ['light', t('settingsPage.modeLight', 'Light'), Sun],
     ['dark', t('settingsPage.modeDark', 'Dark'), Moon],
@@ -161,6 +173,19 @@ export const SettingsPage = ({
               <span style={infoRowLabel}><Clock size={16} /> {t('settingsPage.timezone')}</span>
               <span style={infoRowValue}>{boutiqueSettings?.timezone || 'Asia/Kolkata (IST)'}</span>
             </div>
+
+            {currentUser?.shop_slug && (
+              <div className="ui-row" style={infoRow}>
+                <span style={infoRowLabel}><Link2 size={16} /> {t('settingsPage.boutiqueUrl', 'Boutique sign-in URL')}</span>
+                <span style={{ ...infoRowValue, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  {`${window.location.host}/${currentUser.shop_slug}`}
+                  <button type="button" onClick={handleCopyUrl}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-text, #b07c40)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+                    {copied ? t('settingsPage.copied', 'Copied') : t('settingsPage.copy', 'Copy')}
+                  </button>
+                </span>
+              </div>
+            )}
           </div>
           {/* No "saved as you go" banner here: these rows are read-only, and
               the appearance card already says it beside the one control that saves. */}

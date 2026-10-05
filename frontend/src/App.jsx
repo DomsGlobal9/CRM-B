@@ -1479,10 +1479,33 @@ function PortalMenu({ sections, activeTab, onPick, collapsed = false, hints = {}
 }
 
 
+// The boutique portal path in the URL bar: '/saralaboutique' -> 'saralaboutique'.
+// '' for /app, for the bare origin, and for anything deeper than one segment,
+// all of which are the slug-less entry point rather than a boutique's own URL.
+//
+// This is read to LABEL the screen and to put the URL right after a sign-in.
+// It is never written to tenant_id: which boutique a request reads is decided
+// by its token, so typing another boutique's slug cannot reach that boutique.
+function portalSlugFromPath() {
+  const segments = window.location.pathname.split('/').filter(Boolean);
+  if (segments.length !== 1) return '';
+  let only = segments[0];
+  try {
+    only = decodeURIComponent(only).toLowerCase();
+  } catch {
+    return '';  // a malformed escape is not a slug
+  }
+  return /^[a-z0-9]+$/.test(only) && only !== 'app' ? only : '';
+}
+
 function App() {
   
-  const [view, setView] = useState(
-    () => new URLSearchParams(window.location.search).get('reset') ? 'reset' : 'login');
+  // /app registers a boutique; /<shop_slug> signs one in. A reset link wins
+  // over both, because it carries its own boutique inside the token.
+  const [view, setView] = useState(() => {
+    if (new URLSearchParams(window.location.search).get('reset')) return 'reset';
+    return portalSlugFromPath() ? 'login' : 'signup';
+  });
   const [requestedTab, setDashboardTab] = useState('overview'); 
   const [navCollapsed, setNavCollapsed] = useState(() => {
     try { return localStorage.getItem('nav_collapsed') === '1'; } catch { return false; }
@@ -1492,8 +1515,46 @@ function App() {
     return !c;
   });
   const [currentUser, setCurrentUser] = useState(null);
- 
+
   useEffect(() => { applyTenantTheme(currentUser); }, [currentUser]);
+
+  // The boutique the URL path names. Resolved before the sign-in screen is
+  // offered, so a slug nobody owns says so instead of showing a login form
+  // that cannot belong to anybody.
+  const [portalSlug] = useState(portalSlugFromPath);
+  const [portalBoutique, setPortalBoutique] = useState(null);
+  const [portalLookupDone, setPortalLookupDone] = useState(() => !portalSlugFromPath());
+
+  useEffect(() => {
+    if (!portalSlug) return;
+    let live = true;
+    api.getBoutiqueBySlug(portalSlug).then((found) => {
+      if (!live) return;
+      setPortalBoutique(found);
+      setPortalLookupDone(true);
+    });
+    return () => { live = false; };
+  }, [portalSlug]);
+
+  // Only while signed out: an existing session is answered by the server, and
+  // a stale or renamed slug must not hide the workspace it already restored.
+  const boutiqueNotFound = !!portalSlug && portalLookupDone
+                           && !portalBoutique && !currentUser;
+
+  // Once there is a session, make the URL bar agree with the boutique it is
+  // signed in to. Someone who arrives at /app, or at another boutique's slug,
+  // has the wrong address rather than the wrong session -- the token already
+  // settled which boutique they are in, so this corrects the label.
+  //
+  // replaceState rather than pushState, so the correction is not a history
+  // entry Back can return to, and the search string is carried over because
+  // the reset flow has already taken what it needed from it.
+  useEffect(() => {
+    const slug = currentUser?.shop_slug;
+    if (!slug || portalSlugFromPath() === slug) return;
+    window.history.replaceState(window.history.state, '',
+                                `/${slug}${window.location.search}`);
+  }, [currentUser]);
   const { t, language } = useLanguage();
   const currentUserName = currentUser?.first_name || currentUser?.name || currentUser?.email?.split('@')[0] || 'User';
 
@@ -2624,7 +2685,7 @@ function App() {
     setAuthError(null);
     setAuthBusy(true);
     try {
-      const res = await api.login(loginEmail, loginPassword);
+      const res = await api.login(loginEmail, loginPassword, portalSlug);
       setJustRegistered(false);
       setCurrentUser(res.user);
       setView('dashboard');
@@ -3365,7 +3426,11 @@ function App() {
     );
   }
 
-  if (loading && !dashboardData && view === 'login') {
+  // 'signup' is in here as well now that it is what /app opens on: without it
+  // a signed-in owner landing on /app saw the registration form flash past
+  // before checkAuthSession redirected them to their own boutique.
+  if (((loading && !dashboardData) || (portalSlug && !portalLookupDone && !currentUser))
+      && (view === 'login' || view === 'signup')) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--selected-bg)', color: 'var(--selected-fg)', fontSize: '18px', fontFamily: 'var(--font-sans, sans-serif)' }}>
         <div style={{ textAlign: 'center' }}>
@@ -3412,7 +3477,28 @@ function App() {
     <div className="app-container">
       {/* 2. SIGN IN SCREEN (Image 2) */}
 
-      {view === 'login' && (
+      {boutiqueNotFound && (
+        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
+
+          <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)', textAlign: 'center' }}>
+            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>Boutique not found</h2>
+            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 28px 0' }}>
+              No active boutique uses the address <strong>/{portalSlug}</strong>. Check the spelling with your boutique, or create a new one.
+            </p>
+            <button type="button" className="btn-primary" style={{ width: '100%' }}
+                    onClick={() => { window.location.href = '/app'; }}>
+              Create your boutique
+            </button>
+            <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '28px', paddingTop: '20px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+              <a href="/" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Back to Home</a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {view === 'login' && !boutiqueNotFound && (
         <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
           
           {/* Back to Home Button */}
@@ -3447,7 +3533,7 @@ function App() {
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
           <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>{justRegistered ? 'Your boutique is ready 🎉' : 'Welcome back 👋'}</h2>
+            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>{justRegistered ? 'Your boutique is ready 🎉' : portalBoutique?.name ? `Welcome back to ${portalBoutique.name} 👋` : 'Welcome back 👋'}</h2>
             <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 32px 0' }}>{justRegistered ? 'Sign in with the email and password you just created.' : 'Login to continue your custom creation journey.'}</p>
             
             <form onSubmit={handleLoginSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -3513,8 +3599,8 @@ function App() {
 
             <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '32px', paddingTop: '20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
               Don't have a boutique account?{' '}
-              <a href="#" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }} onClick={() => { setSignupStep(1); setView('signup'); }}>
-                Signup
+              <a href="/app" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>
+                Register a boutique
               </a>
             </div>
           </div>
@@ -3830,6 +3916,15 @@ function App() {
                 <div className="success-circle" style={{ margin: '0 auto 20px' }}><Check size={36} /></div>
                 <h2 className="auth-title">Registration Complete!</h2>
                 <p style={{ color: 'var(--text-secondary)' }}>Welcome to Scaleezy. Redirecting you to the portal workspace...</p>
+              </div>
+            )}
+
+            {signupStep === 1 && (
+              <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '24px', paddingTop: '18px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+                {/* The "Log in instead" button above is the fallback door for
+                    a boutique whose shop_slug is still null, which has no
+                    address of its own to be sent to. */}
+                Already have a boutique? Sign in at your own address, e.g. <strong>{window.location.host}/yourboutique</strong>.
               </div>
             )}
           </div>

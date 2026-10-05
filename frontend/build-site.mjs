@@ -175,8 +175,26 @@ function emit(page, path, opts) {
   return path
 }
 
+// Vercel serves dist/404.html for any path no file and no rewrite matched, and
+// it looks for that exact name -- so this one page is written as 404.html
+// rather than as 404/index.html like every other, and it is kept out of the
+// sitemap because a 404 is not a URL to announce.
+//
+// It catches what the /:slug rewrite cannot: a path with more than one segment,
+// or one carrying a dot. A single-segment slug that belongs to no boutique is
+// the React app's own "Boutique not found" screen, which can say so by name.
+const notFound = pages.find((p) => p.meta.slug === '404')
+if (!notFound) throw new Error('site/pages/404.html is missing: unmatched paths would get the host default')
+const notFoundHtml = render(notFound)
+const notFoundLeftover = notFoundHtml.match(/\{\{[A-Z_]+\}\}/)
+if (notFoundLeftover) throw new Error(`/404: unsubstituted ${notFoundLeftover[0]}`)
+writeFileSync(join(OUT, '404.html'), notFoundHtml)
+
 const written = []
-for (const p of pages) written.push(emit(p, p.meta.slug === '' ? '/' : `/${p.meta.slug}`))
+for (const p of pages) {
+  if (p === notFound) continue
+  written.push(emit(p, p.meta.slug === '' ? '/' : `/${p.meta.slug}`))
+}
 for (const p of posts) written.push(emit(p, `/blog/${p.meta.slug}`, { isPost: true }))
 
 // The sitemap is generated from what was actually written, so a new page cannot

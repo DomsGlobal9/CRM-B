@@ -20,6 +20,7 @@ from django.contrib.auth.models import User
 from django.db import connection, transaction
 from tenants.models import BoutiqueTenant, Domain
 from tenants.provision import provision_tenant
+from tenants.slugs import make_shop_slug
 from django_tenants.utils import schema_context
 from superadmin import signins
 from core.modules import DEFAULT_PLAN, MODULE_GROUP, effective_modules
@@ -153,20 +154,50 @@ def user_payload(user, role=None):
         # it at sign-in. A public-schema login (the console) has no tenant.
         "design_system": getattr(getattr(connection, 'tenant', None), 'design_system', 'scaleezy'),
         "color_mode": getattr(getattr(connection, 'tenant', None), 'color_mode', 'light'),
+        # This boutique's portal path, so the workspace can put the URL bar
+        # right after a sign-in that arrived at /app or at another boutique's
+        # slug. Read off the tenant object like the two above, so it carries
+        # their staleness window and nothing more: it labels a URL, it never
+        # decides which schema a request reads.
+        "shop_slug": getattr(getattr(connection, 'tenant', None), 'shop_slug', None) or '',
     }
 
 
-def find_tenants_for_account(email_or_username):
+def find_tenants_for_account(email_or_username, shop_slug=None):
+    """Every boutique this account could belong to, best candidate first.
+
+    `shop_slug` is the portal URL the sign-in screen was opened at, and it is
+    a HINT about ordering, nothing more. It moves that boutique to the front so
+    an address that exists in two of them resolves to the one whose URL the
+    person actually used; it never admits an account that boutique does not
+    have, because the caller still has to authenticate inside each schema this
+    yields.
+
+    It also fixes a real ambiguity. `others` had no ordering, so for an account
+    that exists in more than one boutique the winner was whatever order
+    Postgres happened to return -- stable in practice, guaranteed by nothing,
+    and different between a replica and the primary. order_by('pk') makes the
+    slug-less case deterministic too.
+    """
     with schema_context('public'):
         owner_tenant = BoutiqueTenant.objects.filter(
             owner_email=email_or_username).first()
-        others = list(BoutiqueTenant.objects.exclude(schema_name='public'))
+        hinted = (BoutiqueTenant.objects
+                  .filter(shop_slug=shop_slug, is_active=True)
+                  .exclude(schema_name='public')
+                  .first()) if shop_slug else None
+        others = list(BoutiqueTenant.objects
+                      .exclude(schema_name='public')
+                      .order_by('pk'))
 
-    if owner_tenant:
-        yield owner_tenant
+    seen = set()
+    for candidate in (hinted, owner_tenant):
+        if candidate is not None and candidate.pk not in seen:
+            seen.add(candidate.pk)
+            yield candidate
 
     for t in others:
-        if owner_tenant and t.pk == owner_tenant.pk:
+        if t.pk in seen:
             continue
         with schema_context(t.schema_name):
             if (User.objects.filter(email__iexact=email_or_username).exists()
@@ -258,10 +289,23 @@ class SignupView(views.APIView):
                     base = f"b_{base}"[:50]
                 schema_name = f"{base}_{uuid.uuid4().hex[:8]}"
             
+                boutique_name = business_name or f"{first_name}'s Boutique"
+
+                # Checked against what is already taken rather than trusting
+                # the name to be unique, because neither boutique name is
+                # unique -- two Sarala Boutiques are allowed, and the second
+                # one gets saralaboutique2 rather than an IntegrityError that
+                # would roll back the whole provisioning.
                 tenant = provision_tenant(
                     schema_name=schema_name,
                     owner_email=email,
-                    name=business_name or f"{first_name}'s Boutique",
+                    name=boutique_name,
+                    shop_slug=make_shop_slug(
+                        boutique_name,
+                        BoutiqueTenant.objects.exclude(shop_slug=None)
+                        .values_list('shop_slug', flat=True),
+                        fallback=schema_name,
+                    ),
                     # The business decision lives here, not in the column
                     # default: a boutique that signs up starts on the smallest
                     # plan and is moved up from the console.
@@ -286,7 +330,7 @@ class SignupView(views.APIView):
                 BoutiqueSettings.objects.update_or_create(
                     id=1,
                     defaults={
-                        'name': business_name or f"{first_name}'s Boutique",
+                        'name': boutique_name,
                         'email': email,
                         **({'phone': mobile} if mobile else {}),
                         **({'address': business_address} if business_address else {}),
@@ -316,6 +360,47 @@ class SignupView(views.APIView):
             return Response({"error": "Something went wrong. Please try again."},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class _BoutiqueLookupThrottle(AnonRateThrottle):
+
+    scope = 'boutique_lookup'
+
+
+class BoutiqueBySlugView(views.APIView):
+    """Which boutique a portal path belongs to, so the sign-in screen can say so.
+
+    Deliberately NOT a way in. It answers with a display name and the slug it
+    was asked about, and nothing else -- no schema name, no owner address, no
+    plan, no module list. The tenant a request acts on is still decided by its
+    token (LoginView below) and re-checked per request by
+    tenants.middleware.TenantHeaderMiddleware, so a browser that invents a slug
+    changes what the login screen is labelled and nothing whatsoever about
+    which boutique it can read.
+
+    Mounted under /api/auth/, which core.modules.ALWAYS_ON and the middleware's
+    TENANT_OPTIONAL_PREFIXES both already cover: no module governs it and it is
+    reachable with no tenant context, which is what a sign-in screen needs.
+
+    Throttled because it is an unauthenticated read that confirms whether a
+    boutique exists, and a suspended boutique is 404 rather than 403 -- the
+    platform's own suspensions are not something an anonymous caller is owed.
+    """
+
+    permission_classes = [AllowAny]
+    throttle_classes = [_BoutiqueLookupThrottle]
+
+    def get(self, request, slug):
+        with schema_context('public'):
+            tenant = (BoutiqueTenant.objects
+                      .filter(shop_slug=(slug or '').lower(), is_active=True)
+                      .exclude(schema_name='public')
+                      .first())
+        if tenant is None:
+            return Response({"error": "No such boutique."},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response({"name": tenant.name, "shop_slug": tenant.shop_slug},
+                        status=status.HTTP_200_OK)
+
+
 class LoginView(views.APIView):
     permission_classes = [AllowAny]
     throttle_classes = [LoginThrottle]
@@ -323,6 +408,7 @@ class LoginView(views.APIView):
     def post(self, request):
         username_or_email = (request.data.get('username') or '').strip().lower()
         password = request.data.get('password')
+        shop_slug = (request.data.get('shop_slug') or '').strip().lower()
 
         if not username_or_email or not password:
             return Response(
@@ -332,7 +418,7 @@ class LoginView(views.APIView):
 
         suspended = None
         authenticated = None
-        for candidate in find_tenants_for_account(username_or_email):
+        for candidate in find_tenants_for_account(username_or_email, shop_slug):
             if not candidate.is_active:
                 suspended = candidate
                 continue
@@ -444,6 +530,12 @@ def make_reset_link(tenant, user):
             urlsafe_base64_encode(force_bytes(user.pk)),
             default_token_generator.make_token(user),
         ])
+    # The boutique's own portal path, because /app is registration now and a
+    # reset link landing there would show a sign-up form. A tenant with no
+    # slug yet keeps the slug-less entry point rather than being sent to a
+    # URL with an empty segment in it.
+    if tenant.shop_slug:
+        return f"{settings.PORTAL_BASE_URL.rstrip('/')}/{tenant.shop_slug}?reset={payload}"
     return f"{settings.PASSWORD_RESET_BASE_URL}?reset={payload}"
 
 

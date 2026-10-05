@@ -263,6 +263,26 @@ PASSWORD_RESET_BASE_URL = os.environ.get(
     'PASSWORD_RESET_BASE_URL', 'http://localhost:5173/app.html'
 )
 
+
+def _portal_origin(reset_url):
+    """The portal origin, so a reset link can be addressed to /<shop_slug>.
+
+    Derived from PASSWORD_RESET_BASE_URL rather than added as a second
+    environment variable, because that setting already holds this origin with
+    the slug-less entry point on the end -- 'https://boutique.scaleezy.com/app'
+    or the local '.../app.html'. Stripping that one segment means no deploy has
+    to change its configuration for reset links to start carrying slugs.
+    Set PORTAL_BASE_URL to override when the two are not the same host.
+    """
+    base = reset_url.rstrip('/')
+    head, _, last = base.rpartition('/')
+    if head and last in ('app', 'app.html'):
+        return head
+    return base
+
+
+PORTAL_BASE_URL = os.environ.get('PORTAL_BASE_URL') or _portal_origin(PASSWORD_RESET_BASE_URL)
+
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT', '3600'))
 
 
@@ -305,6 +325,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'password_reset': os.environ.get('PASSWORD_RESET_RATE', '5/hour'),
         'login': os.environ.get('LOGIN_RATE', '20/hour'),
+        # The sign-in screen asking which boutique a portal path belongs to.
+        # One call per page load, so the ceiling only bites on enumeration.
+        'boutique_lookup': os.environ.get('BOUTIQUE_LOOKUP_RATE', '60/hour'),
         # A public write endpoint, so it is rate limited. Generous enough that a
         # component crashing in a render loop still gets its first reports
         # through, low enough that it cannot be used to fill the table.
