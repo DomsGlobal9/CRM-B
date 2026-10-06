@@ -680,6 +680,15 @@ class BoutiqueSettings(models.Model):
     #: to True for Owner regardless of what is stored.
     role_modules = models.JSONField(default=dict, blank=True)
 
+    #: Where the shop is, for flagging check-ins made away from it. Set by the
+    #: owner tapping "use my current location" in the shop; null means no
+    #: check-in is flagged. See apps.staff.attendance.check_in.
+    shop_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    shop_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    #: Indoor phone GPS is routinely 30-100 m off, so a tighter radius flags
+    #: people who are standing at the counter.
+    shop_radius_m = models.PositiveIntegerField(default=150)
+
     def __str__(self):
         return self.name
 
