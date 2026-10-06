@@ -83,6 +83,111 @@ def visible_todos(queryset, user, role):
     return queryset.filter(Q(assigned_to=user) | Q(created_by=user))
 
 
+def _current_stages(stages):
+    """Only the stages an order is at now: one already begun, or one whose
+    earlier work is all done -- the rule the Work queue uses
+    (core.permissions.queue_order_ids). Later steps of the flow stay hidden
+    until the order reaches them."""
+    from crm_api.models import BoutiqueSettings, OrderStage
+    from domains.orders.workflow import (
+        SETTLED_STATUSES, for_order, is_per_garment, prerequisites)
+
+    config = BoutiqueSettings.objects.values_list(
+        'workflow_config', flat=True).filter(id=1).first() or []
+    # Each order's own step order, as the transition gate reads it: an older
+    # order keeps the sequence it was placed with even if the settings moved.
+    # ponytail: one query per order with a not-started step; fine for a day's list.
+    flows = {}
+
+    def flow_of(order):
+        if order.pk not in flows:
+            flows[order.pk] = for_order(config, order)
+        return flows[order.pk]
+    unsettled = {}
+    for order_id, key, garment_id in (
+            OrderStage.objects.filter(order_id__in={s.order_id for s in stages})
+            .exclude(status__in=SETTLED_STATUSES)
+            .values_list('order_id', 'stage_key', 'garment_job_id')):
+        unsettled.setdefault(order_id, []).append((key, garment_id))
+
+    def is_current(stage):
+        if stage.status != 'NOT_STARTED':
+            return True
+        mine = flow_of(stage.order)
+        earlier = {s['key'] for s in prerequisites(mine, stage.stage_key)}
+        # A garment's row waits on its own garment's earlier work and on the
+        # order-level stages; an order-level row waits on everything.
+        per_garment = is_per_garment(mine, stage.stage_key)
+        return not any(
+            key in earlier and (not per_garment or garment_id in (None, stage.garment_job_id))
+            for key, garment_id in unsettled.get(stage.order_id, ()))
+
+    return [s for s in stages if is_current(s)]
+
+
+def order_work(user, role):
+    """Order work given to people -- a stage of an order (Cutting, Stitching,
+    Maggam work...) or a design to draw -- that is not finished yet. Read-only
+    here; it is done from the Work and Design screens. Who sees whose follows
+    visible_todos."""
+    from apps.design_studio.models import DesignAssignment
+    from crm_api.models import OrderStage
+
+    stages = (OrderStage.objects
+              .filter(assigned_to__user__isnull=False)
+              .exclude(status__in=('COMPLETED', 'SKIPPED'))
+              .select_related('order', 'order__customer', 'assigned_to',
+                              'garment_job__template'))
+    designs = (DesignAssignment.objects
+               .filter(designer__user__isnull=False,
+                       status__in=DesignAssignment.OPEN_STATUSES)
+               .select_related('designer', 'garment_job__order',
+                               'garment_job__order__customer', 'garment_job__template'))
+    if role not in (OWNER, MASTER):
+        team = [user.id]
+        if role == DESIGNER:
+            team = [p['id'] for p in assignable_people(user, role)]
+        stages = stages.filter(assigned_to__user_id__in=team)
+        designs = designs.filter(designer__user_id__in=team)
+
+    stages = _current_stages(list(stages))
+
+    def customer(order):
+        c = order.customer
+        return f"{c.first_name} {c.last_name}".strip() if c else ''
+
+    rows = [{
+        'id': f'stage-{s.id}',
+        'kind': 'STAGE',
+        'stage_id': s.id,
+        'task': s.stage_name,
+        'status': s.status,
+        'order_id': s.order_id,
+        'order_ref': s.order.reference,
+        'customer': customer(s.order),
+        'garment': s.garment_job.template.name if s.garment_job_id else '',
+        'due_date': s.order.estimated_delivery,
+        'assigned_to': s.assigned_to.user_id,
+        'assigned_to_name': s.assigned_to.name,
+        'assigned_to_role': s.assigned_to.role,
+    } for s in stages]
+    rows += [{
+        'id': f'design-{d.id}',
+        'kind': 'DESIGN',
+        'task': 'Design',
+        'status': d.status,
+        'order_id': d.garment_job.order_id,
+        'order_ref': d.garment_job.order.reference,
+        'customer': customer(d.garment_job.order),
+        'garment': d.garment_job.template.name,
+        'due_date': d.due_date,
+        'assigned_to': d.designer.user_id,
+        'assigned_to_name': d.designer.name,
+        'assigned_to_role': DESIGNER,
+    } for d in designs]
+    return rows
+
+
 def can_edit(todo, user, role):
     return role in (OWNER, DESIGNER, MASTER) or todo.created_by_id == user.id
 

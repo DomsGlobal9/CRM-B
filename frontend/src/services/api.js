@@ -1520,6 +1520,8 @@ export const api = {
   getTodos() { return api.todoRequest(''); },
   // Who the signed-in person may assign a to-do to: { can_assign, people }.
   getTodoPeople() { return api.todoRequest('people/'); },
+  // Unfinished order stages and designs given to people (read-only).
+  getTodoOrderWork() { return api.todoRequest('order-work/'); },
   // FormData: title, description, due_date, assigned_to, photos (many), voice_note.
   createTodo(formData) { return api.todoRequest('', { method: 'POST', body: formData }); },
   updateTodo(id, body) { return api.todoRequest(`${id}/`, { method: 'PATCH', body }); },

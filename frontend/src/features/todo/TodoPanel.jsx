@@ -119,8 +119,8 @@ function AssigneeSelect({ id, people, value, onChange, meId }) {
   );
 }
 
-function AddTodoForm({ people, canAssign, meId, onCancel, onSaved }) {
-  const [form, setForm] = useState({ title: '', description: '', start_date: '', due_date: '', assigned_to: String(meId || '') });
+function AddTodoForm({ people, canAssign, meId, initial, onCancel, onSaved }) {
+  const [form, setForm] = useState({ title: '', description: '', start_date: '', due_date: '', assigned_to: String(meId || ''), ...initial });
   const [photos, setPhotos] = useState([]);
   const [voice, setVoice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -143,6 +143,7 @@ function AddTodoForm({ people, canAssign, meId, onCancel, onSaved }) {
       if (form.due_date) body.append('due_date', form.due_date);
       if (canAssign && form.assigned_to) body.append('assigned_to', form.assigned_to);
       if (voice) body.append('voice_note', voice);
+      if (form.order_stage) body.append('order_stage', form.order_stage);
       photos.forEach((file) => body.append('photos', file));
       onSaved(await api.createTodo(body));
     } catch (err) {
@@ -374,6 +375,12 @@ function TodoDetail({ todo, people, canAssign, meId, onClose, onChanged, onDelet
       {!todo.can_change_status && (
         <div style={muted}>Only the person it is assigned to, its creator, the owner or a Master can change the status.</div>
       )}
+      {todo.order_stage && todo.status !== 'CLOSED' && (
+        <div style={muted}>
+          Made from an order step: closing it also completes that step in the workflow
+          (or sends it to the owner or Master to check, with this to-do&apos;s photos).
+        </div>
+      )}
 
       <h4 style={{ fontSize: '14px', fontWeight: 600, margin: '18px 0 4px' }}>Updates</h4>
       {todo.updates?.length ? (
@@ -505,9 +512,81 @@ function DayTable({ todos, showStaff, onOpen }) {
   );
 }
 
+const WORK_STATUS = {
+  NOT_STARTED: ['Not started', 'info'],
+  IN_PROGRESS: ['In progress', 'warning'],
+  PAUSED: ['Paused', 'warning'],
+  PENDING_VERIFICATION: ['Waiting for check', 'warning'],
+  ASSIGNED: ['Assigned', 'info'],
+  SUBMITTED: ['Submitted', 'warning'],
+  CHANGES_REQUESTED: ['Changes requested', 'danger'],
+};
+
+/* Order work given to people when an order is placed and handed out: a stage
+   (Cutting, Stitching, Maggam work...) or a design. Read-only here -- it is
+   done from the Work and Design screens. */
+function OrderWorkTable({ rows, showStaff, onOpen }) {
+  const today = localDay(new Date());
+  const cell = { verticalAlign: 'top' };
+  return (
+    <div className="at-table-wrap" style={panel}>
+      <table className="at-table">
+        <thead>
+          <tr>
+            {showStaff && <th>Staff</th>}
+            <th>Task</th>
+            <th>Order</th>
+            <th>Status</th>
+            <th>Due</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const [label, badge] = WORK_STATUS[row.status] || [row.status, 'info'];
+            const overdue = row.due_date && row.due_date < today;
+            return (
+              <tr key={row.id}>
+                {showStaff && (
+                  <td style={cell}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <AvatarInitials name={row.assigned_to_name} size={28} />
+                      <div>
+                        <div style={{ fontWeight: 600 }}>{row.assigned_to_name}</div>
+                        {row.assigned_to_role && <div style={muted}>{row.assigned_to_role}</div>}
+                      </div>
+                    </div>
+                  </td>
+                )}
+                <td style={cell}>
+                  <button type="button" onClick={() => onOpen(row)} title="Add today's update as a to-do"
+                          style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer',
+                                   font: 'inherit', fontWeight: 600, color: 'var(--text-primary)',
+                                   textAlign: 'left', textDecoration: 'underline', overflowWrap: 'anywhere' }}>
+                    {row.task}
+                  </button>
+                  {row.garment && <div style={muted}>{row.garment}</div>}
+                </td>
+                <td style={cell}>
+                  <div style={{ fontWeight: 600 }}>{row.order_ref}</div>
+                  {row.customer && <div style={muted}>{row.customer}</div>}
+                </td>
+                <td style={cell}><span className={`ui-badge ui-badge--${badge}`}>● {label}</span></td>
+                <td style={{ ...cell, whiteSpace: 'nowrap', color: overdue ? 'var(--danger-color)' : undefined }}>
+                  {row.due_date ? formatDate(row.due_date) : '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function TodoPanel({ currentUser }) {
   const [todos, setTodos] = useState([]);
   const [people, setPeople] = useState([]);
+  const [orderWork, setOrderWork] = useState([]);
   const [canAssign, setCanAssign] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -526,11 +605,13 @@ export default function TodoPanel({ currentUser }) {
     setLoading(true);
     setLoadError(null);
     try {
-      const [rows, roster] = await Promise.all([
+      const [rows, roster, work] = await Promise.all([
         api.getTodos(),
         api.getTodoPeople().catch(() => ({ can_assign: false, people: [] })),
+        api.getTodoOrderWork().catch(() => []),
       ]);
       setTodos(Array.isArray(rows) ? rows : []);
+      setOrderWork(Array.isArray(work) ? work : []);
       setPeople(Array.isArray(roster?.people) ? roster.people : []);
       setCanAssign(Boolean(roster?.can_assign));
     } catch (err) {
@@ -575,6 +656,27 @@ export default function TodoPanel({ currentUser }) {
     if (who && String(t.assigned_to) !== who) return false;
     return true;
   }), [todos, filter, who]);
+
+  const shownWork = useMemo(
+    () => orderWork.filter((w) => !who || String(w.assigned_to) === who),
+    [orderWork, who]);
+
+  // A to-do for today's work on an order step, with the title and details
+  // filled in from it -- given to the person the step is with, when allowed.
+  const addFromOrderWork = (row) => {
+    const status = (WORK_STATUS[row.status] || [row.status])[0];
+    setAdding({
+      title: `${row.task}${row.garment ? ` — ${row.garment}` : ''} · ${row.order_ref}`.slice(0, MAX_TITLE),
+      description: [
+        `Order ${row.order_ref}${row.customer ? ` for ${row.customer}` : ''}`,
+        row.garment && `Garment: ${row.garment}`,
+        `Step: ${row.task} (${status})`,
+      ].filter(Boolean).join('\n'),
+      start_date: localDay(new Date()),
+      order_stage: row.stage_id || '',
+      assigned_to: String(people.some((p) => p.id === row.assigned_to) ? row.assigned_to : (meId || '')),
+    });
+  };
 
   const open = todos.find((t) => t.id === openId) || null;
 
@@ -634,11 +736,24 @@ export default function TodoPanel({ currentUser }) {
         <DayTable todos={shown} showStaff={canPick && !who} onOpen={setOpenId} />
       )}
 
+      {!loading && shownWork.length > 0 && (
+        <>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, margin: '24px 0 4px' }}>
+            Order work ({shownWork.length})
+          </h3>
+          <div style={{ ...muted, marginBottom: '10px' }}>
+            The step each order is at now. Tap a task to add today&apos;s update on it as a to-do.
+          </div>
+          <OrderWorkTable rows={shownWork} showStaff={canPick && !who} onOpen={addFromOrderWork} />
+        </>
+      )}
+
       {adding && (
         <AddTodoForm
           people={people}
           canAssign={canAssign}
           meId={meId}
+          initial={adding === true ? undefined : adding}
           onCancel={() => setAdding(false)}
           onSaved={(todo) => { setTodos((list) => [todo, ...list]); setAdding(false); }}
         />
@@ -652,7 +767,13 @@ export default function TodoPanel({ currentUser }) {
           canAssign={canAssign}
           meId={meId}
           onClose={() => setOpenId(null)}
-          onChanged={replace}
+          onChanged={(todo) => {
+            replace(todo);
+            // Closing a to-do made from an order step moved the step on.
+            if (todo.order_stage && todo.status === 'CLOSED') {
+              api.getTodoOrderWork().then((work) => setOrderWork(Array.isArray(work) ? work : [])).catch(() => {});
+            }
+          }}
           onDeleted={(id) => { setTodos((list) => list.filter((t) => t.id !== id)); setOpenId(null); }}
         />
       )}
