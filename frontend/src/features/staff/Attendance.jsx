@@ -265,6 +265,7 @@ function MyDay({ onChanged }) {
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               Since {clockText(session.check_in)} · {hoursText(elapsed)} so far
+              {session.source === 'SELF' && <> · <WhereTag session={session} /></>}
             </div>
           </div>
           <button
@@ -290,6 +291,9 @@ function MyDay({ onChanged }) {
             <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>
               {clockText(session.check_in)} → {clockText(session.check_out)}
             </div>
+            {session.source === 'SELF' && (
+              <div style={{ fontSize: '13px', marginBottom: '2px' }}><WhereTag session={session} /></div>
+            )}
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               {hoursText(state.today_minutes)} today
             </div>
