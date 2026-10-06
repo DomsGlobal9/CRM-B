@@ -1562,11 +1562,15 @@ function portalSlugFromPath() {
 
 function App() {
   
-  // /app registers a boutique; /<shop_slug> signs one in. A reset link wins
-  // over both, because it carries its own boutique inside the token.
+  // /app and /<shop_slug> sign in; /app?register registers a boutique. Sign-in
+  // is the default because it is what almost everyone arriving here wants, and
+  // it needs no slug: the server finds the boutique from the email
+  // (find_tenants_for_account), the slug only breaks ties. A reset link wins
+  // over all of these, because it carries its own boutique inside the token.
   const [view, setView] = useState(() => {
-    if (new URLSearchParams(window.location.search).get('reset')) return 'reset';
-    return portalSlugFromPath() ? 'login' : 'signup';
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reset')) return 'reset';
+    return !portalSlugFromPath() && params.has('register') ? 'signup' : 'login';
   });
   const [requestedTab, setDashboardTab] = useState('overview'); 
   const [navCollapsed, setNavCollapsed] = useState(() => {
@@ -3528,9 +3532,9 @@ function App() {
     );
   }
 
-  // 'signup' is in here as well now that it is what /app opens on: without it
-  // a signed-in owner landing on /app saw the registration form flash past
-  // before checkAuthSession redirected them to their own boutique.
+  // 'signup' is in here as well: without it a signed-in owner landing on
+  // /app?register saw the registration form flash past before
+  // checkAuthSession redirected them to their own boutique.
   if (((loading && !dashboardData) || (portalSlug && !portalLookupDone && !currentUser))
       && (view === 'login' || view === 'signup')) {
     return (
@@ -3656,7 +3660,7 @@ function App() {
               Try another address
             </button>
             <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '28px', paddingTop: '20px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-              <a href="/app" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Register a boutique</a>
+              <a href="/app?register" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Register a boutique</a>
               {' · '}
               <a href="/" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Back to Home</a>
             </div>
@@ -3765,7 +3769,7 @@ function App() {
 
             <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '32px', paddingTop: '20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
               Don't have a boutique account?{' '}
-              <a href="/app" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>
+              <a href="/app?register" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>
                 Register a boutique
               </a>
             </div>
@@ -4062,7 +4066,7 @@ function App() {
                     I agree to the Terms & Conditions and Privacy Policy
                   </label>
                   <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }}
-                          onClick={() => { setFindError(null); setView('find'); }}>
+                          onClick={() => setView('login')}>
                     Log in instead
                   </button>
                   <button
@@ -4088,10 +4092,11 @@ function App() {
 
             {signupStep === 1 && (
               <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '24px', paddingTop: '18px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                {/* The "Log in instead" button above is the fallback door for
-                    a boutique whose shop_slug is still null, which has no
-                    address of its own to be sent to. */}
-                Already have a boutique? Sign in at your own address, e.g. <strong>{window.location.host}/yourboutique</strong>.
+                Already have a boutique?{' '}
+                <a href="/app" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}
+                   onClick={(e) => { e.preventDefault(); setView('login'); }}>
+                  Log in
+                </a>
               </div>
             )}
           </div>
