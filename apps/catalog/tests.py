@@ -79,6 +79,25 @@ class TemplateSeedTests(CatalogTestCase):
         self.assertEqual(labels['hand_work_kind'], 'Type of Design')
         self.assertEqual(labels['hand_work_parts'], 'Design Required On')
 
+    def test_saree_design_is_one_for_all_parts_or_one_per_part(self):
+        from core.templates import is_visible
+        template = GarmentTemplate.resolve('saree')
+        fields = {f.key: f for sec in template.sections.all() for f in sec.fields.all()}
+        self.assertEqual(fields['hand_work_kind_pallu_design'].label, 'Pallu Design')
+        self.assertEqual(fields['hand_work_kind_mode'].default, 'same')
+        work = {'hand_work': 'with_work', 'hand_work_parts': ['pallu_design', 'border_design']}
+
+        same = {**work, 'hand_work_kind_mode': 'same'}
+        self.assertTrue(is_visible(fields['hand_work_kind'], same))
+        self.assertFalse(is_visible(fields['hand_work_kind_pallu_design'], same))
+
+        per_part = {**work, 'hand_work_kind_mode': 'per_part'}
+        self.assertFalse(is_visible(fields['hand_work_kind'], per_part))
+        self.assertTrue(is_visible(fields['hand_work_kind_pallu_design'], per_part))
+        self.assertTrue(is_visible(fields['hand_work_kind_border_design'], per_part))
+        # A part not picked under "Work On" asks for no design.
+        self.assertFalse(is_visible(fields['hand_work_kind_body_design'], per_part))
+
     def test_measurements_are_in_inches_spelled_out(self):
         waist = GarmentTemplate.resolve('blouse').sections.get(key='measurements') \
             .fields.get(key='waist')

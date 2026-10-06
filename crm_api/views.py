@@ -1414,7 +1414,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         # A Designer hands the order over -- the Master starts it -- so the
         # stage rules, which have never let a Designer move a production
         # stage, are not loosened for them here.
-        starts_workroom = assigner == OWNER or assigner in SUPERVISOR_ROLES
+        starts_workroom = assigner in (OWNER, MASTER)
         try:
             created = order.stages.filter(stage_key='created').first() if starts_workroom else None
             if created and created.status != 'COMPLETED':

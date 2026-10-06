@@ -44,6 +44,7 @@ export default function FabricColorFilter({ fabrics = [], value = '', onChange }
   }, [fabrics]);
 
   const active = (value || '').trim().toLowerCase();
+  const picked = swatches.find((sw) => sw.name.toLowerCase() === active);
   // What the wheel shows: the picked shade, or a neutral when nothing is.
   const wheel = isHexQuery(value) ? value.trim() : '#c8a97e';
 
@@ -96,49 +97,25 @@ export default function FabricColorFilter({ fabrics = [], value = '', onChange }
         </span>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-        <button
-          type="button"
-          onClick={() => onChange('')}
-          style={{ padding: '5px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-                   cursor: 'pointer',
-                   border: !active ? '1.5px solid var(--chip-selected-border)' : '1.5px solid var(--border-color)',
-                   background: !active ? 'var(--chip-selected-bg)' : 'var(--surface-color, #fff)',
-                   color: !active ? 'var(--chip-selected-fg)' : 'var(--text-primary)' }}
-        >
-          All colours
-        </button>
-
-        {swatches.map((sw) => {
-          const isActive = active === sw.name.toLowerCase();
-          const paint = sw.hex || cssColourOf(sw.name);
-          return (
-            <button
-              key={sw.name}
-              type="button"
-              title={`${sw.name} · ${sw.count} fabric${sw.count === 1 ? '' : 's'}`}
-              aria-pressed={isActive}
-              onClick={() => onChange(isActive ? '' : sw.name)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '7px',
-                       padding: '4px 11px 4px 5px', borderRadius: '999px', cursor: 'pointer',
-                       fontSize: '12px', fontWeight: 600,
-                       border: isActive ? '1.5px solid var(--chip-selected-border)' : '1.5px solid var(--border-color)',
-                       background: isActive ? 'var(--chip-selected-bg)' : 'var(--surface-color, #fff)',
-                       color: isActive ? 'var(--chip-selected-fg)' : 'var(--text-primary)',
-                       boxShadow: isActive ? '0 0 0 3px color-mix(in srgb, var(--primary-color) 15%, transparent)' : 'none',
-                       transition: 'all 0.15s ease' }}
-            >
-              {/* The swatch: the exact shade where one is recorded, a plain CSS
-                  colour where the name is one, and a neutral ring otherwise so
-                  a name like "Peacock" still gets a button. */}
-              <span aria-hidden style={{ width: '20px', height: '20px', borderRadius: '50%',
-                                         flexShrink: 0, background: paint || 'var(--surface-inset, #e5e7eb)',
-                                         border: '1px solid rgba(0,0,0,0.12)',
-                                         boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.8)' }} />
-              {sw.name}
-            </button>
-          );
-        })}
+      {/* The boutique's colours as one dropdown. An option cannot be painted,
+          so the dot beside it shows the chosen colour: the exact shade where one
+          is recorded, a plain CSS colour where the name is one, else neutral. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', maxWidth: '420px' }}>
+        <span aria-hidden style={{ width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+                                   background: (picked && (picked.hex || cssColourOf(picked.name)))
+                                     || 'var(--surface-inset, #e5e7eb)',
+                                   border: '1px solid rgba(0,0,0,0.12)',
+                                   boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.8)' }} />
+        <select className="form-control" aria-label="Colour"
+                value={picked ? picked.name : (active ? value : '')}
+                onChange={(e) => onChange(e.target.value)}>
+          <option value="">All colours</option>
+          {/* A typed or wheel colour that names no roll still shows as chosen. */}
+          {active && !picked && <option value={value}>{value}</option>}
+          {swatches.map((sw) => (
+            <option key={sw.name} value={sw.name}>{sw.name} ({sw.count})</option>
+          ))}
+        </select>
       </div>
     </div>
   );

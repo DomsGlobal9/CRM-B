@@ -1810,20 +1810,36 @@ def hand_work_fields(definition):
     # keys and options, so nothing that reads the answers changes.
     kind_label, parts_label = HAND_WORK_LABELS.get(
         definition['key'], ('Type of Design', 'Work On'))
-    fields = [
-        field('hand_work', 'Maggam / Hand Work', 'select', required=True, default='none',
-              options=[('none', 'Without Work'), ('with_work', 'With Work')]),
-        field('hand_work_kind', kind_label, 'select', options=HAND_WORK_KINDS, when=has_work),
+    gate = field('hand_work', 'Maggam / Hand Work', 'select', required=True, default='none',
+                 options=[('none', 'Without Work'), ('with_work', 'With Work')])
+    tail = [
         field('hand_work_density', 'Work Coverage', 'select',
               options=['Light', 'Medium', 'Heavy'], when=has_work),
         field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
               help_text='Thread colour, motif size, what to match.',
               validation={'max_length': 500}, when=has_work),
     ]
-    if part_options:
-        fields.insert(2, field('hand_work_parts', parts_label, 'multiselect',
-                               options=part_options, when=has_work))
-    return fields
+    if not part_options:
+        return [gate, field('hand_work_kind', kind_label, 'select',
+                            options=HAND_WORK_KINDS, when=has_work), *tail]
+    # One design for every part (the single `hand_work_kind`, as before), or
+    # one per part picked under "Work On" -- each its own dropdown, so pallu
+    # and border may differ, or match.
+    per_part = eq('hand_work_kind_mode', 'per_part')
+    return [
+        gate,
+        field('hand_work_parts', parts_label, 'multiselect', options=part_options, when=has_work),
+        field('hand_work_kind_mode', 'Design on These Parts', 'select', default='same',
+              options=[('same', 'Same design on all parts'), ('per_part', 'Different design per part')],
+              when=has_work),
+        field('hand_work_kind', kind_label, 'select', options=HAND_WORK_KINDS,
+              when=all_of(has_work, neq('hand_work_kind_mode', 'per_part'))),
+        *[field(f'hand_work_kind_{key}', f'{label} {kind_label.replace("Type of ", "")}', 'select',
+                options=HAND_WORK_KINDS,
+                when=all_of(has_work, per_part, one_of('hand_work_parts', [key])))
+          for key, label in part_options],
+        *tail,
+    ]
 
 
 HAND_WORK_MATERIALS = [
