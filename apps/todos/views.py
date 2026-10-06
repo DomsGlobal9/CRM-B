@@ -1,4 +1,7 @@
+import os
+
 from django.contrib.auth.models import User
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -6,8 +9,8 @@ from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from core.permissions import ModuleAccess
-from core.roles import resolve_user_role
+from core.permissions import SUPERVISOR_ROLES, ModuleAccess
+from core.roles import OWNER, resolve_user_role
 from core.validators import validate_http_url, validate_image_uploads, validate_text
 
 from . import services
@@ -95,6 +98,61 @@ class TodoViewSet(viewsets.GenericViewSet):
             raise serializers.ValidationError(
                 {'due_date': 'The end date cannot be before the start date.'})
 
+    def _order_stage(self, raw):
+        """The order step a to-do is made from: one on this login's order-work
+        list, or None."""
+        if raw in (None, ''):
+            return None
+        from crm_api.models import OrderStage
+        allowed = {row.get('stage_id') for row in
+                   services.order_work(self.request.user, self._role())}
+        try:
+            stage_id = int(raw)
+        except (TypeError, ValueError):
+            stage_id = None
+        if stage_id is None or stage_id not in allowed:
+            raise serializers.ValidationError(
+                {'order_stage': 'That order step is not on your list.'})
+        return OrderStage.objects.select_related('order').get(pk=stage_id)
+
+    def _finish_order_stage(self, todo):
+        """Closing a to-do made from an order step completes the step, through
+        the same workflow call as the Work screen: its role, order and
+        verification rules all apply, and staff below a Master send it for
+        checking with the to-do's photos. A refusal keeps the to-do open."""
+        stage = todo.order_stage
+        if stage is None or stage.status in ('COMPLETED', 'SKIPPED'):
+            return
+        role = self._role()
+        supervisor = role == OWNER or role in SUPERVISOR_ROLES
+        if stage.status == 'PENDING_VERIFICATION' and not supervisor:
+            return  # already sent for checking
+        from domains.orders.services import OrderService
+        photos = []
+        for photo in TodoPhoto.objects.filter(update__todo=todo):
+            with photo.image.open('rb') as f:
+                photos.append(ContentFile(f.read(), name=os.path.basename(photo.image.name)))
+        # The work was done by the person the to-do is given to. Naming them is
+        # a supervisor's call in the workflow; staff are recorded as themselves.
+        worker = getattr(todo.assigned_to, 'tailor_profile', None) if todo.assigned_to_id else None
+        try:
+            OrderService.transition_order_stage(
+                order=stage.order, stage_key=stage.stage_key, new_status='COMPLETED',
+                user=self.request.user, files=photos, request=self.request,
+                garment_job=stage.garment_job_id,
+                performer_id=worker.id if worker else None)
+        except ValueError as exc:
+            raise serializers.ValidationError({'status': str(exc)})
+        stage.refresh_from_db()
+        done_by = (stage.performed_by.name if stage.performed_by_id
+                   else services.display_name(self.request.user))
+        outcome = ('sent to the owner or Master to check'
+                   if stage.status == 'PENDING_VERIFICATION' else 'completed in the workflow')
+        TodoUpdate.objects.create(
+            todo=todo, kind=TodoUpdate.KIND_STATUS, author=self.request.user,
+            author_name=services.display_name(self.request.user),
+            text=f"{stage.stage_name} {outcome} · work done by {done_by}")
+
     def _set_assignee(self, todo, target):
         todo.assigned_to = target
         todo.assigned_to_name = services.display_name(target)
@@ -147,6 +205,7 @@ class TodoViewSet(viewsets.GenericViewSet):
             due_date=self._date(request.data.get('due_date')),
             created_by=request.user,
             created_by_name=services.display_name(request.user),
+            order_stage=self._order_stage(request.data.get('order_stage')),
         )
         self._check_dates(todo)
         self._set_assignee(todo, self._assignee(request.data.get('assigned_to')))
@@ -204,6 +263,11 @@ class TodoViewSet(viewsets.GenericViewSet):
             'people': services.assignable_people(request.user, role),
         })
 
+    @action(detail=False, methods=['GET'], url_path='order-work')
+    def order_work(self, request):
+        """Order stages and designs given to people, shown beside their to-dos."""
+        return Response(services.order_work(request.user, self._role()))
+
     @action(detail=True, methods=['POST'], url_path='status')
     @transaction.atomic
     def set_status(self, request, pk=None):
@@ -216,6 +280,8 @@ class TodoViewSet(viewsets.GenericViewSet):
             raise serializers.ValidationError(
                 {'status': 'Choose Open, In progress or Closed.'})
         if wanted != todo.status:
+            if wanted == Todo.STATUS_CLOSED:
+                self._finish_order_stage(todo)
             todo.status = wanted
             todo.closed_at = timezone.now() if wanted == Todo.STATUS_CLOSED else None
             todo.save()

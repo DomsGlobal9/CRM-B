@@ -202,3 +202,100 @@ class TodoTests(TenantTestCase):
         settings.save()
         self.assertEqual(self.call(self.tailor, 'get', '/api/todos/').status_code, 403)
         self.assertEqual(self.call(self.master, 'get', '/api/todos/').status_code, 200)
+
+    def test_order_work_shows_only_the_current_stage_to_its_person(self):
+        from crm_api.models import BoutiqueSettings, Order, OrderStage
+        BoutiqueSettings.objects.get_or_create(id=1)
+        anita = Tailor.objects.get(user=self.tailor)
+        meera = Tailor.objects.get(user=self.master)
+        order = Order.objects.create(order_id='T-WORK-1')
+
+        def stage(key, name, who, status='NOT_STARTED', on=order):
+            return OrderStage.objects.create(order=on, stage_key=key, stage_name=name,
+                                             assigned_to=who, status=status,
+                                             sequence=on.stages.count())
+
+        stage('created', 'Order taken', meera, 'COMPLETED')
+        cutting = stage('pattern_cutting', 'Cutting', meera, 'IN_PROGRESS')
+        stage('stitching_in_progress', 'Stitching', anita)
+        stage('trial_scheduled', 'Trial booking', meera)
+
+        def tasks(user):
+            response = self.call(user, 'get', '/api/todos/order-work/')
+            self.assertEqual(response.status_code, 200, response.data)
+            return [(row['task'], row['assigned_to']) for row in response.data]
+
+        # Only the step the order is at -- not the whole flow.
+        self.assertEqual(tasks(self.owner), [('Cutting', self.master.id)])
+        self.assertEqual(tasks(self.tailor), [])
+
+        cutting.status = 'COMPLETED'
+        cutting.save()
+        self.assertEqual(tasks(self.tailor), [('Stitching', self.tailor.id)])
+        self.assertEqual(tasks(self.other), [])
+        self.assertEqual(tasks(self.master), [('Stitching', self.tailor.id)])
+
+        # An older order keeps its own step order even after the settings
+        # move Maggam work ahead of Cutting: its Maggam work still waits.
+        settings = BoutiqueSettings.objects.get(id=1)
+        cfg = [c for c in settings.workflow_config if c['key'] != 'pattern_cutting']
+        at = next(i for i, c in enumerate(cfg) if c['key'] == 'fabric_cutting')
+        cfg.insert(at + 1, next(c for c in settings.workflow_config
+                                if c['key'] == 'pattern_cutting'))
+        settings.workflow_config = cfg
+        settings.save()
+        old = Order.objects.create(order_id='T-WORK-2', flow='legacy')
+        stage('created', 'Order taken', meera, 'COMPLETED', on=old)
+        stage('pattern_cutting', 'Pattern cutting', meera, 'IN_PROGRESS', on=old)
+        stage('maggam_work', 'Maggam work', meera, on=old)
+        self.assertIn(('Pattern cutting', self.master.id), tasks(self.owner))
+        self.assertNotIn(('Maggam work', self.master.id), tasks(self.owner))
+
+    def test_closing_a_todo_made_from_an_order_step_moves_the_step_on(self):
+        from crm_api.models import BoutiqueSettings, Order, OrderStage
+        BoutiqueSettings.objects.get_or_create(id=1)
+        anita = Tailor.objects.get(user=self.tailor)
+        meera = Tailor.objects.get(user=self.master)
+        order = Order.objects.create(order_id='T-WORK-3')
+        rows = {}
+        for key, name, who, status in [
+                ('created', 'Order taken', meera, 'COMPLETED'),
+                ('pattern_cutting', 'Cutting', meera, 'IN_PROGRESS'),
+                ('stitching_in_progress', 'Stitching', anita, 'NOT_STARTED')]:
+            rows[key] = OrderStage.objects.create(
+                order=order, stage_key=key, stage_name=name, assigned_to=who,
+                status=status, sequence=len(rows))
+
+        def close(user, todo):
+            return self.call(user, 'post', f"/api/todos/{todo['id']}/status/", {'status': 'CLOSED'})
+
+        # Not on Anita's list yet: Cutting is not done.
+        refused = self.call(self.tailor, 'post', '/api/todos/',
+                            {'title': 'x', 'order_stage': rows['stitching_in_progress'].id})
+        self.assertEqual(refused.status_code, 400)
+
+        # A Master closing their to-do completes the step.
+        cutting = self.make(self.master, order_stage=rows['pattern_cutting'].id)
+        self.assertEqual(close(self.master, cutting).status_code, 200)
+        rows['pattern_cutting'].refresh_from_db()
+        self.assertEqual(rows['pattern_cutting'].status, 'COMPLETED')
+        self.assertEqual(rows['pattern_cutting'].performed_by, meera)
+        self.assertTrue(Todo.objects.get(pk=cutting['id']).updates.filter(
+            text='Cutting completed in the workflow · work done by Meera').exists())
+
+        # A tailor needs a photo: without one the to-do stays open.
+        stitching = self.make(self.tailor, order_stage=rows['stitching_in_progress'].id)
+        self.assertEqual(close(self.tailor, stitching).status_code, 400)
+        self.assertEqual(Todo.objects.get(pk=stitching['id']).status, Todo.STATUS_OPEN)
+        rows['stitching_in_progress'].refresh_from_db()
+        self.assertEqual(rows['stitching_in_progress'].status, 'NOT_STARTED')
+
+        # With the day's photo it goes to the owner or Master to check.
+        self.call(self.tailor, 'post', f"/api/todos/{stitching['id']}/updates/",
+                  {'photos': [SimpleUploadedFile('done.jpg', JPEG, content_type='image/jpeg')]},
+                  fmt='multipart')
+        self.assertEqual(close(self.tailor, stitching).status_code, 200)
+        rows['stitching_in_progress'].refresh_from_db()
+        self.assertEqual(rows['stitching_in_progress'].status, 'PENDING_VERIFICATION')
+        self.assertEqual(rows['stitching_in_progress'].performed_by, anita)
+        self.assertEqual(len(rows['stitching_in_progress'].attachments), 1)

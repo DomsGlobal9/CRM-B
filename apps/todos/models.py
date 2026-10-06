@@ -44,6 +44,11 @@ class Todo(models.Model):
         related_name='todos_assigned')
     assigned_to_name = models.CharField(max_length=150, blank=True, default='')
     assigned_to_role = models.CharField(max_length=50, blank=True, default='')
+    #: The order step this to-do was made from, if any. Closing the to-do
+    #: moves that step on in the workflow.
+    order_stage = models.ForeignKey(
+        'crm_api.OrderStage', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='todos')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

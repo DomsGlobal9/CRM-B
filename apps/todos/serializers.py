@@ -38,7 +38,7 @@ class TodoSerializer(serializers.ModelSerializer):
         model = Todo
         fields = ['id', 'title', 'description', 'status', 'start_date', 'due_date',
                   'created_by', 'created_by_name',
-                  'assigned_to', 'assigned_to_name', 'assigned_to_role',
+                  'assigned_to', 'assigned_to_name', 'assigned_to_role', 'order_stage',
                   'created_at', 'updated_at', 'closed_at', 'updates',
                   'can_edit', 'can_change_status', 'can_delete']
 
