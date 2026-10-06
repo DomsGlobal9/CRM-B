@@ -1810,6 +1810,35 @@ class DashboardView(views.APIView):
             pass
         return out
 
+def _apply_shop_location(config, data):
+    """The attendance pin: latitude and longitude together (both '' clears), and a radius.
+
+    Refuses rather than clamps -- a pin silently moved to the equator would flag
+    every check-in in the boutique.
+    """
+    if 'shop_latitude' in data or 'shop_longitude' in data:
+        lat, lng = data.get('shop_latitude', ''), data.get('shop_longitude', '')
+        if lat in ('', None) and lng in ('', None):
+            config.shop_latitude = config.shop_longitude = None
+        else:
+            try:
+                lat, lng = Decimal(str(lat)), Decimal(str(lng))
+            except ArithmeticError:
+                raise ValidationError('The shop location is not a valid position.')
+            if not (lat.is_finite() and lng.is_finite() and -90 <= lat <= 90 and -180 <= lng <= 180):
+                raise ValidationError('The shop location is not a valid position.')
+            config.shop_latitude = lat.quantize(Decimal('0.000001'))
+            config.shop_longitude = lng.quantize(Decimal('0.000001'))
+    if data.get('shop_radius_m') not in (None, ''):
+        try:
+            radius = int(data.get('shop_radius_m'))
+        except (TypeError, ValueError):
+            radius = 0
+        if not 20 <= radius <= 5000:
+            raise ValidationError('The check-in radius must be between 20 and 5000 metres.')
+        config.shop_radius_m = radius
+
+
 class BoutiqueSettingsViewSet(viewsets.ViewSet):
     def list(self, request):
         config, created = BoutiqueSettings.objects.get_or_create(id=1)
@@ -1839,6 +1868,7 @@ class BoutiqueSettingsViewSet(viewsets.ViewSet):
                 config.email = validate_email_address(email)
             if logo is not None:
                 config.logo = validate_image_upload(logo, label='Logo')
+            _apply_shop_location(config, request.data)
         except ValidationError as exc:
             return _refused(exc)
         if 'design_approval_required' in request.data:

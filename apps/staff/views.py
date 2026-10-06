@@ -70,6 +70,28 @@ def _sentence(exc):
     return str(exc)
 
 
+def _location_from(data):
+    """{latitude, longitude, accuracy} from a check-in body, or None.
+
+    Never raises: a missing or malformed position is recorded as "no location"
+    rather than refusing the check-in, because being at work is the record and
+    the position only annotates it. Out-of-range values are dropped for the
+    same reason -- and so a crafted body cannot write nonsense coordinates.
+    """
+    raw = data.get('location') if hasattr(data, 'get') else None
+    if not isinstance(raw, dict):
+        return None
+    try:
+        lat, lng = float(raw['latitude']), float(raw['longitude'])
+        accuracy = raw.get('accuracy')
+        accuracy = None if accuracy is None else max(0, min(int(float(accuracy)), 1_000_000))
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):  # also rejects NaN
+        return None
+    return {'latitude': round(lat, 6), 'longitude': round(lng, 6), 'accuracy': accuracy}
+
+
 class StaffProfileViewSet(viewsets.ModelViewSet):
     """Employment terms for the boutique's roster.
 
@@ -421,12 +443,15 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
         try:
             session = attendance.check_in(
                 profile, user=request.user,
-                note=validate_text(request.data.get('note'), label='Note', max_length=MAX_NOTE))
+                note=validate_text(request.data.get('note'), label='Note', max_length=MAX_NOTE),
+                location=_location_from(request.data))
         except (attendance.AttendanceError, DRFValidationError) as exc:
             return Response({'error': _sentence(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         _log(request, 'CHECKED_IN', session, f'{profile.name} checked in',
-             after={'check_in': str(session.check_in), 'source': session.source})
+             after={'check_in': str(session.check_in), 'source': session.source,
+                    'distance_m': session.check_in_distance_m,
+                    'outside_shop': session.check_in_outside_shop})
         return Response(AttendanceSessionSerializer(session).data,
                         status=status.HTTP_201_CREATED)
 

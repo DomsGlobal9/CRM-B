@@ -265,6 +265,19 @@ class AttendanceSession(models.Model):
     auto_checked_out = models.BooleanField(default=False, db_index=True)
     note = models.TextField(blank=True, default='')
 
+    #: Where the phone said it was at a SELF check-in. Client-supplied, so it
+    #: discourages rather than proves: it never blocks a check-in, it only
+    #: flags one. All null when the browser gave no position (denied,
+    #: unavailable, or an OWNER/WORK session that had no tap to read it from).
+    check_in_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    check_in_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    check_in_accuracy_m = models.PositiveIntegerField(null=True, blank=True)
+    #: Frozen at check-in against the shop location of that moment, so moving
+    #: the pin or the radius later does not rewrite who was flagged. Null when
+    #: there was no position or the boutique had not set its location.
+    check_in_distance_m = models.PositiveIntegerField(null=True, blank=True)
+    check_in_outside_shop = models.BooleanField(null=True, blank=True, db_index=True)
+
     #: Who actually wrote the row -- the staff member themselves, or the owner
     #: entering it on their behalf. SET_NULL so a departed manager's corrections
     #: stay readable.
