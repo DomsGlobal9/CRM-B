@@ -40,6 +40,7 @@ from apps.alterations.models import (
 from apps.catalog.models import GarmentJob, GarmentTemplate
 from apps.inventory.models import InventoryItem
 from apps.inventory.services import InventoryService
+from core.roles import can_assign
 from crm_api.models import Customer, Order, Tailor
 from domains.alterations import notifications
 from domains.alterations.workflow import (
@@ -493,6 +494,12 @@ def assign_alteration(alteration_request_id, *, tailor_id, title=None, stage_key
     tailor = Tailor.objects.filter(pk=tailor_id).first()
     if tailor is None:
         raise ValueError('That staff member could not be found.')
+
+    # The workflow table below decides who may assign at all; this decides
+    # whether this assignee is within their reach. core.roles owns the rule so
+    # alterations cannot drift from orders and design work about it.
+    if not can_assign(role, tailor.role):
+        raise PermissionError(f'A {role} cannot assign work to a {tailor.role}.')
 
     stage = (stage_key or DEFAULT_STAGE_KEY).strip() or DEFAULT_STAGE_KEY
     label = (title or 'Alteration work').strip() or 'Alteration work'

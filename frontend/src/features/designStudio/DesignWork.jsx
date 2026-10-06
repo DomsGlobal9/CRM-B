@@ -178,7 +178,70 @@ function SubmitPanel({ assignment, designs, onSubmitted, onError }) {
   );
 }
 
-function AssignmentCard({ assignment, isSupervisor, designs, onChanged, onError, embedded = false }) {
+/** A Designer handing an approved design to the workshop. The list comes from
+ *  the server, which only offers people this Designer may assign (Master and
+ *  the workers below), and the endpoint refuses anyone else regardless. */
+function HandOverPanel({ assignment, onHandedOver, onError }) {
+  const [staff, setStaff] = useState(null);
+  const [master, setMaster] = useState('');
+  const [worker, setWorker] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    api.getAssignableStaff().then(setStaff).catch((error) => onError(error.message));
+  }, [onError]);
+
+  const masters = (staff || []).filter((s) => s.role === 'Master');
+  const workers = (staff || []).filter((s) => s.role !== 'Master');
+
+  const handOver = async () => {
+    if (!master && !worker) return;
+    setBusy(true);
+    try {
+      await api.sendToWorkshop(assignment.order_pk, { master: master || null, tailor: worker || null });
+      setDone(true);
+      onHandedOver();
+    } catch (error) {
+      onError(error.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '10px' }}>
+        Handed over. The Master starts it in the workshop.
+      </p>
+    );
+  }
+
+  return (
+    <div style={{ marginTop: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'flex-end' }}>
+      <label style={{ flex: '1 1 180px' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Master in charge</span>
+        <select className="form-input" value={master} onChange={(e) => setMaster(e.target.value)}>
+          <option value="">Choose a Master…</option>
+          {masters.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+      </label>
+      <label style={{ flex: '1 1 180px' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Worker (optional)</span>
+        <select className="form-input" value={worker} onChange={(e) => setWorker(e.target.value)}>
+          <option value="">Choose a worker…</option>
+          {workers.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.role}</option>)}
+        </select>
+      </label>
+      <button className="btn-primary" disabled={busy || staff === null || (!master && !worker)} onClick={handOver}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <Send size={14} /> {busy ? 'Handing over…' : 'Hand over to workshop'}
+      </button>
+    </div>
+  );
+}
+
+function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs, onChanged, onError, embedded = false }) {
   const { t } = useLanguage();
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -288,12 +351,20 @@ function AssignmentCard({ assignment, isSupervisor, designs, onChanged, onError,
           </button>
         </div>
       )}
+
+      {canHandOver && assignment.status === 'APPROVED' && assignment.order_pk && (
+        <HandOverPanel assignment={assignment} onHandedOver={onChanged} onError={onError} />
+      )}
     </div>
   );
 }
 
 export default function DesignWork({ currentUser }) {
   const isSupervisor = ['Owner', 'Master'].includes(currentUser?.role);
+  // Handing design work TO a designer: the Owner only. A Master sits below
+  // Designer, and the server refuses a Master's assignment outright.
+  const canAssignDesign = currentUser?.role === 'Owner';
+  const isDesigner = currentUser?.role === 'Designer';
 
   const [assignments, setAssignments] = useState([]);
   const [designers, setDesigners] = useState([]);
@@ -318,10 +389,10 @@ export default function DesignWork({ currentUser }) {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (!isSupervisor) return;
+    if (!canAssignDesign) return;
     api.getDesigners().then(d => setDesigners(d.results || d || [])).catch(() => {});
     api.getOrders().then(o => setOrders(o.results || o || [])).catch(() => {});
-  }, [isSupervisor]);
+  }, [canAssignDesign]);
 
   const myDesignerId = assignments[0]?.designer || null;
   useEffect(() => {
@@ -359,7 +430,7 @@ export default function DesignWork({ currentUser }) {
         </div>
       )}
 
-      {isSupervisor && (
+      {canAssignDesign && (
         <AssignPanel orders={orders} designers={designers}
                      onAssigned={load} onError={setError} />
       )}
@@ -465,7 +536,7 @@ export default function DesignWork({ currentUser }) {
       ) : (
         assignments.map(assignment => (
           <AssignmentCard key={assignment.id} assignment={assignment}
-                          isSupervisor={isSupervisor} designs={myDesigns}
+                          isSupervisor={isSupervisor} canHandOver={isDesigner} designs={myDesigns}
                           onChanged={load} onError={setError} />
         ))
       )}

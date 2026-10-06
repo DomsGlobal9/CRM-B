@@ -262,12 +262,19 @@ class SlugLookupTests(TransactionTestCase):
         self.assertEqual(
             self.client.get(self.URL.format('saralaboutique')).status_code, 404)
 
-    def test_the_response_carries_nothing_but_the_name_and_the_slug(self):
+    def test_the_response_carries_only_the_names_and_the_slug(self):
         body = self.client.get(self.URL.format('saralaboutique')).json()
-        self.assertEqual(set(body), {'name', 'shop_slug'})
+        self.assertEqual(set(body), {'name', 'shop_slug', 'owner_first_name'})
         for leaked in ('schema_name', 'owner_email', 'plan', 'enabled_modules',
-                       'is_active', 'modules'):
+                       'is_active', 'modules', 'last_name', 'email'):
             self.assertNotIn(leaked, body, leaked)
+
+    def test_a_missing_owner_costs_the_greeting_not_the_screen(self):
+        # These registry rows have no schema behind them, so the owner lookup
+        # cannot run at all -- the reply must still be a 200 with a blank name.
+        res = self.client.get(self.URL.format('saralaboutique'))
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.json()['owner_first_name'], '')
 
     def test_a_malformed_path_does_not_reach_the_view(self):
         for path in ('/api/auth/boutique/has%20space/',

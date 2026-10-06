@@ -5,12 +5,14 @@ from django.db import connection
 from django.db.models import Q
 
 from apps.design_studio.models import Designer
-from core.roles import DESIGNER, OWNER, resolve_user_role
+from core.roles import (
+    ASSIGNMENT_RANK, DESIGNER, MASTER, OWNER, WORKER_RANK, assigns_work, can_assign,
+    resolve_user_role,
+)
 from crm_api.models import Notification, Tailor
 
-MASTER = 'Master'
-#: Roles that may give a to-do to somebody else.
-ASSIGNER_ROLES = (OWNER, MASTER, DESIGNER)
+#: Roles that may give a to-do to somebody else -- core.roles decides.
+ASSIGNER_ROLES = tuple(r for r, rank in ASSIGNMENT_RANK.items() if rank < WORKER_RANK)
 
 
 def display_name(user):
@@ -41,28 +43,29 @@ def _owner_users():
 def assignable_people(user, role):
     """The people this login may give a to-do to, themselves first.
 
-    Owner: everyone with a login. Master: the floor. Designer: the floor and
-    the other designers. Anyone else: only themselves.
+    Everyone core.roles.can_assign lets this role reach: Owner, everyone with a
+    login; Designer, the floor and the other designers; Master, the floor;
+    anyone else, only themselves.
     """
     people = {user.id: person(user, role)}
-    if role not in ASSIGNER_ROLES:
+    if not assigns_work(role):
         return list(people.values())
 
     owners = _owner_users()
     owner_ids = {u.id for u in owners}
-    if role == OWNER:
+    if can_assign(role, OWNER):
         for owner in owners:
             people.setdefault(owner.id, person(owner, OWNER))
 
     floor = (Tailor.objects.filter(user__isnull=False, user__is_active=True)
              .select_related('user').order_by('name'))
     for tailor in floor:
-        if tailor.user_id in owner_ids:
+        if tailor.user_id in owner_ids or not can_assign(role, tailor.role):
             continue
         people.setdefault(tailor.user_id, {
             'id': tailor.user_id, 'name': tailor.name, 'role': tailor.role})
 
-    if role in (OWNER, DESIGNER):
+    if can_assign(role, DESIGNER):
         designers = (Designer.objects.filter(user__isnull=False, user__is_active=True)
                      .select_related('user').order_by('name'))
         for designer in designers:

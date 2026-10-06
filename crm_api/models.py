@@ -619,7 +619,7 @@ def get_default_workflow():
         # The Maggam Karigar picks up once the design is finished: the frame
         # work is its own stage so it cannot start before the master's design
         # is settled, and the Master's sign-off below sees the finished work.
-        {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar"], "flows": ["maggam"], "scope": "garment"},
+        {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar", "Karigar"], "flows": ["maggam"], "scope": "garment"},
         {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"], "scope": "garment"},
         {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
         # No Handover stage: whoever stitches -- owner, Master or the assigned

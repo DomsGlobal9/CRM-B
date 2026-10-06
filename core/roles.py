@@ -1,6 +1,50 @@
 
 OWNER = 'Owner'
 DESIGNER = 'Designer'
+MASTER = 'Master'
+
+#: Who may hand work to whom: Owner above Designer above Master above every
+#: other production role. A role not listed here is a worker.
+#:
+#: Assignment ONLY. Nothing here grants access to an order, a customer or a
+#: payment -- core.permissions.SUPERVISOR_ROLES still decides that, and
+#: Designer is deliberately absent from it.
+ASSIGNMENT_RANK = {OWNER: 0, DESIGNER: 1, MASTER: 2}
+WORKER_RANK = 3
+
+
+def assignment_rank(role):
+    if not role:
+        return None
+    return ASSIGNMENT_RANK.get(role, WORKER_RANK)
+
+
+def assigns_work(role):
+    """Whether this role may hand work to anybody at all."""
+    rank = assignment_rank(role)
+    return rank is not None and rank < WORKER_RANK
+
+
+def can_assign(assigner_role, assignee_role):
+    """May someone in `assigner_role` hand work to someone in `assignee_role`?
+
+    The one rule every assignment surface asks: your own level or below, never
+    above, and workers hand work to nobody.
+
+    "Or below", not "strictly below", on purpose. Eight of the seventeen
+    default workflow stages may only be held by a Master, so a Master who could
+    not assign a Master would leave half the floor unassignable by the people
+    running it. And a design assignment's assignee is always a Designer, so a
+    Designer who could not assign a Designer could not hand design work on at
+    all. Neither is "assigning upward", which is what the hierarchy forbids.
+
+    An unknown role on either side is a refusal.
+    """
+    assigner = assignment_rank(assigner_role)
+    assignee = assignment_rank(assignee_role)
+    if assigner is None or assignee is None or assigner >= WORKER_RANK:
+        return False
+    return assigner <= assignee
 
 
 def resolve_user_role(user):

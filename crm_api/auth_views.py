@@ -397,8 +397,29 @@ class BoutiqueBySlugView(views.APIView):
         if tenant is None:
             return Response({"error": "No such boutique."},
                             status=status.HTTP_404_NOT_FOUND)
-        return Response({"name": tenant.name, "shop_slug": tenant.shop_slug},
+        return Response({"name": tenant.name, "shop_slug": tenant.shop_slug,
+                         "owner_first_name": _owner_first_name(tenant)},
                         status=status.HTTP_200_OK)
+
+
+def _owner_first_name(tenant):
+    """The owner's first name for the sign-in greeting, or ''.
+
+    First name only, deliberately: this endpoint answers anyone who knows a
+    slug, so it carries the least that makes "Welcome back, Sarala" possible
+    -- never the surname, the email or anything that identifies the person
+    beyond what the boutique's own sign-in page would show.
+
+    Never raises. The owner row lives in the boutique's schema, and a missing
+    schema or account must cost the greeting, not the sign-in screen.
+    """
+    try:
+        with schema_context(tenant.schema_name):
+            owner = (User.objects.filter(email__iexact=tenant.owner_email)
+                     .only('first_name').first())
+            return (owner.first_name or '').strip() if owner else ''
+    except Exception:  # noqa: BLE001 - see docstring
+        return ''
 
 
 class LoginView(views.APIView):

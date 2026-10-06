@@ -67,17 +67,25 @@ class DesignAssignmentPermission(ModuleAccess):
 
     message = "Your role does not permit this action on design assignments."
 
-    SUPERVISOR_ACTIONS = {'create', 'update', 'partial_update', 'destroy', 'review'}
-    DESIGNER_ACTIONS = {'list', 'retrieve', 'submit'}
+    #: Handing design work to a designer, or taking it back. The assignee is
+    #: always a Designer, so a Master -- below Designer in core.roles -- is
+    #: refused all four; they keep reading, submitting and reviewing.
+    ASSIGNMENT_ACTIONS = {'create', 'update', 'partial_update', 'destroy'}
+    #: A Designer hands work on through `create`, which also reassigns; the
+    #: view limits that to work that is theirs or nobody's yet.
+    DESIGNER_ACTIONS = {'list', 'retrieve', 'submit', 'create'}
 
     def has_role_permission(self, request, view):
         role = resolve_user_role(request.user)
         if role is None:
             return False
-        if role in (OWNER, MASTER):
+        if role == OWNER:
             return True
+        action = getattr(view, 'action', None)
+        if role == MASTER:
+            return action not in self.ASSIGNMENT_ACTIONS
         if role == DESIGNER:
-            return getattr(view, 'action', None) in self.DESIGNER_ACTIONS
+            return action in self.DESIGNER_ACTIONS
         return False
 
 

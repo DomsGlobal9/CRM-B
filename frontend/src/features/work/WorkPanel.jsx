@@ -238,7 +238,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       {current && (
         <JobScreen key={`${current.order.id}-${current.stage.stage_key}`} order={current.order} stage={current.stage}
                    mode={view === 'check' ? 'check' : view === 'done' ? 'read' : 'work'}
-                   isSupervisor={isSupervisor} tailors={tailors} fabricTaxonomy={fabricTaxonomy}
+                   isSupervisor={isSupervisor} me={me} stageRoles={rolesFor(current.stage.stage_key)}
+                   tailors={tailors} fabricTaxonomy={fabricTaxonomy}
                    onClose={() => setOpen(null)} onDone={done} />
       )}
       {toast && <div className="wk-toast" role="status">{toast}</div>}
@@ -262,9 +263,59 @@ function ActionBar({ error, children }) {
   );
 }
 
+/* A Master hands their job to someone else. The server's roster already
+   leaves out the Owner and Designers; this only narrows it to who may hold
+   this stage, and drops the Master themselves. */
+function AssignTo({ order, stage, me, stageRoles, onDone }) {
+  const { t } = useLanguage();
+  const [staff, setStaff] = useState(null);
+  const [pick, setPick] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.getAssignableStaff().then(setStaff).catch((e) => setError(e?.message || t('workPage.staffFailed', 'Could not load staff.')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const options = (staff || []).filter((s) => s.id !== me && (!stageRoles.length || stageRoles.includes(s.role)));
+
+  const assign = async () => {
+    const who = options.find((s) => String(s.id) === pick);
+    setBusy(true); setError('');
+    try {
+      await api.assignStage(order.id, stage.stage_key, who.id, stage.garment_job || null);
+      onDone(t('workPage.assignedToast', 'Assigned to {who}.', { who: who.name }));
+    } catch (e) {
+      setError(e?.message || t('workPage.assignFailed', 'Could not assign. Please try again.'));
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <section className="wk-section">
+      <h3 className="wk-section-title">{t('workPage.assignTo', 'Assign to')}</h3>
+      {staff && options.length === 0
+        ? <div className="wk-quiet">{t('workPage.noOneToAssign', 'No one else can take this step.')}</div>
+        : (
+          <div className="wk-pickers">
+            <select className="form-control" value={pick} disabled={busy || !staff} onChange={(e) => setPick(e.target.value)}
+                    aria-label={t('workPage.assignTo', 'Assign to')}>
+              <option value="">{staff ? t('workPage.pickWorker', 'Choose a worker') : t('workPage.loading', 'Loading…')}</option>
+              {options.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.role}</option>)}
+            </select>
+            <button type="button" className="btn-secondary" disabled={busy || !pick} onClick={assign}>
+              {busy ? t('workPage.saving', 'Saving…') : t('workPage.assign', 'Assign')}
+            </button>
+          </div>
+        )}
+      {error && <div className="wk-error" role="alert">{error}</div>}
+    </section>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 
-function JobScreen({ order, stage, mode, isSupervisor, fabricTaxonomy, onClose, onDone }) {
+function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTaxonomy, onClose, onDone }) {
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -438,6 +489,9 @@ function JobScreen({ order, stage, mode, isSupervisor, fabricTaxonomy, onClose, 
         </div>
         <div className="wk-sheet-body">
           {head}
+          {mode === 'work' && isSupervisor && stage.status !== 'PENDING_VERIFICATION' && (
+            <AssignTo order={order} stage={stage} me={me} stageRoles={stageRoles} onDone={onDone} />
+          )}
           {mode === 'check' ? (
             <>
               {attachments.length > 0 && (

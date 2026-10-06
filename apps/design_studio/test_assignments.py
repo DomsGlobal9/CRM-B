@@ -105,10 +105,20 @@ class AssignmentTests(AssignmentTestCase):
         self.assertEqual(assignment.brief, "Heavy zari on the border.")
         self.assertEqual(assignment.assigned_by_id, self.owner.id)
 
-    def test_master_may_also_assign(self):
+    def test_a_master_cannot_assign_design_work_to_a_designer(self):
+        # Designer sits above Master (core.roles), and a design assignment's
+        # assignee is always a Designer -- so a Master assigning one is
+        # assigning upward.
         master = self._staff_client("Master", "master@assign.test")
         response = self._assign(self.lehenga_job, self.meera, client=master)
-        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.status_code, 403, response.data)
+        self.assertFalse(DesignAssignment.objects.exists())
+
+    def test_a_master_still_reads_the_assignment_board(self):
+        self._assign(self.lehenga_job, self.meera)
+        master = self._staff_client("Master", "reader@assign.test")
+        response = master.get(reverse('design-assignment-list'))
+        self.assertEqual(response.status_code, 200, response.data)
 
     def test_a_due_date_survives_the_round_trip(self):
         due = date.today() + timedelta(days=5)
@@ -401,10 +411,33 @@ class ReviewTests(AssignmentTestCase):
 
 
 class AssignmentRoleBoundaryTests(AssignmentTestCase):
-    def test_a_designer_cannot_assign_work(self):
+    def test_a_designer_hands_design_work_on(self):
         response = self._assign(self.lehenga_job, self.meera, client=self.meera_client)
-        self.assertEqual(response.status_code, 403)
-        self.assertFalse(DesignAssignment.objects.exists())
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(
+            DesignAssignment.objects.get(garment_job=self.lehenga_job).designer_id,
+            self.meera.id)
+
+    def test_a_designer_hands_their_own_work_to_a_colleague(self):
+        self._assign(self.lehenga_job, self.meera)
+        response = self._assign(self.lehenga_job, self.kavya, client=self.meera_client)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(
+            DesignAssignment.objects.get(garment_job=self.lehenga_job).designer_id,
+            self.kavya.id)
+
+    def test_a_designer_cannot_take_a_colleagues_work(self):
+        self._assign(self.lehenga_job, self.kavya)
+        response = self._assign(self.lehenga_job, self.meera, client=self.meera_client)
+        self.assertEqual(response.status_code, 403, response.data)
+        self.assertEqual(
+            DesignAssignment.objects.get(garment_job=self.lehenga_job).designer_id,
+            self.kavya.id)
+
+    def test_a_designers_reply_carries_no_customer(self):
+        response = self._assign(self.lehenga_job, self.meera, client=self.meera_client)
+        self.assertNotIn('customer_name', response.data)
+        self.assertNotIn('Ananya', str(response.data))
 
     def test_a_designer_cannot_approve_their_own_design(self):
         self._assign(self.lehenga_job, self.meera)

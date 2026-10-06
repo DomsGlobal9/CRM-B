@@ -329,6 +329,9 @@ class DesignerAssignmentSerializer(_AssignmentDesignMixin, serializers.ModelSeri
     garment_name = serializers.CharField(source='garment_job.template.name', read_only=True)
     order_ref = serializers.CharField(source='garment_job.order.order_id', read_only=True)
     order_reference = serializers.CharField(source='garment_job.order.reference', read_only=True)
+    # The key send-to-workshop is addressed by, so a Designer can hand over
+    # the order they designed for. A row id, not a customer detail.
+    order_pk = serializers.IntegerField(source='garment_job.order_id', read_only=True)
     spec = serializers.JSONField(source='garment_job.spec', read_only=True)
     measurements = serializers.JSONField(source='garment_job.measurements', read_only=True)
     design_detail = serializers.SerializerMethodField()
@@ -336,7 +339,8 @@ class DesignerAssignmentSerializer(_AssignmentDesignMixin, serializers.ModelSeri
     class Meta:
         model = DesignAssignment
         fields = [
-            'id', 'garment_job', 'garment_name', 'order_ref', 'order_reference', 'spec', 'measurements',
+            'id', 'garment_job', 'garment_name', 'order_ref', 'order_reference', 'order_pk',
+            'spec', 'measurements',
             'designer', 'designer_name', 'status', 'brief', 'due_date',
             'design', 'design_detail', 'submission_note', 'review_note',
             'assigned_at', 'submitted_at', 'reviewed_at',

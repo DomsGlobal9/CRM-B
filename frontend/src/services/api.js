@@ -654,6 +654,14 @@ export const api = {
     return res.json();
   },
 
+  /** The staff the signed-in person may hand work to, decided on the server
+   *  by the Owner > Designer > Master > worker hierarchy: {id, name, role}. */
+  async getAssignableStaff() {
+    const res = await guardedFetch(`${BASE_URL}/orders/assignable-staff/`, { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Could not load the staff you can assign');
+    return res.json();
+  },
+
   /** Owner of a staff-less boutique completes every remaining stage at once. */
   async completeAllStages(orderId) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/complete-all/`, {

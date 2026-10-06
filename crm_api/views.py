@@ -14,9 +14,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from core.permissions import (
-    OwnerOnly, OwnNotifications, RolePermission, SUPERVISOR_ROLES, visible_customers, visible_orders,
+    ModuleAccess, OwnerOnly, OwnNotifications, RolePermission, SUPERVISOR_ROLES,
+    visible_customers, visible_orders,
 )
-from core.roles import DESIGNER, OWNER, resolve_user_role
+from core.roles import DESIGNER, MASTER, OWNER, assigns_work, can_assign, resolve_user_role
 from core.validators import (
     MAX_NOTE, MAX_REASON, validate_amount, validate_email_address, validate_image_upload,
     validate_http_url, validate_image_uploads, validate_mobile, validate_not_past, validate_phone, validate_text,
@@ -1128,9 +1129,58 @@ class OrderViewSet(viewsets.ModelViewSet):
                 )
         return Response(OrderStageSerializer(stage).data)
 
-    @action(detail=True, methods=['POST'], url_path='assign-stage')
+    class _AssignsWork(ModuleAccess):
+        """Anyone who may hand work on: Owner, Designer, Master.
+
+        Its own class rather than a RolePermission entry, because RolePermission
+        refuses a Designer outright on every order endpoint and that refusal is
+        right everywhere except here. Whether this particular assignee is
+        within reach is the view's question, asked of core.roles.can_assign.
+        """
+        message = "Your role does not permit assigning work."
+
+        def has_role_permission(self, request, view):
+            return assigns_work(resolve_user_role(request.user))
+
+    def _order_for_assignment(self):
+        """The order an assignment acts on, as far as this caller may see.
+
+        Owner and Master read the order book through get_object, exactly as
+        before. A Designer has no order-book access at all (visible_orders
+        gives them nothing), and does not get it here either: they reach only
+        an order carrying a garment whose design work is theirs -- the work
+        they are handing on -- and never through the list endpoint.
+        """
+        if resolve_user_role(self.request.user) != DESIGNER:
+            return self.get_object()
+        from django.http import Http404
+        profile = getattr(self.request.user, 'designer_profile', None)
+        order = (Order.objects
+                 .filter(pk=self.kwargs.get('pk'),
+                         garment_jobs__design_assignment__designer=profile)
+                 .distinct().first()) if profile is not None else None
+        if order is None:
+            raise Http404
+        return order
+
+    @action(detail=False, methods=['GET'], url_path='assignable-staff',
+            permission_classes=[_AssignsWork])
+    def assignable_staff(self, request):
+        """The roster this caller may hand work to: id, name and role only.
+
+        Filtered by core.roles.can_assign on the server, so a Master is never
+        offered a Designer and the dropdown cannot disagree with the endpoint
+        that will refuse it. No contact details, no pay -- a Designer reaching
+        this is not being given the staff list.
+        """
+        role = resolve_user_role(request.user)
+        rows = Tailor.objects.order_by('name').values('id', 'name', 'role')
+        return Response([row for row in rows if can_assign(role, row['role'])])
+
+    @action(detail=True, methods=['POST'], url_path='assign-stage',
+            permission_classes=[_AssignsWork])
     def assign_stage(self, request, pk=None):
-        order = self.get_object()
+        order = self._order_for_assignment()
         stage_key = request.data.get('stage_key')
         tailor_id = request.data.get('tailor_id')
 
@@ -1141,6 +1191,15 @@ class OrderViewSet(viewsets.ModelViewSet):
             stage = stage_row(order, stage_key, request.data.get('garment_job'))
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
+
+        assigner = resolve_user_role(request.user)
+        # A Master hands on only their own work: a stage that is theirs, or
+        # nobody's yet. Someone else's stage stays with whoever gave it out.
+        if assigner == MASTER:
+            profile = getattr(request.user, 'tailor_profile', None)
+            if stage.assigned_to_id not in (None, getattr(profile, 'id', None)):
+                return Response({'error': 'This work is assigned to someone else.'},
+                                status=status.HTTP_403_FORBIDDEN)
 
         if tailor_id in (None, '', 'null'):
             stage.assigned_to = None
@@ -1156,6 +1215,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         tailor = Tailor.objects.filter(id=tailor_id).first()
         if not tailor:
             return Response({'error': 'Staff member not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not can_assign(assigner, tailor.role):
+            return Response(
+                {'error': f"A {assigner} cannot assign work to a {tailor.role}."},
+                status=status.HTTP_403_FORBIDDEN)
 
         config, _ = BoutiqueSettings.objects.get_or_create(id=1)
         stage_conf = next((s for s in config.workflow_config if s['key'] == stage_key), {})
@@ -1237,10 +1301,6 @@ class OrderViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    class _SendToWorkshop(RolePermission):
-        """Owner and Master, the same pair that assigns a stage."""
-        SUPERVISOR_ORDER_ACTIONS = RolePermission.SUPERVISOR_ORDER_ACTIONS | {'send_to_workshop'}
-
     def _alteration_body(self, request):
         """The intake form, checked: what needs changing, the charge, what
         was paid at the counter, and when it is promised back."""
@@ -1298,7 +1358,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['POST'], url_path='send-to-workshop',
-            permission_classes=[_SendToWorkshop])
+            permission_classes=[_AssignsWork])
     def send_to_workshop(self, request, pk=None):
         """One button for the owner: name who does the work, then start it.
 
@@ -1308,7 +1368,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         the workroom just takes the new assignments (started_stage null).
         """
         from core.modules import PRODUCTION_ROLES
-        order = self.get_object()
+        order = self._order_for_assignment()
+        assigner = resolve_user_role(request.user)
 
         def pick(field, roles, label):
             raw = request.data.get(field)
@@ -1320,11 +1381,15 @@ class OrderViewSet(viewsets.ModelViewSet):
                 raise ValueError(f'That {label} is not on this boutique\'s staff list.')
             if staff.role not in roles:
                 raise ValueError(f'{staff.name} is a {staff.role} and cannot be the {label} on this order.')
+            if not can_assign(assigner, staff.role):
+                raise PermissionError(f'A {assigner} cannot assign work to a {staff.role}.')
             return staff
 
         try:
             master = pick('master', {'Master'}, 'master in charge')
             tailor = pick('tailor', set(PRODUCTION_ROLES) - {'Master'}, 'stitching tailor')
+        except PermissionError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -1360,13 +1425,19 @@ class OrderViewSet(viewsets.ModelViewSet):
                     recipient_email=order.master.user.email if order.master.user else None)
 
         started = None
+        # Naming who does the work is assignment; opening the first stage is
+        # running the workroom, and stays with the roles that always could.
+        # A Designer hands the order over -- the Master starts it -- so the
+        # stage rules, which have never let a Designer move a production
+        # stage, are not loosened for them here.
+        starts_workroom = assigner == OWNER or assigner in SUPERVISOR_ROLES
         try:
-            created = order.stages.filter(stage_key='created').first()
+            created = order.stages.filter(stage_key='created').first() if starts_workroom else None
             if created and created.status != 'COMPLETED':
                 OrderService.transition_order_stage(
                     order=order, stage_key='created', new_status='COMPLETED', user=request.user)
             nxt = (order.stages.exclude(stage_key='created').filter(status='NOT_STARTED')
-                   .order_by('sequence', 'id').first())
+                   .order_by('sequence', 'id').first()) if starts_workroom else None
             # Only when nothing after 'created' has begun: a second send is not a restart.
             if nxt and not order.stages.exclude(stage_key='created').exclude(
                     status__in=('NOT_STARTED', 'SKIPPED')).exists():

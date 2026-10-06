@@ -2106,7 +2106,7 @@ class FlowTests(WorkflowTestBase):
         order = self.make_order(flow="maggam")
         stage = next(s for s in BoutiqueSettings.objects.get(id=1).workflow_config
                      if s["key"] == "maggam_handwork")
-        self.assertEqual(stage["roles"], ["Owner", "Master", "Maggam Karigar"])
+        self.assertEqual(stage["roles"], ["Owner", "Master", "Maggam Karigar", "Karigar"])
         self.reach(order, "maggam_work")
         with self.assertRaises((TransitionError, ValueError)):
             self.step(order, "maggam_handwork", status="IN_PROGRESS")

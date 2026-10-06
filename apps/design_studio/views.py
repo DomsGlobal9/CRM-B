@@ -17,7 +17,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.activities.models import UniversalActivity
-from core.roles import DESIGNER, OWNER, resolve_user_role
+from core.roles import DESIGNER, OWNER, can_assign, resolve_user_role
 from core.validators import (
     MAX_NOTE, validate_image_upload, validate_image_uploads, validate_text,
 )
@@ -1064,12 +1064,30 @@ class DesignAssignmentViewSet(viewsets.ModelViewSet):
         return DesignAssignmentSerializer
 
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        role = resolve_user_role(request.user)
+        # Validated with the full serializer whoever is asking: the Designer's
+        # own one is read-only by design, and it is the Designer's REPLY that
+        # has to stay free of the customer, not the input.
+        serializer = DesignAssignmentSerializer(
+            data=request.data, context=self.get_serializer_context())
         serializer.is_valid(raise_exception=True)
         job = serializer.validated_data['garment_job']
         designer = serializer.validated_data['designer']
 
+        if not can_assign(role, DESIGNER):
+            return Response({'detail': f'A {role} cannot assign design work to a Designer.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
         existing = DesignAssignment.objects.filter(garment_job=job).first()
+        if role == DESIGNER:
+            # Handing on your OWN work. Taking a garment another designer is
+            # already working on is not handing down; it is taking over.
+            profile = getattr(request.user, 'designer_profile', None)
+            if profile is None or (existing is not None and existing.designer_id != profile.id):
+                return Response(
+                    {'detail': "This garment's design work belongs to another designer."},
+                    status=status.HTTP_403_FORBIDDEN)
+
         if existing is not None:
             if existing.status == DesignAssignment.Status.APPROVED:
                 return Response(

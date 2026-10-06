@@ -170,6 +170,24 @@ class LoginSlugHintTests(TransactionTestCase):
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual(res.json()['tenant_id'], 'hint_royal')
 
+    def test_the_sign_in_screen_greets_the_owner_by_first_name_only(self):
+        with schema_context('hint_sanjeeb'):
+            User.objects.create_user(username='owner-sanjeeb@example.test',
+                                     email='owner-sanjeeb@example.test',
+                                     password='owner-pass-12345',
+                                     first_name='Sanjeeb', last_name='Kumar')
+        connection.set_schema_to_public()
+
+        body = APIClient().get('/api/auth/boutique/sanjeebboutique/').json()
+        connection.set_schema_to_public()
+
+        self.assertEqual(body['owner_first_name'], 'Sanjeeb')
+        self.assertEqual(body['name'], 'Sanjeeb Boutique')
+        # The endpoint answers anyone who knows a slug: no surname, no address.
+        raw = str(body)
+        self.assertNotIn('Kumar', raw)
+        self.assertNotIn('owner-sanjeeb@example.test', raw)
+
     def test_tenant_selection_is_deterministic_without_a_slug(self):
         # The ambiguity this replaced: `others` had no ordering, so which
         # boutique an address in two of them resolved to was row order.
