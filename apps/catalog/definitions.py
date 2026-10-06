@@ -253,10 +253,13 @@ TEMPLATES = [
                     when=neq('border', 'with_border')),
             ],
             'style': [
+                # Fall and Pico are ticked on their own; the old 'Fall + Pico'
+                # said the same thing twice. The rules below still read it, so
+                # a saree booked before this keeps both services.
                 field('services', 'Services Required', 'multiselect', required=True, options=[
-                    'Stitching', 'Fall', 'Pico', ('fall_pico', 'Fall + Pico'),
+                    'Stitching', 'Fall', 'Pico',
                     'Tassel Work', 'Saree Finishing', ('polishing', 'Polishing / Steam')]),
-                field('border', 'Border', 'select', options=[
+                field('border', 'Border', 'select', default='without_border', options=[
                     ('with_border', 'With Border'), ('without_border', 'Without Border')],
                       when=one_of('services', ['stitching', 'saree_finishing'])),
                 field('border_source', 'Border From', 'select', options=[
@@ -267,7 +270,7 @@ TEMPLATES = [
                       when=eq('border_source', 'from_customer')),
                 field('border_image', 'Border Photo', 'file',
                       when=eq('border_source', 'from_customer')),
-                field('backing', 'Backing', 'select', options=[
+                field('backing', 'Backing', 'select', default='without_backing', options=[
                     ('with_backing', 'With Backing'), ('without_backing', 'Without Backing')],
                       when=one_of('services', ['stitching', 'saree_finishing'])),
                 # `backing` is pruned the moment it hides, so these need only
@@ -1866,6 +1869,12 @@ def build(definition):
                 fields = fields + HAND_WORK_MATERIALS
         if key == 'measurements' and definition['key'] not in NO_HAND_WORK:
             fields = fields + COMMON_PATTERN
+        # Every dropdown opens on a real answer rather than a blank "Select":
+        # its first option, unless the question names its own default. The
+        # counter changes what does not apply; nothing is left unanswered.
+        for one in fields:
+            if one['field_type'] == 'select' and one['default'] is None and one['options']:
+                one['default'] = one['options'][0][0]
         sections.append({
             'key': key,
             'title': title,

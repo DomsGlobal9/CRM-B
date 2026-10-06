@@ -6,7 +6,6 @@ import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { cleanAmount } from '../../services/validate';
 import { OTHER_PREFIX, OTHER_MAX_LENGTH, isTypedOther, typedOtherText } from '../../services/templates';
 
-const NO_OTHER = new Set(['hand_work', 'urgency']);
 import { CameraButton } from '../../components/ui/Atelier';
 import { UNITS, purchaseError } from './materials';
 import { PurchaseDetails } from './GarmentPurchases';
@@ -98,8 +97,12 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       break;
 
     case 'select': {
-      const other = !NO_OTHER.has(field.key) && !field.options.some((o) => o.value === 'other');
-      const typed = other && isTypedOther(value);
+      // A style choice is picked from its list: nothing to type in, nothing to
+      // buy -- what the options do not cover goes in the special instructions,
+      // and material is bought from the fabric and trim pickers. A value typed
+      // before this (or on an older order) still shows, and still edits.
+      const other = isTypedOther(value);
+      const typed = other;
       const buying = typed && Boolean(purchase);
       const pick = (chosen) => {
         if (chosen === BUY_OPTION) {
@@ -114,7 +117,9 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
         <>
           <select {...common} value={buying ? BUY_OPTION : typed ? OTHER_PREFIX : (value ?? '')}
             onChange={(e) => pick(e.target.value)}>
-            <option value="">Select</option>
+            {/* A question that answers itself (hand work: "Without Work") needs
+                no blank: its default IS the answer until someone says otherwise. */}
+            {field.default == null && <option value="">Select</option>}
             {field.options.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}

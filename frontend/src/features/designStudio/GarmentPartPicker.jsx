@@ -737,6 +737,9 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
       return [{ key: 'overall', label: 'Overall Design' }];
     }
     const allParts = [...declared, ...extra];
+    // The customer's own photos and links are filed under the part they show
+    // (pallu, border, waistband...), so every part gets a tab, not just the overall.
+    if (ownOnly) return allParts;
     const overallParts = allParts.filter(p => p.key.startsWith('overall') || p.label.toLowerCase().includes('overall'));
     return overallParts.length > 0 ? overallParts : (allParts.length > 0 ? [allParts[0]] : [{ key: 'overall', label: 'Overall Design' }]);
   }, [template, imagesByPart, ownOnly, isFabric, accessoriesOnly, effectiveTaxonomy, garmentKey, garmentsByKey]);
@@ -1027,7 +1030,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
             activeKey={openPart || tabParts[0]?.key}
             onSelectActiveKey={(key) => { setPartTab(key); setViewIndex(null); }}
           />
-        ) : isFabric ? (
+        ) : (isFabric || (ownOnly && tabParts.length > 1)) ? (
           <PartTabStrip parts={tabParts} active={openPart}
                         allLabel={null}
                         onChange={(part) => { setPartTab(part); setViewIndex(null); }} />
@@ -1189,15 +1192,16 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
         </div>
       )}
 
-      {!loading && ownOnly && !isFabric && !accessoriesOnly && openPart && allRefs.length > 0 && (
+      {/* This tab's own references only: a body photo stays under Body. */}
+      {!loading && ownOnly && !isFabric && !accessoriesOnly && openPart && ownRefs.length > 0 && (
         <>
         <div style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
                       color: 'var(--text-secondary)', margin: '4px 0 10px' }}>
-          Kept on this {garmentName || 'garment'} · {allRefs.length} reference{allRefs.length === 1 ? '' : 's'}
+          Kept on {openPartLabel} · {ownRefs.length} reference{ownRefs.length === 1 ? '' : 's'}
         </div>
         <div style={{ display: 'grid', gap: '14px', marginBottom: '16px',
                       gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
-          {allRefs.map((ref) => (
+          {allRefs.filter((ref) => ref.part === openPart).map((ref) => (
             <div key={`${ref.part}:${ref.id}`} style={{ position: 'relative' }}>
               <PickCard
                 src={ref.image_url}

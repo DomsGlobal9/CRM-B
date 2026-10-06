@@ -1686,9 +1686,8 @@ function App() {
   
   const [addingGarmentKey, setAddingGarmentKey] = useState(null);
   const [activeGarmentKey, setActiveGarmentKey] = useState(null);
-  // The Garments step takes one garment at a time, in three parts: its
-  // details, its design, its fabric. `garmentsDone` are the ones moved past.
-  const [garmentPhase, setGarmentPhase] = useState('details');
+  // The Garments step takes one garment at a time: its details, then its
+  // design and fabric under them. `garmentsDone` are the ones moved past.
   const [garmentsDone, setGarmentsDone] = useState([]);
 
   useEffect(() => {
@@ -2125,7 +2124,6 @@ function App() {
             : steps.findIndex(st => st.key === 'review') + 1;
     let step = Math.min(named || legacy, steps.length);
     setActiveGarmentKey(wizard_cursor?.garment || null);
-    setGarmentPhase(wizard_cursor?.phase || 'details');
     setGarmentsDone(wizard_cursor?.done || []);
     
     if (kind !== 'alter' && !(draft.payload?.garments || []).length) step = 1;
@@ -2147,7 +2145,7 @@ function App() {
       ...serialiseWizard(),
       wizard_cursor: {
         step_key: wizardSteps[current_step - 1]?.key || null,
-        garment: activeGarmentKey, phase: garmentPhase, done: garmentsDone, ...cursor,
+        garment: activeGarmentKey, done: garmentsDone, ...cursor,
       },
     };
     setDraftSaveState('saving');
@@ -2914,7 +2912,6 @@ function App() {
     setGarmentJobs([]);
     setGarmentErrors({});
     setActiveGarmentKey(null);
-    setGarmentPhase('details');
     setGarmentsDone([]);
     setQuotePrices({ packaging: 500, discount: 0 });
     setAdvancePaymentAmount(0);
@@ -3010,9 +3007,9 @@ function App() {
   const wizardStepKey = wizardSteps[currentStep - 1]?.key;
   /** The garment being filled in on the Garments step. */
   const openGarment = garmentJobs.find(job => job.key === activeGarmentKey) || garmentJobs[0] || null;
-  const openGarmentPhase = (key, phase) => {
+  /** Open a garment's form from its top. */
+  const openGarmentAt = (key) => {
     setActiveGarmentKey(key);
-    setGarmentPhase(phase);
     window.scrollTo(0, 0);
   };
   /** Moving off a garment's details checks that garment's required questions. */
@@ -3027,18 +3024,15 @@ function App() {
       .some(f => f.field_type !== 'file' && isVisible(f, job.values || {})));
   const handleBack = () => {
     if (wizardStepKey === 'type' && openGarment) {
-      if (garmentPhase === 'fabric') { openGarmentPhase(openGarment.key, 'design'); return; }
-      if (garmentPhase === 'design') { openGarmentPhase(openGarment.key, 'details'); return; }
       const at = garmentJobs.findIndex(job => job.key === openGarment.key);
-      if (at > 0) { openGarmentPhase(garmentJobs[at - 1].key, 'fabric'); return; }
+      if (at > 0) { openGarmentAt(garmentJobs[at - 1].key); return; }
     }
     if (currentStep <= 1) { setView('order-selector'); return; }
     const previous = wizardSteps[currentStep - 2];
     const backTo = previous?.key === 'measure' && !needsMeasurements() && currentStep >= 3 ? wizardSteps[currentStep - 3] : previous;
-    // Back into the garments lands on the last one's fabric, where Next left it.
+    // Back into the garments lands on the last one, where Next left it.
     if (backTo?.key === 'type' && garmentJobs.length) {
       setActiveGarmentKey(garmentJobs[garmentJobs.length - 1].key);
-      setGarmentPhase('fabric');
     }
     // Measurements is skipped both ways when there is nothing to measure.
     if (previous?.key === 'measure' && !needsMeasurements() && currentStep >= 3) {
@@ -3189,37 +3183,25 @@ function App() {
       } else if (wizardStepKey === 'type') {
         if (garmentJobs.length === 0 || !openGarment) { alert('Add at least one garment to this order.'); return; }
         const key = openGarment.key;
-        if (garmentPhase === 'details') {
-          if (!garmentDetailsOk()) return;
-          openGarmentPhase(key, 'design');
-          await persistDraft({ cursor: { garment: key, phase: 'design' } });
-          return;
-        }
-        if (garmentPhase === 'design') {
-          if (serviceType === 'design' && !designRequest.designer) { alert('Pick the designer.'); return; }
-          openGarmentPhase(key, 'fabric');
-          await persistDraft({ cursor: { garment: key, phase: 'fabric' } });
-          return;
-        }
-        // Fabric done: on to the next garment not yet moved past, if any.
+        if (!garmentDetailsOk()) return;
+        // This garment done: on to the next one not yet moved past, if any.
         const done = [...new Set([...garmentsDone, key])];
         setGarmentsDone(done);
         const at = garmentJobs.findIndex(job => job.key === key);
         const next = [...garmentJobs.slice(at + 1), ...garmentJobs.slice(0, at)].find(job => !done.includes(job.key));
         if (next) {
-          openGarmentPhase(next.key, 'details');
-          await persistDraft({ cursor: { garment: next.key, phase: 'details', done } });
+          openGarmentAt(next.key);
+          await persistDraft({ cursor: { garment: next.key, done } });
           return;
         }
         // Every garment once more, in case one was reached by its circle.
         if (!validateGarments({ sections: ['basic', 'style'] })) {
-          setGarmentPhase('details');
           alert('Say what each garment needs \u2014 see the highlighted fields.');
           return;
         }
         if (serviceType === 'design' && !designRequest.designer) {
-          setGarmentPhase('design');
           alert('Pick the designer.');
+          document.getElementById('wz-designer')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return;
         }
         const target = stepAfterGarments();
@@ -7586,16 +7568,8 @@ function App() {
             {wizardStepKey === 'type' && (
               <>
                 <div className="page-title-group">
-                  {garmentPhase === 'design' ? (<>
-                    <h1 className="page-title">{t('wizard.designTitle', 'The look')}{openGarment ? ` · ${openGarment.template.name}` : ''}</h1>
-                    <p className="page-subtitle">{t('wizard.designSubtitle', 'A look from our catalogue, or a photo the customer brought. Skip for a plain garment.')}</p>
-                  </>) : garmentPhase === 'fabric' ? (<>
-                    <h1 className="page-title">{t('wizard.fabricTitle', 'Fabric')}{openGarment ? ` · ${openGarment.template.name}` : ''}</h1>
-                    <p className="page-subtitle">{t('wizard.fabricSubtitle', 'From our stock, or what the customer brings. Skip if it is decided later.')}</p>
-                  </>) : (<>
-                    <h1 className="page-title">{t('wizard.typeTitle', 'What are we making?')}</h1>
-                    <p className="page-subtitle">{t('wizard.typeSubtitle', 'Add each garment and answer only what it asks.')}</p>
-                  </>)}
+                  <h1 className="page-title">{t('wizard.typeTitle', 'What are we making?')}</h1>
+                  <p className="page-subtitle">{t('wizard.garmentFlowSubtitle', 'Each garment in turn: what it needs, then its design and fabric below.')}</p>
                 </div>
 
                 <div className="content-card wz-card">
@@ -7645,7 +7619,7 @@ function App() {
                             const complete = garmentsDone.includes(job.key) && filled(job) && !isActive;
                             const missing = !filled(job) && Boolean(garmentErrors[job.key]);
                             // One garment shows at a time: a circle opens that one's details.
-                            const goTo = () => openGarmentPhase(job.key, 'details');
+                            const goTo = () => openGarmentAt(job.key);
                             return (
                               <React.Fragment key={job.key}>
                                 <div className="stepper-step stepper-step--link" role="button" tabIndex={0}
@@ -7684,42 +7658,7 @@ function App() {
                       </div>
                     );
                   })()}
-                  {/* This garment's three parts. Leaving Details checks its
-                      required questions, as Next does; Design and Fabric may
-                      be skipped. */}
-                  {openGarment && (
-                    <div className="at-seg" role="group" aria-label={t('wizard.garmentParts', 'Garment parts')} style={{ margin: '16px 0 4px' }}>
-                      {[['details', t('wizard.partDetails', '1 · Details')], ['design', t('wizard.partDesign', '2 · Design')], ['fabric', t('wizard.partFabric', '3 · Fabric')]].map(([phase, label]) => (
-                        <button key={phase} type="button" aria-pressed={garmentPhase === phase}
-                                onClick={() => {
-                                  if (phase === garmentPhase) return;
-                                  if (garmentPhase === 'details' && !garmentDetailsOk()) return;
-                                  openGarmentPhase(openGarment.key, phase);
-                                }}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-
-                  {garmentJobs.length > 0 && (
-                    <details className="wz-more">
-                      <summary><Plus size={14} /> {t('wizard.addAnotherGarment', 'Do you need to add another garment?')}</summary>
-                      <select className="form-control" value="" disabled={!!addingGarmentKey} style={{ marginTop: '8px' }}
-                              onChange={(e) => {
-                                if (!e.target.value) return;
-                                e.target.closest('details').open = false;
-                                addGarment(e.target.value);
-                              }}>
-                        <option value="">{addingGarmentKey ? t('common.loading', 'Loading…') : t('wizard.selectGarment', 'Select Garment')}</option>
-                        {garmentsForGender(garmentTemplates, customerForm.gender)
-                          .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key))
-                          .map((tpl) => <option key={tpl.key} value={tpl.key}>{tpl.name}</option>)}
-                      </select>
-                    </details>
-                  )}
-
-                  {garmentPhase === 'details' && garmentJobs.map((job, idx) => {
+                  {garmentJobs.map((job, idx) => {
                     if (job.key !== openGarment?.key) return null;
                     const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
                     const upFront = (f) => f.key !== 'delivery_date' && (f.is_required || Boolean(f.visible_when));
@@ -7736,6 +7675,8 @@ function App() {
                           </button>
                         </div>
 
+                        <details open className="wz-sec wz-sec--first">
+                          <summary className="wz-sec-head"><span>{t('wizard.detailsTitle', 'Details')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
                         {sections.map((sectionKey) => (
                           <div key={sectionKey} className="wz-garment-section">
                             <TemplateForm template={job.template} section={sectionKey} values={job.values}
@@ -7758,26 +7699,250 @@ function App() {
                                         errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'special_instructions'}
                                         onChange={(values) => updateGarmentValues(job.key, values)} />
                         </div>
+                        </details>
 
-                      </div>
-                    );
-                  })}
+                        {/* THE LOOK: part of this garment's own card, under its details. */}
+                        <details open id={`wz-design-${job.key}`} className="wz-sec">
+                          <summary className="wz-sec-head"><span>{t('wizard.designTitle', 'Choose design')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
 
-                </div>
-              </>
-            )}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
+                          <button
+                            type="button"
+                            className={`wz-service ${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'wz-choice--on' : '' }`}
+                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'catalogue' }))}
+                            style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
+                              borderRadius: 'var(--radius-lg, 12px)',
+                              border: partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                              background: 'var(--surface-color, #ffffff)',
+                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
+                            }}
+                          >
+                            <IconTile icon={Sparkles} tone={partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'green' : 'neutral'} size={44} iconSize={20} />
+                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetCatalogue', 'Pick a look from our catalogue')}</span>
+                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Browse and choose design looks directly from your boutique catalogue.</span>
+                            {partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? (
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>✓ Design selected (Click to view/change)</span>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to open catalogue →</span>
+                            )}
+                          </button>
 
-            {/* FABRIC: from stock, or what the customer brought -- the open
-                garment's third part on the Garments step. */}
-            {wizardStepKey === 'type' && garmentPhase === 'fabric' && (
-              <>
-                <div className="content-card wz-card">
-                  {garmentJobs.map((job, idx) => job.key !== openGarment?.key ? null : (
-                      <div key={job.key} className="wz-garment">
-                        <div className="wz-garment-head">
-                          <span className="wz-garment-num">{idx + 1}</span>
-                          <div><div className="wz-garment-name">{job.template.name}</div></div>
+                          <button
+                            type="button"
+                            className={`wz-service ${ partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'wz-choice--on' : '' }`}
+                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'references' }))}
+                            style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
+                              borderRadius: 'var(--radius-lg, 12px)',
+                              border: partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                              background: 'var(--surface-color, #ffffff)',
+                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
+                            }}
+                          >
+                            <IconTile icon={Camera} tone={partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'amber' : 'neutral'} size={44} iconSize={20} />
+                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetPhotos', 'Photos & references from customer')}</span>
+                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Upload customer photos or add web links as reference for this garment.</span>
+                            {partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? (
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>
+                                ✓ {Object.values(partReferences[job.key]).flat().length} reference(s) added
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to add photos or links →</span>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="wz-service"
+                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'customer_designs' }))}
+                            style={{
+                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
+                              borderRadius: 'var(--radius-lg, 12px)',
+                              border: '1px solid var(--border-color)',
+                              background: 'var(--surface-color, #ffffff)',
+                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
+                            }}
+                          >
+                            <IconTile icon={PenTool} tone="blue" size={44} iconSize={20} />
+                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetCustomerDesigns', 'Customized Designs')}</span>
+                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Capture paper sketches, custom drawn notes, or customer descriptions.</span>
+                            <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to add sketch / notes →</span>
+                          </button>
                         </div>
+
+                        {/* Everything picked for this garment, split by where it
+                            came from -- our catalogue, or the customer -- each
+                            picture named by the part it was kept on. */}
+                        {(() => {
+                          const declared = job.template?.design_parts || [];
+                          const order = new Map(declared.map((p, i) => [p.key, i]));
+                          const label = (k) => declared.find(p => p.key === k)?.label || k.replace(/_/g, ' ');
+                          const byPart = ([a], [b]) => (order.get(a) ?? 99) - (order.get(b) ?? 99);
+                          const ours = Object.entries(job.design?.parts || {}).sort(byPart)
+                            .filter(([, img]) => img?.image_url)
+                            .map(([k, img]) => ({ key: `pick:${k}`, src: img.image_url, part: label(k), sub: img.design_title || '' }));
+                          const theirs = Object.entries(job.design?.part_refs || {}).sort(byPart)
+                            .flatMap(([k, list]) => (list || []).filter(r => r?.image_url).map(r => ({
+                              key: `ref:${k}:${r.id}`, src: r.image_url, part: label(k),
+                              sub: r.source === 'customer_link' ? t('wizard.customerLink', 'Link') : (r.design_title || t('wizard.customerPhoto', 'Photo')),
+                            })));
+                          if (!ours.length && !theirs.length) return null;
+                          const group = (title, items) => items.length > 0 && (
+                            <div style={{ marginTop: '12px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>{title} <span className="od-hint">· {items.length}</span></div>
+                              <div style={{ display: 'grid', gap: '10px', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>
+                                {items.map(it => (
+                                  <a key={it.key} href={resolveMediaUrl(it.src)} target="_blank" rel="noopener noreferrer"
+                                     style={{ textDecoration: 'none', color: 'inherit', border: '1px solid var(--border-color)',
+                                              borderRadius: '10px', overflow: 'hidden', background: 'var(--surface-color)' }}>
+                                    <img src={resolveMediaUrl(it.src)} alt={it.part} loading="lazy"
+                                         style={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }} />
+                                    <div style={{ padding: '5px 7px' }}>
+                                      <div style={{ fontSize: '11.5px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.part}</div>
+                                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.sub}</div>
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                          return (
+                            <div className="wz-garment-section">
+                              <div className="ui-eyebrow">{t('wizard.chosenForGarment', 'Chosen for this {name}', { name: job.template.name })}</div>
+                              {group(t('wizard.fromOurCatalogue', 'From our catalogue'), ours)}
+                              {group(t('wizard.fromCustomer', 'Uploaded by the customer'), theirs)}
+                            </div>
+                          );
+                        })()}
+
+                        {activeDesignTab[job.key] === 'catalogue' && (
+                          <FormModal
+                            icon={Sparkles}
+                            tone="green"
+                            title={`Catalogue Looks — ${job.template?.name || job.key}`}
+                            subtitle="Browse and choose design looks directly from your boutique catalogue."
+                            width="960px"
+                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                            footer={
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                style={{ padding: '8px 24px', fontSize: '13px' }}
+                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                              >
+                                Done
+                              </button>
+                            }
+                          >
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentPartPicker
+                                garmentKey={job.template?.key || job.key}
+                                garmentName={job.template?.name || job.key}
+                                selection={partSelection[job.key] || {}}
+                                onChange={(next) => handlePartSelection(job.key, next)} />
+                            </Suspense>
+                          </FormModal>
+                        )}
+
+                        {activeDesignTab[job.key] === 'references' && (
+                          <FormModal
+                            icon={Camera}
+                            tone="amber"
+                            title={`Customer References — ${job.template?.name || job.key}`}
+                            subtitle="Upload customer photos or add web links as reference for this garment."
+                            width="920px"
+                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                            footer={
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                style={{ padding: '8px 24px', fontSize: '13px' }}
+                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                              >
+                                Done
+                              </button>
+                            }
+                          >
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentPartPicker ownOnly
+                                                 garmentKey={job.template?.key || job.key}
+                                                 garmentName={job.template?.name || job.key}
+                                                 references={partReferences[job.key] || {}}
+                                                 onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                            </Suspense>
+                          </FormModal>
+                        )}
+
+                        {activeDesignTab[job.key] === 'customer_designs' && (
+                          <FormModal
+                            icon={PenTool}
+                            tone="blue"
+                            title={`Customized Designs — ${job.template?.name || job.key}`}
+                            subtitle="Capture paper sketches, custom drawn notes, or customer descriptions."
+                            width="920px"
+                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                            footer={
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                style={{ padding: '8px 24px', fontSize: '13px' }}
+                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
+                              >
+                                Done
+                              </button>
+                            }
+                          >
+                            <Suspense fallback={<ScreenLoading />}>
+                              <CustomerDesigns
+                                customerId={customerId}
+                                customers={allCustomers}
+                                orders={ordersList}
+                                garmentTemplates={garmentTemplates}
+                                templateId={job.template?.id}
+                                garmentName={job.template?.name}
+                                newCustomer={customerForm}
+                                onCustomerCreated={(row) => {
+                                  setCustomerId(row.id);
+                                  setAllCustomers((prev) => [row, ...prev]);
+                                }}
+                              />
+                            </Suspense>
+                          </FormModal>
+                        )}
+
+
+                  {serviceType === 'design' && (
+                    <div className="wz-garment" style={{ marginTop: '18px' }}>
+                      <div className="wz-garment-head"><div className="wz-garment-name">{t('wizard.designerTitle', 'Who designs it?')}</div></div>
+                      {designers.length === 0 ? (
+                        <div className="od-empty" style={{ textAlign: 'left' }}>
+                          {t('wizard.noDesigners', 'No designer on the team yet. Add one under Team, or go back and pick a look from the catalogue instead.')}
+                        </div>
+                      ) : (
+                        <div className="form-group">
+                          <label className="form-label" htmlFor="wz-designer">{t('wizard.designer', 'Designer')} <span className="required">*</span></label>
+                          <select id="wz-designer" className="form-control" value={designRequest.designer}
+                                  onChange={(e) => setDesignRequest({ ...designRequest, designer: e.target.value })}>
+                            <option value="">{t('wizard.pickDesigner', 'Pick a designer')}</option>
+                            {designers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.specialisation ? ` · ${d.specialisation}` : ''}</option>)}
+                          </select>
+                        </div>
+                      )}
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
+                        <VoiceTextarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
+                                  onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
+                                  placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
+                      </div>
+                    </div>
+                  )}
+
+                        </details>
+
+                        {/* FABRIC: part of this garment's own card, under its details. */}
+                        <details open id={`wz-fabric-${job.key}`} className="wz-sec">
+                          <summary className="wz-sec-head"><span>{t('wizard.fabricTitle', 'Choose fabric')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
 
                         {/* Where the cloth comes from -- the template's own
                             fabric_source field, so it travels with the garment. */}
@@ -7868,213 +8033,28 @@ function App() {
                             </Suspense>
                           </details>
                         </details>
+                        </details>
+
                       </div>
-                  ))}
-                </div>
-              </>
-            )}
+                    );
+                  })}
 
-            {/* DESIGN: a look from the catalogue or a photo the customer
-                brought -- the open garment's second part on the Garments step;
-                for a design order, the designer and the brief. */}
-            {wizardStepKey === 'type' && garmentPhase === 'design' && (
-              <>
-                <div className="content-card wz-card">
-                  {garmentJobs.map((job, idx) => job.key !== openGarment?.key ? null : (
-                      <div key={job.key} className="wz-garment">
-                        <div className="wz-garment-head">
-                          <span className="wz-garment-num">{idx + 1}</span>
-                          <div><div className="wz-garment-name">{job.template.name}</div></div>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
-                          <button
-                            type="button"
-                            className={`wz-service ${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'wz-choice--on' : '' }`}
-                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'catalogue' }))}
-                            style={{
-                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                              background: 'var(--surface-color, #ffffff)',
-                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
-                            }}
-                          >
-                            <IconTile icon={Sparkles} tone={partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'green' : 'neutral'} size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetCatalogue', 'Pick a look from our catalogue')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Browse and choose design looks directly from your boutique catalogue.</span>
-                            {partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? (
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>✓ Design selected (Click to view/change)</span>
-                            ) : (
-                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to open catalogue →</span>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`wz-service ${ partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'wz-choice--on' : '' }`}
-                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'references' }))}
-                            style={{
-                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                              background: 'var(--surface-color, #ffffff)',
-                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
-                            }}
-                          >
-                            <IconTile icon={Camera} tone={partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'amber' : 'neutral'} size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetPhotos', 'Photos & references from customer')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Upload customer photos or add web links as reference for this garment.</span>
-                            {partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? (
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>
-                                ✓ {Object.values(partReferences[job.key]).flat().length} reference(s) added
-                              </span>
-                            ) : (
-                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to add photos or links →</span>
-                            )}
-                          </button>
-
-                          <button
-                            type="button"
-                            className="wz-service"
-                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'customer_designs' }))}
-                            style={{
-                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: '1px solid var(--border-color)',
-                              background: 'var(--surface-color, #ffffff)',
-                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
-                            }}
-                          >
-                            <IconTile icon={PenTool} tone="blue" size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetCustomerDesigns', 'Customer Designs')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Capture paper sketches, custom drawn notes, or customer descriptions.</span>
-                            <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to add sketch / notes →</span>
-                          </button>
-                        </div>
-
-                        {activeDesignTab[job.key] === 'catalogue' && (
-                          <FormModal
-                            icon={Sparkles}
-                            tone="green"
-                            title={`Catalogue Looks — ${job.template?.name || job.key}`}
-                            subtitle="Browse and choose design looks directly from your boutique catalogue."
-                            width="960px"
-                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
-                            footer={
-                              <button
-                                type="button"
-                                className="btn-primary"
-                                style={{ padding: '8px 24px', fontSize: '13px' }}
-                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
-                              >
-                                Done
-                              </button>
-                            }
-                          >
-                            <Suspense fallback={<ScreenLoading />}>
-                              <GarmentPartPicker
-                                garmentKey={job.template?.key || job.key}
-                                garmentName={job.template?.name || job.key}
-                                selection={partSelection[job.key] || {}}
-                                onChange={(next) => handlePartSelection(job.key, next)} />
-                            </Suspense>
-                          </FormModal>
-                        )}
-
-                        {activeDesignTab[job.key] === 'references' && (
-                          <FormModal
-                            icon={Camera}
-                            tone="amber"
-                            title={`Customer References — ${job.template?.name || job.key}`}
-                            subtitle="Upload customer photos or add web links as reference for this garment."
-                            width="920px"
-                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
-                            footer={
-                              <button
-                                type="button"
-                                className="btn-primary"
-                                style={{ padding: '8px 24px', fontSize: '13px' }}
-                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
-                              >
-                                Done
-                              </button>
-                            }
-                          >
-                            <Suspense fallback={<ScreenLoading />}>
-                              <GarmentPartPicker ownOnly
-                                                 garmentKey={job.template?.key || job.key}
-                                                 garmentName={job.template?.name || job.key}
-                                                 references={partReferences[job.key] || {}}
-                                                 onReferencesChange={(next) => handlePartReferences(job.key, next)} />
-                            </Suspense>
-                          </FormModal>
-                        )}
-
-                        {activeDesignTab[job.key] === 'customer_designs' && (
-                          <FormModal
-                            icon={PenTool}
-                            tone="blue"
-                            title={`Customer Designs — ${job.template?.name || job.key}`}
-                            subtitle="Capture paper sketches, custom drawn notes, or customer descriptions."
-                            width="920px"
-                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
-                            footer={
-                              <button
-                                type="button"
-                                className="btn-primary"
-                                style={{ padding: '8px 24px', fontSize: '13px' }}
-                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
-                              >
-                                Done
-                              </button>
-                            }
-                          >
-                            <Suspense fallback={<ScreenLoading />}>
-                              <CustomerDesigns
-                                customerId={customerId}
-                                customers={allCustomers}
-                                orders={ordersList}
-                                garmentTemplates={garmentTemplates}
-                                templateId={job.template?.id}
-                                garmentName={job.template?.name}
-                                newCustomer={customerForm}
-                                onCustomerCreated={(row) => {
-                                  setCustomerId(row.id);
-                                  setAllCustomers((prev) => [row, ...prev]);
-                                }}
-                              />
-                            </Suspense>
-                          </FormModal>
-                        )}
-                      </div>
-                  ))}
-
-
-                  {serviceType === 'design' && (
-                    <div className="wz-garment" style={{ marginTop: '18px' }}>
-                      <div className="wz-garment-head"><div className="wz-garment-name">{t('wizard.designerTitle', 'Who designs it?')}</div></div>
-                      {designers.length === 0 ? (
-                        <div className="od-empty" style={{ textAlign: 'left' }}>
-                          {t('wizard.noDesigners', 'No designer on the team yet. Add one under Team, or go back and pick a look from the catalogue instead.')}
-                        </div>
-                      ) : (
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="wz-designer">{t('wizard.designer', 'Designer')} <span className="required">*</span></label>
-                          <select id="wz-designer" className="form-control" value={designRequest.designer}
-                                  onChange={(e) => setDesignRequest({ ...designRequest, designer: e.target.value })}>
-                            <option value="">{t('wizard.pickDesigner', 'Pick a designer')}</option>
-                            {designers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.specialisation ? ` · ${d.specialisation}` : ''}</option>)}
-                          </select>
-                        </div>
-                      )}
-                      <div className="form-group">
-                        <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
-                        <VoiceTextarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
-                                  onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
-                                  placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
-                      </div>
-                    </div>
+                  {/* Another garment, once this one is filled in. */}
+                  {garmentJobs.length > 0 && (
+                    <details className="wz-more">
+                      <summary><Plus size={14} /> {t('wizard.addAnotherGarment', 'Do you need to add another garment?')}</summary>
+                      <select className="form-control" value="" disabled={!!addingGarmentKey} style={{ marginTop: '8px' }}
+                              onChange={(e) => {
+                                if (!e.target.value) return;
+                                e.target.closest('details').open = false;
+                                addGarment(e.target.value);
+                              }}>
+                        <option value="">{addingGarmentKey ? t('common.loading', 'Loading…') : t('wizard.selectGarment', 'Select Garment')}</option>
+                        {garmentsForGender(garmentTemplates, customerForm.gender)
+                          .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key))
+                          .map((tpl) => <option key={tpl.key} value={tpl.key}>{tpl.name}</option>)}
+                      </select>
+                    </details>
                   )}
 
                 </div>
@@ -8174,8 +8154,10 @@ function App() {
                     <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{title}</h2>
                     <button type="button" className="btn-secondary at-btn-sm" onClick={() => {
                       if (typeof step === 'string') {
-                        if (garmentJobs.length) { setActiveGarmentKey(garmentJobs[0].key); setGarmentPhase(step); }
+                        const first = garmentJobs[0]?.key;
+                        if (first) setActiveGarmentKey(first);
                         jumpToStep(stepOf('type'));
+                        setTimeout(() => { const sec = document.getElementById(`wz-${step}-${first}`); if (sec) { sec.open = true; sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }, 80);
                       } else jumpToStep(step);
                     }}>
                       <Edit2 size={12} /> {t('common.edit', 'Edit')}

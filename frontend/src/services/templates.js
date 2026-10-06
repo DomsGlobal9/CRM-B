@@ -44,6 +44,10 @@ export const isVisible = (field, values) => evaluateRule(field.visible_when, val
 
 // A dropdown answer typed in because no option fit, stored in the select's own
 // key as "other:<text>". Mirrors OTHER_PREFIX in core/templates.py.
+/** Answers whose option has been retired, and what they mean now. Mirrors
+ *  RETIRED_CHOICES in core/templates.py. */
+export const RETIRED_CHOICES = { fall_pico: ['fall', 'pico'] };
+
 export const OTHER_PREFIX = 'other:';
 export const OTHER_MAX_LENGTH = 200;
 export const isTypedOther = (raw) => typeof raw === 'string' && raw.startsWith(OTHER_PREFIX);
@@ -88,6 +92,15 @@ export function withDefaults(template, values = {}) {
     if (field.default != null && (out[field.key] === undefined || out[field.key] === null || out[field.key] === '')) {
       out[field.key] = field.default;
     }
+    // An answer whose option has been retired reads as what it meant. Mirrors
+    // RETIRED_CHOICES in core/templates.py: saree "Fall + Pico" was one tick
+    // for two services, and a draft written then resumes with both ticked.
+    if (field.field_type === 'multiselect' && Array.isArray(out[field.key])) {
+      const allowed = new Set((field.options || []).map((o) => o.value));
+      const spread = out[field.key].flatMap((v) => (
+        RETIRED_CHOICES[v] && !allowed.has(v) ? RETIRED_CHOICES[v] : [v]));
+      out[field.key] = [...new Set(spread)];
+    }
   }));
   return out;
 }
@@ -126,7 +139,9 @@ export function validateSpec(template, values, { partial = false, sections = nul
         else if (text.length > OTHER_MAX_LENGTH) errors[field.key] = `${field.label} is limited to ${OTHER_MAX_LENGTH} characters.`;
       } else if (field.field_type === 'select' || field.field_type === 'multiselect') {
         const allowed = new Set((field.options || []).map((o) => o.value));
-        const unknown = asList(raw).filter((v) => !allowed.has(v));
+        // A retired answer counts as what it means now, so a garment already
+        // on screen when its option went is not held up.
+        const unknown = asList(raw).filter((v) => !allowed.has(v) && !RETIRED_CHOICES[v]);
         if (unknown.length) {
           errors[field.key] = `${field.label}: unknown option ${unknown.join(', ')}.`;
         }

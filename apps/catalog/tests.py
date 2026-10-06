@@ -189,9 +189,11 @@ class ValidationTests(CatalogTestCase):
         self.assertEqual(cleaned['saree_type'], 'silk')
 
     def test_required_fields_are_reported_together(self):
+        # Every dropdown has a default now (definitions.build), so Saree Type
+        # answers itself; the services ticks have none and are still asked for.
         with self.assertRaises(SpecValidationError) as caught:
             validate_spec(self.saree, {})
-        self.assertEqual(set(caught.exception.errors), {'saree_type', 'services'})
+        self.assertEqual(set(caught.exception.errors), {'services'})
 
     def test_delivery_date_is_optional_on_every_garment(self):
         for template in GarmentTemplate.objects.all():

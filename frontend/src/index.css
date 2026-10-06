@@ -5309,6 +5309,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .wz-more[open] > summary::before { transform: rotate(45deg); }
 .wz-more[open] > summary { border-bottom: 1px solid var(--border-color); margin-bottom: 12px; }
 .wz-more > :not(summary) { padding-bottom: 12px; }
+/* A garment's own sections on the Garments step: Details, The look, Fabric.
+   A firm line between them, and an arrow -- down when shut, up when open. */
+.wz-sec { border-top: 2px solid var(--border-strong); margin-top: 20px; padding-top: 4px; }
+.wz-sec--first { border-top: 0; margin-top: 8px; }
+.wz-sec > summary.wz-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 0; cursor: pointer; list-style: none; font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.wz-sec > summary.wz-sec-head::-webkit-details-marker { display: none; }
+.wz-sec-chev { flex-shrink: 0; color: var(--text-secondary); transition: transform .15s; }
+.wz-sec[open] > summary .wz-sec-chev { transform: rotate(180deg); }
 .wz-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 16px; padding: 12px 14px; border-radius: var(--radius-md); background: var(--danger-bg, var(--surface-inset)); color: var(--danger-color); border: 1px solid color-mix(in srgb, var(--danger-color) 35%, transparent); font-size: 13px; }
 /* Money screen */
 .wz-money { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; max-width: 520px; }

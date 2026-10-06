@@ -82,11 +82,21 @@ def _is_typed_other(raw):
             and 0 < len(raw[len(OTHER_PREFIX):].strip()) <= OTHER_MAX_LENGTH)
 
 
+#: An answer whose option has been retired, and what it means now. Saree
+#: "Fall + Pico" was one tick for two services; the two are ticked on their
+#: own since, and an order taken before that still reads as both.
+RETIRED_CHOICES = {'fall_pico': ('fall', 'pico')}
+
+
 def _clean_choice(field, raw, errors, multi):
     if not multi and _is_typed_other(raw):
         return raw
     allowed = {o.value for o in field.options.all() if o.is_active}
     chosen = _as_list(raw) if multi else [raw]
+    if multi:
+        chosen = [out for c in chosen
+                  for out in (RETIRED_CHOICES[c] if c in RETIRED_CHOICES and c not in allowed else (c,))]
+        chosen = list(dict.fromkeys(chosen))
     unknown = [c for c in chosen if c not in allowed]
     if unknown:
         errors[field.key] = f"{field.label}: unknown option {', '.join(map(str, unknown))}."
