@@ -202,7 +202,7 @@ def notify_voice_note(order, stage, sender_user, *, sender_name=''):
     the bell says exactly where to listen.
     """
     from crm_api.models import Tailor
-    from core.roles import OWNER, resolve_user_role
+    from core.roles import DESIGNER, OWNER, resolve_user_role
 
     where = stage.stage_name if stage is not None else 'Special instructions'
     who = sender_name or 'Someone'
@@ -231,14 +231,17 @@ def notify_voice_note(order, stage, sender_user, *, sender_name=''):
 
     if sender_role != OWNER:
         Notification.objects.create(title=title, message=message, recipient_role='Owner')
+    # Designers supervise the floor too; one role-wide row, as for the Owner.
+    if sender_role != DESIGNER:
+        Notification.objects.create(title=title, message=message, recipient_role=DESIGNER)
 
 
 def notify_verification(order, stage, *, submitted):
-    """Submitted: tell the owner and Master there is work to verify.
+    """Submitted: tell the owner, Designer and Master there is work to verify.
     Sent back: tell the worker who did it, with the supervisor's note."""
     if submitted:
         who = stage.performed_by.name if stage.performed_by else 'A worker'
-        for role in ('Owner', 'Master'):
+        for role in ('Owner', 'Designer', 'Master'):
             Notification.objects.create(
                 title=f"Verify {stage.stage_name}: {order.reference}",
                 message=(f"{who} has submitted {stage.stage_name} on order "

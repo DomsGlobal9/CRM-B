@@ -133,7 +133,7 @@ function CardGlance({ order, stage, t }) {
 export default function WorkPanel({ view, orders = [], currentUser, workflowConfig = [], tailors, fabricTaxonomy, onChanged }) {
   const { t } = useLanguage();
   const me = currentUser?.tailor_id;
-  const isSupervisor = currentUser?.role === 'Master';
+  const isSupervisor = ['Master', 'Designer'].includes(currentUser?.role);
   const [open, setOpen] = useState(null); // { orderId, stageKey }
   const [seen, setSeen] = useState(() => new Set()); // 'orderId:stageKey' ticked this session
   const [toast, setToast] = useState('');

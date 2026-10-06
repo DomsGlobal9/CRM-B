@@ -353,7 +353,8 @@ const ScreenLoading = () => <Loader page />;
 import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 
 
-const SUPERVISOR_ROLES = ['Master'];
+// The Designer ranks above the Master and runs the floor with the same access.
+const SUPERVISOR_ROLES = ['Master', 'Designer'];
 
 
 const PRODUCTION_ROLES = [
@@ -1284,7 +1285,7 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
   const [loaded, setLoaded] = useState(false);
   const [opened, setOpened] = useState(false);
   const [busyLineId, setBusyLineId] = useState(null);
-  const canEdit = role === 'Owner' || role === 'Master';
+  const canEdit = role === 'Owner' || SUPERVISOR_ROLES.includes(role);
 
   const refresh = () => api.getMaterialChecklist(orderId)
     .then((data) => { setPlan(data.plan); setLoaded(true); })
@@ -1455,6 +1456,8 @@ const navSectionsFor = (user, t) => {
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
         { tab: 'designs', icon: Palette, label: t('nav.designStudio'), phone: true },
+        { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
+        { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
         { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
@@ -1467,7 +1470,7 @@ const navSectionsFor = (user, t) => {
       ] },
     ];
 
-  const roomy = !role || role === 'Owner' || role === 'Master';
+  const roomy = !role || role === 'Owner' || SUPERVISOR_ROLES.includes(role);
   return [...sections, { key: 'session', divider: true, label: t('nav.groups.account', 'Account'), items: [
     { tab: 'account', icon: User, label: t('nav.account'), phone: !roomy },
     { tab: 'settings', icon: Settings, label: t('nav.settings') },
@@ -2263,7 +2266,6 @@ function App() {
   
   const [stageReviewRecording, setStageReviewRecording] = useState(false);
   const [selectedStageObj, setSelectedStageObj] = useState(null);
-  const [selectedPerformerId, setSelectedPerformerId] = useState('');
   const [stageTransitionBusy, setStageTransitionBusy] = useState(false);
   const [reversalPrompt, setReversalPrompt] = useState(null);
   const [reversalReason, setReversalReason] = useState('');
@@ -2362,9 +2364,7 @@ function App() {
         setView('dashboard');
         if (user.role === 'Designer') {
           openDesignRequests();
-          return;
-        }
-        if (isProductionStaff(user.role)) {
+        } else if (isProductionStaff(user.role)) {
           setDashboardTab('work');
         } else {
           setDashboardTab('overview');
@@ -2758,9 +2758,7 @@ function App() {
       setView('dashboard');
       if (res.user.role === 'Designer') {
         openDesignRequests();
-        return;
-      }
-      if (isProductionStaff(res.user.role)) {
+      } else if (isProductionStaff(res.user.role)) {
         setDashboardTab('work');
       } else {
         setDashboardTab('overview');
@@ -3479,7 +3477,9 @@ function App() {
   const handleAssignStage = async (orderId, stageKey, tailorId, garmentJob = null) => {
     setAssigningStageKey(stageKey);
     try {
-      await api.assignStage(orderId, stageKey, tailorId || null, garmentJob);
+      const updated = await api.assignStage(orderId, stageKey, tailorId || null, garmentJob);
+      // The open stage sheet reads this, so the picker keeps the new name.
+      setSelectedStageObj((cur) => (cur && cur.id === updated?.id ? updated : cur));
       await fetchDashboardAndConfig();
     } catch (err) {
       alert(err.message || 'Could not assign this stage.');
@@ -4839,7 +4839,7 @@ function App() {
                           </span>
                         )}
                         {order.flow && order.flow !== 'legacy' && (() => {
-                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || currentUser?.role === 'Master')
+                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role))
                             && !(order.stages || []).some(st => st.stage_key !== 'created' && st.status !== 'NOT_STARTED');
                           const label = order.flow === 'alteration' ? t('ordersPage.flowAlteration', 'Alteration')
                             : order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
@@ -5109,7 +5109,7 @@ function App() {
                                 const photos = stitching?.attachments?.length ? stitching.attachments
                                   : (order.completed_garment_image ? [order.completed_garment_image] : []);
                                 const reviews = stitching?.attachment_reviews || {};
-                                const canReview = currentUser?.role === 'Owner' || currentUser?.role === 'Master';
+                                const canReview = currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role);
                                 const items = photos.map((u, i) => ({ image_url: u, label: `Photo ${i + 1}` }));
                                 const reject = async (url) => {
                                   const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
@@ -5995,7 +5995,7 @@ function App() {
                                   {stages.length > 0 ? ` · ${done}/${stages.length} stages${current ? ` · ${current.stage_name}` : ''}` : ''}
                                 </div>
                               </div>
-                              {order.order_status === 'Delivered' && currentUser?.role !== 'Designer' && (
+                              {order.order_status === 'Delivered' && (
                                 <button type="button" className="btn-secondary at-btn-sm"
                                         onClick={(e) => { e.stopPropagation(); setAlterationOrder(order); }}>
                                   <Scissors size={12} /> Alteration
@@ -8906,7 +8906,6 @@ function App() {
           setActiveReviewStage(null);
           setActiveReviewOrder(null);
           setSelectedStageObj(null);
-          setSelectedPerformerId('');
         };
         const isSupervisor = !currentUser.role || currentUser.role === 'Owner'
           || SUPERVISOR_ROLES.includes(currentUser.role);
@@ -8928,7 +8927,8 @@ Complete the Payment stage with this partial payment?`)) return;
               status,
               comments,
               stageReviewImages,
-              selectedPerformerId || null,
+              // Whoever holds the stage is who did it; no assignee, the server records the caller.
+              stage.assigned_to || null,
               voiceNote,
               clearVoiceNote,
               stage.garment_job || null
@@ -9151,7 +9151,7 @@ Complete the Payment stage with this partial payment?`)) return;
                 here, at the stage it happens, by the people standing at it;
                 Stitching Completed only mops up lines nobody recorded. */}
             {(stage?.stage_key === 'pattern_cutting' || stage?.stage_key === 'fabric_cutting')
-              && (currentUser?.role === 'Owner' || currentUser?.role === 'Master') && (
+              && (currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role)) && (
               <FormSection icon={Scissors} tone="green" title="Fabric used at cutting"
                            subtitle="Metres cut from each roll, and the offcuts. Stock and the order's material cost follow from this.">
                 <CuttingUsage orderId={activeReviewOrder.id} />
@@ -9310,20 +9310,6 @@ Complete the Payment stage with this partial payment?`)) return;
                       <option value="">Unassigned</option>
                       {eligibleStaffForStage(stage.stage_key).map(t => (
                         <option key={t.id} value={t.id}>{t.name} · {t.role}</option>
-                      ))}
-                    </select>
-                  </Field>
-                )}
-                {isSupervisor && (
-                  <Field label="Record who performed this" icon={Users}>
-                    <select
-                      className="form-control"
-                      value={selectedPerformerId}
-                      onChange={(e) => setSelectedPerformerId(e.target.value)}
-                    >
-                      <option value="">-- Select Tailor / Master --</option>
-                      {(stage ? eligibleStaffForStage(stage.stage_key) : tailors).map(t => (
-                        <option key={t.id} value={t.id}>{t.name} ({t.role})</option>
                       ))}
                     </select>
                   </Field>

@@ -1132,10 +1132,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     class _AssignsWork(ModuleAccess):
         """Anyone who may hand work on: Owner, Designer, Master.
 
-        Its own class rather than a RolePermission entry, because RolePermission
-        refuses a Designer outright on every order endpoint and that refusal is
-        right everywhere except here. Whether this particular assignee is
-        within reach is the view's question, asked of core.roles.can_assign.
+        Its own class rather than a RolePermission entry so the gate is the
+        assignment hierarchy, not the order-action lists. Whether this
+        particular assignee is within reach is the view's question, asked of
+        core.roles.can_assign.
         """
         message = "Your role does not permit assigning work."
 
@@ -1143,25 +1143,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             return assigns_work(resolve_user_role(request.user))
 
     def _order_for_assignment(self):
-        """The order an assignment acts on, as far as this caller may see.
-
-        Owner and Master read the order book through get_object, exactly as
-        before. A Designer has no order-book access at all (visible_orders
-        gives them nothing), and does not get it here either: they reach only
-        an order carrying a garment whose design work is theirs -- the work
-        they are handing on -- and never through the list endpoint.
-        """
-        if resolve_user_role(self.request.user) != DESIGNER:
-            return self.get_object()
-        from django.http import Http404
-        profile = getattr(self.request.user, 'designer_profile', None)
-        order = (Order.objects
-                 .filter(pk=self.kwargs.get('pk'),
-                         garment_jobs__design_assignment__designer=profile)
-                 .distinct().first()) if profile is not None else None
-        if order is None:
-            raise Http404
-        return order
+        """The order an assignment acts on: Owner, Designer and Master all
+        read the whole order book (core.permissions.visible_orders)."""
+        return self.get_object()
 
     @action(detail=False, methods=['GET'], url_path='assignable-staff',
             permission_classes=[_AssignsWork])
@@ -1584,6 +1568,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
         profile = getattr(self.request.user, 'tailor_profile', None)
         if profile is not None:
             return profile.role, (profile.email or self.request.user.email)
+        designer = getattr(self.request.user, 'designer_profile', None)
+        if designer is not None:
+            return DESIGNER, (designer.email or self.request.user.email)
         return None, None
 
     def get_queryset(self):

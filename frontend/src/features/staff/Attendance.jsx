@@ -213,7 +213,9 @@ function MyDay({ onChanged }) {
     }
   };
 
-  if (!state || state.state === 'NOT_STAFF') return null;
+  // A failed load says so: hiding the card left staff with no way to check in and no reason why.
+  if (!state) return error ? <div style={{ marginBottom: '18px' }}><Banner text={error} /></div> : null;
+  if (state.state === 'NOT_STAFF') return null;
 
   const session = state.session;
   const elapsed = session && state.state === 'WORKING'

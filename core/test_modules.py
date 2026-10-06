@@ -192,12 +192,11 @@ class DistributionTests(SimpleTestCase):
                 self.assertEqual(effective_modules('atelier', {}, {}, role), sorted(TAILOR_DEFAULT))
                 self.assertLess(len(effective_modules('atelier', {}, {}, role)), len(MODULES))
 
-    def test_designer_is_confined_to_design(self):
-        # core/permissions.py RolePermission already denies a designer every
-        # business endpoint; this must not be a second, looser answer.
+    def test_designer_has_the_masters_floor_and_no_stock_room(self):
+        # A Designer runs the floor as a Master does (SUPERVISOR_ROLES).
         self.assertEqual(effective_modules('atelier', {}, {}, 'Designer'), sorted(ROLE_DEFAULTS['Designer']))
+        self.assertTrue(ROLE_DEFAULTS['Master'] <= ROLE_DEFAULTS['Designer'])
         self.assertNotIn('inventory', ROLE_DEFAULTS['Designer'])
-        self.assertNotIn('staff', ROLE_DEFAULTS['Designer'])
 
     def test_specialists_are_tailor_shaped(self):
         for role in PRODUCTION_ROLES:

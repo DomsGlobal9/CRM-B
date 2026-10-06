@@ -96,6 +96,12 @@ class TodoTests(TenantTestCase):
             Notification.objects.filter(recipient_email='anita@todos.test',
                                         title__startswith='New to-do').count(), 3)
 
+    def test_a_designer_is_told_about_a_to_do_given_to_them(self):
+        self.make(self.owner, assigned_to=self.designer.id)
+        self.assertTrue(Notification.objects.filter(
+            recipient_role='Designer', recipient_email='dia@todos.test',
+            title__startswith='New to-do').exists())
+
     def test_a_master_assigns_to_the_floor_only(self):
         ids = {p['id'] for p in self.call(self.master, 'get', '/api/todos/people/').data['people']}
         self.assertEqual(ids, {self.master.id, self.tailor.id, self.other.id})
@@ -120,19 +126,18 @@ class TodoTests(TenantTestCase):
         self.assertEqual(self.titles(self.owner), ['design', 'given', 'mine', 'ravis'])
         self.assertEqual(self.titles(self.master), ['design', 'given', 'mine', 'ravis'])
 
-    def test_a_designer_can_look_but_not_change(self):
+    def test_a_designer_changes_to_dos_like_a_master(self):
         todo = self.make(self.tailor)
         path = f"/api/todos/{todo['id']}/"
         seen = self.call(self.designer, 'get', path)
         self.assertEqual(seen.status_code, 200)
-        self.assertFalse(seen.data['can_change_status'])
-        self.assertEqual(self.call(self.designer, 'post', path + 'status/',
-                                   {'status': 'CLOSED'}).status_code, 403)
-        self.assertEqual(self.call(self.designer, 'patch', path, {'title': 'x'}).status_code, 403)
+        self.assertTrue(seen.data['can_change_status'])
+        self.assertEqual(self.call(self.designer, 'patch', path, {'title': 'x'}).status_code, 200)
+        # Deleting stays with the Owner and whoever wrote it, as for a Master.
         self.assertEqual(self.call(self.designer, 'delete', path).status_code, 403)
         own = self.make(self.owner, title='owners own')
         self.assertEqual(self.call(self.designer, 'get',
-                                   f"/api/todos/{own['id']}/").status_code, 404)
+                                   f"/api/todos/{own['id']}/").status_code, 200)
 
     def test_someone_elses_todo_cannot_be_opened_or_changed(self):
         todo = self.make(self.other)

@@ -388,6 +388,24 @@ def reliability_metrics(staff, start, end, stages=None, attendance=None,
     }
 
 
+def design_metrics(staff, start, end):
+    """A Designer's figures. They hold design briefs (DesignAssignment), not
+    order stages, so every stage-based group above is empty for them."""
+    from apps.design_studio.models import DesignAssignment
+    rows = list(DesignAssignment.objects.filter(
+        designer__staff=staff, assigned_at__date__gte=start, assigned_at__date__lte=end,
+    ).values_list('status', 'due_date', 'submitted_at'))
+    approved = sum(1 for status, _, _ in rows if status == DesignAssignment.Status.APPROVED)
+    dated = [(due, sent) for _, due, sent in rows if due and sent]
+    on_time = sum(1 for due, sent in dated if to_local(sent).date() <= due)
+    return {
+        'assigned': _metric(len(rows)),
+        'approved': _metric(approved),
+        'approval_rate': _ratio(approved, len(rows), 'No design work assigned in this period.'),
+        'on_time_rate': _ratio(on_time, len(dated), 'No dated design work submitted in this period.'),
+    }
+
+
 def staff_metrics(staff, start, end, *, profile=None):
     """Everything measurable about one person's work in one period.
 
@@ -425,7 +443,9 @@ def staff_metrics(staff, start, end, *, profile=None):
     # stage queries and two identical attendance queries.
     stages, open_stages = _stages_for(staff, first, last)
     attendance = attendance_metrics(staff, first, last)
+    extra = {'design': design_metrics(staff, first, last)} if staff.role == 'Designer' else {}
     return {
+        **extra,
         'staff': staff.id,
         'staff_name': staff.name,
         'role': staff.role,
@@ -471,6 +491,9 @@ ROLE_KPIS = {
                         'productivity.completed', 'timeliness.on_time_rate'),
     'QC Staff': ('attendance.worked_hours', 'productivity.garments',
                  'quality.inspected', 'quality.pass_rate', 'timeliness.on_time_rate'),
+    # Briefs, not stages: see design_metrics.
+    'Designer': ('attendance.worked_hours', 'design.assigned', 'design.approval_rate',
+                 'design.on_time_rate'),
 }
 
 # Hours and dresses first for everyone: the two figures an owner asks about

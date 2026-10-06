@@ -537,3 +537,35 @@ class AssignmentVisibilityTests(AssignmentTestCase):
         self.assertEqual(response.data['brief'], "Heavy zari.")
         self.assertEqual(response.data['submission_note'], "Two colourways.")
         self.assertEqual(response.data['design_detail']['title'], "Zari Lehenga")
+
+
+class DesignerPerformanceTests(AssignmentTestCase):
+    """A Designer is measured on their design briefs (apps.staff.performance)."""
+
+    def test_design_work_counts_assigned_approved_and_on_time(self):
+        from django.utils import timezone
+        from apps.staff.performance import design_metrics, headline_kpis, staff_metrics
+        staff = Tailor.objects.create(name="Meera", role="Designer", specialty="Designer")
+        self.meera.staff = staff
+        self.meera.save(update_fields=['staff'])
+        now = timezone.now()
+        DesignAssignment.objects.create(
+            garment_job=self.lehenga_job, designer=self.meera, status=DesignAssignment.Status.APPROVED,
+            due_date=now.date() + timedelta(days=1), submitted_at=now)
+        DesignAssignment.objects.create(
+            garment_job=self.blouse_job, designer=self.meera, status=DesignAssignment.Status.ASSIGNED)
+        today = now.date()
+        design = design_metrics(staff, today - timedelta(days=1), today + timedelta(days=1))
+        self.assertEqual(design['assigned']['value'], 2)
+        self.assertEqual(design['approved']['value'], 1)
+        self.assertEqual(design['approval_rate']['value'], 50.0)
+        self.assertEqual(design['on_time_rate']['value'], 100.0)
+        metrics = staff_metrics(staff, today - timedelta(days=1), today + timedelta(days=1))
+        self.assertIn('design', metrics)
+        self.assertIn('design.assigned', [h['key'] for h in headline_kpis(metrics)])
+
+    def test_other_roles_get_no_design_group(self):
+        from apps.staff.performance import staff_metrics
+        tailor = Tailor.objects.create(name="Ravi", role="Tailor", specialty="Bridal")
+        today = date.today()
+        self.assertNotIn('design', staff_metrics(tailor, today, today))

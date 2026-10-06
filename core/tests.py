@@ -183,7 +183,7 @@ class ApiRoleBoundaryTests(TenantTestCase):
         for path in ('/api/orders/', '/api/customers/', '/api/inventory/items/'):
             self.assertIn(anon.get(path).status_code, (400, 401, 403), path)
 
-    def test_a_designer_keeps_the_studio_and_loses_everything_else(self):
+    def test_a_designer_keeps_the_studio_and_the_floor_but_not_stock(self):
         from rest_framework.authtoken.models import Token
         from rest_framework.test import APIClient
 
@@ -197,6 +197,7 @@ class ApiRoleBoundaryTests(TenantTestCase):
             HTTP_X_TENANT_ID=self.tenant.schema_name)
 
         self.assertEqual(client.get('/api/design-studio/assets/').status_code, 200)
-        for denied in ('/api/customers/', '/api/orders/', '/api/inventory/items/',
-                       '/api/inventory/reports/stock-position/'):
+        for allowed in ('/api/customers/', '/api/orders/'):
+            self.assertEqual(client.get(allowed).status_code, 200, allowed)
+        for denied in ('/api/inventory/items/', '/api/inventory/reports/stock-position/'):
             self.assertEqual(client.get(denied).status_code, 403, denied)
