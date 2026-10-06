@@ -615,7 +615,7 @@ def get_default_workflow():
         # maggam master from its own stage panel), the Master's sign-off on
         # it, and only then the fabric is cut.
         {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
-        {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar"], "flows": ["maggam"], "scope": "garment"},
+        {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar", "Maggam Karigar"], "flows": ["maggam"], "scope": "garment"},
         # The Maggam Karigar picks up once the design is finished: the frame
         # work is its own stage so it cannot start before the master's design
         # is settled, and the Master's sign-off below sees the finished work.
