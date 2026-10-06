@@ -469,7 +469,7 @@ ALL_ROLES = (OWNER, DESIGNER) + PRODUCTION_ROLES
 _TAILOR = frozenset({'notifications', 'garment_catalog', 'staff',
                      'order_tracking', 'design_studio', 'alterations', 'todos'})
 _MASTER = _TAILOR | {'tailors', 'scheduling', 'production_api', 'activities'}
-_DESIGNER = frozenset({'design_studio', 'garment_catalog', 'notifications', 'staff', 'staff_attendance', 'todos'})
+_DESIGNER = _MASTER | {'staff_attendance'}
 
 def _with_children(keys):
     # A role that has a feature has its children too, unless told otherwise.

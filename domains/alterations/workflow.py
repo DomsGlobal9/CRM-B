@@ -143,7 +143,7 @@ PRODUCTION_ROLES = frozenset({
 })
 
 #: Runs the floor. Mirrors core.permissions.SUPERVISOR_ROLES.
-SUPERVISOR_ROLES = frozenset({'Master'})
+SUPERVISOR_ROLES = frozenset({'Master', DESIGNER})
 
 #: The counter: taking a garment in, quoting it, approving it, taking the
 #: money, handing it back, cancelling it. No front-desk role exists, so this
@@ -162,7 +162,7 @@ WORK_ROLES = frozenset({OWNER}) | PRODUCTION_ROLES
 #: the customer arrives logs the return, and the counter takes over from
 #: inspection onwards. Read off the roster's own role list so a role added
 #: there (Karigar, Packaging Staff, QC Staff...) is never refused at the door.
-#: check_role already refuses Designer and None.
+#: check_role already refuses None.
 INTAKE_ROLES = COUNTER_ROLES | PRODUCTION_ROLES | frozenset(
     role for role, _label in Tailor.ROLE_CHOICES)
 
@@ -215,10 +215,8 @@ def check_role(role, allowed, *, what):
     for an authenticated account that no Tailor or Designer profile claims --
     the state a removed staff member's un-revoked token lands in -- and that
     account must not be able to touch a garment, a charge or the stock room.
-    Designers are denied for the same reason core.permissions.RolePermission
-    denies them: they never handle orders or money.
     """
-    if not role or role == DESIGNER:
+    if not role:
         raise PermissionError(f"Your role does not permit {what}.")
     if role == OWNER:
         return
@@ -261,7 +259,7 @@ def available_actions(alteration, role, tailor_id=None):
     the buttons a person sees are exactly the ones the server will accept.
     """
     actions = []
-    if not role or role == DESIGNER:
+    if not role:
         return actions
 
     scale = getattr(alteration, 'issue_scale', '')

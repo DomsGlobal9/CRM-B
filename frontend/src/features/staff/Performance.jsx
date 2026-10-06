@@ -49,12 +49,16 @@ const LABELS = {
   'reliability.outstanding_assignments': 'Outstanding',
   'reliability.overdue_open_assignments': 'Overdue open',
   'reliability.completion_consistency': 'Consistency',
+  'design.assigned': 'Designs assigned',
+  'design.approved': 'Designs approved',
+  'design.approval_rate': 'Approval rate',
+  'design.on_time_rate': 'Submitted on time',
 };
 
 const SUFFIX = {
   completion_rate: '%', on_time_rate: '%', pass_rate: '%', rework_rate: '%',
   completion_consistency: '%', worked_hours: 'h', average_hours_per_day: 'h',
-  average_delay_hours: 'h',
+  average_delay_hours: 'h', approval_rate: '%',
 };
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
@@ -277,6 +281,8 @@ function StaffDetail({ member, reviews, isOwner, canReview, onBack, onChanged })
     ['quality', 'Quality', ['inspected', 'checked', 'pass_rate', 'rework_rate']],
     ['reliability', 'Reliability', ['outstanding_assignments', 'overdue_open_assignments',
                                     'completion_consistency']],
+    // Only a Designer's figures carry this group (apps/staff/performance.py design_metrics).
+    ...(member.design ? [['design', 'Design work', ['assigned', 'approved', 'approval_rate', 'on_time_rate']]] : []),
   ];
 
   return (

@@ -77,15 +77,10 @@ def assignable_people(user, role):
 
 
 def visible_todos(queryset, user, role):
-    """Owner and Master see every to-do; a Designer also sees those of the
-    people they can assign to; everyone else only their own."""
-    if role in (OWNER, MASTER):
+    """Owner, Designer and Master see every to-do; everyone else only their own."""
+    if role in (OWNER, DESIGNER, MASTER):
         return queryset
-    mine = Q(assigned_to=user) | Q(created_by=user)
-    if role == DESIGNER:
-        team = [p['id'] for p in assignable_people(user, role)]
-        return queryset.filter(mine | Q(assigned_to__in=team))
-    return queryset.filter(mine)
+    return queryset.filter(Q(assigned_to=user) | Q(created_by=user))
 
 
 def _current_stages(stages):
@@ -194,7 +189,7 @@ def order_work(user, role):
 
 
 def can_edit(todo, user, role):
-    return role in (OWNER, MASTER) or todo.created_by_id == user.id
+    return role in (OWNER, DESIGNER, MASTER) or todo.created_by_id == user.id
 
 
 def can_change_status(todo, user, role):
@@ -206,18 +201,18 @@ def can_delete(todo, user, role):
 
 
 def notify(user, title, message):
-    """Put a line on this person's bell. Designers have no bell, so skipped."""
+    """Put a line on this person's bell."""
     if user is None:
         return
     role = resolve_user_role(user)
     if role == OWNER:
         Notification.objects.create(title=title, message=message, recipient_role='Owner')
         return
-    profile = getattr(user, 'tailor_profile', None)
+    profile = getattr(user, 'tailor_profile', None) or getattr(user, 'designer_profile', None)
     if profile is None:
         return
     email = profile.email or user.email
     if email:
         Notification.objects.create(
             title=title, message=message,
-            recipient_role=profile.role, recipient_email=email)
+            recipient_role=getattr(profile, 'role', DESIGNER), recipient_email=email)

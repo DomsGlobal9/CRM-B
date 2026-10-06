@@ -68,13 +68,13 @@ class RolePermissionTests(AlterationTestCase):
                           format='json')
         self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_a_designer_is_refused(self):
+    def test_a_designer_reads_the_board_like_a_master(self):
         from apps.design_studio.models import Designer
         user = User.objects.create_user(username='dz@a.test', email='dz@a.test',
                                         password='x')
         Designer.objects.create(user=user, name='Dee')
         client = self.api_client(user)
-        self.assertEqual(client.get(BASE).status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(client.get(BASE).status_code, status.HTTP_200_OK)
 
     def test_available_actions_is_empty_without_a_role(self):
         self.assertEqual(available_actions(self.alteration, None), [])
@@ -111,12 +111,12 @@ class RolePermissionTests(AlterationTestCase):
                 performed_by=self.tailor.user, role=role)
             self.assertEqual(alteration.status, AlterationStatus.RECEIVED, role)
 
-    def test_a_designer_cannot_take_a_garment_in(self):
-        with self.assertRaises(PermissionError):
-            services.create_alteration_request(
-                customer_id=self.customer.id, order_id=self.order.order_id,
-                garment_job_id=self.lehenga.id,
-                performed_by=self.rogue, role='Designer')
+    def test_a_designer_may_take_a_garment_in(self):
+        alteration = services.create_alteration_request(
+            customer_id=self.customer.id, order_id=self.order.order_id,
+            garment_job_id=self.lehenga.id,
+            performed_by=self.rogue, role='Designer')
+        self.assertEqual(alteration.status, AlterationStatus.RECEIVED)
 
     def test_intake_does_not_open_the_rest_of_the_counter_to_a_tailor(self):
         with self.assertRaises(PermissionError):

@@ -159,15 +159,15 @@ class StageAssignmentTests(HierarchyTestBase):
         self.assertEqual(res.status_code, 400, res.content)
         self.assertIn('cannot be assigned to', res.json()['error'])
 
-    def test_designer_cannot_reach_an_order_they_did_not_design(self):
+    def test_designer_assigns_on_an_order_someone_else_designed(self):
         order = self.designed_order(designer=self.other_designer)
         res = self.assign_stage(order, self.tailor, self.designer_user)
-        self.assertEqual(res.status_code, 404)
+        self.assertEqual(res.status_code, 200, res.content)
 
-    def test_designer_cannot_reach_an_undesigned_order(self):
+    def test_designer_assigns_on_an_undesigned_order(self):
         order = self.make_order()
-        self.assertEqual(
-            self.assign_stage(order, self.tailor, self.designer_user).status_code, 404)
+        res = self.assign_stage(order, self.tailor, self.designer_user)
+        self.assertEqual(res.status_code, 200, res.content)
 
     def test_a_worker_cannot_assign(self):
         order = self.make_order()
@@ -211,10 +211,10 @@ class SendToWorkshopHierarchyTests(HierarchyTestBase):
         self.assertEqual(res.status_code, 200, res.content)
         self.assertIsNotNone(res.json()['started_stage'])
 
-    def test_designer_cannot_send_an_order_they_did_not_design(self):
+    def test_designer_sends_an_order_someone_else_designed(self):
         order = self.designed_order(designer=self.other_designer)
         res = self.send(order, self.designer_user, master=self.master.id)
-        self.assertEqual(res.status_code, 404)
+        self.assertEqual(res.status_code, 200, res.content)
 
     def test_master_still_sends_a_worker(self):
         order = self.make_order(tailor=False, master=False)
@@ -258,22 +258,25 @@ class AssignableStaffTests(HierarchyTestBase):
 
 
 class DesignerScopeTests(HierarchyTestBase):
-    """Assigning gives a Designer the assignment, not the order book."""
+    """A Designer ranks above the Master and reads the order book as one does."""
 
-    def test_designer_still_cannot_list_orders(self):
-        self.designed_order()
+    def test_designer_lists_every_order(self):
+        order = self.make_order()
         res = self.client_for(self.designer_user).get(reverse("order-list"))
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 200, res.content)
+        body = res.json()
+        rows = body["results"] if isinstance(body, dict) else body
+        self.assertIn(order.id, [o["id"] for o in rows])
 
-    def test_designer_still_cannot_read_an_order_they_designed(self):
-        order = self.designed_order()
+    def test_designer_reads_an_order_they_did_not_design(self):
+        order = self.make_order()
         res = self.client_for(self.designer_user).get(
             reverse("order-detail", args=[order.id]))
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 200, res.content)
 
-    def test_designer_still_cannot_read_customers(self):
+    def test_designer_reads_customers_like_a_master(self):
         res = self.client_for(self.designer_user).get(reverse("customer-list"))
-        self.assertEqual(res.status_code, 403)
+        self.assertEqual(res.status_code, 200, res.content)
 
     def test_the_stage_reply_carries_no_customer(self):
         order = self.designed_order()

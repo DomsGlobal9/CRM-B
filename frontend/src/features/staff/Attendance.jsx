@@ -119,6 +119,54 @@ function Modal({ title, onClose, children, width = '520px' }) {
 }
 
 /**
+ * The phone's position for a check-in, or null. Never rejects: a denied, absent
+ * or slow GPS records "no location" -- it never stops anyone checking in. The
+ * outer timer is there because the browser's own timeout does not start until
+ * the permission prompt is answered, and an ignored prompt would hang the tap.
+ */
+const currentLocation = () => new Promise((resolve) => {
+  if (!navigator.geolocation) { resolve(null); return; }
+  const giveUp = setTimeout(() => resolve(null), 15000);
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => {
+      clearTimeout(giveUp);
+      resolve({ latitude: coords.latitude, longitude: coords.longitude,
+                accuracy: Math.round(coords.accuracy) });
+    },
+    () => { clearTimeout(giveUp); resolve(null); },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+  );
+});
+
+const checkInHere = async () => {
+  const location = await currentLocation();
+  return api.checkIn(location ? { location } : undefined);
+};
+
+const metresText = (m) => (m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`);
+
+/** Where a self check-in happened, for the owner's eye; null when there is nothing to say. */
+function WhereTag({ session }) {
+  if (session.source !== 'SELF') return null;
+  const accuracy = session.check_in_accuracy_m != null ? ` (±${metresText(session.check_in_accuracy_m)})` : '';
+  if (session.check_in_outside_shop) {
+    return (
+      <span style={{ color: '#dc2626', fontWeight: 600 }}
+            title={`Checked in ${metresText(session.check_in_distance_m)} from the shop${accuracy}`}>
+        Outside shop · {metresText(session.check_in_distance_m)}
+      </span>
+    );
+  }
+  if (session.check_in_outside_shop === false) {
+    return <span title={`${metresText(session.check_in_distance_m)} from the shop${accuracy}`}>At shop</span>;
+  }
+  if (session.check_in_accuracy_m == null) {
+    return <span style={{ color: 'var(--text-muted)' }}>No location</span>;
+  }
+  return null; // a position, but the boutique has not pinned its shop yet
+}
+
+/**
  * The staff member's own card: one button, and what it did.
  *
  * The elapsed figure ticks locally off the server's check_in. It is a comfort
@@ -165,7 +213,9 @@ function MyDay({ onChanged }) {
     }
   };
 
-  if (!state || state.state === 'NOT_STAFF') return null;
+  // A failed load says so: hiding the card left staff with no way to check in and no reason why.
+  if (!state) return error ? <div style={{ marginBottom: '18px' }}><Banner text={error} /></div> : null;
+  if (state.state === 'NOT_STAFF') return null;
 
   const session = state.session;
   const elapsed = session && state.state === 'WORKING'
@@ -195,7 +245,7 @@ function MyDay({ onChanged }) {
           </div>
           <button
             type="button" className="btn-primary" disabled={busy}
-            onClick={() => act(() => api.checkIn())}
+            onClick={() => act(checkInHere)}
             style={{
               padding: '9px 20px', fontSize: '14px', fontWeight: 600,
               borderRadius: '8px', cursor: 'pointer',
@@ -217,6 +267,7 @@ function MyDay({ onChanged }) {
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               Since {clockText(session.check_in)} · {hoursText(elapsed)} so far
+              {session.source === 'SELF' && <> · <WhereTag session={session} /></>}
             </div>
           </div>
           <button
@@ -242,13 +293,16 @@ function MyDay({ onChanged }) {
             <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '4px' }}>
               {clockText(session.check_in)} → {clockText(session.check_out)}
             </div>
+            {session.source === 'SELF' && (
+              <div style={{ fontSize: '13px', marginBottom: '2px' }}><WhereTag session={session} /></div>
+            )}
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
               {hoursText(state.today_minutes)} today
             </div>
           </div>
           <button
             type="button" className="btn-secondary" disabled={busy}
-            onClick={() => act(() => api.checkIn())}
+            onClick={() => act(checkInHere)}
             style={{
               padding: '9px 20px', fontSize: '14px', fontWeight: 600,
               borderRadius: '8px', cursor: 'pointer',
@@ -612,6 +666,7 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
                         <div style={{ textAlign: 'center' }}>
                           <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Check in</div>
                           <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{clockText(latest?.check_in)}</div>
+                          {latest && <div style={{ fontSize: '11px', marginTop: '2px' }}><WhereTag session={latest} /></div>}
                         </div>
                         <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)' }}>
                           <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Check out</div>
@@ -1010,6 +1065,7 @@ function MonthlyAttendanceLogs({ reloadKey }) {
                 entry: checkInTime,
                 exit: checkOutTime,
                 remarks: s.note || (isWFH ? 'WFH (approved)' : ''),
+                session: s,
               });
             });
           } else {
@@ -1263,7 +1319,11 @@ function MonthlyAttendanceLogs({ reloadKey }) {
                       <td style={{ padding: '14px 18px', fontSize: '13px', fontWeight: row.exit ? 600 : 400, color: row.exit ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                         {row.exit || '—'}
                       </td>
-                      <td style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-secondary)' }}>{row.remarks || ''}</td>
+                      <td style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                        {row.remarks || ''}
+                        {row.session && (row.remarks ? ' · ' : '')}
+                        {row.session && <WhereTag session={row.session} />}
+                      </td>
                     </tr>
                   );
                 })

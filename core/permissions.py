@@ -4,7 +4,9 @@ from rest_framework import permissions
 from .modules import MODULES, module_for_path, role_allows
 from .roles import DESIGNER, OWNER, resolve_user_role
 
-SUPERVISOR_ROLES = frozenset({'Master'})
+# A Designer ranks above the Master (core.roles.ASSIGNMENT_RANK) and runs the
+# floor with the same order access.
+SUPERVISOR_ROLES = frozenset({'Master', DESIGNER})
 
 
 def _role_modules(request):
@@ -181,8 +183,6 @@ class RolePermission(ModuleAccess):
             return False
         if role == OWNER:
             return True
-        if role == DESIGNER:
-            return False
         if request.method in permissions.SAFE_METHODS:
             return True
         action = getattr(view, 'action', None)
@@ -210,8 +210,7 @@ class AlterationPermission(ModuleAccess):
     for an authenticated account that no Tailor or Designer profile claims --
     exactly where a removed staff member's un-revoked token lands -- and that
     account must not be able to take a garment in, quote it, or take payment
-    for it. Designers are denied for the same reason RolePermission denies
-    them: they never handle orders or money.
+    for it.
     """
 
     message = "Your role does not permit this."
@@ -220,7 +219,7 @@ class AlterationPermission(ModuleAccess):
     # gate runs first, then this decides the role.
     def has_role_permission(self, request, view):
         role = resolve_user_role(request.user)
-        if role is None or role == DESIGNER:
+        if role is None:
             return False
         return True
 

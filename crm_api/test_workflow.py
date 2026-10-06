@@ -172,6 +172,23 @@ class RoleGatingTests(WorkflowTestBase):
             )
         self.assertIn("not authorized", str(ctx.exception).lower())
 
+    def test_designer_advances_a_stage_open_to_the_master(self):
+        from apps.design_studio.models import Designer
+        designer = User.objects.create_user(username="dee@workflow.test", password="x")
+        Designer.objects.create(name="Dee", user=designer)
+        order = self.make_order()
+        self.reach(order, "trial_scheduled")
+        OrderService.transition_order_stage(
+            order=order, stage_key="trial_scheduled", new_status="COMPLETED", user=designer)
+        self.assertEqual(self.stage(order, "trial_scheduled").status, "COMPLETED")
+
+    def test_only_the_designer_inherits_the_masters_stages(self):
+        from domains.orders.workflow import holds_stage_role
+        self.assertTrue(holds_stage_role("Designer", ["Owner", "Master"]))
+        self.assertFalse(holds_stage_role("Designer", ["Tailor"]))
+        self.assertFalse(holds_stage_role("Tailor", ["Owner", "Master"]))
+        self.assertTrue(holds_stage_role("Master", ["Owner", "Master"]))
+
     def test_tailor_can_advance_a_tailor_stage(self):
         order = self.make_order()
         self.reach(order, "stitching_in_progress")
@@ -1285,6 +1302,15 @@ class VerificationTests(WorkflowTestBase):
         self.assertEqual(len(stage.attachments), 1)
         self.assertTrue(Notification.objects.filter(
             recipient_role="Master", title__startswith="Verify").exists())
+        # The Designer checks work too, and their bell lists it.
+        from apps.design_studio.models import Designer
+        designer = User.objects.create_user(
+            username="dee@workflow.test", email="dee@workflow.test", password="x")
+        Designer.objects.create(name="Dee", email="dee@workflow.test", user=designer)
+        bell = self._client(designer).get(reverse("notification-list"))
+        self.assertEqual(bell.status_code, 200, bell.content)
+        rows = bell.data["results"] if isinstance(bell.data, dict) else bell.data
+        self.assertTrue(any(r["title"].startswith("Verify") for r in rows))
 
     def _client(self, user):
         client = APIClient()
@@ -1345,6 +1371,7 @@ class VerificationTests(WorkflowTestBase):
         audience = {(r.recipient_role, r.recipient_email or "") for r in rows}
         self.assertIn(("Tailor", "tailor@workflow.test"), audience)
         self.assertIn(("Master", "master@workflow.test"), audience)
+        self.assertIn(("Designer", ""), audience)
         self.assertFalse(any(r.recipient_role == "Owner" for r in rows), "the sender was notified")
 
         # The Master sending one: the owner hears about it, the Master does not.

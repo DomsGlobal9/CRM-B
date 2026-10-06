@@ -60,6 +60,17 @@ key for readers that only care where the order as a whole stands.
 #: owner or Master has yet to verify it. Not settled -- the order does not move
 #: on until they do -- but it satisfies the same prerequisites as COMPLETED.
 from core.permissions import SUPERVISOR_ROLES
+from core.roles import DESIGNER, MASTER
+
+
+def holds_stage_role(role, allowed_roles):
+    """Whether `role` may act on a stage that lists `allowed_roles`.
+
+    A Designer ranks above the Master (core.roles.ASSIGNMENT_RANK), so a stage
+    open to the Master -- trial, payment, delivery -- is open to them too.
+    Nobody else gains anything: every other role still has to be listed.
+    """
+    return role in allowed_roles or (role == DESIGNER and MASTER in allowed_roles)
 
 VALID_STATUSES = ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED', 'PAUSED',
                   'PENDING_VERIFICATION')
@@ -248,8 +259,8 @@ def check_transition(order, stage, new_status, *, config, role, owner_role):
     # A stage awaiting verification belongs to its verifiers, whatever roles
     # the stage itself lists: the Master signs off a tailor's stitching even
     # though the Master never stitches.
-    verifying = stage.status == 'PENDING_VERIFICATION' and role in ('Owner', 'Master')
-    if role != owner_role and allowed_roles and role not in allowed_roles and not verifying:
+    verifying = stage.status == 'PENDING_VERIFICATION' and (role == owner_role or role in SUPERVISOR_ROLES)
+    if role != owner_role and allowed_roles and not holds_stage_role(role, allowed_roles) and not verifying:
         raise TransitionError(f'Role {role} is not authorized to update {label}')
 
     # A stage that is settled is settled. Re-completing is a no-op handled by

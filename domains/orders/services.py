@@ -685,8 +685,8 @@ class OrderService:
         if new_status == order_stage.status and (comments or voice_note or clear_voice_note):
             declared = next((s for s in workflow.ordered_stages(workflow_stages) if s['key'] == stage_key), None)
             allowed_roles = declared.get('roles', []) if declared else []
-            verifying = order_stage.status == 'PENDING_VERIFICATION' and user_role in ('Owner', 'Master')
-            if user_role != OWNER and allowed_roles and user_role not in allowed_roles and not verifying:
+            verifying = order_stage.status == 'PENDING_VERIFICATION' and (user_role == OWNER or user_role in SUPERVISOR_ROLES)
+            if user_role != OWNER and allowed_roles and not workflow.holds_stage_role(user_role, allowed_roles) and not verifying:
                 raise workflow.TransitionError(
                     f'Role {user_role} is not authorized to update {order_stage.stage_name or stage_key}')
             return OrderService._note_stage(order, order_stage, comments, voice_note, user, files, request)

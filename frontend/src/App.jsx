@@ -353,7 +353,8 @@ const ScreenLoading = () => <Loader page />;
 import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 
 
-const SUPERVISOR_ROLES = ['Master'];
+// The Designer ranks above the Master and runs the floor with the same access.
+const SUPERVISOR_ROLES = ['Master', 'Designer'];
 
 
 const PRODUCTION_ROLES = [
@@ -531,6 +532,68 @@ const getVisibleMeasurementFields = (stitchParts) => {
   return allFields.filter(f => fields.includes(f));
 };
 
+
+/**
+ * The attendance pin. Saved on its own tap rather than with the form's autosave:
+ * reading the GPS is a deliberate act done standing in the shop, and a position
+ * should never be re-sent just because someone edited the phone number.
+ */
+function ShopPin({ settings, onSaved }) {
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const save = async (lat, lng) => {
+    const formData = new FormData();
+    formData.append('shop_latitude', lat);
+    formData.append('shop_longitude', lng);
+    onSaved(await api.updateBoutiqueSettings(formData));
+  };
+  const pin = () => {
+    if (!navigator.geolocation) { setMessage('This browser cannot read a location.'); return; }
+    setBusy(true);
+    setMessage('');
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          await save(coords.latitude.toFixed(6), coords.longitude.toFixed(6));
+          setMessage(`Saved (accurate to about ${Math.round(coords.accuracy)} m).`);
+        } catch (err) {
+          setMessage(err.message || 'Could not save the location.');
+        } finally {
+          setBusy(false);
+        }
+      },
+      (err) => {
+        setBusy(false);
+        setMessage(err.code === 1
+          ? 'Location permission was denied. Allow it in the browser and try again.'
+          : 'Could not read your location. Try again near a window.');
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+    );
+  };
+  const pinned = settings?.shop_latitude != null;
+  return (
+    <div className="at-form-section" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+      <div className="at-row-main">
+        <div className="at-row-title">{pinned ? 'Shop location set' : 'Shop location not set'}</div>
+        <div className="at-row-sub">
+          {message || (pinned
+            ? 'Staff check-ins outside the radius below are flagged on the attendance screen.'
+            : 'Stand in the shop and tap the button. Until then, check-ins are not compared to a location.')}
+        </div>
+      </div>
+      <button type="button" className="btn-secondary at-btn-sm" onClick={pin} disabled={busy}>
+        <MapPin size={14} /> {busy ? 'Reading location…' : pinned ? 'Update to my current location' : 'Use my current location'}
+      </button>
+      {pinned && (
+        <button type="button" className="btn-secondary at-btn-sm" disabled={busy}
+                onClick={() => save('', '').then(() => setMessage('Shop location cleared.'), (err) => setMessage(err.message))}>
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
 
 function CustomerMessageQueue({ orderId, messages, onMarkSent }) {
   const [busyId, setBusyId] = useState(null);
@@ -1222,7 +1285,7 @@ function MaterialsChecklist({ orderId, role, onActivity }) {
   const [loaded, setLoaded] = useState(false);
   const [opened, setOpened] = useState(false);
   const [busyLineId, setBusyLineId] = useState(null);
-  const canEdit = role === 'Owner' || role === 'Master';
+  const canEdit = role === 'Owner' || SUPERVISOR_ROLES.includes(role);
 
   const refresh = () => api.getMaterialChecklist(orderId)
     .then((data) => { setPlan(data.plan); setLoaded(true); })
@@ -1393,6 +1456,8 @@ const navSectionsFor = (user, t) => {
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
         { tab: 'designs', icon: Palette, label: t('nav.designStudio'), phone: true },
+        { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
+        { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
         { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
@@ -1405,7 +1470,7 @@ const navSectionsFor = (user, t) => {
       ] },
     ];
 
-  const roomy = !role || role === 'Owner' || role === 'Master';
+  const roomy = !role || role === 'Owner' || SUPERVISOR_ROLES.includes(role);
   return [...sections, { key: 'session', divider: true, label: t('nav.groups.account', 'Account'), items: [
     { tab: 'account', icon: User, label: t('nav.account'), phone: !roomy },
     { tab: 'settings', icon: Settings, label: t('nav.settings') },
@@ -2201,7 +2266,6 @@ function App() {
   
   const [stageReviewRecording, setStageReviewRecording] = useState(false);
   const [selectedStageObj, setSelectedStageObj] = useState(null);
-  const [selectedPerformerId, setSelectedPerformerId] = useState('');
   const [stageTransitionBusy, setStageTransitionBusy] = useState(false);
   const [reversalPrompt, setReversalPrompt] = useState(null);
   const [reversalReason, setReversalReason] = useState('');
@@ -2300,9 +2364,7 @@ function App() {
         setView('dashboard');
         if (user.role === 'Designer') {
           openDesignRequests();
-          return;
-        }
-        if (isProductionStaff(user.role)) {
+        } else if (isProductionStaff(user.role)) {
           setDashboardTab('work');
         } else {
           setDashboardTab('overview');
@@ -2696,9 +2758,7 @@ function App() {
       setView('dashboard');
       if (res.user.role === 'Designer') {
         openDesignRequests();
-        return;
-      }
-      if (isProductionStaff(res.user.role)) {
+      } else if (isProductionStaff(res.user.role)) {
         setDashboardTab('work');
       } else {
         setDashboardTab('overview');
@@ -3205,6 +3265,7 @@ function App() {
     formData.append('email', cleanEmail(form.boutiqueEmail.value));
     if (logoFile) formData.append('logo', logoFile);
     formData.append('design_approval_required', form.designApprovalRequired.checked);
+    formData.append('shop_radius_m', form.shopRadius.value);
     const updated = await api.updateBoutiqueSettings(formData);
     setBoutiqueSettings(updated);
     setLogoFile(null);
@@ -3416,7 +3477,9 @@ function App() {
   const handleAssignStage = async (orderId, stageKey, tailorId, garmentJob = null) => {
     setAssigningStageKey(stageKey);
     try {
-      await api.assignStage(orderId, stageKey, tailorId || null, garmentJob);
+      const updated = await api.assignStage(orderId, stageKey, tailorId || null, garmentJob);
+      // The open stage sheet reads this, so the picker keeps the new name.
+      setSelectedStageObj((cur) => (cur && cur.id === updated?.id ? updated : cur));
       await fetchDashboardAndConfig();
     } catch (err) {
       alert(err.message || 'Could not assign this stage.');
@@ -4776,7 +4839,7 @@ function App() {
                           </span>
                         )}
                         {order.flow && order.flow !== 'legacy' && (() => {
-                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || currentUser?.role === 'Master')
+                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role))
                             && !(order.stages || []).some(st => st.stage_key !== 'created' && st.status !== 'NOT_STARTED');
                           const label = order.flow === 'alteration' ? t('ordersPage.flowAlteration', 'Alteration')
                             : order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
@@ -5046,7 +5109,7 @@ function App() {
                                 const photos = stitching?.attachments?.length ? stitching.attachments
                                   : (order.completed_garment_image ? [order.completed_garment_image] : []);
                                 const reviews = stitching?.attachment_reviews || {};
-                                const canReview = currentUser?.role === 'Owner' || currentUser?.role === 'Master';
+                                const canReview = currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role);
                                 const items = photos.map((u, i) => ({ image_url: u, label: `Photo ${i + 1}` }));
                                 const reject = async (url) => {
                                   const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
@@ -5932,7 +5995,7 @@ function App() {
                                   {stages.length > 0 ? ` · ${done}/${stages.length} stages${current ? ` · ${current.stage_name}` : ''}` : ''}
                                 </div>
                               </div>
-                              {order.order_status === 'Delivered' && currentUser?.role !== 'Designer' && (
+                              {order.order_status === 'Delivered' && (
                                 <button type="button" className="btn-secondary at-btn-sm"
                                         onClick={(e) => { e.stopPropagation(); setAlterationOrder(order); }}>
                                   <Scissors size={12} /> Alteration
@@ -6586,6 +6649,15 @@ function App() {
                           <textarea name="boutiqueAddress" className="form-control" rows={3} maxLength={LIMITS.address}
                                     defaultValue={boutiqueSettings?.address || ''} placeholder="Street, area, city, PIN" required />
                         </Field>
+
+                        <div className="at-field">
+                          <span className="at-field-label">Shop location for staff check-in</span>
+                          <ShopPin settings={boutiqueSettings} onSaved={setBoutiqueSettings} />
+                          <Field label="Check-in radius (metres)" icon={MapPin}>
+                            <input type="number" name="shopRadius" className="form-control" min={20} max={5000} step={10}
+                                   defaultValue={boutiqueSettings?.shop_radius_m ?? 150} required />
+                          </Field>
+                        </div>
                         <div className="at-form-grid">
                           <Field label={t('accountPage.boutiquePhone', 'Boutique Phone')} required icon={Phone}>
                             {/* The store phone printed on invoices: often a landline, so no mobile rule. */}
@@ -8834,7 +8906,6 @@ function App() {
           setActiveReviewStage(null);
           setActiveReviewOrder(null);
           setSelectedStageObj(null);
-          setSelectedPerformerId('');
         };
         const isSupervisor = !currentUser.role || currentUser.role === 'Owner'
           || SUPERVISOR_ROLES.includes(currentUser.role);
@@ -8856,7 +8927,8 @@ Complete the Payment stage with this partial payment?`)) return;
               status,
               comments,
               stageReviewImages,
-              selectedPerformerId || null,
+              // Whoever holds the stage is who did it; no assignee, the server records the caller.
+              stage.assigned_to || null,
               voiceNote,
               clearVoiceNote,
               stage.garment_job || null
@@ -9079,7 +9151,7 @@ Complete the Payment stage with this partial payment?`)) return;
                 here, at the stage it happens, by the people standing at it;
                 Stitching Completed only mops up lines nobody recorded. */}
             {(stage?.stage_key === 'pattern_cutting' || stage?.stage_key === 'fabric_cutting')
-              && (currentUser?.role === 'Owner' || currentUser?.role === 'Master') && (
+              && (currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role)) && (
               <FormSection icon={Scissors} tone="green" title="Fabric used at cutting"
                            subtitle="Metres cut from each roll, and the offcuts. Stock and the order's material cost follow from this.">
                 <CuttingUsage orderId={activeReviewOrder.id} />
@@ -9238,20 +9310,6 @@ Complete the Payment stage with this partial payment?`)) return;
                       <option value="">Unassigned</option>
                       {eligibleStaffForStage(stage.stage_key).map(t => (
                         <option key={t.id} value={t.id}>{t.name} · {t.role}</option>
-                      ))}
-                    </select>
-                  </Field>
-                )}
-                {isSupervisor && (
-                  <Field label="Record who performed this" icon={Users}>
-                    <select
-                      className="form-control"
-                      value={selectedPerformerId}
-                      onChange={(e) => setSelectedPerformerId(e.target.value)}
-                    >
-                      <option value="">-- Select Tailor / Master --</option>
-                      {(stage ? eligibleStaffForStage(stage.stage_key) : tailors).map(t => (
-                        <option key={t.id} value={t.id}>{t.name} ({t.role})</option>
                       ))}
                     </select>
                   </Field>

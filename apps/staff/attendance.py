@@ -10,6 +10,7 @@ by a rate is Phase 4's job and belongs somewhere else, so that attendance can
 stay a factual record rather than a financial one.
 """
 
+import math
 from datetime import timedelta
 
 from django.db import IntegrityError, transaction
@@ -57,7 +58,40 @@ def open_session(staff):
 
 
 @transaction.atomic
-def check_in(staff, *, user, source=AttendanceSession.Source.SELF, note=''):
+def distance_m(lat1, lng1, lat2, lng2):
+    """Great-circle metres between two points (haversine; plenty at shop scale)."""
+    p1, p2 = math.radians(float(lat1)), math.radians(float(lat2))
+    dp, dl = p2 - p1, math.radians(float(lng2) - float(lng1))
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return round(6371000 * 2 * math.asin(math.sqrt(a)))
+
+
+def _location_fields(location):
+    """The check_in_* columns for a validated {latitude, longitude, accuracy}.
+
+    Flagged on distance alone, not distance minus accuracy: a reading that is
+    ±2 km (a laptop locating itself by IP) would otherwise never flag anyone.
+    The owner sees the accuracy beside the flag and can judge it.
+    """
+    if not location:
+        return {}
+    fields = {
+        'check_in_latitude': location['latitude'],
+        'check_in_longitude': location['longitude'],
+        'check_in_accuracy_m': location.get('accuracy'),
+    }
+    from crm_api.models import BoutiqueSettings
+    shop = BoutiqueSettings.objects.filter(id=1).values(
+        'shop_latitude', 'shop_longitude', 'shop_radius_m').first()
+    if shop and shop['shop_latitude'] is not None and shop['shop_longitude'] is not None:
+        away = distance_m(location['latitude'], location['longitude'],
+                          shop['shop_latitude'], shop['shop_longitude'])
+        fields['check_in_distance_m'] = away
+        fields['check_in_outside_shop'] = away > shop['shop_radius_m']
+    return fields
+
+
+def check_in(staff, *, user, source=AttendanceSession.Source.SELF, note='', location=None):
     """Start a session. The server stamps the time; the caller does not.
 
     Deliberately takes no timestamp argument. A check-in time supplied by the
@@ -79,6 +113,7 @@ def check_in(staff, *, user, source=AttendanceSession.Source.SELF, note=''):
         return AttendanceSession.objects.create(
             staff=staff, date=business_date(now), check_in=now,
             source=source, note=note or '', recorded_by=user,
+            **_location_fields(location),
         )
     except IntegrityError:
         raise AttendanceError(

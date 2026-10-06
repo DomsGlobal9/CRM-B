@@ -156,13 +156,15 @@ def sent_to_qc(alteration):
                  f"{_customer_name(alteration)} is waiting for a quality check."),
         role='QC Master',
     )
-    _notify_staff(
-        alteration,
-        title=f"Alteration Quality Check: {alteration.alteration_number}",
-        message=(f"Alteration {alteration.alteration_number} is waiting for a "
-                 f"quality check."),
-        role='Master',
-    )
+    # The Designer may sign the check off too (workflow.QC_ROLES).
+    for role in ('Master', 'Designer'):
+        _notify_staff(
+            alteration,
+            title=f"Alteration Quality Check: {alteration.alteration_number}",
+            message=(f"Alteration {alteration.alteration_number} is waiting for a "
+                     f"quality check."),
+            role=role,
+        )
 
 
 def ready_for_pickup(alteration):

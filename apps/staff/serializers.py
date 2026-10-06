@@ -242,6 +242,9 @@ class AttendanceSessionSerializer(serializers.ModelSerializer):
             'id', 'staff', 'staff_name', 'staff_role',
             'staff_name_snapshot', 'staff_role_snapshot', 'date',
             'check_in', 'check_out', 'minutes', 'source', 'auto_checked_out', 'note',
+            # Distance and flag, not the raw coordinates: supervisors read
+            # this list too, and where someone stood is the owner's question.
+            'check_in_accuracy_m', 'check_in_distance_m', 'check_in_outside_shop',
             'is_open', 'was_corrected',
             'original_check_in', 'original_check_out',
             'corrected_at', 'correction_reason',
