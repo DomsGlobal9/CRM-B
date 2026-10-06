@@ -128,18 +128,14 @@ function formatMeasurementValue(val) {
 const WIZARD_STEPS = {
   stitch: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
-    { key: 'type', label: 'Apparel', sub: 'What we are making' },
-    { key: 'design', label: 'Design', sub: 'The look' },
-    { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
+    { key: 'type', label: 'Garments', sub: 'Details, design & fabric' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Complete the order', sub: 'Invoice & payment' },
   ],
   design: [
     { key: 'who', label: 'Customer', sub: 'Who it is for' },
-    { key: 'type', label: 'Apparel', sub: 'What we are making' },
-    { key: 'design', label: 'Design', sub: 'The look' },
-    { key: 'fabric', label: 'Fabric', sub: 'Cloth and trims' },
+    { key: 'type', label: 'Garments', sub: 'Details, design & fabric' },
     { key: 'measure', label: 'Measurements', sub: 'Body measurements' },
     { key: 'review', label: 'Review', sub: 'Check everything' },
     { key: 'money', label: 'Complete the order', sub: 'Invoice & payment' },
@@ -1690,6 +1686,10 @@ function App() {
   
   const [addingGarmentKey, setAddingGarmentKey] = useState(null);
   const [activeGarmentKey, setActiveGarmentKey] = useState(null);
+  // The Garments step takes one garment at a time, in three parts: its
+  // details, its design, its fabric. `garmentsDone` are the ones moved past.
+  const [garmentPhase, setGarmentPhase] = useState('details');
+  const [garmentsDone, setGarmentsDone] = useState([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -1911,10 +1911,10 @@ function App() {
   );
 
   /** Validate every dress on the order; returns true when all of them pass. */
-  const validateGarments = ({ partial = false, sections = null } = {}) => {
+  const validateGarments = ({ partial = false, sections = null, only = null } = {}) => {
     const errors = {};
     const quantityErrors = {};
-    garmentJobs.forEach(job => {
+    garmentJobs.filter(job => !only || job.key === only).forEach(job => {
       const jobErrors = validateSpec(job.template, job.values, { partial, sections });
       if (Object.keys(jobErrors).length) errors[job.key] = jobErrors;
 
@@ -2051,7 +2051,7 @@ function App() {
     setCustomerId(draft.customer || null);
 
     const { garments = [], design = {}, prices, payment = {},
-            service, ready_by, design_request, ...customer } = payload;
+            service, ready_by, design_request, wizard_cursor, ...customer } = payload;
     
     ['fabric', 'staff', 'delivery'].forEach((key) => { delete customer[key]; });
     setCustomerForm(prev => ({ ...prev, ...customer }));
@@ -2112,7 +2112,21 @@ function App() {
     setDraftSaveState('idle');
     setGarmentErrors({});
     
-    let step = Math.min(draft.current_step || 1, WIZARD_STEPS[kind].length);
+    // By name where the draft says; a draft from before Design and Fabric
+    // moved into the garments only has its old number (who, type, design,
+    // fabric, measure, ...), so 2-4 are the garments now.
+    const steps = WIZARD_STEPS[kind];
+    const named = steps.findIndex(st => st.key === wizard_cursor?.step_key) + 1;
+    const old = draft.current_step || 1;
+    const legacy = kind === 'alter' ? old
+      : old <= 1 ? 1
+        : old <= 4 ? steps.findIndex(st => st.key === 'type') + 1
+          : old === 5 ? steps.findIndex(st => st.key === 'measure') + 1
+            : steps.findIndex(st => st.key === 'review') + 1;
+    let step = Math.min(named || legacy, steps.length);
+    setActiveGarmentKey(wizard_cursor?.garment || null);
+    setGarmentPhase(wizard_cursor?.phase || 'details');
+    setGarmentsDone(wizard_cursor?.done || []);
     
     if (kind !== 'alter' && !(draft.payload?.garments || []).length) step = 1;
     setMaxStepReached(step);
@@ -2125,9 +2139,17 @@ function App() {
    *  Returns the draft id, so callers that are about to navigate away can be
    *  sure the work is on the server before they go.
    */
-  const persistDraft = async ({ step } = {}) => {
-    const payload = serialiseWizard();
+  const persistDraft = async ({ step, cursor = {} } = {}) => {
     const current_step = step || currentStep;
+    // Where to pick up: the step by name (step numbers shift when steps
+    // change), and inside the garments which one, which part, which are done.
+    const payload = {
+      ...serialiseWizard(),
+      wizard_cursor: {
+        step_key: wizardSteps[current_step - 1]?.key || null,
+        garment: activeGarmentKey, phase: garmentPhase, done: garmentsDone, ...cursor,
+      },
+    };
     setDraftSaveState('saving');
     try {
       if (!draftId) {
@@ -2891,6 +2913,9 @@ function App() {
     setSelectedDesignTemplates([]);
     setGarmentJobs([]);
     setGarmentErrors({});
+    setActiveGarmentKey(null);
+    setGarmentPhase('details');
+    setGarmentsDone([]);
     setQuotePrices({ packaging: 500, discount: 0 });
     setAdvancePaymentAmount(0);
     setSpecialInstructions('');
@@ -2983,13 +3008,38 @@ function App() {
       ?.scrollIntoView({ inline: 'center', block: 'nearest' });
   }, [currentStep]);
   const wizardStepKey = wizardSteps[currentStep - 1]?.key;
+  /** The garment being filled in on the Garments step. */
+  const openGarment = garmentJobs.find(job => job.key === activeGarmentKey) || garmentJobs[0] || null;
+  const openGarmentPhase = (key, phase) => {
+    setActiveGarmentKey(key);
+    setGarmentPhase(phase);
+    window.scrollTo(0, 0);
+  };
+  /** Moving off a garment's details checks that garment's required questions. */
+  const garmentDetailsOk = () => {
+    if (!openGarment || validateGarments({ sections: ['basic', 'style'], only: openGarment.key })) return true;
+    alert('Say what this garment needs \u2014 see the highlighted fields.');
+    return false;
+  };
   /** Whether any garment on the order has a measurement to take right now. */
   const needsMeasurements = () => garmentJobs.some(job =>
     ((job.template?.sections || []).find(sec => sec.key === 'measurements')?.fields || [])
       .some(f => f.field_type !== 'file' && isVisible(f, job.values || {})));
   const handleBack = () => {
+    if (wizardStepKey === 'type' && openGarment) {
+      if (garmentPhase === 'fabric') { openGarmentPhase(openGarment.key, 'design'); return; }
+      if (garmentPhase === 'design') { openGarmentPhase(openGarment.key, 'details'); return; }
+      const at = garmentJobs.findIndex(job => job.key === openGarment.key);
+      if (at > 0) { openGarmentPhase(garmentJobs[at - 1].key, 'fabric'); return; }
+    }
     if (currentStep <= 1) { setView('order-selector'); return; }
     const previous = wizardSteps[currentStep - 2];
+    const backTo = previous?.key === 'measure' && !needsMeasurements() && currentStep >= 3 ? wizardSteps[currentStep - 3] : previous;
+    // Back into the garments lands on the last one's fabric, where Next left it.
+    if (backTo?.key === 'type' && garmentJobs.length) {
+      setActiveGarmentKey(garmentJobs[garmentJobs.length - 1].key);
+      setGarmentPhase('fabric');
+    }
     // Measurements is skipped both ways when there is nothing to measure.
     if (previous?.key === 'measure' && !needsMeasurements() && currentStep >= 3) {
       reachStep(currentStep - 2);
@@ -3137,18 +3187,41 @@ function App() {
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'type') {
-        if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); return; }
+        if (garmentJobs.length === 0 || !openGarment) { alert('Add at least one garment to this order.'); return; }
+        const key = openGarment.key;
+        if (garmentPhase === 'details') {
+          if (!garmentDetailsOk()) return;
+          openGarmentPhase(key, 'design');
+          await persistDraft({ cursor: { garment: key, phase: 'design' } });
+          return;
+        }
+        if (garmentPhase === 'design') {
+          if (serviceType === 'design' && !designRequest.designer) { alert('Pick the designer.'); return; }
+          openGarmentPhase(key, 'fabric');
+          await persistDraft({ cursor: { garment: key, phase: 'fabric' } });
+          return;
+        }
+        // Fabric done: on to the next garment not yet moved past, if any.
+        const done = [...new Set([...garmentsDone, key])];
+        setGarmentsDone(done);
+        const at = garmentJobs.findIndex(job => job.key === key);
+        const next = [...garmentJobs.slice(at + 1), ...garmentJobs.slice(0, at)].find(job => !done.includes(job.key));
+        if (next) {
+          openGarmentPhase(next.key, 'details');
+          await persistDraft({ cursor: { garment: next.key, phase: 'details', done } });
+          return;
+        }
+        // Every garment once more, in case one was reached by its circle.
         if (!validateGarments({ sections: ['basic', 'style'] })) {
+          setGarmentPhase('details');
           alert('Say what each garment needs \u2014 see the highlighted fields.');
           return;
         }
-        await persistDraft({ step: currentStep + 1 });
-        reachStep(currentStep + 1);
-      } else if (wizardStepKey === 'design') {
-        if (serviceType === 'design' && !designRequest.designer) { alert('Pick the designer.'); return; }
-        await persistDraft({ step: currentStep + 1 });
-        reachStep(currentStep + 1);
-      } else if (wizardStepKey === 'fabric') {
+        if (serviceType === 'design' && !designRequest.designer) {
+          setGarmentPhase('design');
+          alert('Pick the designer.');
+          return;
+        }
         const target = stepAfterGarments();
         await persistDraft({ step: target });
         if (wizardSteps[target - 1]?.key === 'measure') prefillMeasurements();
@@ -7513,8 +7586,16 @@ function App() {
             {wizardStepKey === 'type' && (
               <>
                 <div className="page-title-group">
-                  <h1 className="page-title">{t('wizard.typeTitle', 'What are we making?')}</h1>
-                  <p className="page-subtitle">{t('wizard.typeSubtitle', 'Add each garment and answer only what it asks.')}</p>
+                  {garmentPhase === 'design' ? (<>
+                    <h1 className="page-title">{t('wizard.designTitle', 'The look')}{openGarment ? ` · ${openGarment.template.name}` : ''}</h1>
+                    <p className="page-subtitle">{t('wizard.designSubtitle', 'A look from our catalogue, or a photo the customer brought. Skip for a plain garment.')}</p>
+                  </>) : garmentPhase === 'fabric' ? (<>
+                    <h1 className="page-title">{t('wizard.fabricTitle', 'Fabric')}{openGarment ? ` · ${openGarment.template.name}` : ''}</h1>
+                    <p className="page-subtitle">{t('wizard.fabricSubtitle', 'From our stock, or what the customer brings. Skip if it is decided later.')}</p>
+                  </>) : (<>
+                    <h1 className="page-title">{t('wizard.typeTitle', 'What are we making?')}</h1>
+                    <p className="page-subtitle">{t('wizard.typeSubtitle', 'Add each garment and answer only what it asks.')}</p>
+                  </>)}
                 </div>
 
                 <div className="content-card wz-card">
@@ -7550,8 +7631,7 @@ function App() {
                           return f.key !== 'delivery_date' && v !== '' && v != null && !(Array.isArray(v) && !v.length)
                             && !(f.default != null && v === f.default);
                         }));
-                    const picked = garmentJobs.find(j => j.key === activeGarmentKey);
-                    const openKey = (picked && !filled(picked) ? picked : garmentJobs.find(j => !filled(j)))?.key;
+                    const openKey = openGarment?.key;
                     return (
                       <div style={{ marginTop: '16px' }}>
                         {/* The same stepper the wizard draws across the top, one
@@ -7562,13 +7642,10 @@ function App() {
                         <div className="stepper-progress-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px 0' }}>
                           {garmentJobs.map((job, idx) => {
                             const isActive = job.key === openKey;
-                            const complete = filled(job) && !isActive;
+                            const complete = garmentsDone.includes(job.key) && filled(job) && !isActive;
                             const missing = !filled(job) && Boolean(garmentErrors[job.key]);
-                            // Sections are stacked below, so a circle scrolls to its garment.
-                            const goTo = () => {
-                              setActiveGarmentKey(job.key);
-                              document.getElementById(`wz-garment-${job.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            };
+                            // One garment shows at a time: a circle opens that one's details.
+                            const goTo = () => openGarmentPhase(job.key, 'details');
                             return (
                               <React.Fragment key={job.key}>
                                 <div className="stepper-step stepper-step--link" role="button" tabIndex={0}
@@ -7607,7 +7684,43 @@ function App() {
                       </div>
                     );
                   })()}
-                  {garmentJobs.map((job, idx) => {
+                  {/* This garment's three parts. Leaving Details checks its
+                      required questions, as Next does; Design and Fabric may
+                      be skipped. */}
+                  {openGarment && (
+                    <div className="at-seg" role="group" aria-label={t('wizard.garmentParts', 'Garment parts')} style={{ margin: '16px 0 4px' }}>
+                      {[['details', t('wizard.partDetails', '1 · Details')], ['design', t('wizard.partDesign', '2 · Design')], ['fabric', t('wizard.partFabric', '3 · Fabric')]].map(([phase, label]) => (
+                        <button key={phase} type="button" aria-pressed={garmentPhase === phase}
+                                onClick={() => {
+                                  if (phase === garmentPhase) return;
+                                  if (garmentPhase === 'details' && !garmentDetailsOk()) return;
+                                  openGarmentPhase(openGarment.key, phase);
+                                }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {garmentJobs.length > 0 && (
+                    <details className="wz-more">
+                      <summary><Plus size={14} /> {t('wizard.addAnotherGarment', 'Do you need to add another garment?')}</summary>
+                      <select className="form-control" value="" disabled={!!addingGarmentKey} style={{ marginTop: '8px' }}
+                              onChange={(e) => {
+                                if (!e.target.value) return;
+                                e.target.closest('details').open = false;
+                                addGarment(e.target.value);
+                              }}>
+                        <option value="">{addingGarmentKey ? t('common.loading', 'Loading…') : t('wizard.selectGarment', 'Select Garment')}</option>
+                        {garmentsForGender(garmentTemplates, customerForm.gender)
+                          .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key))
+                          .map((tpl) => <option key={tpl.key} value={tpl.key}>{tpl.name}</option>)}
+                      </select>
+                    </details>
+                  )}
+
+                  {garmentPhase === 'details' && garmentJobs.map((job, idx) => {
+                    if (job.key !== openGarment?.key) return null;
                     const sections = ['basic', 'style'].filter((k) => job.template.sections.some((sec) => sec.key === k));
                     const upFront = (f) => f.key !== 'delivery_date' && (f.is_required || Boolean(f.visible_when));
                     return (
@@ -7646,26 +7759,6 @@ function App() {
                                         onChange={(values) => updateGarmentValues(job.key, values)} />
                         </div>
 
-                        {/* Sections stack one under another, so the prompt to
-                            add the next garment sits after the last one. Same
-                            list and same addGarment as the dropdown above; the
-                            new garment renders right below this. */}
-                        {idx === garmentJobs.length - 1 && (
-                          <details className="wz-more">
-                            <summary><Plus size={14} /> {t('wizard.addAnotherGarment', 'Do you need to add another garment?')}</summary>
-                            <select className="form-control" value="" disabled={!!addingGarmentKey} style={{ marginTop: '8px' }}
-                                    onChange={(e) => {
-                                      if (!e.target.value) return;
-                                      e.target.closest('details').open = false;
-                                      addGarment(e.target.value);
-                                    }}>
-                              <option value="">{addingGarmentKey ? t('common.loading', 'Loading…') : t('wizard.selectGarment', 'Select Garment')}</option>
-                              {garmentsForGender(garmentTemplates, customerForm.gender)
-                                .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key))
-                                .map((tpl) => <option key={tpl.key} value={tpl.key}>{tpl.name}</option>)}
-                            </select>
-                          </details>
-                        )}
                       </div>
                     );
                   })}
@@ -7674,16 +7767,12 @@ function App() {
               </>
             )}
 
-            {/* FABRIC: from stock, or what the customer brought, per garment. */}
-            {wizardStepKey === 'fabric' && (
+            {/* FABRIC: from stock, or what the customer brought -- the open
+                garment's third part on the Garments step. */}
+            {wizardStepKey === 'type' && garmentPhase === 'fabric' && (
               <>
-                <div className="page-title-group">
-                  <h1 className="page-title">{t('wizard.fabricTitle', 'Fabric')}</h1>
-                  <p className="page-subtitle">{t('wizard.fabricSubtitle', 'From our stock, or what the customer brings. Skip if it is decided later.')}</p>
-                </div>
-
                 <div className="content-card wz-card">
-                  {garmentJobs.map((job, idx) => (
+                  {garmentJobs.map((job, idx) => job.key !== openGarment?.key ? null : (
                       <div key={job.key} className="wz-garment">
                         <div className="wz-garment-head">
                           <span className="wz-garment-num">{idx + 1}</span>
@@ -7785,17 +7874,13 @@ function App() {
               </>
             )}
 
-            {/* DESIGN: a look from the catalogue or a photo the customer brought;
+            {/* DESIGN: a look from the catalogue or a photo the customer
+                brought -- the open garment's second part on the Garments step;
                 for a design order, the designer and the brief. */}
-            {wizardStepKey === 'design' && (
+            {wizardStepKey === 'type' && garmentPhase === 'design' && (
               <>
-                <div className="page-title-group">
-                  <h1 className="page-title">{t('wizard.designTitle', 'The look')}</h1>
-                  <p className="page-subtitle">{t('wizard.designSubtitle', 'A look from our catalogue, or a photo the customer brought. Skip for a plain garment.')}</p>
-                </div>
-
                 <div className="content-card wz-card">
-                  {garmentJobs.map((job, idx) => (
+                  {garmentJobs.map((job, idx) => job.key !== openGarment?.key ? null : (
                       <div key={job.key} className="wz-garment">
                         <div className="wz-garment-head">
                           <span className="wz-garment-num">{idx + 1}</span>
@@ -8070,9 +8155,6 @@ function App() {
               </>
             )}
 
-            {/* PERSONALIZATION: the optional extras per garment -- the
-                questions its cut does not insist on, and anything in the
-                customer's own words -- after the measurements are taken. */}
             {/* REVIEW: everything the order will say, on one page, before a
                 price is put on it. Each card jumps back to the screen that
                 owns it. */}
@@ -8084,11 +8166,18 @@ function App() {
                 return slot?.label || slotKey.replace(/_/g, ' ');
               };
               const rollName = (id) => fabrics.find(f => String(f.id) === String(id))?.name || 'Stock item';
+              // `step` is a step number, or 'design' / 'fabric': a part of the
+              // garments, opened on the first garment.
               const card = (title, step, body) => (
                 <div className="content-card wz-card" style={{ padding: '16px 20px', gap: 0, marginTop: '-16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                     <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{title}</h2>
-                    <button type="button" className="btn-secondary at-btn-sm" onClick={() => jumpToStep(step)}>
+                    <button type="button" className="btn-secondary at-btn-sm" onClick={() => {
+                      if (typeof step === 'string') {
+                        if (garmentJobs.length) { setActiveGarmentKey(garmentJobs[0].key); setGarmentPhase(step); }
+                        jumpToStep(stepOf('type'));
+                      } else jumpToStep(step);
+                    }}>
                       <Edit2 size={12} /> {t('common.edit', 'Edit')}
                     </button>
                   </div>
@@ -8177,7 +8266,7 @@ function App() {
                     </>
                   ))}
 
-                  {groups.length > 0 && card(t('wizard.reviewPhotos', 'Photos & references'), stepOf('design'), (
+                  {groups.length > 0 && card(t('wizard.reviewPhotos', 'Photos & references'), 'design', (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {groups.map(group => (
                         <section key={group.key}>
@@ -8211,7 +8300,7 @@ function App() {
                     </Suspense>
                   )}
 
-                  {garmentJobs.some(job => (job.purchases || []).length) && card(t('wizard.sheetPurchases', 'To buy for this order'), stepOf('fabric'), (
+                  {garmentJobs.some(job => (job.purchases || []).length) && card(t('wizard.sheetPurchases', 'To buy for this order'), 'fabric', (
                     <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
                       <tbody>
                         {garmentJobs.flatMap(job => (job.purchases || []).map((row, i) => (
@@ -8224,7 +8313,7 @@ function App() {
                       </tbody>
                     </table>
                   ))}
-                  {fabricLines.length > 0 && card(t('wizard.sheetFabric', 'Fabric from our stock'), stepOf('fabric'), (
+                  {fabricLines.length > 0 && card(t('wizard.sheetFabric', 'Fabric from our stock'), 'fabric', (
                     <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
                       <tbody>
                         {fabricLines.map(line => (
@@ -8238,7 +8327,7 @@ function App() {
                     </table>
                   ))}
 
-                  {serviceType === 'design' && card(t('wizard.designerTitle', 'Who designs it?'), stepOf('design'), (
+                  {serviceType === 'design' && card(t('wizard.designerTitle', 'Who designs it?'), 'design', (
                     <div style={{ fontSize: '14px' }}>
                       {designers.find(d => String(d.id) === String(designRequest.designer))?.name || designRequest.designer || <span className="od-hint">Not picked</span>}
                       {designRequest.brief && <div className="od-hint" style={{ marginTop: '4px' }}>{designRequest.brief}</div>}

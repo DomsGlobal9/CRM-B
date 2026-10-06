@@ -1797,7 +1797,7 @@ HAND_WORK_LABELS = {
 def hand_work_fields(definition):
     """The hand-work question every garment gets, beside its type on the
     order form: with or without work; and when with, which work, on which of
-    its own parts, how dense, and a word for the maggam master. Required, so
+    its own parts, and a word for the maggam master. Required, so
     it is asked up front rather than folded under "More details"."""
     # The garment's own pieces (pallu, border, sleeves...), not the photo
     # categories that share the list (print, embroidery, the overall shot).
@@ -1813,8 +1813,6 @@ def hand_work_fields(definition):
     gate = field('hand_work', 'Maggam / Hand Work', 'select', required=True, default='none',
                  options=[('none', 'Without Work'), ('with_work', 'With Work')])
     tail = [
-        field('hand_work_density', 'Work Coverage', 'select',
-              options=['Light', 'Medium', 'Heavy'], when=has_work),
         field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
               help_text='Thread colour, motif size, what to match.',
               validation={'max_length': 500}, when=has_work),
