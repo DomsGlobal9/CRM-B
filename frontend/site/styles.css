@@ -35,13 +35,16 @@ section{padding:clamp(64px,8vw,116px) 0}
 .nav.solid .logo{color:var(--forest)}
 .nav-links{display:flex;gap:26px;list-style:none;font-size:14px;font-weight:500}
 .nav-only-mobile{display:none}
-.nav-links a{color:rgba(245,242,236,.82);transition:color .2s;padding:4px 0;border-bottom:2px solid transparent}
+.nav-links a{color:rgba(245,242,236,.82);transition:color .2s;padding:4px 0;border-bottom:2px solid transparent;white-space:nowrap}
 .nav-links a:hover{color:var(--lime)}
 .nav-links a[aria-current="page"]{color:var(--lime);border-bottom-color:var(--lime)}
 .nav.solid .nav-links a{color:var(--muted)}
 .nav.solid .nav-links a:hover{color:var(--forest)}
 .nav.solid .nav-links a[aria-current="page"]{color:var(--forest);border-bottom-color:var(--lime-dark)}
 .nav-cta{display:flex;align-items:center;gap:12px}
+.lang-select{height:36px;padding:0 10px;border-radius:999px;border:1px solid rgba(245,242,236,.35);background:transparent;color:var(--cream);font:600 12.5px var(--sans);cursor:pointer}
+.lang-select:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.lang-select option{background:#fff;color:var(--forest)}
 .btn{display:inline-flex;align-items:center;gap:9px;border-radius:999px;font-family:var(--sans);font-size:14px;font-weight:600;padding:13px 26px;border:1px solid transparent;cursor:pointer;transition:transform .18s,background .2s,color .2s,border-color .2s;white-space:nowrap}
 .btn:hover{transform:translateY(-1px)}
 .btn-lime{background:var(--lime);color:var(--forest-deep)}
@@ -241,17 +244,27 @@ footer{background:var(--forest-deep);color:rgba(245,242,236,.6);padding:70px 0 3
 .fgrid ul{list-style:none;display:grid;gap:11px}
 .fgrid a:hover{color:var(--lime)}
 .fbrand p{margin:14px 0 0;max-width:38ch;font-size:13.5px}
-.fbot{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:26px;font-size:13px}
+.fbot{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding-top:26px;font-size:13px}
+.fbot-end{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.flang{display:inline-flex;align-items:center;gap:10px;margin:0;font-weight:500;color:inherit}
 
-@media(max-width:1040px){.nav-links{gap:18px;font-size:13.5px}}
-@media(max-width:920px){
-  .nav-links,.nav-cta .btn-ghost{display:none}
+/* The full bar (logo, seven links, Sign in, Book a demo) measures ~1090px in
+   English and Hindi alike; the language picker lives in the footer to keep it
+   that way. The bar used to stay up until 920px and squeeze in between,
+   wrapping "For customers" onto two lines and knocking every link out of line.
+   Below 1100 the links go into the drawer instead; Sign in stays in the bar
+   until 920, where the drawer's own copy of it takes over. */
+@media(max-width:1100px){
+  .nav-links{display:none}
   /* The toggle was an 8px-padded 22px icon: a 16x38 tap target, and the only
      way into the menu on a phone. */
   .nav-toggle{display:flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:0}
   .nav-links.open{display:grid;position:absolute;top:72px;left:0;right:0;background:var(--cream);border-bottom:1px solid var(--line);padding:20px 24px;gap:18px}
   .nav-links.open a{color:var(--forest)}
   .nav-links.open a{display:block;padding:10px 0}
+}
+@media(max-width:920px){
+  .nav-cta .btn-ghost{display:none}
   .nav-links.open .nav-only-mobile{display:block}
   /* `1fr` tracks cannot shrink under their own content, so the four footer
      columns pushed the page 53px wider than the viewport and the whole site
