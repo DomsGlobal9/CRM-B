@@ -252,6 +252,10 @@ class DesignPreference(models.Model):
     reference_images = models.JSONField(default=list, blank=True)
     source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default='BOUTIQUE_CATALOG', db_index=True)
     reference_links = models.JSONField(default=list, blank=True)
+    # Which part of the garment each reference photo shows, by its URL in
+    # reference_images: {url: {"part": "pallu_design", "label": "Pallu Design"}}.
+    # A photo absent here is one for the garment as a whole.
+    reference_parts = models.JSONField(default=dict, blank=True)
     approved_image = models.CharField(max_length=500, blank=True, null=True)
     is_approved = models.BooleanField(default=False, db_index=True)
     approved_at = models.DateTimeField(blank=True, null=True)

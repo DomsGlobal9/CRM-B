@@ -26,9 +26,16 @@ DEFAULT_CUSTOMER_DATA) -- same field names, same validators -- so the portal
 and the counter cannot disagree about what a customer record holds.
 """
 
+import json
 import logging
+import re
+import uuid
+from decimal import Decimal, InvalidOperation
 
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django_tenants.utils import get_public_schema_name, schema_context
@@ -37,7 +44,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from core.modules import is_enabled
-from core.validators import validate_email_address, validate_name, validate_text
+from core.validators import (
+    validate_email_address, validate_image_uploads, validate_name,
+    validate_text,
+)
 from crm_api import portal_otp, portal_tokens
 from crm_api.models import Customer, Measurement, national_mobile, whatsapp_number
 from tenants import portal_credentials
@@ -100,6 +110,40 @@ MAX_BODY_FIELD = 500
 
 #: Bots fill in every field they find. A human never sees this one.
 HONEYPOT_FIELD = 'company_website'
+
+#: Design photos one submission may carry, across all of the garment's parts.
+MAX_DESIGN_PHOTOS = 10
+
+#: A design photo's form field names the part it shows: images[pallu_design].
+PHOTO_FIELD = re.compile(r'^images\[([a-z0-9_]{1,60})\]$')
+
+#: The picture formats a customer's design photo may be, by what the bytes
+#: are -- never by the name or the type the browser claimed -- and the
+#: extension each is stored under.
+DESIGN_IMAGE_FORMATS = {'JPEG': 'jpg', 'PNG': 'png', 'WEBP': 'webp'}
+
+#: A garment's measurement as the customer's sheet files it. Mirrors
+#: MEASURE_KEYS in frontend/src/App.jsx, which the counter's order form fills
+#: itself from -- so a number a customer sends here is the one the shop's form
+#: offers the next time this customer orders. A key not listed keeps its name.
+SHEET_KEYS = {
+    'chest': 'bust', 'bust': 'bust', 'waist': 'waist', 'hip': 'hips', 'shoulder': 'shoulder',
+    'neck': 'neck', 'height': 'height', 'underbust': 'underbust', 'high_waist': 'high_waist',
+    'armhole': 'armhole', 'upper_arm': 'upper_arm', 'bicep': 'upper_arm', 'elbow': 'elbow',
+    'wrist': 'wrist', 'shoulder_to_bust': 'shoulder_to_bust',
+    'shoulder_to_waist': 'shoulder_to_waist', 'waist_to_hip': 'waist_to_hip',
+    'waist_to_floor': 'waist_to_floor', 'floor_length': 'waist_to_floor', 'crotch': 'rise',
+    'thigh': 'thigh', 'knee': 'knee', 'calf': 'calf', 'ankle': 'ankle', 'inseam': 'inseam',
+    'outseam': 'outseam',
+}
+#: The sheet's own columns (Measurement); every other key is filed under
+#: additional_measurements. Mirrors SHEET_COLUMNS in frontend/src/App.jsx.
+SHEET_COLUMNS = ('bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length')
+
+#: Of a garment's folded-away measurement groups, the ones a customer can take
+#: at home with a tape. The rest -- Pattern, Construction, Border, Layers --
+#: are the workroom's own specification and are never asked of a customer.
+CUSTOMER_GROUPS = re.compile(r'body|length|neck|sleeve|fit', re.IGNORECASE)
 
 
 def _client_ip(request):
@@ -505,6 +549,143 @@ class ProductsView(PortalView):
         return self._cors(Response({'products': products}), origin)
 
 
+def _template_for(tenant, product):
+    """This boutique's active garment template named by key or by name, or None.
+
+    The website may send either: GET /intake/products/ gives both, and the
+    documentation has always told developers to send the name.
+    """
+    from apps.catalog.models import GarmentTemplate
+
+    product = str(product or '').strip()
+    if not product:
+        return None
+    rows = GarmentTemplate.objects.filter(is_active=True).filter(
+        Q(tenant__isnull=True) | Q(tenant=tenant.schema_name))
+    match = rows.filter(key__iexact=product).first() or rows.filter(name__iexact=product).first()
+    return GarmentTemplate.resolve(match.key, tenant=tenant.schema_name) if match else None
+
+
+def _measurement_fields(template):
+    """The measurements a customer is asked for this garment, in its own order.
+
+    The garment's own Measurements step, cut to what a person can measure:
+    numbers in inches, never one that depends on another answer (the website
+    does not have the style answers), and of the folded-away groups only the
+    body ones. `group` None is the garment's main list; a named group is extra
+    detail the website may fold away, as the counter's form does.
+    """
+    out = []
+    for section in template.sections.filter(key='measurements'):
+        for f in section.fields.all():
+            if f.field_type != 'number' or f.unit != 'Inches' or f.visible_when:
+                continue
+            rules = f.validation or {}
+            group = rules.get('group')
+            if group and not CUSTOMER_GROUPS.search(group):
+                continue
+            out.append({
+                'key': f.key, 'label': f.label, 'unit': 'inches', 'group': group or None,
+                'min': rules.get('min', 0), 'max': rules.get('max', 120),
+                'step': rules.get('step', 0.25), 'help_text': f.help_text or '',
+            })
+    return out
+
+
+def _clean_measurements(data, template):
+    """{key: Decimal} from the body's `measurements`, or ValueError.
+
+    Only this garment's own measurement keys, each a number in its range. A
+    blank value is skipped, so a customer may send only what they know.
+    """
+    raw = _json_field(data, 'measurements')
+    if raw in (None, '', {}):
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError('Measurements must be a list of name and number pairs.')
+    if template is None:
+        raise ValueError('Choose a product from the list before sending measurements.')
+    allowed = {f['key']: f for f in _measurement_fields(template)}
+    out = {}
+    for key, value in raw.items():
+        field = allowed.get(key)
+        if field is None:
+            raise ValueError(f'"{str(key)[:40]}" is not a measurement for {template.name}.')
+        if value in (None, ''):
+            continue
+        try:
+            number = Decimal(str(value).strip())
+        except InvalidOperation:
+            raise ValueError(f'{field["label"]} must be a number.') from None
+        if not number.is_finite() or number < Decimal(str(field['min'])) or number > Decimal(str(field['max'])):
+            raise ValueError(f'{field["label"]} must be between {field["min"]} and {field["max"]} inches.')
+        out[key] = number.quantize(Decimal('0.01'))
+    return out
+
+
+def _save_measurements(customer, values):
+    """The customer's sheet takes what they sent: their number replaces the one
+    on file. The portal serves customers new to the boutique, so there is no
+    tape-measured number of the shop's to protect; Measurement.save keeps the
+    previous sheet in MeasurementHistory regardless."""
+    sheet, _ = Measurement.objects.get_or_create(customer=customer)
+    extras = dict(sheet.additional_measurements or {})
+    for key, number in values.items():
+        target = SHEET_KEYS.get(key, key)
+        if target in SHEET_COLUMNS:
+            setattr(sheet, target, number)
+        else:
+            extras[target] = float(number)
+    sheet.additional_measurements = extras
+    sheet.save()
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ProductMeasurementsView(PortalView):
+    """GET /intake/products/<key>/measurements/ -- what to measure for one garment.
+
+    Public, like the products list: these are the boutique's own questions,
+    not anything about a customer. Unknown or switched-off products answer the
+    same 404 as an unknown boutique.
+    """
+
+    def get(self, request, key):
+        tenant, _credential, origin = self.resolve(request)
+        if tenant is None:
+            return self._fail(UNAVAILABLE, status.HTTP_404_NOT_FOUND)
+        with schema_context(tenant.schema_name):
+            template = _template_for(tenant, key)
+            if template is None:
+                return self._fail('No such product.', status.HTTP_404_NOT_FOUND, origin)
+            body = {'product': {'key': template.key, 'name': template.name},
+                    'measurements': _measurement_fields(template)}
+        return self._cors(Response(body), origin)
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ProductPartsView(PortalView):
+    """GET /intake/products/<key>/parts/ -- the parts a design photo can show.
+
+    The garment's own design parts (pallu, border, body...), the same list the
+    counter's order form files reference photos under. Public, like the
+    products list; an unknown product answers 404.
+    """
+
+    def get(self, request, key):
+        tenant, _credential, origin = self.resolve(request)
+        if tenant is None:
+            return self._fail(UNAVAILABLE, status.HTTP_404_NOT_FOUND)
+        with schema_context(tenant.schema_name):
+            template = _template_for(tenant, key)
+            if template is None:
+                return self._fail('No such product.', status.HTTP_404_NOT_FOUND, origin)
+            body = {'product': {'key': template.key, 'name': template.name},
+                    'parts': [{'key': p['key'], 'label': p['label']}
+                              for p in (template.design_parts or [])],
+                    'max_photos': MAX_DESIGN_PHOTOS}
+        return self._cors(Response(body), origin)
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class RequirementView(PortalView):
     """POST /intake/customer/product/ -- what the customer wants made.
@@ -538,10 +719,11 @@ class RequirementView(PortalView):
             fields = _clean(request.data, REQUIREMENT_FIELDS)
             links = _reference_links(request.data)
             notes = _text(request.data.get('notes'), 'Requirement')
+            photos = _design_photos(request.FILES)
         except ValueError as exc:
             return self._fail(str(exc), status.HTTP_400_BAD_REQUEST, origin)
 
-        if not any(fields.values()) and not notes and not links:
+        if not any(fields.values()) and not notes and not links and not photos:
             return self._fail('Tell us what you would like made.',
                               status.HTTP_400_BAD_REQUEST, origin)
 
@@ -552,10 +734,112 @@ class RequirementView(PortalView):
                 # is nothing to attach a requirement to.
                 return self._fail('Send your details first.',
                                   status.HTTP_409_CONFLICT, origin)
-            _save_requirement(customer, fields, notes, links)
+            # Measurements belong to the product chosen: checked against that
+            # garment's own list, so a blouse cannot be sent a trouser's inseam.
+            template = _template_for(tenant, fields.get('garment_type'))
+            try:
+                measured = _clean_measurements(request.data, template)
+            except ValueError as exc:
+                return self._fail(str(exc), status.HTTP_400_BAD_REQUEST, origin)
+            try:
+                part_labels = _photo_parts(photos, template)
+            except ValueError as exc:
+                return self._fail(str(exc), status.HTTP_400_BAD_REQUEST, origin)
+            labels = {f['key']: f['label'] for f in _measurement_fields(template)} if measured else {}
+            _save_requirement(customer, fields, notes, links,
+                              [(labels[k], v) for k, v in measured.items()], measured,
+                              _store_photos(photos, part_labels, tenant, request))
 
         return self._cors(Response({'saved': True}, status=status.HTTP_201_CREATED),
                           origin)
+
+
+def _json_field(data, name, many=False):
+    """A list or object from a JSON body, or the same sent as text in a form.
+
+    Photos need multipart/form-data, where a field is only ever text: there the
+    website sends `measurements` as a JSON string, and `reference_links` either
+    the same way or as one field per link.
+    """
+    if hasattr(data, 'getlist') and not isinstance(data.get(name), (dict, list)):
+        values = data.getlist(name)
+        if many and len(values) > 1:
+            return values
+        raw = values[0] if values else None
+    else:
+        raw = data.get(name)
+    if isinstance(raw, str) and raw.strip()[:1] in ('[', '{'):
+        try:
+            return json.loads(raw)
+        except ValueError:
+            raise ValueError(f'{name.replace("_", " ").capitalize()} could not be read.') from None
+    return raw
+
+
+def _design_photos(uploads):
+    """[(part, file, ext)] from the form's images[<part>] fields.
+
+    Every photo is filed under the part of the garment it shows, so a field
+    without one -- a bare `images` -- is refused rather than guessed. At most
+    MAX_DESIGN_PHOTOS across all parts. core.validators does the size and opens
+    the bytes; the format is then pinned to the three a phone or website sends,
+    so a GIF, TIFF or anything PIL happens to read never reaches the boutique.
+    """
+    from PIL import Image
+
+    named = []
+    for field in uploads:
+        match = PHOTO_FIELD.match(field)
+        if not match:
+            raise ValueError('Send each design photo under the part it shows: images[<part>], '
+                             'with a part from GET /intake/products/<product>/parts/.')
+        named.extend((match.group(1), f) for f in uploads.getlist(field))
+    if len(named) > MAX_DESIGN_PHOTOS:
+        raise ValueError(f'Up to {MAX_DESIGN_PHOTOS} design photos at a time.')
+    try:
+        validate_image_uploads([f for _, f in named], label='Design photos',
+                               max_count=MAX_DESIGN_PHOTOS)
+    except Exception as exc:  # noqa: BLE001 - DRF ValidationError
+        detail = getattr(exc, 'detail', None)
+        raise ValueError(str(detail[0]) if detail else 'Design photos could not be read.') from exc
+    out = []
+    for part, f in named:
+        try:
+            kind = Image.open(f).format
+        except Exception:  # noqa: BLE001
+            kind = None
+        finally:
+            f.seek(0)
+        if kind not in DESIGN_IMAGE_FORMATS:
+            raise ValueError('Design photos must be JPG, PNG or WebP images.')
+        out.append((part, f, DESIGN_IMAGE_FORMATS[kind]))
+    return out
+
+
+def _photo_parts(photos, template):
+    """{part: label} for the parts these photos name, all of them the chosen
+    garment's own -- or ValueError. No photos, nothing to check."""
+    if not photos:
+        return {}
+    if template is None:
+        raise ValueError('Choose a product from the list before sending design photos.')
+    parts = {p['key']: p['label'] for p in (template.design_parts or [])}
+    for part, _f, _ext in photos:
+        if part not in parts:
+            raise ValueError(f'"{part}" is not a part of {template.name}.')
+    return parts
+
+
+def _store_photos(photos, part_labels, tenant, request):
+    """Save each photo under a name of our own -- never the uploader's -- and
+    return [(url, part, label)] in the garment's own part order."""
+    order = {key: i for i, key in enumerate(part_labels)}
+    out = []
+    for part, f, ext in sorted(photos, key=lambda row: order.get(row[0], 99)):
+        path = f'design_references/portal/{tenant.schema_name}/{part}/{uuid.uuid4().hex}.{ext}'
+        saved = default_storage.save(path, ContentFile(f.read()))
+        out.append((request.build_absolute_uri(default_storage.url(saved)), part, part_labels[part]))
+    return out
 
 
 def _text(value, label, limit=MAX_BODY_FIELD):
@@ -572,7 +856,7 @@ def _reference_links(data):
     cleaned, because these are shown to boutique staff later and a link is only
     safe if it is the kind of link it claims to be.
     """
-    raw = data.get('reference_links') or []
+    raw = _json_field(data, 'reference_links', many=True) or []
     if isinstance(raw, str):
         raw = [raw]
     if not isinstance(raw, list):
@@ -591,7 +875,8 @@ def _reference_links(data):
     return links
 
 
-def _save_requirement(customer, fields, notes, links):
+def _save_requirement(customer, fields, notes, links, measured_lines=(), measured=None,
+                      photo_urls=()):
     """The style fields on the customer, and one DesignPreference per submission.
 
     The DesignPreference is append-only and is what keeps this honest: the
@@ -608,9 +893,17 @@ def _save_requirement(customer, fields, notes, links):
                 setattr(customer, name, fields[name])
             customer.save(update_fields=changed)
 
+        if measured:
+            _save_measurements(customer, measured)
+
         summary = ' · '.join(f'{name.replace("_", " ")}: {fields[name]}'
                              for name in changed if name != 'custom_requirements')
-        body = '\n'.join(part for part in (notes, summary) if part)
+        # What the customer measured, kept in their own words on the enquiry
+        # too, so staff can see what came from the website and when.
+        sizes = ('Measurements (inches): ' + ' · '.join(f'{label} {value.normalize():f}'
+                                                       for label, value in measured_lines)
+                 if measured_lines else '')
+        body = '\n'.join(part for part in (notes, summary, sizes) if part)
         DesignPreference.objects.create(
             customer=customer,
             # The customer described it themselves; it is not off the
@@ -618,5 +911,10 @@ def _save_requirement(customer, fields, notes, links):
             source='CUSTOM_DESIGN',
             notes=body or None,
             reference_links=links,
+            # The customer's own design photos, where the customer page already
+            # shows a preference's reference pictures.
+            reference_images=[url for url, _part, _label in photo_urls],
+            reference_parts={url: {'part': part, 'label': label}
+                             for url, part, label in photo_urls},
             is_approved=False,
         )

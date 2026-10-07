@@ -6,6 +6,7 @@ a code can be reused, and whether any reply says more about a customer than the
 holder has proved they are entitled to.
 """
 
+from decimal import Decimal
 from unittest import mock
 
 from django.contrib.auth.models import User
@@ -16,7 +17,7 @@ from django_tenants.utils import schema_context
 from rest_framework.test import APIClient
 
 from crm_api import portal_otp, portal_tokens
-from crm_api.models import Customer
+from crm_api.models import Customer, Measurement
 from tenants import portal_credentials
 from tenants.middleware import clear_tenant_cache
 from tenants.models import BoutiqueTenant, PortalCredential
@@ -805,3 +806,214 @@ class RequirementTests(PortalTestCase):
         with schema_context('pt_royal'):
             from crm_api.models import DesignPreference
             self.assertEqual(DesignPreference.objects.count(), 0)
+
+
+class MeasurementTests(PortalTestCase):
+    """The customer measures themselves for the garment they chose."""
+
+    submit = RequirementTests.submit
+    customer_and_token = RequirementTests.customer_and_token
+
+    def setUp(self):
+        super().setUp()
+        from apps.catalog.services import sync_global_templates
+        with schema_context('pt_sarala'):
+            sync_global_templates()
+        connection.set_schema_to_public()
+
+    def fields_for(self, product):
+        return self.client.get(self.url(f'products/{product}/measurements/'),
+                               HTTP_X_PORTAL_KEY=self.sarala_key)
+
+    def sheet(self):
+        with schema_context('pt_sarala'):
+            return Measurement.objects.get(customer__mobile_number='919876543210')
+
+    def test_a_garment_lists_only_what_a_customer_can_measure(self):
+        res = self.fields_for('blouse')
+        self.assertEqual(res.status_code, 200, res.content)
+        body = res.json()
+        self.assertEqual(body['product']['key'], 'blouse')
+        keys = {f['key'] for f in body['measurements']}
+        self.assertTrue({'chest', 'waist', 'armhole', 'shoulder'} <= keys, keys)
+        # The workroom's own pattern specification is never asked of a customer.
+        self.assertFalse({k for k in keys if k.startswith('design_')}, keys)
+        self.assertEqual(set(body['measurements'][0]),
+                         {'key', 'label', 'unit', 'group', 'min', 'max', 'step', 'help_text'})
+
+    def test_an_unknown_product_is_not_found(self):
+        self.assertEqual(self.fields_for('spacesuit').status_code, 404)
+
+    def test_no_key_is_refused(self):
+        res = self.client.get(self.url('products/blouse/measurements/'))
+        self.assertEqual(res.status_code, 404)
+
+    def test_measurements_land_on_the_customer_sheet(self):
+        from crm_api.models import DesignPreference
+
+        token = self.customer_and_token()
+        res = self.submit(token, garment_type='Blouse',
+                          measurements={'chest': 34, 'waist': '30.5', 'armhole': 16, 'shoulder': ''})
+        self.assertEqual(res.status_code, 201, res.content)
+        sheet = self.sheet()
+        self.assertEqual(sheet.bust, Decimal('34.00'))          # chest files as bust
+        self.assertEqual(sheet.waist, Decimal('30.50'))
+        self.assertEqual(sheet.additional_measurements.get('armhole'), 16.0)
+        self.assertIsNone(sheet.shoulder)                        # blank is skipped
+        with schema_context('pt_sarala'):
+            pref = DesignPreference.objects.get(customer__mobile_number='919876543210')
+        self.assertIn('Measurements (inches): Chest 34', pref.notes)
+
+    def test_the_customers_number_replaces_the_one_on_file(self):
+        token = self.customer_and_token()
+        with schema_context('pt_sarala'):
+            sheet = Measurement.objects.get(customer__mobile_number='919876543210')
+            sheet.waist = Decimal('28')
+            sheet.save()
+        self.submit(token, garment_type='blouse', measurements={'waist': 30})
+        self.assertEqual(self.sheet().waist, Decimal('30.00'))
+
+    def test_another_garments_measurement_is_refused(self):
+        token = self.customer_and_token()
+        res = self.submit(token, garment_type='Blouse', measurements={'inseam': 30})
+        self.assertEqual(res.status_code, 400, res.content)
+        self.assertIn('not a measurement for', res.json()['error'])
+
+    def test_a_number_outside_the_tape_is_refused(self):
+        token = self.customer_and_token()
+        res = self.submit(token, garment_type='Blouse', measurements={'waist': 500})
+        self.assertEqual(res.status_code, 400, res.content)
+
+    def test_measurements_need_a_product(self):
+        token = self.customer_and_token()
+        res = self.submit(token, notes='Just my sizes', measurements={'waist': 30})
+        self.assertEqual(res.status_code, 400, res.content)
+        self.assertIn('Choose a product', res.json()['error'])
+
+
+def _picture(name='look.png', fmt='PNG', content_type='image/png'):
+    from io import BytesIO
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+    buf = BytesIO()
+    Image.new('RGB', (8, 8), (180, 40, 90)).save(buf, fmt)
+    return SimpleUploadedFile(name, buf.getvalue(), content_type=content_type)
+
+
+class DesignPhotoTests(PortalTestCase):
+    """The customer's own design photos arrive with what they want made."""
+
+    customer_and_token = RequirementTests.customer_and_token
+
+    def setUp(self):
+        import shutil
+        import tempfile
+        from django.test import override_settings
+        super().setUp()
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media, True)
+        settings = override_settings(MEDIA_ROOT=media)
+        settings.enable()
+        self.addCleanup(settings.disable)
+        from apps.catalog.services import sync_global_templates
+        with schema_context('pt_sarala'):
+            sync_global_templates()
+        connection.set_schema_to_public()
+
+    def send(self, token, **body):
+        return self.client.post(self.url('customer/product/'), body, format='multipart',
+                                HTTP_AUTHORIZATION=f'Bearer {token}',
+                                HTTP_X_PORTAL_KEY=self.sarala_key)
+
+    def preference(self):
+        from crm_api.models import DesignPreference
+        with schema_context('pt_sarala'):
+            return DesignPreference.objects.get(customer__mobile_number='919876543210')
+
+    def test_a_products_parts_are_listed(self):
+        res = self.client.get(self.url('products/saree/parts/'), HTTP_X_PORTAL_KEY=self.sarala_key)
+        self.assertEqual(res.status_code, 200, res.content)
+        body = res.json()
+        keys = [p['key'] for p in body['parts']]
+        self.assertIn('pallu_design', keys)
+        self.assertEqual(body['max_photos'], 10)
+        self.assertEqual(self.client.get(self.url('products/spacesuit/parts/'),
+                                         HTTP_X_PORTAL_KEY=self.sarala_key).status_code, 404)
+
+    def test_photos_land_on_the_enquiry_under_their_part(self):
+        from django.core.files.storage import default_storage
+        token = self.customer_and_token()
+        res = self.send(token, garment_type='Saree', **{
+            'images[border_design]': [_picture('b.jpg', 'JPEG', 'image/jpeg')],
+            'images[pallu_design]': [_picture(), _picture('p2.png')],
+        })
+        self.assertEqual(res.status_code, 201, res.content)
+        pref = self.preference()
+        urls = pref.reference_images
+        self.assertEqual(len(urls), 3)
+        # In the garment's own part order: pallu before border.
+        self.assertEqual([pref.reference_parts[u]['part'] for u in urls],
+                         ['pallu_design', 'pallu_design', 'border_design'])
+        self.assertEqual(pref.reference_parts[urls[0]]['label'], 'Pallu Design')
+        for url in urls:
+            self.assertIn('/design_references/portal/pt_sarala/', url)
+            self.assertNotIn('look', url)                       # never the uploader's name
+            self.assertTrue(default_storage.exists(url.split('/media/', 1)[1]))
+
+    def test_a_photo_must_name_its_part(self):
+        token = self.customer_and_token()
+        res = self.send(token, garment_type='Saree', images=[_picture()])
+        self.assertEqual(res.status_code, 400, res.content)
+        self.assertIn('images[<part>]', res.json()['error'])
+
+    def test_a_part_of_another_garment_is_refused(self):
+        token = self.customer_and_token()
+        res = self.send(token, garment_type='Saree', **{'images[sleeve_design]': [_picture()]})
+        self.assertEqual(res.status_code, 400, res.content)
+        self.assertIn('not a part of', res.json()['error'])
+
+    def test_photos_need_a_product(self):
+        token = self.customer_and_token()
+        res = self.send(token, notes='My ideas', **{'images[pallu_design]': [_picture()]})
+        self.assertEqual(res.status_code, 400, res.content)
+        self.assertIn('Choose a product', res.json()['error'])
+
+    def test_a_page_dressed_as_a_photo_is_refused(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        token = self.customer_and_token()
+        fake = SimpleUploadedFile('look.jpg', b'<html><script>x</script></html>',
+                                  content_type='image/jpeg')
+        res = self.send(token, garment_type='Saree', **{'images[pallu_design]': [fake]})
+        self.assertEqual(res.status_code, 400, res.content)
+
+    def test_only_jpg_png_or_webp(self):
+        token = self.customer_and_token()
+        res = self.send(token, garment_type='Saree',
+                        **{'images[pallu_design]': [_picture('a.gif', 'GIF', 'image/gif')]})
+        self.assertEqual(res.status_code, 400, res.content)
+        self.assertIn('JPG, PNG or WebP', res.json()['error'])
+
+    def test_up_to_ten_across_all_parts(self):
+        token = self.customer_and_token()
+        ten = self.send(token, garment_type='Saree', **{
+            'images[pallu_design]': [_picture(f'p{i}.png') for i in range(5)],
+            'images[border_design]': [_picture(f'b{i}.png') for i in range(5)]})
+        self.assertEqual(ten.status_code, 201, ten.content)
+        eleven = self.send(token, garment_type='Saree', **{
+            'images[pallu_design]': [_picture(f'p{i}.png') for i in range(6)],
+            'images[border_design]': [_picture(f'b{i}.png') for i in range(5)]})
+        self.assertEqual(eleven.status_code, 400, eleven.content)
+        self.assertIn('Up to 10', eleven.json()['error'])
+
+    def test_measurements_and_links_travel_as_text_beside_photos(self):
+        token = self.customer_and_token()
+        res = self.send(token, garment_type='Blouse',
+                        measurements='{"waist": 30}',
+                        reference_links=['https://example.test/a.jpg', 'https://example.test/b.jpg'],
+                        **{'images[front_design]': [_picture()]})
+        self.assertEqual(res.status_code, 201, res.content)
+        with schema_context('pt_sarala'):
+            sheet = Measurement.objects.get(customer__mobile_number='919876543210')
+        self.assertEqual(sheet.waist, Decimal('30.00'))
+        self.assertEqual(self.preference().reference_links,
+                         ['https://example.test/a.jpg', 'https://example.test/b.jpg'])

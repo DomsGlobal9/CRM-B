@@ -6171,15 +6171,31 @@ function App() {
                                 )}
                               </div>
                               {pref.notes && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0 }}>{pref.notes}</p>}
-                              {pref.reference_images?.length > 0 && (
-                                <div className="at-photos">
-                                  {pref.reference_images.map((url, j) => (
-                                    <span key={`${i}-${j}`} className="at-photo" style={{ width: 96, height: 120, borderColor: pref.approved_image === url ? 'var(--success-color)' : undefined, borderWidth: pref.approved_image === url ? 2 : 1 }}>
-                                      <img src={url} alt="Design reference" />
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
+                              {pref.reference_images?.length > 0 && (() => {
+                                // Photos the customer filed under a part of the garment
+                                // (website enquiries) are grouped under it; the rest
+                                // are for the garment as a whole.
+                                const photo = (url, j) => (
+                                  <span key={`${i}-${j}`} className="at-photo" style={{ width: 96, height: 120, borderColor: pref.approved_image === url ? 'var(--success-color)' : undefined, borderWidth: pref.approved_image === url ? 2 : 1 }}>
+                                    <img src={url} alt="Design reference" />
+                                  </span>
+                                );
+                                const groups = [];
+                                pref.reference_images.forEach((url) => {
+                                  const label = pref.reference_parts?.[url]?.label || '';
+                                  const group = groups.find(g => g.label === label) || (groups.push({ label, urls: [] }), groups[groups.length - 1]);
+                                  group.urls.push(url);
+                                });
+                                if (groups.length === 1 && !groups[0].label) {
+                                  return <div className="at-photos">{pref.reference_images.map(photo)}</div>;
+                                }
+                                return groups.map(g => (
+                                  <div key={g.label || 'whole'}>
+                                    <div className="ui-eyebrow" style={{ marginBottom: '6px' }}>{g.label || 'Whole garment'} · {g.urls.length}</div>
+                                    <div className="at-photos">{g.urls.map(photo)}</div>
+                                  </div>
+                                ));
+                              })()}
                               {pref.reference_links?.length > 0 && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                                   {pref.reference_links.map((link, j) => (

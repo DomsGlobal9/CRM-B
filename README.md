@@ -306,8 +306,8 @@ afterwards does not undo.
 
 ### Customer portal API (`/intake/`)
 
-A boutique's own website takes customer details and a basic requirement through
-six public endpoints. **The boutique comes from `X-Portal-Key` and nothing
+A boutique's own website takes customer details, a basic requirement and the
+customer's own measurements through eight public endpoints. **The boutique comes from `X-Portal-Key` and nothing
 else** -- a PortalCredential belongs to exactly one BoutiqueTenant, so there is
 no slug in the path, `X-Tenant-ID` is ignored, and a tenant named in the body or
 the query string is ignored. The URLs are identical for every portal, so the
@@ -317,12 +317,48 @@ boutique.
 
 ```
 GET  /intake/products/                 -> {products: [{key, name}]}
+GET  /intake/products/<key>/measurements/ -> {product: {key, name}, measurements: [{key, label, unit, group, min, max, step, help_text}]}
+GET  /intake/products/<key>/parts/        -> {product: {key, name}, parts: [{key, label}], max_photos}
 POST /intake/customer/verify/request/  {mobile_number}       -> {sent, channel, expires_in}
 POST /intake/customer/verify/          {mobile_number, code} -> {verified, token}
 GET  /intake/customer/profile/         Bearer <token>        -> {exists, profile|null}
 POST /intake/customer/                 Bearer <token>        -> {saved, created}
 POST /intake/customer/product/         Bearer <token>        -> {saved}
+                                       (optional) measurements: {<key>: <inches>, ...}
+                                       (optional) images[<part>]: up to 10 files in all -- multipart/form-data
 ```
+
+**Design photos, part by part.** `GET /intake/products/<key>/parts/` lists the
+parts of that garment a photo can show (Pallu Design, Border Design, Body
+Design...) -- the same design parts the counter's order form files references
+under. `POST /intake/customer/product/` then takes them as `multipart/form-data`,
+each file under its part: `images[pallu_design]`, `images[border_design]`, as
+many fields as parts. Up to ten photos in all; JPG, PNG or WebP, 8 MB each (the
+bytes are opened and the format pinned -- a renamed page or a GIF is refused).
+A bare `images` field, a part the garment does not have, or photos without a
+product are refused. In a form every field is text, so `measurements` goes as a
+JSON string and `reference_links` as one field per link (or a JSON string); a
+plain JSON body without photos works as before. Files are stored under
+`design_references/portal/<schema>/<part>/<random>.<ext>` -- never the
+uploader's name -- listed on the enquiry's DesignPreference (`reference_images`,
+in the garment's part order) with `reference_parts` naming each one's part; the
+customer page shows them grouped by part.
+
+**Measurements ride with the product.** `GET /intake/products/<key>/measurements/`
+lists what to ask for that garment: its Measurements step cut to what a person
+can take at home (inches, no field that depends on a style answer, and of the
+folded-away groups only the body ones -- never Pattern/Construction/Border).
+`group: null` is the garment's main list; a named group is optional detail the
+website may fold away. `POST /intake/customer/product/` then takes
+`measurements` beside `garment_type` (product key or name); each key must be one
+of that garment's, each value a number in its range, and a blank is skipped.
+They land on the customer's measurement sheet -- filed under the same names the
+counter's order form reads (`chest` -> `bust`, `floor_length` -> `waist_to_floor`,
+SHEET_KEYS in `crm_api/portal_views.py`, mirroring `MEASURE_KEYS` in `App.jsx`)
+-- and **replace** the number on file: the portal serves customers new to the
+boutique, and `MeasurementHistory` keeps the previous sheet anyway. The enquiry's
+DesignPreference also records them in words. Measurements are never read back
+by the portal.
 
 `/intake/customer/` writes the contact fields the counter's own Add Customer
 form collects, and only fills ones the boutique left blank. `/intake/customer/

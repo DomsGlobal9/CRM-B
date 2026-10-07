@@ -326,9 +326,9 @@ class DesignPreferenceSerializer(serializers.ModelSerializer):
         model = DesignPreference
         fields = [
             'id', 'notes', 'reference_images', 'source', 'source_display',
-            'reference_links', 'approved_image', 'is_approved', 'approved_at',
+            'reference_links', 'reference_parts', 'approved_image', 'is_approved', 'approved_at',
         ]
-        read_only_fields = ['approved_at']
+        read_only_fields = ['approved_at', 'reference_parts']
 
 class FabricSelectionSerializer(serializers.ModelSerializer):
     class Meta:
