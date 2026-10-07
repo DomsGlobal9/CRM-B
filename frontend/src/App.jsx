@@ -3352,15 +3352,24 @@ function App() {
   // What was picked from our own stock for this garment, at each item's
   // selling price. Their sum is the garment's `fabric` price, which the server
   // already totals and prints on the invoice.
-  const jobMaterialCharges = (job) => garmentMaterialLines(job)
-    .filter((line) => line.source === 'STORE' && line.inventory_item && Number(line.quantity) > 0)
-    .map((line) => {
-      const item = fabrics.find((f) => String(f.id) === String(line.inventory_item));
-      const quantity = Number(line.quantity);
+  // Every roll and trim picked on the fabric step is listed, amount or not:
+  // the metres are asked on the last page, once the measurements are in.
+  const jobMaterialCharges = (job) => {
+    const picked = Object.entries(job.fabrics || {}).flatMap(([slot, ids]) =>
+      [...new Set((ids || []).map(String))].map((id) => ({ slot, id, quantity: job.fabric_qty?.[`${slot}:${id}`], editable: true })));
+    const pickedIds = new Set(picked.map((line) => line.id));
+    const fromTemplate = garmentMaterialLines(job)
+      .filter((line) => line.source === 'STORE' && line.inventory_item && Number(line.quantity) > 0
+        && !pickedIds.has(String(line.inventory_item)))
+      .map((line) => ({ slot: line.field_key, id: String(line.inventory_item), quantity: line.quantity, editable: false }));
+    return [...picked, ...fromTemplate].map(({ slot, id, quantity, editable }) => {
+      const item = fabrics.find((f) => String(f.id) === id);
+      const amountOf = Number(quantity) || 0;
       const rate = Number(item?.selling_price || 0);
-      return { key: `${line.field_key}:${line.inventory_item}`, item, quantity, rate,
-               amount: Math.round(rate * quantity * 100) / 100 };
+      return { key: `${slot}:${id}`, slot, id, item, quantity: quantity ?? '', editable, rate,
+               amount: Math.round(rate * amountOf * 100) / 100 };
     });
+  };
   const jobMaterialsTotal = (job) => jobMaterialCharges(job).reduce((sum, line) => sum + line.amount, 0);
   const jobSubtotal = (job) =>
     PRICING_FIELDS.reduce((sum, [key]) => sum + (key === 'fabric' ? jobMaterialsTotal(job) : parseFloat(job.pricing?.[key] || 0)), 0)
@@ -3455,9 +3464,6 @@ function App() {
     }
   };
 
-  const fabricQuantities = React.useMemo(
-    () => Object.fromEntries(garmentJobs.map(job => [job.key, job.fabric_qty || {}])),
-    [garmentJobs]);
   const handleFabricQuantity = (garmentKey, slot, fabricId, quantity) => {
     setGarmentJobs(prev => prev.map(job => job.key === garmentKey
       ? { ...job, fabric_qty: { ...(job.fabric_qty || {}), [`${slot}:${fabricId}`]: quantity } }
@@ -7974,8 +7980,6 @@ function App() {
                                     taxonomy={fabricTaxonomy}
                                     selection={fabricSelection}
                                     onChange={handleFabricSelection}
-                                    quantities={fabricQuantities}
-                                    onQuantityChange={handleFabricQuantity}
                                     onPickOutOfStock={(fabric, proceed) => setStockPrompt({ fabric, proceed })} />
                                 </>
                               )}
@@ -8020,8 +8024,6 @@ function App() {
                                   taxonomy={fabricTaxonomy}
                                   selection={fabricSelection}
                                   onChange={handleFabricSelection}
-                                  quantities={fabricQuantities}
-                                  onQuantityChange={handleFabricQuantity}
                                   accessoriesOnly />
                               </Suspense>
                             </details>
@@ -8393,17 +8395,32 @@ function App() {
                         </div>
                       </div>
                     )))}
-                    {/* Fabric and accessories from our stock: quantity × the
-                        item's selling price, set in Inventory, so not typed here. */}
+                    {/* Fabric and accessories from our stock: the amount is
+                        entered here, once the measurements are in; the price is
+                        that amount × the item's selling price from Inventory. */}
                     {garmentJobs.flatMap((job) => jobMaterialCharges(job).map((line) => {
                       const unit = !line.item?.unit || line.item.unit === 'METER' ? 'm' : line.item.unit === 'PIECE' ? 'pcs' : String(line.item.unit).toLowerCase();
                       return (
                         <div key={`${job.key}-${line.key}`} className="wz-money-row">
-                          <span className="wz-money-label" style={{ paddingLeft: '16px' }}>
-                            {job.template.name} · {line.item?.name || t('wizard.stockItem', 'Stock item')}{' '}
-                            <span className="od-hint">
-                              ({line.item?.is_accessory ? t('wizard.accessory', 'accessory') : t('wizard.fabric', 'fabric')} · {line.quantity} {unit} × {line.rate ? inr(line.rate) : t('wizard.noPriceSet', 'no price set')})
+                          <span className="wz-money-label" style={{ paddingLeft: '16px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span>
+                              {job.template.name} · {line.item?.name || t('wizard.stockItem', 'Stock item')}{' '}
+                              <span className="od-hint">
+                                ({line.item?.is_accessory ? t('wizard.accessory', 'accessory') : t('wizard.fabric', 'fabric')} · {line.rate ? `${inr(line.rate)}/${unit}` : t('wizard.noPriceSet', 'no price set')})
+                              </span>
                             </span>
+                            {line.editable ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <input inputMode="decimal" className="form-control" style={{ width: '80px', padding: '4px 8px' }}
+                                       placeholder={unit === 'm' ? t('wizard.metres', 'metres') : t('wizard.qty', 'qty')}
+                                       aria-label={`${line.item?.name || ''} · ${unit}`}
+                                       value={line.quantity}
+                                       onChange={(e) => handleFabricQuantity(job.key, line.slot, line.id, cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }))} />
+                                <span className="od-hint">{unit}</span>
+                              </span>
+                            ) : (
+                              <span className="od-hint">{line.quantity} {unit}</span>
+                            )}
                           </span>
                           <div className="wz-money-input">
                             <span>₹</span>

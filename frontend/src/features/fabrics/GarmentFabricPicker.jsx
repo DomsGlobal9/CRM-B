@@ -301,7 +301,7 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
   const total = groups.reduce((n, g) => n + g.fabrics.length, 0);
   if (!total) return null;
   const rowStyle = {
-    display: 'grid', gridTemplateColumns: '30px minmax(0, 1fr) 76px 24px',
+    display: 'grid', gridTemplateColumns: onQuantity ? '30px minmax(0, 1fr) 76px 24px' : '30px minmax(0, 1fr) 24px',
     alignItems: 'center', gap: '8px', padding: '5px 0',
     borderTop: '1px solid rgba(16, 124, 65, 0.12)',
   };
@@ -337,12 +337,15 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
                 </div>
               </div>
               {/* How much of it: the number the ledger reserves at Fabric
-                  Confirmed and the cutting table later consumes. */}
-              <input inputMode="decimal" className="form-control"
-                     style={{ width: '76px', padding: '3px 6px', fontSize: '12px' }}
-                     placeholder={accessoriesOnly ? 'Qty' : unitShort(fabric)}
-                     value={quantities[`${key}:${fabric.id}`] ?? ''}
-                     onChange={(e) => onQuantity?.(key, String(fabric.id), cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }))} />
+                  Confirmed and the cutting table later consumes. The order
+                  form asks it on its last page, once measurements are taken. */}
+              {onQuantity && (
+                <input inputMode="decimal" className="form-control"
+                       style={{ width: '76px', padding: '3px 6px', fontSize: '12px' }}
+                       placeholder={accessoriesOnly ? 'Qty' : unitShort(fabric)}
+                       value={quantities[`${key}:${fabric.id}`] ?? ''}
+                       onChange={(e) => onQuantity(key, String(fabric.id), cleanAmount(e.target.value, { max: LIMITS.quantity, decimals: 3 }))} />
+              )}
               <button type="button" onClick={() => onToggle(key, String(fabric.id))} title="Remove"
                       style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)',
                                cursor: 'pointer', padding: '2px', display: 'flex' }}>
@@ -617,7 +620,7 @@ export default function GarmentFabricPicker({
                   }))}
                   accessoriesOnly={accessoriesOnly}
                   quantities={quantities[job.key] || {}}
-                  onQuantity={(s, id, q) => onQuantityChange?.(job.key, s, id, q)}
+                  onQuantity={onQuantityChange ? (s, id, q) => onQuantityChange(job.key, s, id, q) : null}
                   onToggle={(slotKey, id) => toggle(slotKey)(id)} />
               </div>
             )}
