@@ -34,8 +34,7 @@ export default function RowMenu({ items, label = 'Actions', disabled = false }) 
     };
   }, [open]);
 
-  // Placed before paint: below the button if it fits, else above, else as low
-  // as the window allows.
+ 
   useLayoutEffect(() => {
     const el = menuRef.current;
     if (!anchor || !el) return;
@@ -54,8 +53,6 @@ export default function RowMenu({ items, label = 'Actions', disabled = false }) 
     e.stopPropagation();
     if (open) { setAnchor(null); return; }
     const r = e.currentTarget.getBoundingClientRect();
-    // A click on another row's ⋯ reaches the window listener of any menu
-    // already open only if it is not stopped; close those ourselves.
     window.dispatchEvent(new Event('click'));
     setAnchor({ top: r.top, bottom: r.bottom, right: window.innerWidth - r.right });
   };

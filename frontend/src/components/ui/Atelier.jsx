@@ -6,20 +6,6 @@ import {
 } from 'lucide-react';
 import { imageFilesError } from '../../services/validate';
 
-/**
- * The atelier design layer: the handful of shapes every workspace screen is
- * built from, so a stat reads the same on Orders as it does on Payroll.
- *
- *   PageHeader   what screen am I on, and what can I do here
- *   StatCard     one number, tinted by what kind of number it is
- *   SectionCard  a titled group with an optional "View all" way out
- *   Chips        one-of-many filter, each with its count
- *   AvatarInitials, IconTile, ProgressBar, SearchBox, Segmented
- *
- * Presentation only. Nothing here fetches, decides or stores.
- */
-
-
 
 export function IconTile({ icon: Icon, tone = 'neutral', size = 44, iconSize = 20, className = '' }) {
   return (
@@ -157,11 +143,6 @@ export function PageHeader({ icon: Icon, tone = 'neutral', title, subtitle, acti
 /* Dialogs and forms                                                   */
 /* ------------------------------------------------------------------ */
 
-/**
- * A dialog with the same anatomy everywhere: a round icon, a serif title, a
- * one-line purpose, a close button; a scrolling body; a footer with the
- * actions. `width` is the card's maximum; on a phone it becomes a sheet.
- */
 export function FormModal({ icon: Icon, tone = 'green', title, subtitle, onClose, children, footer, width = '640px', zIndex = 1200, bodyClassName = '' }) {
   return (
     <div className="at-modal-overlay" style={{ zIndex }} onClick={onClose}>
@@ -207,34 +188,13 @@ export function Field({ label, required, optional, hint, icon: Icon, children, h
   );
 }
 
-/**
- * The live camera behind every "Take photo": getUserMedia into a <video>, one
- * frame onto a canvas, out as a JPEG File through `onCapture`. The same path
- * the garment part picker takes, and for the same reason -- a `capture`
- * input is honoured by phones only; on a laptop it is just the file dialog,
- * which is exactly what a boutique saw when it pressed Take photo. Where the
- * camera cannot run (no permission, no camera, plain HTTP) `onUnavailable`
- * fires and the caller falls back to its capture input, so a phone still gets
- * its native camera and nothing is worse than before.
- *
- * Portalled to <body>: it is position:fixed, and a modal ancestor with a
- * transform would otherwise trap it inside the modal's box.
- */
-// Why the camera would not open, in words the counter can act on. The
-// browser's own names (NotAllowedError, NotFoundError...) mean nothing to a
-// boutique, and a silent fall-through to the file dialog looked like the
-// button was simply broken.
+
 const cameraProblem = (err, siteState) => {
   if (typeof window !== 'undefined' && !window.isSecureContext) {
     return 'The camera only works on a secure (https) address or on localhost. Open the app over https to use it.';
   }
   switch (err?.name) {
     case 'NotAllowedError': case 'PermissionDeniedError': case 'SecurityError':
-      // The same error name covers two different situations, and the fix is
-      // different for each. A site-level block shows a camera icon in the
-      // address bar to undo it. A system-level block (Windows privacy
-      // settings, or a device policy) shows nothing in the browser at all --
-      // the icon the first message points at simply is not there.
       if (siteState === 'denied') {
         return 'Camera access is blocked for this site, so the browser will not ask again by itself. '
           + 'Click the camera (or lock) icon at the right end of the address bar, choose "Always allow", '
@@ -253,13 +213,6 @@ const cameraProblem = (err, siteState) => {
   }
 };
 
-// One camera request at a time, shared by whoever asks while it is pending.
-// React's StrictMode mounts an effect twice in development, and two back-to-
-// back getUserMedia calls made the browser's "Allow camera?" bar appear for
-// the first and vanish when the second replaced it -- the person never got to
-// answer. The rear camera where there is one; a laptop webcam that refuses
-// the facingMode hint gets a second, unconstrained ask before it counts as
-// unavailable.
 let cameraRequest = null;
 const acquireCamera = () => {
   if (!cameraRequest) {
@@ -285,22 +238,16 @@ export function CameraCapture({ onCapture, onClose, onUnavailable, label = 'Capt
     setBlocked(false);
     if (!navigator.mediaDevices?.getUserMedia) { setProblem(cameraProblem(null)); return undefined; }
     acquireCamera()
-      // A mount that was cancelled before the answer leaves the stream to the
-      // mount that replaced it (StrictMode's second run) rather than stopping
-      // it under that one's feet; a stream nobody claims is stopped when its
-      // last claimant unmounts.
       .then((s) => { if (cancelled) return; live = s; setStream(s); })
       .catch(async (err) => {
         if (cancelled) return;
-        // The bar was closed without an answer (a click elsewhere, Esc): that
-        // is not a block, just an unanswered question. Ask again.
+        
         if (/dismiss/i.test(err?.message || '')) {
           setProblem('The camera request was closed before it was answered. Press Try again and choose Allow when the browser asks.');
           setBlocked(false);
           return;
         }
-        // Which kind of refusal: the Permissions API knows whether THIS SITE
-        // is blocked; if it is not, the block sits above the browser.
+        
         let siteState = null;
         try { siteState = (await navigator.permissions.query({ name: 'camera' })).state; } catch { /* not supported */ }
         if (cancelled) return;
@@ -308,9 +255,9 @@ export function CameraCapture({ onCapture, onClose, onUnavailable, label = 'Capt
         setProblem(cameraProblem(err, siteState) + detail);
         setBlocked(['NotAllowedError', 'PermissionDeniedError', 'SecurityError'].includes(err?.name));
       });
-    // Every track stopped on the way out, or the camera light stays on.
+   
     return () => { cancelled = true; live?.getTracks().forEach((t) => t.stop()); };
-  }, [attempt]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [attempt]);  
 
   const capture = async () => {
     const video = videoRef.current;
@@ -325,9 +272,6 @@ export function CameraCapture({ onCapture, onClose, onUnavailable, label = 'Capt
   };
 
   if (problem) {
-    // Say why, and offer the two ways on: ask again (after the person has
-    // allowed the camera), or hand over to the file picker -- which on a
-    // phone is its native camera, and on a laptop the folder.
     return createPortal(
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 20000,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px' }}
@@ -360,10 +304,7 @@ export function CameraCapture({ onCapture, onClose, onUnavailable, label = 'Capt
     );
   }
   if (!stream) {
-    // Asking. The browser's permission bar is easy to miss, so say what is
-    // being waited for rather than showing nothing until it is answered. No
-    // close on the backdrop here: a click while the bar is up (often at the
-    // bar itself) must not withdraw the question.
+    
     return createPortal(
       <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 20000,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px' }}>
@@ -424,10 +365,9 @@ export function AddPhotoButton({ onFiles, multiple = false, label = 'Add photo',
   const [open, setOpen] = useState(false);
   const pick = (e) => {
     const files = [...(e.target.files || [])];
-    e.target.value = '';        // so the same file can be picked twice
+    e.target.value = '';        
     if (!files.length) return;
-    // Every photo picker in the product goes through here, so one check keeps
-    // renamed .exe files and 40 MB scans out of every upload at once.
+    
     const problem = imageFilesError(files);
     if (problem) { window.alert(problem); return; }
     onFiles(multiple ? files : files.slice(0, 1));
@@ -518,8 +458,7 @@ export function Dropzone({ onFiles, accept = 'image/*', multiple = false, title,
   const take = (list) => {
     const files = [...(list || [])].filter(Boolean);
     if (!files.length) return;
-    // A drop ignores `accept`, so the image rule is checked here for every
-    // picker that asks for images; document pickers (PDF) keep their own rules.
+    
     const error = accept === 'image/*' ? imageFilesError(files) : '';
     setProblem(error);
     if (error) return;
