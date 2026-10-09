@@ -75,9 +75,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
   const [movementItem, setMovementItem] = useState(restockItem);
   const [ledgerItem, setLedgerItem] = useState(null);
   const [ledger, setLedger] = useState([]);
-  // The history dialog opened on an empty list, which the render below reads
-  // as "no movements recorded yet" -- so an item WITH a history announced it
-  // had none for as long as the request took. Loading is its own state.
+  
   const [ledgerLoading, setLedgerLoading] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   
@@ -522,8 +520,7 @@ function MovementModal({ item, onClose, onDone }) {
   const [orderId, setOrderId] = useState('');
   const [fromLocation, setFromLocation] = useState('');
   const [orders, setOrders] = useState([]);
-  // idle -> loading -> ready. A separate flag rather than "orders is empty",
-  // so a boutique with no orders is not mistaken for a request still running.
+ 
   const [ordersState, setOrdersState] = useState('idle');
   const [locations, setLocations] = useState(null);
   const [error, setError] = useState(null);
@@ -539,12 +536,7 @@ function MovementModal({ item, onClose, onDone }) {
       .catch(() => setLocations([]));
   }, [item.id]);
 
-  // The order list is the heaviest list in the app and the select that uses it
-  // is hidden unless the movement is tied to an order -- and the default
-  // movement is not. So it is fetched the first time it is actually needed
-  // rather than on every open of this dialog, and once per dialog: `orders`
-  // stays non-null afterwards, so switching movement back and forth does not
-  // re-request it.
+
   useEffect(() => {
     if (!wantsOrder || ordersState !== 'idle') return;
     setOrdersState('loading');

@@ -7,28 +7,10 @@ import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 import { ACCESSORY_OPTIONS } from '../designStudio/GarmentPartPicker';
 import Loader from '../../components/ui/Loader';
 
-// "m" for cloth, "pcs" for anything counted; the ledger's own unit otherwise.
 const unitShort = (f) => (
   !f?.unit || f.unit === 'METER' ? 'm' : f.unit === 'PIECE' ? 'pcs' : String(f.unit).toLowerCase());
 
-/**
- * Fabric, garment by garment and part by part.
- *
- * The fabric step used to be one grid of every roll the boutique owns and one
- * `selectedFabric` for the whole order. An order for a saree and a blouse got
- * the same list twice and could record one cloth between them, so "chanderi for
- * the body, organza for the pallu, net for the sleeves" -- which is what the
- * order actually is -- could not be said at all.
- *
- * Nothing here is new vocabulary. `FabricPlacement` already records which
- * garment, section and slot a roll suits, Manage Fabrics already edits those,
- * and `/fabrics/taxonomy/` already serves the garment -> section -> slot tree
- * keyed by GarmentTemplate.key. This reads all three and lays the fabrics the
- * boutique has already filed under the parts they were filed under.
- *
- * So a part the boutique adds to the taxonomy appears here on its own, and no
- * list of garments or parts is written down in this file.
- */
+
 
 function AccessoryMultiSelectDropdown({
   options = ACCESSORY_OPTIONS,
@@ -265,8 +247,7 @@ function SlotRow({ label, fabrics, chosen, onToggle, accessoriesOnly = false }) 
       </div>
 
       {fabrics.length === 0 ? (
-        // Never another part's fabrics as a fallback: an empty part is a gap in
-        // the boutique's own filing, and showing it is how that gets noticed.
+        
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
                       padding: '28px 16px', borderRadius: '12px',
                       border: '1px dashed var(--border-color)',
@@ -363,21 +344,13 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
 export default function GarmentFabricPicker({
   garmentJobs = [], fabrics = [], taxonomy = null, selection = {}, onChange, loading = false, accessoriesOnly = false,
   quantities = {}, onQuantityChange,
-  // Called instead of picking when the roll is out of stock, with a `proceed`
-  // that makes the pick anyway. The caller decides whether to ask first.
+  
   onPickOutOfStock,
 }) {
   const [activeSlotMap, setActiveSlotMap] = useState({});
 
-  // Every active roll the server sent. Stock levels are shown on the card
-  // rather than used to hide it: an empty roll can still be the right one,
-  // and the reservation reports the shortfall when the order is confirmed.
   const inStock = useMemo(() => fabrics || [], [fabrics]);
 
-  // A roll nobody has filed against any garment yet. Every part offers these,
-  // because a boutique that has not started using placements still has to be
-  // able to pick fabric -- and their rolls are not "another garment's", they
-  // are simply unfiled.
   const unfiled = useMemo(
     () => inStock.filter(f => !(f.placements || []).length), [inStock]);
 
@@ -422,9 +395,7 @@ export default function GarmentFabricPicker({
         } else {
           allSlots = (spec?.sections || []).flatMap(section =>
             (section.slots || []).map(slot => ({
-              // React key and tab id. slot.key alone repeats on a multi-section
-              // garment (a lehenga's Blouse, Skirt and Dupatta each have a
-              // MAIN_FABRIC); the selection itself stays keyed by slot.key.
+              
               id: section.key ? `${section.key}:${slot.key}` : slot.key,
               key: slot.key,
               label: slot.label,
@@ -454,8 +425,7 @@ export default function GarmentFabricPicker({
           });
         };
 
-        // Tabs are keyed by id (section:slot on a multi-section garment); a
-        // saved selection is keyed by slot alone, so find its tab by slot.
+       
         const activeSlotKey = activeSlotMap[job.key]
           || (selectedKeys.length > 0 ? (allSlots.find(s => s.key === selectedKeys[0])?.id ?? selectedKeys[0]) : null);
         const activeSlotItem = accessoriesOnly
@@ -468,8 +438,7 @@ export default function GarmentFabricPicker({
           const next = adding
             ? [...current, fabricId]
             : current.filter(id => id !== fabricId);
-          // The slot's key goes with its last fabric rather than sitting on the
-          // order as an empty list.
+          
           const forJob = { ...chosenForJob };
           if (next.length) forJob[slotKey] = next; else delete forJob[slotKey];
           const proceed = () => onChange?.(job.key, forJob);
@@ -484,15 +453,10 @@ export default function GarmentFabricPicker({
         const currentAccOption = accessoriesOnly && activeSlotKey && ACCESSORY_OPTIONS.find(o => o.key === activeSlotKey);
 
         return (
-          // One block per dress. No card and no title of its own: this only
-          // renders inside the wizard's garment card, which already names the
-          // garment and draws the border -- a second card left ~200px of
-          // content on a phone.
+          
           <div key={job.key}>
             {!spec || allSlots.length === 0 ? (
-              // A garment the fabric taxonomy does not describe yet. Said out
-              // loud rather than showing an empty card or, worse, another
-              // garment's rolls.
+              
               <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                 No {accessoriesOnly ? 'accessory' : 'fabric'} parts are configured for {garmentName} yet. Add them under
                 Manage Fabrics to pick {accessoriesOnly ? 'accessories' : 'fabric'} part by part.
@@ -595,8 +559,7 @@ export default function GarmentFabricPicker({
                   const { sectionKey, slot } = activeSlotItem;
                   const filed = inStock.filter(f => (f.placements || []).some(
                     p => placementCovers(p, garmentKey, sectionKey, slot.key)));
-                  // Unfiled rolls come after the ones actually filed here, so
-                  // the boutique's own filing leads.
+                  
                   const forSlot = [...filed,
                                    ...unfiled.filter(f => !filed.includes(f))];
                   return (
