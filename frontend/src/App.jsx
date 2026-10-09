@@ -2205,6 +2205,9 @@ function App() {
   // Backend fetched collections
   const [dashboardData, setDashboardData] = useState(null);
   const [tailors, setTailors] = useState([]);
+  // Designers' roster rows. /tailors/ leaves them off the team list, but the
+  // Design stage can be handed to them, so its assign list needs them.
+  const [designerStaff, setDesignerStaff] = useState([]);
   const [completingAllOrderId, setCompletingAllOrderId] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
@@ -2233,6 +2236,8 @@ function App() {
   // Search & Filters for dashboard
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
+  // Customers | Leads tab on the Customers page.
+  const [customerView, setCustomerView] = useState('customers');
   const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
   const [customerPageSize, setCustomerPageSize] = useState(CUSTOMER_PAGE_SIZES[0]);
   // Country code, first letter, orders, measurements... (CustomerFilters).
@@ -2469,6 +2474,10 @@ function App() {
       load('orders', api.getOrders, setOrdersList),
 
       hasModule(user, 'tailors') && load('tailors', api.getTailors, setTailors),
+      // Silent on failure: the only cost is no designers in the Design stage's assign list.
+      hasModule(user, 'tailors') && api.getTailors({ forAttendance: true })
+        .then((rows) => setDesignerStaff((rows || []).filter(t => t.role === 'Designer')))
+        .catch(() => {}),
       hasModule(user, 'scheduling') && load('appointments', () => api.getAppointments({ upcoming: 'true' }), setAppointments),
       hasModule(user, 'inventory') && load('fabrics', () => api.getInventoryItems({ picker: 'true' }), setFabrics),
       hasModule(user, 'design_studio') && load('designs', api.getAllBoutiqueDesigns, setAllDesigns),
@@ -2969,6 +2978,18 @@ function App() {
       setCustomerActionId(null);
     }
   };
+  const handleMarkLeadContacted = async (row) => {
+    if (customerActionId) return;
+    setCustomerActionId(row.id);
+    try {
+      await api.updateCustomer(row.id, { is_lead: false });
+      await fetchDashboardAndConfig();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCustomerActionId(null);
+    }
+  };
   const handleSelectExistingCustomer = (cust) => startService('stitch', cust);
 
   /** Customers whose number contains what has been typed so far. */
@@ -3432,37 +3453,8 @@ function App() {
   };
 
 
-  const [stockPrompt, setStockPrompt] = useState(null);      
+      
   const [reviewView, setReviewView] = useState(null);       
-  const [restockTrip, setRestockTrip] = useState(null);      
-  useEffect(() => {
-    if (!restockTrip || restockTrip.draftId) return;
-    
-    (async () => {
-      try {
-        const id = await persistDraft({ step: currentStep });
-        setRestockTrip({ ...restockTrip, draftId: id });
-        setView('dashboard');
-        setDashboardTab('inventory');
-      } catch (err) {
-        setRestockTrip(null);
-        alert(`Could not save the order before leaving: ${err.message}`);
-      }
-    })();
-  }, [restockTrip]); 
-  const finishRestockTrip = async () => {
-    const trip = restockTrip;
-    setRestockTrip(null);
-    if (!trip?.draftId) return;
-    try {
-      const [rolls, draft] = await Promise.all([
-        api.getInventoryItems({ picker: 'true' }), api.getOrderDraft(trip.draftId)]);
-      setFabrics(rolls || []);
-      await hydrateWizard(draft);
-    } catch (err) {
-      alert(`Could not return to the order: ${err.message}. Open it from your drafts.`);
-    }
-  };
 
   const handleFabricQuantity = (garmentKey, slot, fabricId, quantity) => {
     setGarmentJobs(prev => prev.map(job => job.key === garmentKey
@@ -3525,7 +3517,8 @@ function App() {
     const stageConf = (boutiqueSettings?.workflow_config || []).find(s => s.key === stageKey);
     const allowed = stageConf?.roles || [];
     if (allowed.length === 0) return tailors;
-    return tailors.filter(t => allowed.includes(t.role));
+    const pool = allowed.includes('Designer') ? [...tailors, ...designerStaff] : tailors;
+    return pool.filter(t => allowed.includes(t.role));
   };
 
   const stitchingStaff = () => eligibleStaffForStage('stitching_in_progress');
@@ -3561,9 +3554,15 @@ function App() {
   };
 
   
+  // A lead is a portal sign-up nobody has contacted or taken an order for yet.
+  const isLead = (c) => !!c.is_lead && !((c.order_count ?? c.orders?.length ?? 0) > 0);
+  const leadCount = customersList.filter(isLead).length;
+  const bookList = React.useMemo(
+    () => customersList.filter(c => isLead(c) === (customerView === 'leads')),
+    [customersList, customerView]);
   const directoryCustomers = React.useMemo(() => {
     const term = searchQuery.toLowerCase();
-    return applyCustomerFilters(customersList.filter(cust => {
+    return applyCustomerFilters(bookList.filter(cust => {
       const matchesSearch =
         ((cust.first_name || '') + ' ' + (cust.last_name || '')).toLowerCase().includes(term) ||
         (cust.mobile_number || '').includes(term) ||
@@ -3571,11 +3570,11 @@ function App() {
       const matchesType = customerTypeFilter === 'All' || customerTier(cust) === customerTypeFilter;
       return matchesSearch && matchesType;
     }), customerFilters);
-  }, [customersList, searchQuery, customerTypeFilter, customerFilters]);
+  }, [bookList, searchQuery, customerTypeFilter, customerFilters]);
   // One page of the book at a time. The page belongs to the search, tier and
   // page size it was picked under: change any of them and it is page 1 again.
   // A list that shrank under the page shows its last page.
-  const customerPageKey = `${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
+  const customerPageKey = `${customerView}|${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
   const customerPage = customerPageAt.key === customerPageKey ? customerPageAt.page : 1;
   const customerPageCount = Math.max(1, Math.ceil(directoryCustomers.length / customerPageSize));
   const customerPageNow = Math.min(customerPage, customerPageCount);
@@ -4711,9 +4710,7 @@ function App() {
             {/* INVENTORY TAB */}
             {dashboardTab === 'inventory' && (
               <Suspense fallback={<ScreenLoading />}>
-                <InventoryPanel currentUser={currentUser}
-                                restockItem={restockTrip?.fabric || null}
-                                onRestockDone={finishRestockTrip} />
+                <InventoryPanel currentUser={currentUser} />
               </Suspense>
             )}
 
@@ -5612,16 +5609,22 @@ function App() {
 
                 {(() => {
                   const now = new Date();
-                  const thisMonth = customersList.filter(c => {
+                  const thisMonth = bookList.filter(c => {
                     const d = new Date(c.created_at);
                     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
                   }).length;
-                  const tiers = tierCounts(customersList);
-                  const withOrders = customersList.filter(c => (c.order_count ?? c.orders?.length ?? 0) > 0).length;
+                  const tiers = tierCounts(bookList);
+                  const withOrders = bookList.filter(c => (c.order_count ?? c.orders?.length ?? 0) > 0).length;
                   return (
                     <>
+                      <div className="at-toolbar">
+                        <Chips value={customerView} onChange={setCustomerView} options={[
+                          { key: 'customers', label: 'Customers', count: customersList.length - leadCount },
+                          { key: 'leads', label: 'Leads', count: leadCount },
+                        ]} />
+                      </div>
                       <section className="at-stat-grid">
-                        <StatCard icon={Users} tone="green" label="Total Customers" value={customersList.length}
+                        <StatCard icon={Users} tone="green" label={customerView === 'leads' ? 'Total Leads' : 'Total Customers'} value={bookList.length}
                                   sub={t('customersPage.withOrdersCount', '{n} with orders', { n: withOrders })} />
                         <StatCard icon={Crown} tone="amber" label="Platinum customers" value={tiers.Platinum}
                                   sub={`${tiers.Gold} Gold · ${tiers.Silver} Silver`} />
@@ -5630,25 +5633,25 @@ function App() {
                       </section>
                       <div className="at-toolbar">
                         <Chips value={customerTypeFilter} onChange={setCustomerTypeFilter} options={[
-                          { key: 'All', label: t('customersPage.filterAll'), count: customersList.length },
+                          { key: 'All', label: t('customersPage.filterAll'), count: bookList.length },
                           ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
                         ]} />
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
                           {directoryCustomers.length
                             ? `Showing ${customerPageFrom + 1}–${customerPageFrom + pagedCustomers.length} of ${directoryCustomers.length}`
                             : 'Showing 0'}
-                          {directoryCustomers.length !== customersList.length ? ` (${customersList.length} in total)` : ''}
+                          {directoryCustomers.length !== bookList.length ? ` (${bookList.length} in total)` : ''}
                         </span>
                       </div>
-                      {customersList.length > 0 && (
-                        <CustomerFilters customers={customersList} filters={customerFilters} onChange={setCustomerFilters} />
+                      {bookList.length > 0 && (
+                        <CustomerFilters customers={bookList} filters={customerFilters} onChange={setCustomerFilters} />
                       )}
                     </>
                   );
                 })()}
 
                 <div className="customers-list-container at-stack">
-                  {loading && customersList.length === 0 ? (
+                  {loading && bookList.length === 0 ? (
                     <div className="ui-card" style={{ padding: '48px', textAlign: 'center' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{t('common.loading')}</span>
                     </div>
@@ -5659,7 +5662,7 @@ function App() {
                     </div>
                   ) : directoryCustomers.length === 0 ? (
                     <div className="ui-card" style={{ padding: '48px', textAlign: 'center' }}>
-                      {customersList.length === 0 ? (
+                      {bookList.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
                           <div style={{ fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}>{t('customersPage.noCustomersYet')}</div>
                           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', maxWidth: '44ch', lineHeight: 'var(--leading-normal)' }}>
@@ -5790,6 +5793,14 @@ function App() {
                             >
                               <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
                             </button>
+                            {customerView === 'leads' && (
+                              <button type="button" className="at-icon-btn" title="Mark as contacted (moves to Customers)"
+                                      aria-label={`Mark ${cust.first_name} ${cust.last_name} as contacted`}
+                                      disabled={customerActionId === cust.id}
+                                      onClick={(e) => { e.stopPropagation(); handleMarkLeadContacted(cust); }}>
+                                <CheckCircle2 size={15} />
+                              </button>
+                            )}
                             {canAddCustomer && (
                               <span className="at-row-actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                 <button type="button" className="at-icon-btn" title="Edit customer" aria-label={`Edit ${cust.first_name} ${cust.last_name}`}
@@ -7995,8 +8006,7 @@ function App() {
                                     fabrics={colourFilteredFabrics}
                                     taxonomy={fabricTaxonomy}
                                     selection={fabricSelection}
-                                    onChange={handleFabricSelection}
-                                    onPickOutOfStock={(fabric, proceed) => setStockPrompt({ fabric, proceed })} />
+                                    onChange={handleFabricSelection} />
                                 </>
                               )}
                             </Suspense>
@@ -9464,30 +9474,6 @@ Complete the Payment stage with this partial payment?`)) return;
                           onIndexChange={(i) => setReviewView({ ...reviewView, index: i })}
                           onClose={() => setReviewView(null)} />
         </Suspense>
-      )}
-      {stockPrompt && (
-        <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
-          <div className="search-modal-card" style={{ maxWidth: '440px', width: '100%', padding: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangle size={18} style={{ color: 'var(--warning-color)' }} /> Out of stock
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '18px' }}>
-              <strong style={{ color: 'var(--text-primary)' }}>{stockPrompt.fabric.name}</strong> has no stock right now.
-              Restock it first, or carry on with the order and let the workroom sort the material out later.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button type="button" className="btn-secondary" onClick={() => setStockPrompt(null)}>Cancel</button>
-              <button type="button" className="btn-secondary"
-                      onClick={() => { stockPrompt.proceed(); setStockPrompt(null); }}>
-                Complete the order
-              </button>
-              <button type="button" className="btn-primary"
-                      onClick={() => { stockPrompt.proceed(); setRestockTrip({ fabric: stockPrompt.fabric }); setStockPrompt(null); }}>
-                <Boxes size={16} /> Restock now
-              </button>
-            </div>
-          </div>
-        </div>
       )}
       {reversalPrompt && (
         <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>

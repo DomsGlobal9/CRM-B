@@ -799,6 +799,14 @@ class DesignerViewSet(viewsets.ModelViewSet):
             return
         user.delete()
 
+    @transaction.atomic
+    def perform_create(self, serializer):
+        # Every designer gets their roster row up front, not on their first
+        # visit to Attendance: production stages (Design) are assigned to it.
+        from apps.staff.views import _designer_attendance_row
+        designer = serializer.save()
+        _designer_attendance_row(designer, designer.user)
+
     def get_queryset(self):
         queryset = Designer.objects.annotate(design_count=Count('designs'))
 

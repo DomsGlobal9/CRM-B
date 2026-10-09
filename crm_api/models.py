@@ -110,6 +110,8 @@ class Customer(models.Model):
     occupation = models.CharField(max_length=100, blank=True, null=True)
     preferred_communication = models.CharField(max_length=50, default="WhatsApp") # WhatsApp, Call, Email
     notes = models.TextField(blank=True, null=True)
+    # Came in through the customer portal and no staff member has contacted them yet.
+    is_lead = models.BooleanField(default=False, db_index=True)
     
     profile_photo = models.ImageField(upload_to=upload_to_customer_profiles, blank=True, null=True,
                                       max_length=IMAGE_PATH_MAX_LENGTH)
@@ -641,7 +643,7 @@ def get_default_workflow():
         # goes to the owner/Master as PENDING_VERIFICATION, and their sign-off
         # completes Stitching. Fabric is consumed and the customer status
         # moves to Quality Check when Stitching completes.
-        {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master"], "scope": "garment"},
+        {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master", "Tailor"], "scope": "garment"},
         {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"], "scope": "garment"},
         {"key": "master_quality_check", "name": "Master quality check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"], "scope": "garment"},
         {"key": "trial_scheduled", "name": "Trial booking", "sla_hours": 48, "roles": ["Owner", "Master"]},
