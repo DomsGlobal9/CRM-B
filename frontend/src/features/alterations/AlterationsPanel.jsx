@@ -12,15 +12,6 @@ import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
 
-/**
- * The alterations register and one alteration's whole file.
- *
- * A lazily-loaded feature panel like InventoryPanel and StaffPanel, mounted
- * from its own dashboard tab. It never draws a button the server would refuse:
- * every control is keyed off `available_actions`, which the API derives from
- * the same state machine it enforces, so this file holds no copy of the
- * workflow rules and cannot drift from them.
- */
 
 const STATUS_TONE = {
   RECEIVED: '#6b7280',
@@ -46,16 +37,13 @@ const STATUS_ORDER = [
   'IN_PROGRESS', 'QC', 'CUSTOMER_REVIEW', 'READY_FOR_PICKUP', 'COMPLETED',
 ];
 
-// A small issue walks a shorter road: verified, assigned, worked, shown to
-// the customer, pressed, packed, delivered. The server's small-issue table.
+
 const SMALL_STATUS_ORDER = [
   'RECEIVED', 'INSPECTION', 'ASSIGNED', 'IN_PROGRESS', 'CUSTOMER_REVIEW',
   'PRESSING', 'PACKAGING', 'COMPLETED',
 ];
 
-// Titlecasing the status key renders QC as "Qc". Spelled out here rather than
-// fought with CSS, and it is also the place to say "Quality check" in full
-// where there is room for it.
+
 const STATUS_LABELS = {
   RECEIVED: 'Received',
   INSPECTION: 'Inspection',
@@ -72,8 +60,7 @@ const STATUS_LABELS = {
   CANCELLED: 'Cancelled',
 };
 
-// The same steps read differently on a small issue: "Inspection" is a quick
-// verification, and "Completed" is the delivery at the end of packing.
+
 const SMALL_STATUS_LABELS = { INSPECTION: 'Verify', COMPLETED: 'Delivered' };
 
 const statusLabel = (status) =>
@@ -280,9 +267,7 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
     setError(null);
     try {
       const updated = await call();
-      // Workflow actions hand back the whole alteration; recording a payment
-      // or a material hands back that row instead, so key off a field only
-      // the alteration has rather than on the presence of an id.
+      
       setAlteration(updated?.alteration_number
         ? updated
         : await api.getAlteration(alterationId));
@@ -306,9 +291,7 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
   const actions = alteration.available_actions || [];
   const isPaid = alteration.alteration_type === 'PAID_CLIENT_REQUEST';
   const outstanding = Number(alteration.outstanding_balance || 0);
-  // The server allows findings only while the garment is in Inspection, and
-  // only to the roles that also run the estimate -- which is exactly the
-  // condition under which submit-for-approval is offered.
+  
   const canRecordInspection = alteration.status === 'INSPECTION'
     && actions.includes('submit-for-approval');
 
