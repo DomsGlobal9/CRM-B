@@ -54,8 +54,10 @@ function displayValue(field, value, inventoryNames) {
     return inventoryNames[String(value)] || 'Selected from stock';
   }
 
-  // The garment's recorded voice note: played, not counted as a photo.
-  if (field.key === 'audio_note' && typeof value === 'string') return <VoiceNotePlayer src={value} />;
+  // The garment's recorded voice notes: played, not counted as a photo.
+  if ((field.key === 'audio_note' || field.key === 'hand_work_voice_note') && typeof value === 'string') {
+    return <VoiceNotePlayer src={value} />;
+  }
 
   if (field.field_type === 'file') {
     const urls = (Array.isArray(value) ? value : [value]).filter((v) => typeof v === 'string' && v);

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '../../services/api';
 import { getSection, isVisible, pruneHidden } from '../../services/templates';
-import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import VoiceTextarea, { VoiceRecorder } from '../../components/ui/VoiceTextarea';
 import { cleanAmount } from '../../services/validate';
 import { OTHER_PREFIX, OTHER_MAX_LENGTH, isTypedOther, typedOtherText } from '../../services/templates';
 
@@ -46,7 +46,8 @@ const DEFAULT_UNIT = {
 };
 
 function Field({ field, value, error, onChange, inventory, quantity, quantityError, onQuantityChange,
-  source, brought, onSourceChange, onBroughtChange, purchase, onPurchaseChange, plainTextarea = false }) {
+  source, brought, onSourceChange, onBroughtChange, purchase, onPurchaseChange, plainTextarea = false,
+  voiceKey = null, voiceValue = '' }) {
   const common = {
     className: 'form-control',
     id: `tf-${field.key}`,
@@ -57,6 +58,20 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
   let control;
   switch (field.field_type) {
     case 'textarea':
+      // A box with its own recorder underneath (voiceKey): a plain box, then
+      // record / hear / Send / Delete, the clip kept in the voiceKey field.
+      if (voiceKey) {
+        control = (
+          <>
+            <textarea {...common} rows={3} placeholder={field.help_text || ''} />
+            <VoiceRecorder
+              sent={voiceValue ? { url: voiceValue, by: 'you' } : null}
+              onSend={async (blob) => onChange(voiceKey, await api.uploadVoiceNote(blob))}
+              onDelete={() => onChange(voiceKey, '')} />
+          </>
+        );
+        break;
+      }
       control = field.key === 'measurement_notes' || plainTextarea ? (
         <textarea {...common} rows={3} placeholder={field.help_text || ''} />
       ) : (
@@ -450,6 +465,10 @@ export default function TemplateForm({
   onGoToInventory = null,
   // A screen with its own voice recorder beside the box: no dictation mic inside it.
   plainTextarea = false,
+  // {textarea key: file field key}: those boxes get a recorder underneath
+  // instead of the mic inside, the clip kept in the file field -- only where
+  // the template has that field.
+  voiceFor = null,
 }) {
   const definition = getSection(template, section);
   const isMeasurements = definition?.key === 'measurements';
@@ -469,6 +488,8 @@ export default function TemplateForm({
     && inventoryCategories.every((c) => c in inventory);
   const inventoryEmpty = inventoryLoaded
     && inventoryCategories.every((c) => (inventory[c] || []).length === 0);
+
+  const hasField = (key) => (template?.sections || []).some((s) => s.fields.some((f) => f.key === key));
 
   const handleChange = (key, value) => {
 
@@ -507,6 +528,8 @@ export default function TemplateForm({
           <Field
             key={field.key}
             plainTextarea={plainTextarea}
+            voiceKey={voiceFor?.[field.key] && hasField(voiceFor[field.key]) ? voiceFor[field.key] : null}
+            voiceValue={voiceFor?.[field.key] ? values[voiceFor[field.key]] || '' : ''}
             field={field}
             value={values[field.key]}
             error={errors[field.key]}

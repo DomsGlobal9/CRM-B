@@ -1842,6 +1842,9 @@ def hand_work_fields(definition):
         field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
               help_text='Thread colour, motif size, what to match.',
               validation={'max_length': 500}, when=has_work),
+        # The spoken version, recorded under the notes on the order form: the
+        # clip's URL, stored with the garment and played on its summary.
+        field('hand_work_voice_note', 'Voice Note for the Maggam Master', 'file', when=has_work),
     ]
     if not part_options:
         return [gate, field('hand_work_kind', kind_label, 'select',

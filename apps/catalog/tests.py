@@ -380,7 +380,7 @@ class SpecifyTypeTests(CatalogTestCase):
         self.assertNotIn('flare_from', fields('kurti'))
 
         saree = fields('saree')
-        for key in ('hand_work_coverage', 'hand_work_tone', 'hand_work_material_source'):
+        for key in ('hand_work_coverage', 'hand_work_tone', 'hand_work_material_source', 'hand_work_voice_note'):
             self.assertTrue(is_visible(saree[key], {'hand_work': 'with_work'}), key)
             self.assertFalse(is_visible(saree[key], {'hand_work': 'none'}), key)
         self.assertNotIn('hand_work_coverage', fields('petticoat'))

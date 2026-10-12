@@ -26,6 +26,8 @@ const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const TodoPanel = lazy(() => import('./features/todo/TodoPanel'));
+// The maggam master's notes get a recorder underneath, as the special instructions do.
+const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
 import GarmentPurchases from './features/catalog/GarmentPurchases';
@@ -7736,6 +7738,7 @@ function App() {
                           <div key={sectionKey} className="wz-garment-section">
                             <TemplateForm template={job.template} section={sectionKey} values={job.values}
                                           errors={garmentErrors[job.key] || {}} only={upFront}
+                                          voiceFor={MAGGAM_NOTE_VOICE}
                                           purchases={job.purchases || []} onPurchaseChange={(fieldKey, row) => updateGarmentPurchase(job.key, fieldKey, row)}
                                           onChange={(values) => updateGarmentValues(job.key, values)} />
                           </div>
