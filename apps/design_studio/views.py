@@ -713,12 +713,16 @@ class GarmentPreviewView(views.APIView):
                 notes=str(data.get('notes') or ''),
                 product_name=str(data.get('product_name') or ''),
                 model_image=str(data.get('model_image') or ''),
+                views=data.get('views') if isinstance(data.get('views'), list) else None,
             )
             result = generate.generate(generate.resolve_images(payload))
-            saved = generate.keep(result.pop('image'))
+            result['images'] = {
+                view: request.build_absolute_uri(default_storage.url(generate.keep(uri)))
+                for view, uri in result['images'].items()}
         except DiscoveryError as exc:
             return Response({'error': str(exc)}, status=exc.status)
-        result['image_url'] = request.build_absolute_uri(default_storage.url(saved))
+        # image_url stays the primary photograph (front, or the one side asked for).
+        result['image_url'] = next(iter(result['images'].values()))
         return Response(result, status=status.HTTP_201_CREATED)
 
 

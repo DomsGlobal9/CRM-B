@@ -9,6 +9,7 @@ import {
 } from './services/format';
 
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
+const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
 import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
@@ -8295,18 +8296,6 @@ function App() {
                       ))}
                     </div>
                   ))}
-                  {/* The garment drawn on a model, from the designs and rolls
-                      above. Renders nothing where the vendor is not set up or
-                      no garment has a design. The photograph lands on
-                      job.design.preview and confirms with the rest.
-                      Switched off for now; uncomment to bring it back.
-                      Model display parked — see task 16 */}
-                  {/* <Suspense fallback={null}>
-                    <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
-                      onPreview={(jobKey, url) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
-                        ? { ...j, design: { ...(j.design || {}), preview: url } } : j))}
-                      onView={(url, label) => setReviewView({ items: [{ key: 'preview', image_url: url, label }], index: 0 })} />
-                  </Suspense> */}
                   {reviewView && (
                     <Suspense fallback={null}>
                       <ReviewLightbox items={reviewView.items} index={reviewView.index}
@@ -8589,6 +8578,18 @@ function App() {
 
             {/* Right Sidebar */}
             <div className="sidebar-panel">
+              {/* The open garment drawn on a model, from its designs and rolls.
+                  Renders nothing where the vendor is not set up and there is no
+                  base picture. The photograph lands on job.design.preview and
+                  confirms with the rest. */}
+              {wizardStepKey === 'type' && openGarment && (
+                <Suspense fallback={null}>
+                  <GarmentPreviews jobs={[openGarment]} title={t('wizard.reviewPreview', 'See it on a model')}
+                    onPreview={(jobKey, url, backUrl) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                      ? { ...j, design: { ...(j.design || {}), preview: url, preview_back: backUrl || null } } : j))}
+                    />
+                </Suspense>
+              )}
               <div className="sidebar-card">
                 <div className="sidebar-card-title">
                   <Sparkles size={16} />

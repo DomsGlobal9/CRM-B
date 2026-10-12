@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { Check, RotateCw, Save, Shield } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, ClipboardList, Save, Scissors, Shield, ShoppingBag, Users } from 'lucide-react';
 
 import { InfoNote } from '../../components/ui/Atelier';
-import { DESIGNER_ROLE, STAFF_ROLES } from '../../constants/roles';
+import { api } from '../../services/api';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -11,168 +11,166 @@ const panel = {
   boxShadow: 'var(--shadow-sm)',
 };
 
-const ROLES = [DESIGNER_ROLE, ...STAFF_ROLES];
-
-const ACTIONS = [
-  ['view', 'View'],
-  ['add', 'Add'],
-  ['edit', 'Edit'],
-  ['delete', 'Delete'],
-];
-
-// Mirrors the sidebar, so the owner recognises what they are switching.
+// The work the owner can hand to an admin, per section of the app.
 const SECTIONS = [
-  ['Overview', [['dashboard', 'Dashboard'], ['orders', 'Orders'], ['workshop', 'Workshop'],
-                ['customers', 'Customers'], ['leads', 'Leads'], ['todos', 'To-do']]],
-  ['Design', [['design_library', 'Design Library']]],
-  ['Stock', [['inventory', 'Fabrics & Materials']]],
-  ['Team', [['staff', 'Team roster'], ['tasks', 'Tasks'], ['attendance', 'Attendance'],
-            ['payroll', 'Payroll'], ['performance', 'Performance']]],
+  { key: 'orders', label: 'Orders', icon: ShoppingBag, tasks: [
+    ['create', 'Create new orders'],
+    ['edit', 'Edit order details'],
+    ['stage', 'Update order stage and status'],
+    ['delivery_date', 'Set and change delivery dates'],
+    ['payments', 'Record payments and advances'],
+    ['discounts', 'Give discounts'],
+    ['invoices', 'Make and send invoices'],
+    ['notify', 'Send order updates to customers'],
+    ['deliver', 'Mark orders as delivered'],
+    ['cancel', 'Cancel orders'],
+  ] },
+  { key: 'workshop', label: 'Workshop', icon: Scissors, tasks: [
+    ['assign', 'Assign garments to tailors and karigars'],
+    ['reassign', 'Reassign delayed work'],
+    ['move', 'Move work between stages'],
+    ['materials', 'Issue fabrics and materials to jobs'],
+    ['review', 'Review and approve finished work'],
+    ['quality', 'Quality check before delivery'],
+    ['alterations', 'Handle alterations'],
+    ['track', 'Track daily production'],
+  ] },
+  { key: 'customers', label: 'Customers', icon: Users, tasks: [
+    ['add', 'Add new customers'],
+    ['edit', 'Edit customer details'],
+    ['measurements', 'Take and update measurements'],
+    ['leads', 'Manage leads and follow-ups'],
+    ['history', 'See customer order history'],
+    ['message', 'Message customers'],
+    ['import', 'Import customers in bulk'],
+    ['delete', 'Delete customers'],
+  ] },
 ];
 
-const SUPERVISORS = new Set(['Master', 'Designer']);
+const memberKey = (m) => `${m.isDesigner ? 'd' : 's'}:${m.id}`;
 
-// ponytail: placeholder defaults until this is wired to /api/boutique-settings/role-modules/.
-function defaultsFor(role) {
-  const out = {};
-  for (const [, items] of SECTIONS) {
-    for (const [key] of items) {
-      const floor = ['workshop', 'todos', 'tasks', 'attendance', 'performance'].includes(key);
-      const view = floor || (SUPERVISORS.has(role) && key !== 'payroll');
-      out[key] = { view, add: view && SUPERVISORS.has(role) && key !== 'staff', edit: false, delete: false };
-    }
-  }
-  return out;
-}
-
-const initial = () => Object.fromEntries(ROLES.map((r) => [r.value, defaultsFor(r.value)]));
-
+// ponytail: frontend only -- the admin and tasks live in this component's state
+// until the backend for access levels exists; Save only confirms locally.
 export default function RolePermissions() {
-  const [perms, setPerms] = useState(initial);
-  const [role, setRole] = useState(ROLES[0].value);
+  const [people, setPeople] = useState(null);
+  const [admin, setAdmin] = useState('');
+  const [tasks, setTasks] = useState(() => new Set());
   const [saved, setSaved] = useState(false);
-  const current = perms[role];
 
-  const update = (next) => { setPerms((p) => ({ ...p, [role]: next })); setSaved(false); };
+  useEffect(() => {
+    Promise.all([api.getTailors().catch(() => []), api.getDesigners().catch(() => [])])
+      .then(([staff, designers]) => setPeople([
+        ...(Array.isArray(staff) ? staff : []),
+        ...(Array.isArray(designers) ? designers : []).map((d) => ({ ...d, role: 'Designer', isDesigner: true })),
+      ]));
+  }, []);
 
-  // Add, edit and delete are meaningless without view: turning one on turns view on,
-  // turning view off takes the rest with it.
-  const toggle = (key, action) => {
-    const row = { ...current[key], [action]: !current[key][action] };
-    if (action === 'view' && !row.view) Object.assign(row, { add: false, edit: false, delete: false });
-    if (action !== 'view' && row[action]) row.view = true;
-    update({ ...current, [key]: row });
+  const chosen = people?.find((m) => memberKey(m) === admin);
+
+  const flip = (setter, keys, on) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      keys.forEach((k) => (on ? next.add(k) : next.delete(k)));
+      return next;
+    });
+    setSaved(false);
   };
-
-  const allKeys = SECTIONS.flatMap(([, items]) => items.map(([key]) => key));
-  const columnOn = (action) => allKeys.every((key) => current[key][action]);
-  const toggleColumn = (action) => {
-    const on = !columnOn(action);
-    const next = {};
-    for (const key of allKeys) {
-      const row = { ...current[key], [action]: on };
-      if (action === 'view' && !on) Object.assign(row, { add: false, edit: false, delete: false });
-      if (action !== 'view' && on) row.view = true;
-      next[key] = row;
-    }
-    update(next);
-  };
-
-  const grantedCount = (r) => allKeys.filter((key) => perms[r][key].view).length;
-  const roleLabel = ROLES.find((r) => r.value === role);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
-      <InfoNote icon={Shield} tone="neutral" title="Decide what each role can see and do">
-        Pick a role on the left, then tick what it may view, add, edit or delete. The owner always has full access.
+      <InfoNote icon={Shield} tone="neutral" title="Admins and regular team members">
+        Everyone keeps their role (tailor, master, designer…). Choose one person as Admin to hand them the work you tick below;
+        everyone else stays Regular. The owner always has full access.
       </InfoNote>
 
-      {/* Wraps to one column on a phone: the role list stacks above the table. */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-5)', alignItems: 'flex-start' }}>
-        <nav aria-label="Roles" style={{ ...panel, padding: 'var(--space-2)', flex: '1 1 220px', maxWidth: '100%' }}>
-          {ROLES.map((r) => {
-            const active = r.value === role;
-            return (
-              <button key={r.value} type="button" onClick={() => setRole(r.value)} aria-current={active}
-                      style={{
-                        display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', gap: '8px',
-                        padding: '10px 12px', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer',
-                        textAlign: 'left',
-                        background: active ? 'var(--primary-light, var(--bg-secondary))' : 'transparent',
-                        color: 'var(--text-primary)',
-                        fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-medium)',
-                      }}>
-                <span>{r.label}</span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                  {grantedCount(r.value)}/{allKeys.length}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
+        {/* Who is the admin: one person at a time. */}
+        <section style={{ ...panel, flex: '1 1 300px', maxWidth: '100%', padding: 'var(--space-4) var(--space-5)',
+                          display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div>
+            <div style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>Admin</div>
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+              One person at a time. Everyone else is Regular.
+            </div>
+          </div>
+          <select value={admin} disabled={people === null} aria-label="Choose the admin"
+                  onChange={(e) => { setAdmin(e.target.value); setSaved(false); }}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 'var(--radius-md)',
+                           border: '1px solid var(--border-color)', background: 'var(--surface-color)',
+                           color: 'var(--text-primary)', fontSize: 'var(--text-base)' }}>
+            <option value="">{people === null ? 'Loading team…' : 'No admin'}</option>
+            {people?.map((m) => (
+              <option key={memberKey(m)} value={memberKey(m)}>{m.name} · {m.role}</option>
+            ))}
+          </select>
+          {chosen && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                          borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)' }}>
+              <Shield size={18} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 'var(--weight-semibold)' }}>{chosen.name}</div>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{chosen.role} · Admin</div>
+              </div>
+            </div>
+          )}
+        </section>
 
-        <section style={{ ...panel, overflow: 'hidden', flex: '999 1 480px', minWidth: 0 }}>
+        {/* What the admin handles */}
+        <section style={{ ...panel, flex: '999 1 480px', minWidth: 0, overflow: 'hidden' }}>
           <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap',
                            gap: 'var(--space-3)', padding: 'var(--space-4) var(--space-5)',
                            borderBottom: '1px solid var(--border-color)' }}>
             <div>
-              <div style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)' }}>{roleLabel.label}</div>
-              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{roleLabel.hint}</div>
+              <div style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-lg)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ClipboardList size={18} /> Work assigned to the admin
+              </div>
+              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                Tick what the admin may do. Anything left unticked stays with you.
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              <button type="button" className="btn-secondary" onClick={() => update(defaultsFor(role))}>
-                <RotateCw size={15} /> Reset to default
-              </button>
-              {/* ponytail: not connected to the backend yet; Save only confirms locally. */}
-              <button type="button" className="btn-primary" onClick={() => setSaved(true)}>
-                {saved ? <><Check size={15} /> Saved</> : <><Save size={15} /> Save</>}
-              </button>
-            </div>
+            <button type="button" className="btn-primary" onClick={() => setSaved(true)}>
+              {saved ? <><Check size={15} /> Saved</> : <><Save size={15} /> Save</>}
+            </button>
           </header>
 
-          <div className="at-table-wrap" style={{ border: 'none', borderRadius: 0 }}>
-            <table className="at-table">
-              <thead>
-                <tr>
-                  <th>Section</th>
-                  {ACTIONS.map(([action, label]) => (
-                    <th key={action} style={{ textAlign: 'center', width: '90px' }}>
-                      <label style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                        {label}
-                        <input type="checkbox" checked={columnOn(action)} onChange={() => toggleColumn(action)}
-                               aria-label={`${label} for every section`} />
+          {SECTIONS.map(({ key: section, label, icon: Icon, tasks: list }) => {
+            const keys = list.map(([k]) => `${section}.${k}`);
+            const ticked = keys.filter((k) => tasks.has(k)).length;
+            const all = ticked === keys.length;
+            return (
+              <section key={section} aria-label={label} style={{ padding: 'var(--space-4) var(--space-5)',
+                                               borderBottom: '1px solid var(--border-color)' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: 'var(--space-3)' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 'var(--weight-semibold)' }}>
+                      <Icon size={16} /> {label}
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--weight-medium)' }}>
+                        {ticked}/{keys.length}
+                      </span>
+                    </span>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={all} onChange={() => flip(setTasks, keys, !all)}
+                             ref={(el) => { if (el) el.indeterminate = ticked > 0 && !all; }}
+                             style={{ accentColor: 'var(--primary-color)' }} />
+                      Select all
+                    </label>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '8px 16px' }}>
+                  {list.map(([k, text]) => {
+                    const id = `${section}.${k}`;
+                    return (
+                      <label key={id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', padding: '4px 0' }}>
+                        <input type="checkbox" checked={tasks.has(id)} onChange={(e) => flip(setTasks, [id], e.target.checked)}
+                               style={{ width: '18px', height: '18px', accentColor: 'var(--primary-color)', flexShrink: 0 }} />
+                        {text}
                       </label>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {SECTIONS.map(([group, items]) => (
-                  [
-                    <tr key={group}>
-                      <td colSpan={ACTIONS.length + 1} style={{ background: 'var(--bg-secondary)', fontSize: 'var(--text-xs)',
-                                                               letterSpacing: '0.08em', textTransform: 'uppercase',
-                                                               fontWeight: 'var(--weight-semibold)', color: 'var(--text-secondary)' }}>
-                        {group}
-                      </td>
-                    </tr>,
-                    ...items.map(([key, label]) => (
-                      <tr key={key}>
-                        <td data-label="Section" style={{ fontWeight: 'var(--weight-medium)' }}>{label}</td>
-                        {ACTIONS.map(([action, actionLabel]) => (
-                          <td key={action} data-label={actionLabel} style={{ textAlign: 'center' }}>
-                            <input type="checkbox" checked={current[key][action]} onChange={() => toggle(key, action)}
-                                   aria-label={`${roleLabel.label}: ${actionLabel} ${label}`}
-                                   style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--primary-color)' }} />
-                          </td>
-                        ))}
-                      </tr>
-                    )),
-                  ]
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
         </section>
       </div>
     </div>

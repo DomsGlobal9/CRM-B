@@ -266,14 +266,15 @@ export default function GarmentSelectionsReview({
                             onView={(index) => setViewing({ rows: designRows, index })} />
               )}
               {/* The garment drawn on a model at the review step, when one was made. */}
-              {job.design?.preview && (() => {
-                const previewRow = { key: `${job.key}:preview`, image_url: job.design.preview,
-                                     label: `${garmentName} · Preview on a model` };
+              {[[job.design?.preview, 'Preview on a model'], [job.design?.preview_back, 'Back on a model']]
+                .filter(([src]) => src).map(([src, label]) => {
+                const previewRow = { key: `${job.key}:${label}`, image_url: src,
+                                     label: `${garmentName} · ${label}` };
                 return (
-                  <Row label="Preview on a model" value="Drawn from these designs and fabrics"
+                  <Row key={label} label={label} value="Drawn from these designs and fabrics"
                        thumb={
                          <span style={{ position: 'relative', display: 'inline-block', flexShrink: 0 }}>
-                           <Thumb src={job.design.preview} alt="Garment preview" size={72} />
+                           <Thumb src={src} alt={label} size={72} />
                            <button type="button" title="View full size" aria-label="View full size"
                                    onClick={() => setViewing({ rows: [previewRow], index: 0 })}
                                    style={{ position: 'absolute', top: '4px', right: '4px', width: '22px', height: '22px',
@@ -285,7 +286,7 @@ export default function GarmentSelectionsReview({
                          </span>
                        } />
                 );
-              })()}
+              })}
             </Group>
 
             <Group icon={Layers} title="Fabrics" count={fabricRows.length}>
