@@ -1451,6 +1451,7 @@ const navSectionsFor = (user, t) => {
       ] },
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
+        { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.designStudio'), phone: true },
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },

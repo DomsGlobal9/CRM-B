@@ -33,6 +33,11 @@ const STATUS_LABELS = {
 };
 
 const isOpenOrder = (o) => !CLOSED.includes(o.order_status);
+// The owner's Workshop list: an open order whose work has begun past "created"
+// (App.jsx orderBucket). Masters and Designers run the floor, so their My work
+// shows the same orders.
+const inWorkshop = (o) => isOpenOrder(o) && (o.stages || []).some((st) => st.stage_key !== 'created'
+  && !['NOT_STARTED', 'SKIPPED'].includes(st.status));
 const humanise = (key) => String(key || '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 const statusLabel = (status, t) => { const [k, d] = STATUS_LABELS[status] || []; return k ? t(k, d) : String(status || ''); };
 // Orders written before garment jobs existed name their garment on the order.
@@ -137,6 +142,31 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   const [open, setOpen] = useState(null); // { orderId, stageKey }
   const [seen, setSeen] = useState(() => new Set()); // 'orderId:stageKey' ticked this session
   const [toast, setToast] = useState('');
+  // My open to-dos (apps/todos), shown under the order work so a task handed
+  // to me is on the screen I work from, not only on the To-do tab.
+  const [tasks, setTasks] = useState([]);
+  const [taskBusy, setTaskBusy] = useState(null);
+  const loadTasks = () => api.getTodos()
+    .then((rows) => setTasks((Array.isArray(rows) ? rows : rows?.results || [])
+      // A to-do made from an order step is already here as that step's card.
+      .filter((td) => td.status !== 'CLOSED' && td.assigned_to === currentUser?.id && !td.order_stage)))
+    .catch(() => setTasks([]));
+  useEffect(() => {
+    if (view === 'open') loadTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, currentUser?.id, orders]);
+  const moveTask = async (task, status) => {
+    setTaskBusy(task.id);
+    try {
+      await api.setTodoStatus(task.id, status);
+      setToast(status === 'CLOSED' ? t('workPage.taskDone', 'Task done') : t('workPage.taskStarted', 'Task started'));
+      await loadTasks();
+    } catch (e) {
+      setToast(e.message || t('workPage.taskFailed', 'Could not update the task'));
+    } finally {
+      setTaskBusy(null);
+    }
+  };
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -155,6 +185,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   const isMine = (order, s) => s.assigned_to === me
     || (rolesFor(s.stage_key).includes(currentUser?.role) && s.assigned_to == null
         && (order.tailor === me || order.master === me || currentUser?.role !== 'Tailor'));
+  // On My work a supervisor sees every Workshop order's work, whoever holds it.
+  const isListed = (order, s) => isMine(order, s) || (view === 'open' && isSupervisor && inWorkshop(order));
   // Earlier work on this garment (and the order-level stages) must be finished.
   const isReady = (order, s) => (order.stages || []).every((o) => o.sequence >= s.sequence || FINISHED.includes(o.status)
     || (o.garment_job && s.garment_job && o.garment_job !== s.garment_job));
@@ -169,7 +201,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           if (isOpenOrder(order) && stage.status === 'PENDING_VERIFICATION') out.push({ order, stage, at: submittedAt(order, stage) });
           return;
         }
-        if (!isMine(order, stage)) return;
+        if (!isListed(order, stage)) return;
         const finished = FINISHED.includes(stage.status);
         if (view === 'done') { if (finished) out.push({ order, stage, at: stage.completed_at || stage.started_at }); return; }
         if (finished || !isOpenOrder(order)) return;
@@ -218,12 +250,42 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
 
   let body;
   if (view === 'open') {
+    const taskSection = tasks.length > 0 && (
+      <section className="wk-group">
+        <h3 className="wk-group-title">{t('workPage.tasks', 'Tasks')} <span className="wk-count">{tasks.length}</span></h3>
+        {tasks.map((task) => (
+          <div key={`todo-${task.id}`} className="wk-card">
+            <div className="wk-card-head">
+              <div className="wk-card-title">{task.title}</div>
+              <span className={`ui-badge ui-badge--${task.status === 'IN_PROGRESS' ? 'warning' : 'neutral'}`}>
+                {task.status === 'IN_PROGRESS' ? t('workPage.inProgress', 'In progress') : t('workPage.statusTodo', 'To do')}
+              </span>
+            </div>
+            <div className="wk-card-sub">
+              {task.created_by_name && t('workPage.taskFrom', 'From {who}', { who: task.created_by_name })}
+              {task.due_date && <> · {t('workPage.due', 'Due')} {formatDate(task.due_date)}</>}
+            </div>
+            {task.description && <div className="wk-card-note">{String(task.description).split('\n')[0]}</div>}
+            {task.can_change_status !== false && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                {task.status === 'OPEN' && (
+                  <button type="button" className="btn-secondary at-btn-sm" disabled={taskBusy === task.id}
+                          onClick={() => moveTask(task, 'IN_PROGRESS')}>{t('workPage.startTask', 'Start')}</button>
+                )}
+                <button type="button" className="btn-primary at-btn-sm" disabled={taskBusy === task.id}
+                        onClick={() => moveTask(task, 'CLOSED')}>{t('workPage.markDone', 'Mark done')}</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </section>
+    );
     const groups = [
       ['now', t('workPage.doNow', 'Do now')],
       ['next', t('workPage.next', 'Next')],
       ['waiting', t('workPage.waitingForMaster', 'Waiting for the master')],
     ];
-    body = items.length === 0
+    body = items.length === 0 && !taskSection
       ? (
         <div className="wk-empty">
           {later
@@ -233,6 +295,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       )
       : (
         <>
+          {taskSection}
           {groups.map(([key, label]) => {
             const list = items.filter((i) => i.group === key);
             if (!list.length) return null;
