@@ -612,6 +612,37 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
     </section>
   );
 
+  // Photos kept on the earlier steps of this garment (and the order's own
+  // steps): what was cut, worked or stitched before this one reached me.
+  const earlier = (order.stages || [])
+    .filter((o) => o.id !== stage.id && o.sequence < stage.sequence && (o.attachments || []).length > 0
+      && !(o.garment_job && stage.garment_job && o.garment_job !== stage.garment_job))
+    .sort((a, b) => a.sequence - b.sequence);
+  const earlierItems = earlier.flatMap((o) => o.attachments.map((u, i) => ({
+    image_url: resolveMediaUrl(u), label: `${o.stage_name || humanise(o.stage_key)} · ${t('workPage.photo', 'Photo')} ${i + 1}`,
+  })));
+  const earlierPhotos = earlierItems.length > 0 && (
+    <section className="wk-section">
+      <h3 className="wk-section-title">{t('workPage.earlierPhotos', 'Photos from earlier steps')}</h3>
+      {earlier.map((o) => (
+        <div key={o.id} className="wk-gap">
+          <div className="wk-sub">{o.stage_name || humanise(o.stage_key)}{o.performed_by_name ? ` · ${o.performed_by_name}` : ''}</div>
+          <div className="wk-photos">
+            {o.attachments.map((u) => {
+              const index = earlierItems.findIndex((it) => it.image_url === resolveMediaUrl(u));
+              return (
+                <span key={u} role="button" tabIndex={0} onClick={() => setView({ items: earlierItems, index })}
+                      onKeyDown={(e) => e.key === 'Enter' && setView({ items: earlierItems, index })}>
+                  <PhotoTile src={resolveMediaUrl(u)} size={80} />
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+
   let head = null;
   if (mode === 'work' && stage.verification_note && stage.status === 'IN_PROGRESS') {
     head = (
@@ -686,11 +717,13 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
                 <summary>{t('workPage.whatWasAsked', 'What was asked')}</summary>
                 <div className="wk-details-body wk-gap">{whatToMake}</div>
               </details>
+              {earlierPhotos}
             </>
           ) : (
             <>
               {whatToMake}
               {workSoFar}
+              {earlierPhotos}
             </>
           )}
           {actions}
