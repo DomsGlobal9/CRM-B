@@ -127,7 +127,7 @@ class BuildPayloadTests(TenantTestCase):
         # No design chosen: the wizard sends the plain garment's own photo
         # as its overall design, so it is still drawn front and back.
         photo = 'data:image/jpeg;base64,' + PIXEL
-        payload = generate.build_payload(client_id='t', garment_key='saree',
+        payload = generate.build_payload(client_id='t', garment_key='saree', parts={},
                                          part_refs={'overall': [{'image_url': photo}]})
         self.assertEqual(payload['designs'], [{'area': 'OVERALL', 'image': photo}])
         self.assertNotIn('views', payload)
