@@ -8059,6 +8059,31 @@ function App() {
                         </details>
                         </details>
 
+                        {/* Move between garments from where the form ends, not
+                            from the circles at the top. "Next" runs the footer's
+                            own Next: same checks, same save, same next garment. */}
+                        {garmentJobs.length > 1 && (() => {
+                          const done = [...new Set([...garmentsDone, job.key])];
+                          const nextJob = [...garmentJobs.slice(idx + 1), ...garmentJobs.slice(0, idx)].find(j => !done.includes(j.key));
+                          const prevJob = garmentJobs[idx - 1];
+                          if (!nextJob && !prevJob) return null;
+                          return (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
+                                          flexWrap: 'wrap', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                              {prevJob ? (
+                                <button type="button" className="btn-secondary" onClick={() => openGarmentAt(prevJob.key)}>
+                                  <ArrowLeft size={16} /> {prevJob.template.name}
+                                </button>
+                              ) : <span />}
+                              {nextJob && (
+                                <button type="button" className="btn-primary" onClick={handleNext} disabled={ctaBusy}>
+                                  {t('wizard.nextGarment', 'Next garment')}: {nextJob.template.name} <ArrowRight size={16} />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                       </div>
                     );
                   })}
