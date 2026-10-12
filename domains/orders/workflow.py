@@ -56,9 +56,7 @@ garment's earlier work done. `rollup` folds the rows back to one status per
 key for readers that only care where the order as a whole stands.
 """
 
-#: PENDING_VERIFICATION: a worker has submitted the stage with a photo and an
-#: owner or Master has yet to verify it. Not settled -- the order does not move
-#: on until they do -- but it satisfies the same prerequisites as COMPLETED.
+
 from core.permissions import SUPERVISOR_ROLES
 from core.roles import DESIGNER, MASTER
 
@@ -89,44 +87,30 @@ def _requires_measurements(order, stage, *, supervisor):
 
     from domains.orders.services import (
         customer_has_measurements, order_needs_measurements)
-    # A run for the boutique's own stock has nobody to measure; the numbers
-    # the tailor works to are on the garment job itself.
+    
     if order.customer_id is None:
         return None
     if customer_has_measurements(order.customer):
         return None
 
     jobs = list(order.garment_jobs.all())
-    # A garment carrying its own measurement snapshot has been measured, even
-    # when the customer's own record is empty -- the numbers the tailor needs
-    # are on the job.
+    
     if any(job.measurements for job in jobs):
         return None
-    # Nothing on this order asks for a measurement -- a saree with no petticoat
-    # is the ordinary case. The rule assumed every garment is fitted, so a
-    # saree-only order could never satisfy it and could never reach a tailor.
-    # An order that asks for no measurements has none outstanding.
-    #
-    # Only an order that HAS garments can be exempt on those grounds. With no
-    # garment jobs at all the loop found nothing to ask, returned False, and
-    # waved through an order about which nothing whatsoever is known -- no
-    # dress, no numbers, no customer record -- straight to a tailor.
+    
     if jobs and not order_needs_measurements(order):
         return None
     return 'Measurements are not completed for this customer.'
 
 
 def _requires_a_tailor(order, stage, *, supervisor):
-    # A supervisor who starts the stitching is the stitcher. The owner of a
-    # one-person boutique has nobody to hand it to, and a Master does every
-    # job; this rule used to stop both of them dead at this stage.
+   
     if supervisor or order.tailor_id or stage.assigned_to_id:
         return None
     return 'No tailor is assigned to this order.'
 
 
-# Stitching is where the numbers and the stitcher are both needed. The
-# measurements rule used to sit on a Handover stage, which is gone.
+
 REQUIRED_DATA = {
     'stitching_in_progress': (_requires_measurements, _requires_a_tailor),
 }
@@ -177,8 +161,7 @@ def outstanding_before(order, config, stage_key, garment_job_id=None):
     return sorted(out, key=lambda s: stage_position(config, s['key']))
 
 
-#: An alteration is a delivered garment back for changes: taken in, worked,
-#: checked, paid for and handed back. Nothing from the making of it.
+
 ALTERATION_STAGES = ('created', 'alteration_work', 'master_quality_check',
                      'ready_for_delivery', 'payment', 'delivered')
 
@@ -256,24 +239,12 @@ def check_transition(order, stage, new_status, *, config, role, owner_role):
             f'"{stage_key}" is not a stage in this boutique\'s workflow.')
 
     allowed_roles = declared.get('roles', [])
-    # A stage awaiting verification belongs to its verifiers, whatever roles
-    # the stage itself lists: the Master signs off a tailor's stitching even
-    # though the Master never stitches.
+    
     verifying = stage.status == 'PENDING_VERIFICATION' and (role == owner_role or role in SUPERVISOR_ROLES)
     if role != owner_role and allowed_roles and not holds_stage_role(role, allowed_roles) and not verifying:
         raise TransitionError(f'Role {role} is not authorized to update {label}')
 
-    # A stage that is settled is settled. Re-completing is a no-op handled by
-    # the caller, and SKIPPED -> COMPLETED stays open (the optional work was
-    # done after all -- that moves the record forward, not back). Everything
-    # else is a reversal, and reversals go through their own audited doors.
-    #
-    # SKIPPED is pinned here too, deliberately: it used to be that only
-    # COMPLETED was, and a staff member whose role appears on an optional
-    # stage could move its settled SKIPPED backwards through this very gate --
-    # which rewrote order_status from the touched stage and dropped a
-    # Delivered order to 'Design & Creation', customer notification included,
-    # with no reason and no supervisor anywhere in the story.
+
     if stage.status in SETTLED_STATUSES and new_status not in SETTLED_STATUSES:
         raise TransitionError(
             f'{label} is already {stage.status.lower()}. Moving a settled '
@@ -300,13 +271,10 @@ def check_transition(order, stage, new_status, *, config, role, owner_role):
                 raise TransitionError(f'Cannot move to {label}. {problem}')
 
 
-#: Who may reverse settled work. The owner runs the boutique; the Master runs
-#: the floor. Nobody else -- a reversal rewrites what the record claims
-#: happened, and that is a supervisor's signature.
+
 REOPEN_ROLES = frozenset({'Master'})
 
-#: Who may fail a quality check. The QC Staff is the person actually holding
-#: the garment at that bench, so they can fail it without fetching a Master.
+
 QC_FAIL_ROLES = frozenset({'Master', 'QC Staff'})
 
 
@@ -333,13 +301,7 @@ def check_reopen(order, stage, *, config, role, owner_role):
         raise TransitionError(
             f'"{stage.stage_key}" is not a stage in this boutique\'s workflow.')
 
-    # Anything after this stage that has been started is reset alongside it:
-    # a reopened stage with completed work stacked on top would make the
-    # record claim the later work happened on a garment whose earlier state
-    # is now officially unfinished. The caller resets these and logs them.
-    # For a garment's row, only that garment's later work (and the
-    # order-level stages after it) count; the saree's finished Stitching
-    # stands whatever happens to the blouse's Cutting.
+    
     later = order.stages.filter(
         stage_key__in=[s['key'] for s in ordered_stages(config)[position + 1:]]
     ).exclude(status='NOT_STARTED')

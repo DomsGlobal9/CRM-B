@@ -9,8 +9,7 @@ export default function Loader({
   style,
 }) {
   const variant = page ? 'page' : modal ? 'modal' : section ? 'section' : inline ? 'inline' : 'section';
-  // An inline loader sits in a line of text, so it never announces itself
-  // twice: the sentence around it already says what is happening.
+  
   const text = label === undefined && variant !== 'inline' ? 'Loading…' : label;
   return (
     <div className={`ld ld--${variant} ${className}`} style={style}
