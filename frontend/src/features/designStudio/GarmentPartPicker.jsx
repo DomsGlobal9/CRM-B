@@ -573,9 +573,14 @@ function AccessoryMultiSelectDropdown({
   );
 }
 
+// Parts that only exist because of hand work. A garment taken Without Work
+// has nothing to photograph there, so the customer's references skip them.
+const WORK_ONLY_PARTS = ['embroidery_design', 'embroidery_work_design', 'zari_work_design'];
+
 export default function GarmentPartPicker({ garmentKey, garmentName, selection = {}, onChange,
                                             ownOnly = false, references = {},
-                                            onReferencesChange, taxonomy = null, isFabric = false, accessoriesOnly = false }) {
+                                            onReferencesChange, taxonomy = null, isFabric = false, accessoriesOnly = false,
+                                            withoutWork = false }) {
   const fetchedTaxonomy = useFabricTaxonomy();
   const effectiveTaxonomy = taxonomy || fetchedTaxonomy;
 
@@ -739,10 +744,17 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
     const allParts = [...declared, ...extra];
     // The customer's own photos and links are filed under the part they show
     // (pallu, border, waistband...), so every part gets a tab, not just the overall.
-    if (ownOnly) return allParts;
+    if (ownOnly) {
+      // A work part keeps its tab while it still holds a photo, so nothing
+      // already kept there disappears when the garment turns Without Work.
+      return withoutWork
+        ? allParts.filter(p => !WORK_ONLY_PARTS.includes(p.key) || (references[p.key] || []).length > 0)
+        : allParts;
+    }
     const overallParts = allParts.filter(p => p.key.startsWith('overall') || p.label.toLowerCase().includes('overall'));
     return overallParts.length > 0 ? overallParts : (allParts.length > 0 ? [allParts[0]] : [{ key: 'overall', label: 'Overall Design' }]);
-  }, [template, imagesByPart, ownOnly, isFabric, accessoriesOnly, effectiveTaxonomy, garmentKey, garmentsByKey]);
+  }, [template, imagesByPart, ownOnly, isFabric, accessoriesOnly, effectiveTaxonomy, garmentKey, garmentsByKey,
+      withoutWork, references]);
 
   const [partTab, setPartTab] = useState(undefined);
   const [linkDraft, setLinkDraft] = useState('');
@@ -1033,6 +1045,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
         ) : (isFabric || (ownOnly && tabParts.length > 1)) ? (
           <PartTabStrip parts={tabParts} active={openPart}
                         allLabel={null}
+                        showNext={!(ownOnly && !isFabric && !accessoriesOnly)}
                         onChange={(part) => { setPartTab(part); setViewIndex(null); }} />
         ) : null
       )}

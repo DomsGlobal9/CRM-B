@@ -362,3 +362,25 @@ class SpecifyTypeTests(CatalogTestCase):
         validate_spec(saree, {**base, 'saree_type': 'other', 'saree_type_other': 'Paithani'})
         # Not asked, so not demanded, when a listed type is picked.
         validate_spec(saree, {**base, 'saree_type': 'silk'})
+
+    def test_flare_is_asked_only_for_flared_cuts_and_work_detail_only_with_work(self):
+        from core.templates import is_visible
+
+        def fields(key):
+            template = GarmentTemplate.resolve(key)
+            return {f.key: f for sec in template.sections.all() for f in sec.fields.all()}
+
+        lehenga = fields('lehenga')
+        self.assertTrue(is_visible(lehenga['flare_volume'], {'lehenga_type': 'circular'}))
+        self.assertFalse(is_visible(lehenga['flare_volume'], {'lehenga_type': 'straight_cut'}))
+        self.assertTrue(is_visible(lehenga['flare_from'], {'lehenga_type': 'mermaid'}))
+        self.assertFalse(is_visible(lehenga['flare_from'], {'lehenga_type': 'a_line'}))
+        self.assertFalse(is_visible(fields('gown')['flare_volume'], {'gown_type': 'sheath'}))
+        self.assertNotIn('flare_volume', fields('blouse'))
+        self.assertNotIn('flare_from', fields('kurti'))
+
+        saree = fields('saree')
+        for key in ('hand_work_coverage', 'hand_work_tone', 'hand_work_material_source'):
+            self.assertTrue(is_visible(saree[key], {'hand_work': 'with_work'}), key)
+            self.assertFalse(is_visible(saree[key], {'hand_work': 'none'}), key)
+        self.assertNotIn('hand_work_coverage', fields('petticoat'))

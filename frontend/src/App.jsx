@@ -7893,6 +7893,7 @@ function App() {
                           >
                             <Suspense fallback={<ScreenLoading />}>
                               <GarmentPartPicker ownOnly
+                                                 withoutWork={!job.values?.hand_work || job.values.hand_work === 'none'}
                                                  garmentKey={job.template?.key || job.key}
                                                  garmentName={job.template?.name || job.key}
                                                  references={partReferences[job.key] || {}}

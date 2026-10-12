@@ -38,7 +38,7 @@ const FALLBACK =
  *  wizard shows the same parts over photographs a customer can pick. The strip
  *  is the shared half; what sits under it is not.
  */
-export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Designs' }) {
+export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Designs', showNext = true }) {
   const strip = useRef(null);
 
   if (parts.length === 0) return null;
@@ -60,7 +60,8 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
   const tabs = [...parts, ...(allLabel ? [{ key: null, label: allLabel }] : [])];
   // The tab after the open one; nothing after the last, so the strip has an end.
   const activeIndex = tabs.findIndex((p) => p.key === active);
-  const next = activeIndex === -1 ? null : (tabs[activeIndex + 1] || null);
+  // showNext false: a screen that wants the plain tabs, no "Next" button or arrow.
+  const next = !showNext || activeIndex === -1 ? null : (tabs[activeIndex + 1] || null);
 
   return (
     <>
