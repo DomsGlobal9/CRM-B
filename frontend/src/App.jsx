@@ -7724,7 +7724,28 @@ function App() {
                           </div>
                           <TemplateForm template={job.template} section="production" values={job.values}
                                         errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'special_instructions'}
+                                        plainTextarea
                                         onChange={(values) => updateGarmentValues(job.key, values)} />
+                          {/* This garment's own voice note, recorded the way the
+                              measurements note is: record, hear it, Send or Delete.
+                              Kept in the template's `audio_note` field, so it is
+                              stored with the garment and played on its summary. */}
+                          {job.template.sections.some(sec => sec.fields.some(f => f.key === 'audio_note')) && (
+                            <VoiceRecorder
+                              sent={job.values?.audio_note ? { url: job.values.audio_note, by: 'you' } : null}
+                              onSend={async (blob) => {
+                                const url = await api.uploadVoiceNote(blob);
+                                setGarmentJobs(prev => prev.map(j => (j.key === job.key
+                                  ? { ...j, values: { ...j.values, audio_note: url } } : j)));
+                              }}
+                              onDelete={() => setGarmentJobs(prev => prev.map(j => {
+                                if (j.key !== job.key) return j;
+                                const rest = { ...j.values };
+                                delete rest.audio_note;
+                                return { ...j, values: rest };
+                              }))}
+                            />
+                          )}
                         </div>
                         </details>
 

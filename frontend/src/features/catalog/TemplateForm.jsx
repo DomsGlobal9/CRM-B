@@ -46,7 +46,7 @@ const DEFAULT_UNIT = {
 };
 
 function Field({ field, value, error, onChange, inventory, quantity, quantityError, onQuantityChange,
-  source, brought, onSourceChange, onBroughtChange, purchase, onPurchaseChange }) {
+  source, brought, onSourceChange, onBroughtChange, purchase, onPurchaseChange, plainTextarea = false }) {
   const common = {
     className: 'form-control',
     id: `tf-${field.key}`,
@@ -57,7 +57,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
   let control;
   switch (field.field_type) {
     case 'textarea':
-      control = field.key === 'measurement_notes' ? (
+      control = field.key === 'measurement_notes' || plainTextarea ? (
         <textarea {...common} rows={3} placeholder={field.help_text || ''} />
       ) : (
         <VoiceTextarea {...common} rows={3} placeholder={field.help_text || ''} />
@@ -448,6 +448,8 @@ export default function TemplateForm({
   onSourceChange = () => { }, onBroughtChange = () => { },
   purchases = [], onPurchaseChange = () => { },
   onGoToInventory = null,
+  // A screen with its own voice recorder beside the box: no dictation mic inside it.
+  plainTextarea = false,
 }) {
   const definition = getSection(template, section);
   const isMeasurements = definition?.key === 'measurements';
@@ -504,6 +506,7 @@ export default function TemplateForm({
         {fields.map((field) => (
           <Field
             key={field.key}
+            plainTextarea={plainTextarea}
             field={field}
             value={values[field.key]}
             error={errors[field.key]}
