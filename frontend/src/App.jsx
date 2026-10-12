@@ -3021,10 +3021,15 @@ function App() {
     setView('dashboard');
   };
 
-  const jumpToStep = useCallback((n) => {
-    if (n === currentStep || n > maxStepReached) return;
+  // An order's steps can be visited in any order (the customer is checked
+  // before completing); an alteration's only up to where it has been.
+  const canJumpAhead = serviceType !== 'alter';
+  const jumpToStep = (n) => {
+    if (n === currentStep || (n > maxStepReached && !canJumpAhead)) return;
+    if (wizardStepKey === 'measure') rememberMeasurements();
+    if (wizardSteps[n - 1]?.key === 'measure') prefillMeasurements();
     reachStep(n);
-  }, [currentStep, maxStepReached, reachStep]);
+  };
   const wizardSteps = WIZARD_STEPS[serviceType] || WIZARD_STEPS.stitch;
   useEffect(() => {
     document.querySelector('.wizard-header-container [aria-current="step"]')
@@ -3185,24 +3190,36 @@ function App() {
     }
   };
 
+  /** What is wrong with the customer details, or '' when they will do. */
+  const customerProblem = () => {
+    const mobileBad = mobileError(customerForm.mobile_number);
+    if (mobileBad) return mobileBad;
+    if (serviceType === 'alter') {
+      if (!customerId) return 'Pick the customer from the list: alterations are for garments we made.';
+    } else {
+      // A customer picked from the book keeps the name the book holds;
+      // only a name typed here is held to the letters-only rule.
+      const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
+      if (nameBad || customerForm.first_name.trim().length < 2) {
+        return nameBad || 'Enter the customer\u2019s name (at least 2 letters).';
+      }
+    }
+    const emailBad = emailError(customerForm.email_address);
+    return emailBad ? `${emailBad} Or leave it blank.` : '';
+  };
+  /** Nothing typed or picked yet: an order may go on and come back for the customer. */
+  const customerBlank = () => !customerId && !customerForm.first_name?.trim()
+    && !String(customerForm.mobile_number || '').trim();
+
   const performNext = async () => {
     try {
       if (wizardStepKey === 'who') {
-        const mobileBad = mobileError(customerForm.mobile_number);
-        if (mobileBad) { alert(mobileBad); return; }
-        if (serviceType === 'alter') {
-          if (!customerId) { alert('Pick the customer from the list: alterations are for garments we made.'); return; }
-        } else {
-          // A customer picked from the book keeps the name the book holds;
-          // only a name typed here is held to the letters-only rule.
-          const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
-          if (nameBad || customerForm.first_name.trim().length < 2) {
-            alert(nameBad || 'Enter the customer\u2019s name (at least 2 letters).');
-            return;
-          }
-        }
-        const emailBad = emailError(customerForm.email_address);
-        if (emailBad) { alert(`${emailBad} Or leave it blank.`); return; }
+        // An order (not an alteration) may skip the customer for now; it is
+        // asked for again before the order is completed. Half-filled details
+        // are still checked, so a typo is caught here.
+        const skip = serviceType !== 'alter' && customerBlank();
+        const problem = skip ? '' : customerProblem();
+        if (problem) { alert(problem); return; }
         if (serviceType === 'alter') { reachStep(currentStep + 1); return; }
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
@@ -3247,6 +3264,18 @@ function App() {
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'money') {
         if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); reachStep(wizardSteps.findIndex(st => st.key === 'type') + 1); return; }
+        const customerBad = customerProblem();
+        if (customerBad) {
+          alert(`Fill in the customer details before completing the order. ${customerBad}`);
+          reachStep(wizardSteps.findIndex(st => st.key === 'who') + 1);
+          return;
+        }
+        // The step bar can jump past Measurements, so they are checked here too.
+        if (needsMeasurements() && !validateGarments({ sections: ['measurements'] })) {
+          alert('Some measurements are missing or invalid — see the highlighted fields.');
+          jumpToStep(wizardSteps.findIndex(st => st.key === 'measure') + 1);
+          return;
+        }
         if (!readyBy) { alert('Pick the ready-by date.'); return; }
         // "More details" sits on this screen: a typed value is still checked.
         if (!validateGarments({ sections: ['basic', 'style'] })) {
@@ -7422,7 +7451,7 @@ function App() {
                 const skipped = step.key === 'measure' && garmentJobs.length > 0 && !needsMeasurements();
                 const isCompleted = currentStep > stepNum;
                 const isActive = currentStep === stepNum;
-                const canJump = !skipped && stepNum !== currentStep && stepNum <= maxStepReached;
+                const canJump = !skipped && stepNum !== currentStep && (stepNum <= maxStepReached || canJumpAhead);
                 return (
                   <React.Fragment key={step.key}>
                     <div className={canJump ? 'stepper-step stepper-step--link' : 'stepper-step'}
@@ -7448,7 +7477,9 @@ function App() {
                         {t(`wizard.step.${step.key}`, step.label)}
                       </span>
                       <span style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {skipped ? t('wizard.notNeeded', 'Not needed') : isCompleted ? t('wizard.completed', 'Done') : t(`wizard.stepSub.${step.key}`, step.sub)}
+                        {skipped ? t('wizard.notNeeded', 'Not needed')
+                          : isCompleted && step.key === 'who' && serviceType !== 'alter' && customerBlank() ? t('wizard.customerLater', 'Fill before completing')
+                          : isCompleted ? t('wizard.completed', 'Done') : t(`wizard.stepSub.${step.key}`, step.sub)}
                       </span>
                     </div>
                     {index < wizardSteps.length - 1 && (
