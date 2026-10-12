@@ -1770,7 +1770,9 @@ function App() {
   }, [currentUser, loadGarmentTemplates]);
 
   const addGarment = async (key, skipPairingPrompt = false, allowAnother = false, pairedWith = null) => {
-    const taken = garmentJobs.some(job => job.key === key);
+    // By template: a garment's own key carries a suffix once it is not the
+    // first of its kind (a pairing, a copy, a resumed draft).
+    const taken = garmentJobs.some(job => job.key === key || job.template?.key === key);
     if (taken && !allowAnother) return;
     if (addingGarmentKey) return;
     setAddingGarmentKey(key);
@@ -8146,7 +8148,7 @@ function App() {
                               }}>
                         <option value="">{addingGarmentKey ? t('common.loading', 'Loading…') : t('wizard.selectGarment', 'Select Garment')}</option>
                         {garmentsForGender(garmentTemplates, customerForm.gender)
-                          .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key))
+                          .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key || j.template?.key === tpl.key))
                           .map((tpl) => <option key={tpl.key} value={tpl.key}>{tpl.name}</option>)}
                       </select>
                     </details>
