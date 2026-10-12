@@ -5,7 +5,7 @@
    Closed. The Owner, a Master and a Designer can also give a to-do to someone
    else. The server decides who sees which to-do and what each person may do;
    this screen only reads the can_* flags it sends back. */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ListTodo, Plus, Calendar, Trash2, Send, UserCheck, CircleDot, Loader2, CheckCircle2, Image as ImageIcon, Mic,
 } from 'lucide-react';
@@ -668,7 +668,24 @@ export default function TodoPanel({ currentUser }) {
   });
   const workKey = (row) => `work:${row.id}:${row.assigned_to}`;
   const todoKey = (todo) => `todo:${todo.id}:${todo.assigned_to}`;
-  const isNewWork = (row) => !opened.has(workKey(row));
+  // A step's NEW mark is My work's own (wk-opened, "<stage id>:<my staff id>"),
+  // so opening the job in either place clears it in both. A design keeps its own.
+  const stepStore = `wk-opened:${meId ?? ''}`;
+  const [stepsOpened, setStepsOpened] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(stepStore) || '[]')); } catch { return new Set(); }
+  });
+  const stepKey = (row) => `${row.stage_id}:${currentUser?.tailor_id}`;
+  const isNewWork = (row) => (row.kind === 'STAGE' && row.stage_id
+    ? !stepsOpened.has(stepKey(row)) : !opened.has(workKey(row)));
+  const openWork = (row) => {
+    if (!(row.kind === 'STAGE' && row.stage_id)) { remember(workKey(row)); return; }
+    setStepsOpened((prev) => {
+      if (prev.has(stepKey(row))) return prev;
+      const next = new Set(prev).add(stepKey(row));
+      try { localStorage.setItem(stepStore, JSON.stringify([...next].slice(-500))); } catch { /* private mode */ }
+      return next;
+    });
+  };
   // A to-do somebody else gave me, still open, that I have not opened.
   const isNewTodo = (todo) => meId != null && todo.assigned_to === meId && todo.created_by !== meId
     && todo.status !== 'CLOSED' && !opened.has(todoKey(todo));
@@ -676,8 +693,8 @@ export default function TodoPanel({ currentUser }) {
   // whose with the staff dropdown; everyone else sees only their own.
   const canPick = !role || role === 'Owner' || role === 'Master' || role === 'Designer';
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (quiet = false) => {
+    if (quiet !== true) setLoading(true);
     setLoadError(null);
     try {
       const [rows, roster, work] = await Promise.all([
@@ -699,6 +716,17 @@ export default function TodoPanel({ currentUser }) {
   useEffect(() => {
     const t = setTimeout(refresh, 0);
     return () => clearTimeout(t);
+  }, [refresh]);
+
+  // Steps move in My work too: reload quietly every minute and on coming back
+  // to the app, but not while a to-do or the add form is open.
+  const busyRef = useRef(false);
+  useEffect(() => { busyRef.current = Boolean(adding || openId); }, [adding, openId]);
+  useEffect(() => {
+    const again = () => { if (!busyRef.current && !document.hidden) refresh(true); };
+    const timer = setInterval(again, 60000);
+    window.addEventListener('focus', again);
+    return () => { clearInterval(timer); window.removeEventListener('focus', again); };
   }, [refresh]);
 
   const replace = (todo) => setTodos((list) => list.map((t) => (t.id === todo.id ? todo : t)));
@@ -810,7 +838,7 @@ export default function TodoPanel({ currentUser }) {
 
       {!loading && myWork.length > 0 && (
         <AssignedToMe rows={myWork} isNew={isNewWork}
-                      onOpen={(row) => { remember(workKey(row)); addFromOrderWork(row); }} />
+                      onOpen={(row) => { openWork(row); addFromOrderWork(row); }} />
       )}
 
       {loading ? (

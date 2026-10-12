@@ -193,6 +193,18 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     }
   };
 
+  // To-dos move steps too: reload quietly every minute and on coming back to
+  // the app, but not while a job is open.
+  const openRef = useRef(null);
+  useEffect(() => { openRef.current = open; }, [open]);
+  useEffect(() => {
+    if (!onChanged) return undefined;
+    const again = () => { if (!openRef.current && !document.hidden) onChanged(); };
+    const timer = setInterval(again, 60000);
+    window.addEventListener('focus', again);
+    return () => { clearInterval(timer); window.removeEventListener('focus', again); };
+  }, [onChanged]);
+
   useEffect(() => {
     if (!toast) return undefined;
     const id = setTimeout(() => setToast(''), 3000);

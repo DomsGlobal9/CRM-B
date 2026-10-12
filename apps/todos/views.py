@@ -15,6 +15,7 @@ from core.validators import validate_http_url, validate_image_uploads, validate_
 
 from . import services
 from .models import Todo, TodoPhoto, TodoUpdate
+from .signals import moving_todo
 from .serializers import TodoSerializer
 
 MAX_TITLE = 200
@@ -135,6 +136,7 @@ class TodoViewSet(viewsets.GenericViewSet):
         # The work was done by the person the to-do is given to. Naming them is
         # a supervisor's call in the workflow; staff are recorded as themselves.
         worker = getattr(todo.assigned_to, 'tailor_profile', None) if todo.assigned_to_id else None
+        token = moving_todo.set(todo.pk)
         try:
             OrderService.transition_order_stage(
                 order=stage.order, stage_key=stage.stage_key, new_status='COMPLETED',
@@ -143,6 +145,8 @@ class TodoViewSet(viewsets.GenericViewSet):
                 performer_id=worker.id if worker else None)
         except ValueError as exc:
             raise serializers.ValidationError({'status': str(exc)})
+        finally:
+            moving_todo.reset(token)
         stage.refresh_from_db()
         done_by = (stage.performed_by.name if stage.performed_by_id
                    else services.display_name(self.request.user))
@@ -152,6 +156,43 @@ class TodoViewSet(viewsets.GenericViewSet):
             todo=todo, kind=TodoUpdate.KIND_STATUS, author=self.request.user,
             author_name=services.display_name(self.request.user),
             text=f"{stage.stage_name} {outcome} · work done by {done_by}")
+
+    def _start_order_stage(self, todo):
+        """A to-do made from an order step, set In progress, starts the step
+        through the same workflow call as My work's Start: its role and order
+        rules apply, and a refusal keeps the to-do as it was."""
+        stage = todo.order_stage
+        if stage is None or stage.status not in ('NOT_STARTED', 'PAUSED'):
+            return
+        from domains.orders.services import OrderService
+        worker = getattr(todo.assigned_to, 'tailor_profile', None) if todo.assigned_to_id else None
+        token = moving_todo.set(todo.pk)
+        try:
+            OrderService.transition_order_stage(
+                order=stage.order, stage_key=stage.stage_key, new_status='IN_PROGRESS',
+                user=self.request.user, request=self.request, garment_job=stage.garment_job_id,
+                performer_id=worker.id if worker else None)
+        except ValueError as exc:
+            raise serializers.ValidationError({'status': str(exc)})
+        finally:
+            moving_todo.reset(token)
+
+    def _note_to_step(self, todo, text, voice):
+        """A note or voice note on a to-do made from an order step is also left
+        on the step -- the same note My work writes -- so the Master reads it
+        there. Photos still go across when the to-do is closed. Best effort: a
+        role the step does not take keeps the note on the to-do only."""
+        stage = todo.order_stage
+        if stage is None or stage.status in ('COMPLETED', 'SKIPPED') or not (text or voice):
+            return
+        from domains.orders.services import OrderService
+        try:
+            OrderService.transition_order_stage(
+                order=stage.order, stage_key=stage.stage_key, new_status=stage.status,
+                comments=text, voice_note=voice, user=self.request.user, request=self.request,
+                garment_job=stage.garment_job_id)
+        except (ValueError, PermissionError):
+            pass
 
     def _set_assignee(self, todo, target):
         todo.assigned_to = target
@@ -173,6 +214,7 @@ class TodoViewSet(viewsets.GenericViewSet):
             text=text, voice_note=voice)
         for photo in photos:
             TodoPhoto.objects.create(update=update, image=photo)
+        self._note_to_step(todo, text, voice)
         return update
 
     def _notify_assigned(self, todo):
@@ -282,6 +324,8 @@ class TodoViewSet(viewsets.GenericViewSet):
         if wanted != todo.status:
             if wanted == Todo.STATUS_CLOSED:
                 self._finish_order_stage(todo)
+            elif wanted == Todo.STATUS_IN_PROGRESS:
+                self._start_order_stage(todo)
             todo.status = wanted
             todo.closed_at = timezone.now() if wanted == Todo.STATUS_CLOSED else None
             todo.save()
