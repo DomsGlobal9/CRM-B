@@ -45,6 +45,7 @@ import { expressLabel, isExpressOrder } from './features/orders/express';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import { formatInternational } from './services/phone';
 import useAutosave from './hooks/useAutosave';
+import { followerOf, syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
 import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
@@ -1709,7 +1710,13 @@ function App() {
   const [alterationForm, setAlterationForm] = useState(EMPTY_ALTERATION);
   
   const [garmentTemplates, setGarmentTemplates] = useState([]);
-  const [garmentJobs, setGarmentJobs] = useState([]);
+  const [garmentJobs, setGarmentJobsState] = useState([]);
+  // Every change to the garments also brings their "same design" copies up to
+  // date, in the same update (services/garmentCopies). No copies, no change.
+  const setGarmentJobs = useCallback((update) => setGarmentJobsState((prev) => {
+    const next = typeof update === 'function' ? update(prev) : update;
+    return syncFollowers(next) || next;
+  }), []);
   const [activePairingGarment, setActivePairingGarment] = useState(null);
   const [draftId, setDraftId] = useState(null);
   const [draftVersion, setDraftVersion] = useState(null);
@@ -3050,10 +3057,10 @@ function App() {
     const same = garmentJobs.filter(j => j.template?.key === job.template?.key);
     return same.length > 1 ? `${name} ${same.findIndex(j => j.key === job.key) + 1}` : name;
   };
-  /** "Another, same design": a copy of this garment with everything already
-   *  filled in -- details, design picks, references, fabrics, measurements,
-   *  notes -- placed right after it, to change wherever the next piece differs.
-   *  Each copy is its own garment on the order, cut and stitched on its own. */
+  /** One more of this garment, same design: a follower placed after the
+   *  garment and its other followers. Whatever is filled on the garment is
+   *  copied to it as the staff go (the effect below); changing the follower
+   *  itself makes it its own design. A paired blouse comes along if wanted. */
   const copyGarment = (key) => {
     const source = garmentJobs.find(job => job.key === key);
     if (!source) return;
@@ -3061,25 +3068,24 @@ function App() {
     const withPaired = paired.length > 0
       && window.confirm(`Copy the ${paired.map(job => job.template?.name).join(' and ')} with it too?`);
     const stamp = Date.now().toString(36);
-    const clone = (job, n, pairedWith) => ({
-      ...structuredClone({ ...job, template: null }),
-      template: job.template,
-      key: `${job.template?.key || job.key}#${stamp}${n}`,
-      pairedWith,
-    });
-    const copy = clone(source, 0, source.pairedWith || null);
-    const copies = [copy, ...(withPaired ? paired.map((job, i) => clone(job, i + 1, copy.key)) : [])];
+    const follow = (job, n, pairedWith) => followerOf(job, `${job.template?.key || job.key}#${stamp}${n}`, pairedWith);
+    const copy = follow(source, 0, source.pairedWith || null);
+    const copies = [copy, ...(withPaired ? paired.map((job, i) => follow(job, i + 1, copy.key)) : [])];
     setGarmentJobs(prev => {
-      const last = Math.max(...[key, ...paired.map(job => job.key)].map(k => prev.findIndex(job => job.key === k)));
+      // After the garment, its followers, and anything paired to any of them.
+      const group = new Set([key, ...prev.filter(job => job.sameAs === key).map(job => job.key)]);
+      const last = Math.max(...prev.map((job, i) => (group.has(job.key) || group.has(job.pairedWith) ? i : -1)));
       return [...prev.slice(0, last + 1), ...copies, ...prev.slice(last + 1)];
     });
-    openGarmentAt(copy.key);
+  };
+  /** One fewer: the last same-design follower of this garment goes (with any
+   *  blouse paired to it). A garment filled in its own way is never removed here. */
+  const dropFollower = (key) => {
+    const last = [...garmentJobs].reverse().find(job => job.sameAs === key);
+    if (last) removeGarment(last.key);
   };
   /** "Another, different design": a fresh one of the same garment. */
-  const addAnotherOf = async (job) => {
-    const added = await addGarment(job.template.key, false, true);
-    if (added) openGarmentAt(added);
-  };
+  const addAnotherOf = (job) => addGarment(job.template.key, false, true);
   /** Moving off a garment's details checks that garment's required questions. */
   const garmentDetailsOk = () => {
     if (!openGarment || validateGarments({ sections: ['basic', 'style'], only: openGarment.key })) return true;
@@ -7782,6 +7788,52 @@ function App() {
                           </button>
                         </div>
 
+                        {/* How many of this garment, asked first -- the customer says
+                            "three sarees" before anything else. [+] adds one of the same
+                            design that follows this one as it is filled; a follower says
+                            so instead. A paired garment (a saree's blouse) is counted
+                            with its saree, so it shows neither. */}
+                        {(() => {
+                          const source = job.sameAs && garmentJobs.find(j => j.key === job.sameAs);
+                          if (source) {
+                            return (
+                              <div className="od-hint" style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: '10px',
+                                                                 background: 'var(--surface-inset)', border: '1px dashed var(--border-color)' }}>
+                                <Copy size={13} style={{ verticalAlign: '-2px' }} />{' '}
+                                {t('wizard.sameDesignAs', 'Same design as {name}: filled in from it as you go. Change anything here and this one becomes its own design.', { name: garmentLabel(source) })}
+                              </div>
+                            );
+                          }
+                          if (job.pairedWith) return null;
+                          const total = garmentJobs.filter(j => j.template?.key === job.template?.key).length;
+                          const followers = garmentJobs.filter(j => j.sameAs === job.key).length;
+                          const stepBtn = { width: '32px', height: '32px', padding: 0, justifyContent: 'center', fontSize: '18px', lineHeight: 1 };
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', margin: '0 0 12px',
+                                          padding: '10px 12px', borderRadius: '10px', background: 'var(--surface-inset)' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                                {t('wizard.howMany', 'How many {name}?', { name: job.template.name })}
+                              </span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <button type="button" className="btn-secondary" style={stepBtn} disabled={!followers}
+                                        aria-label={t('wizard.oneFewer', 'One fewer of the same design')} onClick={() => dropFollower(job.key)}>−</button>
+                                <span aria-live="polite" style={{ minWidth: '22px', textAlign: 'center', fontWeight: 700 }}>{total}</span>
+                                <button type="button" className="btn-secondary" style={stepBtn}
+                                        aria-label={t('wizard.oneMoreSame', 'One more, same design')} onClick={() => copyGarment(job.key)}>+</button>
+                              </span>
+                              <button type="button" className="btn-secondary at-btn-sm" style={{ marginLeft: 'auto' }}
+                                      disabled={!!addingGarmentKey} onClick={() => addAnotherOf(job)}>
+                                <Plus size={12} /> {t('wizard.anotherDifferent', 'One with a different design')}
+                              </button>
+                              {followers > 0 && (
+                                <div className="od-hint" style={{ flexBasis: '100%' }}>
+                                  {t('wizard.followersHint', '{n} more with the same design: whatever you fill here is copied to them. Change one and it becomes its own design.', { n: followers })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                         <details open className="wz-sec wz-sec--first">
                           <summary className="wz-sec-head"><span>{t('wizard.detailsTitle', 'Details')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
                         {sections.map((sectionKey) => (
@@ -8158,23 +8210,6 @@ function App() {
                           </details>
                         </details>
                         </details>
-
-                        {/* More than one of this garment: the same again (a filled-in
-                            copy) or another one designed differently (blank). */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
-                                      marginTop: '16px', paddingTop: '14px', borderTop: '1px dashed var(--border-color)' }}>
-                          <span className="od-hint" style={{ marginRight: 'auto' }}>
-                            {t('wizard.moreOfGarment', 'Need more than one {name}?', { name: job.template.name })}
-                          </span>
-                          <button type="button" className="btn-secondary" onClick={() => copyGarment(job.key)}
-                                  title={t('wizard.sameDesignHint', 'A copy with everything filled in, to change where it differs')}>
-                            <Copy size={14} /> {t('wizard.anotherSame', 'Another, same design')}
-                          </button>
-                          <button type="button" className="btn-secondary" disabled={!!addingGarmentKey}
-                                  onClick={() => addAnotherOf(job)}>
-                            <Plus size={14} /> {t('wizard.anotherDifferent', 'Another, different design')}
-                          </button>
-                        </div>
 
                         {/* Move between garments from where the form ends, not
                             from the circles at the top. "Next" runs the footer's
