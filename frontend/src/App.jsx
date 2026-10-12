@@ -1797,6 +1797,7 @@ function App() {
       if (!skipPairingPrompt && getGarmentPairConfig(key, template.name)) {
         setActivePairingGarment({ key, name: template.name, jobKey });
       }
+      return jobKey;
     } catch (err) {
       console.error(err);
       alert('Could not load that garment form.');
@@ -3042,6 +3043,42 @@ function App() {
   const openGarmentAt = (key) => {
     setActiveGarmentKey(key);
     window.scrollTo(0, 0);
+  };
+  /** "Saree 2" when the order has more than one saree; just "Saree" otherwise. */
+  const garmentLabel = (job) => {
+    const name = job.template?.name || job.key;
+    const same = garmentJobs.filter(j => j.template?.key === job.template?.key);
+    return same.length > 1 ? `${name} ${same.findIndex(j => j.key === job.key) + 1}` : name;
+  };
+  /** "Another, same design": a copy of this garment with everything already
+   *  filled in -- details, design picks, references, fabrics, measurements,
+   *  notes -- placed right after it, to change wherever the next piece differs.
+   *  Each copy is its own garment on the order, cut and stitched on its own. */
+  const copyGarment = (key) => {
+    const source = garmentJobs.find(job => job.key === key);
+    if (!source) return;
+    const paired = garmentJobs.filter(job => job.pairedWith === key);
+    const withPaired = paired.length > 0
+      && window.confirm(`Copy the ${paired.map(job => job.template?.name).join(' and ')} with it too?`);
+    const stamp = Date.now().toString(36);
+    const clone = (job, n, pairedWith) => ({
+      ...structuredClone({ ...job, template: null }),
+      template: job.template,
+      key: `${job.template?.key || job.key}#${stamp}${n}`,
+      pairedWith,
+    });
+    const copy = clone(source, 0, source.pairedWith || null);
+    const copies = [copy, ...(withPaired ? paired.map((job, i) => clone(job, i + 1, copy.key)) : [])];
+    setGarmentJobs(prev => {
+      const last = Math.max(...[key, ...paired.map(job => job.key)].map(k => prev.findIndex(job => job.key === k)));
+      return [...prev.slice(0, last + 1), ...copies, ...prev.slice(last + 1)];
+    });
+    openGarmentAt(copy.key);
+  };
+  /** "Another, different design": a fresh one of the same garment. */
+  const addAnotherOf = async (job) => {
+    const added = await addGarment(job.template.key, false, true);
+    if (added) openGarmentAt(added);
   };
   /** Moving off a garment's details checks that garment's required questions. */
   const garmentDetailsOk = () => {
@@ -7694,7 +7731,7 @@ function App() {
                               <React.Fragment key={job.key}>
                                 <div className="stepper-step stepper-step--link" role="button" tabIndex={0}
                                      aria-current={isActive ? 'step' : undefined}
-                                     title={`Go to ${job.template?.name || job.key}`}
+                                     title={`Go to ${garmentLabel(job)}`}
                                      onClick={goTo}
                                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(); } }}
                                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, position: 'relative', zIndex: 2, cursor: 'pointer' }}>
@@ -7709,7 +7746,7 @@ function App() {
                                     {complete ? <Check size={14} /> : idx + 1}
                                   </div>
                                   <span style={{ fontSize: '11px', fontWeight: isActive || complete ? 600 : 500, color: isActive || complete ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                                    {job.template?.name || job.key}
+                                    {garmentLabel(job)}
                                   </span>
                                   <span style={{ fontSize: '9px', color: missing ? 'var(--danger-color, #b91c1c)' : 'var(--text-secondary)', marginTop: '2px' }}>
                                     {complete ? t('wizard.completed', 'Done') : missing ? t('wizard.garmentMissing', 'Something missing') : isActive ? t('wizard.garmentNow', 'Fill in now') : t('wizard.garmentNext', 'Up next')}
@@ -7737,7 +7774,7 @@ function App() {
                         <div className="wz-garment-head">
                           <span className="wz-garment-num">{idx + 1}</span>
                           <div>
-                            <div className="wz-garment-name">{job.template.name}</div>
+                            <div className="wz-garment-name">{garmentLabel(job)}</div>
                             <div className="wz-garment-sub">{t('wizard.whatDoesItNeed', 'What does it need?')}</div>
                           </div>
                           <button type="button" className="btn-secondary at-btn-sm" style={{ marginLeft: 'auto' }} onClick={() => removeGarment(job.key)}>
@@ -8122,6 +8159,23 @@ function App() {
                         </details>
                         </details>
 
+                        {/* More than one of this garment: the same again (a filled-in
+                            copy) or another one designed differently (blank). */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+                                      marginTop: '16px', paddingTop: '14px', borderTop: '1px dashed var(--border-color)' }}>
+                          <span className="od-hint" style={{ marginRight: 'auto' }}>
+                            {t('wizard.moreOfGarment', 'Need more than one {name}?', { name: job.template.name })}
+                          </span>
+                          <button type="button" className="btn-secondary" onClick={() => copyGarment(job.key)}
+                                  title={t('wizard.sameDesignHint', 'A copy with everything filled in, to change where it differs')}>
+                            <Copy size={14} /> {t('wizard.anotherSame', 'Another, same design')}
+                          </button>
+                          <button type="button" className="btn-secondary" disabled={!!addingGarmentKey}
+                                  onClick={() => addAnotherOf(job)}>
+                            <Plus size={14} /> {t('wizard.anotherDifferent', 'Another, different design')}
+                          </button>
+                        </div>
+
                         {/* Move between garments from where the form ends, not
                             from the circles at the top. "Next" runs the footer's
                             own Next: same checks, same save, same next garment. */}
@@ -8135,12 +8189,12 @@ function App() {
                                           flexWrap: 'wrap', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
                               {prevJob ? (
                                 <button type="button" className="btn-secondary" onClick={() => openGarmentAt(prevJob.key)}>
-                                  <ArrowLeft size={16} /> {prevJob.template.name}
+                                  <ArrowLeft size={16} /> {garmentLabel(prevJob)}
                                 </button>
                               ) : <span />}
                               {nextJob && (
                                 <button type="button" className="btn-primary" onClick={handleNext} disabled={ctaBusy}>
-                                  {t('wizard.nextGarment', 'Next garment')}: {nextJob.template.name} <ArrowRight size={16} />
+                                  {t('wizard.nextGarment', 'Next garment')}: {garmentLabel(nextJob)} <ArrowRight size={16} />
                                 </button>
                               )}
                             </div>
@@ -8201,7 +8255,7 @@ function App() {
                     <div className="content-card wz-card" key={job.key} id={`wz-garment-${job.key}`}>
                       <div className="card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Scissors size={20} /> {job.template.name}
+                          <Scissors size={20} /> {garmentLabel(job)}
                         </div>
                         {autoPrefilled && (
                           <span style={{ fontSize: '12px', color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: '12px', border: '1px solid #a7f3d0', fontWeight: 500 }}>
@@ -8356,7 +8410,7 @@ function App() {
                           ? t('wizard.maggamPath', 'Maggam order — goes through paper cutting, embroidery and its verification before the fabric is cut')
                           : t('wizard.stitchingPath', 'Plain stitching order — cut, then stitch')}
                       </div>
-                      <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: job.template, values: job.values || {} }))} />
+                      <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: { ...job.template, name: garmentLabel(job) }, values: job.values || {} }))} />
                     </>
                   ))}
 
@@ -8387,7 +8441,7 @@ function App() {
                       <tbody>
                         {garmentJobs.flatMap(job => (job.purchases || []).map((row, i) => (
                           <tr key={`${job.key}:${i}`} style={{ borderTop: '1px solid var(--border-color)' }}>
-                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{job.template?.name || job.key}</td>
+                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{garmentLabel(job)}</td>
                             <td style={{ padding: '8px 0', fontWeight: 600 }}>🛒 {row.name}</td>
                             <td style={{ padding: '8px 0', textAlign: 'right' }}>{row.quantity} {(row.unit || 'METER').toLowerCase()} · {inr(row.estimated_cost)} est.</td>
                           </tr>
