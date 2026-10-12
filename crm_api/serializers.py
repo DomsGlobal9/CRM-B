@@ -695,7 +695,7 @@ class CustomerSerializer(serializers.ModelSerializer):
             'custom_requirements', 'date_of_birth', 'occupation',
             'preferred_communication', 'notes', 'profile_photo',
             'measurements', 'measurement_history', 'design_preferences', 'fabric_selections', 'orders',
-            'style_dna', 'segment', 'total_spend', 'order_count', 'referred_by',
+            'style_dna', 'segment', 'total_spend', 'order_count', 'referred_by', 'is_lead',
             'created_at', 'updated_at'
         ]
         extra_kwargs = {
@@ -818,7 +818,7 @@ class CustomerSummarySerializer(serializers.ModelSerializer):
             'silhouette', 'embellishments', 'pattern_style', 'occasion',
             'custom_requirements', 'date_of_birth', 'occupation',
             'preferred_communication', 'notes', 'profile_photo', 'measurements',
-            'style_dna', 'total_spend', 'order_count', 'segment',
+            'style_dna', 'total_spend', 'order_count', 'segment', 'is_lead',
             'created_at', 'updated_at',
         ]
 

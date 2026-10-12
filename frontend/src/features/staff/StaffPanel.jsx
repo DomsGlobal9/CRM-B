@@ -13,6 +13,7 @@ import { ASSIGNABLE_ROLES, DOCUMENT_KINDS } from '../../constants/roles';
 import Attendance from './Attendance';
 import Payroll from './Payroll';
 import Performance from './Performance';
+import RolePermissions from './RolePermissions';
 import TeamTasks from './TeamTasks';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import {
@@ -1438,6 +1439,7 @@ const TABS = [
   { key: 'attendance', label: 'Attendance', icon: Clock },
   { key: 'payroll', label: 'Payroll', icon: Wallet },
   { key: 'performance', label: 'Performance', icon: TrendingUp },
+  { key: 'permissions', label: 'Roles & Permissions', icon: Shield },
 ];
 
 export default function StaffPanel({ currentUser }) {
@@ -1465,7 +1467,7 @@ export default function StaffPanel({ currentUser }) {
         {(isOwner
             ? TABS
             : canSeeTeam
-              ? TABS.filter((t) => t.key !== 'payroll')
+              ? TABS.filter((t) => !['payroll', 'permissions'].includes(t.key))
               : TABS.filter((t) => ['attendance', 'roster', 'tasks', 'performance'].includes(t.key)))
           .map(({ key, label, icon: Icon }) => {
           const active = tab === key;
@@ -1506,6 +1508,7 @@ export default function StaffPanel({ currentUser }) {
       {tab === 'performance' && (
         <Performance isOwner={isOwner} canSeeTeam={canSeeTeam} />
       )}
+      {tab === 'permissions' && isOwner && <RolePermissions />}
     </>
   );
 }

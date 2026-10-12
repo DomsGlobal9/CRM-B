@@ -12,9 +12,10 @@ mapped twice. What is new is the fabric side: our slot map {slot: [rolls]}
 becomes their fabrics[], the body roll as the main fabric and any pallu or
 border roll marked appliesTo.
 
-The answer is an event stream (30-95 s live). It is read to the end here and
-the one photograph saved into our storage, so the browser gets a plain URL
-back and the draft can carry it exactly as it carries a chosen design.
+The answer is an event stream (30-95 s for one side, up to ~240 s for front
+and back, the vendor's default). It is read to the end here and each
+photograph saved into our storage, so the browser gets plain URLs back and
+the draft can carry them exactly as it carries a chosen design.
 """
 import base64
 import json
@@ -46,6 +47,8 @@ DATA_URI = re.compile(r'^data:image/[\w.+-]+;base64,', re.I)
 # Slots that clothe the whole garment: their roll is the main fabric, which
 # the vendor wants with no appliesTo. Every other slot names a part.
 MAIN_SLOTS = {'MAIN_FABRIC', 'SAREE_BODY'}
+# The vendor makes front then back by default; `views` asks for one side.
+VIEWS = ('front', 'back')
 
 
 def _url():
@@ -101,7 +104,7 @@ def _image_source(url):
 
 def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None,
                   fabric_items=None, fabric_slots=(), notes='', product_name='',
-                  model_image=''):
+                  model_image='', views=None):
     """The vendor's request off the wizard's own maps. Pure, so it is testable
     without the vendor: pictures are passed by address and resolved by the
     caller (see `resolve_images`).
@@ -114,6 +117,8 @@ def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None
                  else in the map is an accessory and never a fabric
     model_image  the person to dress -- the plain garment on a model the
                  review step shows -- sent as the vendor's modelImageUrl
+    views        ['front'] or ['back'] for one side; empty or both leaves it
+                 out, and the vendor makes front and back
     """
     garment_id = GARMENT_IDS.get((garment_key or '').lower(), '')
     if not garment_id:
@@ -178,6 +183,9 @@ def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None
         payload['productName'] = product_name.strip()[:120]
     if model_image and model_image.strip():
         payload['modelImageUrl'] = model_image.strip()
+    wanted = [v for v in VIEWS if v in (views or ())]
+    if len(wanted) == 1:
+        payload['views'] = wanted
     return payload
 
 
@@ -211,11 +219,12 @@ def _refusal(res):
 
 
 def generate(payload):
-    """POST the payload, read the stream to its end, return the photograph.
+    """POST the payload, read the stream to its end, return the photographs.
 
-    Returns {image, width, height, quality, warnings, attempts}; `image` is
-    the data URI the vendor sent. Raises DiscoveryError for every way it can
-    not happen, with a status the view can answer with.
+    Returns {images, width, height, quality, warnings, attempts}; `images` is
+    {view: data URI} in the vendor's order (front, then back), one per `image`
+    event. Raises DiscoveryError for every way it can not happen, with a
+    status the view can answer with.
     """
     if not available():
         raise DiscoveryError('Garment preview is not set up on this server.', status=503)
@@ -229,7 +238,7 @@ def generate(payload):
     if res.status_code != 200 or 'text/event-stream' not in (res.headers.get('Content-Type') or ''):
         _refusal(res)
 
-    image, done, warnings = None, {}, []
+    images, first, done, warnings = {}, {}, {}, []
     try:
         for line in res.iter_lines(decode_unicode=True):
             if not line or not line.startswith('data:'):
@@ -241,8 +250,10 @@ def generate(payload):
             kind = event.get('type')
             if kind in ('start', 'brief'):
                 warnings += [str(w) for w in (event.get('warnings') or [])]
-            elif kind == 'image':
-                image = event
+            elif kind == 'image' and event.get('image'):
+                # An event with no view is the older single photograph: the front.
+                images[event.get('view') or 'front'] = event['image']
+                first = first or event
             elif kind == 'done':
                 done = event
             elif kind == 'error':
@@ -261,12 +272,12 @@ def generate(payload):
     finally:
         res.close()
 
-    if not image or not image.get('image'):
+    if not images:
         raise DiscoveryError('The preview service ended without a photograph. Try again.', status=502)
     return {
-        'image': image['image'],
-        'width': image.get('width'),
-        'height': image.get('height'),
+        'images': images,
+        'width': first.get('width'),
+        'height': first.get('height'),
         'quality': done.get('quality') or {},
         'attempts': done.get('attempts'),
         'warnings': warnings,

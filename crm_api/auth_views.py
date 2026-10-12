@@ -366,24 +366,6 @@ class _BoutiqueLookupThrottle(AnonRateThrottle):
 
 
 class BoutiqueBySlugView(views.APIView):
-    """Which boutique a portal path belongs to, so the sign-in screen can say so.
-
-    Deliberately NOT a way in. It answers with a display name and the slug it
-    was asked about, and nothing else -- no schema name, no owner address, no
-    plan, no module list. The tenant a request acts on is still decided by its
-    token (LoginView below) and re-checked per request by
-    tenants.middleware.TenantHeaderMiddleware, so a browser that invents a slug
-    changes what the login screen is labelled and nothing whatsoever about
-    which boutique it can read.
-
-    Mounted under /api/auth/, which core.modules.ALWAYS_ON and the middleware's
-    TENANT_OPTIONAL_PREFIXES both already cover: no module governs it and it is
-    reachable with no tenant context, which is what a sign-in screen needs.
-
-    Throttled because it is an unauthenticated read that confirms whether a
-    boutique exists, and a suspended boutique is 404 rather than 403 -- the
-    platform's own suspensions are not something an anonymous caller is owed.
-    """
 
     permission_classes = [AllowAny]
     throttle_classes = [_BoutiqueLookupThrottle]
@@ -403,22 +385,12 @@ class BoutiqueBySlugView(views.APIView):
 
 
 def _owner_first_name(tenant):
-    """The owner's first name for the sign-in greeting, or ''.
-
-    First name only, deliberately: this endpoint answers anyone who knows a
-    slug, so it carries the least that makes "Welcome back, Sarala" possible
-    -- never the surname, the email or anything that identifies the person
-    beyond what the boutique's own sign-in page would show.
-
-    Never raises. The owner row lives in the boutique's schema, and a missing
-    schema or account must cost the greeting, not the sign-in screen.
-    """
     try:
         with schema_context(tenant.schema_name):
             owner = (User.objects.filter(email__iexact=tenant.owner_email)
                      .only('first_name').first())
             return (owner.first_name or '').strip() if owner else ''
-    except Exception:  # noqa: BLE001 - see docstring
+    except Exception:  
         return ''
 
 
@@ -528,9 +500,7 @@ class MeView(views.APIView):
         if photo.size > 5 * 1024 * 1024:
             return Response({'error': 'That image is larger than 5MB.'},
                             status=status.HTTP_400_BAD_REQUEST)
-        # Per-user store, so this works for the owner as well as staff and
-        # designers -- none of whom may have a Tailor row. user_payload reads
-        # this before the roster photo, so the user's own choice wins.
+
         from crm_api.models import UserAvatar
         avatar, _ = UserAvatar.objects.get_or_create(user=request.user)
         avatar.image = photo
@@ -551,10 +521,6 @@ def make_reset_link(tenant, user):
             urlsafe_base64_encode(force_bytes(user.pk)),
             default_token_generator.make_token(user),
         ])
-    # The boutique's own portal path, because /app is registration now and a
-    # reset link landing there would show a sign-up form. A tenant with no
-    # slug yet keeps the slug-less entry point rather than being sent to a
-    # URL with an empty segment in it.
     if tenant.shop_slug:
         return f"{settings.PORTAL_BASE_URL.rstrip('/')}/{tenant.shop_slug}?reset={payload}"
     return f"{settings.PASSWORD_RESET_BASE_URL}?reset={payload}"

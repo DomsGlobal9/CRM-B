@@ -211,8 +211,10 @@ def _designer_attendance_row(designer, user):
     """
     if designer.staff_id:
         return designer.staff
-    if user.email:
-        tailor_by_email = Tailor.objects.filter(email__iexact=user.email).first()
+    # `user` is None for a designer added without a login (credit only).
+    email = (user.email if user else '') or designer.email
+    if email:
+        tailor_by_email = Tailor.objects.filter(email__iexact=email).first()
         if tailor_by_email:
             # A row left behind by this designer's earlier record is taken
             # back rather than duplicated.
@@ -227,10 +229,10 @@ def _designer_attendance_row(designer, user):
         if locked.staff_id:
             return locked.staff
         row = Tailor.objects.create(
-            name=designer.name or user.get_full_name() or user.email or user.username,
+            name=designer.name or (user and (user.get_full_name() or user.email or user.username)) or 'Designer',
             role=DESIGNER,
             specialty=DESIGNER,
-            email=user.email or f"designer_{designer.id}@boutique.local",
+            email=email or f"designer_{designer.id}@boutique.local",
         )
         locked.staff = row
         locked.save(update_fields=['staff'])

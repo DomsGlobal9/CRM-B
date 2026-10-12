@@ -214,12 +214,9 @@ function FabricCard({ fabric, picked, onToggle }) {
             ₹{Number(fabric.selling_price).toLocaleString('en-IN')}/{unitShort(fabric)}
           </span>
         )}
-        {fabric.available_stock !== undefined && (
-          <span style={{ display: 'block', marginTop: '2px', fontSize: '10.5px',
-                         color: Number(fabric.available_stock) > 0 ? 'var(--primary-color)' : 'var(--danger-color, #b91c1c)' }}>
-            {Number(fabric.available_stock) > 0
-              ? `${Number(fabric.available_stock)} ${unitShort(fabric)} in stock`
-              : 'Out of stock'}
+        {Number(fabric.available_stock) > 0 && (
+          <span style={{ display: 'block', marginTop: '2px', fontSize: '10.5px', color: 'var(--primary-color)' }}>
+            {`${Number(fabric.available_stock)} ${unitShort(fabric)} in stock`}
           </span>
         )}
       </div>
@@ -441,13 +438,7 @@ export default function GarmentFabricPicker({
           
           const forJob = { ...chosenForJob };
           if (next.length) forJob[slotKey] = next; else delete forJob[slotKey];
-          const proceed = () => onChange?.(job.key, forJob);
-          const fabric = inStock.find(f => String(f.id) === fabricId);
-          if (adding && onPickOutOfStock && fabric && !(Number(fabric.available_stock) > 0)) {
-            onPickOutOfStock(fabric, proceed);
-          } else {
-            proceed();
-          }
+          onChange?.(job.key, forJob);
         };
 
         const currentAccOption = accessoriesOnly && activeSlotKey && ACCESSORY_OPTIONS.find(o => o.key === activeSlotKey);

@@ -9,6 +9,7 @@ import {
 } from './services/format';
 
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
+const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
 import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
@@ -2205,6 +2206,9 @@ function App() {
   // Backend fetched collections
   const [dashboardData, setDashboardData] = useState(null);
   const [tailors, setTailors] = useState([]);
+  // Designers' roster rows. /tailors/ leaves them off the team list, but the
+  // Design stage can be handed to them, so its assign list needs them.
+  const [designerStaff, setDesignerStaff] = useState([]);
   const [completingAllOrderId, setCompletingAllOrderId] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
@@ -2233,6 +2237,8 @@ function App() {
   // Search & Filters for dashboard
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
+  // Customers | Leads tab on the Customers page.
+  const [customerView, setCustomerView] = useState('customers');
   const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
   const [customerPageSize, setCustomerPageSize] = useState(CUSTOMER_PAGE_SIZES[0]);
   // Country code, first letter, orders, measurements... (CustomerFilters).
@@ -2469,6 +2475,10 @@ function App() {
       load('orders', api.getOrders, setOrdersList),
 
       hasModule(user, 'tailors') && load('tailors', api.getTailors, setTailors),
+      // Silent on failure: the only cost is no designers in the Design stage's assign list.
+      hasModule(user, 'tailors') && api.getTailors({ forAttendance: true })
+        .then((rows) => setDesignerStaff((rows || []).filter(t => t.role === 'Designer')))
+        .catch(() => {}),
       hasModule(user, 'scheduling') && load('appointments', () => api.getAppointments({ upcoming: 'true' }), setAppointments),
       hasModule(user, 'inventory') && load('fabrics', () => api.getInventoryItems({ picker: 'true' }), setFabrics),
       hasModule(user, 'design_studio') && load('designs', api.getAllBoutiqueDesigns, setAllDesigns),
@@ -2969,6 +2979,18 @@ function App() {
       setCustomerActionId(null);
     }
   };
+  const handleMarkLeadContacted = async (row) => {
+    if (customerActionId) return;
+    setCustomerActionId(row.id);
+    try {
+      await api.updateCustomer(row.id, { is_lead: false });
+      await fetchDashboardAndConfig();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCustomerActionId(null);
+    }
+  };
   const handleSelectExistingCustomer = (cust) => startService('stitch', cust);
 
   /** Customers whose number contains what has been typed so far. */
@@ -2999,10 +3021,15 @@ function App() {
     setView('dashboard');
   };
 
-  const jumpToStep = useCallback((n) => {
-    if (n === currentStep || n > maxStepReached) return;
+  // An order's steps can be visited in any order (the customer is checked
+  // before completing); an alteration's only up to where it has been.
+  const canJumpAhead = serviceType !== 'alter';
+  const jumpToStep = (n) => {
+    if (n === currentStep || (n > maxStepReached && !canJumpAhead)) return;
+    if (wizardStepKey === 'measure') rememberMeasurements();
+    if (wizardSteps[n - 1]?.key === 'measure') prefillMeasurements();
     reachStep(n);
-  }, [currentStep, maxStepReached, reachStep]);
+  };
   const wizardSteps = WIZARD_STEPS[serviceType] || WIZARD_STEPS.stitch;
   useEffect(() => {
     document.querySelector('.wizard-header-container [aria-current="step"]')
@@ -3163,24 +3190,36 @@ function App() {
     }
   };
 
+  /** What is wrong with the customer details, or '' when they will do. */
+  const customerProblem = () => {
+    const mobileBad = mobileError(customerForm.mobile_number);
+    if (mobileBad) return mobileBad;
+    if (serviceType === 'alter') {
+      if (!customerId) return 'Pick the customer from the list: alterations are for garments we made.';
+    } else {
+      // A customer picked from the book keeps the name the book holds;
+      // only a name typed here is held to the letters-only rule.
+      const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
+      if (nameBad || customerForm.first_name.trim().length < 2) {
+        return nameBad || 'Enter the customer\u2019s name (at least 2 letters).';
+      }
+    }
+    const emailBad = emailError(customerForm.email_address);
+    return emailBad ? `${emailBad} Or leave it blank.` : '';
+  };
+  /** Nothing typed or picked yet: an order may go on and come back for the customer. */
+  const customerBlank = () => !customerId && !customerForm.first_name?.trim()
+    && !String(customerForm.mobile_number || '').trim();
+
   const performNext = async () => {
     try {
       if (wizardStepKey === 'who') {
-        const mobileBad = mobileError(customerForm.mobile_number);
-        if (mobileBad) { alert(mobileBad); return; }
-        if (serviceType === 'alter') {
-          if (!customerId) { alert('Pick the customer from the list: alterations are for garments we made.'); return; }
-        } else {
-          // A customer picked from the book keeps the name the book holds;
-          // only a name typed here is held to the letters-only rule.
-          const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
-          if (nameBad || customerForm.first_name.trim().length < 2) {
-            alert(nameBad || 'Enter the customer\u2019s name (at least 2 letters).');
-            return;
-          }
-        }
-        const emailBad = emailError(customerForm.email_address);
-        if (emailBad) { alert(`${emailBad} Or leave it blank.`); return; }
+        // An order (not an alteration) may skip the customer for now; it is
+        // asked for again before the order is completed. Half-filled details
+        // are still checked, so a typo is caught here.
+        const skip = serviceType !== 'alter' && customerBlank();
+        const problem = skip ? '' : customerProblem();
+        if (problem) { alert(problem); return; }
         if (serviceType === 'alter') { reachStep(currentStep + 1); return; }
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
@@ -3225,6 +3264,18 @@ function App() {
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'money') {
         if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); reachStep(wizardSteps.findIndex(st => st.key === 'type') + 1); return; }
+        const customerBad = customerProblem();
+        if (customerBad) {
+          alert(`Fill in the customer details before completing the order. ${customerBad}`);
+          reachStep(wizardSteps.findIndex(st => st.key === 'who') + 1);
+          return;
+        }
+        // The step bar can jump past Measurements, so they are checked here too.
+        if (needsMeasurements() && !validateGarments({ sections: ['measurements'] })) {
+          alert('Some measurements are missing or invalid — see the highlighted fields.');
+          jumpToStep(wizardSteps.findIndex(st => st.key === 'measure') + 1);
+          return;
+        }
         if (!readyBy) { alert('Pick the ready-by date.'); return; }
         // "More details" sits on this screen: a typed value is still checked.
         if (!validateGarments({ sections: ['basic', 'style'] })) {
@@ -3432,37 +3483,8 @@ function App() {
   };
 
 
-  const [stockPrompt, setStockPrompt] = useState(null);      
+      
   const [reviewView, setReviewView] = useState(null);       
-  const [restockTrip, setRestockTrip] = useState(null);      
-  useEffect(() => {
-    if (!restockTrip || restockTrip.draftId) return;
-    
-    (async () => {
-      try {
-        const id = await persistDraft({ step: currentStep });
-        setRestockTrip({ ...restockTrip, draftId: id });
-        setView('dashboard');
-        setDashboardTab('inventory');
-      } catch (err) {
-        setRestockTrip(null);
-        alert(`Could not save the order before leaving: ${err.message}`);
-      }
-    })();
-  }, [restockTrip]); 
-  const finishRestockTrip = async () => {
-    const trip = restockTrip;
-    setRestockTrip(null);
-    if (!trip?.draftId) return;
-    try {
-      const [rolls, draft] = await Promise.all([
-        api.getInventoryItems({ picker: 'true' }), api.getOrderDraft(trip.draftId)]);
-      setFabrics(rolls || []);
-      await hydrateWizard(draft);
-    } catch (err) {
-      alert(`Could not return to the order: ${err.message}. Open it from your drafts.`);
-    }
-  };
 
   const handleFabricQuantity = (garmentKey, slot, fabricId, quantity) => {
     setGarmentJobs(prev => prev.map(job => job.key === garmentKey
@@ -3525,7 +3547,8 @@ function App() {
     const stageConf = (boutiqueSettings?.workflow_config || []).find(s => s.key === stageKey);
     const allowed = stageConf?.roles || [];
     if (allowed.length === 0) return tailors;
-    return tailors.filter(t => allowed.includes(t.role));
+    const pool = allowed.includes('Designer') ? [...tailors, ...designerStaff] : tailors;
+    return pool.filter(t => allowed.includes(t.role));
   };
 
   const stitchingStaff = () => eligibleStaffForStage('stitching_in_progress');
@@ -3561,9 +3584,15 @@ function App() {
   };
 
   
+  // A lead is a portal sign-up nobody has contacted or taken an order for yet.
+  const isLead = (c) => !!c.is_lead && !((c.order_count ?? c.orders?.length ?? 0) > 0);
+  const leadCount = customersList.filter(isLead).length;
+  const bookList = React.useMemo(
+    () => customersList.filter(c => isLead(c) === (customerView === 'leads')),
+    [customersList, customerView]);
   const directoryCustomers = React.useMemo(() => {
     const term = searchQuery.toLowerCase();
-    return applyCustomerFilters(customersList.filter(cust => {
+    return applyCustomerFilters(bookList.filter(cust => {
       const matchesSearch =
         ((cust.first_name || '') + ' ' + (cust.last_name || '')).toLowerCase().includes(term) ||
         (cust.mobile_number || '').includes(term) ||
@@ -3571,11 +3600,11 @@ function App() {
       const matchesType = customerTypeFilter === 'All' || customerTier(cust) === customerTypeFilter;
       return matchesSearch && matchesType;
     }), customerFilters);
-  }, [customersList, searchQuery, customerTypeFilter, customerFilters]);
+  }, [bookList, searchQuery, customerTypeFilter, customerFilters]);
   // One page of the book at a time. The page belongs to the search, tier and
   // page size it was picked under: change any of them and it is page 1 again.
   // A list that shrank under the page shows its last page.
-  const customerPageKey = `${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
+  const customerPageKey = `${customerView}|${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
   const customerPage = customerPageAt.key === customerPageKey ? customerPageAt.page : 1;
   const customerPageCount = Math.max(1, Math.ceil(directoryCustomers.length / customerPageSize));
   const customerPageNow = Math.min(customerPage, customerPageCount);
@@ -4711,9 +4740,7 @@ function App() {
             {/* INVENTORY TAB */}
             {dashboardTab === 'inventory' && (
               <Suspense fallback={<ScreenLoading />}>
-                <InventoryPanel currentUser={currentUser}
-                                restockItem={restockTrip?.fabric || null}
-                                onRestockDone={finishRestockTrip} />
+                <InventoryPanel currentUser={currentUser} />
               </Suspense>
             )}
 
@@ -5612,16 +5639,22 @@ function App() {
 
                 {(() => {
                   const now = new Date();
-                  const thisMonth = customersList.filter(c => {
+                  const thisMonth = bookList.filter(c => {
                     const d = new Date(c.created_at);
                     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
                   }).length;
-                  const tiers = tierCounts(customersList);
-                  const withOrders = customersList.filter(c => (c.order_count ?? c.orders?.length ?? 0) > 0).length;
+                  const tiers = tierCounts(bookList);
+                  const withOrders = bookList.filter(c => (c.order_count ?? c.orders?.length ?? 0) > 0).length;
                   return (
                     <>
+                      <div className="at-toolbar">
+                        <Chips value={customerView} onChange={setCustomerView} options={[
+                          { key: 'customers', label: 'Customers', count: customersList.length - leadCount },
+                          { key: 'leads', label: 'Leads', count: leadCount },
+                        ]} />
+                      </div>
                       <section className="at-stat-grid">
-                        <StatCard icon={Users} tone="green" label="Total Customers" value={customersList.length}
+                        <StatCard icon={Users} tone="green" label={customerView === 'leads' ? 'Total Leads' : 'Total Customers'} value={bookList.length}
                                   sub={t('customersPage.withOrdersCount', '{n} with orders', { n: withOrders })} />
                         <StatCard icon={Crown} tone="amber" label="Platinum customers" value={tiers.Platinum}
                                   sub={`${tiers.Gold} Gold · ${tiers.Silver} Silver`} />
@@ -5630,25 +5663,25 @@ function App() {
                       </section>
                       <div className="at-toolbar">
                         <Chips value={customerTypeFilter} onChange={setCustomerTypeFilter} options={[
-                          { key: 'All', label: t('customersPage.filterAll'), count: customersList.length },
+                          { key: 'All', label: t('customersPage.filterAll'), count: bookList.length },
                           ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
                         ]} />
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
                           {directoryCustomers.length
                             ? `Showing ${customerPageFrom + 1}–${customerPageFrom + pagedCustomers.length} of ${directoryCustomers.length}`
                             : 'Showing 0'}
-                          {directoryCustomers.length !== customersList.length ? ` (${customersList.length} in total)` : ''}
+                          {directoryCustomers.length !== bookList.length ? ` (${bookList.length} in total)` : ''}
                         </span>
                       </div>
-                      {customersList.length > 0 && (
-                        <CustomerFilters customers={customersList} filters={customerFilters} onChange={setCustomerFilters} />
+                      {bookList.length > 0 && (
+                        <CustomerFilters customers={bookList} filters={customerFilters} onChange={setCustomerFilters} />
                       )}
                     </>
                   );
                 })()}
 
                 <div className="customers-list-container at-stack">
-                  {loading && customersList.length === 0 ? (
+                  {loading && bookList.length === 0 ? (
                     <div className="ui-card" style={{ padding: '48px', textAlign: 'center' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{t('common.loading')}</span>
                     </div>
@@ -5659,7 +5692,7 @@ function App() {
                     </div>
                   ) : directoryCustomers.length === 0 ? (
                     <div className="ui-card" style={{ padding: '48px', textAlign: 'center' }}>
-                      {customersList.length === 0 ? (
+                      {bookList.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
                           <div style={{ fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}>{t('customersPage.noCustomersYet')}</div>
                           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', maxWidth: '44ch', lineHeight: 'var(--leading-normal)' }}>
@@ -5790,6 +5823,14 @@ function App() {
                             >
                               <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
                             </button>
+                            {customerView === 'leads' && (
+                              <button type="button" className="at-icon-btn" title="Mark as contacted (moves to Customers)"
+                                      aria-label={`Mark ${cust.first_name} ${cust.last_name} as contacted`}
+                                      disabled={customerActionId === cust.id}
+                                      onClick={(e) => { e.stopPropagation(); handleMarkLeadContacted(cust); }}>
+                                <CheckCircle2 size={15} />
+                              </button>
+                            )}
                             {canAddCustomer && (
                               <span className="at-row-actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                 <button type="button" className="at-icon-btn" title="Edit customer" aria-label={`Edit ${cust.first_name} ${cust.last_name}`}
@@ -7410,7 +7451,7 @@ function App() {
                 const skipped = step.key === 'measure' && garmentJobs.length > 0 && !needsMeasurements();
                 const isCompleted = currentStep > stepNum;
                 const isActive = currentStep === stepNum;
-                const canJump = !skipped && stepNum !== currentStep && stepNum <= maxStepReached;
+                const canJump = !skipped && stepNum !== currentStep && (stepNum <= maxStepReached || canJumpAhead);
                 return (
                   <React.Fragment key={step.key}>
                     <div className={canJump ? 'stepper-step stepper-step--link' : 'stepper-step'}
@@ -7436,7 +7477,9 @@ function App() {
                         {t(`wizard.step.${step.key}`, step.label)}
                       </span>
                       <span style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {skipped ? t('wizard.notNeeded', 'Not needed') : isCompleted ? t('wizard.completed', 'Done') : t(`wizard.stepSub.${step.key}`, step.sub)}
+                        {skipped ? t('wizard.notNeeded', 'Not needed')
+                          : isCompleted && step.key === 'who' && serviceType !== 'alter' && customerBlank() ? t('wizard.customerLater', 'Fill before completing')
+                          : isCompleted ? t('wizard.completed', 'Done') : t(`wizard.stepSub.${step.key}`, step.sub)}
                       </span>
                     </div>
                     {index < wizardSteps.length - 1 && (
@@ -8017,8 +8060,7 @@ function App() {
                                     fabrics={colourFilteredFabrics}
                                     taxonomy={fabricTaxonomy}
                                     selection={fabricSelection}
-                                    onChange={handleFabricSelection}
-                                    onPickOutOfStock={(fabric, proceed) => setStockPrompt({ fabric, proceed })} />
+                                    onChange={handleFabricSelection} />
                                 </>
                               )}
                             </Suspense>
@@ -8332,18 +8374,6 @@ function App() {
                       ))}
                     </div>
                   ))}
-                  {/* The garment drawn on a model, from the designs and rolls
-                      above. Renders nothing where the vendor is not set up or
-                      no garment has a design. The photograph lands on
-                      job.design.preview and confirms with the rest.
-                      Switched off for now; uncomment to bring it back.
-                      Model display parked — see task 16 */}
-                  {/* <Suspense fallback={null}>
-                    <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
-                      onPreview={(jobKey, url) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
-                        ? { ...j, design: { ...(j.design || {}), preview: url } } : j))}
-                      onView={(url, label) => setReviewView({ items: [{ key: 'preview', image_url: url, label }], index: 0 })} />
-                  </Suspense> */}
                   {reviewView && (
                     <Suspense fallback={null}>
                       <ReviewLightbox items={reviewView.items} index={reviewView.index}
@@ -8626,6 +8656,18 @@ function App() {
 
             {/* Right Sidebar */}
             <div className="sidebar-panel">
+              {/* The open garment drawn on a model, from its designs and rolls.
+                  Renders nothing where the vendor is not set up and there is no
+                  base picture. The photograph lands on job.design.preview and
+                  confirms with the rest. */}
+              {wizardStepKey === 'type' && openGarment && (
+                <Suspense fallback={null}>
+                  <GarmentPreviews jobs={[openGarment]} title={t('wizard.reviewPreview', 'See it on a model')}
+                    onPreview={(jobKey, url, backUrl) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                      ? { ...j, design: { ...(j.design || {}), preview: url, preview_back: backUrl || null } } : j))}
+                    />
+                </Suspense>
+              )}
               <div className="sidebar-card">
                 <div className="sidebar-card-title">
                   <Sparkles size={16} />
@@ -9511,30 +9553,6 @@ Complete the Payment stage with this partial payment?`)) return;
                           onIndexChange={(i) => setReviewView({ ...reviewView, index: i })}
                           onClose={() => setReviewView(null)} />
         </Suspense>
-      )}
-      {stockPrompt && (
-        <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
-          <div className="search-modal-card" style={{ maxWidth: '440px', width: '100%', padding: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangle size={18} style={{ color: 'var(--warning-color)' }} /> Out of stock
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '18px' }}>
-              <strong style={{ color: 'var(--text-primary)' }}>{stockPrompt.fabric.name}</strong> has no stock right now.
-              Restock it first, or carry on with the order and let the workroom sort the material out later.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button type="button" className="btn-secondary" onClick={() => setStockPrompt(null)}>Cancel</button>
-              <button type="button" className="btn-secondary"
-                      onClick={() => { stockPrompt.proceed(); setStockPrompt(null); }}>
-                Complete the order
-              </button>
-              <button type="button" className="btn-primary"
-                      onClick={() => { stockPrompt.proceed(); setRestockTrip({ fabric: stockPrompt.fabric }); setStockPrompt(null); }}>
-                <Boxes size={16} /> Restock now
-              </button>
-            </div>
-          </div>
-        </div>
       )}
       {reversalPrompt && (
         <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>

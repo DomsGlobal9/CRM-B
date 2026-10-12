@@ -491,7 +491,7 @@ def _save(mobile, fields):
     try:
         with transaction.atomic():
             customer = Customer.objects.create(
-                mobile_number=mobile, source='Website', **fields)
+                mobile_number=mobile, source='Website', is_lead=True, **fields)
             Measurement.objects.create(customer=customer)
             return True
     except IntegrityError:
