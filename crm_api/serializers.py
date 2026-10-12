@@ -27,7 +27,7 @@ class BoutiqueSettingsSerializer(serializers.ModelSerializer):
         # owner's map of who may see what, and `fields = '__all__'` would have
         # handed it to the roles it restricts the moment the field landed. It
         # has its own Owner-only route instead.
-        exclude = ['role_modules']
+        exclude = ['role_modules', 'admin_access']
 
     def get_timezone(self, obj):
         from django.db import connection

@@ -133,7 +133,7 @@ function ModelChoice({ value, onChange }) {
             <div className="od-hint">Without consent, only the standard model is used.</div>
           )}
           {value.consent && value.photo && (
-            <div className="od-hint">The pictures on the customer are made on the Review step, with their measurements.</div>
+            <div className="od-hint">Previews here use this photo. On the Review step the customer's measurements are added too.</div>
           )}
           {error && <div role="alert" style={{ color: 'var(--danger-color, #b91c1c)', fontSize: '12.5px' }}>{error}</div>}
         </div>
@@ -157,6 +157,9 @@ export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, 
   // With the customer's consent the standard model is put away: the
   // customer is who the pictures are for.
   const hideModel = aiModel?.mode === 'customer' && !!aiModel.consent;
+  // With consent and a photo, the quick check here is on the customer too --
+  // photo only; their measurements join on the Review step.
+  const ownPhoto = hideModel ? aiModel.photo || '' : '';
   const rows = jobs.filter((job) => (customerPhoto || hideModel ? false : baseImage(job)) || (available && hasDesign(job)));
   // ponytail: rows with a missing base file still get a row (name + hint);
   // a HEAD check per garment is not worth it for a review-step picture.
@@ -165,7 +168,7 @@ export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       {rows.map((job) => (
         <GarmentPreview key={job.key} job={job} onPreview={onPreview} customerPhoto={customerPhoto}
-                        hideModel={hideModel} canDraw={available && hasDesign(job)} />
+                        hideModel={hideModel} ownPhoto={ownPhoto} canDraw={available && hasDesign(job)} />
       ))}
     </div>
   );
@@ -181,7 +184,7 @@ export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, 
   );
 }
 
-function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel }) {
+function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel, ownPhoto = '' }) {
   const [busy, setBusy] = useState(false);
   // Seconds since the request started; reset by `run`, not by the effect,
   // so the effect only ever starts and stops the clock.
@@ -206,8 +209,8 @@ function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel }) {
   // On the customer, the pictures are kept apart from the standard model's.
   const preview = customerPhoto ? job.design?.customer_preview : job.design?.preview;
   const previewBack = customerPhoto ? job.design?.customer_preview_back : job.design?.preview_back;
-  const base = customerPhoto || (hideModel ? null : baseImage(job));
-  const baseLabel = customerPhoto ? 'Customer' : 'Model';
+  const base = customerPhoto || ownPhoto || (hideModel ? null : baseImage(job));
+  const baseLabel = customerPhoto || ownPhoto ? 'Customer' : 'Model';
   const measurements = customerPhoto ? measurementsOf(job) : [];
   const name = job.template?.name || job.key;
   // Every picture on the card, in order, so the popup can step through them.
@@ -230,7 +233,7 @@ function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel }) {
         // The plain garment on a model, as base64: it lives on this app's
         // origin, which the server may not be able to reach, so the
         // browser reads it and sends the bytes. Missing file → no model.
-        model_image: customerPhoto || (base && useModel ? await asDataUri(base) : ''),
+        model_image: customerPhoto || ownPhoto || (base && useModel ? await asDataUri(base) : ''),
         // Only on the customer: their body, for the fit the picture shows.
         ...(customerPhoto ? { measurements } : {}),
         views: views === 'both' ? undefined : [views],
@@ -281,7 +284,7 @@ function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel }) {
       {base && (
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {picture(base, baseLabel, preview ? '64px' : '120px')}
-          {!customerPhoto && (
+          {!customerPhoto && !ownPhoto && (
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
               <input type="checkbox" checked={useModel} disabled={busy}
                      onChange={(e) => setUseModel(e.target.checked)} />

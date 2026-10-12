@@ -1,6 +1,7 @@
 
 from rest_framework import permissions
 
+from .admin_access import admin_may, has_section, tasks_for
 from .modules import MODULES, module_for_path, role_allows
 from .roles import DESIGNER, OWNER, resolve_user_role
 
@@ -87,7 +88,7 @@ class ModuleAccess(permissions.BasePermission):
         # None means NOT GOVERNED, never "unknown, so deny": /api/auth/,
         # /api/dashboard/ and every prefix nobody has assigned a module to
         # resolve to None, and denying on it would switch off the product.
-        if key is not None and not self._module_permits(request, key):
+        if key is not None and not self._module_permits(request, key) and not admin_may(request, view):
             return False
         return self.has_role_permission(request, view)
 
@@ -188,7 +189,10 @@ class RolePermission(ModuleAccess):
         action = getattr(view, 'action', None)
         if action in self.STAFF_ORDER_ACTIONS:
             return True
-        return action in self.SUPERVISOR_ORDER_ACTIONS and role in SUPERVISOR_ROLES
+        if action in self.SUPERVISOR_ORDER_ACTIONS and role in SUPERVISOR_ROLES:
+            return True
+        # The owner's Admin, for the work they were handed (core.admin_access).
+        return admin_may(request, view)
 
 
 class AlterationPermission(ModuleAccess):
@@ -241,7 +245,7 @@ class OwnerOnly(ModuleAccess):
     message = "Only the boutique owner can see this."
 
     def has_role_permission(self, request, view):
-        return resolve_user_role(request.user) == OWNER
+        return resolve_user_role(request.user) == OWNER or admin_may(request, view)
 
 
 class StaffSelfOrOwner(ModuleAccess):
@@ -378,6 +382,9 @@ def visible_orders(queryset, user):
     role = resolve_user_role(user)
     if role == OWNER or role in SUPERVISOR_ROLES:
         return queryset
+    # The Admin handed order or workshop work works the whole book.
+    if has_section(tasks_for(user), 'orders', 'workshop'):
+        return queryset
 
     profile = getattr(user, 'tailor_profile', None)
     if profile is None:
@@ -396,6 +403,8 @@ def visible_customers(queryset, user):
 
     role = resolve_user_role(user)
     if role == OWNER or role in SUPERVISOR_ROLES:
+        return queryset
+    if has_section(tasks_for(user), 'customers', 'orders'):
         return queryset
 
     profile = getattr(user, 'tailor_profile', None)

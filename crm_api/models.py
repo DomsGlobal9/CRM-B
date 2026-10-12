@@ -686,6 +686,12 @@ class BoutiqueSettings(models.Model):
     #: to True for Owner regardless of what is stored.
     role_modules = models.JSONField(default=dict, blank=True)
 
+    #: The one staff member the owner made Admin, and the work handed to them:
+    #: {"member": {"kind": "staff" | "designer", "id": "12"} | null,
+    #:  "tasks": ["orders.create", ...]}. Keys are core.admin_access.ADMIN_TASKS.
+    #: Like role_modules, Owner-only to read and write (its own route).
+    admin_access = models.JSONField(default=dict, blank=True)
+
     #: Where the shop is, for flagging check-ins made away from it. Set by the
     #: owner tapping "use my current location" in the shop; null means no
     #: check-in is flagged. See apps.staff.attendance.check_in.

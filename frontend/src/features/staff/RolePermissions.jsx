@@ -48,14 +48,19 @@ const SECTIONS = [
 ];
 
 const memberKey = (m) => `${m.isDesigner ? 'd' : 's'}:${m.id}`;
+// The select's 's:12' / 'd:<uuid>' and the server's {kind, id}, both ways.
+const toMember = (key) => (key ? { kind: key[0] === 'd' ? 'designer' : 'staff', id: key.slice(2) } : null);
+const fromMember = (m) => (m ? `${m.kind === 'designer' ? 'd' : 's'}:${m.id}` : '');
 
-// ponytail: frontend only -- the admin and tasks live in this component's state
-// until the backend for access levels exists; Save only confirms locally.
+// Saved to /boutique-settings/admin-access/ (crm_api/views.py); the Admin's
+// login then carries admin_tasks, which open the matching menus and actions.
 export default function RolePermissions() {
   const [people, setPeople] = useState(null);
   const [admin, setAdmin] = useState('');
   const [tasks, setTasks] = useState(() => new Set());
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     Promise.all([api.getTailors().catch(() => []), api.getDesigners().catch(() => [])])
@@ -63,7 +68,22 @@ export default function RolePermissions() {
         ...(Array.isArray(staff) ? staff : []),
         ...(Array.isArray(designers) ? designers : []).map((d) => ({ ...d, role: 'Designer', isDesigner: true })),
       ]));
+    api.getAdminAccess()
+      .then((data) => { setAdmin(fromMember(data.member)); setTasks(new Set(data.tasks || [])); setSaved(true); })
+      .catch((e) => setError(e.message));
   }, []);
+
+  const save = async () => {
+    setSaving(true); setError(null);
+    try {
+      await api.saveAdminAccess({ member: toMember(admin), tasks: [...tasks] });
+      setSaved(true);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const chosen = people?.find((m) => memberKey(m) === admin);
 
@@ -80,7 +100,7 @@ export default function RolePermissions() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
       <InfoNote icon={Shield} tone="neutral" title="Admins and regular team members">
         Everyone keeps their role (tailor, master, designer…). Choose one person as Admin to hand them the work you tick below;
-        everyone else stays Regular. The owner always has full access.
+        everyone else stays Regular. The owner always has full access. The Admin sees the change the next time they sign in.
       </InfoNote>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-5)', alignItems: 'flex-start' }}>
@@ -128,10 +148,16 @@ export default function RolePermissions() {
                 Tick what the admin may do. Anything left unticked stays with you.
               </div>
             </div>
-            <button type="button" className="btn-primary" onClick={() => setSaved(true)}>
-              {saved ? <><Check size={15} /> Saved</> : <><Save size={15} /> Save</>}
+            <button type="button" className="btn-primary" onClick={save} disabled={saving || saved}>
+              {saving ? 'Saving…' : saved ? <><Check size={15} /> Saved</> : <><Save size={15} /> Save</>}
             </button>
           </header>
+          {error && (
+            <div role="alert" style={{ padding: 'var(--space-3) var(--space-5)', color: 'var(--danger-color, #b91c1c)',
+                                       borderBottom: '1px solid var(--border-color)', fontSize: 'var(--text-sm)' }}>
+              {error}
+            </div>
+          )}
 
           {SECTIONS.map(({ key: section, label, icon: Icon, tasks: list }) => {
             const keys = list.map(([k]) => `${section}.${k}`);

@@ -1465,6 +1465,17 @@ const navSectionsFor = (user, t) => {
       ] },
     ];
 
+  // The owner's Admin also gets the sections of the work handed to them
+  // (user.admin_tasks, e.g. 'orders.create'), ahead of their own menu.
+  const handed = new Set((user?.admin_tasks || []).map((task) => task.split('.')[0]));
+  const own = new Set(sections.flatMap((section) => section.items.map((i) => i.tab)));
+  const adminItems = [
+    { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
+    { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
+    { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
+  ].filter((item) => handed.has(item.tab) && !own.has(item.tab));
+  if (adminItems.length) sections.unshift({ key: 'admin', label: t('nav.groups.admin', 'Admin'), items: adminItems });
+
   const roomy = !role || role === 'Owner' || SUPERVISOR_ROLES.includes(role);
   return [...sections, { key: 'session', divider: true, label: t('nav.groups.account', 'Account'), items: [
     { tab: 'account', icon: User, label: t('nav.account'), phone: !roomy },
@@ -2491,7 +2502,7 @@ function App() {
 
       hasModule(user, 'notifications') && load('notifications', () => fetchNotifications(user), () => {}),
 
-      (!user?.role || user.role === 'Owner')
+      (!user?.role || user.role === 'Owner' || (user.admin_tasks || []).includes('orders.notify'))
         && load('customer messages', api.getQueuedCustomerMessages, setQueuedMessages),
     ]);
 
@@ -3692,7 +3703,9 @@ function App() {
   // state -- and it teaches the workflow in the order the work happens.
   // First-time pointers. Counted off the lists already loaded for the
   // dashboard, so nothing extra is fetched; each stops on its own at ten.
-  const canAddCustomer = !currentUser?.role || currentUser.role === 'Owner';
+  /** Whether the owner handed this user `task` as Admin (core/admin_access.py). */
+  const adminCan = (task) => (currentUser?.admin_tasks || []).includes(task);
+  const canAddCustomer = !currentUser?.role || currentUser.role === 'Owner' || adminCan('customers.add');
   const guideCustomers = !loading && canAddCustomer && customersList.length < 10;
   const guideOrders = !loading && ordersList.length < 10;
   // Sidebar spotlights: Customers while under ten customers, Orders while
@@ -4929,7 +4942,7 @@ function App() {
                     {/* The one thing to do next lives up here: send it to the
                         workshop, or (the owner's shortcut) close every stage. */}
                     <div className="od-topbar-actions">
-                      {orderBucket(order) === 'new' && ['Owner', 'Master'].includes(currentUser.role) && (
+                      {orderBucket(order) === 'new' && (['Owner', 'Master'].includes(currentUser.role) || adminCan('workshop.assign') || adminCan('workshop.move')) && (
                         <button type="button" className="btn-primary od-send-btn" disabled={sendBusy}
                                 onClick={() => openSendToWorkshop(order)}>
                           <Scissors size={16} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
@@ -4976,7 +4989,7 @@ function App() {
                           </span>
                         )}
                         {order.flow && order.flow !== 'legacy' && (() => {
-                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role))
+                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role) || adminCan('workshop.move'))
                             && !(order.stages || []).some(st => st.stage_key !== 'created' && st.status !== 'NOT_STARTED');
                           const label = order.flow === 'alteration' ? t('ordersPage.flowAlteration', 'Alteration')
                             : order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
@@ -5246,7 +5259,7 @@ function App() {
                                 const photos = stitching?.attachments?.length ? stitching.attachments
                                   : (order.completed_garment_image ? [order.completed_garment_image] : []);
                                 const reviews = stitching?.attachment_reviews || {};
-                                const canReview = currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role);
+                                const canReview = currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role) || adminCan('workshop.review');
                                 const items = photos.map((u, i) => ({ image_url: u, label: `Photo ${i + 1}` }));
                                 const reject = async (url) => {
                                   const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
@@ -5366,12 +5379,12 @@ function App() {
                   aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
                   actions={dashboardTab === 'workshop' ? null : (
                     <>
-                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role) || adminCan('workshop.alterations')) && (
                         <button className="btn-secondary" style={{ padding: '10px 18px' }} onClick={() => setTakingInOutside(true)}>
                           <Scissors size={16} /> Outside garment alteration
                         </button>
                       )}
-                      {(!currentUser?.role || currentUser.role === 'Owner') && (
+                      {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
                         <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
                           <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                             <Plus size={16} /> {t('ordersPage.newOrder')}
@@ -5982,20 +5995,28 @@ function App() {
                   <button type="button" className="at-link" onClick={() => setSelectedDirectoryCustomer(null)}>
                     <ArrowLeft size={16} /> {t('customersPage.backToCustomers', 'Back to Customers')}
                   </button>
-                  {isOwner && (
+                  {(isOwner || adminCan('customers.edit') || adminCan('customers.delete') || adminCan('orders.create')) && (
                     <div className="at-toolbar-right">
-                      <button type="button" className="btn-secondary" disabled={customerActionId === c.id} onClick={() => startEditCustomer(c)}>
-                        <Edit2 size={16} /> Edit
-                      </button>
-                      <button type="button" className="btn-secondary at-btn-danger" disabled={customerActionId === c.id} onClick={() => handleDeleteCustomer(c)}>
-                        <Trash2 size={16} /> Delete
-                      </button>
-                      <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
-                        <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
-                      </button>
-                      <button className="btn-primary" onClick={() => handleSelectExistingCustomer(c)}>
-                        <Sparkles size={16} /> {t('customersPage.newOrder', 'New order')}
-                      </button>
+                      {(isOwner || adminCan('customers.edit')) && (
+                        <button type="button" className="btn-secondary" disabled={customerActionId === c.id} onClick={() => startEditCustomer(c)}>
+                          <Edit2 size={16} /> Edit
+                        </button>
+                      )}
+                      {(isOwner || adminCan('customers.delete')) && (
+                        <button type="button" className="btn-secondary at-btn-danger" disabled={customerActionId === c.id} onClick={() => handleDeleteCustomer(c)}>
+                          <Trash2 size={16} /> Delete
+                        </button>
+                      )}
+                      {(isOwner || adminCan('orders.create')) && (
+                        <>
+                          <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
+                            <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
+                          </button>
+                          <button className="btn-primary" onClick={() => handleSelectExistingCustomer(c)}>
+                            <Sparkles size={16} /> {t('customersPage.newOrder', 'New order')}
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -6222,7 +6243,7 @@ function App() {
 
                     <CustomerReferrals
                       customer={c}
-                      canAdd={isOwner}
+                      canAdd={isOwner || adminCan('customers.edit')}
                       customers={customersList}
                       onOpenCustomer={(id) => openDirectoryCustomer({ id })}
                       onCustomerAdded={() => api.getCustomers().then(setCustomersList).catch(() => {})}

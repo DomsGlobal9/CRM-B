@@ -130,6 +130,15 @@ def user_payload(user, role=None):
         role,
     )
 
+    # The work the owner handed this person as Admin; [] for everyone else.
+    # Never a 500 on login: a lookup failure just means no extra work.
+    try:
+        from core.admin_access import tasks_for
+        admin_tasks = sorted(tasks_for(user)) if role != 'Owner' else []
+    except Exception:
+        logger.exception('admin task lookup failed for user %s', user.pk)
+        admin_tasks = []
+
     module_groups = {}
     for key in modules:
         # .get, not []: a module added to the registry without a group entry is
@@ -150,6 +159,7 @@ def user_payload(user, role=None):
         "profile_photo": profile_photo,
         "modules": modules,
         "module_groups": module_groups,
+        "admin_tasks": admin_tasks,
         # The look the platform enabled for this boutique; the workspace applies
         # it at sign-in. A public-schema login (the console) has no tenant.
         "design_system": getattr(getattr(connection, 'tenant', None), 'design_system', 'scaleezy'),
