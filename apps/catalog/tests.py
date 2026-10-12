@@ -384,3 +384,15 @@ class SpecifyTypeTests(CatalogTestCase):
             self.assertTrue(is_visible(saree[key], {'hand_work': 'with_work'}), key)
             self.assertFalse(is_visible(saree[key], {'hand_work': 'none'}), key)
         self.assertNotIn('hand_work_coverage', fields('petticoat'))
+
+        # Sizes in the counter's words, stored under the values first saved.
+        self.assertEqual([(o.value, o.label) for o in lehenga['flare_volume'].options.all()],
+                         [('low', 'Small'), ('medium', 'Medium'), ('high', 'Big'),
+                          ('full_circle', 'Full Circle')])
+        blouse = fields('blouse')
+        self.assertTrue(is_visible(blouse['peplum_volume'], {'blouse_type': 'peplum'}))
+        self.assertFalse(is_visible(blouse['peplum_volume'], {'blouse_type': 'corset'}))
+        self.assertTrue(is_visible(fields('lehenga_blouse')['peplum_volume'], {'blouse_style': 'peplum'}))
+        petticoat = fields('petticoat')['flare_size']
+        self.assertTrue(petticoat.is_required)
+        self.assertEqual(petticoat.default, 'medium')

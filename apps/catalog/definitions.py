@@ -415,6 +415,9 @@ TEMPLATES = [
                 field('flare_type', 'Flare Type', 'select',
                       options=['A-Line', 'Pleats', 'Box Pleats'],
                       when=eq('blouse_type', 'peplum')),
+                field('peplum_volume', 'Peplum Fullness', 'select', default='medium',
+                      options=['Small', 'Medium', 'Big'],
+                      when=eq('blouse_type', 'peplum')),
                 field('layer_count', 'Number of Layers', 'number',
                       validation={'min': 1, 'max': 10, 'step': 1},
                       when=eq('blouse_type', 'ruffled')),
@@ -606,6 +609,9 @@ TEMPLATES = [
                 measurement('flare_length', 'Flare Length', when=eq('blouse_style', 'peplum')),
                 field('flare_type', 'Flare Type', 'select',
                       options=['A-Line', 'Pleats', 'Box Pleats'],
+                      when=eq('blouse_style', 'peplum')),
+                field('peplum_volume', 'Peplum Fullness', 'select', default='medium',
+                      options=['Small', 'Medium', 'Big'],
                       when=eq('blouse_style', 'peplum')),
                 field('layer_count', 'Number of Layers', 'number',
                       validation={'min': 1, 'max': 10, 'step': 1},
@@ -810,6 +816,10 @@ TEMPLATES = [
             ],
             'style': [
                 field('waist_finish', 'Waist Finish', 'multiselect', options=WAIST_FINISH),
+                # Required with a default, as hand work is: asked up front and
+                # already answered, so no order or draft is held up by it.
+                field('flare_size', 'Flare / Ghera', 'select', required=True, default='medium',
+                      options=['Small', 'Medium', 'Big']),
             ],
             'materials': bottom_materials(),
         },
@@ -1886,7 +1896,8 @@ def flare_fields(definition):
         return []
     type_field, flared = cut
     fields = [field('flare_volume', 'Flare / Volume', 'select', default='medium',
-                    options=['Low', 'Medium', 'High', ('full_circle', 'Full Circle')],
+                    # Labels in the counter's words; the stored values stay as first saved.
+                    options=[('low', 'Small'), 'Medium', ('high', 'Big'), ('full_circle', 'Full Circle')],
                     when=one_of(type_field, flared))]
     if 'mermaid' in flared:
         # A mermaid is fitted to the knee and flares from there; where is the cutter's call.
