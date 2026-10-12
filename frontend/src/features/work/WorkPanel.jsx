@@ -33,6 +33,11 @@ const STATUS_LABELS = {
 };
 
 const isOpenOrder = (o) => !CLOSED.includes(o.order_status);
+// The owner's Workshop list: an open order whose work has begun past "created"
+// (App.jsx orderBucket). Masters and Designers run the floor, so their My work
+// shows the same orders.
+const inWorkshop = (o) => isOpenOrder(o) && (o.stages || []).some((st) => st.stage_key !== 'created'
+  && !['NOT_STARTED', 'SKIPPED'].includes(st.status));
 const humanise = (key) => String(key || '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 const statusLabel = (status, t) => { const [k, d] = STATUS_LABELS[status] || []; return k ? t(k, d) : String(status || ''); };
 // Orders written before garment jobs existed name their garment on the order.
@@ -180,6 +185,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   const isMine = (order, s) => s.assigned_to === me
     || (rolesFor(s.stage_key).includes(currentUser?.role) && s.assigned_to == null
         && (order.tailor === me || order.master === me || currentUser?.role !== 'Tailor'));
+  // On My work a supervisor sees every Workshop order's work, whoever holds it.
+  const isListed = (order, s) => isMine(order, s) || (view === 'open' && isSupervisor && inWorkshop(order));
   // Earlier work on this garment (and the order-level stages) must be finished.
   const isReady = (order, s) => (order.stages || []).every((o) => o.sequence >= s.sequence || FINISHED.includes(o.status)
     || (o.garment_job && s.garment_job && o.garment_job !== s.garment_job));
@@ -194,7 +201,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           if (isOpenOrder(order) && stage.status === 'PENDING_VERIFICATION') out.push({ order, stage, at: submittedAt(order, stage) });
           return;
         }
-        if (!isMine(order, stage)) return;
+        if (!isListed(order, stage)) return;
         const finished = FINISHED.includes(stage.status);
         if (view === 'done') { if (finished) out.push({ order, stage, at: stage.completed_at || stage.started_at }); return; }
         if (finished || !isOpenOrder(order)) return;
