@@ -240,6 +240,15 @@ class TodoTests(TenantTestCase):
         self.assertEqual(tasks(self.other), [])
         self.assertEqual(tasks(self.master), [('Stitching', self.tailor.id)])
 
+        # When it was handed over, from the order's assignment log.
+        from crm_api.models import OrderActivity
+        stitching = order.stages.get(stage_key='stitching_in_progress')
+        OrderActivity.objects.create(order=order, event_type='ASSIGNMENT', metadata={
+            'stage_key': 'stitching_in_progress', 'garment_job': None, 'assigned_to_id': anita.id})
+        rows = self.call(self.tailor, 'get', '/api/todos/order-work/').data
+        self.assertTrue(rows[0]['assigned_at'])
+        self.assertEqual(rows[0]['stage_id'], stitching.id)
+
         # An older order keeps its own step order even after the settings
         # move Maggam work ahead of Cutting: its Maggam work still waits.
         settings = BoutiqueSettings.objects.get(id=1)
