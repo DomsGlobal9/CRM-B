@@ -122,6 +122,16 @@ class BuildPayloadTests(TenantTestCase):
             self.assertEqual(build()['measurements'],
                              [{'key': 'bust', 'label': 'Bust', 'value': 36.5, 'unit': 'in'}])
 
+    @mock.patch.object(generate.requests, 'get', side_effect=fake_taxonomy)
+    def test_plain_garment_photo_is_its_overall_design(self, _get):
+        # No design chosen: the wizard sends the plain garment's own photo
+        # as its overall design, so it is still drawn front and back.
+        photo = 'data:image/jpeg;base64,' + PIXEL
+        payload = generate.build_payload(client_id='t', garment_key='saree',
+                                         part_refs={'overall': [{'image_url': photo}]})
+        self.assertEqual(payload['designs'], [{'area': 'OVERALL', 'image': photo}])
+        self.assertNotIn('views', payload)
+
     def test_refuses_garment_and_empty_design(self):
         with self.assertRaises(DiscoveryError):
             generate.build_payload(client_id='t', garment_key='jacket', parts={'front_design': {'image_url': 'x'}})
@@ -190,6 +200,9 @@ class PreviewViewTests(TenantTestCase):
 
     def test_availability(self):
         self.assertTrue(self.client.get(PREVIEW).json()['available'])
+        garments = self.client.get(PREVIEW).json()['garments']
+        self.assertIn('saree', garments)
+        self.assertNotIn('jacket', garments)
         with override_settings(DESIGN_DISCOVERY_API_KEY=''):
             self.assertFalse(self.client.get(PREVIEW).json()['available'])
 

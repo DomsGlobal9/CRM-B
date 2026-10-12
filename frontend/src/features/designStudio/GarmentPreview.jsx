@@ -51,6 +51,12 @@ const baseImage = (job) => {
   const key = (job.template?.key || job.key || '').toLowerCase();
   return key ? `${window.location.origin}/garment-base/${key}.jpg` : null;
 };
+// The same model from behind: public/garment-base/<template key>-back.jpg.
+// Shown beside the front once the file is there; until then nothing changes.
+const baseBackImage = (job) => {
+  const front = baseImage(job);
+  return front ? front.replace(/\.jpg$/, '-back.jpg') : null;
+};
 
 /** The card: one row per garment that has a base picture or a design.
  *  Nothing at all when no garment has either, so the review step never
@@ -153,7 +159,13 @@ const measurementsOf = (job) => ((job.template?.sections || []).find((sec) => se
  *  card, on the standard model. */
 export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, onAiModel, customerPhoto = '' }) {
   const [available, setAvailable] = useState(false);
-  useEffect(() => { api.garmentPreviewAvailable().then(setAvailable, () => setAvailable(false)); }, []);
+  // Garments the service can draw: a plain one is offered front and back too.
+  const [drawable, setDrawable] = useState([]);
+  useEffect(() => {
+    api.garmentPreviewInfo().then(
+      (info) => { setAvailable(info.available); setDrawable(info.garments); },
+      () => setAvailable(false));
+  }, []);
   // With the customer's consent the standard model is put away: the
   // customer is who the pictures are for.
   const hideModel = aiModel?.mode === 'customer' && !!aiModel.consent;
@@ -168,7 +180,8 @@ export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       {rows.map((job) => (
         <GarmentPreview key={job.key} job={job} onPreview={onPreview} customerPhoto={customerPhoto}
-                        hideModel={hideModel} ownPhoto={ownPhoto} canDraw={available && hasDesign(job)} />
+                        hideModel={hideModel} ownPhoto={ownPhoto} canDraw={available && hasDesign(job)}
+                        canDrawPlain={available && !hasDesign(job) && drawable.includes(job.template?.key)} />
       ))}
     </div>
   );
@@ -184,7 +197,8 @@ export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, 
   );
 }
 
-function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel, ownPhoto = '' }) {
+function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain = false, customerPhoto, hideModel,
+                          ownPhoto = '' }) {
   const [busy, setBusy] = useState(false);
   // Seconds since the request started; reset by `run`, not by the effect,
   // so the effect only ever starts and stops the clock.
@@ -210,7 +224,16 @@ function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel, own
   const preview = customerPhoto ? job.design?.customer_preview : job.design?.preview;
   const previewBack = customerPhoto ? job.design?.customer_preview_back : job.design?.preview_back;
   const base = customerPhoto || ownPhoto || (hideModel ? null : baseImage(job));
-  const baseLabel = customerPhoto || ownPhoto ? 'Customer' : 'Model';
+  // The standard model's back, only once its file has actually loaded.
+  const baseBack = customerPhoto || ownPhoto || hideModel ? null : baseBackImage(job);
+  const [hasBack, setHasBack] = useState(false);
+  // No design chosen: the plain garment's own photo is sent as its Overall
+  // design, so the service still draws it front and back. Only on the
+  // standard model, and only once that photo has actually loaded.
+  const [baseLoaded, setBaseLoaded] = useState(false);
+  const plain = canDrawPlain && !customerPhoto && !ownPhoto && !hideModel && baseLoaded;
+  const canDraw = canDrawDesigns || plain;
+  const baseLabel = customerPhoto || ownPhoto ? 'Customer' : hasBack ? 'Model · Front' : 'Model';
   const measurements = customerPhoto ? measurementsOf(job) : [];
   const name = job.template?.name || job.key;
   // Every picture on the card, in order, so the popup can step through them.
@@ -218,6 +241,7 @@ function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel, own
     ...(preview ? [[preview, previewBack ? 'Front' : 'Drawn preview']] : []),
     ...(preview && previewBack ? [[previewBack, 'Back']] : []),
     ...(base ? [[base, baseLabel]] : []),
+    ...(baseBack && hasBack ? [[baseBack, 'Model · Back']] : []),
   ].map(([src, label]) => ({ key: label, image_url: src, label: `${name} · ${label}` }));
 
   const run = async () => {
@@ -226,7 +250,7 @@ function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel, own
       const result = await api.generateGarmentPreview({
         garment_key: job.template?.key || job.key,
         parts: job.design?.parts || {},
-        part_refs: job.design?.part_refs || {},
+        part_refs: plain ? { overall: [{ image_url: await asDataUri(base) }] } : (job.design?.part_refs || {}),
         fabrics: job.fabrics || {},
         notes: job.design?.notes || '',
         product_name: name,
@@ -253,9 +277,9 @@ function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel, own
   // The eye is a bare styled button, not .at-btn-sm: that class's !important
   // min-height and padding make a 36px pill of what should be a small icon
   // in the picture's corner.
-  const picture = (src, label, width) => (
+  const picture = (src, label, width, onLoad) => (
     <figure style={{ margin: 0, position: 'relative', width, maxWidth: '100%' }}>
-      <img src={resolveMediaUrl(src)} alt={`${name} · ${label}`}
+      <img src={resolveMediaUrl(src)} alt={`${name} · ${label}`} onLoad={onLoad}
            onError={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
            style={{ width: '100%', height: 'auto', borderRadius: '10px',
                     border: '1px solid var(--border-color)', display: 'block' }} />
@@ -283,7 +307,8 @@ function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel, own
       )}
       {base && (
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {picture(base, baseLabel, preview ? '64px' : '120px')}
+          {picture(base, baseLabel, preview ? '64px' : '120px', () => setBaseLoaded(true))}
+          {baseBack && picture(baseBack, 'Model · Back', preview ? '64px' : '120px', () => setHasBack(true))}
           {!customerPhoto && !ownPhoto && (
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
               <input type="checkbox" checked={useModel} disabled={busy}
@@ -298,7 +323,9 @@ function GarmentPreview({ job, onPreview, canDraw, customerPhoto, hideModel, own
         <div className="od-hint">
           {busy ? `Drawing the garment… ${seconds}s (${views === 'both' ? 'front and back, up to four minutes' : 'usually under two minutes'})`
             : customerPhoto ? `On the customer: their photo, these designs and fabrics, and ${measurements.length ? `${measurements.length} measurement${measurements.length === 1 ? '' : 's'}` : 'no measurements yet'}.`
+            : preview && plain ? 'The plain garment, drawn on a model. Choose designs to see them drawn on.'
             : preview ? 'Made from the designs and fabrics chosen above.'
+              : plain ? 'See the plain garment front and back on a model. Choose designs to see them drawn on.'
               : canDraw ? 'See these designs and fabrics as one garment, on a model.'
                 : 'The plain garment, before designs and fabrics are drawn on.'}
         </div>

@@ -1414,6 +1414,13 @@ export const api = {
     if (!res.ok) return false;
     return !!(await res.json()).available;
   },
+  // { available, garments }: whether drawing is set up, and for which garments.
+  async garmentPreviewInfo() {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/preview/`, { headers: getHeaders() });
+    if (!res.ok) return { available: false, garments: [] };
+    const data = await res.json();
+    return { available: !!data.available, garments: Array.isArray(data.garments) ? data.garments : [] };
+  },
   async generateGarmentPreview(payload) {
     const res = await guardedFetch(`${BASE_URL}/design-studio/preview/`, {
       method: 'POST', headers: getHeaders(), body: JSON.stringify(payload),

@@ -680,7 +680,10 @@ class GarmentPreviewView(views.APIView):
 
     def get(self, request):
         from . import generate
-        return Response({'available': generate.available()})
+        from .web_search import GARMENT_IDS
+        # `garments`: the template keys the service can draw, so the wizard
+        # offers a plain front-and-back picture only where it will work.
+        return Response({'available': generate.available(), 'garments': sorted(GARMENT_IDS)})
 
     def post(self, request):
         from django.db import connection
