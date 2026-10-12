@@ -714,6 +714,7 @@ class GarmentPreviewView(views.APIView):
                 product_name=str(data.get('product_name') or ''),
                 model_image=str(data.get('model_image') or ''),
                 views=data.get('views') if isinstance(data.get('views'), list) else None,
+                measurements=data.get('measurements'),
             )
             result = generate.generate(generate.resolve_images(payload))
             result['images'] = {

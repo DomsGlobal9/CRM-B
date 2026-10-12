@@ -49,6 +49,10 @@ DATA_URI = re.compile(r'^data:image/[\w.+-]+;base64,', re.I)
 MAIN_SLOTS = {'MAIN_FABRIC', 'SAREE_BODY'}
 # The vendor makes front then back by default; `views` asks for one side.
 VIEWS = ('front', 'back')
+MAX_MEASUREMENTS = 40
+# Our templates say 'Inches'; the vendor gets one short spelling per unit.
+MEASUREMENT_UNITS = {'in': 'in', 'inch': 'in', 'inches': 'in', 'cm': 'cm', 'centimetres': 'cm',
+                     'centimeters': 'cm', 'm': 'm', 'metre': 'm', 'metres': 'm', 'meter': 'm', 'meters': 'm'}
 
 
 def _url():
@@ -104,7 +108,7 @@ def _image_source(url):
 
 def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None,
                   fabric_items=None, fabric_slots=(), notes='', product_name='',
-                  model_image='', views=None):
+                  model_image='', views=None, measurements=None):
     """The vendor's request off the wizard's own maps. Pure, so it is testable
     without the vendor: pictures are passed by address and resolved by the
     caller (see `resolve_images`).
@@ -119,6 +123,9 @@ def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None
                  review step shows -- sent as the vendor's modelImageUrl
     views        ['front'] or ['back'] for one side; empty or both leaves it
                  out, and the vendor makes front and back
+    measurements [{key, label, value, unit}] the customer's, for a picture
+                 on the customer; sent only once the vendor takes them
+                 (settings.DESIGN_STUDIO_SEND_MEASUREMENTS)
     """
     garment_id = GARMENT_IDS.get((garment_key or '').lower(), '')
     if not garment_id:
@@ -186,7 +193,29 @@ def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None
     wanted = [v for v in VIEWS if v in (views or ())]
     if len(wanted) == 1:
         payload['views'] = wanted
+    # The live vendor refuses unknown fields, so this waits on its new version.
+    rows = _measurements(measurements)
+    if rows and getattr(settings, 'DESIGN_STUDIO_SEND_MEASUREMENTS', False):
+        payload['measurements'] = rows
     return payload
+
+
+def _measurements(raw):
+    """Positive numbers only, each with a short key, label and known unit."""
+    rows = []
+    for row in raw if isinstance(raw, list) else []:
+        if not isinstance(row, dict):
+            continue
+        try:
+            value = round(float(row.get('value')), 2)
+        except (TypeError, ValueError):
+            continue
+        key = re.sub(r'[^a-z0-9_]', '', str(row.get('key') or '').lower())[:40]
+        unit = MEASUREMENT_UNITS.get(str(row.get('unit') or 'in').strip().lower())
+        if not key or not 0 < value < 1000 or not unit:
+            continue
+        rows.append({'key': key, 'label': str(row.get('label') or key)[:60], 'value': value, 'unit': unit})
+    return rows[:MAX_MEASUREMENTS]
 
 
 def resolve_images(payload):

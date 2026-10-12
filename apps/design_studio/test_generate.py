@@ -111,6 +111,17 @@ class BuildPayloadTests(TenantTestCase):
         self.assertNotIn('views', build(['front', 'back']))
         self.assertNotIn('views', build(['sideways']))
 
+    @mock.patch.object(generate.requests, 'get', side_effect=fake_taxonomy)
+    def test_measurements_sent_only_when_switched_on(self, _get):
+        parts = {'pallu_design': {'image_url': 'https://res.cloudinary.com/x/p.jpg'}}
+        raw = [{'key': 'Bust', 'label': 'Bust', 'value': '36.5', 'unit': 'Inches'},
+               {'key': 'waist', 'value': 0}, {'key': 'hip', 'value': 'x'}, {'key': 'neck', 'value': 14, 'unit': 'ft'}]
+        build = lambda: generate.build_payload(client_id='t', garment_key='saree', parts=parts, measurements=raw)
+        self.assertNotIn('measurements', build())
+        with override_settings(DESIGN_STUDIO_SEND_MEASUREMENTS=True):
+            self.assertEqual(build()['measurements'],
+                             [{'key': 'bust', 'label': 'Bust', 'value': 36.5, 'unit': 'in'}])
+
     def test_refuses_garment_and_empty_design(self):
         with self.assertRaises(DiscoveryError):
             generate.build_payload(client_id='t', garment_key='jacket', parts={'front_design': {'image_url': 'x'}})

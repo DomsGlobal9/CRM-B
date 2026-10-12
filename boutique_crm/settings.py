@@ -444,6 +444,9 @@ DESIGN_STUDIO_URL = os.environ.get(
     'DESIGN_STUDIO_URL',
     'https://api-super-admin.onrender.com/api/gateway/cat/api/v1/designstudio')
 DESIGN_STUDIO_GOOGLE_API_KEY = os.environ.get('DESIGN_STUDIO_GOOGLE_API_KEY', '')
+# Off until the vendor's generate API accepts `measurements`: the live one
+# refuses unknown fields. See docs/design-studio-customer-payload.md.
+DESIGN_STUDIO_SEND_MEASUREMENTS = os.environ.get('DESIGN_STUDIO_SEND_MEASUREMENTS', '').lower() in ('1', 'true', 'yes')
 
 #: No fallback. A working URL and token were written here and in
 #: apps/email_service/services/redis_service.py, so the live credentials of the

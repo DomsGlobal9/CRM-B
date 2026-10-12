@@ -8382,6 +8382,16 @@ function App() {
                     </Suspense>
                   )}
 
+                  {/* Only with the customer's consent and photo, chosen on the Garments step. */}
+                  {customerForm.ai_model?.mode === 'customer' && customerForm.ai_model.consent && customerForm.ai_model.photo
+                    && card(t('wizard.reviewOnCustomer', 'AI pictures on the customer'), 'design', (
+                    <Suspense fallback={null}>
+                      <GarmentPreviews jobs={garmentJobs} customerPhoto={customerForm.ai_model.photo}
+                        onPreview={(jobKey, url, backUrl) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                          ? { ...j, design: { ...(j.design || {}), customer_preview: url, customer_preview_back: backUrl || null } } : j))} />
+                    </Suspense>
+                  ))}
+
                   {garmentJobs.some(job => (job.purchases || []).length) && card(t('wizard.sheetPurchases', 'To buy for this order'), 'fabric', (
                     <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
                       <tbody>
@@ -8665,6 +8675,9 @@ function App() {
                   <GarmentPreviews jobs={[openGarment]} title={t('wizard.reviewPreview', 'See it on a model')}
                     onPreview={(jobKey, url, backUrl) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
                       ? { ...j, design: { ...(j.design || {}), preview: url, preview_back: backUrl || null } } : j))}
+                    // Rides customerForm, so it is saved with the draft; a different customer picked resets it.
+                    aiModel={customerForm.ai_model}
+                    onAiModel={(ai_model) => setCustomerForm(prev => ({ ...prev, ai_model }))}
                     />
                 </Suspense>
               )}
