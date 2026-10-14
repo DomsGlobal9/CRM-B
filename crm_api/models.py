@@ -9,18 +9,6 @@ from django.contrib.auth.models import User
 NATIONAL_NUMBER_LENGTH = 10
 
 
-# 500, not the ImageField default of 100.
-#
-# What is stored is the name the STORAGE BACKEND returns, not the path
-# upload_to proposed. `completed_garments/<32-hex>/<original filename>` is
-# already 96 characters for an ordinary phone filename, and Cloudinary returns
-# its public id -- the same path under a `media/` prefix with a random suffix
-# appended -- which puts it past 100 and made Postgres reject the row with
-# "value too long for type character varying(100)". A tailor submitting a
-# completed garment photograph got a 500 and the order kept its old status.
-#
-# Wide enough for a 255-character filename, which is what a filesystem allows,
-# so the limit stops depending on how the customer named the picture.
 IMAGE_PATH_MAX_LENGTH = 500
 
 
@@ -110,6 +98,8 @@ class Customer(models.Model):
     occupation = models.CharField(max_length=100, blank=True, null=True)
     preferred_communication = models.CharField(max_length=50, default="WhatsApp") # WhatsApp, Call, Email
     notes = models.TextField(blank=True, null=True)
+    # Came in through the customer portal and no staff member has contacted them yet.
+    is_lead = models.BooleanField(default=False, db_index=True)
     
     profile_photo = models.ImageField(upload_to=upload_to_customer_profiles, blank=True, null=True,
                                       max_length=IMAGE_PATH_MAX_LENGTH)
@@ -252,9 +242,7 @@ class DesignPreference(models.Model):
     reference_images = models.JSONField(default=list, blank=True)
     source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default='BOUTIQUE_CATALOG', db_index=True)
     reference_links = models.JSONField(default=list, blank=True)
-    # Which part of the garment each reference photo shows, by its URL in
-    # reference_images: {url: {"part": "pallu_design", "label": "Pallu Design"}}.
-    # A photo absent here is one for the garment as a whole.
+    
     reference_parts = models.JSONField(default=dict, blank=True)
     approved_image = models.CharField(max_length=500, blank=True, null=True)
     is_approved = models.BooleanField(default=False, db_index=True)
@@ -304,9 +292,7 @@ class Tailor(models.Model):
     status = models.CharField(max_length=50, default="Available") # Available, Busy
     role = models.CharField(max_length=50, choices=ROLE_CHOICES, default="Tailor")
     email = models.EmailField(blank=True, null=True)
-    #: The staff member's own avatar, set when they are added and editable by
-    #: them from My Account. Surfaced on their login (see auth_views.user_payload)
-    #: so the workspace shows their face rather than a placeholder.
+    
     profile_photo = models.ImageField(upload_to=upload_to_staff_photos, blank=True,
                                       null=True, max_length=IMAGE_PATH_MAX_LENGTH)
     user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='tailor_profile')
@@ -337,14 +323,9 @@ class UserAvatar(models.Model):
 
 class Order(models.Model):
     order_id = models.CharField(max_length=50, unique=True, db_index=True) # e.g. T2B-240529-7856
-    # The number the customer sees: #1, #2, #3 per boutique, minted in
-    # OrderService.create_order_for_customer. order_id stays the internal key
-    # every lookup, token and cross-app reference uses; this column is display
-    # only. Nullable so a row written outside the service still saves.
+    
     order_number = models.PositiveIntegerField(unique=True, null=True, blank=True, db_index=True)
-    # Null on a boutique's own production run: the garments are made for
-    # stock, so there is nobody to bill, notify or deliver to. `kind` is what
-    # says so -- a null customer is never read as the reason on its own.
+   
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True,
                                  related_name='orders')
     KIND_CUSTOMER = 'customer'
@@ -352,8 +333,7 @@ class Order(models.Model):
     KIND_CHOICES = [(KIND_CUSTOMER, 'Customer order'), (KIND_INTERNAL, 'Boutique stock')]
     kind = models.CharField(max_length=20, choices=KIND_CHOICES, default=KIND_CUSTOMER,
                             db_index=True)
-    # IP-001, IP-002... its own series, so a run for stock never takes a
-    # number out of the customer's #1, #2, #3.
+    
     internal_number = models.PositiveIntegerField(unique=True, null=True, blank=True, db_index=True)
     tailor = models.ForeignKey(Tailor, on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
     master = models.ForeignKey(Tailor, on_delete=models.SET_NULL, null=True, blank=True, related_name='supervised_orders')
@@ -384,35 +364,24 @@ class Order(models.Model):
     master_verification = models.JSONField(default=dict, blank=True)
     
     garment_images_published = models.BooleanField(default=False)
-    # Which path through the workroom this order takes. Decided when the order
-    # is placed from whether any garment carries hand work; the owner may
-    # change it until cutting starts. 'legacy' marks orders placed before the
-    # paths split, which keep the single 15-stage line they were created with.
+    
     FLOW_CHOICES = [('stitching', 'Stitching'), ('maggam', 'Maggam'), ('alteration', 'Alteration'), ('legacy', 'Legacy')]
     flow = models.CharField(max_length=20, choices=FLOW_CHOICES, default='stitching', db_index=True)
-    # An alteration is an order too -- a delivered garment back for changes,
-    # on the short 'alteration' path -- numbered under the order it came
-    # from (#12-A1). Both null for a garment brought in from outside.
+    
     alteration_of = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='alterations')
     alteration_seq = models.PositiveIntegerField(null=True, blank=True)
     alteration_garment = models.ForeignKey('catalog.GarmentJob', on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
     alteration_garment_name = models.CharField(max_length=100, blank=True, default='')
 
     special_instructions = models.TextField(blank=True, default='')
-    # The spoken version of special_instructions, when it was dictated: a
-    # URL into media storage (see VoiceNoteUploadView). Text stays the record
-    # every report reads; this is for the tailor who would rather listen.
+    
     instructions_voice_note = models.URLField(max_length=500, blank=True, default='')
-    # Who recorded it and when -- a voice note without a voice behind it is
-    # just a file. Stamped by the server from the signed-in user.
+    
     instructions_voice_note_by = models.CharField(max_length=150, blank=True, default='')
     instructions_voice_note_at = models.DateTimeField(null=True, blank=True)
     current_stage_key = models.CharField(max_length=100, default="created", db_index=True)
     production_status = models.CharField(max_length=50, default="NOT_STARTED", db_index=True) # NOT_STARTED, IN_PROGRESS, COMPLETED, PAUSED, SKIPPED
-    # When the workroom's photos and voice notes were removed from storage,
-    # a few days after delivery (domains.orders.retention). Null while they
-    # are still there -- so a Delivery reopened inside the window has all of
-    # them, and the nightly purge never visits an order twice.
+   
     media_purged_at = models.DateTimeField(null=True, blank=True, db_index=True)
     invoice_template = models.CharField(max_length=50, default="classic", blank=True, null=True)
 
@@ -446,11 +415,7 @@ class Order(models.Model):
 
 class OrderStage(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='stages')
-    # The garment this row tracks, for a workroom stage (`scope: garment` in
-    # the workflow): a saree, its blouse and its petticoat are each cut and
-    # stitched, so each has its own Cutting and Stitching. Null on an
-    # order-level stage (Order taken, Trial, Delivery...), and on a workroom
-    # stage of an order that has no garment jobs at all.
+    
     garment_job = models.ForeignKey(
         'catalog.GarmentJob', on_delete=models.CASCADE, null=True, blank=True,
         related_name='stages')
@@ -465,26 +430,18 @@ class OrderStage(models.Model):
     )
     performed_by = models.ForeignKey(Tailor, on_delete=models.SET_NULL, null=True, blank=True)
     comments = models.TextField(blank=True, null=True)
-    # The recording behind `comments` when they were dictated -- same idea as
-    # Order.instructions_voice_note. Empty when the note was typed.
+    
     voice_note = models.URLField(max_length=500, blank=True, default='')
-    # Who recorded that note and when, stamped by the server. Cleared with it.
+    
     voice_note_by = models.CharField(max_length=150, blank=True, default='')
     voice_note_at = models.DateTimeField(null=True, blank=True)
-    # The "seen" tick on a submission: who first opened this stage while it
-    # was waiting for verification, and when. Cleared on every new submission,
-    # so a resubmitted piece of work gets its own tick. Read by the worker who
-    # sent it, the way a message shows it has been read.
+    
     verification_seen_by = models.CharField(max_length=150, blank=True, default='')
     verification_seen_at = models.DateTimeField(null=True, blank=True)
     attachments = models.JSONField(default=list, blank=True) # list of image URLs
-    # A supervisor's verdict on individual attachments, keyed by URL:
-    # {url: {'status': 'REJECTED', 'remark': ..., 'by': ..., 'at': ...}}.
-    # A photo with no entry is simply unreviewed. Cleared with the next
-    # submission, like verification_note.
+    
     attachment_reviews = models.JSONField(default=dict, blank=True)
-    # Why a supervisor sent submitted work back. Set on rejection, cleared on
-    # the next submission, so the worker reads it when they reopen the stage.
+    
     verification_note = models.TextField(blank=True, default='')
     sequence = models.IntegerField(default=0)
     sla_hours = models.IntegerField(default=24)
@@ -602,54 +559,28 @@ def get_default_workflow():
     the thing being done. Keys are the workflow's identity and never change.
     """
     return [
-        # No Measurements or Fabric stage: both are taken while the order is
-        # being written up (the wizard measures the customer and picks the
-        # fabric), so they arrive settled and had nothing to do on the
-        # journey but be clicked through. Fabric is reserved from stock the
-        # moment the order is taken instead (crm_api.views confirm_draft).
+       
         {"key": "created", "name": "Order taken", "sla_hours": 12, "roles": ["Owner", "Master"]},
-        # The two paths through the workroom part here. A stage with `flows`
-        # is only on the orders of those flows; one without is on every order.
-        # Plain stitching: cut, then stitch.
-        # `scope: garment`: one row of this stage per garment on the order --
-        # the saree and its blouse are cut and stitched separately. A stage
-        # without it is one row for the whole order.
+        
         {"key": "pattern_cutting", "name": "Cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["stitching"], "scope": "garment"},
-        # Maggam: paper pattern for the embroiderer, the work (handed to the
-        # maggam master from its own stage panel), the Master's sign-off on
-        # it, and only then the fabric is cut.
+       
         {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
         {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar", "Maggam Karigar"], "flows": ["maggam"], "scope": "garment"},
-        # The Maggam Karigar picks up once the design is finished: the frame
-        # work is its own stage so it cannot start before the master's design
-        # is settled, and the Master's sign-off below sees the finished work.
+        
         {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar", "Karigar"], "flows": ["maggam"], "scope": "garment"},
         {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"], "scope": "garment"},
         {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
-        # No Handover stage: whoever stitches -- owner, Master or the assigned
-        # tailor -- is already named on the order or the stage, so a step
-        # that only said "hand it to them" was a click and nothing else.
-        # The Master is on both stitching stages: the generalist in a small
-        # boutique stitches as well as supervises, and the assign picker
-        # reads this list, so leaving them off hid them from it.
-        # The alteration path's one workroom step: a delivered garment back
-        # for changes. Only orders on the 'alteration' flow carry it, and
-        # they carry nothing else from the workroom (workflow.ALTERATION_STAGES).
+        
         {"key": "alteration_work", "name": "Alteration work", "sla_hours": 48, "roles": ["Owner", "Master", "Tailor"], "flows": ["alteration"]},
         {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Master", "Tailor"], "scope": "garment"},
-        # No separate Stitching check either: a tailor's completion already
-        # goes to the owner/Master as PENDING_VERIFICATION, and their sign-off
-        # completes Stitching. Fabric is consumed and the customer status
-        # moves to Quality Check when Stitching completes.
-        {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master"], "scope": "garment"},
+        
+        {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master", "Tailor"], "scope": "garment"},
         {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"], "scope": "garment"},
         {"key": "master_quality_check", "name": "Master quality check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"], "scope": "garment"},
         {"key": "trial_scheduled", "name": "Trial booking", "sla_hours": 48, "roles": ["Owner", "Master"]},
         {"key": "trial_completed", "name": "Trial", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "ready_for_delivery", "name": "Delivery prep", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        # Money before handover. Not a rule the server enforces: the owner may
-        # complete it on a partial payment (the balance is chased at Delivery)
-        # after the screen asks them to say so.
+        
         {"key": "payment", "name": "Payment", "sla_hours": 24, "roles": ["Owner", "Master"]},
         {"key": "delivered", "name": "Delivery", "sla_hours": 12, "roles": ["Owner", "Master"]}
     ]
@@ -666,31 +597,13 @@ class BoutiqueSettings(models.Model):
     customer_messaging_enabled = models.BooleanField(default=True)
     invoice_template = models.CharField(max_length=50, default="classic", blank=True)
 
-    #: How the OWNER distributes the modules this boutique is entitled to among
-    #: its own roles, as {role: {module_key: true/false}}. The platform console
-    #: decides entitlement on BoutiqueTenant.enabled_modules; this decides
-    #: distribution, and entitlement wins.
-    #:
-    #: Sparse, for the same reason enabled_modules is: it stores only the
-    #: decisions an owner actually made. An absent key means "whatever
-    #: core.modules.ROLE_DEFAULTS says", NOT off -- if absence meant off, the
-    #: deploy that adds a module to the registry would switch that module off
-    #: for every role in every boutique at once, and nobody would have made
-    #: that decision.
-    #:
-    #: 'Owner' is never stored here. An owner who could switch off their own
-    #: Inventory would have no screen left to switch it back on, so the write
-    #: path refuses Owner entries and core.modules.role_allows short-circuits
-    #: to True for Owner regardless of what is stored.
     role_modules = models.JSONField(default=dict, blank=True)
 
-    #: Where the shop is, for flagging check-ins made away from it. Set by the
-    #: owner tapping "use my current location" in the shop; null means no
-    #: check-in is flagged. See apps.staff.attendance.check_in.
+    admin_access = models.JSONField(default=dict, blank=True)
+
     shop_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     shop_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
-    #: Indoor phone GPS is routinely 30-100 m off, so a tighter radius flags
-    #: people who are standing at the counter.
+   
     shop_radius_m = models.PositiveIntegerField(default=150)
 
     def __str__(self):

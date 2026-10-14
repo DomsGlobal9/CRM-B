@@ -6,3 +6,6 @@ class TodosConfig(AppConfig):
     name = 'apps.todos'
     label = 'todos'
     verbose_name = 'To-do'
+
+    def ready(self):
+        from . import signals  # noqa: F401 -- to-dos follow their order step

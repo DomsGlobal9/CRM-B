@@ -725,6 +725,20 @@ export const api = {
     return res.json();
   },
 
+  // The one staff member made Admin and the work handed to them (owner only).
+  async getAdminAccess() {
+    const res = await guardedFetch(`${BASE_URL}/boutique-settings/admin-access/`, { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Could not load the admin settings');
+    return res.json();
+  },
+  async saveAdminAccess(body) {
+    const res = await guardedFetch(`${BASE_URL}/boutique-settings/admin-access/`, {
+      method: 'PUT', headers: getHeaders(), body: JSON.stringify(body),
+    });
+    if (!res.ok) await failWith(res, 'Could not save the admin settings');
+    return res.json();
+  },
+
   async submitStageReview(orderId, stage, comments, imageFile, completedBy = 'Boutique Staff') {
     const formData = new FormData();
     formData.append('stage', stage);
@@ -1399,6 +1413,13 @@ export const api = {
     const res = await guardedFetch(`${BASE_URL}/design-studio/preview/`, { headers: getHeaders() });
     if (!res.ok) return false;
     return !!(await res.json()).available;
+  },
+  // { available, garments }: whether drawing is set up, and for which garments.
+  async garmentPreviewInfo() {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/preview/`, { headers: getHeaders() });
+    if (!res.ok) return { available: false, garments: [] };
+    const data = await res.json();
+    return { available: !!data.available, garments: Array.isArray(data.garments) ? data.garments : [] };
   },
   async generateGarmentPreview(payload) {
     const res = await guardedFetch(`${BASE_URL}/design-studio/preview/`, {

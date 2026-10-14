@@ -362,3 +362,37 @@ class SpecifyTypeTests(CatalogTestCase):
         validate_spec(saree, {**base, 'saree_type': 'other', 'saree_type_other': 'Paithani'})
         # Not asked, so not demanded, when a listed type is picked.
         validate_spec(saree, {**base, 'saree_type': 'silk'})
+
+    def test_flare_is_asked_only_for_flared_cuts_and_work_detail_only_with_work(self):
+        from core.templates import is_visible
+
+        def fields(key):
+            template = GarmentTemplate.resolve(key)
+            return {f.key: f for sec in template.sections.all() for f in sec.fields.all()}
+
+        lehenga = fields('lehenga')
+        self.assertTrue(is_visible(lehenga['flare_volume'], {'lehenga_type': 'circular'}))
+        self.assertFalse(is_visible(lehenga['flare_volume'], {'lehenga_type': 'straight_cut'}))
+        self.assertTrue(is_visible(lehenga['flare_from'], {'lehenga_type': 'mermaid'}))
+        self.assertFalse(is_visible(lehenga['flare_from'], {'lehenga_type': 'a_line'}))
+        self.assertFalse(is_visible(fields('gown')['flare_volume'], {'gown_type': 'sheath'}))
+        self.assertNotIn('flare_volume', fields('blouse'))
+        self.assertNotIn('flare_from', fields('kurti'))
+
+        saree = fields('saree')
+        for key in ('hand_work_coverage', 'hand_work_tone', 'hand_work_material_source', 'hand_work_voice_note'):
+            self.assertTrue(is_visible(saree[key], {'hand_work': 'with_work'}), key)
+            self.assertFalse(is_visible(saree[key], {'hand_work': 'none'}), key)
+        self.assertNotIn('hand_work_coverage', fields('petticoat'))
+
+        # Sizes in the counter's words, stored under the values first saved.
+        self.assertEqual([(o.value, o.label) for o in lehenga['flare_volume'].options.all()],
+                         [('low', 'Small'), ('medium', 'Medium'), ('high', 'Big'),
+                          ('full_circle', 'Full Circle')])
+        blouse = fields('blouse')
+        self.assertTrue(is_visible(blouse['peplum_volume'], {'blouse_type': 'peplum'}))
+        self.assertFalse(is_visible(blouse['peplum_volume'], {'blouse_type': 'corset'}))
+        self.assertTrue(is_visible(fields('lehenga_blouse')['peplum_volume'], {'blouse_style': 'peplum'}))
+        petticoat = fields('petticoat')['flare_size']
+        self.assertTrue(petticoat.is_required)
+        self.assertEqual(petticoat.default, 'medium')

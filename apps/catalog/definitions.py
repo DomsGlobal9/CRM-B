@@ -415,6 +415,9 @@ TEMPLATES = [
                 field('flare_type', 'Flare Type', 'select',
                       options=['A-Line', 'Pleats', 'Box Pleats'],
                       when=eq('blouse_type', 'peplum')),
+                field('peplum_volume', 'Peplum Fullness', 'select', default='medium',
+                      options=['Small', 'Medium', 'Big'],
+                      when=eq('blouse_type', 'peplum')),
                 field('layer_count', 'Number of Layers', 'number',
                       validation={'min': 1, 'max': 10, 'step': 1},
                       when=eq('blouse_type', 'ruffled')),
@@ -606,6 +609,9 @@ TEMPLATES = [
                 measurement('flare_length', 'Flare Length', when=eq('blouse_style', 'peplum')),
                 field('flare_type', 'Flare Type', 'select',
                       options=['A-Line', 'Pleats', 'Box Pleats'],
+                      when=eq('blouse_style', 'peplum')),
+                field('peplum_volume', 'Peplum Fullness', 'select', default='medium',
+                      options=['Small', 'Medium', 'Big'],
                       when=eq('blouse_style', 'peplum')),
                 field('layer_count', 'Number of Layers', 'number',
                       validation={'min': 1, 'max': 10, 'step': 1},
@@ -810,6 +816,10 @@ TEMPLATES = [
             ],
             'style': [
                 field('waist_finish', 'Waist Finish', 'multiselect', options=WAIST_FINISH),
+                # Required with a default, as hand work is: asked up front and
+                # already answered, so no order or draft is held up by it.
+                field('flare_size', 'Flare / Ghera', 'select', required=True, default='medium',
+                      options=['Small', 'Medium', 'Big']),
             ],
             'materials': bottom_materials(),
         },
@@ -1816,9 +1826,25 @@ def hand_work_fields(definition):
     gate = field('hand_work', 'Maggam / Hand Work', 'select', required=True, default='none',
                  options=[('none', 'Without Work'), ('with_work', 'With Work')])
     tail = [
+        # What the maggam master prices and plans by: how much of the garment
+        # is covered, the zari tone, and whose stones and zari go on it.
+        field('hand_work_coverage', 'Work Coverage', 'select', default='medium',
+              options=[('light', 'Light (borders / buttis)'), ('medium', 'Medium'),
+                       ('heavy', 'Heavy'), ('bridal', 'Bridal (full coverage)')],
+              when=has_work),
+        field('hand_work_tone', 'Zari / Thread Tone', 'select', default='gold',
+              options=['Gold', 'Antique Gold', 'Silver', 'Copper', 'Multicolour',
+                       ('tone_on_tone', 'Tone-on-Tone (matching fabric)')],
+              when=has_work),
+        field('hand_work_material_source', 'Work Materials From', 'select', default='boutique',
+              options=[('boutique', 'Boutique'), ('customer', 'Customer will provide')],
+              when=has_work),
         field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
               help_text='Thread colour, motif size, what to match.',
               validation={'max_length': 500}, when=has_work),
+        # The spoken version, recorded under the notes on the order form: the
+        # clip's URL, stored with the garment and played on its summary.
+        field('hand_work_voice_note', 'Voice Note for the Maggam Master', 'file', when=has_work),
     ]
     if not part_options:
         return [gate, field('hand_work_kind', kind_label, 'select',
@@ -1854,12 +1880,44 @@ HAND_WORK_MATERIALS = [
 NO_HAND_WORK = {'petticoat'}
 
 
+#: How full the flare is, asked beside the garment's type only for the cuts
+#: that flare: garment key -> (type field, the flared cuts). A straight cut,
+#: a sheath or a churidar is never asked.
+FLARED_CUTS = {
+    'lehenga': ('lehenga_type', ['a_line', 'circular', 'mermaid', 'panelled']),
+    'gown': ('gown_type', ['a_line', 'mermaid', 'ball_gown', 'empire', 'cape_gown']),
+    'anarkali': ('anarkali_type', ['a_line', 'khalis']),
+    'kurti': ('kurti_type', ['a_line', 'khalis']),
+    'suit': ('suit_type', ['a_line', 'anarkali_cut', 'kalidar']),
+    'bottom_wear': ('bottom_type', ['palazzo', 'sharara']),
+}
+
+
+def flare_fields(definition):
+    cut = FLARED_CUTS.get(definition['key'])
+    if cut is None:
+        return []
+    type_field, flared = cut
+    fields = [field('flare_volume', 'Flare / Volume', 'select', default='medium',
+                    # Labels in the counter's words; the stored values stay as first saved.
+                    options=[('low', 'Small'), 'Medium', ('high', 'Big'), ('full_circle', 'Full Circle')],
+                    when=one_of(type_field, flared))]
+    if 'mermaid' in flared:
+        # A mermaid is fitted to the knee and flares from there; where is the cutter's call.
+        fields.append(field('flare_from', 'Flare Starts From', 'select', default='knee',
+                            options=['Above Knee', 'Knee', 'Below Knee'],
+                            when=eq(type_field, 'mermaid')))
+    return fields
+
+
 def build(definition):
     sections = []
     for index, (key, title) in enumerate(SECTION_TITLES):
         fields = list(definition['sections'].get(key, []))
         # Hand work sits with the garment's own basics, right after its type,
         # and ahead of the common trial/urgency questions that fold away.
+        if key == 'basic':
+            fields = fields + flare_fields(definition)
         if key == 'basic' and definition['key'] not in NO_HAND_WORK:
             fields = fields + hand_work_fields(definition)
         fields = fields + COMMON_BY_SECTION.get(key, [])

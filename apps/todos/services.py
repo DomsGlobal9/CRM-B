@@ -151,6 +151,21 @@ def order_work(user, role):
         designs = designs.filter(designer__user_id__in=team)
 
     stages = _current_stages(list(stages))
+    # When each row was handed to its person, from the order's assignment log,
+    # so the newest assignment can lead. Oldest first: the latest one wins.
+    from crm_api.models import OrderActivity
+    handed = {}
+    for a in (OrderActivity.objects
+              .filter(order_id__in={s.order_id for s in stages}, event_type='ASSIGNMENT')
+              .order_by('timestamp').values('order_id', 'metadata', 'timestamp')):
+        m = a['metadata'] or {}
+        handed[(a['order_id'], m.get('stage_key'), m.get('garment_job') or None,
+                str(m.get('assigned_to_id')))] = a['timestamp']
+
+    def assigned_at(s):
+        at = handed.get((s.order_id, s.stage_key, str(s.garment_job_id) if s.garment_job_id else None,
+                         str(s.assigned_to_id)))
+        return at.isoformat() if at else None
 
     def customer(order):
         c = order.customer
@@ -170,6 +185,7 @@ def order_work(user, role):
         'assigned_to': s.assigned_to.user_id,
         'assigned_to_name': s.assigned_to.name,
         'assigned_to_role': s.assigned_to.role,
+        'assigned_at': assigned_at(s),
     } for s in stages]
     rows += [{
         'id': f'design-{d.id}',
@@ -184,6 +200,7 @@ def order_work(user, role):
         'assigned_to': d.designer.user_id,
         'assigned_to_name': d.designer.name,
         'assigned_to_role': DESIGNER,
+        'assigned_at': d.assigned_at.isoformat() if d.assigned_at else None,
     } for d in designs]
     return rows
 

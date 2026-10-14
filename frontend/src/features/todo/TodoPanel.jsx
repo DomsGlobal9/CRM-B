@@ -5,7 +5,7 @@
    Closed. The Owner, a Master and a Designer can also give a to-do to someone
    else. The server decides who sees which to-do and what each person may do;
    this screen only reads the can_* flags it sends back. */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ListTodo, Plus, Calendar, Trash2, Send, UserCheck, CircleDot, Loader2, CheckCircle2, Image as ImageIcon, Mic,
 } from 'lucide-react';
@@ -47,6 +47,59 @@ const errorBox = {
 };
 
 const muted = { fontSize: '12px', color: 'var(--text-muted)' };
+// Work just handed to me, not opened yet: tinted, with a stripe and a NEW tag,
+// the same signal the My work cards give.
+const newHighlight = {
+  background: 'color-mix(in srgb, var(--primary-color) 10%, var(--surface-color))',
+  borderLeft: '5px solid var(--primary-color)', borderRadius: '8px', padding: '6px 10px',
+};
+const newTag = {
+  display: 'inline-flex', alignItems: 'center', padding: '2px 8px', borderRadius: '999px',
+  background: 'var(--primary-color)', color: 'var(--primary-foreground)',
+  fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em',
+};
+// '5 min' / '2 h' / '3 d' ago.
+const ago = (iso) => {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 60) return `${mins} min`;
+  if (mins < 48 * 60) return `${Math.round(mins / 60)} h`;
+  return `${Math.round(mins / 1440)} d`;
+};
+
+/* My own order work, at the top of the page: latest assignment first, the
+   new ones highlighted. A tap opens the to-do for today's work on it. */
+function AssignedToMe({ rows, isNew, onOpen }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
+      <h3 style={{ fontSize: '15px', fontWeight: 600, margin: '0' }}>Assigned to you ({rows.length})</h3>
+      {rows.map((row) => {
+        const fresh = isNew(row);
+        const [label, badge] = WORK_STATUS[row.status] || [row.status, 'info'];
+        return (
+          <button key={row.id} type="button" onClick={() => onOpen(row)}
+                  style={{ ...panel, textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer',
+                           padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '4px',
+                           ...(fresh ? { ...newHighlight, border: '1px solid var(--primary-color)',
+                                         borderLeft: '6px solid var(--primary-color)', padding: '12px 14px' } : {}) }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <strong>{row.task}{row.garment ? ` · ${row.garment}` : ''}</strong>
+              {fresh && <span style={newTag}>NEW</span>}
+              <span className={`ui-badge ui-badge--${badge}`} style={{ marginLeft: 'auto' }}>● {label}</span>
+            </span>
+            <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              {row.order_ref}{row.customer ? ` · ${row.customer}` : ''}
+              {row.due_date ? ` · Due ${formatDate(row.due_date)}` : ''}
+            </span>
+            <span style={muted}>
+              Assigned to you for: <strong style={{ color: 'var(--text-primary)' }}>{row.task}</strong>
+              {row.assigned_at ? ` · ${ago(row.assigned_at)} ago` : ''}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 const attachLabel = {
   display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px',
   fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)',
@@ -423,7 +476,7 @@ const dayOf = (todo) => todo.start_date || localDay(todo.created_at);
 
 /* The to-dos as a table, one day's work per row. With `showStaff` (several
    people on the list at once) each person gets their own row for a day. */
-function DayTable({ todos, showStaff, onOpen }) {
+function DayTable({ todos, showStaff, onOpen, isNew = () => false }) {
   const today = localDay(new Date());
   const rows = useMemo(() => {
     const map = new Map();
@@ -480,14 +533,17 @@ function DayTable({ todos, showStaff, onOpen }) {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {row.items.map((todo) => {
                       const overdue = todo.due_date && todo.status !== 'CLOSED' && todo.due_date < today;
+                      const fresh = isNew(todo);
                       return (
-                        <div key={todo.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div key={todo.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap',
+                                                    ...(fresh ? newHighlight : {}) }}>
                           <button type="button" onClick={() => onOpen(todo.id)}
                                   style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer',
                                            font: 'inherit', fontWeight: 600, color: 'var(--text-primary)',
                                            textAlign: 'left', textDecoration: 'underline', overflowWrap: 'anywhere' }}>
                             {todo.title}
                           </button>
+                          {fresh && <span style={newTag}>NEW</span>}
                           <StatusBadge status={todo.status} />
                           {todo.due_date && (
                             <span style={{ ...muted, display: 'inline-flex', gap: '4px', alignItems: 'center',
@@ -597,12 +653,48 @@ export default function TodoPanel({ currentUser }) {
 
   const meId = currentUser?.id;
   const role = currentUser?.role;
+  // What I have opened of the work handed to me, so the rest stands out as
+  // new. Remembered on this device per person; handed to me again, new again.
+  // shortcut: per device, not per account -- move to the server if staff switch phones.
+  const openedStore = `todo-opened:${meId ?? ''}`;
+  const [opened, setOpened] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(openedStore) || '[]')); } catch { return new Set(); }
+  });
+  const remember = (key) => setOpened((prev) => {
+    if (prev.has(key)) return prev;
+    const next = new Set(prev).add(key);
+    try { localStorage.setItem(openedStore, JSON.stringify([...next].slice(-500))); } catch { /* private mode */ }
+    return next;
+  });
+  const workKey = (row) => `work:${row.id}:${row.assigned_to}`;
+  const todoKey = (todo) => `todo:${todo.id}:${todo.assigned_to}`;
+  // A step's NEW mark is My work's own (wk-opened, "<stage id>:<my staff id>"),
+  // so opening the job in either place clears it in both. A design keeps its own.
+  const stepStore = `wk-opened:${meId ?? ''}`;
+  const [stepsOpened, setStepsOpened] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(stepStore) || '[]')); } catch { return new Set(); }
+  });
+  const stepKey = (row) => `${row.stage_id}:${currentUser?.tailor_id}`;
+  const isNewWork = (row) => (row.kind === 'STAGE' && row.stage_id
+    ? !stepsOpened.has(stepKey(row)) : !opened.has(workKey(row)));
+  const openWork = (row) => {
+    if (!(row.kind === 'STAGE' && row.stage_id)) { remember(workKey(row)); return; }
+    setStepsOpened((prev) => {
+      if (prev.has(stepKey(row))) return prev;
+      const next = new Set(prev).add(stepKey(row));
+      try { localStorage.setItem(stepStore, JSON.stringify([...next].slice(-500))); } catch { /* private mode */ }
+      return next;
+    });
+  };
+  // A to-do somebody else gave me, still open, that I have not opened.
+  const isNewTodo = (todo) => meId != null && todo.assigned_to === meId && todo.created_by !== meId
+    && todo.status !== 'CLOSED' && !opened.has(todoKey(todo));
   // The Owner, a Master and a Designer look at other people's work and pick
   // whose with the staff dropdown; everyone else sees only their own.
   const canPick = !role || role === 'Owner' || role === 'Master' || role === 'Designer';
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (quiet = false) => {
+    if (quiet !== true) setLoading(true);
     setLoadError(null);
     try {
       const [rows, roster, work] = await Promise.all([
@@ -624,6 +716,17 @@ export default function TodoPanel({ currentUser }) {
   useEffect(() => {
     const t = setTimeout(refresh, 0);
     return () => clearTimeout(t);
+  }, [refresh]);
+
+  // Steps move in My work too: reload quietly every minute and on coming back
+  // to the app, but not while a to-do or the add form is open.
+  const busyRef = useRef(false);
+  useEffect(() => { busyRef.current = Boolean(adding || openId); }, [adding, openId]);
+  useEffect(() => {
+    const again = () => { if (!busyRef.current && !document.hidden) refresh(true); };
+    const timer = setInterval(again, 60000);
+    window.addEventListener('focus', again);
+    return () => { clearInterval(timer); window.removeEventListener('focus', again); };
   }, [refresh]);
 
   const replace = (todo) => setTodos((list) => list.map((t) => (t.id === todo.id ? todo : t)));
@@ -660,6 +763,15 @@ export default function TodoPanel({ currentUser }) {
   const shownWork = useMemo(
     () => orderWork.filter((w) => !who || String(w.assigned_to) === who),
     [orderWork, who]);
+  // My own order work leads, latest assignment first (unknown times last);
+  // the table below keeps everyone else's.
+  const myWork = useMemo(
+    () => shownWork.filter((w) => meId != null && String(w.assigned_to) === String(meId))
+      .sort((a, b) => (b.assigned_at || '').localeCompare(a.assigned_at || '')),
+    [shownWork, meId]);
+  const othersWork = useMemo(
+    () => shownWork.filter((w) => !(meId != null && String(w.assigned_to) === String(meId))),
+    [shownWork, meId]);
 
   // A to-do for today's work on an order step, with the title and details
   // filled in from it -- given to the person the step is with, when allowed.
@@ -724,6 +836,11 @@ export default function TodoPanel({ currentUser }) {
 
       {loadError && <div style={errorBox} role="alert">{loadError}</div>}
 
+      {!loading && myWork.length > 0 && (
+        <AssignedToMe rows={myWork} isNew={isNewWork}
+                      onOpen={(row) => { openWork(row); addFromOrderWork(row); }} />
+      )}
+
       {loading ? (
         <Loader />
       ) : shown.length === 0 ? (
@@ -733,18 +850,23 @@ export default function TodoPanel({ currentUser }) {
             : 'Nothing here for this filter.'}
         </div>
       ) : (
-        <DayTable todos={shown} showStaff={canPick && !who} onOpen={setOpenId} />
+        <DayTable todos={shown} showStaff={canPick && !who} isNew={isNewTodo}
+                  onOpen={(id) => {
+                    const todo = todos.find((x) => x.id === id);
+                    if (todo) remember(todoKey(todo));
+                    setOpenId(id);
+                  }} />
       )}
 
-      {!loading && shownWork.length > 0 && (
+      {!loading && othersWork.length > 0 && (
         <>
           <h3 style={{ fontSize: '15px', fontWeight: 600, margin: '24px 0 4px' }}>
-            Order work ({shownWork.length})
+            Order work ({othersWork.length})
           </h3>
           <div style={{ ...muted, marginBottom: '10px' }}>
             The step each order is at now. Tap a task to add today&apos;s update on it as a to-do.
           </div>
-          <OrderWorkTable rows={shownWork} showStaff={canPick && !who} onOpen={addFromOrderWork} />
+          <OrderWorkTable rows={othersWork} showStaff={canPick && !who} onOpen={addFromOrderWork} />
         </>
       )}
 

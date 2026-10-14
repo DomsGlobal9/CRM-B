@@ -680,7 +680,10 @@ class GarmentPreviewView(views.APIView):
 
     def get(self, request):
         from . import generate
-        return Response({'available': generate.available()})
+        from .web_search import GARMENT_IDS
+        # `garments`: the template keys the service can draw, so the wizard
+        # offers a plain front-and-back picture only where it will work.
+        return Response({'available': generate.available(), 'garments': sorted(GARMENT_IDS)})
 
     def post(self, request):
         from django.db import connection
@@ -713,12 +716,17 @@ class GarmentPreviewView(views.APIView):
                 notes=str(data.get('notes') or ''),
                 product_name=str(data.get('product_name') or ''),
                 model_image=str(data.get('model_image') or ''),
+                views=data.get('views') if isinstance(data.get('views'), list) else None,
+                measurements=data.get('measurements'),
             )
             result = generate.generate(generate.resolve_images(payload))
-            saved = generate.keep(result.pop('image'))
+            result['images'] = {
+                view: request.build_absolute_uri(default_storage.url(generate.keep(uri)))
+                for view, uri in result['images'].items()}
         except DiscoveryError as exc:
             return Response({'error': str(exc)}, status=exc.status)
-        result['image_url'] = request.build_absolute_uri(default_storage.url(saved))
+        # image_url stays the primary photograph (front, or the one side asked for).
+        result['image_url'] = next(iter(result['images'].values()))
         return Response(result, status=status.HTTP_201_CREATED)
 
 
@@ -798,6 +806,14 @@ class DesignerViewSet(viewsets.ModelViewSet):
         if getattr(user, 'tailor_profile', None) is not None:
             return
         user.delete()
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        # Every designer gets their roster row up front, not on their first
+        # visit to Attendance: production stages (Design) are assigned to it.
+        from apps.staff.views import _designer_attendance_row
+        designer = serializer.save()
+        _designer_attendance_row(designer, designer.user)
 
     def get_queryset(self):
         queryset = Designer.objects.annotate(design_count=Count('designs'))

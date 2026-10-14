@@ -33,6 +33,11 @@ const STATUS_LABELS = {
 };
 
 const isOpenOrder = (o) => !CLOSED.includes(o.order_status);
+// The owner's Workshop list: an open order whose work has begun past "created"
+// (App.jsx orderBucket). Masters and Designers run the floor, so their My work
+// shows the same orders.
+const inWorkshop = (o) => isOpenOrder(o) && (o.stages || []).some((st) => st.stage_key !== 'created'
+  && !['NOT_STARTED', 'SKIPPED'].includes(st.status));
 const humanise = (key) => String(key || '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 const statusLabel = (status, t) => { const [k, d] = STATUS_LABELS[status] || []; return k ? t(k, d) : String(status || ''); };
 // Orders written before garment jobs existed name their garment on the order.
@@ -57,6 +62,9 @@ function ago(ts, t) {
 const stageActivities = (order, stage) =>
   (order.activities || []).filter((a) => a.metadata?.stage_key === stage.stage_key
     && (!stage.garment_job || !a.metadata?.garment_job || a.metadata.garment_job === stage.garment_job));
+// The latest "assigned to <me>" on this row: when it was handed over.
+const assignedToMe = (order, stage, me) => stageActivities(order, stage)
+  .find((a) => a.event_type === 'ASSIGNMENT' && String(a.metadata?.assigned_to_id) === String(me));
 const submittedAt = (order, stage) =>
   stageActivities(order, stage).find((a) => a.metadata?.new_status === 'PENDING_VERIFICATION')?.timestamp
   || stageActivities(order, stage)[0]?.timestamp || stage.started_at;
@@ -137,6 +145,65 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   const [open, setOpen] = useState(null); // { orderId, stageKey }
   const [seen, setSeen] = useState(() => new Set()); // 'orderId:stageKey' ticked this session
   const [toast, setToast] = useState('');
+  // Work handed to me that I have not opened yet is marked NEW, so a fresh
+  // assignment stands out from the jobs already on my list. Opened jobs are
+  // remembered on this device per person; a job handed back to me counts again.
+  // shortcut: remembered per device, not per account -- move to the server if staff share or switch phones.
+  const openedStore = `wk-opened:${currentUser?.id ?? ''}`;
+  const [opened, setOpened] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(openedStore) || '[]')); } catch { return new Set(); }
+  });
+  const openedId = (stage) => `${stage.id}:${stage.assigned_to}`;
+  const isNew = (order, stage) => view === 'open' && me != null && stage.assigned_to === me
+    && !FINISHED.includes(stage.status) && stage.status !== 'PENDING_VERIFICATION'
+    && !opened.has(openedId(stage))
+    // Not moved by me: a step someone else started for me is still new to me.
+    && !stageActivities(order, stage).some((a) => a.event_type === 'STAGE_TRANSITION' && a.user === currentUser?.id);
+  const markOpened = (order, stage) => {
+    if (!isNew(order, stage)) return;
+    setOpened((prev) => {
+      const next = new Set(prev).add(openedId(stage));
+      try { localStorage.setItem(openedStore, JSON.stringify([...next].slice(-500))); } catch { /* private mode */ }
+      return next;
+    });
+  };
+  // My open to-dos (apps/todos), shown under the order work so a task handed
+  // to me is on the screen I work from, not only on the To-do tab.
+  const [tasks, setTasks] = useState([]);
+  const [taskBusy, setTaskBusy] = useState(null);
+  const loadTasks = () => api.getTodos()
+    .then((rows) => setTasks((Array.isArray(rows) ? rows : rows?.results || [])
+      // A to-do made from an order step is already here as that step's card.
+      .filter((td) => td.status !== 'CLOSED' && td.assigned_to === currentUser?.id && !td.order_stage)))
+    .catch(() => setTasks([]));
+  useEffect(() => {
+    if (view === 'open') loadTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, currentUser?.id, orders]);
+  const moveTask = async (task, status) => {
+    setTaskBusy(task.id);
+    try {
+      await api.setTodoStatus(task.id, status);
+      setToast(status === 'CLOSED' ? t('workPage.taskDone', 'Task done') : t('workPage.taskStarted', 'Task started'));
+      await loadTasks();
+    } catch (e) {
+      setToast(e.message || t('workPage.taskFailed', 'Could not update the task'));
+    } finally {
+      setTaskBusy(null);
+    }
+  };
+
+  // To-dos move steps too: reload quietly every minute and on coming back to
+  // the app, but not while a job is open.
+  const openRef = useRef(null);
+  useEffect(() => { openRef.current = open; }, [open]);
+  useEffect(() => {
+    if (!onChanged) return undefined;
+    const again = () => { if (!openRef.current && !document.hidden) onChanged(); };
+    const timer = setInterval(again, 60000);
+    window.addEventListener('focus', again);
+    return () => { clearInterval(timer); window.removeEventListener('focus', again); };
+  }, [onChanged]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -155,6 +222,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   const isMine = (order, s) => s.assigned_to === me
     || (rolesFor(s.stage_key).includes(currentUser?.role) && s.assigned_to == null
         && (order.tailor === me || order.master === me || currentUser?.role !== 'Tailor'));
+  // On My work a supervisor sees every Workshop order's work, whoever holds it.
+  const isListed = (order, s) => isMine(order, s) || (view === 'open' && isSupervisor && inWorkshop(order));
   // Earlier work on this garment (and the order-level stages) must be finished.
   const isReady = (order, s) => (order.stages || []).every((o) => o.sequence >= s.sequence || FINISHED.includes(o.status)
     || (o.garment_job && s.garment_job && o.garment_job !== s.garment_job));
@@ -169,7 +238,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           if (isOpenOrder(order) && stage.status === 'PENDING_VERIFICATION') out.push({ order, stage, at: submittedAt(order, stage) });
           return;
         }
-        if (!isMine(order, stage)) return;
+        if (!isListed(order, stage)) return;
         const finished = FINISHED.includes(stage.status);
         if (view === 'done') { if (finished) out.push({ order, stage, at: stage.completed_at || stage.started_at }); return; }
         if (finished || !isOpenOrder(order)) return;
@@ -200,9 +269,12 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     : isExpressOrder(order));
 
   const card = ({ order, stage }, extra) => (
-    <button type="button" key={`${order.id}-${stage.id}`} className={`wk-card${stageIsExpress(order, stage) ? ' gh-express' : ''}`} onClick={() => setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null })}>
+    <button type="button" key={`${order.id}-${stage.id}`} className={`wk-card${stageIsExpress(order, stage) ? ' gh-express' : ''}${isNew(order, stage) ? ' wk-card--new' : ''}`} onClick={() => { markOpened(order, stage); setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null }); }}>
       <div className="wk-card-head">
         <div className="wk-card-title">{jobTitle(order, stage, t)}
+          {isNew(order, stage) && (
+            <span className="wk-new-tag" title={t('workPage.newHint', 'Assigned to you, not opened yet')}>{t('workPage.new', 'NEW')}</span>
+          )}
           {stageIsExpress(order, stage) && (
             <span className="gh-express-tag" title={expressLabel(order)}>EXPRESS</span>
           )}
@@ -218,12 +290,66 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
 
   let body;
   if (view === 'open') {
+    const taskSection = tasks.length > 0 && (
+      <section className="wk-group">
+        <h3 className="wk-group-title">{t('workPage.tasks', 'Tasks')} <span className="wk-count">{tasks.length}</span></h3>
+        {tasks.map((task) => (
+          <div key={`todo-${task.id}`} className="wk-card">
+            <div className="wk-card-head">
+              <div className="wk-card-title">{task.title}</div>
+              <span className={`ui-badge ui-badge--${task.status === 'IN_PROGRESS' ? 'warning' : 'neutral'}`}>
+                {task.status === 'IN_PROGRESS' ? t('workPage.inProgress', 'In progress') : t('workPage.statusTodo', 'To do')}
+              </span>
+            </div>
+            <div className="wk-card-sub">
+              {task.created_by_name && t('workPage.taskFrom', 'From {who}', { who: task.created_by_name })}
+              {task.due_date && <> · {t('workPage.due', 'Due')} {formatDate(task.due_date)}</>}
+            </div>
+            {task.description && <div className="wk-card-note">{String(task.description).split('\n')[0]}</div>}
+            {task.can_change_status !== false && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                {task.status === 'OPEN' && (
+                  <button type="button" className="btn-secondary at-btn-sm" disabled={taskBusy === task.id}
+                          onClick={() => moveTask(task, 'IN_PROGRESS')}>{t('workPage.startTask', 'Start')}</button>
+                )}
+                <button type="button" className="btn-primary at-btn-sm" disabled={taskBusy === task.id}
+                        onClick={() => moveTask(task, 'CLOSED')}>{t('workPage.markDone', 'Mark done')}</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </section>
+    );
+    // Work just handed to me leads the list, latest assignment first: the
+    // card highlighted, saying what it was assigned for. Opened once, it
+    // goes back to its own place under "Do now" or "Next".
+    const assignedAt = ({ order, stage }) => new Date(
+      assignedToMe(order, stage, me)?.timestamp || order.activities?.[0]?.timestamp || order.order_date || 0);
+    const newOnTop = items.filter((i) => (i.group === 'next' || i.group === 'now') && isNew(i.order, i.stage))
+      .sort((a, b) => assignedAt(b) - assignedAt(a));
+    const newSection = newOnTop.length > 0 && (
+      <section className="wk-group">
+        {newOnTop.map((it) => card(it, {
+          chip: it.group === 'now'
+            ? <span className="ui-badge ui-badge--warning">{t('workPage.inProgress', 'In progress')}</span>
+            : <span className="ui-badge ui-badge--neutral">{t('workPage.ready', 'Ready')}</span>,
+          meta: it.order.estimated_delivery && <span>{t('workPage.due', 'Due')} {formatDate(it.order.estimated_delivery)}</span>,
+          body: (
+            <div className="wk-assigned-for">
+              {t('workPage.assignedFor', 'Assigned to you for:')}{' '}
+              <strong>{it.stage.stage_name || humanise(it.stage.stage_key)}</strong>
+              {it.stage.garment_name && <> ({it.stage.garment_name})</>}
+            </div>
+          ),
+        }))}
+      </section>
+    );
     const groups = [
       ['now', t('workPage.doNow', 'Do now')],
       ['next', t('workPage.next', 'Next')],
       ['waiting', t('workPage.waitingForMaster', 'Waiting for the master')],
     ];
-    body = items.length === 0
+    body = items.length === 0 && !taskSection && !newSection
       ? (
         <div className="wk-empty">
           {later
@@ -233,8 +359,10 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       )
       : (
         <>
+          {newSection}
+          {taskSection}
           {groups.map(([key, label]) => {
-            const list = items.filter((i) => i.group === key);
+            const list = items.filter((i) => i.group === key && !((key === 'next' || key === 'now') && isNew(i.order, i.stage)));
             if (!list.length) return null;
             return (
               <section key={key} className="wk-group">
@@ -496,6 +624,37 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
     </section>
   );
 
+  // Photos kept on the earlier steps of this garment (and the order's own
+  // steps): what was cut, worked or stitched before this one reached me.
+  const earlier = (order.stages || [])
+    .filter((o) => o.id !== stage.id && o.sequence < stage.sequence && (o.attachments || []).length > 0
+      && !(o.garment_job && stage.garment_job && o.garment_job !== stage.garment_job))
+    .sort((a, b) => a.sequence - b.sequence);
+  const earlierItems = earlier.flatMap((o) => o.attachments.map((u, i) => ({
+    image_url: resolveMediaUrl(u), label: `${o.stage_name || humanise(o.stage_key)} · ${t('workPage.photo', 'Photo')} ${i + 1}`,
+  })));
+  const earlierPhotos = earlierItems.length > 0 && (
+    <section className="wk-section">
+      <h3 className="wk-section-title">{t('workPage.earlierPhotos', 'Photos from earlier steps')}</h3>
+      {earlier.map((o) => (
+        <div key={o.id} className="wk-gap">
+          <div className="wk-sub">{o.stage_name || humanise(o.stage_key)}{o.performed_by_name ? ` · ${o.performed_by_name}` : ''}</div>
+          <div className="wk-photos">
+            {o.attachments.map((u) => {
+              const index = earlierItems.findIndex((it) => it.image_url === resolveMediaUrl(u));
+              return (
+                <span key={u} role="button" tabIndex={0} onClick={() => setView({ items: earlierItems, index })}
+                      onKeyDown={(e) => e.key === 'Enter' && setView({ items: earlierItems, index })}>
+                  <PhotoTile src={resolveMediaUrl(u)} size={80} />
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </section>
+  );
+
   let head = null;
   if (mode === 'work' && stage.verification_note && stage.status === 'IN_PROGRESS') {
     head = (
@@ -570,11 +729,13 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
                 <summary>{t('workPage.whatWasAsked', 'What was asked')}</summary>
                 <div className="wk-details-body wk-gap">{whatToMake}</div>
               </details>
+              {earlierPhotos}
             </>
           ) : (
             <>
               {whatToMake}
               {workSoFar}
+              {earlierPhotos}
             </>
           )}
           {actions}

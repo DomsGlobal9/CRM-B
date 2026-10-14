@@ -21,9 +21,7 @@ export default function CountryPhoneInput({ id, country = DEFAULT_COUNTRY, onCou
     onChange(cleanNational(country, raw));
   };
   const option = (c) => <option key={c.iso} value={c.iso}>{c.name} (+{c.dial})</option>;
-  // The layout is set here as well as in index.css (.cp-*): the code and the
-  // number must sit on one row even where a stale or overriding stylesheet
-  // would otherwise stack them.
+  
   return (
     <div className="cp-field" style={{ display: 'flex', flexDirection: 'row', alignItems: 'stretch', width: '100%', minWidth: 0 }}>
       <label className="cp-country" title={`${current.name} (+${current.dial})`}

@@ -548,6 +548,7 @@ class IntakeTests(PortalTestCase):
             customer = Customer.objects.get(mobile_number='919876543210')
         self.assertEqual(customer.first_name, 'Asha')
         self.assertEqual(customer.source, 'Website')
+        self.assertTrue(customer.is_lead)
 
     def test_an_unverified_request_cannot_create_anything(self):
         res = self.client.post(

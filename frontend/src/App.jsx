@@ -9,6 +9,7 @@ import {
 } from './services/format';
 
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
+const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
 import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
@@ -25,6 +26,8 @@ const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const TodoPanel = lazy(() => import('./features/todo/TodoPanel'));
+// The maggam master's notes get a recorder underneath, as the special instructions do.
+const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
 import GarmentPurchases from './features/catalog/GarmentPurchases';
@@ -44,6 +47,7 @@ import { expressLabel, isExpressOrder } from './features/orders/express';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import { formatInternational } from './services/phone';
 import useAutosave from './hooks/useAutosave';
+import { followerOf, syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
 import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
@@ -189,7 +193,6 @@ const UserAvatar = ({ user, size }) => {
 
 const TIERS = ['Platinum', 'Gold', 'Silver'];
 
-// Customers per page in the customer book: 20 to 50.
 const CUSTOMER_PAGE_SIZES = [20, 30, 40, 50];
 /** Page numbers to show: the first, the last, and the current one with its
  *  neighbours; a gap between them is drawn as '…'. */
@@ -378,7 +381,6 @@ const formatMobile = (raw) => {
     return `+91 ${n.slice(0, 5)} ${n.slice(5)}`;
   }
   if (digits.length === 10) return `${digits.slice(0, 5)} ${digits.slice(5)}`;
-  // A foreign number is stored as its digits; show it with its + and code.
   return formatInternational(raw);
 };
 
@@ -1449,6 +1451,7 @@ const navSectionsFor = (user, t) => {
       ] },
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
+        { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.designStudio'), phone: true },
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
@@ -1463,6 +1466,17 @@ const navSectionsFor = (user, t) => {
         { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ];
+
+  // The owner's Admin also gets the sections of the work handed to them
+  // (user.admin_tasks, e.g. 'orders.create'), ahead of their own menu.
+  const handed = new Set((user?.admin_tasks || []).map((task) => task.split('.')[0]));
+  const own = new Set(sections.flatMap((section) => section.items.map((i) => i.tab)));
+  const adminItems = [
+    { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
+    { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
+    { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
+  ].filter((item) => handed.has(item.tab) && !own.has(item.tab));
+  if (adminItems.length) sections.unshift({ key: 'admin', label: t('nav.groups.admin', 'Admin'), items: adminItems });
 
   const roomy = !role || role === 'Owner' || SUPERVISOR_ROLES.includes(role);
   return [...sections, { key: 'session', divider: true, label: t('nav.groups.account', 'Account'), items: [
@@ -1538,13 +1552,6 @@ function PortalMenu({ sections, activeTab, onPick, collapsed = false, hints = {}
 }
 
 
-// The boutique portal path in the URL bar: '/saralaboutique' -> 'saralaboutique'.
-// '' for /app, for the bare origin, and for anything deeper than one segment,
-// all of which are the slug-less entry point rather than a boutique's own URL.
-//
-// This is read to LABEL the screen and to put the URL right after a sign-in.
-// It is never written to tenant_id: which boutique a request reads is decided
-// by its token, so typing another boutique's slug cannot reach that boutique.
 function portalSlugFromPath() {
   const segments = window.location.pathname.split('/').filter(Boolean);
   if (segments.length !== 1) return '';
@@ -1552,18 +1559,13 @@ function portalSlugFromPath() {
   try {
     only = decodeURIComponent(only).toLowerCase();
   } catch {
-    return '';  // a malformed escape is not a slug
+    return '';  
   }
   return /^[a-z0-9]+$/.test(only) && only !== 'app' ? only : '';
 }
 
 function App() {
   
-  // /app and /<shop_slug> sign in; /app?register registers a boutique. Sign-in
-  // is the default because it is what almost everyone arriving here wants, and
-  // it needs no slug: the server finds the boutique from the email
-  // (find_tenants_for_account), the slug only breaks ties. A reset link wins
-  // over all of these, because it carries its own boutique inside the token.
   const [view, setView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('reset')) return 'reset';
@@ -1581,9 +1583,6 @@ function App() {
 
   useEffect(() => { applyTenantTheme(currentUser); }, [currentUser]);
 
-  // The boutique the URL path names. Resolved before the sign-in screen is
-  // offered, so a slug nobody owns says so instead of showing a login form
-  // that cannot belong to anybody.
   const [portalSlug] = useState(portalSlugFromPath);
   const [portalBoutique, setPortalBoutique] = useState(null);
   const [portalLookupDone, setPortalLookupDone] = useState(() => !portalSlugFromPath());
@@ -1599,19 +1598,11 @@ function App() {
     return () => { live = false; };
   }, [portalSlug]);
 
-  // Only while signed out: an existing session is answered by the server, and
-  // a stale or renamed slug must not hide the workspace it already restored.
+
   const boutiqueNotFound = !!portalSlug && portalLookupDone
                            && !portalBoutique && !currentUser;
 
-  // Once there is a session, make the URL bar agree with the boutique it is
-  // signed in to. Someone who arrives at /app, or at another boutique's slug,
-  // has the wrong address rather than the wrong session -- the token already
-  // settled which boutique they are in, so this corrects the label.
-  //
-  // replaceState rather than pushState, so the correction is not a history
-  // entry Back can return to, and the search string is carried over because
-  // the reset flow has already taken what it needed from it.
+
   useEffect(() => {
     const slug = currentUser?.shop_slug;
     if (!slug || portalSlugFromPath() === slug) return;
@@ -1694,8 +1685,6 @@ function App() {
   
   const [addingGarmentKey, setAddingGarmentKey] = useState(null);
   const [activeGarmentKey, setActiveGarmentKey] = useState(null);
-  // The Garments step takes one garment at a time: its details, then its
-  // design and fabric under them. `garmentsDone` are the ones moved past.
   const [garmentsDone, setGarmentsDone] = useState([]);
 
   useEffect(() => {
@@ -1712,7 +1701,12 @@ function App() {
   const [alterationForm, setAlterationForm] = useState(EMPTY_ALTERATION);
   
   const [garmentTemplates, setGarmentTemplates] = useState([]);
-  const [garmentJobs, setGarmentJobs] = useState([]);
+  const [garmentJobs, setGarmentJobsState] = useState([]);
+
+  const setGarmentJobs = useCallback((update) => setGarmentJobsState((prev) => {
+    const next = typeof update === 'function' ? update(prev) : update;
+    return syncFollowers(next) || next;
+  }), []);
   const [activePairingGarment, setActivePairingGarment] = useState(null);
   const [draftId, setDraftId] = useState(null);
   const [draftVersion, setDraftVersion] = useState(null);
@@ -1783,7 +1777,9 @@ function App() {
   }, [currentUser, loadGarmentTemplates]);
 
   const addGarment = async (key, skipPairingPrompt = false, allowAnother = false, pairedWith = null) => {
-    const taken = garmentJobs.some(job => job.key === key);
+    // By template: a garment's own key carries a suffix once it is not the
+    // first of its kind (a pairing, a copy, a resumed draft).
+    const taken = garmentJobs.some(job => job.key === key || job.template?.key === key);
     if (taken && !allowAnother) return;
     if (addingGarmentKey) return;
     setAddingGarmentKey(key);
@@ -1800,6 +1796,7 @@ function App() {
       if (!skipPairingPrompt && getGarmentPairConfig(key, template.name)) {
         setActivePairingGarment({ key, name: template.name, jobKey });
       }
+      return jobKey;
     } catch (err) {
       console.error(err);
       alert('Could not load that garment form.');
@@ -1846,14 +1843,7 @@ function App() {
     setGarmentJobs(prev => prev.map(job => (job.key === key ? { ...job, values } : job)));
   };
 
-  /** How much of a chosen material this dress needs, keyed by template field. */
-
-  /** Where one material comes from: boutique stock, or the customer's own. */
-
-  /** What the customer brought for one material -- its name and its unit. */
-
-  /** A material line nobody has spoken for yet comes from stock. The
-   *  per-line source is set on the line itself. */
+  
   const defaultMaterialSource = () => 'STORE';
 
   /** The material fields on a template, with the item chosen for each.
@@ -2040,8 +2030,6 @@ function App() {
       staff: { tailor_id: null, master_id: null },
       prices: quotePrices,
       delivery: { method: 'Direct Pickup' },
-      // The advance decides the payment status on the server; `option` is kept
-      // for older readers of the draft.
       payment: { option: total > 0 && advance >= total ? 'full' : 'partial', advance },
       special_instructions: specialInstructions,
       instructions_voice_note: measureVoiceNote?.url || '',
@@ -2119,9 +2107,7 @@ function App() {
     setDraftSaveState('idle');
     setGarmentErrors({});
     
-    // By name where the draft says; a draft from before Design and Fabric
-    // moved into the garments only has its old number (who, type, design,
-    // fabric, measure, ...), so 2-4 are the garments now.
+    
     const steps = WIZARD_STEPS[kind];
     const named = steps.findIndex(st => st.key === wizard_cursor?.step_key) + 1;
     const old = draft.current_step || 1;
@@ -2147,8 +2133,7 @@ function App() {
    */
   const persistDraft = async ({ step, cursor = {} } = {}) => {
     const current_step = step || currentStep;
-    // Where to pick up: the step by name (step numbers shift when steps
-    // change), and inside the garments which one, which part, which are done.
+   
     const payload = {
       ...serialiseWizard(),
       wizard_cursor: {
@@ -2209,6 +2194,8 @@ function App() {
   // Backend fetched collections
   const [dashboardData, setDashboardData] = useState(null);
   const [tailors, setTailors] = useState([]);
+  
+  const [designerStaff, setDesignerStaff] = useState([]);
   const [completingAllOrderId, setCompletingAllOrderId] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
@@ -2221,7 +2208,7 @@ function App() {
   const [fabrics, setFabrics] = useState([]);
   const [allDesigns, setAllDesigns] = useState([]);
   const [customersList, setCustomersList] = useState([]);
-  // The "Stitch for the boutique" dialog on the New order screen.
+  
   const [startingBoutiqueRun, setStartingBoutiqueRun] = useState(false);
   const [ordersList, setOrdersList] = useState([]);
   const [queuedMessages, setQueuedMessages] = useState([]);
@@ -2231,15 +2218,13 @@ function App() {
   const [sendError, setSendError] = useState('');
   const [sendBusy, setSendBusy] = useState(false);
 
-  // Existing Customer Search Modal
   const [allCustomers, setAllCustomers] = useState([]);
 
-  // Search & Filters for dashboard
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
+  const [customerView, setCustomerView] = useState('customers');
   const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
   const [customerPageSize, setCustomerPageSize] = useState(CUSTOMER_PAGE_SIZES[0]);
-  // Country code, first letter, orders, measurements... (CustomerFilters).
   const [customerFilters, setCustomerFilters] = useState(EMPTY_CUSTOMER_FILTERS);
   const [ordersSearch, setOrdersSearch] = useState('');
   const [ordersTabPick, setOrdersFilterTab] = useState(null);
@@ -2404,30 +2389,7 @@ function App() {
     }
   };
 
-  // Model display parked — see task 16
-  // const getDrapedPreviewImage = (fabric, designUrl) => {
-  // const color = fabric?.color?.toLowerCase() || '';
-  // if (color.includes('rose') || color.includes('pink')) {
-  // return 'https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600';
-  // }
-  // if (color.includes('gold') || color.includes('yellow')) {
-  // return 'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=600';
-  // }
-  // if (color.includes('black') || color.includes('charcoal')) {
-  // return 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600';
-  // }
-  // if (color.includes('blue')) {
-  // return 'https://images.unsplash.com/photo-1539008835657-9e8e62c8425b?w=600';
-  // }
-  // if (color.includes('green') || color.includes('olive')) {
-  // return 'https://images.unsplash.com/photo-1605721911519-3dfeb3be25e7?w=600';
-  // }
-  // return 'https://images.unsplash.com/photo-1518049368264-7a13d7825d19?w=600';
-  // };
 
-  // Each collection paints as soon as its own request lands rather than waiting on
-  // the slowest one, and a failed request is reported instead of leaving the panel
-  // looking like an empty boutique.
   const fetchDashboardAndConfig = async (user = currentUser) => {
     setLoading(true);
     setLoadErrors([]);
@@ -2442,18 +2404,7 @@ function App() {
       }
     };
 
-    // Concurrently, which is what the note above always claimed: every one of
-    // these reads a different endpoint and none of them looks at state another
-    // one writes, so awaiting them one after another only added up their
-    // latencies. Against a database a region away that was nine round trips in
-    // series before the first screen was usable. Each still applies its own
-    // result the moment it lands and still reports its own failure by name --
-    // load() swallows per-collection errors, so one slow or broken endpoint
-    // cannot hold up or fail the rest.
-    //
-    // Which requests are made is UNCHANGED: the same hasModule gates, the same
-    // Owner-only check on queued messages. A role that could not fetch a
-    // collection before still does not fetch it, and the server still decides.
+    
     await Promise.all([
       load('dashboard', api.getDashboard, (data) => {
         setDashboardData(data);
@@ -2473,6 +2424,10 @@ function App() {
       load('orders', api.getOrders, setOrdersList),
 
       hasModule(user, 'tailors') && load('tailors', api.getTailors, setTailors),
+      // Silent on failure: the only cost is no designers in the Design stage's assign list.
+      hasModule(user, 'tailors') && api.getTailors({ forAttendance: true })
+        .then((rows) => setDesignerStaff((rows || []).filter(t => t.role === 'Designer')))
+        .catch(() => {}),
       hasModule(user, 'scheduling') && load('appointments', () => api.getAppointments({ upcoming: 'true' }), setAppointments),
       hasModule(user, 'inventory') && load('fabrics', () => api.getInventoryItems({ picker: 'true' }), setFabrics),
       hasModule(user, 'design_studio') && load('designs', api.getAllBoutiqueDesigns, setAllDesigns),
@@ -2484,7 +2439,7 @@ function App() {
 
       hasModule(user, 'notifications') && load('notifications', () => fetchNotifications(user), () => {}),
 
-      (!user?.role || user.role === 'Owner')
+      (!user?.role || user.role === 'Owner' || (user.admin_tasks || []).includes('orders.notify'))
         && load('customer messages', api.getQueuedCustomerMessages, setQueuedMessages),
     ]);
 
@@ -2554,8 +2509,6 @@ function App() {
   const blankAppointmentForm = {
     customer: '', appointment_type: 'TRIAL', custom_type: '', scheduled_time: '',
     assigned_staff: '', notes: '', status: 'SCHEDULED',
-    // Booking for somebody not in the book yet: the three things the counter
-    // has at the door. Sent as `new_customer`; the server writes the customer.
     isNewCustomer: false, new_first_name: '', new_last_name: '', new_mobile: '', new_gender: '',
   };
 
@@ -2797,12 +2750,7 @@ function App() {
     }
   };
 
-  // Takes whatever someone types for their boutique and reduces it to a slug:
-  // the boutique's name, its address, or the whole URL pasted out of an old
-  // email all have to arrive at the same answer. The last path segment first,
-  // so a pasted link does not become one long word, then the same
-  // lowercase-alphanumeric rule the server generated the slug with
-  // (tenants/slugs.py).
+  
   const slugFromTyped = (raw) => {
     const typed = (raw || '').trim().split(/[?#]/)[0];
     const tail = typed.split('/').filter(Boolean).pop() || '';
@@ -2825,9 +2773,7 @@ function App() {
       setFindBusy(false);
       return;
     }
-    // A real navigation, not setView: the boutique's own address has to end up
-    // in the URL bar so a refresh, a bookmark and the back button all keep
-    // working from here on.
+   
     window.location.href = `/${found.shop_slug}`;
   };
 
@@ -2941,8 +2887,7 @@ function App() {
   const handleStartNewCustomer = () => setCustomerAddMode('choose');
 
   const [customerAddMode, setCustomerAddMode] = useState(null);
-  // The Owner's edit / delete on the customer book. The server holds the same
-  // rule: PATCH and DELETE on /customers/ are refused to every other role.
+  
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [deletingAllCustomers, setDeletingAllCustomers] = useState(false);
   const [customerActionId, setCustomerActionId] = useState(null);
@@ -2966,6 +2911,18 @@ function App() {
     try {
       await api.deleteCustomer(row.id);
       setSelectedDirectoryCustomer((current) => (current && current.id === row.id ? null : current));
+      await fetchDashboardAndConfig();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCustomerActionId(null);
+    }
+  };
+  const handleMarkLeadContacted = async (row) => {
+    if (customerActionId) return;
+    setCustomerActionId(row.id);
+    try {
+      await api.updateCustomer(row.id, { is_lead: false });
       await fetchDashboardAndConfig();
     } catch (err) {
       alert(err.message);
@@ -3003,10 +2960,14 @@ function App() {
     setView('dashboard');
   };
 
-  const jumpToStep = useCallback((n) => {
-    if (n === currentStep || n > maxStepReached) return;
+  
+  const canJumpAhead = serviceType !== 'alter';
+  const jumpToStep = (n) => {
+    if (n === currentStep || (n > maxStepReached && !canJumpAhead)) return;
+    if (wizardStepKey === 'measure') rememberMeasurements();
+    if (wizardSteps[n - 1]?.key === 'measure') prefillMeasurements();
     reachStep(n);
-  }, [currentStep, maxStepReached, reachStep]);
+  };
   const wizardSteps = WIZARD_STEPS[serviceType] || WIZARD_STEPS.stitch;
   useEffect(() => {
     document.querySelector('.wizard-header-container [aria-current="step"]')
@@ -3020,6 +2981,41 @@ function App() {
     setActiveGarmentKey(key);
     window.scrollTo(0, 0);
   };
+  /** "Saree 2" when the order has more than one saree; just "Saree" otherwise. */
+  const garmentLabel = (job) => {
+    const name = job.template?.name || job.key;
+    const same = garmentJobs.filter(j => j.template?.key === job.template?.key);
+    return same.length > 1 ? `${name} ${same.findIndex(j => j.key === job.key) + 1}` : name;
+  };
+  /** One more of this garment, same design: a follower placed after the
+   *  garment and its other followers. Whatever is filled on the garment is
+   *  copied to it as the staff go (the effect below); changing the follower
+   *  itself makes it its own design. A paired blouse comes along if wanted. */
+  const copyGarment = (key) => {
+    const source = garmentJobs.find(job => job.key === key);
+    if (!source) return;
+    const paired = garmentJobs.filter(job => job.pairedWith === key);
+    const withPaired = paired.length > 0
+      && window.confirm(`Copy the ${paired.map(job => job.template?.name).join(' and ')} with it too?`);
+    const stamp = Date.now().toString(36);
+    const follow = (job, n, pairedWith) => followerOf(job, `${job.template?.key || job.key}#${stamp}${n}`, pairedWith);
+    const copy = follow(source, 0, source.pairedWith || null);
+    const copies = [copy, ...(withPaired ? paired.map((job, i) => follow(job, i + 1, copy.key)) : [])];
+    setGarmentJobs(prev => {
+      // After the garment, its followers, and anything paired to any of them.
+      const group = new Set([key, ...prev.filter(job => job.sameAs === key).map(job => job.key)]);
+      const last = Math.max(...prev.map((job, i) => (group.has(job.key) || group.has(job.pairedWith) ? i : -1)));
+      return [...prev.slice(0, last + 1), ...copies, ...prev.slice(last + 1)];
+    });
+  };
+  /** One fewer: the last same-design follower of this garment goes (with any
+   *  blouse paired to it). A garment filled in its own way is never removed here. */
+  const dropFollower = (key) => {
+    const last = [...garmentJobs].reverse().find(job => job.sameAs === key);
+    if (last) removeGarment(last.key);
+  };
+  /** "Another, different design": a fresh one of the same garment. */
+  const addAnotherOf = (job) => addGarment(job.template.key, false, true);
   /** Moving off a garment's details checks that garment's required questions. */
   const garmentDetailsOk = () => {
     if (!openGarment || validateGarments({ sections: ['basic', 'style'], only: openGarment.key })) return true;
@@ -3167,24 +3163,34 @@ function App() {
     }
   };
 
+  /** What is wrong with the customer details, or '' when they will do. */
+  const customerProblem = () => {
+    const mobileBad = mobileError(customerForm.mobile_number);
+    if (mobileBad) return mobileBad;
+    if (serviceType === 'alter') {
+      if (!customerId) return 'Pick the customer from the list: alterations are for garments we made.';
+    } else {
+      // A customer picked from the book keeps the name the book holds;
+      // only a name typed here is held to the letters-only rule.
+      const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
+      if (nameBad || customerForm.first_name.trim().length < 2) {
+        return nameBad || 'Enter the customer\u2019s name (at least 2 letters).';
+      }
+    }
+    const emailBad = emailError(customerForm.email_address);
+    return emailBad ? `${emailBad} Or leave it blank.` : '';
+  };
+  /** Nothing typed or picked yet: an order may go on and come back for the customer. */
+  const customerBlank = () => !customerId && !customerForm.first_name?.trim()
+    && !String(customerForm.mobile_number || '').trim();
+
   const performNext = async () => {
     try {
       if (wizardStepKey === 'who') {
-        const mobileBad = mobileError(customerForm.mobile_number);
-        if (mobileBad) { alert(mobileBad); return; }
-        if (serviceType === 'alter') {
-          if (!customerId) { alert('Pick the customer from the list: alterations are for garments we made.'); return; }
-        } else {
-          // A customer picked from the book keeps the name the book holds;
-          // only a name typed here is held to the letters-only rule.
-          const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
-          if (nameBad || customerForm.first_name.trim().length < 2) {
-            alert(nameBad || 'Enter the customer\u2019s name (at least 2 letters).');
-            return;
-          }
-        }
-        const emailBad = emailError(customerForm.email_address);
-        if (emailBad) { alert(`${emailBad} Or leave it blank.`); return; }
+        
+        const skip = serviceType !== 'alter' && customerBlank();
+        const problem = skip ? '' : customerProblem();
+        if (problem) { alert(problem); return; }
         if (serviceType === 'alter') { reachStep(currentStep + 1); return; }
         await persistDraft({ step: currentStep + 1 });
         reachStep(currentStep + 1);
@@ -3229,6 +3235,18 @@ function App() {
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'money') {
         if (garmentJobs.length === 0) { alert('Add at least one garment to this order.'); reachStep(wizardSteps.findIndex(st => st.key === 'type') + 1); return; }
+        const customerBad = customerProblem();
+        if (customerBad) {
+          alert(`Fill in the customer details before completing the order. ${customerBad}`);
+          reachStep(wizardSteps.findIndex(st => st.key === 'who') + 1);
+          return;
+        }
+        // The step bar can jump past Measurements, so they are checked here too.
+        if (needsMeasurements() && !validateGarments({ sections: ['measurements'] })) {
+          alert('Some measurements are missing or invalid — see the highlighted fields.');
+          jumpToStep(wizardSteps.findIndex(st => st.key === 'measure') + 1);
+          return;
+        }
         if (!readyBy) { alert('Pick the ready-by date.'); return; }
         // "More details" sits on this screen: a typed value is still checked.
         if (!validateGarments({ sections: ['basic', 'style'] })) {
@@ -3353,11 +3371,7 @@ function App() {
   // Any garment asking for hand work puts the order on the maggam path.
   const isMaggamOrder = () => garmentJobs.some(j => j.values?.hand_work && j.values.hand_work !== 'none');
   const jobExtras = (job) => EXTRA_CHARGES.filter(([, , applies]) => applies(job.values || {}));
-  // What was picked from our own stock for this garment, at each item's
-  // selling price. Their sum is the garment's `fabric` price, which the server
-  // already totals and prints on the invoice.
-  // Every roll and trim picked on the fabric step is listed, amount or not:
-  // the metres are asked on the last page, once the measurements are in.
+  
   const jobMaterialCharges = (job) => {
     const picked = Object.entries(job.fabrics || {}).flatMap(([slot, ids]) =>
       [...new Set((ids || []).map(String))].map((id) => ({ slot, id, quantity: job.fabric_qty?.[`${slot}:${id}`], editable: true })));
@@ -3436,37 +3450,8 @@ function App() {
   };
 
 
-  const [stockPrompt, setStockPrompt] = useState(null);      
+      
   const [reviewView, setReviewView] = useState(null);       
-  const [restockTrip, setRestockTrip] = useState(null);      
-  useEffect(() => {
-    if (!restockTrip || restockTrip.draftId) return;
-    
-    (async () => {
-      try {
-        const id = await persistDraft({ step: currentStep });
-        setRestockTrip({ ...restockTrip, draftId: id });
-        setView('dashboard');
-        setDashboardTab('inventory');
-      } catch (err) {
-        setRestockTrip(null);
-        alert(`Could not save the order before leaving: ${err.message}`);
-      }
-    })();
-  }, [restockTrip]); 
-  const finishRestockTrip = async () => {
-    const trip = restockTrip;
-    setRestockTrip(null);
-    if (!trip?.draftId) return;
-    try {
-      const [rolls, draft] = await Promise.all([
-        api.getInventoryItems({ picker: 'true' }), api.getOrderDraft(trip.draftId)]);
-      setFabrics(rolls || []);
-      await hydrateWizard(draft);
-    } catch (err) {
-      alert(`Could not return to the order: ${err.message}. Open it from your drafts.`);
-    }
-  };
 
   const handleFabricQuantity = (garmentKey, slot, fabricId, quantity) => {
     setGarmentJobs(prev => prev.map(job => job.key === garmentKey
@@ -3529,7 +3514,8 @@ function App() {
     const stageConf = (boutiqueSettings?.workflow_config || []).find(s => s.key === stageKey);
     const allowed = stageConf?.roles || [];
     if (allowed.length === 0) return tailors;
-    return tailors.filter(t => allowed.includes(t.role));
+    const pool = allowed.includes('Designer') ? [...tailors, ...designerStaff] : tailors;
+    return pool.filter(t => allowed.includes(t.role));
   };
 
   const stitchingStaff = () => eligibleStaffForStage('stitching_in_progress');
@@ -3565,9 +3551,15 @@ function App() {
   };
 
   
+  // A lead is a portal sign-up nobody has contacted or taken an order for yet.
+  const isLead = (c) => !!c.is_lead && !((c.order_count ?? c.orders?.length ?? 0) > 0);
+  const leadCount = customersList.filter(isLead).length;
+  const bookList = React.useMemo(
+    () => customersList.filter(c => isLead(c) === (customerView === 'leads')),
+    [customersList, customerView]);
   const directoryCustomers = React.useMemo(() => {
     const term = searchQuery.toLowerCase();
-    return applyCustomerFilters(customersList.filter(cust => {
+    return applyCustomerFilters(bookList.filter(cust => {
       const matchesSearch =
         ((cust.first_name || '') + ' ' + (cust.last_name || '')).toLowerCase().includes(term) ||
         (cust.mobile_number || '').includes(term) ||
@@ -3575,11 +3567,9 @@ function App() {
       const matchesType = customerTypeFilter === 'All' || customerTier(cust) === customerTypeFilter;
       return matchesSearch && matchesType;
     }), customerFilters);
-  }, [customersList, searchQuery, customerTypeFilter, customerFilters]);
-  // One page of the book at a time. The page belongs to the search, tier and
-  // page size it was picked under: change any of them and it is page 1 again.
-  // A list that shrank under the page shows its last page.
-  const customerPageKey = `${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
+  }, [bookList, searchQuery, customerTypeFilter, customerFilters]);
+  
+  const customerPageKey = `${customerView}|${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
   const customerPage = customerPageAt.key === customerPageKey ? customerPageAt.page : 1;
   const customerPageCount = Math.max(1, Math.ceil(directoryCustomers.length / customerPageSize));
   const customerPageNow = Math.min(customerPage, customerPageCount);
@@ -3604,9 +3594,7 @@ function App() {
     );
   }
 
-  // 'signup' is in here as well: without it a signed-in owner landing on
-  // /app?register saw the registration form flash past before
-  // checkAuthSession redirected them to their own boutique.
+  
   if (((loading && !dashboardData) || (portalSlug && !portalLookupDone && !currentUser))
       && (view === 'login' || view === 'signup')) {
     return (
@@ -3630,12 +3618,12 @@ function App() {
   // state -- and it teaches the workflow in the order the work happens.
   // First-time pointers. Counted off the lists already loaded for the
   // dashboard, so nothing extra is fetched; each stops on its own at ten.
-  const canAddCustomer = !currentUser?.role || currentUser.role === 'Owner';
+  /** Whether the owner handed this user `task` as Admin (core/admin_access.py). */
+  const adminCan = (task) => (currentUser?.admin_tasks || []).includes(task);
+  const canAddCustomer = !currentUser?.role || currentUser.role === 'Owner' || adminCan('customers.add');
   const guideCustomers = !loading && canAddCustomer && customersList.length < 10;
   const guideOrders = !loading && ordersList.length < 10;
-  // Sidebar spotlights: Customers while under ten customers, Orders while
-  // under ten orders. Independent of each other; each hides on its own tab,
-  // where the page's button carries the guidance instead.
+  
   const sidebarHint = {
     ...(guideCustomers && dashboardTab !== 'customers' ? { customers: t('onboard.sidebarCustomers', 'Add new customers') } : {}),
     ...(guideOrders && dashboardTab !== 'orders' ? { orders: ordersList.length ? t('onboard.sidebarOrders', 'Create orders here') : t('onboard.sidebarFirstOrder', 'Create your first order') } : {}),
@@ -4246,8 +4234,7 @@ function App() {
                   setMarkingNotificationsRead(true);
                   api.markNotificationsAsRead(currentUser.role || 'Owner', currentUser.email)
                     .then(() => fetchNotifications())
-                    // Never let the bell take the app down: a refused or failed
-                    // mark-read is not worth losing the session over.
+                    
                     .catch(() => {})
                     .finally(() => setMarkingNotificationsRead(false));
                 }}
@@ -4602,10 +4589,7 @@ function App() {
                                action={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}
                                actionLabel={t('dashboard.bookAppointment', 'Book Appointment')}>
                     {(() => {
-                      // The upcoming list, not the dashboard's today-only
-                      // summary: the table shows the date, so a booking
-                      // further out belongs in it, and today's rows are the
-                      // ones tinted.
+                      
                       if (appointments.length === 0) {
                         return (
                           <div style={{ textAlign: 'center', padding: 'var(--space-2) 0' }}>
@@ -4715,9 +4699,7 @@ function App() {
             {/* INVENTORY TAB */}
             {dashboardTab === 'inventory' && (
               <Suspense fallback={<ScreenLoading />}>
-                <InventoryPanel currentUser={currentUser}
-                                restockItem={restockTrip?.fabric || null}
-                                onRestockDone={finishRestockTrip} />
+                <InventoryPanel currentUser={currentUser} />
               </Suspense>
             )}
 
@@ -4869,7 +4851,7 @@ function App() {
                     {/* The one thing to do next lives up here: send it to the
                         workshop, or (the owner's shortcut) close every stage. */}
                     <div className="od-topbar-actions">
-                      {orderBucket(order) === 'new' && ['Owner', 'Master'].includes(currentUser.role) && (
+                      {orderBucket(order) === 'new' && (['Owner', 'Master'].includes(currentUser.role) || adminCan('workshop.assign') || adminCan('workshop.move')) && (
                         <button type="button" className="btn-primary od-send-btn" disabled={sendBusy}
                                 onClick={() => openSendToWorkshop(order)}>
                           <Scissors size={16} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
@@ -4916,7 +4898,7 @@ function App() {
                           </span>
                         )}
                         {order.flow && order.flow !== 'legacy' && (() => {
-                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role))
+                          const canSwitch = order.flow !== 'alteration' && (currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role) || adminCan('workshop.move'))
                             && !(order.stages || []).some(st => st.stage_key !== 'created' && st.status !== 'NOT_STARTED');
                           const label = order.flow === 'alteration' ? t('ordersPage.flowAlteration', 'Alteration')
                             : order.flow === 'maggam' ? t('ordersPage.flowMaggam', 'Maggam order') : t('ordersPage.flowStitching', 'Stitching order');
@@ -5186,7 +5168,7 @@ function App() {
                                 const photos = stitching?.attachments?.length ? stitching.attachments
                                   : (order.completed_garment_image ? [order.completed_garment_image] : []);
                                 const reviews = stitching?.attachment_reviews || {};
-                                const canReview = currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role);
+                                const canReview = currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role) || adminCan('workshop.review');
                                 const items = photos.map((u, i) => ({ image_url: u, label: `Photo ${i + 1}` }));
                                 const reject = async (url) => {
                                   const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
@@ -5306,12 +5288,12 @@ function App() {
                   aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
                   actions={dashboardTab === 'workshop' ? null : (
                     <>
-                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role) || adminCan('workshop.alterations')) && (
                         <button className="btn-secondary" style={{ padding: '10px 18px' }} onClick={() => setTakingInOutside(true)}>
                           <Scissors size={16} /> Outside garment alteration
                         </button>
                       )}
-                      {(!currentUser?.role || currentUser.role === 'Owner') && (
+                      {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
                         <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
                           <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                             <Plus size={16} /> {t('ordersPage.newOrder')}
@@ -5616,16 +5598,22 @@ function App() {
 
                 {(() => {
                   const now = new Date();
-                  const thisMonth = customersList.filter(c => {
+                  const thisMonth = bookList.filter(c => {
                     const d = new Date(c.created_at);
                     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
                   }).length;
-                  const tiers = tierCounts(customersList);
-                  const withOrders = customersList.filter(c => (c.order_count ?? c.orders?.length ?? 0) > 0).length;
+                  const tiers = tierCounts(bookList);
+                  const withOrders = bookList.filter(c => (c.order_count ?? c.orders?.length ?? 0) > 0).length;
                   return (
                     <>
+                      <div className="at-toolbar">
+                        <Chips value={customerView} onChange={setCustomerView} options={[
+                          { key: 'customers', label: 'Customers', count: customersList.length - leadCount },
+                          { key: 'leads', label: 'Leads', count: leadCount },
+                        ]} />
+                      </div>
                       <section className="at-stat-grid">
-                        <StatCard icon={Users} tone="green" label="Total Customers" value={customersList.length}
+                        <StatCard icon={Users} tone="green" label={customerView === 'leads' ? 'Total Leads' : 'Total Customers'} value={bookList.length}
                                   sub={t('customersPage.withOrdersCount', '{n} with orders', { n: withOrders })} />
                         <StatCard icon={Crown} tone="amber" label="Platinum customers" value={tiers.Platinum}
                                   sub={`${tiers.Gold} Gold · ${tiers.Silver} Silver`} />
@@ -5634,25 +5622,25 @@ function App() {
                       </section>
                       <div className="at-toolbar">
                         <Chips value={customerTypeFilter} onChange={setCustomerTypeFilter} options={[
-                          { key: 'All', label: t('customersPage.filterAll'), count: customersList.length },
+                          { key: 'All', label: t('customersPage.filterAll'), count: bookList.length },
                           ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
                         ]} />
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
                           {directoryCustomers.length
                             ? `Showing ${customerPageFrom + 1}–${customerPageFrom + pagedCustomers.length} of ${directoryCustomers.length}`
                             : 'Showing 0'}
-                          {directoryCustomers.length !== customersList.length ? ` (${customersList.length} in total)` : ''}
+                          {directoryCustomers.length !== bookList.length ? ` (${bookList.length} in total)` : ''}
                         </span>
                       </div>
-                      {customersList.length > 0 && (
-                        <CustomerFilters customers={customersList} filters={customerFilters} onChange={setCustomerFilters} />
+                      {bookList.length > 0 && (
+                        <CustomerFilters customers={bookList} filters={customerFilters} onChange={setCustomerFilters} />
                       )}
                     </>
                   );
                 })()}
 
                 <div className="customers-list-container at-stack">
-                  {loading && customersList.length === 0 ? (
+                  {loading && bookList.length === 0 ? (
                     <div className="ui-card" style={{ padding: '48px', textAlign: 'center' }}>
                       <span style={{ color: 'var(--text-muted)' }}>{t('common.loading')}</span>
                     </div>
@@ -5663,7 +5651,7 @@ function App() {
                     </div>
                   ) : directoryCustomers.length === 0 ? (
                     <div className="ui-card" style={{ padding: '48px', textAlign: 'center' }}>
-                      {customersList.length === 0 ? (
+                      {bookList.length === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
                           <div style={{ fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}>{t('customersPage.noCustomersYet')}</div>
                           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', maxWidth: '44ch', lineHeight: 'var(--leading-normal)' }}>
@@ -5685,11 +5673,7 @@ function App() {
                       )}
                     </div>
                   ) : (
-                    // One line per customer, the same roster table the Team
-                    // page uses. Fixed column widths and single-line cells,
-                    // so every row is the same two-line height and the
-                    // columns line up down the page. A row opens the
-                    // customer, as the card did.
+                    
                     <>
                     <div className="at-table-wrap">
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
@@ -5794,6 +5778,14 @@ function App() {
                             >
                               <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
                             </button>
+                            {customerView === 'leads' && (
+                              <button type="button" className="at-icon-btn" title="Mark as contacted (moves to Customers)"
+                                      aria-label={`Mark ${cust.first_name} ${cust.last_name} as contacted`}
+                                      disabled={customerActionId === cust.id}
+                                      onClick={(e) => { e.stopPropagation(); handleMarkLeadContacted(cust); }}>
+                                <CheckCircle2 size={15} />
+                              </button>
+                            )}
                             {canAddCustomer && (
                               <span className="at-row-actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                 <button type="button" className="at-icon-btn" title="Edit customer" aria-label={`Edit ${cust.first_name} ${cust.last_name}`}
@@ -5908,20 +5900,28 @@ function App() {
                   <button type="button" className="at-link" onClick={() => setSelectedDirectoryCustomer(null)}>
                     <ArrowLeft size={16} /> {t('customersPage.backToCustomers', 'Back to Customers')}
                   </button>
-                  {isOwner && (
+                  {(isOwner || adminCan('customers.edit') || adminCan('customers.delete') || adminCan('orders.create')) && (
                     <div className="at-toolbar-right">
-                      <button type="button" className="btn-secondary" disabled={customerActionId === c.id} onClick={() => startEditCustomer(c)}>
-                        <Edit2 size={16} /> Edit
-                      </button>
-                      <button type="button" className="btn-secondary at-btn-danger" disabled={customerActionId === c.id} onClick={() => handleDeleteCustomer(c)}>
-                        <Trash2 size={16} /> Delete
-                      </button>
-                      <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
-                        <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
-                      </button>
-                      <button className="btn-primary" onClick={() => handleSelectExistingCustomer(c)}>
-                        <Sparkles size={16} /> {t('customersPage.newOrder', 'New order')}
-                      </button>
+                      {(isOwner || adminCan('customers.edit')) && (
+                        <button type="button" className="btn-secondary" disabled={customerActionId === c.id} onClick={() => startEditCustomer(c)}>
+                          <Edit2 size={16} /> Edit
+                        </button>
+                      )}
+                      {(isOwner || adminCan('customers.delete')) && (
+                        <button type="button" className="btn-secondary at-btn-danger" disabled={customerActionId === c.id} onClick={() => handleDeleteCustomer(c)}>
+                          <Trash2 size={16} /> Delete
+                        </button>
+                      )}
+                      {(isOwner || adminCan('orders.create')) && (
+                        <>
+                          <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
+                            <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
+                          </button>
+                          <button className="btn-primary" onClick={() => handleSelectExistingCustomer(c)}>
+                            <Sparkles size={16} /> {t('customersPage.newOrder', 'New order')}
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -6046,8 +6046,7 @@ function App() {
                       ) : orders.length === 0 ? (
                         <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>{t('customersPage.noOrdersYet', 'No orders yet.')}</p>
                       ) : orders.map(order => {
-                        // The row opens the order's production progress, so
-                        // "where is my dress?" is answered from the profile.
+                        
                         const isOpen = expandedCustomerOrderId === order.id;
                         const stages = order.stages || [];
                         const done = stages.filter(st => st.status === 'COMPLETED').length;
@@ -6148,7 +6147,7 @@ function App() {
 
                     <CustomerReferrals
                       customer={c}
-                      canAdd={isOwner}
+                      canAdd={isOwner || adminCan('customers.edit')}
                       customers={customersList}
                       onOpenCustomer={(id) => openDirectoryCustomer({ id })}
                       onCustomerAdded={() => api.getCustomers().then(setCustomersList).catch(() => {})}
@@ -6176,9 +6175,7 @@ function App() {
                               </div>
                               {pref.notes && <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0 }}>{pref.notes}</p>}
                               {pref.reference_images?.length > 0 && (() => {
-                                // Photos the customer filed under a part of the garment
-                                // (website enquiries) are grouped under it; the rest
-                                // are for the garment as a whole.
+                                
                                 const photo = (url, j) => (
                                   <span key={`${i}-${j}`} className="at-photo" style={{ width: 96, height: 120, borderColor: pref.approved_image === url ? 'var(--success-color)' : undefined, borderWidth: pref.approved_image === url ? 2 : 1 }}>
                                     <img src={url} alt="Design reference" />
@@ -6347,8 +6344,7 @@ function App() {
                                   onBlur={async (e) => {
                                     const next = parseFloat(e.target.value);
                                     const current = parseFloat(order.amount_paid || 0);
-                                    // Blur fires on every tab-through; only write
-                                    // when the number actually moved.
+                                    
                                     if (isNaN(next) || next === current) {
                                       e.target.value = current;
                                       return;
@@ -6436,17 +6432,12 @@ function App() {
 
             {/* 7. ANALYTICS TAB */}
             {dashboardTab === 'analytics' && (() => {
-              // Same definition as the Invoices header and the Balance Due
-              // cells: collected is money received, not the face value of
-              // orders that happen to be labelled Paid.
+              
               const paidRevenue = ordersList.reduce((sum, o) => sum + parseFloat(o.amount_paid || 0), 0);
               const totalBilling = ordersList.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
               const pendingBill = Math.max(0, totalBilling - paidRevenue);
               const aov = ordersList.length > 0 ? (totalBilling / ordersList.length) : 0;
 
-              // Counted per garment ordered, not per customer: the order wizard
-              // writes neckline and sleeve onto the garment job, never onto the
-              // customer, and a blouse-and-lehenga order is two garments.
               const garmentDist = {};
               const necklineDist = {};
               const sleeveDist = {};
@@ -7216,8 +7207,7 @@ function App() {
               setMarkingNotificationsRead(true);
               api.markNotificationsAsRead(currentUser?.role || 'Owner', currentUser?.email)
                 .then(() => fetchNotifications())
-                    // Never let the bell take the app down: a refused or failed
-                    // mark-read is not worth losing the session over.
+                    
                     .catch(() => {})
                     .finally(() => setMarkingNotificationsRead(false));
             }}
@@ -7414,7 +7404,7 @@ function App() {
                 const skipped = step.key === 'measure' && garmentJobs.length > 0 && !needsMeasurements();
                 const isCompleted = currentStep > stepNum;
                 const isActive = currentStep === stepNum;
-                const canJump = !skipped && stepNum !== currentStep && stepNum <= maxStepReached;
+                const canJump = !skipped && stepNum !== currentStep && (stepNum <= maxStepReached || canJumpAhead);
                 return (
                   <React.Fragment key={step.key}>
                     <div className={canJump ? 'stepper-step stepper-step--link' : 'stepper-step'}
@@ -7440,7 +7430,9 @@ function App() {
                         {t(`wizard.step.${step.key}`, step.label)}
                       </span>
                       <span style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {skipped ? t('wizard.notNeeded', 'Not needed') : isCompleted ? t('wizard.completed', 'Done') : t(`wizard.stepSub.${step.key}`, step.sub)}
+                        {skipped ? t('wizard.notNeeded', 'Not needed')
+                          : isCompleted && step.key === 'who' && serviceType !== 'alter' && customerBlank() ? t('wizard.customerLater', 'Fill before completing')
+                          : isCompleted ? t('wizard.completed', 'Done') : t(`wizard.stepSub.${step.key}`, step.sub)}
                       </span>
                     </div>
                     {index < wizardSteps.length - 1 && (
@@ -7620,14 +7612,7 @@ function App() {
                   />}
 
                   {garmentJobs.length > 1 && (() => {
-                    // Filled in: every required question this step asks is
-                    // answered -- the same check Next runs -- and at least one
-                    // answered by hand. A garment with no required question (a
-                    // petticoat) is valid the moment it is added, and must not
-                    // read Done before anyone has answered anything on it. Only
-                    // the template's current fields count, so an answer a draft
-                    // kept for a question since removed (hand work on a
-                    // petticoat) does not.
+                    
                     const filled = (job) => Object.keys(validateSpec(job.template, job.values, { sections: ['basic', 'style'] })).length === 0
                       && (job.template?.sections || [])
                         .filter((sec) => sec.key === 'basic' || sec.key === 'style')
@@ -7655,7 +7640,7 @@ function App() {
                               <React.Fragment key={job.key}>
                                 <div className="stepper-step stepper-step--link" role="button" tabIndex={0}
                                      aria-current={isActive ? 'step' : undefined}
-                                     title={`Go to ${job.template?.name || job.key}`}
+                                     title={`Go to ${garmentLabel(job)}`}
                                      onClick={goTo}
                                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); goTo(); } }}
                                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, position: 'relative', zIndex: 2, cursor: 'pointer' }}>
@@ -7670,7 +7655,7 @@ function App() {
                                     {complete ? <Check size={14} /> : idx + 1}
                                   </div>
                                   <span style={{ fontSize: '11px', fontWeight: isActive || complete ? 600 : 500, color: isActive || complete ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                                    {job.template?.name || job.key}
+                                    {garmentLabel(job)}
                                   </span>
                                   <span style={{ fontSize: '9px', color: missing ? 'var(--danger-color, #b91c1c)' : 'var(--text-secondary)', marginTop: '2px' }}>
                                     {complete ? t('wizard.completed', 'Done') : missing ? t('wizard.garmentMissing', 'Something missing') : isActive ? t('wizard.garmentNow', 'Fill in now') : t('wizard.garmentNext', 'Up next')}
@@ -7698,7 +7683,7 @@ function App() {
                         <div className="wz-garment-head">
                           <span className="wz-garment-num">{idx + 1}</span>
                           <div>
-                            <div className="wz-garment-name">{job.template.name}</div>
+                            <div className="wz-garment-name">{garmentLabel(job)}</div>
                             <div className="wz-garment-sub">{t('wizard.whatDoesItNeed', 'What does it need?')}</div>
                           </div>
                           <button type="button" className="btn-secondary at-btn-sm" style={{ marginLeft: 'auto' }} onClick={() => removeGarment(job.key)}>
@@ -7706,12 +7691,59 @@ function App() {
                           </button>
                         </div>
 
+                        {/* How many of this garment, asked first -- the customer says
+                            "three sarees" before anything else. [+] adds one of the same
+                            design that follows this one as it is filled; a follower says
+                            so instead. A paired garment (a saree's blouse) is counted
+                            with its saree, so it shows neither. */}
+                        {(() => {
+                          const source = job.sameAs && garmentJobs.find(j => j.key === job.sameAs);
+                          if (source) {
+                            return (
+                              <div className="od-hint" style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: '10px',
+                                                                 background: 'var(--surface-inset)', border: '1px dashed var(--border-color)' }}>
+                                <Copy size={13} style={{ verticalAlign: '-2px' }} />{' '}
+                                {t('wizard.sameDesignAs', 'Same design as {name}: filled in from it as you go. Change anything here and this one becomes its own design.', { name: garmentLabel(source) })}
+                              </div>
+                            );
+                          }
+                          if (job.pairedWith) return null;
+                          const total = garmentJobs.filter(j => j.template?.key === job.template?.key).length;
+                          const followers = garmentJobs.filter(j => j.sameAs === job.key).length;
+                          const stepBtn = { width: '32px', height: '32px', padding: 0, justifyContent: 'center', fontSize: '18px', lineHeight: 1 };
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', margin: '0 0 12px',
+                                          padding: '10px 12px', borderRadius: '10px', background: 'var(--surface-inset)' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                                {t('wizard.howMany', 'How many {name}?', { name: job.template.name })}
+                              </span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <button type="button" className="btn-secondary" style={stepBtn} disabled={!followers}
+                                        aria-label={t('wizard.oneFewer', 'One fewer of the same design')} onClick={() => dropFollower(job.key)}>−</button>
+                                <span aria-live="polite" style={{ minWidth: '22px', textAlign: 'center', fontWeight: 700 }}>{total}</span>
+                                <button type="button" className="btn-secondary" style={stepBtn}
+                                        aria-label={t('wizard.oneMoreSame', 'One more, same design')} onClick={() => copyGarment(job.key)}>+</button>
+                              </span>
+                              <button type="button" className="btn-secondary at-btn-sm" style={{ marginLeft: 'auto' }}
+                                      disabled={!!addingGarmentKey} onClick={() => addAnotherOf(job)}>
+                                <Plus size={12} /> {t('wizard.anotherDifferent', 'One with a different design')}
+                              </button>
+                              {followers > 0 && (
+                                <div className="od-hint" style={{ flexBasis: '100%' }}>
+                                  {t('wizard.followersHint', '{n} more with the same design: whatever you fill here is copied to them. Change one and it becomes its own design.', { n: followers })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                         <details open className="wz-sec wz-sec--first">
                           <summary className="wz-sec-head"><span>{t('wizard.detailsTitle', 'Details')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
                         {sections.map((sectionKey) => (
                           <div key={sectionKey} className="wz-garment-section">
                             <TemplateForm template={job.template} section={sectionKey} values={job.values}
                                           errors={garmentErrors[job.key] || {}} only={upFront}
+                                          voiceFor={MAGGAM_NOTE_VOICE}
                                           purchases={job.purchases || []} onPurchaseChange={(fieldKey, row) => updateGarmentPurchase(job.key, fieldKey, row)}
                                           onChange={(values) => updateGarmentValues(job.key, values)} />
                           </div>
@@ -7728,7 +7760,28 @@ function App() {
                           </div>
                           <TemplateForm template={job.template} section="production" values={job.values}
                                         errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'special_instructions'}
+                                        plainTextarea
                                         onChange={(values) => updateGarmentValues(job.key, values)} />
+                          {/* This garment's own voice note, recorded the way the
+                              measurements note is: record, hear it, Send or Delete.
+                              Kept in the template's `audio_note` field, so it is
+                              stored with the garment and played on its summary. */}
+                          {job.template.sections.some(sec => sec.fields.some(f => f.key === 'audio_note')) && (
+                            <VoiceRecorder
+                              sent={job.values?.audio_note ? { url: job.values.audio_note, by: 'you' } : null}
+                              onSend={async (blob) => {
+                                const url = await api.uploadVoiceNote(blob);
+                                setGarmentJobs(prev => prev.map(j => (j.key === job.key
+                                  ? { ...j, values: { ...j.values, audio_note: url } } : j)));
+                              }}
+                              onDelete={() => setGarmentJobs(prev => prev.map(j => {
+                                if (j.key !== job.key) return j;
+                                const rest = { ...j.values };
+                                delete rest.audio_note;
+                                return { ...j, values: rest };
+                              }))}
+                            />
+                          )}
                         </div>
                         </details>
 
@@ -7897,6 +7950,7 @@ function App() {
                           >
                             <Suspense fallback={<ScreenLoading />}>
                               <GarmentPartPicker ownOnly
+                                                 withoutWork={!job.values?.hand_work || job.values.hand_work === 'none'}
                                                  garmentKey={job.template?.key || job.key}
                                                  garmentName={job.template?.name || job.key}
                                                  references={partReferences[job.key] || {}}
@@ -7999,8 +8053,7 @@ function App() {
                                     fabrics={colourFilteredFabrics}
                                     taxonomy={fabricTaxonomy}
                                     selection={fabricSelection}
-                                    onChange={handleFabricSelection}
-                                    onPickOutOfStock={(fabric, proceed) => setStockPrompt({ fabric, proceed })} />
+                                    onChange={handleFabricSelection} />
                                 </>
                               )}
                             </Suspense>
@@ -8062,6 +8115,31 @@ function App() {
                         </details>
                         </details>
 
+                        {/* Move between garments from where the form ends, not
+                            from the circles at the top. "Next" runs the footer's
+                            own Next: same checks, same save, same next garment. */}
+                        {garmentJobs.length > 1 && (() => {
+                          const done = [...new Set([...garmentsDone, job.key])];
+                          const nextJob = [...garmentJobs.slice(idx + 1), ...garmentJobs.slice(0, idx)].find(j => !done.includes(j.key));
+                          const prevJob = garmentJobs[idx - 1];
+                          if (!nextJob && !prevJob) return null;
+                          return (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
+                                          flexWrap: 'wrap', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                              {prevJob ? (
+                                <button type="button" className="btn-secondary" onClick={() => openGarmentAt(prevJob.key)}>
+                                  <ArrowLeft size={16} /> {garmentLabel(prevJob)}
+                                </button>
+                              ) : <span />}
+                              {nextJob && (
+                                <button type="button" className="btn-primary" onClick={handleNext} disabled={ctaBusy}>
+                                  {t('wizard.nextGarment', 'Next garment')}: {garmentLabel(nextJob)} <ArrowRight size={16} />
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
+
                       </div>
                     );
                   })}
@@ -8078,7 +8156,7 @@ function App() {
                               }}>
                         <option value="">{addingGarmentKey ? t('common.loading', 'Loading…') : t('wizard.selectGarment', 'Select Garment')}</option>
                         {garmentsForGender(garmentTemplates, customerForm.gender)
-                          .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key))
+                          .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key || j.template?.key === tpl.key))
                           .map((tpl) => <option key={tpl.key} value={tpl.key}>{tpl.name}</option>)}
                       </select>
                     </details>
@@ -8116,7 +8194,7 @@ function App() {
                     <div className="content-card wz-card" key={job.key} id={`wz-garment-${job.key}`}>
                       <div className="card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '14px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Scissors size={20} /> {job.template.name}
+                          <Scissors size={20} /> {garmentLabel(job)}
                         </div>
                         {autoPrefilled && (
                           <span style={{ fontSize: '12px', color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: '12px', border: '1px solid #a7f3d0', fontWeight: 500 }}>
@@ -8173,8 +8251,7 @@ function App() {
                 return slot?.label || slotKey.replace(/_/g, ' ');
               };
               const rollName = (id) => fabrics.find(f => String(f.id) === String(id))?.name || 'Stock item';
-              // `step` is a step number, or 'design' / 'fabric': a part of the
-              // garments, opened on the first garment.
+              
               const card = (title, step, body) => (
                 <div className="content-card wz-card" style={{ padding: '16px 20px', gap: 0, marginTop: '-16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
@@ -8271,7 +8348,7 @@ function App() {
                           ? t('wizard.maggamPath', 'Maggam order — goes through paper cutting, embroidery and its verification before the fabric is cut')
                           : t('wizard.stitchingPath', 'Plain stitching order — cut, then stitch')}
                       </div>
-                      <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: job.template, values: job.values || {} }))} />
+                      <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: { ...job.template, name: garmentLabel(job) }, values: job.values || {} }))} />
                     </>
                   ))}
 
@@ -8289,18 +8366,6 @@ function App() {
                       ))}
                     </div>
                   ))}
-                  {/* The garment drawn on a model, from the designs and rolls
-                      above. Renders nothing where the vendor is not set up or
-                      no garment has a design. The photograph lands on
-                      job.design.preview and confirms with the rest.
-                      Switched off for now; uncomment to bring it back.
-                      Model display parked — see task 16 */}
-                  {/* <Suspense fallback={null}>
-                    <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
-                      onPreview={(jobKey, url) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
-                        ? { ...j, design: { ...(j.design || {}), preview: url } } : j))}
-                      onView={(url, label) => setReviewView({ items: [{ key: 'preview', image_url: url, label }], index: 0 })} />
-                  </Suspense> */}
                   {reviewView && (
                     <Suspense fallback={null}>
                       <ReviewLightbox items={reviewView.items} index={reviewView.index}
@@ -8309,12 +8374,22 @@ function App() {
                     </Suspense>
                   )}
 
+                  {/* Only with the customer's consent and photo, chosen on the Garments step. */}
+                  {customerForm.ai_model?.mode === 'customer' && customerForm.ai_model.consent && customerForm.ai_model.photo
+                    && card(t('wizard.reviewOnCustomer', 'AI pictures on the customer'), 'design', (
+                    <Suspense fallback={null}>
+                      <GarmentPreviews jobs={garmentJobs} customerPhoto={customerForm.ai_model.photo}
+                        onPreview={(jobKey, url, backUrl) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                          ? { ...j, design: { ...(j.design || {}), customer_preview: url, customer_preview_back: backUrl || null } } : j))} />
+                    </Suspense>
+                  ))}
+
                   {garmentJobs.some(job => (job.purchases || []).length) && card(t('wizard.sheetPurchases', 'To buy for this order'), 'fabric', (
                     <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
                       <tbody>
                         {garmentJobs.flatMap(job => (job.purchases || []).map((row, i) => (
                           <tr key={`${job.key}:${i}`} style={{ borderTop: '1px solid var(--border-color)' }}>
-                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{job.template?.name || job.key}</td>
+                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{garmentLabel(job)}</td>
                             <td style={{ padding: '8px 0', fontWeight: 600 }}>🛒 {row.name}</td>
                             <td style={{ padding: '8px 0', textAlign: 'right' }}>{row.quantity} {(row.unit || 'METER').toLowerCase()} · {inr(row.estimated_cost)} est.</td>
                           </tr>
@@ -8583,6 +8658,21 @@ function App() {
 
             {/* Right Sidebar */}
             <div className="sidebar-panel">
+              {/* The open garment drawn on a model, from its designs and rolls.
+                  Renders nothing where the vendor is not set up and there is no
+                  base picture. The photograph lands on job.design.preview and
+                  confirms with the rest. */}
+              {wizardStepKey === 'type' && openGarment && (
+                <Suspense fallback={null}>
+                  <GarmentPreviews jobs={[openGarment]} title={t('wizard.reviewPreview', 'See it on a model')}
+                    onPreview={(jobKey, url, backUrl) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                      ? { ...j, design: { ...(j.design || {}), preview: url, preview_back: backUrl || null } } : j))}
+                    // Rides customerForm, so it is saved with the draft; a different customer picked resets it.
+                    aiModel={customerForm.ai_model}
+                    onAiModel={(ai_model) => setCustomerForm(prev => ({ ...prev, ai_model }))}
+                    />
+                </Suspense>
+              )}
               <div className="sidebar-card">
                 <div className="sidebar-card-title">
                   <Sparkles size={16} />
@@ -9469,30 +9559,6 @@ Complete the Payment stage with this partial payment?`)) return;
                           onClose={() => setReviewView(null)} />
         </Suspense>
       )}
-      {stockPrompt && (
-        <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
-          <div className="search-modal-card" style={{ maxWidth: '440px', width: '100%', padding: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangle size={18} style={{ color: 'var(--warning-color)' }} /> Out of stock
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '18px' }}>
-              <strong style={{ color: 'var(--text-primary)' }}>{stockPrompt.fabric.name}</strong> has no stock right now.
-              Restock it first, or carry on with the order and let the workroom sort the material out later.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-              <button type="button" className="btn-secondary" onClick={() => setStockPrompt(null)}>Cancel</button>
-              <button type="button" className="btn-secondary"
-                      onClick={() => { stockPrompt.proceed(); setStockPrompt(null); }}>
-                Complete the order
-              </button>
-              <button type="button" className="btn-primary"
-                      onClick={() => { stockPrompt.proceed(); setRestockTrip({ fabric: stockPrompt.fabric }); setStockPrompt(null); }}>
-                <Boxes size={16} /> Restock now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {reversalPrompt && (
         <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
           <div className="search-modal-card" style={{ maxWidth: '420px', width: '100%', padding: '24px' }}>
@@ -9505,9 +9571,7 @@ Complete the Payment stage with this partial payment?`)) return;
                 : 'This goes on the order\u2019s record with your name. Say why the stage is being reopened.'}
             </p>
             {reversalPrompt.type === 'reopen' && (() => {
-              // Later work is reset with it: the server does this, the
-              // warning just makes sure nobody is surprised.
-              // Only this garment's later rows and the order-level ones, as the server does.
+              
               const mine = (s) => !s.garment_job || !selectedStageObj?.garment_job || s.garment_job === selectedStageObj.garment_job;
               const stages = (activeReviewOrder?.stages || []).filter(mine);
               const at = stages.findIndex(s => s.id === selectedStageObj?.id);

@@ -1,28 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Volume2, Send, Trash2 } from 'lucide-react';
 
-/**
- * Voice on the update boxes, with nothing behind it but the browser.
- *
- * Speech -> text uses the Web Speech API (SpeechRecognition): Chrome, Edge,
- * Android Chrome, Samsung Internet, and Safari on Mac/iOS. Text -> speech uses
- * speechSynthesis, which every browser has. Neither touches the server: what is
- * saved is the same string the textarea always sent, so PDFs, WhatsApp
- * messages, search and history read it exactly as before -- and it costs
- * nothing per minute, on any number of boutiques. Where recognition is not
- * available (Firefox) the mic button is simply not rendered and the box is a
- * plain textarea.
- *
- * With `onRecording`, the same mic button also records a voice note through
- * MediaRecorder. There the clip is the point and dictation is best effort:
- * recognition failing, ending on silence or not existing at all never stops
- * the recording. Clips stop themselves at MAX_SECONDS (server caps 8 MB).
- *
- * Needs HTTPS (or localhost) for the microphone, which the deployed site has.
- */
 
-// Resolved on use, not at import: a polyfill or a browser that exposes the
-// engine late would otherwise leave the mic hidden for the whole session.
 const recognitionClass = () => (typeof window !== 'undefined'
   && (window.SpeechRecognition || window.webkitSpeechRecognition)) || null;
 
@@ -30,8 +9,6 @@ const canRecord = () => typeof MediaRecorder !== 'undefined' && Boolean(navigato
 
 const MAX_SECONDS = 180;
 
-// App language (frontend/src/i18n) -> the BCP-47 tag the speech engines want.
-// Indian locales for the Indian languages; the engine picks the closest voice.
 const SPEECH_LANG = {
   en: 'en-IN', hi: 'hi-IN', te: 'te-IN', ta: 'ta-IN', kn: 'kn-IN', ml: 'ml-IN',
   mr: 'mr-IN', gu: 'gu-IN', ar: 'ar-SA', es: 'es-ES', de: 'de-DE',
@@ -45,14 +22,6 @@ function speechLang() {
 
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-/**
- * Drop-in for <textarea>: same props, same onChange(event.target.value).
- * Works controlled (value) and uncontrolled (defaultValue). Dictated words are
- * appended to whatever is already typed, so people can mix the two.
- */
-// `onMic`: the mic button calls this instead of dictating -- for a box whose
-// voice note is recorded by a VoiceRecorder beneath it, so one mic means one
-// thing on that screen. Nothing else about the box changes.
 export default function VoiceTextarea({ value, defaultValue, onChange, style, onRecording, onRecordingChange, onMic, ...rest }) {
   const ref = useRef(null);
   const recRef = useRef(null);
@@ -70,13 +39,9 @@ export default function VoiceTextarea({ value, defaultValue, onChange, style, on
   }, []);
 
   const append = (transcript) => {
-    // The DOM value, not the `value` prop: rec.onresult is bound once per
-    // session, so the prop it closed over is the pre-dictation text and a
-    // second sentence would overwrite the first.
+    
     const current = ref.current?.value ?? (value || '');
     let next = current ? `${current.replace(/\s+$/, '')} ${transcript}` : transcript;
-    // Browsers only apply maxLength to typing, not to a value set from code,
-    // so dictation has to respect the box's own limit here.
     const limit = Number(rest.maxLength);
     if (limit > 0 && next.length > limit) next = next.slice(0, limit);
     if (value === undefined && ref.current) ref.current.value = next;
@@ -171,8 +136,6 @@ export default function VoiceTextarea({ value, defaultValue, onChange, style, on
 
   const idle = onMic ? 'Record a voice note' : onRecording ? 'Record a voice note (and dictate)' : 'Speak instead of typing';
   const busy = onRecording ? 'Stop' : 'Stop listening';
-  // Classed so a bordered wrapper (.at-field-control) can treat this as the
-  // control itself rather than a box inside it -- see index.css.
   return (
     <div className="voice-textarea" style={{ position: 'relative' }}>
       {textarea}
@@ -212,8 +175,7 @@ export function VoiceNotePlayer({ src, style }) {
 
 /** A clip not yet saved (blob) or already saved (url), with an optional Remove. */
 export function VoiceClipPreview({ blob, url, onRemove }) {
-  // Made and revoked in one effect: StrictMode runs mount -> cleanup -> mount,
-  // and a URL minted in useMemo would be revoked under the player's feet.
+ 
   const [objectUrl, setObjectUrl] = useState('');
   useEffect(() => {
     if (!blob) { setObjectUrl(''); return undefined; }
@@ -238,26 +200,13 @@ export function VoiceClipPreview({ blob, url, onRemove }) {
 }
 
 
-/**
- * A voice note on its own: record, hear it back, send it or throw it away.
- *
- * Separate from the dictation mic on the textarea. Here nothing is
- * transcribed -- what the other person gets is the recording, under the name
- * of whoever sent it -- and nothing leaves the browser until Send is pressed.
- * While recording, a pulsing dot and bars show the mic is live; the clip stops
- * itself at MAX_SECONDS.
- *
- * `sent` is the recording already on the record ({url, by, at}); `onSend(blob)`
- * uploads and saves and resolves when the note is stored; `onDelete()` removes
- * the stored one. Both may throw; the button then just says so.
- */
 const RECORDER_KEYFRAMES = `
 @keyframes vn-pulse { 0%,100% { transform: scale(1); opacity: 1 } 50% { transform: scale(1.6); opacity: .45 } }
 @keyframes vn-bar { 0%,100% { transform: scaleY(.3) } 50% { transform: scaleY(1) } }
 `;
 
 export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label = 'Record voice note', onRecordingChange, startToken = 0 }) {
-  const [phase, setPhase] = useState('idle');   // idle | recording | preview | sending | deleting
+  const [phase, setPhase] = useState('idle');   
   const [blob, setBlob] = useState(null);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState('');
@@ -323,13 +272,12 @@ export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label 
     catch (err) { setError(err?.message || 'Could not delete the voice note.'); setPhase('idle'); }
   };
 
-  // A bump of `startToken` is a press of the record button from elsewhere
-  // (the notes box's mic). Only from rest: never over a take in progress.
+  
   useEffect(() => {
     if (!startToken || phase !== 'idle' || disabled) return undefined;
     const id = setTimeout(start, 0);
     return () => clearTimeout(id);
-  }, [startToken]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [startToken]); 
 
   const when = sent?.at ? new Date(sent.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
   const small = { padding: '4px 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' };

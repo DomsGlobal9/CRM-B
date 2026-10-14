@@ -1,11 +1,4 @@
-/* A table row's actions behind one ⋯ button -- the same pattern as the
-   platform console's boutique list. The menu is drawn through a portal on
-   <body> at the button's position, so a table that scrolls sideways (or a
-   sticky cell) cannot clip it or paint over it. It drops below the button,
-   and opens upwards when the window has no room under it (the last rows).
-   Closes on a click elsewhere, Escape, scroll or resize.
 
-   items: [{ label, icon, onClick, danger?, disabled? }] */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal } from 'lucide-react';
@@ -34,8 +27,7 @@ export default function RowMenu({ items, label = 'Actions', disabled = false }) 
     };
   }, [open]);
 
-  // Placed before paint: below the button if it fits, else above, else as low
-  // as the window allows.
+ 
   useLayoutEffect(() => {
     const el = menuRef.current;
     if (!anchor || !el) return;
@@ -54,8 +46,6 @@ export default function RowMenu({ items, label = 'Actions', disabled = false }) 
     e.stopPropagation();
     if (open) { setAnchor(null); return; }
     const r = e.currentTarget.getBoundingClientRect();
-    // A click on another row's ⋯ reaches the window listener of any menu
-    // already open only if it is not stopped; close those ourselves.
     window.dispatchEvent(new Event('click'));
     setAnchor({ top: r.top, bottom: r.bottom, right: window.innerWidth - r.right });
   };

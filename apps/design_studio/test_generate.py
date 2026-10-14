@@ -24,8 +24,9 @@ STREAM = [
     '',
     ': keepalive 1',
     'data: {"type":"status","stage":"generating","attempt":1}',
-    'data: {"type":"image","mimeType":"image/jpeg","width":1536,"height":2048,"image":"data:image/jpeg;base64,' + PIXEL + '"}',
-    'data: {"type":"done","status":"ok","attempts":1,"quality":{"checked":true,"passed":true,"regenerated":false,"failures":[]}}',
+    'data: {"type":"image","view":"front","mimeType":"image/jpeg","width":896,"height":1200,"image":"data:image/jpeg;base64,' + PIXEL + '"}',
+    'data: {"type":"image","view":"back","mimeType":"image/jpeg","width":896,"height":1200,"image":"data:image/png;base64,' + PIXEL + '"}',
+    'data: {"type":"done","status":"ok","views":["front","back"],"quality":{"checked":true,"passed":true}}',
 ]
 
 
@@ -100,6 +101,36 @@ class BuildPayloadTests(TenantTestCase):
         ])
         self.assertEqual(payload['notes'], 'festive')
         self.assertNotIn('productName', payload)
+        self.assertNotIn('views', payload)      # both sides: the vendor's default
+
+    @mock.patch.object(generate.requests, 'get', side_effect=fake_taxonomy)
+    def test_views_one_side_only(self, _get):
+        parts = {'pallu_design': {'image_url': 'https://res.cloudinary.com/x/p.jpg'}}
+        build = lambda views: generate.build_payload(client_id='t', garment_key='saree', parts=parts, views=views)
+        self.assertEqual(build(['back'])['views'], ['back'])
+        self.assertNotIn('views', build(['front', 'back']))
+        self.assertNotIn('views', build(['sideways']))
+
+    @mock.patch.object(generate.requests, 'get', side_effect=fake_taxonomy)
+    def test_measurements_sent_only_when_switched_on(self, _get):
+        parts = {'pallu_design': {'image_url': 'https://res.cloudinary.com/x/p.jpg'}}
+        raw = [{'key': 'Bust', 'label': 'Bust', 'value': '36.5', 'unit': 'Inches'},
+               {'key': 'waist', 'value': 0}, {'key': 'hip', 'value': 'x'}, {'key': 'neck', 'value': 14, 'unit': 'ft'}]
+        build = lambda: generate.build_payload(client_id='t', garment_key='saree', parts=parts, measurements=raw)
+        self.assertNotIn('measurements', build())
+        with override_settings(DESIGN_STUDIO_SEND_MEASUREMENTS=True):
+            self.assertEqual(build()['measurements'],
+                             [{'key': 'bust', 'label': 'Bust', 'value': 36.5, 'unit': 'in'}])
+
+    @mock.patch.object(generate.requests, 'get', side_effect=fake_taxonomy)
+    def test_plain_garment_photo_is_its_overall_design(self, _get):
+        # No design chosen: the wizard sends the plain garment's own photo
+        # as its overall design, so it is still drawn front and back.
+        photo = 'data:image/jpeg;base64,' + PIXEL
+        payload = generate.build_payload(client_id='t', garment_key='saree', parts={},
+                                         part_refs={'overall': [{'image_url': photo}]})
+        self.assertEqual(payload['designs'], [{'area': 'OVERALL', 'image': photo}])
+        self.assertNotIn('views', payload)
 
     def test_refuses_garment_and_empty_design(self):
         with self.assertRaises(DiscoveryError):
@@ -111,7 +142,8 @@ class BuildPayloadTests(TenantTestCase):
     @mock.patch.object(generate.requests, 'post', return_value=FakeStream())
     def test_reads_stream_to_the_photograph(self, post):
         result = generate.generate({'clientId': 't', 'garment': 'SAREE', 'designs': [], 'fabrics': []})
-        self.assertEqual(result['image'], 'data:image/jpeg;base64,' + PIXEL)
+        self.assertEqual(list(result['images']), ['front', 'back'])
+        self.assertEqual(result['images']['front'], 'data:image/jpeg;base64,' + PIXEL)
         self.assertEqual(result['warnings'], ['BORDER under 512 px'])
         self.assertTrue(result['quality']['passed'])
         self.assertEqual(post.call_args.args[0], 'https://gw.test/api/v1/designstudio/generate')
@@ -168,6 +200,9 @@ class PreviewViewTests(TenantTestCase):
 
     def test_availability(self):
         self.assertTrue(self.client.get(PREVIEW).json()['available'])
+        garments = self.client.get(PREVIEW).json()['garments']
+        self.assertIn('saree', garments)
+        self.assertNotIn('jacket', garments)
         with override_settings(DESIGN_DISCOVERY_API_KEY=''):
             self.assertFalse(self.client.get(PREVIEW).json()['available'])
 
@@ -180,8 +215,11 @@ class PreviewViewTests(TenantTestCase):
             'fabrics': {'SAREE_BODY': [str(self.roll.id)], 'dori': [str(self.roll.id)]},
         }, format='json')
         self.assertEqual(res.status_code, 201, res.content)
-        self.assertIn('/design_previews/', res.json()['image_url'])
-        self.assertTrue(res.json()['image_url'].endswith('.jpg'))
+        body = res.json()
+        self.assertIn('/design_previews/', body['image_url'])
+        self.assertEqual(body['image_url'], body['images']['front'])
+        self.assertTrue(body['images']['front'].endswith('.jpg'))
+        self.assertTrue(body['images']['back'].endswith('.png'))
         sent = post.call_args.kwargs['json']
         self.assertTrue(sent['clientId'].endswith(f':{self.owner.id}'))
         self.assertEqual(sent['fabrics'], [{'image': 'https://res.cloudinary.com/x/roll.jpg',

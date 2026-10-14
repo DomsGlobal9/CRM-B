@@ -179,8 +179,13 @@ class StageAssignmentTests(HierarchyTestBase):
     def test_stage_role_restrictions_still_apply(self):
         # A Tailor may not hold a Master-only stage, whoever assigns it.
         order = self.make_order()
-        res = self.assign_stage(order, self.tailor, self.owner, "finishing")
+        res = self.assign_stage(order, self.tailor, self.owner, "trial_scheduled")
         self.assertEqual(res.status_code, 400)
+
+    def test_master_hands_hemming_to_a_tailor(self):
+        order = self.make_order()
+        res = self.assign_stage(order, self.tailor, self.master_user, "finishing")
+        self.assertEqual(res.status_code, 200, res.content)
 
 
 class SendToWorkshopHierarchyTests(HierarchyTestBase):

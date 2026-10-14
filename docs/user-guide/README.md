@@ -1088,7 +1088,7 @@ not offered.
 | 6 | Assigned to Tailor | 12 h | Owner, Master |
 | 7 | Stitching In Progress | 72 h | Owner, **Tailor** |
 | 8 | Stitching Completed | 12 h | Owner, **Tailor** |
-| 9 | Hemming & Finishing | 24 h | Owner, Master, Finishing Master |
+| 9 | Hemming & Finishing | 24 h | Owner, Master, Tailor |
 | 10 | Pressing | 12 h | Owner, Master, Pressing Staff |
 | 11 | Master Quality Check | 12 h | Owner, Master, QC Master |
 | 12 | Trial Scheduled | 48 h | Owner, Master |

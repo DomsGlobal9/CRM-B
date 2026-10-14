@@ -13,6 +13,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from core.admin_access import assigner_role, request_tasks
 from core.permissions import (
     ModuleAccess, OwnerOnly, OwnNotifications, RolePermission, SUPERVISOR_ROLES,
     visible_customers, visible_orders,
@@ -1140,7 +1141,8 @@ class OrderViewSet(viewsets.ModelViewSet):
         message = "Your role does not permit assigning work."
 
         def has_role_permission(self, request, view):
-            return assigns_work(resolve_user_role(request.user))
+            # The owner's Admin, handed assigning work, assigns as a Master.
+            return assigns_work(assigner_role(resolve_user_role(request.user), request_tasks(request)))
 
     def _order_for_assignment(self):
         """The order an assignment acts on: Owner, Designer and Master all
@@ -1157,7 +1159,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         that will refuse it. No contact details, no pay -- a Designer reaching
         this is not being given the staff list.
         """
-        role = resolve_user_role(request.user)
+        role = assigner_role(resolve_user_role(request.user), request_tasks(request))
         rows = Tailor.objects.order_by('name').values('id', 'name', 'role')
         return Response([row for row in rows if can_assign(role, row['role'])])
 
@@ -1176,10 +1178,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
 
-        assigner = resolve_user_role(request.user)
+        assigner = assigner_role(resolve_user_role(request.user), request_tasks(request))
         # A Master hands on only their own work: a stage that is theirs, or
-        # nobody's yet. Someone else's stage stays with whoever gave it out.
-        if assigner == MASTER:
+        # nobody's yet. Someone else's stage stays with whoever gave it out --
+        # unless the owner handed the Admin reassigning.
+        if assigner == MASTER and 'workshop.reassign' not in request_tasks(request):
             profile = getattr(request.user, 'tailor_profile', None)
             if stage.assigned_to_id not in (None, getattr(profile, 'id', None)):
                 return Response({'error': 'This work is assigned to someone else.'},
@@ -1353,7 +1356,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         """
         from core.modules import PRODUCTION_ROLES
         order = self._order_for_assignment()
-        assigner = resolve_user_role(request.user)
+        assigner = assigner_role(resolve_user_role(request.user), request_tasks(request))
 
         def pick(field, roles, label):
             raw = request.data.get(field)
@@ -1881,6 +1884,47 @@ class BoutiqueSettingsViewSet(viewsets.ViewSet):
     # replaces the viewset's default RolePermission, which grants every
     # non-Owner staff member every safe method -- a GET would have leaked the
     # whole map to the floor.
+    @action(detail=False, methods=['get', 'put'], url_path='admin-access',
+            permission_classes=[OwnerOnly])
+    def admin_access(self, request):
+        """The one staff member made Admin, and the work handed to them.
+
+        PUT replaces the whole setting: the screen always sends both the person
+        and every ticked task, and one Admin at a time is the point of it.
+        """
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        from apps.design_studio.models import Designer
+        from core.admin_access import ADMIN_TASKS, clean_admin_access
+
+        if request.method == 'PUT':
+            try:
+                access = clean_admin_access(request.data)
+            except ValueError as exc:
+                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+            member = access['member']
+            if member:
+                model = Tailor if member['kind'] == 'staff' else Designer
+                try:
+                    found = model.objects.filter(pk=member['id']).exists()
+                except (ValueError, DjangoValidationError):
+                    found = False
+                if not found:
+                    return Response({'error': 'That team member is not on this boutique\'s staff list.'},
+                                    status=status.HTTP_400_BAD_REQUEST)
+            with transaction.atomic():
+                config, _ = BoutiqueSettings.objects.select_for_update().get_or_create(id=1)
+                config.admin_access = access
+                config.save(update_fields=['admin_access'])
+        else:
+            config, _ = BoutiqueSettings.objects.get_or_create(id=1)
+        stored = config.admin_access or {}
+        return Response({
+            'member': stored.get('member'),
+            'tasks': stored.get('tasks') or [],
+            'catalogue': {section: list(tasks) for section, tasks in ADMIN_TASKS.items()},
+        })
+
     @action(detail=False, methods=['get', 'patch'], url_path='role-modules',
             permission_classes=[OwnerOnly])
     def role_modules(self, request):

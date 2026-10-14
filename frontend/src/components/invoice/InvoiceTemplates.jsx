@@ -19,8 +19,7 @@ const getBoutiqueLogoUrl = (boutiqueSettings) => {
 /**
  * Normalizes order & boutique data for invoice rendering.
  */
-// Printed on every invoice in place of the checkbox the wizard used to ask
-// for. One place to change the wording.
+
 export const INVOICE_TERMS =
   'Terms: the advance is adjusted against the final bill and the balance is due at delivery. '
   + 'Please check the garment at pickup; alterations after 7 days may be charged. '
