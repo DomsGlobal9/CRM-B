@@ -11,7 +11,8 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
-import { ACCESSORY_OPTIONS, Lightbox } from '../designStudio/GarmentPartPicker';
+import { Lightbox } from '../designStudio/GarmentPartPicker';
+import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
 import './work.css';
 
 /**
@@ -85,7 +86,7 @@ const entries = (obj) => Object.entries(obj || {}).filter(([, v]) => v !== '' &&
 
 const Listen = ({ text }) => <span className="wk-listen"><SpeakButton text={text} /></span>;
 
-const ACCESSORY_KEYS = new Set(ACCESSORY_OPTIONS.map((o) => o.key));
+const ACCESSORY_KEYS = new Set(ALL_ACCESSORY_OPTIONS.map((o) => o.key));
 
 /* What a card shows so the job is known at a glance: the design photo, the
    fabric, who holds it, the measurements. A per-garment stage reads its own

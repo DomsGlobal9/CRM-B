@@ -3,7 +3,8 @@ import { Eye, Image as ImageIcon, Layers, Scissors, Sparkles } from 'lucide-reac
 
 import { resolveMediaUrl } from '../../services/media';
 import { inventoryImage } from '../../services/inventoryImages';
-import { ACCESSORY_OPTIONS, Lightbox } from '../designStudio/GarmentPartPicker';
+import { Lightbox } from '../designStudio/GarmentPartPicker';
+import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 
 /**
@@ -23,7 +24,7 @@ import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 
 const formatKey = (key) => (key || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-const ACCESSORY_LABELS = Object.fromEntries(ACCESSORY_OPTIONS.map((o) => [o.key, o.label]));
+const ACCESSORY_LABELS = Object.fromEntries(ALL_ACCESSORY_OPTIONS.map((o) => [o.key, o.label]));
 
 // "m" for cloth, "pcs" for anything counted; the ledger's own unit otherwise.
 const unitShort = (f) => (

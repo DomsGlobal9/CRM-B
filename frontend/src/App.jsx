@@ -11,7 +11,7 @@ import {
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
 const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
-import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
+import { ALL_ACCESSORY_OPTIONS } from './features/designStudio/accessories';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
 import { fabricMatchesColour } from './features/fabrics/colour';
@@ -8267,7 +8267,7 @@ function App() {
                 </div>
               );
               
-              const accessoryKeys = new Set(ACCESSORY_OPTIONS.map(o => o.key));
+              const accessoryKeys = new Set(ALL_ACCESSORY_OPTIONS.map(o => o.key));
               const partName = (p, img) => img?.part_label || String(p).replace(/_/g, ' ');
               const withGarment = (job, list) => list.map(pic => ({
                 ...pic, label: garmentJobs.length > 1 ? `${job.template?.name || job.key} · ${pic.label}` : pic.label }));
