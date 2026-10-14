@@ -90,7 +90,7 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
                 cust_msg = f"Your garment for order {order.reference} has passed quality checks and is Ready for Delivery!"
             else:
                 cust_msg = f"Your garment for order {order.reference} is Ready for Delivery! You can collect your outfit or expect delivery shortly."
-        elif stage_name and stage_name != status:
+        elif stage_name and stage_name != status and status != 'Delivered':
             cust_msg = f"Your garment for order {order.reference} is now in the {stage_name} stage ({status})."
             if status == 'Design & Creation':
                 cust_msg = f"Your garment for order {order.reference} is now in the {stage_name} stage. Our master tailors are crafting it!"
@@ -113,6 +113,12 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
 
        
         if not status_changed and msg_template == 'stage_update':
+            return
+        # A milestone reaches the customer once. Per-garment stages complete
+        # once per garment, and 'ready' is sent by two different stages, so a
+        # two-garment order told the customer "your outfit is ready" four times.
+        if msg_template != 'stage_update' and order.customer_messages.filter(
+                template_key=msg_template).exclude(status='FAILED').exists():
             return
 
         Notification.objects.create(
