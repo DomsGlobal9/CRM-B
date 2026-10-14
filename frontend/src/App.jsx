@@ -1179,7 +1179,8 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
       </div>
       {canEdit ? (
         <>
-          <VoiceTextarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
+          {/* A plain box: the recorder below is this note's voice input. */}
+          <textarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
                     placeholder="Anything the workroom should know about this order…"
                     onChange={(e) => { setText(e.target.value); setState('idle'); }}
                     onBlur={() => save().catch(() => {})} />

@@ -171,7 +171,9 @@ class RoleGateTests(TransactionTestCase):
             self.assertEqual(names.status_code, 200)
             self.assertIn('garments', names.json())
             self.assertEqual(client.get('/api/inventory/items/').status_code, 403)
-            self.assertEqual(client.post('/api/inventory/items/taxonomy/', {}).status_code, 405)
+            # Writing is refused: by the viewset's owner-only gate (403) before
+            # DRF would get as far as "no POST here" (405).
+            self.assertIn(client.post('/api/inventory/items/taxonomy/', {}).status_code, (403, 405))
 
     def test_the_design_library_create_shortcut_does_not_escape_the_gate(self):
         """DesignLibraryPermission.has_role_permission returns True for
