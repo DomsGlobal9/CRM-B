@@ -1615,8 +1615,12 @@ function App() {
   useEffect(() => {
     const slug = currentUser?.shop_slug;
     if (!slug || portalSlugFromPath() === slug) return;
+    // ?register only chose the signup screen; a signed-in URL should not keep it.
+    const params = new URLSearchParams(window.location.search);
+    params.delete('register');
+    const search = params.toString();
     window.history.replaceState(window.history.state, '',
-                                `/${slug}${window.location.search}`);
+                                `/${slug}${search ? `?${search}` : ''}`);
   }, [currentUser]);
   const { t, language } = useLanguage();
   const currentUserName = currentUser?.first_name || currentUser?.name || currentUser?.email?.split('@')[0] || 'User';
