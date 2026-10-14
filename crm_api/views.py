@@ -2458,6 +2458,7 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 serializer = GarmentJobSerializer(data={
                     'order': order.id,
                     'template': str(template.id),
+                    'label': garment.get('label') or '',
                     'spec': spec,
                     'measurements': measurements,
                     'materials': garment.get('materials') or [],
