@@ -7822,7 +7822,8 @@ function App() {
                         <details open id={`wz-design-${job.key}`} className="wz-sec">
                           <summary className="wz-sec-head"><span>{t('wizard.designTitle', 'Choose design')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
+                        {/* The three ways to choose a design, side by side; a phone stacks them. */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
                           <button
                             type="button"
                             className={`wz-service ${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'wz-choice--on' : '' }`}
