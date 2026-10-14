@@ -776,6 +776,41 @@ class RequirementTests(PortalTestCase):
         token = self.customer_and_token()
         self.assertEqual(self.submit(token).status_code, 400)
 
+    def test_the_customer_is_thanked_on_whatsapp_once(self):
+        token = self.customer_and_token()
+        before = len(self.sent)
+        self.assertEqual(self.submit(token, garment_type='Saree', notes='Gold border').status_code, 201)
+        self.assertEqual(len(self.sent), before + 1)
+        message = self.sent[-1]
+        self.assertEqual(message['phone'], '919876543210')
+        self.assertEqual(message['tenant'].schema_name, 'pt_sarala')
+        self.assertIn('Hi Asha', message['message_text'])
+        self.assertIn('Sarala Boutique', message['message_text'])
+        self.assertIn('your Saree requirement', message['message_text'])
+        # The same token repeating the call within the cooldown: no second message.
+        self.assertEqual(self.submit(token, garment_type='Saree', notes='Again').status_code, 201)
+        self.assertEqual(len(self.sent), before + 1)
+
+    def test_a_refused_requirement_sends_nothing(self):
+        token = self.customer_and_token()
+        before = len(self.sent)
+        self.assertEqual(self.submit(token).status_code, 400)
+        self.assertEqual(self.submit(token, garment_type='Saree', company_website='x').status_code, 400)
+        self.assertEqual(len(self.sent), before)
+
+    def test_a_whatsapp_failure_still_saves_the_enquiry(self):
+        from crm_api.models import DesignPreference
+
+        token = self.customer_and_token()
+        with mock.patch('crm_api.whatsapp_service.send_whatsapp_message',
+                        side_effect=RuntimeError('provider down')):
+            res = self.submit(token, garment_type='Saree', notes='Gold border')
+        self.assertEqual(res.status_code, 201, res.content)
+        self.assertEqual(res.json(), {'saved': True})
+        with schema_context('pt_sarala'):
+            self.assertTrue(DesignPreference.objects.filter(
+                customer__mobile_number='919876543210').exists())
+
     def test_a_dangerous_reference_link_is_refused(self):
         token = self.customer_and_token()
         for bad in ('javascript:alert(1)', 'data:text/html,x', '/etc/passwd'):

@@ -162,6 +162,17 @@ class RoleGateTests(TransactionTestCase):
             self.assertEqual(response.status_code, 403)
             self.assertIn('Inventory', _message(response))
 
+    def test_staff_read_the_fabric_names_but_not_the_stock(self):
+        # The taxonomy is the fabric-slot names every screen labels with; the
+        # stock behind the same prefix stays the owner's.
+        with temporary_tenant('rg_taxo', 'owner@rg.test', 'Atelier'):
+            client = _designer('rg_taxo', 'designer@rg.test')
+            names = client.get('/api/inventory/items/taxonomy/')
+            self.assertEqual(names.status_code, 200)
+            self.assertIn('garments', names.json())
+            self.assertEqual(client.get('/api/inventory/items/').status_code, 403)
+            self.assertEqual(client.post('/api/inventory/items/taxonomy/', {}).status_code, 405)
+
     def test_the_design_library_create_shortcut_does_not_escape_the_gate(self):
         """DesignLibraryPermission.has_role_permission returns True for
         `create` without consulting its parent at all. That branch is why the
