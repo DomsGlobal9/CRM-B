@@ -72,6 +72,21 @@ def holds_stage_role(role, allowed_roles):
     """
     return role in allowed_roles or (role == DESIGNER and MASTER in allowed_roles)
 
+
+def worker_stage_keys(config, role):
+    """The stages a hand-out gives the worker of `role`; the rest go to the master.
+
+    Read from the boutique's own stage roles, never a fixed list: a fixed
+    ('stitching', 'finishing', ...) handed Hemming & finishing to a Tailor the
+    default workflow does not let finish, so the step sat in their queue and
+    refused them when they pressed Start.
+    """
+    if not role:
+        return frozenset()
+    return frozenset(s['key'] for s in ordered_stages(config)
+                     if holds_stage_role(role, s.get('roles') or ()))
+
+
 VALID_STATUSES = ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED', 'PAUSED',
                   'PENDING_VERIFICATION')
 

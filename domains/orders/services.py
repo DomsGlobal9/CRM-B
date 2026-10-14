@@ -387,7 +387,8 @@ def seed_workflow(order, config, tailor=None, master=None, priority=None):
     # One task per workroom stage the order has, named for the stage, so
     # a maggam order's task list is the maggam path and a plain one's is
     # not padded with embroidery it will never do.
-    tailor_stages = {'stitching_in_progress', 'finishing', 'alteration_work'}
+    tailor_stages = workflow.worker_stage_keys(
+        config.workflow_config, tailor.role if tailor else None)
     tasks_to_create = [
         ProductionTask(
             order=order, title=s_conf['name'], stage_key=s_conf['key'],
