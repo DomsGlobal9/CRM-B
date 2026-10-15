@@ -1386,6 +1386,7 @@ const NAV_MODULE = {
   workshop: null,
   alterations: 'alterations',
   customers: null,
+  leads: null,
   work: null,
   check: null,
   done: null,
@@ -1422,6 +1423,7 @@ const navSectionsFor = (user, t) => {
         { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
+        { tab: 'leads', icon: Target, label: t('nav.leads', 'Leads') },
         { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
@@ -2218,7 +2220,8 @@ function App() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
-  const [customerView, setCustomerView] = useState('customers');
+  // Leads have their own sidebar item; it opens the customer book filtered to leads.
+  const customerView = dashboardTab === 'leads' ? 'leads' : 'customers';
   const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
   const [customerPageSize, setCustomerPageSize] = useState(CUSTOMER_PAGE_SIZES[0]);
   const [customerFilters, setCustomerFilters] = useState(EMPTY_CUSTOMER_FILTERS);
@@ -3549,7 +3552,6 @@ function App() {
   
   // A lead is a portal sign-up nobody has contacted or taken an order for yet.
   const isLead = (c) => !!c.is_lead && !((c.order_count ?? c.orders?.length ?? 0) > 0);
-  const leadCount = customersList.filter(isLead).length;
   const bookList = React.useMemo(
     () => customersList.filter(c => isLead(c) === (customerView === 'leads')),
     [customersList, customerView]);
@@ -5533,7 +5535,7 @@ function App() {
             )}
 
             {/* 5. CUSTOMERS TAB */}
-            {dashboardTab === 'customers' && editingCustomer && (
+            {(dashboardTab === 'customers' || dashboardTab === 'leads') && editingCustomer && (
               <CustomerForm key={editingCustomer.id} customer={editingCustomer}
                             onBack={() => setEditingCustomer(null)}
                             onSaved={async () => {
@@ -5551,18 +5553,18 @@ function App() {
                                         onClose={() => setDeletingAllCustomers(false)}
                                         onDeleted={() => fetchDashboardAndConfig()} />
             )}
-            {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'choose' && (
+            {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'choose' && (
               <AddCustomerChooser onBack={() => setCustomerAddMode(null)} onManual={() => setCustomerAddMode('manual')}
                                   onImported={() => fetchDashboardAndConfig()} />
             )}
-            {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
+            {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
               <CustomerForm customers={customersList} onBack={() => setCustomerAddMode('choose')}
                             onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
             )}
-            {dashboardTab === 'customers' && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (
+            {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (
               <>
                 <PageHeader
-                  title={t('customersPage.title')}
+                  title={customerView === 'leads' ? t('nav.leads', 'Leads') : t('customersPage.title')}
                   subtitle={t('customersPage.subtitle')}
                   aside={(
                     <>
@@ -5602,12 +5604,6 @@ function App() {
                   const withOrders = bookList.filter(c => (c.order_count ?? c.orders?.length ?? 0) > 0).length;
                   return (
                     <>
-                      <div className="at-toolbar">
-                        <Chips value={customerView} onChange={setCustomerView} options={[
-                          { key: 'customers', label: 'Customers', count: customersList.length - leadCount },
-                          { key: 'leads', label: 'Leads', count: leadCount },
-                        ]} />
-                      </div>
                       <section className="at-stat-grid">
                         <StatCard icon={Users} tone="green" label={customerView === 'leads' ? 'Total Leads' : 'Total Customers'} value={bookList.length}
                                   sub={t('customersPage.withOrdersCount', '{n} with orders', { n: withOrders })} />
@@ -5823,7 +5819,7 @@ function App() {
             )}
 
             {/* 5b. CUSTOMER DETAIL VIEW (Image 5/6 extension) */}
-            {dashboardTab === 'customers' && selectedDirectoryCustomer && (() => {
+            {(dashboardTab === 'customers' || dashboardTab === 'leads') && selectedDirectoryCustomer && (() => {
               const c = selectedDirectoryCustomer;
               const isOwner = !currentUser?.role || currentUser.role === 'Owner';
               const parts = c.measurements?.additional_measurements?.stitch_parts || [];
