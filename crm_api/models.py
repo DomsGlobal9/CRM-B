@@ -577,12 +577,12 @@ def get_default_workflow():
         {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master", "Tailor"], "scope": "garment"},
         {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"], "scope": "garment"},
         {"key": "master_quality_check", "name": "Master quality check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"], "scope": "garment"},
-        {"key": "trial_scheduled", "name": "Trial booking", "sla_hours": 48, "roles": ["Owner", "Master"]},
-        {"key": "trial_completed", "name": "Trial", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "ready_for_delivery", "name": "Delivery prep", "sla_hours": 24, "roles": ["Owner", "Master"]},
+        {"key": "trial_scheduled", "name": "Trial booking", "sla_hours": 48, "roles": ["Owner", "Master"], "scope": "garment"},
+        {"key": "trial_completed", "name": "Trial", "sla_hours": 24, "roles": ["Owner", "Master"], "scope": "garment"},
+        {"key": "ready_for_delivery", "name": "Delivery prep", "sla_hours": 24, "roles": ["Owner", "Master"], "scope": "garment"},
         
-        {"key": "payment", "name": "Payment", "sla_hours": 24, "roles": ["Owner", "Master"]},
-        {"key": "delivered", "name": "Delivery", "sla_hours": 12, "roles": ["Owner", "Master"]}
+        {"key": "payment", "name": "Payment", "sla_hours": 24, "roles": ["Owner", "Master"], "scope": "garment"},
+        {"key": "delivered", "name": "Delivery", "sla_hours": 12, "roles": ["Owner", "Master"], "scope": "garment"}
     ]
 
 class BoutiqueSettings(models.Model):

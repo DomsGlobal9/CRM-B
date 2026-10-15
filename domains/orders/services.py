@@ -196,6 +196,8 @@ def ensure_garment_stages(order):
                 performed_by=placeholder.performed_by if placeholder else None,
                 comments=placeholder.comments if placeholder else None,
                 sequence=seed.sequence, sla_hours=seed.sla_hours)
+            if key in ('created', 'payment', 'delivered') and task_seed is None:
+                continue  # these never carry a production task (seed_workflow)
             ProductionTask.objects.create(
                 order=order, garment_job=job, stage_key=key,
                 title=f"{seed.stage_name} · {job.template.name}",
@@ -835,7 +837,10 @@ class OrderService:
             'trial_completed': 'Ready for Dispatch',
             'ready_for_delivery': 'Ready for Dispatch',
             'payment': 'Ready for Dispatch',
-            'delivered': 'Delivered' if new_status == 'COMPLETED' else order.order_status,
+            # Delivery is per garment: the order is Delivered with its last handover.
+            'delivered': 'Delivered' if new_status == 'COMPLETED' and not order.stages.filter(
+                stage_key='delivered').exclude(status__in=('COMPLETED', 'SKIPPED')).exists()
+                else order.order_status,
         }
         previous_order_status = order.order_status
         if stage_key in status_map:

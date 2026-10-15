@@ -21,6 +21,7 @@ from domains.orders.services import (
 
 WORKROOM = ['pattern_cutting', 'stitching_in_progress', 'finishing', 'pressing',
             'master_quality_check']
+FINISHING = ['trial_scheduled', 'trial_completed', 'ready_for_delivery']
 
 
 class PerGarmentStageTests(StateMachineTestBase):
@@ -65,8 +66,12 @@ class PerGarmentStageTests(StateMachineTestBase):
             self.assertEqual(rows.count(), 3, key)
             self.assertFalse(rows.filter(garment_job__isnull=True).exists(), key)
             self.assertEqual(ProductionTask.objects.filter(order=self.order, stage_key=key).count(), 3)
-        for key in ('created', 'trial_scheduled', 'ready_for_delivery', 'payment', 'delivered'):
-            self.assertEqual(OrderStage.objects.filter(order=self.order, stage_key=key).count(), 1, key)
+        self.assertEqual(OrderStage.objects.filter(order=self.order, stage_key='created').count(), 1)
+        # Trial, payment and delivery are per garment too; Payment and Delivery carry no task.
+        for key in FINISHING + ['payment', 'delivered']:
+            self.assertEqual(OrderStage.objects.filter(order=self.order, stage_key=key).count(), 3, key)
+        self.assertFalse(ProductionTask.objects.filter(
+            order=self.order, stage_key__in=['payment', 'delivered']).exists())
         # Idempotent: a second pass adds nothing.
         before = OrderStage.objects.filter(order=self.order).count()
         ensure_garment_stages(self.order)
@@ -90,15 +95,35 @@ class PerGarmentStageTests(StateMachineTestBase):
             self.go('stitching_in_progress', self.blouse, 'IN_PROGRESS')
         self.assertIn('Cutting', str(caught.exception))
 
-    def test_order_level_stages_wait_for_every_garment(self):
+    def test_a_finished_garment_goes_to_trial_while_another_is_stitched(self):
         self.finish_garment(self.saree)
-        self.finish_garment(self.blouse)
+        self.go('trial_scheduled', self.saree)
+        self.assertEqual(self.row('trial_scheduled', self.saree).status, 'COMPLETED')
+        # The blouse's trial still waits on the blouse's own work.
+        with self.assertRaises(ValueError):
+            self.go('trial_scheduled', self.blouse)
+
+    def test_each_garment_is_paid_for_and_handed_over_on_its_own(self):
+        self.finish_garment(self.saree)
+        for key in FINISHING:
+            self.go(key, self.saree)
+        # A garment's handover waits on its own Payment step...
         with self.assertRaises(ValueError) as caught:
-            self.move('trial_scheduled')
-        self.assertIn('not completed', str(caught.exception))
-        self.finish_garment(self.petti)
-        self.move('trial_scheduled')
-        self.assertEqual(self.row('trial_scheduled').status, 'COMPLETED')
+            self.go('delivered', self.saree)
+        self.assertIn('Payment', str(caught.exception))
+        self.go('payment', self.saree)
+        self.go('delivered', self.saree)
+        # ...not on the others: the order is not Delivered yet.
+        self.order.refresh_from_db()
+        self.assertNotEqual(self.order.order_status, 'Delivered')
+        self.assertEqual(self.row('payment', self.blouse).status, 'NOT_STARTED')
+        for job in (self.blouse, self.petti):
+            self.finish_garment(job)
+            for key in FINISHING + ['payment', 'delivered']:
+                self.go(key, job)
+        # The last handover delivers the order.
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.order_status, 'Delivered')
 
     def test_rollup_reads_the_order_as_a_whole(self):
         self.go('pattern_cutting', self.saree)
@@ -218,9 +243,9 @@ class MixedPathTests(StateMachineTestBase):
                                                 garment_job=self.plain).status, 'IN_PROGRESS')
         with self.assertRaises(ValueError):
             self.go('stitching_in_progress', self.maggam, 'IN_PROGRESS')
-        # The order-level steps still wait for every garment.
+        # Its trial still waits on its own remaining work.
         with self.assertRaises(ValueError):
-            self.move('trial_scheduled')
+            self.go('trial_scheduled', self.plain)
 
     def test_send_to_workshop_starts_every_garments_first_step(self):
         client = APIClient()

@@ -5574,6 +5574,10 @@ function App() {
                             {bucket === 'new' && (
                               <span className="ui-badge ui-badge--warning">{t('ordersPage.notSentYet', 'Not sent yet')}</span>
                             )}
+                            {/* A garment handed over while others on the order are still in work. */}
+                            {bucket === 'workshop' && job && !stage && (
+                              <span className="ui-badge ui-badge--success">{t('ordersPage.garmentDelivered', 'Delivered')}</span>
+                            )}
                             {/* Where it stands: the step before (done), the step
                                 it is on with who has it and for how long, the
                                 step after. */}
