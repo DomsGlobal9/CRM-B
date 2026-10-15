@@ -47,6 +47,12 @@ const garmentLabel = (order, t) =>
   || order.customer_garment_type || t('workPage.customGarment', 'Custom garment');
 // A per-garment stage names its garment; an order-level one names them all.
 const jobTitle = (order, stage, t) => `${stage.garment_name || garmentLabel(order, t)} · ${stage.stage_name || humanise(stage.stage_key)}`;
+// "#14-2": the order, and which garment of a several-garment order this step is for.
+const stageRef = (order, stage) => {
+  const all = order.garment_jobs || [];
+  const at = stage.garment_job ? all.findIndex((j) => j.id === stage.garment_job) : -1;
+  return all.length > 1 && at >= 0 ? `${orderRef(order)}-${at + 1}` : orderRef(order);
+};
 
 // '5 min' / '2 h' / '3 d' since a timestamp.
 function ago(ts, t) {
@@ -281,7 +287,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
         </div>
         {extra.chip}
       </div>
-      <div className="wk-card-sub">{orderRef(order)} · {order.customer_name}</div>
+      <div className="wk-card-sub">{stageRef(order, stage)} · {order.customer_name}</div>
       {extra.meta && <div className="wk-card-meta">{extra.meta}</div>}
       <CardGlance order={order} stage={stage} t={t} />
       {extra.body}
@@ -702,7 +708,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
       <div className="wk-sheet" role="dialog" aria-modal="true" aria-label={title}>
         <div className="wk-sheet-head">
           <button type="button" className="wk-icon-btn" onClick={onClose} aria-label={t('workPage.back', 'Back')}><ArrowLeft size={22} /></button>
-          <div className="wk-sheet-title">{title}<small>{orderRef(order)} · {order.customer_name}</small></div>
+          <div className="wk-sheet-title">{title}<small>{stageRef(order, stage)} · {order.customer_name}</small></div>
         </div>
         <div className="wk-sheet-body">
           {head}

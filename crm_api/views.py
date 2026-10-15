@@ -1429,14 +1429,16 @@ class OrderViewSet(viewsets.ModelViewSet):
             if nxt and not order.stages.exclude(stage_key='created').exclude(
                     status__in=('NOT_STARTED', 'SKIPPED')).exists():
                 # Every garment's row of that stage, so a two-garment order
-                # does not show Cutting half-started after one Send.
-                rows = order.stages.filter(stage_key=nxt.stage_key, status='NOT_STARTED').order_by('id')
+                # does not show Cutting half-started after one Send -- and the
+                # plain garments' Cutting that sits beside a maggam garment's first step.
+                first = Q(stage_key=nxt.stage_key) | Q(sequence=nxt.sequence, garment_job__isnull=False)
+                rows = order.stages.filter(first, status='NOT_STARTED').order_by('id')
                 for row in rows:
                     OrderService.transition_order_stage(
                         order=order, stage_key=row.stage_key, new_status='IN_PROGRESS',
                         user=request.user, garment_job=row.garment_job_id)
                 tailor_step = nxt.stage_key in ('stitching_in_progress', 'finishing', 'alteration_work')
-                order.stages.filter(stage_key=nxt.stage_key, assigned_to__isnull=True).update(
+                order.stages.filter(first, assigned_to__isnull=True).update(
                     assigned_to=(order.tailor if tailor_step else order.master) or order.tailor or order.master)
                 started = nxt.stage_key
         except ValueError as exc:
