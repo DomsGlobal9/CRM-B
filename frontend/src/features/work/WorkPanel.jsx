@@ -685,14 +685,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
   let actions = null;
   if (mode === 'work') {
     if (['NOT_STARTED', 'PAUSED'].includes(stage.status)) {
-      actions = (
-        <ActionBar error={error}>
-          <button type="button" className="btn-primary" disabled={busy}
-                  onClick={() => save('IN_PROGRESS', '', [], null, t('workPage.started', 'Started. Good luck!'))}>
-            {t('workPage.start', 'Start')}
-          </button>
-        </ActionBar>
-      );
+      actions = <StartForm stage={stage} busy={busy} error={error} save={save} />;
     } else if (stage.status === 'IN_PROGRESS') {
       actions = <SubmitForm stage={stage} busy={busy} error={error} isSupervisor={isSupervisor} save={save} />;
     } else if (stage.status === 'PENDING_VERIFICATION') {
@@ -826,6 +819,74 @@ function SubmitForm({ stage, busy, error, isSupervisor, save }) {
         {needPhoto && <div className="wk-hint">{t('workPage.addPhotoFirst', 'Add a photo of the finished work first')}</div>}
         <button type="button" className="btn-primary" disabled={busy || needPhoto || recording} onClick={submit}>
           <CheckCircle2 size={18} /> {busy ? t('workPage.saving', 'Saving…') : label}
+        </button>
+      </ActionBar>
+    </>
+  );
+}
+
+/* Not started yet: Start, and meanwhile a photo or a note to leave on the
+   step (a question, the cloth as it came). A note keeps the status, as the
+   server's note path does; Start carries whatever was typed or picked too. */
+function StartForm({ stage, busy, error, save }) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const [photos, setPhotos] = useState([]); // File[]
+  const [text, setText] = useState('');
+  const [recording, setRecording] = useState(false);
+  const [problem, setProblem] = useState('');
+  const galleryRef = useRef(null);
+
+  const addFiles = (files) => {
+    const all = [...photos, ...files];
+    const err = imageFilesError(all, { max: MAX_PHOTOS });
+    setProblem(err);
+    if (!err) setPhotos(all);
+  };
+  const start = () => {
+    if (recording) { setProblem(t('workPage.stopRecording', 'Stop the recording first.')); return; }
+    save('IN_PROGRESS', text, photos, null, t('workPage.started', 'Started. Good luck!'));
+  };
+
+  return (
+    <>
+      {open && (
+        <div className="wk-form">
+          <div className="wk-pickers">
+            <CameraButton onFiles={addFiles} className="btn-secondary" label={t('workPage.takePhoto', 'Take photo')} disabled={busy || photos.length >= MAX_PHOTOS} />
+            <button type="button" className="btn-secondary" disabled={busy || photos.length >= MAX_PHOTOS} onClick={() => galleryRef.current?.click()}>
+              <ImageIcon size={18} /> {t('workPage.addFromGallery', 'Add from gallery')}
+            </button>
+            <input ref={galleryRef} type="file" accept="image/*" multiple hidden
+                   onChange={(e) => { const files = [...(e.target.files || [])]; e.target.value = ''; if (files.length) addFiles(files); }} />
+          </div>
+          {photos.length > 0 && (
+            <div className="wk-photos wk-tiles">
+              {photos.map((file, i) => <FilePreview key={`${file.name}-${file.lastModified}-${i}`} file={file} onRemove={() => setPhotos(photos.filter((_, n) => n !== i))} />)}
+            </div>
+          )}
+          {problem && <div className="wk-error" role="alert">{problem}</div>}
+          <div className="wk-note-box">
+            <textarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)} autoFocus
+                      placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} />
+            <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} />
+          </div>
+        </div>
+      )}
+      <ActionBar error={error}>
+        {!open ? (
+          <button type="button" className="btn-secondary" disabled={busy} onClick={() => setOpen(true)}>
+            <ImageIcon size={18} /> {t('workPage.addPhotoOrNote', 'Add photo or note')}
+          </button>
+        ) : (
+          <button type="button" className="btn-secondary" disabled={busy || recording || !text.trim()}
+                  title={text.trim() ? '' : t('workPage.writeNoteFirst', 'Write a note to save with the photos')}
+                  onClick={() => save(stage.status, text, photos, null, t('workPage.noteSaved', 'Note saved.'))}>
+            {busy ? t('workPage.saving', 'Saving…') : t('workPage.saveNote', 'Save note')}
+          </button>
+        )}
+        <button type="button" className="btn-primary" disabled={busy || recording} onClick={start}>
+          {t('workPage.start', 'Start')}
         </button>
       </ActionBar>
     </>

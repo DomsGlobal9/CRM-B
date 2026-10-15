@@ -1,3 +1,5 @@
+import { shrinkImage } from './media';
+
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 /**
@@ -790,7 +792,8 @@ export const api = {
     if (clearVoiceNote) formData.append('voice_note_clear', '1');
     
     if (imageFiles && imageFiles.length > 0) {
-      imageFiles.forEach(file => {
+      // Sent small: a full-size phone photo is what made a save take minutes.
+      (await Promise.all(imageFiles.map((file) => shrinkImage(file)))).forEach(file => {
         formData.append('images', file);
       });
     }
