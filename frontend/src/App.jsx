@@ -5894,21 +5894,24 @@ function App() {
                   </button>
                   {(isOwner || adminCan('customers.edit') || adminCan('customers.delete') || adminCan('orders.create')) && (
                     <div className="at-toolbar-right">
-                      {(isOwner || adminCan('customers.edit')) && (
+                      {/* A lead shows only New order: Edit, Delete and Go with Existing Design are for customers. */}
+                      {!isLead(c) && (isOwner || adminCan('customers.edit')) && (
                         <button type="button" className="btn-secondary" disabled={customerActionId === c.id} onClick={() => startEditCustomer(c)}>
                           <Edit2 size={16} /> Edit
                         </button>
                       )}
-                      {(isOwner || adminCan('customers.delete')) && (
+                      {!isLead(c) && (isOwner || adminCan('customers.delete')) && (
                         <button type="button" className="btn-secondary at-btn-danger" disabled={customerActionId === c.id} onClick={() => handleDeleteCustomer(c)}>
                           <Trash2 size={16} /> Delete
                         </button>
                       )}
                       {(isOwner || adminCan('orders.create')) && (
                         <>
-                          <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
-                            <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
-                          </button>
+                          {!isLead(c) && (
+                            <button className="btn-secondary" style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--surface-color)' }} onClick={goExisting}>
+                              <Copy size={16} /> {t('customersPage.goExistingDesign', 'Go with Existing Design')}
+                            </button>
+                          )}
                           <button className="btn-primary" onClick={() => handleSelectExistingCustomer(c)}>
                             <Sparkles size={16} /> {t('customersPage.newOrder', 'New order')}
                           </button>
