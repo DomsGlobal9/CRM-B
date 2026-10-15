@@ -11,7 +11,7 @@ import {
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
 const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
-import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
+import { ALL_ACCESSORY_OPTIONS } from './features/designStudio/accessories';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
 import { fabricMatchesColour } from './features/fabrics/colour';
@@ -501,7 +501,7 @@ const orderGarmentNames = (order) => {
   if (!order) return [];
   if (Array.isArray(order.garments) && order.garments.length) return order.garments;
   const jobs = order.garment_jobs || [];
-  if (jobs.length) return jobs.map(j => j.template_name || j.template_key || 'Custom garment');
+  if (jobs.length) return jobs.map(j => j.display_name || j.template_name || j.template_key || 'Custom garment');
   return order.customer_garment_type ? [order.customer_garment_type] : [];
 };
 
@@ -973,7 +973,7 @@ function OrderTaskTable({ stages, jobs = [], focus = null, onSelectStage }) {
         {lanes.map((j) => (
           <button key={j.id} type="button" role="tab" aria-selected={j.id === lane}
                   className={`tab-btn${j.id === lane ? ' active' : ''}`} onClick={() => setPick(j.id)}>
-            {jobs.indexOf(j) + 1}. {j.template_name || t('ordersPage.garment', 'Garment')}
+            {jobs.indexOf(j) + 1}. {j.display_name || j.template_name || t('ordersPage.garment', 'Garment')}
             {ownRows(j.id).some((s) => s.stage_key.startsWith('maggam')) ? ` · ${t('ordersPage.maggam', 'Maggam')}` : ''}
           </button>
         ))}
@@ -1058,7 +1058,7 @@ function OrderGarmentsCard({ order, focus = null, onSelectStage }) {
             <div key={job.id} className="od-garment">
               <div className="od-garment-tile" aria-hidden="true"><Shirt size={20} /></div>
               <div className="od-garment-body">
-                <div className="od-garment-name">{jobs.length > 1 ? `${jobs.indexOf(job) + 1}. ` : ''}{job.template_name || t('ordersPage.garment', 'Garment')}</div>
+                <div className="od-garment-name">{jobs.length > 1 ? `${jobs.indexOf(job) + 1}. ` : ''}{job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}</div>
                 {rows.length > 0 && (
                   <div className="od-garment-steps">
                     {rows.map((s) => {
@@ -1214,7 +1214,8 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
       </div>
       {canEdit ? (
         <>
-          <VoiceTextarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
+          {/* A plain box: the recorder below is this note's voice input. */}
+          <textarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
                     placeholder="Anything the workroom should know about this order…"
                     onChange={(e) => { setText(e.target.value); setState('idle'); }}
                     onBlur={() => save().catch(() => {})} />
@@ -2031,6 +2032,7 @@ function App() {
         const wantsDesigner = serviceType === 'design' && designRequest.designer;
         return {
           key: job.key,
+          label: job.label || '',
           paired_with: job.pairedWith || null,
           template: job.template?.id,
           template_key: job.template?.key || job.key,
@@ -2094,6 +2096,7 @@ function App() {
         const template = await api.getGarmentTemplate(garment.template_key);
         rebuilt.push({
           key: garment.key || garment.template_key,
+          label: garment.label || '',
           pairedWith: garment.paired_with || null,
           template,
           values: withDefaults(template, garment.values),
@@ -3048,9 +3051,18 @@ function App() {
   };
   /** "Saree 2" when the order has more than one saree; just "Saree" otherwise. */
   const garmentLabel = (job) => {
+    if (job.label) return job.label;
     const name = job.template?.name || job.key;
     const same = garmentJobs.filter(j => j.template?.key === job.template?.key);
     return same.length > 1 ? `${name} ${same.findIndex(j => j.key === job.key) + 1}` : name;
+  };
+  // Renaming a garment on this order: { key, text } while its name box is open.
+  const [renamingGarment, setRenamingGarment] = useState(null);
+  const saveGarmentName = () => {
+    if (!renamingGarment) return;
+    const label = renamingGarment.text.trim().slice(0, 60);
+    setGarmentJobs(prev => prev.map(j => (j.key === renamingGarment.key ? { ...j, label } : j)));
+    setRenamingGarment(null);
   };
   /** One more of this garment, same design: a follower placed after the
    *  garment and its other followers. Whatever is filled on the garment is
@@ -4951,7 +4963,7 @@ function App() {
                   <header className="od-head">
                     <div className="od-head-left">
                       <div className="od-title-row">
-                        <h1 className="od-title">Order {orderRef(order)}{focusJob ? `-${focusNo} · ${focusJob.template_name || t('ordersPage.garment', 'Garment')}` : ''}</h1>
+                        <h1 className="od-title">Order {orderRef(order)}{focusJob ? `-${focusNo} · ${focusJob.display_name || focusJob.template_name || t('ordersPage.garment', 'Garment')}` : ''}</h1>
                         {/* Where it stands, in the workroom's words: the stages
                             move the order along, so nothing to pick here. */}
                         {(() => {
@@ -5536,7 +5548,7 @@ function App() {
                           <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}{job ? `-${n}` : ''}
                             {job && (
                               <span style={{ display: 'block', fontWeight: 'var(--weight-regular)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                                {job.template_name || t('ordersPage.garment', 'Garment')}
+                                {job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}
                               </span>
                             )}
                             {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
@@ -7778,8 +7790,33 @@ function App() {
                         <div className="wz-garment-head">
                           <span className="wz-garment-num">{idx + 1}</span>
                           <div>
-                            <div className="wz-garment-name">{garmentLabel(job)}</div>
-                            <div className="wz-garment-sub">{t('wizard.whatDoesItNeed', 'What does it need?')}</div>
+                            {renamingGarment?.key === job.key ? (
+                              <input className="form-control" autoFocus maxLength={60}
+                                     aria-label={t('wizard.garmentName', 'Garment name')}
+                                     placeholder={job.template.name}
+                                     value={renamingGarment.text}
+                                     onChange={(e) => setRenamingGarment({ key: job.key, text: e.target.value })}
+                                     onBlur={saveGarmentName}
+                                     onKeyDown={(e) => {
+                                       if (e.key === 'Enter') { e.preventDefault(); saveGarmentName(); }
+                                       if (e.key === 'Escape') setRenamingGarment(null);
+                                     }}
+                                     style={{ maxWidth: '280px', padding: '4px 8px' }} />
+                            ) : (
+                              <div className="wz-garment-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {garmentLabel(job)}
+                                <button type="button" className="btn-secondary at-btn-sm"
+                                        title={t('wizard.renameGarment', 'Rename this garment on this order')}
+                                        aria-label={t('wizard.renameGarment', 'Rename this garment on this order')}
+                                        style={{ padding: '2px 6px', minHeight: 0 }}
+                                        onClick={() => setRenamingGarment({ key: job.key, text: job.label || '' })}>
+                                  <Edit2 size={12} />
+                                </button>
+                              </div>
+                            )}
+                            <div className="wz-garment-sub">
+                              {job.label ? `${job.template.name} · ` : ''}{t('wizard.whatDoesItNeed', 'What does it need?')}
+                            </div>
                           </div>
                           <button type="button" className="btn-secondary at-btn-sm" style={{ marginLeft: 'auto' }} onClick={() => removeGarment(job.key)}>
                             <Trash2 size={12} /> {t('common.remove', 'Remove')}
@@ -7884,7 +7921,8 @@ function App() {
                         <details open id={`wz-design-${job.key}`} className="wz-sec">
                           <summary className="wz-sec-head"><span>{t('wizard.designTitle', 'Choose design')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
+                        {/* The three ways to choose a design, side by side; a phone stacks them. */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
                           <button
                             type="button"
                             className={`wz-service ${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'wz-choice--on' : '' }`}
@@ -8111,7 +8149,7 @@ function App() {
                       )}
                       <div className="form-group">
                         <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
-                        <VoiceTextarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
+                        <textarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
                                   onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
                                   placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
                       </div>
@@ -8366,7 +8404,7 @@ function App() {
                 </div>
               );
               
-              const accessoryKeys = new Set(ACCESSORY_OPTIONS.map(o => o.key));
+              const accessoryKeys = new Set(ALL_ACCESSORY_OPTIONS.map(o => o.key));
               const partName = (p, img) => img?.part_label || String(p).replace(/_/g, ' ');
               const withGarment = (job, list) => list.map(pic => ({
                 ...pic, label: garmentJobs.length > 1 ? `${job.template?.name || job.key} · ${pic.label}` : pic.label }));
@@ -8686,7 +8724,7 @@ function App() {
                                   onClick={() => setAlterationForm({ ...alterationForm, orderId: order.order_id, garmentJobId: job.id })}>
                             <IconTile icon={Shirt} tone={picked ? 'green' : 'neutral'} size={40} iconSize={18} />
                             <span style={{ minWidth: 0, flex: 1 }}>
-                              <span className="wz-match-name">{job.template_name || t('wizard.garment', 'Garment')}</span>
+                              <span className="wz-match-name">{job.display_name || job.template_name || t('wizard.garment', 'Garment')}</span>
                               <span className="od-hint" style={{ display: 'block' }}>
                                 {t('wizard.order', 'Order')} {orderRef(order)}{order.estimated_delivery ? ` · ${t('wizard.delivered', 'delivered')} ${fmtDate(order.estimated_delivery)}` : ''}
                               </span>
@@ -9310,7 +9348,7 @@ Complete the Payment stage with this partial payment?`)) return;
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span className="at-section-title" style={{ fontSize: 'var(--text-xl)' }}>{single ? `${allJobs.indexOf(single) + 1}. ${single.template_name || 'Garment'}` : orderGarmentLabel(activeReviewOrder)}</span>
+                    <span className="at-section-title" style={{ fontSize: 'var(--text-xl)' }}>{single ? `${allJobs.indexOf(single) + 1}. ${single.display_name || single.template_name || 'Garment'}` : orderGarmentLabel(activeReviewOrder)}</span>
                     {detailCount > 0 && <span className="ui-badge ui-badge--neutral">{detailCount} details</span>}
                   </div>
                   <div className="at-section-sub" style={{ fontSize: 'var(--text-sm)', marginTop: '4px' }}>
@@ -9409,7 +9447,7 @@ Complete the Payment stage with this partial payment?`)) return;
                 <GarmentSelectionsReview
                   jobs={jobs.map((j) => ({
                     key: j.id,
-                    template: { key: j.template_key, name: j.template_name },
+                    template: { key: j.template_key, name: j.display_name || j.template_name },
                     design: j.selections?.design,
                     fabrics: j.selections?.fabrics,
                     slot_labels: j.selections?.slot_labels,

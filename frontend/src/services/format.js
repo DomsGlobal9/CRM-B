@@ -105,7 +105,7 @@ export function orderGarmentNames(order) {
   if (!order) return [];
   if (Array.isArray(order.garments) && order.garments.length) return order.garments;
   const jobs = order.garment_jobs || [];
-  if (jobs.length) return jobs.map(j => j.template_name || j.template_key || 'Custom garment');
+  if (jobs.length) return jobs.map(j => j.display_name || j.template_name || j.template_key || 'Custom garment');
   return order.customer_garment_type ? [order.customer_garment_type] : [];
 }
 

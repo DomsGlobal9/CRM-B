@@ -20,7 +20,7 @@ import Loader from '../../components/ui/Loader';
  */
 
 const fallbackTemplate = (job) => ({
-  name: job.template_name || job.template_key || 'Custom garment',
+  name: job.display_name || job.template_name || job.template_key || 'Custom garment',
   sections: [
     {
       key: 'measurements', title: 'Measurements',

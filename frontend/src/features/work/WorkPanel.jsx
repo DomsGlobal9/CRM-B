@@ -11,7 +11,8 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
-import { ACCESSORY_OPTIONS, Lightbox } from '../designStudio/GarmentPartPicker';
+import { Lightbox } from '../designStudio/GarmentPartPicker';
+import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
 import './work.css';
 
 /**
@@ -43,7 +44,7 @@ const statusLabel = (status, t) => { const [k, d] = STATUS_LABELS[status] || [];
 // Orders written before garment jobs existed name their garment on the order.
 const garmentLabel = (order, t) =>
   (order.flow === 'alteration' && order.alteration_garment_name)
-  || (order.garment_jobs || []).map((j) => j.template_name).filter(Boolean).join(', ')
+  || (order.garment_jobs || []).map((j) => j.display_name || j.template_name).filter(Boolean).join(', ')
   || order.customer_garment_type || t('workPage.customGarment', 'Custom garment');
 // A per-garment stage names its garment; an order-level one names them all.
 const jobTitle = (order, stage, t) => `${stage.garment_name || garmentLabel(order, t)} · ${stage.stage_name || humanise(stage.stage_key)}`;
@@ -91,7 +92,7 @@ const entries = (obj) => Object.entries(obj || {}).filter(([, v]) => v !== '' &&
 
 const Listen = ({ text }) => <span className="wk-listen"><SpeakButton text={text} /></span>;
 
-const ACCESSORY_KEYS = new Set(ACCESSORY_OPTIONS.map((o) => o.key));
+const ACCESSORY_KEYS = new Set(ALL_ACCESSORY_OPTIONS.map((o) => o.key));
 
 /* What a card shows so the job is known at a glance: the design photo, the
    fabric, who holds it, the measurements. A per-garment stage reads its own
@@ -566,7 +567,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
         {jobs.some((j) => Object.keys(j.selections || {}).length > 0) && (
           <div className="wk-gap">
             <GarmentSelectionsReview
-              jobs={jobs.map((j) => ({ key: j.id, template: { key: j.template_key, name: j.template_name },
+              jobs={jobs.map((j) => ({ key: j.id, template: { key: j.template_key, name: j.display_name || j.template_name },
                 design: j.selections?.design, fabrics: j.selections?.fabrics, slot_labels: j.selections?.slot_labels, fabric_qty: j.selections?.fabric_qty }))}
               fabrics={jobs.flatMap((j) => j.selections?.fabric_items || [])}
               taxonomy={fabricTaxonomy} />
@@ -601,7 +602,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
           const s = entries(j.spec);
           return (
             <details key={j.id} className="wk-details">
-              <summary>{j.template_name || t('workPage.customGarment', 'Custom garment')}</summary>
+              <summary>{j.display_name || j.template_name || t('workPage.customGarment', 'Custom garment')}</summary>
               <div className="wk-details-body">
                 {m.length === 0 && s.length === 0 && <div className="wk-quiet">{t('workPage.noMeasurements', 'No measurements recorded.')}</div>}
                 {m.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}{Number.isFinite(Number(v)) ? ` ${t('workPage.inch', 'Inches')}` : ''}</span></div>)}

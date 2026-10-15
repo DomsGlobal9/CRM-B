@@ -57,7 +57,7 @@ function AssignPanel({ orders, designers, onAssigned, onError }) {
   const garmentOptions = (orders || []).flatMap(order =>
     (order.garment_jobs || []).map(job => ({
       id: job.id,
-      label: `${orderRef(order)} · ${job.template_name || 'Custom garment'}`,
+      label: `${orderRef(order)} · ${job.display_name || job.template_name || 'Custom garment'}`,
     })));
 
   const submit = async (event) => {

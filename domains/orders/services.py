@@ -241,6 +241,7 @@ def _internal_job(order, template, sequence, garment, user):
     serializer = GarmentJobSerializer(data={
         'order': order.id,
         'template': str(template.id),
+        'label': garment.get('label') or '',
         'spec': {k: v for k, v in (garment.get('spec') or {}).items() if k in known},
         'measurements': {k: v for k, v in (garment.get('measurements') or {}).items() if k in known},
         'materials': garment.get('materials') or [],

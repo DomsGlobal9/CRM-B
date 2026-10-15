@@ -34,6 +34,10 @@ KINDS = {
     'HORSEHAIR': {'label': 'Horsehair Braid', 'accessory': True},
     'SHOULDER_PADS': {'label': 'Shoulder Pads', 'accessory': True},
     'MOTIF': {'label': 'Decorative Motifs', 'accessory': True},
+    # Men's wear: what a sherwani, shirt or suit needs that nothing above covers.
+    'CUFFLINK': {'label': 'Cufflinks', 'accessory': True},
+    'COLLAR_STAY': {'label': 'Collar Stays / Interfacing', 'accessory': True},
+    'BROOCH': {'label': 'Brooch / Kalgi', 'accessory': True},
     'OTHER': {'label': 'Other', 'accessory': True},
 }
 

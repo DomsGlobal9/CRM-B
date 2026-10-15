@@ -317,6 +317,29 @@ class GarmentJobTests(CatalogTestCase):
             GarmentJob.objects.create(order=order, template=GarmentTemplate.resolve(key))
         self.assertEqual(order.garment_jobs.count(), 3)
 
+    def test_a_garment_can_carry_its_own_name_on_the_order(self):
+        from apps.catalog.serializers import GarmentJobSerializer
+        from domains.orders.garments import garment_names
+
+        order = self._order()
+        template = GarmentTemplate.resolve('lehenga_blouse')
+        named = GarmentJobSerializer(data={'order': order.id, 'template': str(template.id),
+                                           'label': '  Bridal Blouse  '})
+        self.assertTrue(named.is_valid(), named.errors)
+        job = named.save()
+        self.assertEqual(job.label, 'Bridal Blouse')
+        self.assertEqual(GarmentJobSerializer(job).data['display_name'], 'Bridal Blouse')
+        self.assertEqual(GarmentJobSerializer(job).data['template_name'], 'Lehenga Blouse')
+
+        # No name given: the template's, exactly as before.
+        plain = GarmentJob.objects.create(order=order, template=GarmentTemplate.resolve('saree'))
+        self.assertEqual(plain.display_name, 'Saree')
+        self.assertEqual(sorted(garment_names(order)), ['Bridal Blouse', 'Saree'])
+
+        too_long = GarmentJobSerializer(data={'order': order.id, 'template': str(template.id),
+                                              'label': 'x' * 61})
+        self.assertFalse(too_long.is_valid())
+
 
 class TypedOtherOptionTests(CatalogTestCase):
     """A dropdown with no fitting option takes "other:<text>" in its own key."""

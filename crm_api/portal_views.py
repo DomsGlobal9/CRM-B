@@ -749,9 +749,42 @@ class RequirementView(PortalView):
             _save_requirement(customer, fields, notes, links,
                               [(labels[k], v) for k, v in measured.items()], measured,
                               _store_photos(photos, part_labels, tenant, request))
+            first_name = customer.first_name
+            product = template.name if template else fields.get('garment_type', '')
 
+        self._confirm(tenant, payload['m'], first_name, product)
         return self._cors(Response({'saved': True}, status=status.HTTP_201_CREATED),
                           origin)
+
+    @staticmethod
+    def _confirm(tenant, mobile, first_name, product):
+        """Thank the customer on WhatsApp, from the boutique's own number (the
+        session that sent their code), that the enquiry arrived.
+
+        Never in the way of the reply: the enquiry is already saved, so a
+        WhatsApp that is down or refuses is logged and passed over, and the
+        website gets the same 201. Once per customer per CONFIRM_COOLDOWN, as
+        one token may repeat this call. It promises only what an enquiry can:
+        no order number, no date. Neither the number nor the text is logged.
+        """
+        try:
+            if not portal_otp.confirmation_due(tenant.schema_name, mobile):
+                return
+            from crm_api.whatsapp_service import send_whatsapp_message
+            greeting = f'Hi {first_name}, thank you' if first_name else 'Thank you'
+            what = f'your {product} requirement' if product else 'your requirement'
+            result = send_whatsapp_message(
+                phone=mobile,
+                message_text=(f'{greeting} for your enquiry with {tenant.name}. '
+                              f'We have received {what}. Our team will contact you shortly.'),
+                tenant=tenant,
+            )
+            if not result or not result.get('success'):
+                logger.error('customer portal enquiry confirmation refused for %s',
+                             tenant.schema_name)
+        except Exception:  # noqa: BLE001 - provider down, timeout, bad config
+            logger.exception('customer portal could not confirm an enquiry for %s',
+                             tenant.schema_name)
 
 
 def _json_field(data, name, many=False):
