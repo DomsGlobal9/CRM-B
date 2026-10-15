@@ -527,7 +527,10 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
     } finally { setBusy(false); }
   };
 
-  const jobs = order.garment_jobs || [];
+  // A per-garment step shows only its own garment; an order-level one shows them all.
+  const allJobs = order.garment_jobs || [];
+  const ownJobs = stage.garment_job ? allJobs.filter((j) => j.id === stage.garment_job) : [];
+  const jobs = ownJobs.length ? ownJobs : allJobs;
   const attachments = (stage.attachments || []).map((u) => resolveMediaUrl(u));
   const lightboxItems = attachments.map((u, i) => ({ image_url: u, label: `${t('workPage.photo', 'Photo')} ${i + 1}` }));
   const rejected = Object.entries(stage.attachment_reviews || {}).filter(([, r]) => r?.status === 'REJECTED');
@@ -553,7 +556,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
     <>
       <section className="wk-section">
         <h3 className="wk-section-title">{order.flow === 'alteration' ? t('workPage.whatToChange', 'What to change') : t('workPage.whatToMake', 'What to make')}</h3>
-        <div className="wk-text wk-strong">{garmentLabel(order, t)}{order.flow === 'alteration' && order.alteration_of_reference ? ` · ${t('workPage.fromOrder', 'from order')} ${order.alteration_of_reference}` : ''}</div>
+        <div className="wk-text wk-strong">{(ownJobs.length && stage.garment_name) || garmentLabel(order, t)}{order.flow === 'alteration' && order.alteration_of_reference ? ` · ${t('workPage.fromOrder', 'from order')} ${order.alteration_of_reference}` : ''}</div>
         {jobs.some((j) => Object.keys(j.selections || {}).length > 0) && (
           <div className="wk-gap">
             <GarmentSelectionsReview
