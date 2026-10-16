@@ -389,6 +389,9 @@ ALWAYS_ON = (
     # purpose. The rest of /api/whatsapp/ stays behind the `whatsapp` module.
     '/api/whatsapp/webhook/',
     '/api/dashboard/',
+    # Who gets the 11 PM summary and in which language. Every plan sends the
+    # summary, so no module switch may hide its settings; OwnerOnly decides.
+    '/api/daily-summary/',
     # A dictated note's recording is uploaded here before the note is saved
     # through whichever endpoint owns it (orders, alterations), and that
     # endpoint's own module and role gates decide whether the note lands.

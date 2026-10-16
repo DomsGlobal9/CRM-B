@@ -345,6 +345,23 @@ export const api = {
     return res.json();
   },
 
+  // Daily Summary Notifications: who gets the 11 PM summary, in which language.
+  async getSummarySettings() {
+    const res = await guardedFetch(`${BASE_URL}/daily-summary/settings/`, { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Failed to load daily summary settings');
+    return res.json();
+  },
+
+  async updateSummarySetting(userId, changes) {
+    const res = await guardedFetch(`${BASE_URL}/daily-summary/settings/${userId}/`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify(changes),
+    });
+    if (!res.ok) await failWith(res, 'Failed to save daily summary setting');
+    return res.json();
+  },
+
   async updateInvoiceTemplate(template) {
     const res = await guardedFetch(`${BASE_URL}/settings/invoice-template/`, {
       method: 'PATCH',

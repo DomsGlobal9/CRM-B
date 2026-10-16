@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
 import { InvoiceTemplateSelector } from './invoice/InvoiceTemplateSelector.jsx';
+import DailySummarySettings from './DailySummarySettings.jsx';
 import { Globe, ShieldCheck, CheckCircle2, Building, Link2, User, Clock, MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor } from 'lucide-react';
 import { getColorMode, setColorMode } from '../theme.js';
 import { api } from '../services/api.js';
@@ -304,6 +305,8 @@ export const SettingsPage = ({
 
         {/* Invoice Template Selection Card (Right side of WhatsApp Link card) */}
         <InvoiceTemplateSelector currentUser={currentUser} />
+
+        {isOwner && <DailySummarySettings iconChip={iconChip} />}
       </div>
     </div>
   );
