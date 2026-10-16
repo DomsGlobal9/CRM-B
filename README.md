@@ -190,6 +190,20 @@ afterwards does not undo.
   job ran, so a late run does not inflate anybody's hours and a repeat run
   changes nothing. Until this is scheduled a forgotten check-out stays open
   until that person's next check-in, which sweeps their own stale session.
+* **Every-15-minutes cron (Render Cron Job, schedule `*/15 * * * *`, same repo and env vars):**
+  ```bash
+  python manage.py send_daily_summaries
+  ```
+  Sends each person their daily summary while their boutique's own clock reads
+  23:xx (`BoutiqueTenant.timezone`). The owner gets the business summary by
+  email; staff and designers get their own work on WhatsApp through the
+  boutique's own paired session, or by email when that is not connected, not
+  on the plan, or fails. `DailySummaryLog` keeps one row per person per day,
+  so a repeat run sends nothing twice and a failed send is retried by the next
+  runs in that hour (3 tries). Needs `EMAIL_HOST` and friends set; without
+  them the command warns and emails go to the log. A missed 11 PM hour is not
+  sent late; `--ignore-window [--schema <boutique>]` sends by hand. Until this
+  job is scheduled no summary is sent.
 * **Region:** put the service in the same region as the Supabase database
   (`ap-southeast-1`). Every request makes several database round trips, so a
   cross-region service pays that latency several times over per request. This is
