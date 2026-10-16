@@ -176,7 +176,7 @@ function AssigneeSelect({ id, people, value, onChange, meId }) {
 }
 
 function AddTodoForm({ people, canAssign, meId, initial, onCancel, onSaved }) {
-  const [form, setForm] = useState({ title: '', description: '', start_date: '', due_date: '', assigned_to: String(meId || ''), ...initial });
+  const [form, setForm] = useState({ title: '', description: '', start_date: localDay(new Date()), due_date: '', assigned_to: String(meId || ''), ...initial });
   const [photos, setPhotos] = useState([]);
   const [voice, setVoice] = useState('');
   const [busy, setBusy] = useState(false);
