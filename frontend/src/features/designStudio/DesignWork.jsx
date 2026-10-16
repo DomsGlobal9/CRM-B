@@ -361,8 +361,6 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
 
 export default function DesignWork({ currentUser }) {
   const isSupervisor = ['Owner', 'Master'].includes(currentUser?.role);
-  // Handing design work TO a designer: the Owner only. A Master sits below
-  // Designer, and the server refuses a Master's assignment outright.
   const canAssignDesign = currentUser?.role === 'Owner';
   const isDesigner = currentUser?.role === 'Designer';
 

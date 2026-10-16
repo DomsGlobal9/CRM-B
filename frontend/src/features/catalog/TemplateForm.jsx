@@ -58,8 +58,6 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
   let control;
   switch (field.field_type) {
     case 'textarea':
-      // A box with its own recorder underneath (voiceKey): a plain box, then
-      // record / hear / Send / Delete, the clip kept in the voiceKey field.
       if (voiceKey) {
         control = (
           <>
@@ -112,10 +110,6 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       break;
 
     case 'select': {
-      // A style choice is picked from its list: nothing to type in, nothing to
-      // buy -- what the options do not cover goes in the special instructions,
-      // and material is bought from the fabric and trim pickers. A value typed
-      // before this (or on an older order) still shows, and still edits.
       const other = isTypedOther(value);
       const typed = other;
       const buying = typed && Boolean(purchase);
@@ -463,11 +457,7 @@ export default function TemplateForm({
   onSourceChange = () => { }, onBroughtChange = () => { },
   purchases = [], onPurchaseChange = () => { },
   onGoToInventory = null,
-  // A screen with its own voice recorder beside the box: no dictation mic inside it.
   plainTextarea = false,
-  // {textarea key: file field key}: those boxes get a recorder underneath
-  // instead of the mic inside, the clip kept in the file field -- only where
-  // the template has that field.
   voiceFor = null,
 }) {
   const definition = getSection(template, section);

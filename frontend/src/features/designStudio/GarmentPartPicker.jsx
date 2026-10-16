@@ -475,8 +475,6 @@ function AccessoryMultiSelectDropdown({
   );
 }
 
-// Parts that only exist because of hand work. A garment taken Without Work
-// has nothing to photograph there, so the customer's references skip them.
 const WORK_ONLY_PARTS = ['embroidery_design', 'embroidery_work_design', 'zari_work_design'];
 
 export default function GarmentPartPicker({ garmentKey, garmentName, selection = {}, onChange,
@@ -644,11 +642,8 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
       return [{ key: 'overall', label: 'Overall Design' }];
     }
     const allParts = [...declared, ...extra];
-    // The customer's own photos and links are filed under the part they show
-    // (pallu, border, waistband...), so every part gets a tab, not just the overall.
+    
     if (ownOnly) {
-      // A work part keeps its tab while it still holds a photo, so nothing
-      // already kept there disappears when the garment turns Without Work.
       return withoutWork
         ? allParts.filter(p => !WORK_ONLY_PARTS.includes(p.key) || (references[p.key] || []).length > 0)
         : allParts;
@@ -1183,9 +1178,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
         <div style={{ display: 'grid', gap: '14px',
                       gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
           {partShots.map((image, i) => (
-            // The same card, the same choose() and the same View the design
-            // modal uses -- this tab is another way into the one selection,
-            // not a second one.
             <PickCard
               key={image.id}
               src={image.image_url}
@@ -1346,17 +1338,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 }
 
 
-/**
- * What the customer has chosen so far, across every dress on the order.
- *
- * One section per garment, stacked; inside each, the chosen photographs in a
- * row. The order form is long and a choice made under Saree scrolls out of
- * sight the moment the customer opens Blouse, so this is where they see the
- * whole outfit at once before moving on.
- *
- * Reads the same `job.design.parts` the pickers write, so there is nothing to
- * keep in step -- it is a view of the selection, not a copy of it.
- */
 export function SelectedDesignSummary({ garmentJobs = [], onClear }) {
   const [viewIndex, setViewIndex] = useState(null);
 

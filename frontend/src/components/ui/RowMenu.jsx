@@ -7,7 +7,7 @@ const GAP = 4;
 const EDGE = 8;
 
 export default function RowMenu({ items, label = 'Actions', disabled = false }) {
-  const [anchor, setAnchor] = useState(null); // the button's rectangle while open
+  const [anchor, setAnchor] = useState(null); 
   const menuRef = useRef(null);
   const open = anchor !== null;
 

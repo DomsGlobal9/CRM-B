@@ -14,7 +14,7 @@ export default function CountryPhoneInput({ id, country = DEFAULT_COUNTRY, onCou
         onChange(cleanNational(found.iso, found.national));
         return;
       }
-      // "+" and the first digits of a code: held until the code is complete.
+      
       onChange(`+${text.replace(/\D/g, '').slice(0, 4)}`);
       return;
     }

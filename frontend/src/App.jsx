@@ -26,7 +26,6 @@ const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const TodoPanel = lazy(() => import('./features/todo/TodoPanel'));
-// The maggam master's notes get a recorder underneath, as the special instructions do.
 const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
@@ -194,8 +193,7 @@ const UserAvatar = ({ user, size }) => {
 const TIERS = ['Platinum', 'Gold', 'Silver'];
 
 const CUSTOMER_PAGE_SIZES = [20, 30, 40, 50];
-/** Page numbers to show: the first, the last, and the current one with its
- *  neighbours; a gap between them is drawn as '…'. */
+
 const pageNumbers = (page, count) => {
   const pages = [...new Set([1, page - 1, page, page + 1, count])].filter((n) => n >= 1 && n <= count).sort((a, b) => a - b);
   return pages.flatMap((n, i) => (i && n - pages[i - 1] > 1 ? [`gap-${n}`, n] : [n]));
@@ -272,8 +270,7 @@ const stageNow = (order, jobId = null) => {
     || stages.find(st => st.status === 'IN_PROGRESS' || st.status === 'PAUSED')
     || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED');
   if (!current) return null;
-  // Before and after within the current row's own garment (and the order's
-  // shared steps): garments on one order can take different paths.
+  
   const lane = stages.filter(st => !current.garment_job || !st.garment_job || st.garment_job === current.garment_job);
   const i = lane.indexOf(current);
   const prev = lane.slice(0, i).reverse().find(st => st.stage_key !== current.stage_key);
@@ -355,7 +352,6 @@ const ScreenLoading = () => <Loader page />;
 import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 
 
-// The Designer ranks above the Master and runs the floor with the same access.
 const SUPERVISOR_ROLES = ['Master', 'Designer'];
 
 
@@ -769,9 +765,7 @@ function GarmentGallery({ order, onChanged }) {
   );
 }
 
-// Which stages carry a voice note worth pointing at. Default: any stage with
-// a recording. Callers that know who is looking pass a narrower test, so a
-// person is not pointed at their own note.
+
 const anyVoiceNote = (stage) => Boolean(stage.voice_note);
 
 /** One status per stage key across its rows: a per-garment stage is done
@@ -946,16 +940,14 @@ const rowToOpen = (stages, stageKey) => {
  *  action that fits. Every row opens its stage. */
 function OrderTaskTable({ stages, jobs = [], focus = null, onSelectStage }) {
   const { t } = useLanguage();
-  // Several garments: a tab each, showing that garment's own journey -- the
-  // order's shared steps with its own between them -- as garments can take
-  // different paths (one with maggam, one cut and stitched).
+ 
   const rows = stages || [];
   const lanes = jobs.filter((j) => rows.some((s) => s.garment_job === j.id));
   const ownRows = (id) => rows.filter((s) => s.garment_job === id);
   const auto = (lanes.find((j) => ownRows(j.id).some(isLive))
     || lanes.find((j) => ownRows(j.id).some((s) => !isSettled(s))) || lanes[0])?.id;
   const [pick, setPick] = React.useState(null);
-  // Opened from one garment's workshop row: that garment alone, no tabs.
+  
   const locked = lanes.length > 1 && lanes.some((j) => j.id === focus);
   const lane = locked ? focus : lanes.length > 1 ? (lanes.some((j) => j.id === pick) ? pick : auto) : null;
   const steps = lane
@@ -1040,7 +1032,7 @@ function OrderGarmentsCard({ order, focus = null, onSelectStage }) {
   const { t } = useLanguage();
   const jobs = order.garment_jobs || [];
   if (!jobs.length) return null;
-  // Opened from one garment's workshop row: only that garment.
+ 
   const shown = jobs.some((j) => j.id === focus) ? jobs.filter((j) => j.id === focus) : jobs;
   return (
     <section className="at-section od-garments">
@@ -1809,8 +1801,7 @@ function App() {
   }, [currentUser, loadGarmentTemplates]);
 
   const addGarment = async (key, skipPairingPrompt = false, allowAnother = false, pairedWith = null) => {
-    // By template: a garment's own key carries a suffix once it is not the
-    // first of its kind (a pairing, a copy, a resumed draft).
+    
     const taken = garmentJobs.some(job => job.key === key || job.template?.key === key);
     if (taken && !allowAnother) return;
     if (addingGarmentKey) return;
@@ -2222,12 +2213,11 @@ function App() {
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   const [expandedCustomerOrderId, setExpandedCustomerOrderId] = useState(null);
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
-  // The garment row a workshop order was opened from ("#15-2"), else null: the whole order.
+  
   const [openGarmentJob, setOpenGarmentJob] = useState(null);
   const [approvingDesignId, setApprovingDesignId] = useState(null);
   const [assigningStageKey, setAssigningStageKey] = useState(null);
 
-  // Backend fetched collections
   const [dashboardData, setDashboardData] = useState(null);
   const [tailors, setTailors] = useState([]);
   
@@ -2698,9 +2688,7 @@ function App() {
     }
   };
 
-  // A garment's page (#15-2): the Master / Tailor boxes are who holds THAT
-  // garment's steps -- the tailor's stitching and hemming, the master's the
-  // rest -- split the way Send to workshop hands them out.
+  
   const TAILOR_STEPS = ['stitching_in_progress', 'finishing', 'alteration_work'];
   const garmentSteps = (order, jobId, tailor) => (order.stages || [])
     .filter(st => st.garment_job === jobId && TAILOR_STEPS.includes(st.stage_key) === tailor);
@@ -2710,8 +2698,7 @@ function App() {
       || rows.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || rows[rows.length - 1];
     return { id: row?.assigned_to || null, name: row?.assigned_to_name || '' };
   };
-  // Hands that garment's steps not started yet to `staffId` (null: nobody),
-  // through the same per-step assignment the stage window uses.
+  
   const assignGarmentSteps = async (order, jobId, tailor, staffId) => {
     if (assigningWorkflowOrderId) return;
     const open = garmentSteps(order, jobId, tailor).filter(st => st.status === 'NOT_STARTED');
@@ -2735,7 +2722,7 @@ function App() {
     if (designSaving) return;
     const imageUrl = (designForm.image_url || '').trim();
     const bad = amountError(designForm.price, { label: 'Catalog price' })
-      // Legacy catalogue rows hold a bare file name, so only a foreign scheme or whitespace is refused.
+      
       || (imageUrl && ((/^[a-z][a-z0-9+.-]*:/i.test(imageUrl) && !/^https?:/i.test(imageUrl)) || /\s/.test(imageUrl))
         ? 'The image URL must be a web address (http:// or https://) or a catalogue file name.' : '');
     if (bad) { alert(bad); return; }
@@ -2746,16 +2733,16 @@ function App() {
         image_url: imageUrl,
         price: parseFloat(designForm.price) || 0.00,
         is_boutique: designForm.is_boutique === true || designForm.is_boutique === 'true',
-        // Only a complete position is sent; a half-chosen one would be refused.
+        
         catalogue: designForm.catalogue_path || undefined,
       };
       delete payload.catalogue_path;
       if (designImageFile) {
-        // An uploaded photo wins over a pasted link.
+        
         payload.image_url = (await api.uploadBoutiqueDesignImage(designImageFile)).image_url;
       }
       if (!payload.image_url) {
-        // Curated apparel image
+        
         payload.image_url = 'https://images.unsplash.com/photo-1610030469668-93535c17b6b3?w=400';
       }
       if (editingDesign) {
@@ -2788,7 +2775,7 @@ function App() {
     }
   };
 
-  // Auth Action Handlers
+  
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     if (authBusy) return;
@@ -2895,7 +2882,7 @@ function App() {
     }
   };
 
-  // Start Order Creation Flows
+  
   const pickCustomer = (cust) => {
     setCustomerId(cust.id);
     setCustomerForm({
@@ -3247,8 +3234,7 @@ function App() {
     if (serviceType === 'alter') {
       if (!customerId) return 'Pick the customer from the list: alterations are for garments we made.';
     } else {
-      // A customer picked from the book keeps the name the book holds;
-      // only a name typed here is held to the letters-only rule.
+      
       const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
       if (nameBad || customerForm.first_name.trim().length < 2) {
         return nameBad || 'Enter the customer\u2019s name (at least 2 letters).';
@@ -3335,8 +3321,7 @@ function App() {
           alert('The trial date must be on or before the ready-by date.');
           return;
         }
-        // The boxes only take digits, so the two cross-field rules are all
-        // that is left: a discount within the goods, an advance within the total.
+        
         const goods = getSubtotal() + parseFloat(quotePrices.discount || 0);
         if (parseFloat(quotePrices.discount || 0) > goods) {
           setQuotePrices({ ...quotePrices, discount: String(goods) });
@@ -3691,10 +3676,6 @@ function App() {
   }
 
 
-  // Driven by real data, so it can never disagree with the boutique's actual
-  // state -- and it teaches the workflow in the order the work happens.
-  // First-time pointers. Counted off the lists already loaded for the
-  // dashboard, so nothing extra is fetched; each stops on its own at ten.
   /** Whether the owner handed this user `task` as Admin (core/admin_access.py). */
   const adminCan = (task) => (currentUser?.admin_tasks || []).includes(task);
   const canAddCustomer = !currentUser?.role || currentUser.role === 'Owner' || adminCan('customers.add');
@@ -4913,13 +4894,10 @@ function App() {
             {['orders', 'workshop'].includes(dashboardTab) && openOrder && (() => {
               const order = openOrder;
               const stages = order.stages || [];
-              // Opened from one garment's workshop row: that garment leads the page.
               const focusJob = (order.garment_jobs || []).find(j => j.id === openGarmentJob) || null;
               const focusNo = focusJob ? order.garment_jobs.indexOf(focusJob) + 1 : 0;
-              // Who the Master / Tailor boxes show: that garment's step holders, else the order's.
               const masterWho = focusJob ? garmentHolder(order, focusJob.id, false) : { id: order.master, name: order.master_name };
               const tailorWho = focusJob ? garmentHolder(order, focusJob.id, true) : { id: order.tailor, name: order.tailor_name };
-              // The steps the progress counts: that garment's (and the order's shared ones), else all.
               const journey = focusJob ? stages.filter(st => !st.garment_job || st.garment_job === focusJob.id) : stages;
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
               const tasksDone = journey.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
@@ -5095,7 +5073,7 @@ function App() {
                   {orderBucket(order) === 'workshop' && (() => {
                     const now = stageNow(order, focusJob?.id);
                     if (!now) return null;
-                    // Which garment the current step is for, on an order with several.
+                    
                     const jobs = order.garment_jobs || [];
                     const gi = jobs.findIndex(j => j.id === now.current.garment_job);
                     const garmentTag = jobs.length > 1 && gi >= 0 ? `${gi + 1}. ${now.current.garment_name || jobs[gi].template_name || ''}` : '';
@@ -7019,9 +6997,7 @@ function App() {
                             onChange={(e) => setAppointmentForm({
                               ...appointmentForm,
                               appointment_type: e.target.value,
-                              // Moving off Other drops what was typed, so a
-                              // standard booking cannot be saved carrying a
-                              // stale label nothing will ever show.
+                              
                               custom_type: e.target.value === 'OTHER' ? appointmentForm.custom_type : '',
                             })}>
                       {Object.entries(APPOINTMENT_TYPE_LABELS).map(([value, label]) => (
@@ -9255,8 +9231,6 @@ Complete the Payment stage with this partial payment?`)) return;
         };
         const tone = STEP_TONE[STEP_STATE(stage?.status)];
         const allJobs = activeReviewOrder.garment_jobs || [];
-        // A garment's own step -- or any step opened from one garment's
-        // workshop row ("#15-2") -- shows that garment only.
         const onlyJob = stage?.garment_job || openGarmentJob;
         const jobs = allJobs.some(j => j.id === onlyJob) ? allJobs.filter(j => j.id === onlyJob) : allJobs;
         const single = allJobs.length > 1 && jobs.length === 1 ? jobs[0] : null;

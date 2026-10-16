@@ -62,8 +62,7 @@ export default function VoiceTextarea({ value, defaultValue, onChange, style, on
     setElapsed(0);
   };
 
-  // Returns true when the engine started. `standalone` = pure dictation, where
-  // the engine ending is the end of the session; otherwise the clip decides.
+  
   const startRecognition = (standalone) => {
     const Recognition = recognitionClass();
     if (!Recognition) return false;

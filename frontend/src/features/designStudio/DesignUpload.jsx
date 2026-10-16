@@ -74,7 +74,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
     return () => { cancelled = true; };
   }, [form.template_key]);
 
-  // Object URLs are revoked on unmount; without that every re-pick leaks one.
   useEffect(() => () => Object.values(partPreviews).flat().forEach(URL.revokeObjectURL),
     [partPreviews]);
 
