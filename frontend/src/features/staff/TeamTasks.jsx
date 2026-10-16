@@ -1,15 +1,3 @@
-/**
- * Tasks: every workroom step on the team's plate, person by person.
- *
- * Read from the orders themselves. An OrderStage names who it is assigned to,
- * who performed it and when it started and finished, and it is the record the
- * Performance tab counts, so this tab and that one can never disagree. The
- * day's attendance comes from the same list the Attendance tab draws.
- *
- * Narrowed by member, day and state. A day is decided the way Performance
- * decides it: by when the step finished, else when it started. Steps nobody
- * has started yet carry no day and show only when no day is chosen.
- */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, ClipboardList, Clock, Star } from 'lucide-react';
@@ -34,7 +22,7 @@ const hoursText = (minutes) => {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
 };
 
-// Not started, in progress, completed: the only three states a step shows.
+
 const STATE = {
   NOT_STARTED: ['neutral', 'Not started'],
   IN_PROGRESS: ['info', 'In progress'],
@@ -86,13 +74,11 @@ export default function TeamTasks({ currentUser, canSeeTeam }) {
     return () => clearTimeout(t);
   }, [load]);
 
-  // The chosen day's attendance, for everyone shown. Tailors are only ever
-  // handed their own sessions by the server, whatever they ask for.
+  
   useEffect(() => {
     let cancelled = false;
     const params = member === 'all' ? { date: day } : { date: day, staff: member };
-    // Without a day there is nothing to ask for; the answer is still set from
-    // the promise so no render sets state from inside the effect itself.
+    
     (day ? api.getAttendance(params) : Promise.resolve([]))
       .then((rows) => { if (!cancelled) setAttendance(Array.isArray(rows) ? rows : []); })
       .catch(() => { if (!cancelled) setAttendance([]); });
@@ -105,7 +91,7 @@ export default function TeamTasks({ currentUser, canSeeTeam }) {
     return map;
   }, [attendance]);
 
-  // Every step, with its order beside it, then narrowed.
+  
   const steps = useMemo(() => orders.flatMap((order) =>
     (order.stages || []).map((stage) => ({
       key: `${order.id}-${stage.id || stage.stage_key}`,
