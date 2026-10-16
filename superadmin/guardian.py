@@ -78,8 +78,6 @@ def compose(now, previous, checks):
     turned_bad = [bad_now[k] for k in bad_now if k not in bad_before]
     recovered = [k for k in bad_before if k not in bad_now]
 
-    # Sign-in patterns are judged over an hour, so remember what was already
-    # said and say it again only once that hour has passed.
     cutoff = (now - signins.WINDOW).isoformat()
     said = {k: t for k, t in previous.get('signins_said', {}).items() if t > cutoff}
     attacks = [(k, text) for k, text in signins.suspicious(now) if k not in said]
