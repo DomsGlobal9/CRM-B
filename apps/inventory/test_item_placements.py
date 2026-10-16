@@ -242,6 +242,12 @@ class ItemPlacementTests(TenantTestCase):
         self.create(expect=status.HTTP_400_BAD_REQUEST,
                     kind='BUTTON', variant='LATKAN_DORI')
 
+    def test_the_mens_accessory_types_can_be_filed(self):
+        for kind in ('CUFFLINK', 'COLLAR_STAY', 'BROOCH'):
+            data = self.create(name=f'Test {kind}', category='EMBELLISHMENT', kind=kind)
+            self.assertEqual(data['kind'], kind)
+        self.create(expect=status.HTTP_400_BAD_REQUEST, kind='CUFFLINK', variant='LATKAN_DORI')
+
     # taxonomy guides, it does not restrict -------------------------------
 
     def test_a_kind_is_never_blocked_by_the_slot_it_is_put_in(self):

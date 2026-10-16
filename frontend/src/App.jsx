@@ -11,7 +11,7 @@ import {
 const GarmentPartPicker = lazy(() => import('./features/designStudio/GarmentPartPicker'));
 const GarmentPreviews = lazy(() => import('./features/designStudio/GarmentPreview'));
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
-import { ACCESSORY_OPTIONS } from './features/designStudio/GarmentPartPicker';
+import { ALL_ACCESSORY_OPTIONS } from './features/designStudio/accessories';
 const GarmentFabricPicker = lazy(() => import('./features/fabrics/GarmentFabricPicker'));
 const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilter'));
 import { fabricMatchesColour } from './features/fabrics/colour';
@@ -26,7 +26,6 @@ const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const TodoPanel = lazy(() => import('./features/todo/TodoPanel'));
-// The maggam master's notes get a recorder underneath, as the special instructions do.
 const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
@@ -43,7 +42,7 @@ import CustomerReferrals from './features/customers/CustomerReferrals';
 import BoutiqueProductionDialog from './features/production/BoutiqueProduction';
 import { EMPTY_CUSTOMER_FILTERS, activeFilterCount, applyCustomerFilters } from './features/customers/filterRules';
 import OrderKanban from './features/orders/OrderKanban';
-import { expressLabel, isExpressOrder } from './features/orders/express';
+import { expressLabel, isExpressJob, isExpressOrder } from './features/orders/express';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import { formatInternational } from './services/phone';
 import useAutosave from './hooks/useAutosave';
@@ -194,8 +193,7 @@ const UserAvatar = ({ user, size }) => {
 const TIERS = ['Platinum', 'Gold', 'Silver'];
 
 const CUSTOMER_PAGE_SIZES = [20, 30, 40, 50];
-/** Page numbers to show: the first, the last, and the current one with its
- *  neighbours; a gap between them is drawn as '…'. */
+
 const pageNumbers = (page, count) => {
   const pages = [...new Set([1, page - 1, page, page + 1, count])].filter((n) => n >= 1 && n <= count).sort((a, b) => a - b);
   return pages.flatMap((n, i) => (i && n - pages[i - 1] > 1 ? [`gap-${n}`, n] : [n]));
@@ -264,15 +262,19 @@ const orderBucket = (order) => {
 };
 /** The stage the order is standing on, with the step before and after it
  *  (by name, so per-garment rows count once). */
-const stageNow = (order) => {
-  const stages = [...(order.stages || [])].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+const stageNow = (order, jobId = null) => {
+  // `jobId`: one garment's own journey (its steps and the order's shared ones).
+  const stages = [...(order.stages || [])].filter(st => !jobId || !st.garment_job || st.garment_job === jobId)
+    .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
   const current = stages.find(st => st.status === 'PENDING_VERIFICATION')
     || stages.find(st => st.status === 'IN_PROGRESS' || st.status === 'PAUSED')
     || stages.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED');
   if (!current) return null;
-  const i = stages.indexOf(current);
-  const prev = stages.slice(0, i).reverse().find(st => st.stage_key !== current.stage_key);
-  const next = stages.slice(i + 1).find(st => st.stage_key !== current.stage_key);
+  
+  const lane = stages.filter(st => !current.garment_job || !st.garment_job || st.garment_job === current.garment_job);
+  const i = lane.indexOf(current);
+  const prev = lane.slice(0, i).reverse().find(st => st.stage_key !== current.stage_key);
+  const next = lane.slice(i + 1).find(st => st.stage_key !== current.stage_key);
   return { current, prev, next, name: current.stage_name };
 };
 /** Who has a stage right now: the assignee, else whoever last moved it. */
@@ -350,7 +352,6 @@ const ScreenLoading = () => <Loader page />;
 import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 
 
-// The Designer ranks above the Master and runs the floor with the same access.
 const SUPERVISOR_ROLES = ['Master', 'Designer'];
 
 
@@ -496,7 +497,7 @@ const orderGarmentNames = (order) => {
   if (!order) return [];
   if (Array.isArray(order.garments) && order.garments.length) return order.garments;
   const jobs = order.garment_jobs || [];
-  if (jobs.length) return jobs.map(j => j.template_name || j.template_key || 'Custom garment');
+  if (jobs.length) return jobs.map(j => j.display_name || j.template_name || j.template_key || 'Custom garment');
   return order.customer_garment_type ? [order.customer_garment_type] : [];
 };
 
@@ -764,9 +765,7 @@ function GarmentGallery({ order, onChanged }) {
   );
 }
 
-// Which stages carry a voice note worth pointing at. Default: any stage with
-// a recording. Callers that know who is looking pass a narrower test, so a
-// person is not pointed at their own note.
+
 const anyVoiceNote = (stage) => Boolean(stage.voice_note);
 
 /** One status per stage key across its rows: a per-garment stage is done
@@ -939,14 +938,39 @@ const rowToOpen = (stages, stageKey) => {
 /** The order's journey as one table: a numbered step per stage (a per-garment
  *  stage counts once), what state it is in, when it closed, and the one
  *  action that fits. Every row opens its stage. */
-function OrderTaskTable({ stages, onSelectStage }) {
+function OrderTaskTable({ stages, jobs = [], focus = null, onSelectStage }) {
   const { t } = useLanguage();
-  const steps = rollupStages(stages);
+ 
+  const rows = stages || [];
+  const lanes = jobs.filter((j) => rows.some((s) => s.garment_job === j.id));
+  const ownRows = (id) => rows.filter((s) => s.garment_job === id);
+  const auto = (lanes.find((j) => ownRows(j.id).some(isLive))
+    || lanes.find((j) => ownRows(j.id).some((s) => !isSettled(s))) || lanes[0])?.id;
+  const [pick, setPick] = React.useState(null);
+  
+  const locked = lanes.length > 1 && lanes.some((j) => j.id === focus);
+  const lane = locked ? focus : lanes.length > 1 ? (lanes.some((j) => j.id === pick) ? pick : auto) : null;
+  const steps = lane
+    ? rows.filter((s) => !s.garment_job || s.garment_job === lane).sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0))
+    : rollupStages(stages);
   if (!steps.length) {
     return <div className="od-empty">{t('ordersPage.noProductionStages', 'No production stages recorded for this order.')}</div>;
   }
   const current = currentRow(steps);
   return (
+    <>
+    {lane && !locked && (
+      <div role="tablist" aria-label={t('ordersPage.garmentsInOrder', 'Garments in this order')}
+           style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+        {lanes.map((j) => (
+          <button key={j.id} type="button" role="tab" aria-selected={j.id === lane}
+                  className={`tab-btn${j.id === lane ? ' active' : ''}`} onClick={() => setPick(j.id)}>
+            {jobs.indexOf(j) + 1}. {j.display_name || j.template_name || t('ordersPage.garment', 'Garment')}
+            {ownRows(j.id).some((s) => s.stage_key.startsWith('maggam')) ? ` · ${t('ordersPage.maggam', 'Maggam')}` : ''}
+          </button>
+        ))}
+      </div>
+    )}
     <div className="at-table-wrap od-tasks-wrap">
       <table className="at-table at-table--fit od-tasks">
         <thead>
@@ -963,9 +987,9 @@ function OrderTaskTable({ stages, onSelectStage }) {
             const [words, tone] = stageWords(t, step.status);
             const done = isSettled(step);
             const live = isLive(step);
-            const open = () => { const row = rowToOpen(stages, step.stage_key); if (row) onSelectStage(row); };
+            const open = () => { const row = lane ? step : rowToOpen(stages, step.stage_key); if (row) onSelectStage(row); };
             return (
-              <tr key={step.stage_key} className={step === current ? 'od-tasks-row--current' : done ? 'od-tasks-row--done' : ''}
+              <tr key={lane ? step.id || step.stage_key : step.stage_key} className={step === current ? 'od-tasks-row--current' : done ? 'od-tasks-row--done' : ''}
                   onClick={open} style={{ cursor: 'pointer' }}>
                 <td className="od-tasks-num">{i + 1}</td>
                 <td data-label={t('ordersPage.taskCol', 'Task')}>
@@ -998,15 +1022,18 @@ function OrderTaskTable({ stages, onSelectStage }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
 /** Each garment on the order with its own steps as chips, so a two-garment
  *  order shows which blouse is on which step. A chip opens that row. */
-function OrderGarmentsCard({ order, onSelectStage }) {
+function OrderGarmentsCard({ order, focus = null, onSelectStage }) {
   const { t } = useLanguage();
   const jobs = order.garment_jobs || [];
   if (!jobs.length) return null;
+ 
+  const shown = jobs.some((j) => j.id === focus) ? jobs.filter((j) => j.id === focus) : jobs;
   return (
     <section className="at-section od-garments">
       <div className="od-section-head">
@@ -1017,13 +1044,13 @@ function OrderGarmentsCard({ order, onSelectStage }) {
         </div>
       </div>
       <div className="od-garment-list">
-        {jobs.map((job) => {
+        {shown.map((job) => {
           const rows = (order.stages || []).filter((s) => s.garment_job === job.id).sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
           return (
             <div key={job.id} className="od-garment">
               <div className="od-garment-tile" aria-hidden="true"><Shirt size={20} /></div>
               <div className="od-garment-body">
-                <div className="od-garment-name">{job.template_name || t('ordersPage.garment', 'Garment')}</div>
+                <div className="od-garment-name">{jobs.length > 1 ? `${jobs.indexOf(job) + 1}. ` : ''}{job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}</div>
                 {rows.length > 0 && (
                   <div className="od-garment-steps">
                     {rows.map((s) => {
@@ -1179,7 +1206,8 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
       </div>
       {canEdit ? (
         <>
-          <VoiceTextarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
+          {/* A plain box: the recorder below is this note's voice input. */}
+          <textarea className="form-control od-notes-input" rows={4} maxLength={500} value={text}
                     placeholder="Anything the workroom should know about this order…"
                     onChange={(e) => { setText(e.target.value); setState('idle'); }}
                     onBlur={() => save().catch(() => {})} />
@@ -1775,8 +1803,7 @@ function App() {
   }, [currentUser, loadGarmentTemplates]);
 
   const addGarment = async (key, skipPairingPrompt = false, allowAnother = false, pairedWith = null) => {
-    // By template: a garment's own key carries a suffix once it is not the
-    // first of its kind (a pairing, a copy, a resumed draft).
+    
     const taken = garmentJobs.some(job => job.key === key || job.template?.key === key);
     if (taken && !allowAnother) return;
     if (addingGarmentKey) return;
@@ -1998,6 +2025,7 @@ function App() {
         const wantsDesigner = serviceType === 'design' && designRequest.designer;
         return {
           key: job.key,
+          label: job.label || '',
           paired_with: job.pairedWith || null,
           template: job.template?.id,
           template_key: job.template?.key || job.key,
@@ -2061,6 +2089,7 @@ function App() {
         const template = await api.getGarmentTemplate(garment.template_key);
         rebuilt.push({
           key: garment.key || garment.template_key,
+          label: garment.label || '',
           pairedWith: garment.paired_with || null,
           template,
           values: withDefaults(template, garment.values),
@@ -2186,10 +2215,11 @@ function App() {
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   const [expandedCustomerOrderId, setExpandedCustomerOrderId] = useState(null);
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
+  
+  const [openGarmentJob, setOpenGarmentJob] = useState(null);
   const [approvingDesignId, setApprovingDesignId] = useState(null);
   const [assigningStageKey, setAssigningStageKey] = useState(null);
 
-  // Backend fetched collections
   const [dashboardData, setDashboardData] = useState(null);
   const [tailors, setTailors] = useState([]);
   
@@ -2661,12 +2691,41 @@ function App() {
     }
   };
 
+  
+  const TAILOR_STEPS = ['stitching_in_progress', 'finishing', 'alteration_work'];
+  const garmentSteps = (order, jobId, tailor) => (order.stages || [])
+    .filter(st => st.garment_job === jobId && TAILOR_STEPS.includes(st.stage_key) === tailor);
+  const garmentHolder = (order, jobId, tailor) => {
+    const rows = garmentSteps(order, jobId, tailor);
+    const row = rows.find(st => st.status === 'NOT_STARTED')
+      || rows.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || rows[rows.length - 1];
+    return { id: row?.assigned_to || null, name: row?.assigned_to_name || '' };
+  };
+  
+  const assignGarmentSteps = async (order, jobId, tailor, staffId) => {
+    if (assigningWorkflowOrderId) return;
+    const open = garmentSteps(order, jobId, tailor).filter(st => st.status === 'NOT_STARTED');
+    if (!open.length) {
+      alert('Every one of these steps on this garment has already started. Reassign a started step from its stage window.');
+      return;
+    }
+    setAssigningWorkflowOrderId(order.id);
+    try {
+      for (const st of open) await api.assignStage(order.id, st.stage_key, staffId || null, jobId);
+    } catch (err) {
+      alert("Failed to update staff assignment: " + err.message);
+    } finally {
+      setAssigningWorkflowOrderId(null);
+      fetchDashboardAndConfig();
+    }
+  };
+
   const handleSaveDesign = async (e) => {
     e.preventDefault();
     if (designSaving) return;
     const imageUrl = (designForm.image_url || '').trim();
     const bad = amountError(designForm.price, { label: 'Catalog price' })
-      // Legacy catalogue rows hold a bare file name, so only a foreign scheme or whitespace is refused.
+      
       || (imageUrl && ((/^[a-z][a-z0-9+.-]*:/i.test(imageUrl) && !/^https?:/i.test(imageUrl)) || /\s/.test(imageUrl))
         ? 'The image URL must be a web address (http:// or https://) or a catalogue file name.' : '');
     if (bad) { alert(bad); return; }
@@ -2677,16 +2736,16 @@ function App() {
         image_url: imageUrl,
         price: parseFloat(designForm.price) || 0.00,
         is_boutique: designForm.is_boutique === true || designForm.is_boutique === 'true',
-        // Only a complete position is sent; a half-chosen one would be refused.
+        
         catalogue: designForm.catalogue_path || undefined,
       };
       delete payload.catalogue_path;
       if (designImageFile) {
-        // An uploaded photo wins over a pasted link.
+        
         payload.image_url = (await api.uploadBoutiqueDesignImage(designImageFile)).image_url;
       }
       if (!payload.image_url) {
-        // Curated apparel image
+        
         payload.image_url = 'https://images.unsplash.com/photo-1610030469668-93535c17b6b3?w=400';
       }
       if (editingDesign) {
@@ -2719,7 +2778,7 @@ function App() {
     }
   };
 
-  // Auth Action Handlers
+  
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     if (authBusy) return;
@@ -2826,7 +2885,7 @@ function App() {
     }
   };
 
-  // Start Order Creation Flows
+  
   const pickCustomer = (cust) => {
     setCustomerId(cust.id);
     setCustomerForm({
@@ -2982,9 +3041,18 @@ function App() {
   };
   /** "Saree 2" when the order has more than one saree; just "Saree" otherwise. */
   const garmentLabel = (job) => {
+    if (job.label) return job.label;
     const name = job.template?.name || job.key;
     const same = garmentJobs.filter(j => j.template?.key === job.template?.key);
     return same.length > 1 ? `${name} ${same.findIndex(j => j.key === job.key) + 1}` : name;
+  };
+  // Renaming a garment on this order: { key, text } while its name box is open.
+  const [renamingGarment, setRenamingGarment] = useState(null);
+  const saveGarmentName = () => {
+    if (!renamingGarment) return;
+    const label = renamingGarment.text.trim().slice(0, 60);
+    setGarmentJobs(prev => prev.map(j => (j.key === renamingGarment.key ? { ...j, label } : j)));
+    setRenamingGarment(null);
   };
   /** One more of this garment, same design: a follower placed after the
    *  garment and its other followers. Whatever is filled on the garment is
@@ -3169,8 +3237,7 @@ function App() {
     if (serviceType === 'alter') {
       if (!customerId) return 'Pick the customer from the list: alterations are for garments we made.';
     } else {
-      // A customer picked from the book keeps the name the book holds;
-      // only a name typed here is held to the letters-only rule.
+      
       const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
       if (nameBad || customerForm.first_name.trim().length < 2) {
         return nameBad || 'Enter the customer\u2019s name (at least 2 letters).';
@@ -3257,8 +3324,7 @@ function App() {
           alert('The trial date must be on or before the ready-by date.');
           return;
         }
-        // The boxes only take digits, so the two cross-field rules are all
-        // that is left: a discount within the goods, an advance within the total.
+        
         const goods = getSubtotal() + parseFloat(quotePrices.discount || 0);
         if (parseFloat(quotePrices.discount || 0) > goods) {
           setQuotePrices({ ...quotePrices, discount: String(goods) });
@@ -3612,10 +3678,6 @@ function App() {
   }
 
 
-  // Driven by real data, so it can never disagree with the boutique's actual
-  // state -- and it teaches the workflow in the order the work happens.
-  // First-time pointers. Counted off the lists already loaded for the
-  // dashboard, so nothing extra is fetched; each stops on its own at ten.
   /** Whether the owner handed this user `task` as Admin (core/admin_access.py). */
   const adminCan = (task) => (currentUser?.admin_tasks || []).includes(task);
   const canAddCustomer = !currentUser?.role || currentUser.role === 'Owner' || adminCan('customers.add');
@@ -4834,16 +4896,21 @@ function App() {
             {['orders', 'workshop'].includes(dashboardTab) && openOrder && (() => {
               const order = openOrder;
               const stages = order.stages || [];
+              const focusJob = (order.garment_jobs || []).find(j => j.id === openGarmentJob) || null;
+              const focusNo = focusJob ? order.garment_jobs.indexOf(focusJob) + 1 : 0;
+              const masterWho = focusJob ? garmentHolder(order, focusJob.id, false) : { id: order.master, name: order.master_name };
+              const tailorWho = focusJob ? garmentHolder(order, focusJob.id, true) : { id: order.tailor, name: order.tailor_name };
+              const journey = focusJob ? stages.filter(st => !st.garment_job || st.garment_job === focusJob.id) : stages;
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
-              const tasksDone = stages.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
-              const stepChip = `${tasksDone} of ${stages.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
+              const tasksDone = journey.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
+              const stepChip = `${tasksDone} of ${journey.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
               const verification = order.master_verification || {};
               const verifyTotal = 6 + (orderGarmentNames(order).includes('Saree') ? 1 : 0);
               const verified = Object.values(verification).filter(Boolean).length;
               return (
                 <div className="od-page">
                   <div className="od-topbar">
-                    <button type="button" className="btn-link od-back" onClick={() => setOpenOrdersRowId(null)}>
+                    <button type="button" className="btn-link od-back" onClick={() => { setOpenOrdersRowId(null); setOpenGarmentJob(null); }}>
                       <ArrowLeft size={16} /> {dashboardTab === 'workshop' ? t('ordersPage.backToWorkshop', 'Back to workshop') : t('ordersPage.backToOrders', 'Back to orders')}
                     </button>
                     {/* The one thing to do next lives up here: send it to the
@@ -4876,14 +4943,14 @@ function App() {
                   <header className="od-head">
                     <div className="od-head-left">
                       <div className="od-title-row">
-                        <h1 className="od-title">Order {orderRef(order)}</h1>
+                        <h1 className="od-title">Order {orderRef(order)}{focusJob ? `-${focusNo} · ${focusJob.display_name || focusJob.template_name || t('ordersPage.garment', 'Garment')}` : ''}</h1>
                         {/* Where it stands, in the workroom's words: the stages
                             move the order along, so nothing to pick here. */}
                         {(() => {
                           const bucket = orderBucket(order);
                           const text = bucket === 'done' ? t(`status.${order.order_status}`, order.order_status)
                             : bucket === 'new' ? t('ordersPage.notSentYet', 'Not sent yet')
-                            : (stageNow(order)?.name || t('ordersPage.tabInProgress', 'In progress'));
+                            : (stageNow(order, focusJob?.id)?.name || t('ordersPage.tabInProgress', 'In progress'));
                           return (
                             <span className={`od-status od-status--${orderStatusTone(order.order_status)}`} style={{ padding: '0 14px', fontWeight: 600, fontSize: 'var(--text-sm)' }}>
                               {text}
@@ -4944,16 +5011,18 @@ function App() {
                       <div>
                         <div className="od-fact-label">{t('ordersPage.supervisingMaster', 'Supervising Master')}</div>
                         {isProductionStaff(currentUser.role) ? (
-                          <div className={`od-fact-value${order.master_name ? '' : ' od-fact-value--empty'}`}>
-                            {order.master_name || t('ordersPage.unassigned', 'Unassigned')}
+                          <div className={`od-fact-value${masterWho.name ? '' : ' od-fact-value--empty'}`}>
+                            {masterWho.name || t('ordersPage.unassigned', 'Unassigned')}
                           </div>
                         ) : (
-                          <select className="od-fact-select" value={order.master || ''} aria-label={t('ordersPage.supervisingMaster', 'Supervising Master')}
+                          <select className="od-fact-select" value={masterWho.id || ''} aria-label={t('ordersPage.supervisingMaster', 'Supervising Master')}
                                   disabled={assigningWorkflowOrderId === order.id}
-                                  onChange={(e) => handleAssignWorkflow(order.id, { master: e.target.value || null })}>
+                                  onChange={(e) => (focusJob
+                                    ? assignGarmentSteps(order, focusJob.id, false, e.target.value || null)
+                                    : handleAssignWorkflow(order.id, { master: e.target.value || null }))}>
                             <option value="">{t('ordersPage.unassigned', 'Unassigned')}</option>
-                            {order.master && !tailors.some(tl => tl.id === order.master) && (
-                              <option value={order.master}>{order.master_name || `#${order.master}`}</option>
+                            {masterWho.id && !tailors.some(tl => tl.id === masterWho.id) && (
+                              <option value={masterWho.id}>{masterWho.name || `#${masterWho.id}`}</option>
                             )}
                             {tailors.filter(tl => tl.role === 'Master').map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
                           </select>
@@ -4965,16 +5034,18 @@ function App() {
                       <div>
                         <div className="od-fact-label">{t('ordersPage.stitchingTailor', 'Stitching Tailor')}</div>
                         {isProductionStaff(currentUser.role) ? (
-                          <div className={`od-fact-value${order.tailor_name ? '' : ' od-fact-value--empty'}`}>
-                            {order.tailor_name || t('ordersPage.unassigned', 'Unassigned')}
+                          <div className={`od-fact-value${tailorWho.name ? '' : ' od-fact-value--empty'}`}>
+                            {tailorWho.name || t('ordersPage.unassigned', 'Unassigned')}
                           </div>
                         ) : (
-                          <select className="od-fact-select" value={order.tailor || ''} aria-label={t('ordersPage.stitchingTailor', 'Stitching Tailor')}
+                          <select className="od-fact-select" value={tailorWho.id || ''} aria-label={t('ordersPage.stitchingTailor', 'Stitching Tailor')}
                                   disabled={assigningWorkflowOrderId === order.id}
-                                  onChange={(e) => handleAssignWorkflow(order.id, { tailor: e.target.value || null })}>
+                                  onChange={(e) => (focusJob
+                                    ? assignGarmentSteps(order, focusJob.id, true, e.target.value || null)
+                                    : handleAssignWorkflow(order.id, { tailor: e.target.value || null }))}>
                             <option value="">{t('ordersPage.unassigned', 'Unassigned')}</option>
-                            {order.tailor && !stitchingStaff().some(tl => tl.id === order.tailor) && (
-                              <option value={order.tailor}>{order.tailor_name || `#${order.tailor}`}</option>
+                            {tailorWho.id && !stitchingStaff().some(tl => tl.id === tailorWho.id) && (
+                              <option value={tailorWho.id}>{tailorWho.name || `#${tailorWho.id}`}</option>
                             )}
                             {stitchingStaff().map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
                           </select>
@@ -5002,13 +5073,17 @@ function App() {
                   {/* Where the order stands in the workroom; a step opens its panel. */}
                   {/* Previous / current / next, each a door into that stage. */}
                   {orderBucket(order) === 'workshop' && (() => {
-                    const now = stageNow(order);
+                    const now = stageNow(order, focusJob?.id);
                     if (!now) return null;
+                    
+                    const jobs = order.garment_jobs || [];
+                    const gi = jobs.findIndex(j => j.id === now.current.garment_job);
+                    const garmentTag = jobs.length > 1 && gi >= 0 ? `${gi + 1}. ${now.current.garment_name || jobs[gi].template_name || ''}` : '';
                     const cols = [
                       { key: 'prev', label: t('ordersPage.previousStage', 'Previous stage'), st: now.prev, Icon: Check,
                         sub: now.prev?.completed_at ? `${t('ordersPage.completedOn', 'Completed on')} ${fmtDate(now.prev.completed_at)}` : '' },
                       { key: 'now', label: t('ordersPage.currentStage', 'Current stage'), st: now.current, Icon: Scissors,
-                        sub: [now.current.started_at && `${t('ordersPage.startedOn', 'Started on')} ${fmtDate(now.current.started_at)}`,
+                        sub: [garmentTag, now.current.started_at && `${t('ordersPage.startedOn', 'Started on')} ${fmtDate(now.current.started_at)}`,
                               stageWho(now.current), now.current.status === 'PENDING_VERIFICATION' && t('ordersPage.waitingForCheck', 'waiting for check')]
                           .filter(Boolean).join(' · ') },
                       { key: 'next', label: t('ordersPage.nextStage', 'Next stage'), st: now.next, Icon: Clock,
@@ -5045,12 +5120,12 @@ function App() {
                           {stages.length > 0 && (
                             <div className="od-head-actions od-progress">
                               <span className="od-progress-text">{stepChip}</span>
-                              <span className="od-progress-bar"><ProgressBar pct={Math.round((tasksDone / stages.length) * 100)} tone="green" /></span>
-                              <span className="od-progress-pct">{Math.round((tasksDone / stages.length) * 100)}%</span>
+                              <span className="od-progress-bar"><ProgressBar pct={Math.round((tasksDone / journey.length) * 100)} tone="green" /></span>
+                              <span className="od-progress-pct">{Math.round((tasksDone / journey.length) * 100)}%</span>
                             </div>
                           )}
                         </div>
-                        <OrderTaskTable stages={stages} onSelectStage={(stage) => openStageReview(order, stage)} />
+                        <OrderTaskTable key={`${order.id}-${focusJob?.id || ''}`} focus={focusJob?.id} stages={stages} jobs={order.garment_jobs || []} onSelectStage={(stage) => openStageReview(order, stage)} />
                       </section>
 
                       <CustomerMessageQueue
@@ -5233,7 +5308,7 @@ function App() {
                     </div>
 
                     <aside className="od-side">
-                      <OrderGarmentsCard order={order} onSelectStage={(stage) => openStageReview(order, stage)} />
+                      <OrderGarmentsCard order={order} focus={focusJob?.id} onSelectStage={(stage) => openStageReview(order, stage)} />
                       <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} />
                       <section className="at-section od-customer">
                         <div className="od-section-head" style={{ marginBottom: 0 }}>
@@ -5427,26 +5502,40 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                      {filtered.map(order => {
+                      {filtered.flatMap(order => {
+                        // In the workshop an order of several garments is a row
+                        // per garment, "#15-1", "#15-2", each on its own path.
+                        const jobs = order.garment_jobs || [];
+                        const lanes = jobs.filter(j => (order.stages || []).some(st => st.garment_job === j.id));
+                        return dashboardTab === 'workshop' && orderBucket(order) === 'workshop' && lanes.length > 1
+                          ? lanes.map(job => ({ order, job, n: jobs.indexOf(job) + 1 }))
+                          : [{ order, job: null, n: 0 }];
+                      }).map(({ order, job, n }) => {
                         const isDelivered = order.order_status === 'Delivered';
                         const isCancelled = order.order_status === 'Cancelled';
                         const bucket = orderBucket(order);
-                        const stage = bucket === 'workshop' ? stageNow(order) : null;
+                        const stage = bucket === 'workshop' ? stageNow(order, job?.id) : null;
+                        const jobMaggam = job && (order.stages || []).some(st => st.garment_job === job.id && st.stage_key.startsWith('maggam'));
                         const late = bucket === 'workshop' && order.estimated_delivery && order.estimated_delivery < today;
                         // Delivered on: when the last step closed, else the promised day.
                         const deliveredOn = isDelivered
                           ? ((order.stages || []).filter(st => st.completed_at).map(st => st.completed_at).sort().pop() || order.estimated_delivery)
                           : null;
                         return (
-                        <React.Fragment key={order.id}>
-                        <tr className={isExpressOrder(order) && !isDelivered && !isCancelled ? 'gh-express' : undefined}
+                        <React.Fragment key={job ? `${order.id}-${job.id}` : order.id}>
+                        <tr className={(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled ? 'gh-express' : undefined}
                             style={isCancelled ? { opacity: 0.55 } : undefined}>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}
-                            {isExpressOrder(order) && !isDelivered && !isCancelled && (
+                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}{job ? `-${n}` : ''}
+                            {job && (
+                              <span style={{ display: 'block', fontWeight: 'var(--weight-regular)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                                {job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}
+                              </span>
+                            )}
+                            {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
                               <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
                             )}
                             <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
-                          <td className="at-desk-only">{order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
+                          <td className="at-desk-only">{job ? (jobMaggam ? 'Maggam' : 'Stitching') : order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td className="at-desk-only">
                             {order.customer_name}
                             {order.kind === 'internal' && (
@@ -5464,6 +5553,10 @@ function App() {
                             )}
                             {bucket === 'new' && (
                               <span className="ui-badge ui-badge--warning">{t('ordersPage.notSentYet', 'Not sent yet')}</span>
+                            )}
+                            {/* A garment handed over while others on the order are still in work. */}
+                            {bucket === 'workshop' && job && !stage && (
+                              <span className="ui-badge ui-badge--success">{t('ordersPage.garmentDelivered', 'Delivered')}</span>
                             )}
                             {/* Where it stands: the step before (done), the step
                                 it is on with who has it and for how long, the
@@ -5514,7 +5607,7 @@ function App() {
                               )}
                               {/* An order being made is read in the Workshop room. */}
                               <button type="button" className="btn-secondary at-btn-sm"
-                                      onClick={() => { if (bucket === 'workshop') setDashboardTab('workshop'); setOpenOrdersRowId(order.id); }}>
+                                      onClick={() => { if (bucket === 'workshop') setDashboardTab('workshop'); setOpenGarmentJob(job?.id || null); setOpenOrdersRowId(order.id); }}>
                                 <Eye size={12} /> View
                               </button>
                             </div>
@@ -6903,9 +6996,7 @@ function App() {
                             onChange={(e) => setAppointmentForm({
                               ...appointmentForm,
                               appointment_type: e.target.value,
-                              // Moving off Other drops what was typed, so a
-                              // standard booking cannot be saved carrying a
-                              // stale label nothing will ever show.
+                              
                               custom_type: e.target.value === 'OTHER' ? appointmentForm.custom_type : '',
                             })}>
                       {Object.entries(APPOINTMENT_TYPE_LABELS).map(([value, label]) => (
@@ -7678,8 +7769,33 @@ function App() {
                         <div className="wz-garment-head">
                           <span className="wz-garment-num">{idx + 1}</span>
                           <div>
-                            <div className="wz-garment-name">{garmentLabel(job)}</div>
-                            <div className="wz-garment-sub">{t('wizard.whatDoesItNeed', 'What does it need?')}</div>
+                            {renamingGarment?.key === job.key ? (
+                              <input className="form-control" autoFocus maxLength={60}
+                                     aria-label={t('wizard.garmentName', 'Garment name')}
+                                     placeholder={job.template.name}
+                                     value={renamingGarment.text}
+                                     onChange={(e) => setRenamingGarment({ key: job.key, text: e.target.value })}
+                                     onBlur={saveGarmentName}
+                                     onKeyDown={(e) => {
+                                       if (e.key === 'Enter') { e.preventDefault(); saveGarmentName(); }
+                                       if (e.key === 'Escape') setRenamingGarment(null);
+                                     }}
+                                     style={{ maxWidth: '280px', padding: '4px 8px' }} />
+                            ) : (
+                              <div className="wz-garment-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {garmentLabel(job)}
+                                <button type="button" className="btn-secondary at-btn-sm"
+                                        title={t('wizard.renameGarment', 'Rename this garment on this order')}
+                                        aria-label={t('wizard.renameGarment', 'Rename this garment on this order')}
+                                        style={{ padding: '2px 6px', minHeight: 0 }}
+                                        onClick={() => setRenamingGarment({ key: job.key, text: job.label || '' })}>
+                                  <Edit2 size={12} />
+                                </button>
+                              </div>
+                            )}
+                            <div className="wz-garment-sub">
+                              {job.label ? `${job.template.name} · ` : ''}{t('wizard.whatDoesItNeed', 'What does it need?')}
+                            </div>
                           </div>
                           <button type="button" className="btn-secondary at-btn-sm" style={{ marginLeft: 'auto' }} onClick={() => removeGarment(job.key)}>
                             <Trash2 size={12} /> {t('common.remove', 'Remove')}
@@ -7784,7 +7900,8 @@ function App() {
                         <details open id={`wz-design-${job.key}`} className="wz-sec">
                           <summary className="wz-sec-head"><span>{t('wizard.designTitle', 'Choose design')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
+                        {/* The three ways to choose a design, side by side; a phone stacks them. */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
                           <button
                             type="button"
                             className={`wz-service ${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'wz-choice--on' : '' }`}
@@ -8011,7 +8128,7 @@ function App() {
                       )}
                       <div className="form-group">
                         <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
-                        <VoiceTextarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
+                        <textarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
                                   onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
                                   placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
                       </div>
@@ -8266,7 +8383,7 @@ function App() {
                 </div>
               );
               
-              const accessoryKeys = new Set(ACCESSORY_OPTIONS.map(o => o.key));
+              const accessoryKeys = new Set(ALL_ACCESSORY_OPTIONS.map(o => o.key));
               const partName = (p, img) => img?.part_label || String(p).replace(/_/g, ' ');
               const withGarment = (job, list) => list.map(pic => ({
                 ...pic, label: garmentJobs.length > 1 ? `${job.template?.name || job.key} · ${pic.label}` : pic.label }));
@@ -8342,6 +8459,8 @@ function App() {
                         {isMaggamOrder()
                           ? t('wizard.maggamPath', 'Maggam order — goes through paper cutting, embroidery and its verification before the fabric is cut')
                           : t('wizard.stitchingPath', 'Plain stitching order — cut, then stitch')}
+                        {isMaggamOrder() && garmentJobs.some(j => !j.values?.hand_work || j.values.hand_work === 'none')
+                          && ` ${t('wizard.mixedPath', '· Garments without maggam skip it: cut, then stitch')}`}
                       </div>
                       <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: { ...job.template, name: garmentLabel(job) }, values: job.values || {} }))} />
                     </>
@@ -8584,7 +8703,7 @@ function App() {
                                   onClick={() => setAlterationForm({ ...alterationForm, orderId: order.order_id, garmentJobId: job.id })}>
                             <IconTile icon={Shirt} tone={picked ? 'green' : 'neutral'} size={40} iconSize={18} />
                             <span style={{ minWidth: 0, flex: 1 }}>
-                              <span className="wz-match-name">{job.template_name || t('wizard.garment', 'Garment')}</span>
+                              <span className="wz-match-name">{job.display_name || job.template_name || t('wizard.garment', 'Garment')}</span>
                               <span className="od-hint" style={{ display: 'block' }}>
                                 {t('wizard.order', 'Order')} {orderRef(order)}{order.estimated_delivery ? ` · ${t('wizard.delivered', 'delivered')} ${fmtDate(order.estimated_delivery)}` : ''}
                               </span>
@@ -9110,7 +9229,10 @@ Complete the Payment stage with this partial payment?`)) return;
           }
         };
         const tone = STEP_TONE[STEP_STATE(stage?.status)];
-        const jobs = activeReviewOrder.garment_jobs || [];
+        const allJobs = activeReviewOrder.garment_jobs || [];
+        const onlyJob = stage?.garment_job || openGarmentJob;
+        const jobs = allJobs.some(j => j.id === onlyJob) ? allJobs.filter(j => j.id === onlyJob) : allJobs;
+        const single = allJobs.length > 1 && jobs.length === 1 ? jobs[0] : null;
         const answered = (obj) => Object.values(obj || {}).filter(v => v !== '' && v !== null && v !== undefined).length;
         const detailCount = jobs.reduce((n, j) => n + answered(j.spec) + answered(j.measurements), 0);
         const mins = Math.floor((stage?.duration_seconds || 0) / 60);
@@ -9121,7 +9243,7 @@ Complete the Payment stage with this partial payment?`)) return;
           <FormModal
             icon={Scissors} tone="green" width="1000px" zIndex={1100}
             title={stage ? `Production Stage: ${stage.stage_name}${stage.garment_name ? ` · ${stage.garment_name}` : ''}` : `Stage Review: ${activeReviewStage}`}
-            subtitle={`Order ID: ${orderRef(activeReviewOrder)}${activeReviewOrder.customer_name ? ` · ${activeReviewOrder.customer_name}` : ''}`}
+            subtitle={`Order ID: ${orderRef(activeReviewOrder)}${single ? `-${allJobs.indexOf(single) + 1}` : ''}${activeReviewOrder.customer_name ? ` · ${activeReviewOrder.customer_name}` : ''}`}
             onClose={closeStage}
             footer={stage && (
               <>
@@ -9203,7 +9325,7 @@ Complete the Payment stage with this partial payment?`)) return;
                 </div>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <span className="at-section-title" style={{ fontSize: 'var(--text-xl)' }}>{orderGarmentLabel(activeReviewOrder)}</span>
+                    <span className="at-section-title" style={{ fontSize: 'var(--text-xl)' }}>{single ? `${allJobs.indexOf(single) + 1}. ${single.display_name || single.template_name || 'Garment'}` : orderGarmentLabel(activeReviewOrder)}</span>
                     {detailCount > 0 && <span className="ui-badge ui-badge--neutral">{detailCount} details</span>}
                   </div>
                   <div className="at-section-sub" style={{ fontSize: 'var(--text-sm)', marginTop: '4px' }}>
@@ -9302,7 +9424,7 @@ Complete the Payment stage with this partial payment?`)) return;
                 <GarmentSelectionsReview
                   jobs={jobs.map((j) => ({
                     key: j.id,
-                    template: { key: j.template_key, name: j.template_name },
+                    template: { key: j.template_key, name: j.display_name || j.template_name },
                     design: j.selections?.design,
                     fabrics: j.selections?.fabrics,
                     slot_labels: j.selections?.slot_labels,

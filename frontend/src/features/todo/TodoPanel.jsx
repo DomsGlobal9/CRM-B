@@ -66,6 +66,9 @@ const ago = (iso) => {
   return `${Math.round(mins / 1440)} d`;
 };
 
+// "#14-2": the order, and which garment of a several-garment order the work is for.
+const workRef = (row) => `${row.order_ref}${row.garment_no ? `-${row.garment_no}` : ''}`;
+
 /* My own order work, at the top of the page: latest assignment first, the
    new ones highlighted. A tap opens the to-do for today's work on it. */
 function AssignedToMe({ rows, isNew, onOpen }) {
@@ -87,7 +90,7 @@ function AssignedToMe({ rows, isNew, onOpen }) {
               <span className={`ui-badge ui-badge--${badge}`} style={{ marginLeft: 'auto' }}>● {label}</span>
             </span>
             <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              {row.order_ref}{row.customer ? ` · ${row.customer}` : ''}
+              {workRef(row)}{row.customer ? ` · ${row.customer}` : ''}
               {row.due_date ? ` · Due ${formatDate(row.due_date)}` : ''}
             </span>
             <span style={muted}>
@@ -623,7 +626,7 @@ function OrderWorkTable({ rows, showStaff, onOpen }) {
                   {row.garment && <div style={muted}>{row.garment}</div>}
                 </td>
                 <td style={cell}>
-                  <div style={{ fontWeight: 600 }}>{row.order_ref}</div>
+                  <div style={{ fontWeight: 600 }}>{workRef(row)}</div>
                   {row.customer && <div style={muted}>{row.customer}</div>}
                 </td>
                 <td style={cell}><span className={`ui-badge ui-badge--${badge}`}>● {label}</span></td>
@@ -778,7 +781,7 @@ export default function TodoPanel({ currentUser }) {
   const addFromOrderWork = (row) => {
     const status = (WORK_STATUS[row.status] || [row.status])[0];
     setAdding({
-      title: `${row.task}${row.garment ? ` — ${row.garment}` : ''} · ${row.order_ref}`.slice(0, MAX_TITLE),
+      title: `${row.task}${row.garment ? ` — ${row.garment}` : ''} · ${workRef(row)}`.slice(0, MAX_TITLE),
       description: [
         `Order ${row.order_ref}${row.customer ? ` for ${row.customer}` : ''}`,
         row.garment && `Garment: ${row.garment}`,

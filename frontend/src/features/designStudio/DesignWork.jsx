@@ -57,7 +57,7 @@ function AssignPanel({ orders, designers, onAssigned, onError }) {
   const garmentOptions = (orders || []).flatMap(order =>
     (order.garment_jobs || []).map(job => ({
       id: job.id,
-      label: `${orderRef(order)} · ${job.template_name || 'Custom garment'}`,
+      label: `${orderRef(order)} · ${job.display_name || job.template_name || 'Custom garment'}`,
     })));
 
   const submit = async (event) => {
@@ -361,8 +361,6 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
 
 export default function DesignWork({ currentUser }) {
   const isSupervisor = ['Owner', 'Master'].includes(currentUser?.role);
-  // Handing design work TO a designer: the Owner only. A Master sits below
-  // Designer, and the server refuses a Master's assignment outright.
   const canAssignDesign = currentUser?.role === 'Owner';
   const isDesigner = currentUser?.role === 'Designer';
 

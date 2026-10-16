@@ -24,7 +24,7 @@ from .serializers import (
     InventoryItemSerializer, InventoryItemSummarySerializer, PurchaseOrderSerializer,
     StockMovementSerializer, SupplierSerializer,
 )
-from core.permissions import OwnerOnly
+from core.permissions import OwnerOnly, RolePermission
 from core.validators import MAX_NOTE, validate_image_upload, validate_text
 
 from .services import InventoryService
@@ -112,7 +112,11 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
             'default_unit_by_category': {k: v for k, v in DEFAULT_UNIT_BY_CATEGORY.items()},
         })
 
-    @action(detail=False, methods=['GET'], url_path='taxonomy')
+    # Readable by every staff member, not only the owner: it is the list of
+    # fabric slot names the screens everyone uses label fabrics with, and holds
+    # no stock, price or supplier. The rest of this viewset stays OwnerOnly.
+    @action(detail=False, methods=['GET'], url_path='taxonomy',
+            permission_classes=[RolePermission])
     def taxonomy(self, request):
         from crm_api.fabric_taxonomy import tree
         return Response(tree())

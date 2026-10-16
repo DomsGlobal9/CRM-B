@@ -376,6 +376,11 @@ ALWAYS_ON = (
     # Same reasoning: a customer's own cloth received at the counter is order
     # data, not procurement. A boutique with no Inventory still takes cloth.
     '/api/inventory/customer-materials/',
+    # The garment / section / fabric-slot names: reference data the order
+    # wizard, My work and the design pickers read to label fabrics -- no
+    # stock, price or supplier. A Master or Designer with no Inventory module
+    # still takes orders and reads jobs, so role, not the switch, decides.
+    '/api/inventory/items/taxonomy/',
     '/api/auth/',
     '/api/boutique-settings/',
     '/api/settings/invoice-template/',

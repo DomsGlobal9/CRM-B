@@ -15,7 +15,7 @@ export const isExpressOrder = (order) => expressJobs(order).length > 0;
 /** "Express: Blouse" / "Express: Blouse, Lehenga" -- the callout's words. */
 export const expressLabel = (order) => {
   const names = expressJobs(order)
-    .map((job) => job.template_name || job.template_key || 'Garment');
+    .map((job) => job.display_name || job.template_name || job.template_key || 'Garment');
   if (!names.length) return '';
   return `Express: ${names.join(', ')}`;
 };

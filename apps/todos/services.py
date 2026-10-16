@@ -171,6 +171,20 @@ def order_work(user, role):
         c = order.customer
         return f"{c.first_name} {c.last_name}".strip() if c else ''
 
+    # Which garment of a several-garment order a row is for: 2 in "#14-2".
+    from apps.catalog.models import GarmentJob
+    numbers, counts = {}, {}
+    for job_id, order_id in (GarmentJob.objects
+                             .filter(order_id__in={s.order_id for s in stages}
+                                     | {d.garment_job.order_id for d in designs})
+                             .order_by('sequence', 'created_at').values_list('id', 'order_id')):
+        counts[order_id] = counts.get(order_id, 0) + 1
+        numbers[job_id] = (order_id, counts[order_id])
+
+    def garment_no(job_id):
+        order_id, n = numbers.get(job_id, (None, None))
+        return n if counts.get(order_id, 0) > 1 else None
+
     rows = [{
         'id': f'stage-{s.id}',
         'kind': 'STAGE',
@@ -180,7 +194,8 @@ def order_work(user, role):
         'order_id': s.order_id,
         'order_ref': s.order.reference,
         'customer': customer(s.order),
-        'garment': s.garment_job.template.name if s.garment_job_id else '',
+        'garment': s.garment_job.display_name if s.garment_job_id else '',
+        'garment_no': garment_no(s.garment_job_id),
         'due_date': s.order.estimated_delivery,
         'assigned_to': s.assigned_to.user_id,
         'assigned_to_name': s.assigned_to.name,
@@ -195,7 +210,8 @@ def order_work(user, role):
         'order_id': d.garment_job.order_id,
         'order_ref': d.garment_job.order.reference,
         'customer': customer(d.garment_job.order),
-        'garment': d.garment_job.template.name,
+        'garment': d.garment_job.display_name,
+        'garment_no': garment_no(d.garment_job_id),
         'due_date': d.due_date,
         'assigned_to': d.designer.user_id,
         'assigned_to_name': d.designer.name,

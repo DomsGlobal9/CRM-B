@@ -382,6 +382,12 @@ def sync_order_materials(order, stage_key, new_status, *, user=None, garment_job
                 'reserved': result['reserved'], 'shortfalls': result['shortfalls'],
                 'skipped': skipped}
 
+    # Delivery is per garment: what is left is released, and the plan closed,
+    # with the order's last handover.
+    if stage_key == 'delivered' and order.stages.filter(stage_key='delivered').exclude(
+            status__in=('COMPLETED', 'SKIPPED')).exists():
+        return None
+
     plan = live_plan(order)
 
     # Stitching done: the fabric on the plan has been used.

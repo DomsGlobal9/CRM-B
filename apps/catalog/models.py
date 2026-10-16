@@ -159,11 +159,20 @@ class GarmentJob(models.Model):
     selections = models.JSONField(default=dict, blank=True)
 
     sequence = models.IntegerField(default=0)
+    # The counter's own name for this garment on this order ("Bridal Blouse",
+    # "Mother's Saree"). Blank means the template's name, as before; the
+    # template still decides its questions, stages and price.
+    label = models.CharField(max_length=60, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['sequence', 'created_at']
+
+    @property
+    def display_name(self):
+        """What to call this garment: its own name, else its template's."""
+        return self.label or (self.template.name if self.template_id else '')
 
     def save(self, *args, **kwargs):
         if not self.template_version:

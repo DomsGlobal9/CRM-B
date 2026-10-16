@@ -6,7 +6,7 @@ def garment_names(order):
         return [order.alteration_garment_name]
     names = []
     for job in order.garment_jobs.all():
-        name = (job.template.name if job.template_id else '') or 'Custom garment'
+        name = job.display_name or 'Custom garment'
         names.append(name)
     if names:
         return names

@@ -251,8 +251,7 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  // The item picker is Owner-only because the inventory API itself is; asking
-  // for it as anyone else would only produce a 403 nobody can act on.
+
   useEffect(() => {
     if (!isOwner) return undefined;
     let live = true;
@@ -834,8 +833,7 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
         tailors={tailors}
         onBack={() => {
           setSelectedId(null);
-          // Also clears the deep link the order card or customer file set, so
-          // leaving and coming back to the tab lands on the register.
+          
           if (onBackToList) onBackToList();
           load();
         }}

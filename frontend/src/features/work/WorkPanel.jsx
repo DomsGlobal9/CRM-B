@@ -11,7 +11,8 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
-import { ACCESSORY_OPTIONS, Lightbox } from '../designStudio/GarmentPartPicker';
+import { Lightbox } from '../designStudio/GarmentPartPicker';
+import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
 import './work.css';
 
 /**
@@ -43,10 +44,16 @@ const statusLabel = (status, t) => { const [k, d] = STATUS_LABELS[status] || [];
 // Orders written before garment jobs existed name their garment on the order.
 const garmentLabel = (order, t) =>
   (order.flow === 'alteration' && order.alteration_garment_name)
-  || (order.garment_jobs || []).map((j) => j.template_name).filter(Boolean).join(', ')
+  || (order.garment_jobs || []).map((j) => j.display_name || j.template_name).filter(Boolean).join(', ')
   || order.customer_garment_type || t('workPage.customGarment', 'Custom garment');
 // A per-garment stage names its garment; an order-level one names them all.
 const jobTitle = (order, stage, t) => `${stage.garment_name || garmentLabel(order, t)} · ${stage.stage_name || humanise(stage.stage_key)}`;
+// "#14-2": the order, and which garment of a several-garment order this step is for.
+const stageRef = (order, stage) => {
+  const all = order.garment_jobs || [];
+  const at = stage.garment_job ? all.findIndex((j) => j.id === stage.garment_job) : -1;
+  return all.length > 1 && at >= 0 ? `${orderRef(order)}-${at + 1}` : orderRef(order);
+};
 
 // '5 min' / '2 h' / '3 d' since a timestamp.
 function ago(ts, t) {
@@ -85,7 +92,7 @@ const entries = (obj) => Object.entries(obj || {}).filter(([, v]) => v !== '' &&
 
 const Listen = ({ text }) => <span className="wk-listen"><SpeakButton text={text} /></span>;
 
-const ACCESSORY_KEYS = new Set(ACCESSORY_OPTIONS.map((o) => o.key));
+const ACCESSORY_KEYS = new Set(ALL_ACCESSORY_OPTIONS.map((o) => o.key));
 
 /* What a card shows so the job is known at a glance: the design photo, the
    fabric, who holds it, the measurements. A per-garment stage reads its own
@@ -281,7 +288,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
         </div>
         {extra.chip}
       </div>
-      <div className="wk-card-sub">{orderRef(order)} · {order.customer_name}</div>
+      <div className="wk-card-sub">{stageRef(order, stage)} · {order.customer_name}</div>
       {extra.meta && <div className="wk-card-meta">{extra.meta}</div>}
       <CardGlance order={order} stage={stage} t={t} />
       {extra.body}
@@ -527,7 +534,10 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
     } finally { setBusy(false); }
   };
 
-  const jobs = order.garment_jobs || [];
+  // A per-garment step shows only its own garment; an order-level one shows them all.
+  const allJobs = order.garment_jobs || [];
+  const ownJobs = stage.garment_job ? allJobs.filter((j) => j.id === stage.garment_job) : [];
+  const jobs = ownJobs.length ? ownJobs : allJobs;
   const attachments = (stage.attachments || []).map((u) => resolveMediaUrl(u));
   const lightboxItems = attachments.map((u, i) => ({ image_url: u, label: `${t('workPage.photo', 'Photo')} ${i + 1}` }));
   const rejected = Object.entries(stage.attachment_reviews || {}).filter(([, r]) => r?.status === 'REJECTED');
@@ -553,11 +563,11 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
     <>
       <section className="wk-section">
         <h3 className="wk-section-title">{order.flow === 'alteration' ? t('workPage.whatToChange', 'What to change') : t('workPage.whatToMake', 'What to make')}</h3>
-        <div className="wk-text wk-strong">{garmentLabel(order, t)}{order.flow === 'alteration' && order.alteration_of_reference ? ` · ${t('workPage.fromOrder', 'from order')} ${order.alteration_of_reference}` : ''}</div>
+        <div className="wk-text wk-strong">{(ownJobs.length && stage.garment_name) || garmentLabel(order, t)}{order.flow === 'alteration' && order.alteration_of_reference ? ` · ${t('workPage.fromOrder', 'from order')} ${order.alteration_of_reference}` : ''}</div>
         {jobs.some((j) => Object.keys(j.selections || {}).length > 0) && (
           <div className="wk-gap">
             <GarmentSelectionsReview
-              jobs={jobs.map((j) => ({ key: j.id, template: { key: j.template_key, name: j.template_name },
+              jobs={jobs.map((j) => ({ key: j.id, template: { key: j.template_key, name: j.display_name || j.template_name },
                 design: j.selections?.design, fabrics: j.selections?.fabrics, slot_labels: j.selections?.slot_labels, fabric_qty: j.selections?.fabric_qty }))}
               fabrics={jobs.flatMap((j) => j.selections?.fabric_items || [])}
               taxonomy={fabricTaxonomy} />
@@ -592,7 +602,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
           const s = entries(j.spec);
           return (
             <details key={j.id} className="wk-details">
-              <summary>{j.template_name || t('workPage.customGarment', 'Custom garment')}</summary>
+              <summary>{j.display_name || j.template_name || t('workPage.customGarment', 'Custom garment')}</summary>
               <div className="wk-details-body">
                 {m.length === 0 && s.length === 0 && <div className="wk-quiet">{t('workPage.noMeasurements', 'No measurements recorded.')}</div>}
                 {m.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}{Number.isFinite(Number(v)) ? ` ${t('workPage.inch', 'Inches')}` : ''}</span></div>)}
@@ -675,14 +685,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
   let actions = null;
   if (mode === 'work') {
     if (['NOT_STARTED', 'PAUSED'].includes(stage.status)) {
-      actions = (
-        <ActionBar error={error}>
-          <button type="button" className="btn-primary" disabled={busy}
-                  onClick={() => save('IN_PROGRESS', '', [], null, t('workPage.started', 'Started. Good luck!'))}>
-            {t('workPage.start', 'Start')}
-          </button>
-        </ActionBar>
-      );
+      actions = <StartForm stage={stage} busy={busy} error={error} save={save} />;
     } else if (stage.status === 'IN_PROGRESS') {
       actions = <SubmitForm stage={stage} busy={busy} error={error} isSupervisor={isSupervisor} save={save} />;
     } else if (stage.status === 'PENDING_VERIFICATION') {
@@ -699,7 +702,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
       <div className="wk-sheet" role="dialog" aria-modal="true" aria-label={title}>
         <div className="wk-sheet-head">
           <button type="button" className="wk-icon-btn" onClick={onClose} aria-label={t('workPage.back', 'Back')}><ArrowLeft size={22} /></button>
-          <div className="wk-sheet-title">{title}<small>{orderRef(order)} · {order.customer_name}</small></div>
+          <div className="wk-sheet-title">{title}<small>{stageRef(order, stage)} · {order.customer_name}</small></div>
         </div>
         <div className="wk-sheet-body">
           {head}
@@ -816,6 +819,74 @@ function SubmitForm({ stage, busy, error, isSupervisor, save }) {
         {needPhoto && <div className="wk-hint">{t('workPage.addPhotoFirst', 'Add a photo of the finished work first')}</div>}
         <button type="button" className="btn-primary" disabled={busy || needPhoto || recording} onClick={submit}>
           <CheckCircle2 size={18} /> {busy ? t('workPage.saving', 'Saving…') : label}
+        </button>
+      </ActionBar>
+    </>
+  );
+}
+
+/* Not started yet: Start, and meanwhile a photo or a note to leave on the
+   step (a question, the cloth as it came). A note keeps the status, as the
+   server's note path does; Start carries whatever was typed or picked too. */
+function StartForm({ stage, busy, error, save }) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const [photos, setPhotos] = useState([]); // File[]
+  const [text, setText] = useState('');
+  const [recording, setRecording] = useState(false);
+  const [problem, setProblem] = useState('');
+  const galleryRef = useRef(null);
+
+  const addFiles = (files) => {
+    const all = [...photos, ...files];
+    const err = imageFilesError(all, { max: MAX_PHOTOS });
+    setProblem(err);
+    if (!err) setPhotos(all);
+  };
+  const start = () => {
+    if (recording) { setProblem(t('workPage.stopRecording', 'Stop the recording first.')); return; }
+    save('IN_PROGRESS', text, photos, null, t('workPage.started', 'Started. Good luck!'));
+  };
+
+  return (
+    <>
+      {open && (
+        <div className="wk-form">
+          <div className="wk-pickers">
+            <CameraButton onFiles={addFiles} className="btn-secondary" label={t('workPage.takePhoto', 'Take photo')} disabled={busy || photos.length >= MAX_PHOTOS} />
+            <button type="button" className="btn-secondary" disabled={busy || photos.length >= MAX_PHOTOS} onClick={() => galleryRef.current?.click()}>
+              <ImageIcon size={18} /> {t('workPage.addFromGallery', 'Add from gallery')}
+            </button>
+            <input ref={galleryRef} type="file" accept="image/*" multiple hidden
+                   onChange={(e) => { const files = [...(e.target.files || [])]; e.target.value = ''; if (files.length) addFiles(files); }} />
+          </div>
+          {photos.length > 0 && (
+            <div className="wk-photos wk-tiles">
+              {photos.map((file, i) => <FilePreview key={`${file.name}-${file.lastModified}-${i}`} file={file} onRemove={() => setPhotos(photos.filter((_, n) => n !== i))} />)}
+            </div>
+          )}
+          {problem && <div className="wk-error" role="alert">{problem}</div>}
+          <div className="wk-note-box">
+            <textarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)} autoFocus
+                      placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} />
+            <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} />
+          </div>
+        </div>
+      )}
+      <ActionBar error={error}>
+        {!open ? (
+          <button type="button" className="btn-secondary" disabled={busy} onClick={() => setOpen(true)}>
+            <ImageIcon size={18} /> {t('workPage.addPhotoOrNote', 'Add photo or note')}
+          </button>
+        ) : (
+          <button type="button" className="btn-secondary" disabled={busy || recording || !text.trim()}
+                  title={text.trim() ? '' : t('workPage.writeNoteFirst', 'Write a note to save with the photos')}
+                  onClick={() => save(stage.status, text, photos, null, t('workPage.noteSaved', 'Note saved.'))}>
+            {busy ? t('workPage.saving', 'Saving…') : t('workPage.saveNote', 'Save note')}
+          </button>
+        )}
+        <button type="button" className="btn-primary" disabled={busy || recording} onClick={start}>
+          {t('workPage.start', 'Start')}
         </button>
       </ActionBar>
     </>
