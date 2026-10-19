@@ -94,10 +94,7 @@ def _email():
         f'message would land in somebody\'s inbox.')
 
 
-#: The kinds that mean something went wrong, as opposed to something was
-#: refused. A suspended boutique generating refusals all day is the platform
-#: working; counting those here would put a permanent number next to the word
-#: "unresolved" and teach whoever reads this probe to ignore it.
+
 FAULT_KINDS = ('crash', 'handled', 'frontend')
 
 

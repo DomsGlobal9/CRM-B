@@ -150,11 +150,7 @@ def restore(archive_path, schema, into, cursor=None):
             if schema not in manifest['schemas']:
                 raise ValueError(f'{schema!r} is not in this archive; it has '
                                  f'{", ".join(manifest["schemas"])}')
-            # The target is a freshly migrated schema, so its bookkeeping
-            # tables already hold rows (content types, permissions, the
-            # boutique's seeded settings). Every table is emptied and loaded
-            # from the archive -- except django_migrations, which must say
-            # what the *code* has applied, not what the archive remembers.
+            
             tables = [t for t in manifest['schemas'][schema] if t != 'django_migrations']
             cursor.execute('SET CONSTRAINTS ALL DEFERRED')
             cursor.execute('TRUNCATE ' + ', '.join(_q(into, t) for t in tables) + ' CASCADE')
@@ -192,9 +188,7 @@ def _reset_sequences(cursor, schema):
 
 
 def download(public_id, path):
-    # Raw files are not served from the public delivery URL (401), so this
-    # asks for a signed download link. The public_id is the one Cloudinary
-    # answered the upload with: it appends an extension of its own choosing.
+    
     import cloudinary.utils
     import requests
     url = cloudinary.utils.private_download_url(public_id, None, resource_type='raw', type='upload')
