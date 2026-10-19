@@ -22,6 +22,7 @@ import json
 import logging
 import mimetypes
 import re
+import time
 import uuid
 
 import requests
@@ -29,7 +30,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
-from .web_search import GARMENT_IDS, DiscoveryError, area_for_part, configured, _headers
+from .web_search import GARMENT_IDS, DiscoveryError, area_for_part, configured, design_areas, _headers
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,9 @@ logger = logging.getLogger(__name__)
 # is between bytes; keep-alive pings arrive throughout, so it only has to
 # outlast a silent stretch, not the whole run.
 TIMEOUT = (12, 150)
-MAX_DESIGNS = 6
+# The vendor's own limit (GET /options maxDesigns; raised from 6 on 13 Oct
+# 2026): a design-library saree has 7 parts, and the 7th used to be cut here.
+MAX_DESIGNS = 8
 MAX_FABRICS = 3
 MAX_IMAGE_BYTES = 12 * 1024 * 1024
 FETCH_TIMEOUT = 15
@@ -130,6 +133,11 @@ def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None
     garment_id = GARMENT_IDS.get((garment_key or '').lower(), '')
     if not garment_id:
         raise DiscoveryError('A preview is not available for this garment yet.', status=400)
+    # Without the vendor's areas no design can be placed; that is the vendor
+    # not answering, not the customer having chosen nothing.
+    if not design_areas(garment_id):
+        raise DiscoveryError('The design service is not answering right now. '
+                             'Try again in a minute.', status=503)
 
     designs, seen = [], set()
     chosen = dict(parts or {})
@@ -244,7 +252,20 @@ def _refusal(res):
         raise DiscoveryError('The preview service is busy. Wait a minute and try again.', status=429)
     if res.status_code in (400, 413, 422):
         raise DiscoveryError(message, status=res.status_code)
+    if res.status_code in (500, 502, 503, 504):
+        raise Momentary('The preview service is not answering. Try again in a moment.')
     raise DiscoveryError('The preview service is not answering. Try again in a moment.', status=502)
+
+
+class Momentary(DiscoveryError):
+    """A failure on the way to the vendor in which nothing was generated: the
+    vendor's own advice is to send the same request once more, 2 s later."""
+
+    def __init__(self, message):
+        super().__init__(message, status=502)
+
+
+RETRY_AFTER = 2
 
 
 def generate(payload):
@@ -253,10 +274,19 @@ def generate(payload):
     Returns {images, width, height, quality, warnings, attempts}; `images` is
     {view: data URI} in the vendor's order (front, then back), one per `image`
     event. Raises DiscoveryError for every way it can not happen, with a
-    status the view can answer with.
+    status the view can answer with. A momentary failure is tried once more.
     """
     if not available():
         raise DiscoveryError('Garment preview is not set up on this server.', status=503)
+    try:
+        return _attempt(payload)
+    except Momentary:
+        logger.info('Preview: momentary failure, retrying once in %ss', RETRY_AFTER)
+    time.sleep(RETRY_AFTER)
+    return _attempt(payload)
+
+
+def _attempt(payload):
     try:
         res = requests.post(f'{_url()}/generate', json=payload, headers=_headers(),
                             timeout=TIMEOUT, stream=True)
@@ -267,7 +297,7 @@ def generate(payload):
     if res.status_code != 200 or 'text/event-stream' not in (res.headers.get('Content-Type') or ''):
         _refusal(res)
 
-    images, first, done, warnings = {}, {}, {}, []
+    images, first, done, warnings, events = {}, {}, {}, [], 0
     try:
         for line in res.iter_lines(decode_unicode=True):
             if not line or not line.startswith('data:'):
@@ -276,6 +306,7 @@ def generate(payload):
                 event = json.loads(line[5:].strip())
             except ValueError:
                 continue
+            events += 1
             kind = event.get('type')
             if kind in ('start', 'brief'):
                 warnings += [str(w) for w in (event.get('warnings') or [])]
@@ -302,6 +333,8 @@ def generate(payload):
         res.close()
 
     if not images:
+        if not events:   # closed before `start`: nothing was made
+            raise Momentary('The preview service ended without a photograph. Try again.')
         raise DiscoveryError('The preview service ended without a photograph. Try again.', status=502)
     return {
         'images': images,

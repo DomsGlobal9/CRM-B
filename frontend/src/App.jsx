@@ -62,7 +62,7 @@ import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
-import Loader from './components/ui/Loader';
+import Loader, { LoaderRows } from './components/ui/Loader';
 function getCustomerMeasurement(m, key) {
   if (!m) return undefined;
   const flat = { ...m, ...(m.additional_measurements || {}) };
@@ -3663,15 +3663,8 @@ function App() {
       && (view === 'login' || view === 'signup')) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--selected-bg)', color: 'var(--selected-fg)', fontSize: '18px', fontFamily: 'var(--font-sans, sans-serif)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ border: '4px solid rgba(255,255,255,0.1)', borderTop: '4px solid #d4af37', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 16px auto' }}></div>
-          <span>Loading Atelier CRM...</span>
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
+        <div style={{ width: 'min(480px, 100% - 32px)' }}>
+          <Loader page label="Loading Atelier CRM…" />
         </div>
       </div>
     );
@@ -5726,8 +5719,8 @@ function App() {
 
                 <div className="customers-list-container at-stack">
                   {loading && bookList.length === 0 ? (
-                    <div className="ui-card" style={{ padding: '48px', textAlign: 'center' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>{t('common.loading')}</span>
+                    <div className="ui-card" style={{ padding: 'var(--space-4)' }}>
+                      <LoaderRows rows={6} />
                     </div>
                   ) : loadErrors.includes('customers') ? (
                     <div style={{ padding: '48px', textAlign: 'center', background: 'var(--danger-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--danger-color)' }}>
@@ -8783,7 +8776,15 @@ function App() {
                       ? { ...j, design: { ...(j.design || {}), preview: url, preview_back: backUrl || null } } : j))}
                     // Rides customerForm, so it is saved with the draft; a different customer picked resets it.
                     aiModel={customerForm.ai_model}
-                    onAiModel={(ai_model) => setCustomerForm(prev => ({ ...prev, ai_model }))}
+                    onAiModel={(ai_model) => {
+                      // A new (or removed) customer photo: every picture drawn so far shows
+                      // the old person, so all of them go, on this step and on Review.
+                      if ((ai_model.photo || '') !== (customerForm.ai_model?.photo || '')) {
+                        setGarmentJobs(prev => prev.map(j => (j.design ? { ...j, design: { ...j.design,
+                          preview: '', preview_back: null, customer_preview: '', customer_preview_back: null } } : j)));
+                      }
+                      setCustomerForm(prev => ({ ...prev, ai_model }));
+                    }}
                     />
                 </Suspense>
               )}

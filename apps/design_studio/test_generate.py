@@ -171,6 +171,78 @@ class BuildPayloadTests(TenantTestCase):
             generate.generate({})
         self.assertEqual(caught.exception.status, 502)
 
+    @mock.patch.object(generate.time, 'sleep')
+    @mock.patch.object(generate.requests, 'post')
+    def test_a_momentary_failure_is_sent_once_more_after_two_seconds(self, post, sleep):
+        gateway_down = FakeStream(status=503, content_type='application/json',
+                                  body={'error': {'code': 'SERVICE_UNAVAILABLE', 'message': 'x'}})
+        for first in (gateway_down, FakeStream(lines=[': keepalive 1'])):   # 5xx, then an empty 200
+            post.reset_mock()
+            sleep.reset_mock()
+            post.side_effect = [first, FakeStream()]
+            result = generate.generate({'clientId': 't'})
+            self.assertEqual(list(result['images']), ['front', 'back'])
+            self.assertEqual(post.call_count, 2)
+            self.assertEqual(post.call_args_list[0], post.call_args_list[1])   # the same request
+            sleep.assert_called_once_with(2)
+
+        # Only once: a second momentary failure is the answer.
+        post.reset_mock()
+        post.side_effect = [gateway_down, gateway_down, FakeStream()]
+        with self.assertRaises(DiscoveryError) as caught:
+            generate.generate({'clientId': 't'})
+        self.assertEqual((caught.exception.status, post.call_count), (502, 2))
+
+    @mock.patch.object(generate.time, 'sleep')
+    @mock.patch.object(generate.requests, 'post')
+    def test_real_failures_are_not_retried(self, post, sleep):
+        for answer in (
+                FakeStream(status=400, content_type='application/json',
+                           body={'error': {'code': 'VALIDATION_ERROR', 'message': 'Bad'}}),
+                FakeStream(status=429, content_type='application/json', body={}),
+                FakeStream(lines=['data: {"type":"start"}',
+                                  'data: {"type":"error","code":"MODEL_TIMEOUT","message":"Slow."}']),
+                FakeStream(lines=['data: {"type":"start"}'])):    # began, then nothing
+            post.reset_mock()
+            post.return_value = answer
+            with self.assertRaises(DiscoveryError):
+                generate.generate({'clientId': 't'})
+            self.assertEqual(post.call_count, 1)
+        sleep.assert_not_called()
+
+    @mock.patch.object(generate.requests, 'get')
+    def test_a_seven_part_saree_keeps_every_design(self, get):
+        get.return_value = mock.Mock(ok=True, json=mock.Mock(return_value={'garments': [{'id': 'SAREE', 'designTypes': [
+            {'id': a} for a in ('OVERALL', 'PALLU', 'BORDER', 'BODY', 'PLEAT', 'PRINT', 'EMBROIDERY', 'ZARI_WORK')]}]}))
+        parts = {f'{p}_design': {'image_url': f'https://res.cloudinary.com/x/{p}.jpg'}
+                 for p in ('pallu', 'border', 'body', 'pleat', 'print', 'embroidery', 'zari_work')}
+        payload = generate.build_payload(client_id='t', garment_key='saree', parts=parts)
+        self.assertEqual([d['area'] for d in payload['designs']],
+                         ['PALLU', 'BORDER', 'BODY', 'PLEAT', 'PRINT', 'EMBROIDERY', 'ZARI_WORK'])
+
+    @mock.patch.object(generate.requests, 'get')
+    def test_a_vendor_blip_is_said_plainly_and_not_remembered(self, get):
+        parts = {'pallu_design': {'image_url': 'https://res.cloudinary.com/x/p.jpg'}}
+        get.return_value = mock.Mock(ok=False, status_code=503)
+        with self.assertRaises(DiscoveryError) as caught:
+            generate.build_payload(client_id='t', garment_key='saree', parts=parts)
+        self.assertEqual(caught.exception.status, 503)
+        self.assertNotIn('Choose at least one design', str(caught.exception))
+
+        # Back a minute later: the next preview works, nothing stale was kept.
+        get.side_effect = fake_taxonomy
+        payload = generate.build_payload(client_id='t', garment_key='saree', parts=parts)
+        self.assertEqual(payload['designs'][0]['area'], 'PALLU')
+
+    @mock.patch.object(generate.requests, 'get')
+    def test_a_blouse_hand_design_is_the_hand_area_not_the_sleeve(self, get):
+        get.return_value = mock.Mock(ok=True, json=mock.Mock(return_value={'garments': [{'id': 'BLOUSE', 'designTypes': [
+            {'id': a} for a in ('OVERALL', 'FRONT', 'BACK', 'NECK', 'HAND', 'SLEEVE')]}]}))
+        parts = {'hand_design': {'image_url': 'https://res.cloudinary.com/x/hand.jpg'},
+                 'sleeve_design': {'image_url': 'https://res.cloudinary.com/x/sleeve.jpg'}}
+        payload = generate.build_payload(client_id='t', garment_key='blouse', parts=parts)
+        self.assertEqual([d['area'] for d in payload['designs']], ['HAND', 'SLEEVE'])
+
 
 class PreviewViewTests(TenantTestCase):
 

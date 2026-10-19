@@ -5527,11 +5527,25 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .ld-row:nth-child(5) { animation-delay: .6s; }
 @keyframes ld-fade { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 
+/* The skeleton a page, dialog or panel shows while loading (Loader without
+   `inline`). Same fill and pulse as .ld-row; heights match the old spinner
+   boxes so the shell stays put. */
+.ld-skel { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; width: 100%; }
+.ld-skel--page { min-height: 240px; padding: var(--space-6) 0; }
+.ld-skel--modal { min-height: 168px; padding: var(--space-4) 0; }
+.ld-skel--section { min-height: 96px; padding: var(--space-3) 0; }
+.ld-skel--section .ld-row { height: 32px; }
+.ld-bone { display: block; border-radius: var(--radius-md); background: var(--surface-inset); animation: ld-fade 1.2s ease-in-out infinite; }
+.ld-bone--title { height: 28px; width: min(40%, 320px); }
+.ld-bone--line { height: 14px; width: min(25%, 220px); margin-bottom: var(--space-2); }
+.ld-skel-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); }
+.ld-bone--card { height: 84px; border-radius: var(--radius-lg); animation-delay: .1s; }
+
 /* A spinner is decoration; someone who asked for less motion still needs to
    know the app is working, so it pulses in place instead of rotating. */
 @media (prefers-reduced-motion: reduce) {
   .ld-ring { animation: ld-fade 1.4s ease-in-out infinite; border-top-color: var(--border-color); }
-  .ld-row { animation: none; }
+  .ld-row, .ld-bone { animation: none; }
 }
 
 /* ===== Book an appointment (App.jsx) =====

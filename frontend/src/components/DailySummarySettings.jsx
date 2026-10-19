@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BellRing } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
+import { LoaderRows } from './ui/Loader';
 
 // The languages the 11 PM summary is written in (apps/daily_summary/text.py).
 const LANGUAGES = [['en', 'English'], ['hi', 'हिंदी (Hindi)'], ['te', 'తెలుగు (Telugu)']];
@@ -49,7 +50,7 @@ export default function DailySummarySettings({ iconChip }) {
       </div>
 
       {error && <div role="alert" style={{ marginBottom: '12px', color: 'var(--danger-color)', fontSize: 'var(--text-sm)' }}>{error}</div>}
-      {!rows && !error && <p className="ui-section-sub">{t('summarySettings.loading', 'Loading…')}</p>}
+      {!rows && !error && <LoaderRows rows={4} />}
 
       {rows && (
         <div className="at-table-wrap">

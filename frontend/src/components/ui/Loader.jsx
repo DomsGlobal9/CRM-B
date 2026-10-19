@@ -1,4 +1,13 @@
 
+/* What a fetching page, dialog or panel looks like while its data arrives:
+   grey blocks in the rough shape of the content, so nothing jumps when it
+   lands. Inline (beside a control or in a line of text) stays a spinner. */
+const SKELETONS = {
+  page: { heading: true, cards: 3, rows: 5 },
+  modal: { heading: true, cards: 0, rows: 3 },
+  section: { heading: false, cards: 0, rows: 3 },
+};
+
 export default function Loader({
   label,
   page = false,
@@ -9,13 +18,31 @@ export default function Loader({
   style,
 }) {
   const variant = page ? 'page' : modal ? 'modal' : section ? 'section' : inline ? 'inline' : 'section';
-  
-  const text = label === undefined && variant !== 'inline' ? 'Loading…' : label;
+
+  if (variant !== 'inline') {
+    const { heading, cards, rows } = SKELETONS[variant];
+    return (
+      <div className={`ld-skel ld-skel--${variant} ${className}`} style={style}
+           role="status" aria-live="polite" aria-busy="true">
+        {heading && <span className="ld-bone ld-bone--title" />}
+        {heading && <span className="ld-bone ld-bone--line" />}
+        {cards > 0 && (
+          <div className="ld-skel-cards">
+            {Array.from({ length: cards }, (_, i) => <span key={i} className="ld-bone ld-bone--card" />)}
+          </div>
+        )}
+        {Array.from({ length: rows }, (_, i) => <span key={i} className="ld-row" />)}
+        {/* The label is still read out; it is just not drawn. */}
+        <span className="ld-sr">{label || 'Loading'}</span>
+      </div>
+    );
+  }
+
   return (
-    <div className={`ld ld--${variant} ${className}`} style={style}
+    <div className={`ld ld--inline ${className}`} style={style}
          role="status" aria-live="polite" aria-busy="true">
       <span className="ld-ring" aria-hidden="true" />
-      {text ? <span className="ld-text">{text}</span> : <span className="ld-sr">Loading</span>}
+      {label ? <span className="ld-text">{label}</span> : <span className="ld-sr">Loading</span>}
     </div>
   );
 }

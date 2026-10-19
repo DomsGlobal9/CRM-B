@@ -78,6 +78,7 @@ const PHOTO_TIPS = [
 function ModelChoice({ value, onChange }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
+  const [viewing, setViewing] = useState(false);
   const mode = value.mode || 'standard';
   const set = (patch) => onChange({ ...value, ...patch });
 
@@ -116,10 +117,24 @@ function ModelChoice({ value, onChange }) {
           {value.consent && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               {value.photo && (
-                <img src={resolveMediaUrl(value.photo)} alt="Customer photo"
-                     style={{ width: '48px', height: '64px', objectFit: 'cover', borderRadius: '6px',
-                              border: '1px solid var(--border-color)' }} />
+                <button type="button" title="View full size" aria-label="View the customer photo full size"
+                        onClick={() => setViewing(true)}
+                        style={{ position: 'relative', padding: 0, border: 'none', background: 'none', cursor: 'zoom-in' }}>
+                  <img src={resolveMediaUrl(value.photo)} alt="Customer photo"
+                       style={{ width: '48px', height: '64px', objectFit: 'cover', borderRadius: '6px',
+                                border: '1px solid var(--border-color)', display: 'block' }} />
+                  <span aria-hidden="true"
+                        style={{ position: 'absolute', top: '3px', right: '3px', width: '18px', height: '18px',
+                                 borderRadius: '5px', background: 'rgba(0,0,0,0.55)', color: '#fff',
+                                 display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Eye size={11} />
+                  </span>
+                </button>
               )}
+              {viewing && value.photo && createPortal(
+                <Lightbox items={[{ key: 'customer', image_url: value.photo, label: 'Customer photo' }]}
+                          index={0} onIndexChange={() => {}} onClose={() => setViewing(false)} />,
+                document.body)}
               <AddPhotoButton camera disabled={uploading} onFiles={upload}
                               label={uploading ? 'Uploading…' : value.photo ? 'Change photo' : 'Add full-length photo'} />
               {value.photo && (
@@ -305,7 +320,8 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
           {picture(previewBack, 'Back', 'calc(50% - 4px)')}
         </div>
       )}
-      {base && (
+      {/* The customer's own photo is already shown beside Change photo above. */}
+      {base && !ownPhoto && (
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {picture(base, baseLabel, preview ? '64px' : '120px', () => setBaseLoaded(true))}
           {baseBack && picture(baseBack, 'Model · Back', preview ? '64px' : '120px', () => setHasBack(true))}
@@ -338,7 +354,7 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
             <option value="front">Front only</option>
             <option value="back">Back only</option>
           </select>
-          <button type="button" className={preview ? 'btn-secondary' : 'btn-primary'} disabled={busy} onClick={run}
+          <button type="button" className="btn-primary" disabled={busy} onClick={run}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             {preview ? <RefreshCw size={13} /> : <Sparkles size={13} />}
             {busy ? 'Working…' : preview ? 'Draw again' : customerPhoto ? 'Draw on the customer' : 'Preview on a model'}
