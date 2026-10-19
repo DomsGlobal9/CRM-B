@@ -2896,6 +2896,24 @@ function App() {
     });
     setCustomerName(`${cust.first_name || ''} ${cust.last_name || ''}`.trim());
   };
+  /** The customer's ID for a picture drawn on them. A customer typed in on
+   *  the Customer step has none until the order is placed, so they are saved
+   *  now -- or matched by mobile to one the book already has -- and the order
+   *  goes on with that same customer. The typed form is left as it is. */
+  const ensureCustomerId = async () => {
+    if (customerId) return customerId;
+    const last10 = (value) => String(value || '').replace(/\D/g, '').slice(-10);
+    const found = allCustomers.find(c => last10(c.mobile_number) === last10(customerForm.mobile_number));
+    const optional = Object.fromEntries(['email_address', 'gender', 'city_region', 'address']
+      .filter(key => String(customerForm[key] || '').trim()).map(key => [key, customerForm[key]]));
+    const cust = found || await api.createCustomer({
+      first_name: customerForm.first_name.trim(), last_name: (customerForm.last_name || '').trim(),
+      mobile_number: String(customerForm.mobile_number).trim(), ...optional,
+    });
+    setCustomerId(cust.id);
+    if (!found) setAllCustomers(prev => [cust, ...prev]);
+    return cust.id;
+  };
   const clearPickedCustomer = (mobile) => {
     setCustomerId(null);
     setCustomerForm({ ...DEFAULT_CUSTOMER_DATA, mobile_number: mobile || '' });
@@ -8486,6 +8504,7 @@ function App() {
                     && card(t('wizard.reviewOnCustomer', 'AI pictures on the customer'), 'design', (
                     <Suspense fallback={null}>
                       <GarmentPreviews jobs={garmentJobs} customerPhoto={customerForm.ai_model.photo}
+                        customer={{ id: customerId, given: true }} ensureCustomerId={ensureCustomerId}
                         onPreview={(jobKey, url, backUrl) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
                           ? { ...j, design: { ...(j.design || {}), customer_preview: url, customer_preview_back: backUrl || null } } : j))} />
                     </Suspense>
@@ -8772,16 +8791,35 @@ function App() {
               {wizardStepKey === 'type' && openGarment && (
                 <Suspense fallback={null}>
                   <GarmentPreviews jobs={[openGarment]} title={t('wizard.reviewPreview', 'See it on a model')}
-                    onPreview={(jobKey, url, backUrl) => setGarmentJobs(prev => prev.map(j => j.key === jobKey
-                      ? { ...j, design: { ...(j.design || {}), preview: url, preview_back: backUrl || null } } : j))}
+                    // Picked from the book, or typed in validly on the Customer step.
+                    customer={{ id: customerId, name: customerName, mobile: customerForm.mobile_number,
+                                given: !!customerId || (!customerBlank() && !customerProblem()) }}
+                    ensureCustomerId={ensureCustomerId}
+                    // No customer yet: back to the Customer step, as the stepper does.
+                    onCustomer={() => { jumpToStep(wizardSteps.findIndex(s => s.key === 'who') + 1); window.scrollTo(0, 0); }}
+                    onPreview={(jobKey, url, backUrl, { presentation, annotations } = {}) => {
+                      // Each kind of picture has its own place: a mannequin, the sketch (with
+                      // its labels), the customer's own photo (shared with the Review step),
+                      // or the standard model.
+                      const ai = customerForm.ai_model || {};
+                      const update = presentation === 'sketch'
+                        ? { sketch_preview: url, sketch_labels: annotations || [] }
+                        : presentation === 'mannequin'
+                          ? { mannequin_preview: url, mannequin_preview_back: backUrl || null }
+                          : ai.mode === 'customer' && ai.consent && ai.photo
+                            ? { customer_preview: url, customer_preview_back: backUrl || null }
+                            : { preview: url, preview_back: backUrl || null };
+                      setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                        ? { ...j, design: { ...(j.design || {}), ...update } } : j));
+                    }}
                     // Rides customerForm, so it is saved with the draft; a different customer picked resets it.
                     aiModel={customerForm.ai_model}
                     onAiModel={(ai_model) => {
-                      // A new (or removed) customer photo: every picture drawn so far shows
-                      // the old person, so all of them go, on this step and on Review.
+                      // A new (or removed) customer photo: the customer's pictures show the
+                      // old person, so they go; the standard model's stay.
                       if ((ai_model.photo || '') !== (customerForm.ai_model?.photo || '')) {
                         setGarmentJobs(prev => prev.map(j => (j.design ? { ...j, design: { ...j.design,
-                          preview: '', preview_back: null, customer_preview: '', customer_preview_back: null } } : j)));
+                          customer_preview: '', customer_preview_back: null } } : j)));
                       }
                       setCustomerForm(prev => ({ ...prev, ai_model }));
                     }}

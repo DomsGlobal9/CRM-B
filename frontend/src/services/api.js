@@ -1449,6 +1449,12 @@ export const api = {
     if (!res.ok) throw new Error(data.error || describeApiError(res, data) || 'The preview could not be made.');
     return data;
   },
+  async cancelGarmentPreview(customerId = null) {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/preview/cancel/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(customerId ? { clientId: customerId } : {}),
+    });
+    return res.ok ? res.json() : { cancelled: false };
+  },
   async uploadReferenceImage(file) {
     const body = new FormData();
     body.append('image', file);

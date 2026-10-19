@@ -75,7 +75,29 @@ const PHOTO_TIPS = [
   'Phone held upright at chest height, about 2–3 metres away. No filters or beauty mode.',
 ];
 
-function ModelChoice({ value, onChange }) {
+/** Pictures drawn on a customer are sent under their ID, so the order needs a
+ *  customer first. Without one, this sends the counter back to the Customer step. */
+function CustomerNeeded({ customer, onCustomer }) {
+  if (customer?.given) {
+    return (
+      <div className="od-hint">
+        Customer: <strong>{customer.name || 'Saved customer'}</strong>{customer.mobile ? ` · ${customer.mobile}` : ''}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px 10px', borderRadius: '8px',
+                  border: '1px dashed var(--border-color)' }}>
+      <div style={{ fontWeight: 600, fontSize: '12.5px' }}>This order has no customer yet</div>
+      <div className="od-hint">Pictures on the customer are saved under their customer record. Add the customer first.</div>
+      <button type="button" className="btn-primary at-btn-sm" onClick={onCustomer} style={{ alignSelf: 'flex-start' }}>
+        Go to Customer step
+      </button>
+    </div>
+  );
+}
+
+function ModelChoice({ value, onChange, customer, onCustomer }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
   const [viewing, setViewing] = useState(false);
@@ -109,6 +131,7 @@ function ModelChoice({ value, onChange }) {
       {option('customer', 'The customer, from their own photo')}
       {mode === 'customer' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '22px' }}>
+          {onCustomer && <CustomerNeeded customer={customer} onCustomer={onCustomer} />}
           <label style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', fontSize: '12.5px' }}>
             <input type="checkbox" checked={!!value.consent} style={{ marginTop: '2px', accentColor: 'var(--primary-color)' }}
                    onChange={(e) => set({ consent: e.target.checked, consent_at: e.target.checked ? new Date().toISOString() : null })} />
@@ -163,6 +186,71 @@ function ModelChoice({ value, onChange }) {
   );
 }
 
+const PRESENTATIONS = [
+  ['model', 'Photo on a model'],
+  ['mannequin', 'On a mannequin'],
+  ['sketch', 'Sketch with labels'],
+];
+const small = { fontSize: '12.5px' };
+
+/** Design Studio's options for one drawing: how the garment is shown, the
+ *  model's gender, what it is worn with, and how the designs are applied. */
+function PreviewOptions({ busy, onCustomer, presentation, setPresentation, gender, setGender, pair, setPair,
+                          keepMotif, setKeepMotif, coverage, setCoverage }) {
+  const setPairField = (key) => (e) => setPair((prev) => ({ ...prev, [key]: e.target.value }));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <label style={small} htmlFor="gp-presentation">Show it as</label>
+        <select id="gp-presentation" value={onCustomer ? 'model' : presentation} disabled={busy || onCustomer}
+                onChange={(e) => setPresentation(e.target.value)} style={small}>
+          {PRESENTATIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </select>
+        {!onCustomer && (
+          <select value={gender} disabled={busy} onChange={(e) => setGender(e.target.value)}
+                  aria-label="Model" style={small}>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+          </select>
+        )}
+      </div>
+      {onCustomer && (
+        <div className="od-hint">On the customer's own photo it is always a photograph; mannequin and sketch use a standard model.</div>
+      )}
+      <details>
+        <summary style={{ ...small, cursor: 'pointer' }}>More options</summary>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+          <div style={{ ...small, fontWeight: 600 }}>Worn with</div>
+          <div className="od-hint">What the model wears with this garment, e.g. a saree's blouse. It stays plain; your designs never go on it.</div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input type="text" className="form-control" placeholder="Colour, e.g. antique gold" maxLength={60}
+                   value={pair.color} disabled={busy} onChange={setPairField('color')} style={{ ...small, flex: '1 1 140px' }} />
+            <input type="color" aria-label="Exact colour" value={pair.color_hex || '#c9a227'} disabled={busy}
+                   onChange={setPairField('color_hex')} style={{ width: '40px', height: '32px', padding: 0 }} />
+            {pair.color_hex && (
+              <button type="button" className="btn-secondary at-btn-sm" disabled={busy}
+                      onClick={() => setPair((prev) => ({ ...prev, color_hex: '' }))}>Clear colour</button>
+            )}
+          </div>
+          <input type="text" className="form-control" placeholder="Note, e.g. short puff sleeves" maxLength={300}
+                 value={pair.note} disabled={busy} onChange={setPairField('note')} style={small} />
+          <label style={small} htmlFor="gp-motif">Motif colours</label>
+          <select id="gp-motif" value={keepMotif ? 'keep' : 'recolour'} disabled={busy}
+                  onChange={(e) => setKeepMotif(e.target.value === 'keep')} style={small}>
+            <option value="keep">Keep each design's own colours</option>
+            <option value="recolour">Recolour them to suit the fabric</option>
+          </select>
+          <label style={small} htmlFor="gp-coverage">Design coverage</label>
+          <select id="gp-coverage" value={coverage} disabled={busy} onChange={(e) => setCoverage(e.target.value)} style={small}>
+            <option value="full">Cover the whole part</option>
+            <option value="reference">Follow the design picture's layout</option>
+          </select>
+        </div>
+      </details>
+    </div>
+  );
+}
+
 /** The measurements taken for this garment, as the preview service will
  *  read them: numbers only, each with its label and unit. */
 const measurementsOf = (job) => ((job.template?.sections || []).find((sec) => sec.key === 'measurements')?.fields || [])
@@ -172,7 +260,8 @@ const measurementsOf = (job) => ((job.template?.sections || []).find((sec) => se
 /** `customerPhoto` set: the Review step's card, drawing each garment on the
  *  customer from their photo and measurements. Unset: the Garments step's
  *  card, on the standard model. */
-export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, onAiModel, customerPhoto = '' }) {
+export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, onAiModel, customerPhoto = '',
+                                          customer = {}, onCustomer, ensureCustomerId }) {
   const [available, setAvailable] = useState(false);
   // Garments the service can draw: a plain one is offered front and back too.
   const [drawable, setDrawable] = useState([]);
@@ -187,6 +276,8 @@ export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, 
   // With consent and a photo, the quick check here is on the customer too --
   // photo only; their measurements join on the Review step.
   const ownPhoto = hideModel ? aiModel.photo || '' : '';
+  // Drawing on the customer waits until the order knows who they are.
+  const needsCustomer = hideModel && !customer?.given;
   const rows = jobs.filter((job) => (customerPhoto || hideModel ? false : baseImage(job)) || (available && hasDesign(job)));
   // ponytail: rows with a missing base file still get a row (name + hint);
   // a HEAD check per garment is not worth it for a review-step picture.
@@ -195,7 +286,9 @@ export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, 
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
       {rows.map((job) => (
         <GarmentPreview key={job.key} job={job} onPreview={onPreview} customerPhoto={customerPhoto}
-                        hideModel={hideModel} ownPhoto={ownPhoto} canDraw={available && hasDesign(job)}
+                        hideModel={hideModel} ownPhoto={ownPhoto} customerId={customer?.id || null}
+                        ensureCustomerId={ensureCustomerId}
+                        needsCustomer={needsCustomer} canDraw={available && hasDesign(job) && !needsCustomer}
                         canDrawPlain={available && !hasDesign(job) && drawable.includes(job.template?.key)} />
       ))}
     </div>
@@ -206,14 +299,14 @@ export default function GarmentPreviews({ jobs = [], title, onPreview, aiModel, 
     // while the designs and fabrics below are chosen.
     <div className="sidebar-card" style={{ position: 'sticky', top: '16px', zIndex: 1 }}>
       <div className="sidebar-card-title"><Sparkles size={16} /> {title}</div>
-      {onAiModel && <ModelChoice value={aiModel || {}} onChange={onAiModel} />}
+      {onAiModel && <ModelChoice value={aiModel || {}} onChange={onAiModel} customer={customer} onCustomer={onCustomer} />}
       {list}
     </div>
   );
 }
 
 function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain = false, customerPhoto, hideModel,
-                          ownPhoto = '' }) {
+                          ownPhoto = '', customerId = null, needsCustomer = false, ensureCustomerId }) {
   const [busy, setBusy] = useState(false);
   // Seconds since the request started; reset by `run`, not by the effect,
   // so the effect only ever starts and stops the clock.
@@ -226,6 +319,16 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
   // Which sides to draw: both (the vendor's default) or one, which is
   // half the wait and cost.
   const [views, setViews] = useState('both');
+  // How the garment is shown (Design Studio's `presentation`): on a person,
+  // on a headless dress form, or as one labelled fashion sketch.
+  const [presentation, setPresentation] = useState('model');
+  const [gender, setGender] = useState('female');
+  // What the product is worn with (a saree's blouse, a blouse's skirt).
+  const [pair, setPair] = useState({ color: '', color_hex: '', note: '' });
+  // Applied to every design: keep the motifs' own colours or recolour them to
+  // the fabric; cover the whole part or follow the reference's layout.
+  const [keepMotif, setKeepMotif] = useState(true);
+  const [coverage, setCoverage] = useState('full');
   // Index into `shown` of the picture open in the popup, or null.
   const [viewing, setViewing] = useState(null);
 
@@ -235,9 +338,18 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
     return () => clearInterval(timer);
   }, [busy]);
 
-  // On the customer, the pictures are kept apart from the standard model's.
-  const preview = customerPhoto ? job.design?.customer_preview : job.design?.preview;
-  const previewBack = customerPhoto ? job.design?.customer_preview_back : job.design?.preview_back;
+  // On the customer (Review, or their own photo here), the pictures are kept
+  // apart from the standard model's, so switching back and forth shows each its own.
+  const onCustomer = !!(customerPhoto || ownPhoto);
+  // A customer's own photo dresses a real person, so it is always a photograph.
+  const shape = onCustomer ? 'model' : presentation;
+  // Each way of showing it keeps its own pictures, so switching shows each its own.
+  const [frontKey, backKey] = { mannequin: ['mannequin_preview', 'mannequin_preview_back'],
+                                sketch: ['sketch_preview', null] }[shape]
+    || (onCustomer ? ['customer_preview', 'customer_preview_back'] : ['preview', 'preview_back']);
+  const preview = job.design?.[frontKey];
+  const previewBack = backKey ? job.design?.[backKey] : null;
+  const labels = shape === 'sketch' ? job.design?.sketch_labels || [] : [];
   const base = customerPhoto || ownPhoto || (hideModel ? null : baseImage(job));
   // The standard model's back, only once its file has actually loaded.
   const baseBack = customerPhoto || ownPhoto || hideModel ? null : baseBackImage(job);
@@ -253,7 +365,7 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
   const name = job.template?.name || job.key;
   // Every picture on the card, in order, so the popup can step through them.
   const shown = [
-    ...(preview ? [[preview, previewBack ? 'Front' : 'Drawn preview']] : []),
+    ...(preview ? [[preview, shape === 'sketch' ? 'Sketch' : previewBack ? 'Front' : 'Drawn preview']] : []),
     ...(preview && previewBack ? [[previewBack, 'Back']] : []),
     ...(base ? [[base, baseLabel]] : []),
     ...(baseBack && hasBack ? [[baseBack, 'Model · Back']] : []),
@@ -262,6 +374,8 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
   const run = async () => {
     setBusy(true); setSeconds(0); setError(null); setWarnings([]);
     try {
+      // On the customer: their ID goes with the picture, saving a new customer first.
+      const pictureOf = onCustomer ? customerId || (ensureCustomerId ? await ensureCustomerId() : null) : null;
       const result = await api.generateGarmentPreview({
         garment_key: job.template?.key || job.key,
         parts: job.design?.parts || {},
@@ -272,16 +386,29 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
         // The plain garment on a model, as base64: it lives on this app's
         // origin, which the server may not be able to reach, so the
         // browser reads it and sends the bytes. Missing file → no model.
-        model_image: customerPhoto || ownPhoto || (base && useModel ? await asDataUri(base) : ''),
+        model_image: shape !== 'model' ? ''
+          : customerPhoto || ownPhoto || (base && useModel ? await asDataUri(base) : ''),
         // Only on the customer: their body, for the fit the picture shows.
         ...(customerPhoto ? { measurements } : {}),
         views: views === 'both' ? undefined : [views],
+        presentation: shape,
+        // A picture of the customer: their ID is the image service's clientId.
+        ...(pictureOf ? { clientId: pictureOf } : {}),
+        ...(onCustomer ? {} : { model_gender: gender }),
+        pair_with: pair,
+        keep_motif_colors: keepMotif,
+        coverage,
       });
-      setWarnings(result.warnings || []);
-      // preview is the primary photograph (front, or the one side asked
-      // for); preview_back only when both sides came back.
+      // What the service's own checks still found wrong (a sketch label
+      // written twice, a face that drifted) is shown with the warnings.
+      const failed = Object.values(result.quality || {}).flatMap((q) => (
+        q && q.passed === false ? (q.failures || []).map((f) => f.evidence || f.check) : []));
+      setWarnings([...(result.warnings || []), ...failed]);
+      // preview is the primary photograph (front, the one side asked for, or
+      // the sketch sheet); preview_back only when both sides came back.
       const images = result.images || {};
-      onPreview?.(job.key, result.image_url, images.front ? images.back : undefined);
+      onPreview?.(job.key, result.image_url, images.front ? images.back : undefined,
+                  { presentation: shape, annotations: result.annotations || [] });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -313,7 +440,12 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {/* The drawn garment at full width; the plain model as a thumbnail. */}
-      {preview && !previewBack && picture(preview, 'Drawn preview', '100%')}
+      {preview && !previewBack && picture(preview, shape === 'sketch' ? 'Sketch' : 'Drawn preview', '100%')}
+      {labels.length > 0 && (
+        <ul className="od-hint" style={{ margin: 0, paddingLeft: '18px' }}>
+          {labels.map((a) => <li key={`${a.part}:${a.label}`}>{a.label}</li>)}
+        </ul>
+      )}
       {preview && previewBack && (
         <div style={{ display: 'flex', gap: '8px' }}>
           {picture(preview, 'Front', 'calc(50% - 4px)')}
@@ -325,7 +457,7 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {picture(base, baseLabel, preview ? '64px' : '120px', () => setBaseLoaded(true))}
           {baseBack && picture(baseBack, 'Model · Back', preview ? '64px' : '120px', () => setHasBack(true))}
-          {!customerPhoto && !ownPhoto && (
+          {!customerPhoto && !ownPhoto && shape === 'model' && (
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
               <input type="checkbox" checked={useModel} disabled={busy}
                      onChange={(e) => setUseModel(e.target.checked)} />
@@ -337,16 +469,23 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div style={{ fontWeight: 600, fontSize: '13px' }}>{name}</div>
         <div className="od-hint">
-          {busy ? `Drawing the garment… ${seconds}s (${views === 'both' ? 'front and back, up to four minutes' : 'usually under two minutes'})`
+          {busy ? `Drawing the garment… ${seconds}s (${shape === 'sketch' ? 'one sheet, usually under a minute'
+              : views === 'both' ? 'front and back, up to four minutes' : 'usually under two minutes'})`
             : customerPhoto ? `On the customer: their photo, these designs and fabrics, and ${measurements.length ? `${measurements.length} measurement${measurements.length === 1 ? '' : 's'}` : 'no measurements yet'}.`
             : preview && plain ? 'The plain garment, drawn on a model. Choose designs to see them drawn on.'
             : preview ? 'Made from the designs and fabrics chosen above.'
               : plain ? 'See the plain garment front and back on a model. Choose designs to see them drawn on.'
+              : needsCustomer ? 'Add the customer above to draw this on their photo.'
               : canDraw ? 'See these designs and fabrics as one garment, on a model.'
                 : 'The plain garment, before designs and fabrics are drawn on.'}
         </div>
         {error && <div role="alert" style={{ color: 'var(--danger-color, #b91c1c)', fontSize: '12.5px' }}>{error}</div>}
         {warnings.map((w) => <div key={w} className="od-hint">⚠ {w}</div>)}
+        {canDraw && (
+          <PreviewOptions busy={busy} onCustomer={onCustomer} presentation={presentation} setPresentation={setPresentation}
+                          gender={gender} setGender={setGender} pair={pair} setPair={setPair}
+                          keepMotif={keepMotif} setKeepMotif={setKeepMotif} coverage={coverage} setCoverage={setCoverage} />
+        )}
         {canDraw && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
           <select value={views} disabled={busy} onChange={(e) => setViews(e.target.value)}
                   aria-label="Sides to draw" style={{ fontSize: '12.5px' }}>
@@ -357,8 +496,12 @@ function GarmentPreview({ job, onPreview, canDraw: canDrawDesigns, canDrawPlain 
           <button type="button" className="btn-primary" disabled={busy} onClick={run}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             {preview ? <RefreshCw size={13} /> : <Sparkles size={13} />}
-            {busy ? 'Working…' : preview ? 'Draw again' : customerPhoto ? 'Draw on the customer' : 'Preview on a model'}
+            {busy ? 'Working…' : preview ? 'Draw again' : shape === 'sketch' ? 'Draw the sketch'
+              : shape === 'mannequin' ? 'Show on a mannequin' : customerPhoto ? 'Draw on the customer' : 'Preview on a model'}
           </button>
+          {busy && (
+            <button type="button" className="btn-secondary" onClick={() => api.cancelGarmentPreview(onCustomer ? customerId : null)}>Stop</button>
+          )}
         </div>}
       </div>
       {/* Portalled: the card is sticky with a z-index, which would trap a fixed popup beneath the page. */}
