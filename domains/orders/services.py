@@ -899,6 +899,7 @@ class OrderService:
                 status_changed=order.order_status != previous_order_status,
                 stage_name=order_stage.stage_name,
                 stage_key=order_stage.stage_key,
+                garment_job=order_stage.garment_job,
             )
             from domains.orders.notifications import notify_next_stage_owners
             notify_next_stage_owners(order)
