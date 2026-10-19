@@ -216,7 +216,7 @@ export const ClassicInvoiceTemplate = ({ data }) => {
               const rowTotal = data.jobTotal ? data.jobTotal(job) : (job.total || unitPrice * qty);
               return (
                 <tr key={idx} style={{ borderBottom: '1px solid #e4e4e7' }}>
-                  <td style={{ padding: '14px 8px' }}>{job.template_name || 'Garment Item'}</td>
+                  <td style={{ padding: '14px 8px' }}>{job.display_name || job.template_name || 'Garment Item'}</td>
                   <td style={{ padding: '14px 8px', textAlign: 'center' }}>{qty}</td>
                   <td style={{ padding: '14px 8px', textAlign: 'right' }}>{formatMoney(unitPrice)}</td>
                   <td style={{ padding: '14px 8px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(rowTotal)}</td>
@@ -378,7 +378,7 @@ export const ModernInvoiceTemplate = ({ data }) => {
               const rowTotal = data.jobTotal ? data.jobTotal(job) : (job.total || 0);
               return (
                 <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '14px 4px', fontWeight: 600 }}>{job.template_name || 'Garment Item'}</td>
+                  <td style={{ padding: '14px 4px', fontWeight: 600 }}>{job.display_name || job.template_name || 'Garment Item'}</td>
                   <td style={{ padding: '14px 4px', textAlign: 'center', color: '#64748b' }}>{qty}</td>
                   <td style={{ padding: '14px 4px', textAlign: 'right', fontWeight: 700 }}>{formatMoney(rowTotal)}</td>
                 </tr>
@@ -534,7 +534,7 @@ export const ElegantInvoiceTemplate = ({ data }) => {
               return (
                 <tr key={idx} style={{ backgroundColor: bgColor, borderBottom: '1px solid #e4e4e7' }}>
                   <td style={{ padding: '12px 8px', textAlign: 'center' }}>{idx + 1}</td>
-                  <td style={{ padding: '12px 8px', fontWeight: 500 }}>{job.template_name || 'Garment Item'}</td>
+                  <td style={{ padding: '12px 8px', fontWeight: 500 }}>{job.display_name || job.template_name || 'Garment Item'}</td>
                   <td style={{ padding: '12px 8px', textAlign: 'center' }}>{qty}</td>
                   <td style={{ padding: '12px 8px', textAlign: 'right' }}>{formatMoney(unitPrice)}</td>
                   <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 600 }}>{formatMoney(rowTotal)}</td>

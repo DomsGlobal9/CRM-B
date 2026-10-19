@@ -376,6 +376,11 @@ ALWAYS_ON = (
     # Same reasoning: a customer's own cloth received at the counter is order
     # data, not procurement. A boutique with no Inventory still takes cloth.
     '/api/inventory/customer-materials/',
+    # The garment / section / fabric-slot names: reference data the order
+    # wizard, My work and the design pickers read to label fabrics -- no
+    # stock, price or supplier. A Master or Designer with no Inventory module
+    # still takes orders and reads jobs, so role, not the switch, decides.
+    '/api/inventory/items/taxonomy/',
     '/api/auth/',
     '/api/boutique-settings/',
     '/api/settings/invoice-template/',
@@ -389,6 +394,9 @@ ALWAYS_ON = (
     # purpose. The rest of /api/whatsapp/ stays behind the `whatsapp` module.
     '/api/whatsapp/webhook/',
     '/api/dashboard/',
+    # Who gets the 11 PM summary and in which language. Every plan sends the
+    # summary, so no module switch may hide its settings; OwnerOnly decides.
+    '/api/daily-summary/',
     # A dictated note's recording is uploaded here before the note is saved
     # through whichever endpoint owns it (orders, alterations), and that
     # endpoint's own module and role gates decide whether the note lands.

@@ -117,6 +117,17 @@ function UseBuilder({ taxonomy, onAdd, onCancel, canCancel }) {
   );
 }
 
+// The accessory types by who wears them, so a men's item is found without
+// reading past the dori. A type named in neither set suits both, and a type
+// the server adds later lands there until it is placed here.
+const WOMENS_ONLY_KINDS = new Set(['DORI', 'TASSEL', 'GOTA', 'KIRAN', 'PADDING', 'BONING', 'HORSEHAIR']);
+const MENS_ONLY_KINDS = new Set(['CUFFLINK', 'COLLAR_STAY', 'BROOCH']);
+const KIND_GROUPS = [
+  ['For all garments', (key) => !WOMENS_ONLY_KINDS.has(key) && !MENS_ONLY_KINDS.has(key)],
+  ["Women's wear", (key) => WOMENS_ONLY_KINDS.has(key)],
+  ["Men's wear", (key) => MENS_ONLY_KINDS.has(key)],
+];
+
 export default function FabricPlacements({ taxonomy, value, onChange }) {
   const selection = value || emptyClassification();
   const [mode, setMode] = useState(selection.kind ? ACCESSORY : GARMENT);
@@ -160,9 +171,14 @@ export default function FabricPlacements({ taxonomy, value, onChange }) {
               onChange={(e) => set({ kind: e.target.value, variant: '' })}
             >
               <option value="">Select accessory</option>
-              {accessoryKinds.map((k) => (
-                <option key={k.key} value={k.key}>{k.label}</option>
-              ))}
+              {KIND_GROUPS.map(([label, holds]) => {
+                const group = accessoryKinds.filter((k) => holds(k.key));
+                return group.length > 0 && (
+                  <optgroup key={label} label={label}>
+                    {group.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
+                  </optgroup>
+                );
+              })}
             </select>
           </Field>
           {!!kind?.variants?.length && (

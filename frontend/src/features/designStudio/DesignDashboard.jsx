@@ -89,7 +89,7 @@ function DesignerRoster() {
   const [error, setError] = useState(null);
   const [emailDrafts, setEmailDrafts] = useState({});
   const [granting, setGranting] = useState(null);
-  const [issued, setIssued] = useState(null);   // { name, email } just granted
+  const [issued, setIssued] = useState(null);   
   const [draft, setDraft] = useState({ name: '', email: '' });
   const [adding, setAdding] = useState(false);
   const inFlight = useRef(false);

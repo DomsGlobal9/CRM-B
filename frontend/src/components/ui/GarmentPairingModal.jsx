@@ -144,7 +144,7 @@ export default function GarmentPairingModal({
   };
 
   const handleConfirmPairing = () => {
-    // Map selected pair keys to real template keys
+    
     const templatesToAdd = selectedPairKeys
       .map(pk => findMatchingTemplate(pk, garmentTemplates))
       .filter(Boolean);

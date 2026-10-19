@@ -82,8 +82,7 @@ def _tracked_steps(tenant):
     designers = Designer.objects.count()
     collections = Collection.objects.count()
     boards = DesignBoard.objects.count()
-    # The demo fabrics the signup seeder writes are stock rows since the
-    # fabric catalogue merged into inventory; they are not the boutique's work.
+    
     items = InventoryItem.objects.exclude(item_code__startswith='FAB-DEMO-').count()
     suppliers = Supplier.objects.count()
     purchase_orders = PurchaseOrder.objects.count()

@@ -1,3 +1,5 @@
+import { shrinkImage } from './media';
+
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 /**
@@ -342,6 +344,23 @@ export const api = {
       headers: getHeaders()
     });
     if (!res.ok) await failWith(res, 'Failed to fetch invoice template setting');
+    return res.json();
+  },
+
+  // Daily Summary Notifications: who gets the 11 PM summary, in which language.
+  async getSummarySettings() {
+    const res = await guardedFetch(`${BASE_URL}/daily-summary/settings/`, { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Failed to load daily summary settings');
+    return res.json();
+  },
+
+  async updateSummarySetting(userId, changes) {
+    const res = await guardedFetch(`${BASE_URL}/daily-summary/settings/${userId}/`, {
+      method: 'PATCH',
+      headers: getHeaders(),
+      body: JSON.stringify(changes),
+    });
+    if (!res.ok) await failWith(res, 'Failed to save daily summary setting');
     return res.json();
   },
 
@@ -790,7 +809,8 @@ export const api = {
     if (clearVoiceNote) formData.append('voice_note_clear', '1');
     
     if (imageFiles && imageFiles.length > 0) {
-      imageFiles.forEach(file => {
+      // Sent small: a full-size phone photo is what made a save take minutes.
+      (await Promise.all(imageFiles.map((file) => shrinkImage(file)))).forEach(file => {
         formData.append('images', file);
       });
     }

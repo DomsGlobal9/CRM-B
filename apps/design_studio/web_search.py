@@ -93,21 +93,26 @@ def design_areas(garment_id):
     Read from their taxonomy rather than hard-coded: 'SLEEVE is not a design
     area of Saree' is a 400 on their side, and their list is the only truth.
     Unreachable taxonomy means no areas, and the search proceeds on words.
+    Only an answer with areas is remembered: an empty list cached after a
+    gateway blip used to strip every design from previews for a whole day.
     """
     if not garment_id:
         return set()
     key = f'design_discovery:taxonomy:{garment_id}'
     cached = cache.get(key)
-    if cached is not None:
+    if cached:
         return set(cached)
     areas = []
     try:
         res = requests.get(_taxonomy_url(), headers=_headers(), timeout=SEARCH_TIMEOUT)
         if res.ok:
             areas = _areas_from_taxonomy(res.json(), garment_id)
+        else:
+            logger.warning('Design Discovery taxonomy answered %s', res.status_code)
     except (requests.RequestException, ValueError):
         logger.warning('Design Discovery taxonomy unreachable', exc_info=True)
-    cache.set(key, areas, TAXONOMY_TTL)
+    if areas:
+        cache.set(key, areas, TAXONOMY_TTL)
     return set(areas)
 
 
@@ -143,10 +148,12 @@ def area_for_part(garment_id, part_key):
         joined = f'{words[i]}_{words[i + 1]}'.upper()
         if joined in known:
             return joined
+    # The area's own name before a synonym: a blouse has HAND as well as
+    # SLEEVE, and hand_design is the HAND area wherever one exists.
     for word in words:
-        area = AREA_WORDS.get(word, word.upper())
-        if area in known:
-            return area
+        for area in (word.upper(), AREA_WORDS.get(word)):
+            if area in known:
+                return area
     return ''
 
 

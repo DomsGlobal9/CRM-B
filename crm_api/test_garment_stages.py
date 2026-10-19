@@ -21,6 +21,7 @@ from domains.orders.services import (
 
 WORKROOM = ['pattern_cutting', 'stitching_in_progress', 'finishing', 'pressing',
             'master_quality_check']
+FINISHING = ['trial_scheduled', 'trial_completed', 'ready_for_delivery']
 
 
 class PerGarmentStageTests(StateMachineTestBase):
@@ -65,8 +66,12 @@ class PerGarmentStageTests(StateMachineTestBase):
             self.assertEqual(rows.count(), 3, key)
             self.assertFalse(rows.filter(garment_job__isnull=True).exists(), key)
             self.assertEqual(ProductionTask.objects.filter(order=self.order, stage_key=key).count(), 3)
-        for key in ('created', 'trial_scheduled', 'ready_for_delivery', 'payment', 'delivered'):
-            self.assertEqual(OrderStage.objects.filter(order=self.order, stage_key=key).count(), 1, key)
+        self.assertEqual(OrderStage.objects.filter(order=self.order, stage_key='created').count(), 1)
+        # Trial, payment and delivery are per garment too; Payment and Delivery carry no task.
+        for key in FINISHING + ['payment', 'delivered']:
+            self.assertEqual(OrderStage.objects.filter(order=self.order, stage_key=key).count(), 3, key)
+        self.assertFalse(ProductionTask.objects.filter(
+            order=self.order, stage_key__in=['payment', 'delivered']).exists())
         # Idempotent: a second pass adds nothing.
         before = OrderStage.objects.filter(order=self.order).count()
         ensure_garment_stages(self.order)
@@ -90,15 +95,35 @@ class PerGarmentStageTests(StateMachineTestBase):
             self.go('stitching_in_progress', self.blouse, 'IN_PROGRESS')
         self.assertIn('Cutting', str(caught.exception))
 
-    def test_order_level_stages_wait_for_every_garment(self):
+    def test_a_finished_garment_goes_to_trial_while_another_is_stitched(self):
         self.finish_garment(self.saree)
-        self.finish_garment(self.blouse)
+        self.go('trial_scheduled', self.saree)
+        self.assertEqual(self.row('trial_scheduled', self.saree).status, 'COMPLETED')
+        # The blouse's trial still waits on the blouse's own work.
+        with self.assertRaises(ValueError):
+            self.go('trial_scheduled', self.blouse)
+
+    def test_each_garment_is_paid_for_and_handed_over_on_its_own(self):
+        self.finish_garment(self.saree)
+        for key in FINISHING:
+            self.go(key, self.saree)
+        # A garment's handover waits on its own Payment step...
         with self.assertRaises(ValueError) as caught:
-            self.move('trial_scheduled')
-        self.assertIn('not completed', str(caught.exception))
-        self.finish_garment(self.petti)
-        self.move('trial_scheduled')
-        self.assertEqual(self.row('trial_scheduled').status, 'COMPLETED')
+            self.go('delivered', self.saree)
+        self.assertIn('Payment', str(caught.exception))
+        self.go('payment', self.saree)
+        self.go('delivered', self.saree)
+        # ...not on the others: the order is not Delivered yet.
+        self.order.refresh_from_db()
+        self.assertNotEqual(self.order.order_status, 'Delivered')
+        self.assertEqual(self.row('payment', self.blouse).status, 'NOT_STARTED')
+        for job in (self.blouse, self.petti):
+            self.finish_garment(job)
+            for key in FINISHING + ['payment', 'delivered']:
+                self.go(key, job)
+        # The last handover delivers the order.
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.order_status, 'Delivered')
 
     def test_rollup_reads_the_order_as_a_whole(self):
         self.go('pattern_cutting', self.saree)
@@ -156,3 +181,93 @@ class PerGarmentStageTests(StateMachineTestBase):
         OrderService.transition_order_stage(order=other, stage_key='created', new_status='COMPLETED', user=self.owner)
         OrderService.transition_order_stage(order=other, stage_key='pattern_cutting', new_status='COMPLETED', user=self.owner)
         self.assertEqual(OrderStage.objects.get(order=other, stage_key='pattern_cutting').status, 'COMPLETED')
+
+
+MAGGAM_PATH = ['paper_cutting', 'maggam_work', 'maggam_handwork',
+               'maggam_verification', 'fabric_cutting']
+
+
+class MixedPathTests(StateMachineTestBase):
+    """A maggam saree, a plain saree and a plain blouse on one order: only the
+    maggam saree goes through embroidery; the others are cut, then stitched."""
+
+    def setUp(self):
+        super().setUp()
+        self.order.stages.all().delete()
+        self.order.flow = 'maggam'
+        self.order.save(update_fields=['flow'])
+        config = BoutiqueSettings.objects.get(id=1).workflow_config
+        for seq, conf in enumerate(workflow.stages_for_flow(config, 'maggam')):
+            OrderStage.objects.create(
+                order=self.order, stage_key=conf['key'], stage_name=conf['name'],
+                sequence=seq, sla_hours=conf.get('sla_hours', 24))
+        saree_t = GarmentTemplate.objects.create(key='saree', name='Saree', version=1, sequence=1)
+        self.blouse = self.order.garment_jobs.get()
+        self.blouse.sequence = 2
+        self.blouse.save(update_fields=['sequence'])
+        self.maggam = GarmentJob.objects.create(
+            order=self.order, template=saree_t, template_version=1,
+            spec={'hand_work': 'with_work'}, measurements={'chest': '36'}, sequence=0)
+        self.plain = GarmentJob.objects.create(
+            order=self.order, template=saree_t, template_version=1,
+            spec={'hand_work': 'none'}, measurements={'chest': '36'}, sequence=1)
+        ensure_garment_stages(self.order)
+
+    def keys(self, job):
+        return set(OrderStage.objects.filter(order=self.order, garment_job=job)
+                   .values_list('stage_key', flat=True))
+
+    def go(self, key, job, status='COMPLETED'):
+        return OrderService.transition_order_stage(
+            order=self.order, stage_key=key, new_status=status, user=self.owner, garment_job=job)
+
+    def test_only_the_maggam_garment_gets_the_maggam_steps(self):
+        self.assertTrue(set(MAGGAM_PATH) <= self.keys(self.maggam))
+        self.assertNotIn('pattern_cutting', self.keys(self.maggam))
+        for job in (self.plain, self.blouse):
+            self.assertIn('pattern_cutting', self.keys(job))
+            self.assertFalse(set(MAGGAM_PATH) & self.keys(job))
+            self.assertIn('stitching_in_progress', self.keys(job))
+        self.assertFalse(OrderStage.objects.filter(order=self.order, stage_key__in=MAGGAM_PATH,
+                                                   garment_job__isnull=True).exists())
+        self.assertEqual(ProductionTask.objects.filter(order=self.order, stage_key='pattern_cutting').count(), 2)
+        before = OrderStage.objects.filter(order=self.order).count()
+        ensure_garment_stages(self.order)
+        self.assertEqual(OrderStage.objects.filter(order=self.order).count(), before)
+
+    def test_plain_garments_are_not_held_up_by_the_embroidery(self):
+        self.move('created')
+        self.go('pattern_cutting', self.plain)
+        self.go('stitching_in_progress', self.plain, 'IN_PROGRESS')
+        self.assertEqual(OrderStage.objects.get(order=self.order, stage_key='stitching_in_progress',
+                                                garment_job=self.plain).status, 'IN_PROGRESS')
+        with self.assertRaises(ValueError):
+            self.go('stitching_in_progress', self.maggam, 'IN_PROGRESS')
+        # Its trial still waits on its own remaining work.
+        with self.assertRaises(ValueError):
+            self.go('trial_scheduled', self.plain)
+
+    def test_send_to_workshop_starts_every_garments_first_step(self):
+        client = APIClient()
+        token, _ = Token.objects.get_or_create(user=self.owner)
+        client.credentials(HTTP_AUTHORIZATION="Token " + token.key,
+                           HTTP_X_TENANT_ID=self.tenant.schema_name)
+        res = client.post(reverse('order-send-to-workshop', args=[self.order.pk]), {}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        started = dict(OrderStage.objects.filter(order=self.order, status='IN_PROGRESS')
+                       .values_list('garment_job_id', 'stage_key'))
+        self.assertEqual(started, {self.maggam.id: 'paper_cutting', self.plain.id: 'pattern_cutting',
+                                   self.blouse.id: 'pattern_cutting'})
+
+    def test_a_maggam_order_with_no_hand_work_keeps_every_garment_on_it(self):
+        GarmentJob.objects.filter(pk=self.maggam.pk).update(spec={'hand_work': 'none'})
+        OrderStage.objects.filter(order=self.order, garment_job__isnull=False).delete()
+        config = BoutiqueSettings.objects.get(id=1).workflow_config
+        for seq, conf in enumerate(workflow.stages_for_flow(config, 'maggam')):
+            if conf.get('scope') == 'garment':
+                OrderStage.objects.create(order=self.order, stage_key=conf['key'], stage_name=conf['name'],
+                                          sequence=seq, sla_hours=conf.get('sla_hours', 24))
+        ensure_garment_stages(self.order)
+        for job in (self.maggam, self.plain, self.blouse):
+            self.assertTrue(set(MAGGAM_PATH) <= self.keys(job))
+            self.assertNotIn('pattern_cutting', self.keys(job))

@@ -3,7 +3,8 @@ import { Eye, Image as ImageIcon, Layers, Scissors, Sparkles } from 'lucide-reac
 
 import { resolveMediaUrl } from '../../services/media';
 import { inventoryImage } from '../../services/inventoryImages';
-import { ACCESSORY_OPTIONS, Lightbox } from '../designStudio/GarmentPartPicker';
+import { Lightbox } from '../designStudio/GarmentPartPicker';
+import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 
 /**
@@ -23,7 +24,7 @@ import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 
 const formatKey = (key) => (key || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
-const ACCESSORY_LABELS = Object.fromEntries(ACCESSORY_OPTIONS.map((o) => [o.key, o.label]));
+const ACCESSORY_LABELS = Object.fromEntries(ALL_ACCESSORY_OPTIONS.map((o) => [o.key, o.label]));
 
 // "m" for cloth, "pcs" for anything counted; the ledger's own unit otherwise.
 const unitShort = (f) => (
@@ -190,11 +191,19 @@ export default function GarmentSelectionsReview({
             image_url: image.image_url,
           });
         });
+        // The customer's own fabric and accessory photos share part_refs with
+        // the design references; their keys say which: an accessory key, or a
+        // fabric-taxonomy slot (MAIN_FABRIC, BORDER -- upper case, where design
+        // parts are lower case). They are listed with the fabrics/accessories.
+        const fabricPhotoRows = [];
+        const accessoryPhotoRows = [];
         Object.entries(refs).forEach(([part, list]) => {
           (list || []).forEach((ref) => {
             if (!ref?.image_url || seenDesign.has(`r:${part}:${ref.id}`)) return;
             seenDesign.add(`r:${part}:${ref.id}`);
-            designRows.push({
+            const into = part in ACCESSORY_LABELS ? accessoryPhotoRows
+              : /^[A-Z0-9_]+$/.test(part) ? fabricPhotoRows : designRows;
+            into.push({
               key: `r:${part}:${ref.id}`, part,
               label: ref.part_label || formatKey(part),
               value: ref.design_title || (ref.source === 'customer_link' ? 'Reference link' : 'Reference photo'),
@@ -233,7 +242,8 @@ export default function GarmentSelectionsReview({
           });
         });
 
-        const total = designRows.length + fabricRows.length + accessoryRows.length;
+        const total = designRows.length + fabricRows.length + accessoryRows.length
+          + fabricPhotoRows.length + accessoryPhotoRows.length;
 
         return (
           <div key={job.key} className="ui-card garment-card">
@@ -289,8 +299,12 @@ export default function GarmentSelectionsReview({
               })}
             </Group>
 
-            <Group icon={Layers} title="Fabrics" count={fabricRows.length}>
-              {fabricRows.length === 0 ? <Empty>No fabric selected</Empty> : fabricRows.map((r) => (
+            <Group icon={Layers} title="Fabrics" count={fabricRows.length + fabricPhotoRows.length}>
+              {fabricPhotoRows.length > 0 && (
+                <DesignGrid rows={fabricPhotoRows}
+                            onView={(index) => setViewing({ rows: fabricPhotoRows, index })} />
+              )}
+              {fabricRows.length === 0 ? (fabricPhotoRows.length === 0 && <Empty>No fabric selected</Empty>) : fabricRows.map((r) => (
                 <Row key={r.key} label={r.label} value={r.value} sub={r.sub}
                      thumb={r.image_url
                        ? <Thumb src={r.image_url} alt={r.value} size={44} />
@@ -302,8 +316,12 @@ export default function GarmentSelectionsReview({
               ))}
             </Group>
 
-            <Group icon={Scissors} title="Accessories" count={accessoryRows.length}>
-              {accessoryRows.length === 0 ? <Empty>No accessories selected</Empty> : accessoryRows.map((r) => (
+            <Group icon={Scissors} title="Accessories" count={accessoryRows.length + accessoryPhotoRows.length}>
+              {accessoryPhotoRows.length > 0 && (
+                <DesignGrid rows={accessoryPhotoRows}
+                            onView={(index) => setViewing({ rows: accessoryPhotoRows, index })} />
+              )}
+              {accessoryRows.length === 0 ? (accessoryPhotoRows.length === 0 && <Empty>No accessories selected</Empty>) : accessoryRows.map((r) => (
                 <Row key={r.key} label={r.label} value={r.value} sub={r.sub}
                      thumb={r.image_url
                        ? <Thumb src={r.image_url} alt={r.value} size={44} />

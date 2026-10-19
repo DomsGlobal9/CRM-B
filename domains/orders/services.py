@@ -159,20 +159,32 @@ def ensure_garment_stages(order):
     jobs = list(order.garment_jobs.select_related('template').order_by('sequence', 'created_at'))
     if not jobs:
         return
-    for s_conf in workflow.stages_for_flow(config, order.flow):
+    paths = garment_paths(order, jobs, config)
+    stages = workflow.stages_for_flow(config, order.flow)
+    # A plain garment on a maggam order takes the plain path's own stages (Cutting).
+    plain_extra = ([s for s in workflow.stages_for_flow(config, 'stitching') if s not in stages]
+                   if 'stitching' in paths.values() else [])
+    for s_conf in stages + plain_extra:
         if s_conf.get('scope') != 'garment':
             continue
         key = s_conf['key']
         rows = list(OrderStage.objects.filter(order=order, stage_key=key))
-        if not rows:
+        if not rows and s_conf not in plain_extra:
             continue
         placeholder = next((r for r in rows if r.garment_job_id is None), None)
-        seed = placeholder or rows[0]
+        # No row yet for a plain-path stage: it sits where the garments' work starts.
+        seed = placeholder or (rows[0] if rows else OrderStage(
+            stage_name=s_conf['name'], sla_hours=s_conf.get('sla_hours', 24),
+            sequence=OrderStage.objects.filter(order=order, garment_job__isnull=False)
+            .order_by('sequence').values_list('sequence', flat=True).first() or 1))
         task_seed = ProductionTask.objects.filter(
             order=order, stage_key=key, garment_job__isnull=True).first()
         have = {r.garment_job_id for r in rows}
         for job in jobs:
             if job.id in have:
+                continue
+            path = paths.get(job.id)
+            if path and s_conf.get('flows') and path not in s_conf['flows']:
                 continue
             OrderStage.objects.create(
                 order=order, garment_job=job, stage_key=key, stage_name=seed.stage_name,
@@ -184,6 +196,8 @@ def ensure_garment_stages(order):
                 performed_by=placeholder.performed_by if placeholder else None,
                 comments=placeholder.comments if placeholder else None,
                 sequence=seed.sequence, sla_hours=seed.sla_hours)
+            if key in ('created', 'payment', 'delivered') and task_seed is None:
+                continue  # these never carry a production task (seed_workflow)
             ProductionTask.objects.create(
                 order=order, garment_job=job, stage_key=key,
                 title=f"{seed.stage_name} · {job.template.name}",
@@ -229,6 +243,7 @@ def _internal_job(order, template, sequence, garment, user):
     serializer = GarmentJobSerializer(data={
         'order': order.id,
         'template': str(template.id),
+        'label': garment.get('label') or '',
         'spec': {k: v for k, v in (garment.get('spec') or {}).items() if k in known},
         'measurements': {k: v for k, v in (garment.get('measurements') or {}).items() if k in known},
         'materials': garment.get('materials') or [],
@@ -823,7 +838,10 @@ class OrderService:
             'trial_completed': 'Ready for Dispatch',
             'ready_for_delivery': 'Ready for Dispatch',
             'payment': 'Ready for Dispatch',
-            'delivered': 'Delivered' if new_status == 'COMPLETED' else order.order_status,
+            # Delivery is per garment: the order is Delivered with its last handover.
+            'delivered': 'Delivered' if new_status == 'COMPLETED' and not order.stages.filter(
+                stage_key='delivered').exclude(status__in=('COMPLETED', 'SKIPPED')).exists()
+                else order.order_status,
         }
         previous_order_status = order.order_status
         if stage_key in status_map:
@@ -1123,6 +1141,28 @@ def flow_for_garments(garments):
         if (spec.get(HAND_WORK_FIELD) or 'none') != 'none':
             return 'maggam'
     return 'stitching'
+
+
+def garment_paths(order, jobs, config):
+    """On a maggam order, the path each garment's own stages follow, by job id.
+
+    A garment with no hand work beside one that has it takes the plain path
+    (cut, then stitch) instead of waiting on embroidery it will never get. When
+    no garment asks for hand work (the order was put on the maggam path by
+    hand) every garment stays on it. A garment that already has its rows keeps
+    the path they say. Other orders: {} -- their flow already decides.
+    """
+    if order.flow != 'maggam':
+        return {}
+    only = {s['key']: s['flows'][0] for s in workflow.ordered_stages(config)
+            if s.get('scope') == 'garment' and len(s.get('flows') or []) == 1}
+    held = dict(OrderStage.objects.filter(order=order, garment_job__in=jobs, stage_key__in=only)
+                .values_list('garment_job_id', 'stage_key'))
+    hand = {job.id: ((job.spec or {}).get(HAND_WORK_FIELD) or 'none') != 'none' for job in jobs}
+    mixed = any(hand.values())
+    return {job.id: only[held[job.id]] if job.id in held
+            else 'maggam' if hand[job.id] or not mixed else 'stitching'
+            for job in jobs}
 
 
 def set_order_flow(order, flow, user):

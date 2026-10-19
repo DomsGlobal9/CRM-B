@@ -10,6 +10,7 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Layers, Package, PenTool, Ruler, Shirt } from 'lucide-react';
 
+import Loader from '../../components/ui/Loader';
 import TemplateForm from '../catalog/TemplateForm';
 import GarmentPurchases from '../catalog/GarmentPurchases';
 import { getSection } from '../../services/templates';
@@ -18,9 +19,7 @@ import { useFabricTaxonomy } from '../fabrics/taxonomy';
 const GarmentPartPicker = lazy(() => import('../designStudio/GarmentPartPicker'));
 const GarmentFabricPicker = lazy(() => import('../fabrics/GarmentFabricPicker'));
 
-const Loading = () => (
-  <p className="od-hint" style={{ margin: '10px 0' }}>Loading…</p>
-);
+const Loading = () => <Loader section />;
 
 function Fold({ icon: Icon, title, children, open = false }) {
   return (

@@ -17,7 +17,7 @@ export const sharedGarmentParts = (job) => structuredClone(
 
 /** A follower of `job` under `key`. */
 export const followerOf = (job, key, pairedWith) => ({
-  ...job, ...sharedGarmentParts(job), key, pairedWith,
+  ...job, ...sharedGarmentParts(job), key, pairedWith, label: '',
   sameAs: job.key, syncedFrom: garmentSnapshot(job),
 });
 

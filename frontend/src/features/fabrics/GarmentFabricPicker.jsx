@@ -4,7 +4,7 @@ import { Check, ChevronDown, Inbox, X } from 'lucide-react';
 import { inventoryImage, inventoryTile } from '../../services/inventoryImages';
 import { LIMITS, cleanAmount } from '../../services/validate';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
-import { ACCESSORY_OPTIONS } from '../designStudio/GarmentPartPicker';
+import { ACCESSORY_OPTIONS, accessoryOptionsFor } from '../designStudio/accessories';
 import Loader from '../../components/ui/Loader';
 
 const unitShort = (f) => (
@@ -381,7 +381,7 @@ export default function GarmentFabricPicker({
 
         let allSlots;
         if (accessoriesOnly) {
-          allSlots = ACCESSORY_OPTIONS.map(opt => ({
+          allSlots = accessoryOptionsFor(garmentKey).map(opt => ({
             id: opt.key,
             key: opt.key,
             label: opt.label,
@@ -441,7 +441,7 @@ export default function GarmentFabricPicker({
           onChange?.(job.key, forJob);
         };
 
-        const currentAccOption = accessoriesOnly && activeSlotKey && ACCESSORY_OPTIONS.find(o => o.key === activeSlotKey);
+        const currentAccOption = accessoriesOnly && activeSlotKey && accessoryOptionsFor(garmentKey).find(o => o.key === activeSlotKey);
 
         return (
           
@@ -457,7 +457,7 @@ export default function GarmentFabricPicker({
                 {accessoriesOnly ? (
                   <>
                     <AccessoryMultiSelectDropdown
-                      options={ACCESSORY_OPTIONS}
+                      options={accessoryOptionsFor(garmentKey)}
                       selectedKeys={selectedKeys}
                       onToggleKey={toggleAccessoryKey}
                       activeKey={activeSlotKey}

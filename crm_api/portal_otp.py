@@ -73,6 +73,24 @@ def _rate_key(bucket, schema_name, subject):
     return f'portal:rate:{bucket}:{schema_name}:{_digest(str(subject))[:32]}'
 
 
+#: Seconds between two enquiry confirmations to one customer. The requirement
+#: call may be repeated for a token's 15 minutes; the customer is thanked once.
+CONFIRM_COOLDOWN = 600
+
+
+def confirmation_due(schema_name, mobile):
+    """True the first time in CONFIRM_COOLDOWN for this customer, False after.
+
+    Fails closed like the rest of this module: without Redis there is no way to
+    know this is not a repeat, so no message rather than a stream of them.
+    """
+    try:
+        return bool(_client().set(f'{_otp_key(schema_name, mobile)}:confirmed', '1', nx=True,
+                                  ex=_setting('CONFIRM_COOLDOWN', CONFIRM_COOLDOWN)))
+    except Exception:  # noqa: BLE001 - not configured, or unreachable
+        return False
+
+
 def new_code():
     """A cryptographically secure six digits.
 

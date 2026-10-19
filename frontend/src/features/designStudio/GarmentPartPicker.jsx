@@ -8,6 +8,7 @@ import { PartTabStrip } from './GarmentPartTabs';
 import DesignCatalogueFilter from './DesignCatalogueFilter';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
 import Loader from '../../components/ui/Loader';
+import { ACCESSORY_OPTIONS, accessoryOptionsFor } from './accessories';
 
 
 const FALLBACK =
@@ -316,106 +317,7 @@ function DesignModal({ design, partOrder, partLabels, selection, onChoose, onClo
   );
 }
 
-export const ACCESSORY_OPTIONS = [
-  {
-    key: 'dori',
-    label: 'Dori',
-    subtypes: ['Handmade Fabric Dori', 'Handmade Potli Dori', 'Readymade Metallic Dori', 'Readymade Thread Dori'],
-    measurementLabel: 'Length (Inches)',
-    placeholder: 'e.g. 18" - 24"',
-  },
-  {
-    key: 'tassel_latkan',
-    label: 'Tassel/Latkan',
-    subtypes: ['Handmade Fabric Latkan', 'Hand Beaded / Maggam Latkan', 'Readymade Designer Latkan', 'Thread Tassels'],
-    measurementLabel: 'Quantity & Hanging Length',
-    placeholder: 'e.g. 1 Pair, 4 inches',
-  },
-  {
-    key: 'border',
-    label: 'Border',
-    subtypes: ['Hand Embroidered / Maggam Border', 'Readymade Zari / Cutwork Border', 'Fabric Patch Border', 'Velvet / Satin Border'],
-    measurementLabel: 'Length (Meters / Yards)',
-    placeholder: 'e.g. 2.5m for dupatta or 6m for saree',
-  },
-  {
-    key: 'lace_trim',
-    label: 'Lace/Trim',
-    subtypes: ['Handcrafted Crochet / Trim', 'Readymade Gota / Kiran', 'Embroidered Lace', 'Sequence / Mirror Work Lace'],
-    measurementLabel: 'Length (Meters / Yards)',
-    placeholder: 'e.g. 1.5m for sleeves or 9m for 4-side lace',
-  },
-  {
-    key: 'buttons',
-    label: 'Buttons',
-    subtypes: ['Handmade Fabric Potli Buttons', 'Handmade Cloth Buttons', 'Readymade Fancy Metal Buttons', 'Pearl Buttons'],
-    measurementLabel: 'Quantity (Pieces)',
-    placeholder: 'e.g. 6 pcs or 12 pcs',
-  },
-  {
-    key: 'zip',
-    label: 'Zip',
-    subtypes: ['Concealed / Invisible Zip', 'Heavy Duty Metallic Zip', 'Standard Nylon Zip'],
-    measurementLabel: 'Zipper Length (Inches)',
-    placeholder: 'e.g. 8" side zip or 12" back zip',
-  },
-  {
-    key: 'hooks',
-    label: 'Hooks',
-    subtypes: ['Standard Hook & Eye', 'Heavy Duty Steel Hooks', 'Pant / Skirt Fastener'],
-    measurementLabel: 'Quantity (Sets / Pairs)',
-    placeholder: 'e.g. 5 pairs',
-  },
-  {
-    key: 'elastic_drawstring',
-    label: 'Elastic or Draw String',
-    subtypes: ['Soft Waistband Elastic', 'Braided Cord Elastic', 'Cotton Drawstring (Nada)', 'Fabric Cord Drawstring'],
-    measurementLabel: 'Length / Waist Size (Inches)',
-    placeholder: 'e.g. 28" waist elastic or 36" nada',
-  },
-  {
-    key: 'padding_cups',
-    label: 'Padding/Cups',
-    subtypes: ['Soft Padded Cups', 'Moulded Foam Cups', 'Push-up Cups', 'Heavy Density Bust Support'],
-    measurementLabel: 'Bust / Cup Size',
-    placeholder: 'e.g. Size 34, Size 36, Size 38',
-  },
-  {
-    key: 'shoulder_pad',
-    label: 'Shoulder Pad',
-    subtypes: ['Thin Soft Shoulder Pad', 'Thick Moulded Shoulder Pad', 'Raglan Shoulder Pad'],
-    measurementLabel: 'Size / Thickness',
-    placeholder: 'e.g. Small / Standard Thin',
-  },
-  {
-    key: 'decorative_motifs',
-    label: 'Decorative Motifs',
-    subtypes: ['Handmade Zardozi / Maggam Patch', 'Hand Embroidered Motif', 'Readymade Appliqué Motif', 'Sequin Patch'],
-    measurementLabel: 'Dimensions (W × H Inches) & Quantity',
-    placeholder: 'e.g. 4"x6", 2 pcs',
-  },
-  {
-    key: 'fall',
-    label: 'Fall',
-    subtypes: ['Standard Cotton Fall', 'Terrycot Fall', 'Silk / Velvet Heavy Fall'],
-    measurementLabel: 'Length (Meters)',
-    placeholder: 'e.g. Standard 2.25m - 2.5m',
-  },
-  {
-    key: 'lining',
-    label: 'Lining',
-    subtypes: ['Pure Cotton Lining (Aster)', 'Shantoon / Santoon Lining', 'Crepe / Micro Lining', 'Satin / Butter Silk Lining'],
-    measurementLabel: 'Fabric Length (Meters)',
-    placeholder: 'e.g. 1m for blouse or 3m for lehenga',
-  },
-  {
-    key: 'other',
-    label: 'Other',
-    subtypes: ['Handmade / Custom Work', 'Readymade Bought Accessory', 'Special Trimming'],
-    measurementLabel: 'Measurement / Requirement Details',
-    placeholder: 'Enter measurement or specific requirement details',
-  },
-];
+export { ACCESSORY_OPTIONS };
 
 function AccessoryMultiSelectDropdown({
   options = ACCESSORY_OPTIONS,
@@ -573,8 +475,6 @@ function AccessoryMultiSelectDropdown({
   );
 }
 
-// Parts that only exist because of hand work. A garment taken Without Work
-// has nothing to photograph there, so the customer's references skip them.
 const WORK_ONLY_PARTS = ['embroidery_design', 'embroidery_work_design', 'zari_work_design'];
 
 export default function GarmentPartPicker({ garmentKey, garmentName, selection = {}, onChange,
@@ -716,7 +616,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
   // The tabs: every part the template or fabric taxonomy declares.
   const tabParts = useMemo(() => {
     if (accessoriesOnly) {
-      return ACCESSORY_OPTIONS;
+      return accessoryOptionsFor(garmentKey);
     }
     if (isFabric && effectiveTaxonomy && garmentKey) {
       const spec = garmentsByKey[garmentKey];
@@ -742,11 +642,8 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
       return [{ key: 'overall', label: 'Overall Design' }];
     }
     const allParts = [...declared, ...extra];
-    // The customer's own photos and links are filed under the part they show
-    // (pallu, border, waistband...), so every part gets a tab, not just the overall.
+    
     if (ownOnly) {
-      // A work part keeps its tab while it still holds a photo, so nothing
-      // already kept there disappears when the garment turns Without Work.
       return withoutWork
         ? allParts.filter(p => !WORK_ONLY_PARTS.includes(p.key) || (references[p.key] || []).length > 0)
         : allParts;
@@ -1036,7 +933,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
       {!loading && (
         accessoriesOnly ? (
           <AccessoryMultiSelectDropdown
-            options={ACCESSORY_OPTIONS}
+            options={accessoryOptionsFor(garmentKey)}
             selectedKeys={selectedAccessoryKeys}
             onToggleKey={toggleAccessoryKey}
             activeKey={openPart || tabParts[0]?.key}
@@ -1068,7 +965,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
         const partFabricLabel = isFabric
           ? (isAlreadyFabric ? openPartLabel : `${openPartLabel} Fabric`)
           : openPartLabel;
-        const currentAccOption = accessoriesOnly && ACCESSORY_OPTIONS.find(o => o.key === openPart);
+        const currentAccOption = accessoriesOnly && accessoryOptionsFor(garmentKey).find(o => o.key === openPart);
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '14px' }}>
             {isFabric && !accessoriesOnly && (
@@ -1281,9 +1178,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
         <div style={{ display: 'grid', gap: '14px',
                       gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
           {partShots.map((image, i) => (
-            // The same card, the same choose() and the same View the design
-            // modal uses -- this tab is another way into the one selection,
-            // not a second one.
             <PickCard
               key={image.id}
               src={image.image_url}
@@ -1444,17 +1338,6 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 }
 
 
-/**
- * What the customer has chosen so far, across every dress on the order.
- *
- * One section per garment, stacked; inside each, the chosen photographs in a
- * row. The order form is long and a choice made under Saree scrolls out of
- * sight the moment the customer opens Blouse, so this is where they see the
- * whole outfit at once before moving on.
- *
- * Reads the same `job.design.parts` the pickers write, so there is nothing to
- * keep in step -- it is a view of the selection, not a copy of it.
- */
 export function SelectedDesignSummary({ garmentJobs = [], onClear }) {
   const [viewIndex, setViewIndex] = useState(null);
 

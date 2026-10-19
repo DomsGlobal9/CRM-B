@@ -131,7 +131,6 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
 
   const decide = async (decision) => {
     if (inFlight.current) return;
-    // A designer sent back with no reason cannot act on it.
     if (decision === 'CHANGES_REQUESTED' && !note.trim()) { window.alert('Tell the designer what to change.'); return; }
     inFlight.current = true;
     setReviewing(true);

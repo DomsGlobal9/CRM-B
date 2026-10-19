@@ -89,11 +89,14 @@ class GarmentJobSerializer(serializers.ModelSerializer):
     materials = JobMaterialSerializer(many=True, required=False)
     template_key = serializers.CharField(source='template.key', read_only=True)
     template_name = serializers.CharField(source='template.name', read_only=True)
+    # The name to show: the counter's own for this garment, else the template's.
+    display_name = serializers.CharField(read_only=True)
 
     class Meta:
         model = GarmentJob
         fields = [
             'id', 'order', 'template', 'template_key', 'template_name',
+            'label', 'display_name',
             'template_version', 'spec', 'measurements', 'sequence', 'materials',
             'selections',
             'base_price', 'fabric_price', 'embroidery_price',
@@ -101,6 +104,10 @@ class GarmentJobSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['template_version', 'selections', 'created_at', 'updated_at']
+
+    def validate_label(self, value):
+        from core.validators import validate_text
+        return validate_text(value, label='Garment name', max_length=60)
 
     def validate(self, attrs):
         from domains.orders.pricing import JOB_COMPONENTS

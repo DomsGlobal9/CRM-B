@@ -96,7 +96,7 @@ export function RequestAlterationModal({ order, onClose, onCreated }) {
               <option value="">Choose the garment…</option>
               {garments.map((garment) => (
                 <option key={garment.id} value={garment.id}>
-                  {garment.template_name || garment.template?.name || 'Garment'}
+                  {garment.display_name || garment.template_name || garment.template?.name || 'Garment'}
                 </option>
               ))}
             </select>
