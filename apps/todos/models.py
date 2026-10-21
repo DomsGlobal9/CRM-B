@@ -30,6 +30,9 @@ class Todo(models.Model):
 
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, default='')
+    #: Voice notes said for the title and for the details (URLs from /api/voice-notes/).
+    title_voice_note = models.CharField(max_length=IMAGE_PATH_MAX_LENGTH, blank=True, default='')
+    description_voice_note = models.CharField(max_length=IMAGE_PATH_MAX_LENGTH, blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
     #: When the work starts and when it should end (the end is `due_date`).
     start_date = models.DateField(null=True, blank=True)

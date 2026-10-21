@@ -243,6 +243,8 @@ class TodoViewSet(viewsets.GenericViewSet):
         todo = Todo(
             title=title,
             description=validate_text(request.data.get('description'), label='Description'),
+            title_voice_note=validate_http_url(request.data.get('title_voice_note'), label='Voice note'),
+            description_voice_note=validate_http_url(request.data.get('description_voice_note'), label='Voice note'),
             start_date=self._date(request.data.get('start_date'), 'start_date'),
             due_date=self._date(request.data.get('due_date')),
             created_by=request.user,

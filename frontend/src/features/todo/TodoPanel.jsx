@@ -16,7 +16,7 @@ import { LIMITS, imageFilesError } from '../../services/validate';
 import {
   AvatarInitials, PageHeader, Segmented, FormModal, Field, AddPhotoButton, PhotoTile,
 } from '../../components/ui/Atelier';
-import VoiceTextarea, { VoiceRecorder, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
+import VoiceTextarea, { VoiceClipPreview, VoiceRecorder, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import Loader from '../../components/ui/Loader';
 
 const MAX_TITLE = 200;
@@ -182,6 +182,21 @@ function AddTodoForm({ people, canAssign, meId, initial, onCancel, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  // A voice note said for the title or the details: uploaded when it stops,
+  // kept under its own heading. Saving waits while one is still uploading.
+  const [fieldVoice, setFieldVoice] = useState({ title: '', description: '' });
+  const [voiceUploads, setVoiceUploads] = useState(0);
+  const recordFor = (key) => async (blob) => {
+    setVoiceUploads((n) => n + 1);
+    try {
+      const url = await api.uploadVoiceNote(blob);
+      setFieldVoice((prev) => ({ ...prev, [key]: url }));
+    } catch (err) {
+      setError(err.message || 'Could not save the voice note.');
+    } finally {
+      setVoiceUploads((n) => n - 1);
+    }
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -199,6 +214,8 @@ function AddTodoForm({ people, canAssign, meId, initial, onCancel, onSaved }) {
       if (form.due_date) body.append('due_date', form.due_date);
       if (canAssign && form.assigned_to) body.append('assigned_to', form.assigned_to);
       if (voice) body.append('voice_note', voice);
+      if (fieldVoice.title) body.append('title_voice_note', fieldVoice.title);
+      if (fieldVoice.description) body.append('description_voice_note', fieldVoice.description);
       if (form.order_stage) body.append('order_stage', form.order_stage);
       photos.forEach((file) => body.append('photos', file));
       onSaved(await api.createTodo(body));
@@ -219,8 +236,8 @@ function AddTodoForm({ people, canAssign, meId, initial, onCancel, onSaved }) {
       footer={(
         <>
           <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
-          <button type="submit" form="add-todo-form" className="btn-primary" disabled={busy}>
-            <Plus size={16} /> {busy ? 'Saving…' : 'Add to-do'}
+          <button type="submit" form="add-todo-form" className="btn-primary" disabled={busy || voiceUploads > 0}>
+            <Plus size={16} /> {busy ? 'Saving…' : voiceUploads > 0 ? 'Saving voice note…' : 'Add to-do'}
           </button>
         </>
       )}
@@ -228,12 +245,18 @@ function AddTodoForm({ people, canAssign, meId, initial, onCancel, onSaved }) {
       <form id="add-todo-form" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {error && <div style={errorBox} role="alert">{error}</div>}
         <Field label="Title" required htmlFor="todo-title">
-          <input id="todo-title" value={form.title} onChange={set('title')} maxLength={MAX_TITLE}
-                 placeholder="e.g. Finish the hand work on the blue blouse" autoFocus />
+          {/* One line, as before: Enter still adds the to-do. */}
+          <VoiceTextarea id="todo-title" rows={1} value={form.title} onChange={set('title')} maxLength={MAX_TITLE}
+                         placeholder="e.g. Finish the hand work on the blue blouse" autoFocus style={{ resize: 'none' }}
+                         onRecording={recordFor('title')}
+                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} />
+          <VoiceClipPreview url={fieldVoice.title} onRemove={() => setFieldVoice((prev) => ({ ...prev, title: '' }))} />
         </Field>
         <Field label="Details" optional htmlFor="todo-details">
-          <textarea id="todo-details" rows={3} maxLength={LIMITS.note} value={form.description}
-                    onChange={set('description')} placeholder="Anything that helps get it done…" />
+          <VoiceTextarea id="todo-details" rows={3} maxLength={LIMITS.note} value={form.description}
+                         onChange={set('description')} placeholder="Anything that helps get it done…"
+                         onRecording={recordFor('description')} />
+          <VoiceClipPreview url={fieldVoice.description} onRemove={() => setFieldVoice((prev) => ({ ...prev, description: '' }))} />
         </Field>
         {canAssign && (
           <Field label="Assign to" icon={UserCheck} htmlFor="todo-assignee">
@@ -381,11 +404,24 @@ function TodoDetail({ todo, people, canAssign, meId, onClose, onChanged, onDelet
     >
       {error && <div style={errorBox} role="alert">{error}</div>}
 
+      {todo.title_voice_note && (
+        <div style={{ margin: '0 0 14px' }}>
+          <div style={attachLabel}><Mic size={13} /> Title · voice note</div>
+          <VoiceNotePlayer src={todo.title_voice_note} />
+        </div>
+      )}
+
       {todo.description && (
         <p style={{ margin: '0 0 14px', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)',
                     whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.6 }}>
           {todo.description}
         </p>
+      )}
+      {todo.description_voice_note && (
+        <div style={{ margin: '0 0 14px' }}>
+          <div style={attachLabel}><Mic size={13} /> Details · voice note</div>
+          <VoiceNotePlayer src={todo.description_voice_note} />
+        </div>
       )}
 
       <div className="mobile-stack-grid"

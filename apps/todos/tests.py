@@ -75,6 +75,20 @@ class TodoTests(TenantTestCase):
         self.assertEqual(len(note['photos']), 2)
         self.assertTrue(note['voice_note'].endswith('a.webm'))
 
+    def test_title_and_details_each_keep_their_own_voice_note(self):
+        response = self.call(self.tailor, 'post', '/api/todos/', {
+            'title': 'Blouse hand work', 'description': 'Gold zari on the sleeves',
+            'title_voice_note': 'https://media.test/voice_notes/title.webm',
+            'description_voice_note': 'https://media.test/voice_notes/details.webm',
+        }, fmt='multipart')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data['title_voice_note'].endswith('title.webm'))
+        self.assertTrue(response.data['description_voice_note'].endswith('details.webm'))
+        # Not a link the browser could run.
+        bad = self.call(self.tailor, 'post', '/api/todos/', {
+            'title': 'x', 'title_voice_note': 'javascript:alert(1)'}, fmt='multipart')
+        self.assertEqual(bad.status_code, 400)
+
     def test_a_title_is_required(self):
         response = self.call(self.tailor, 'post', '/api/todos/', {'title': '  '})
         self.assertEqual(response.status_code, 400)
