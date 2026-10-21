@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Check, CheckCircle2, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User, X } from 'lucide-react';
 import { api } from '../../services/api';
-import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, nameError } from '../../services/validate';
+import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, imageFilesError, nameError } from '../../services/validate';
+import { resolveMediaUrl } from '../../services/media';
 import { formatMobile } from '../../services/format';
 import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
 import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../services/phone';
-import { FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
+import { CameraButton, FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same
    card design as the order chooser (.wz-services), rendered inside the
@@ -403,6 +404,15 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
   // Who referred them, for a new customer only. Edit Customer never shows
   // this: a referral already recorded is the Referrals card's to change.
   const [referredBy, setReferredBy] = useState(null);
+  // A new photo picked here (a File); the saved one stays until it is replaced.
+  const [photo, setPhoto] = useState(null);
+  const photoPreview = useMemo(() => (photo ? URL.createObjectURL(photo) : ''), [photo]);
+  const savedPhoto = customer?.profile_photo ? resolveMediaUrl(customer.profile_photo) : '';
+  const pickPhoto = (file) => {
+    const bad = file ? imageFilesError([file]) : '';
+    setError(bad || null);
+    setPhoto(bad ? null : (file || null));
+  };
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const setInch = (key, value) => setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: value } }));
@@ -458,11 +468,12 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
     if (problem) { setError(problem); return; }
     if (editing) {
       const payload = changes();
-      if (!Object.keys(payload).length) { onBack?.(); return; }
+      if (!Object.keys(payload).length && !photo) { onBack?.(); return; }
       setBusy(true);
       setError(null);
       try {
-        const row = await api.updateCustomer(customer.id, payload);
+        let row = Object.keys(payload).length ? await api.updateCustomer(customer.id, payload) : customer;
+        if (photo) row = await api.uploadCustomerPhoto(customer.id, photo);
         await onSaved?.(row);
       } catch (err) {
         setError(err.message);
@@ -487,7 +498,13 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
     if (Object.keys(core).length || Object.keys(extras).length) payload.measurements = { ...core, additional_measurements: extras };
     if (referredBy) payload.referred_by = referredBy.id;
     try {
-      const row = await api.createCustomer(payload);
+      let row = await api.createCustomer(payload);
+      if (photo) {
+        // The customer is saved by now; a failed photo must not lose them.
+        try { row = await api.uploadCustomerPhoto(row.id, photo); } catch (err) {
+          alert(`Customer saved, but the photo could not be uploaded (${err.message}). Add it again from Edit.`);
+        }
+      }
       await onSaved?.(row);
     } catch (err) {
       setError(err.message);
@@ -549,6 +566,30 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <IconTile icon={User} tone="green" size={36} iconSize={16} />
           <strong>Profile</strong>
+        </div>
+        <div className="form-group">
+          <span className="form-label">Customer photo</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                          background: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--text-muted)' }}>
+              {(photoPreview || savedPhoto)
+                ? <img src={photoPreview || savedPhoto} alt="Customer photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <User size={26} />}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <button type="button" className="btn-secondary at-btn-sm"
+                      onClick={() => document.getElementById('cf-photo').click()}>
+                <Upload size={14} /> {savedPhoto || photo ? 'Change photo' : 'Choose file'}
+              </button>
+              <CameraButton onFiles={([f]) => pickPhoto(f)} />
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                {photo ? photo.name : (savedPhoto ? 'Current photo' : 'No photo yet')}
+              </span>
+              <input id="cf-photo" type="file" accept="image/*" hidden aria-label="Customer photo"
+                     onChange={(e) => { const file = e.target.files?.[0] || null; e.target.value = ''; pickPhoto(file); }} />
+            </div>
+          </div>
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="cf-name">Full name <span className="required">*</span></label>

@@ -467,6 +467,18 @@ export const api = {
     return res.json();
   },
 
+  // The customer's photo on its own request: a multipart body cannot carry the
+  // nested measurements the JSON saves do, so the two never share one.
+  async uploadCustomerPhoto(customerId, file) {
+    const body = new FormData();
+    body.append('profile_photo', await shrinkImage(file, 800));
+    const res = await guardedFetch(`${BASE_URL}/customers/${customerId}/`, {
+      method: 'PATCH', headers: getHeaders(true), body,
+    });
+    if (!res.ok) await failWith(res, 'Failed to save the photo');
+    return res.json();
+  },
+
   // Owner only; the server refuses a customer who has orders or alterations,
   // because their invoices and payments would be deleted with them.
   async deleteCustomer(customerId) {

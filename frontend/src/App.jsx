@@ -3558,6 +3558,28 @@ function App() {
   };
 
   
+  // A photo added straight from the customer's profile header.
+  const [customerPhotoBusy, setCustomerPhotoBusy] = useState(false);
+  const uploadDirectoryCustomerPhoto = async (cust, file) => {
+    if (!file || customerPhotoBusy) return;
+    const bad = imageFilesError([file]);
+    if (bad) { alert(bad); return; }
+    setCustomerPhotoBusy(true);
+    try {
+      const row = await api.uploadCustomerPhoto(cust.id, file);
+      setSelectedDirectoryCustomer((current) =>
+        current && current.id === cust.id ? { ...current, profile_photo: row.profile_photo } : current);
+      // The list already loaded shows it too, without a reload.
+      const withPhoto = (list) => list.map((x) => (x.id === cust.id ? { ...x, profile_photo: row.profile_photo } : x));
+      setCustomersList(withPhoto);
+      setAllCustomers(withPhoto);
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCustomerPhotoBusy(false);
+    }
+  };
+
   const openDirectoryCustomer = async (summaryRow) => {
     setViewAllCustomerMeasurements(false);
     setSelectedDirectoryCustomer(summaryRow);
@@ -5798,7 +5820,8 @@ function App() {
                         >
                           <td data-label="Customer" style={{ overflow: 'hidden' }}>
                             <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
-                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36} />
+                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36}
+                                              src={cust.profile_photo ? resolveMediaUrl(cust.profile_photo) : ''} />
                               <div style={{ minWidth: 0, flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                                   <span style={{ ...line, fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}
@@ -6009,7 +6032,23 @@ function App() {
 
                 <div className="ui-card at-profile-head">
                   <div className="at-profile-id">
-                    <AvatarInitials name={`${c.first_name} ${c.last_name}`} size={96} tone="rose" />
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <AvatarInitials name={`${c.first_name} ${c.last_name}`} size={96} tone="rose"
+                                      src={c.profile_photo ? resolveMediaUrl(c.profile_photo) : ''} />
+                      {/* Same people as the Edit button. */}
+                      {!isLead(c) && (isOwner || adminCan('customers.edit')) && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <button type="button" className="btn-secondary at-btn-sm" disabled={customerPhotoBusy}
+                                  onClick={() => document.getElementById('cust-profile-photo').click()}>
+                            <Upload size={12} /> {customerPhotoBusy ? 'Saving…' : (c.profile_photo ? 'Change photo' : 'Add photo')}
+                          </button>
+                          <CameraButton label="Take photo" disabled={customerPhotoBusy}
+                                        onFiles={([f]) => uploadDirectoryCustomerPhoto(c, f)} />
+                          <input id="cust-profile-photo" type="file" accept="image/*" hidden aria-label="Customer photo"
+                                 onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; uploadDirectoryCustomerPhoto(c, f); }} />
+                        </div>
+                      )}
+                    </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <h2 className="at-page-title" style={{ fontSize: 'var(--text-2xl)' }}>{c.first_name} {c.last_name}</h2>

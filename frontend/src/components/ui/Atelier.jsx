@@ -79,13 +79,15 @@ export function Chips({ options, value, onChange }) {
 
 const AVATAR_TONES = ['green', 'amber', 'violet', 'blue', 'rose'];
 
-export function AvatarInitials({ name, size = 40, tone }) {
+export function AvatarInitials({ name, size = 40, tone, src = '' }) {
   const initials = String(name || '?')
     .split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
   const hue = tone || AVATAR_TONES[[...String(name || '')].reduce((n, c) => n + c.charCodeAt(0), 0) % AVATAR_TONES.length];
   return (
-    <span className={`at-avatar at-tile--${hue}`} style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }} aria-hidden="true">
-      {initials}
+    <span className={`at-avatar at-tile--${hue}`} aria-hidden="true"
+          style={{ width: size, height: size, fontSize: Math.round(size * 0.36), ...(src ? { overflow: 'hidden' } : {}) }}>
+      {/* A photo when there is one, the initials otherwise. */}
+      {src ? <img src={src} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials}
     </span>
   );
 }
