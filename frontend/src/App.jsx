@@ -9179,8 +9179,8 @@ function App() {
               <Bell size={20} style={{ color: 'var(--accent-text, #b07c40)' }} />
               <h3 style={{ fontSize: '18px', fontWeight: 600, margin: 0, fontFamily: 'var(--font-serif)' }}>Boutique alerts</h3>
             </div>
-            <button 
-              className="btn-secondary" 
+            <button
+              className="btn-primary"
               style={{ padding: '4px 10px', fontSize: '12px' }}
               onClick={() => setShowNotificationsDrawer(false)}
             >
