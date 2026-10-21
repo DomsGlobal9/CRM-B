@@ -1669,7 +1669,6 @@ function App() {
       return localStorage.getItem(`onboarding_dismissed_${localStorage.getItem('tenant_id') || ''}`) === '1';
     } catch { return false; }
   });
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
 
   const [findSlug, setFindSlug] = useState('');
@@ -2879,7 +2878,6 @@ function App() {
       setCurrentUser(null);
       setJustRegistered(false);
       setView('login');
-      setShowLogoutConfirm(false);
     } finally {
       setLogoutBusy(false);
     }
@@ -4364,7 +4362,7 @@ function App() {
                 }}
               />
               <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
-                       onClick={() => { setShowLogoutConfirm(true); setMobileNavOpen(false); }} />
+                       onClick={() => { setMobileNavOpen(false); handleLogout(); }} />
             </nav>
 
 
@@ -7356,7 +7354,7 @@ function App() {
                 onPick={(tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); }}
               />
               <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
-                       onClick={() => { setShowLogoutConfirm(true); setMobileNavOpen(false); }} />
+                       onClick={() => { setMobileNavOpen(false); handleLogout(); }} />
             </nav>
           </aside>
 
@@ -9787,30 +9785,6 @@ Complete the Payment stage with this partial payment?`)) return;
           </div>
         </div>
       )}
-      {/* Rendered at the root so both sidebars' Logout items reach it,
-          whichever view is on screen. */}
-      {showLogoutConfirm && (
-        <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
-          <div className="search-modal-card" style={{ maxWidth: '360px', width: '100%', padding: '24px', textAlign: 'center' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)', marginBottom: '8px' }}>
-              Log out?
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-              You will need to sign in again to open your boutique.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button type="button" className="btn-secondary" disabled={logoutBusy} onClick={() => setShowLogoutConfirm(false)}>
-                Cancel
-              </button>
-              <button type="button" className="btn-primary" disabled={logoutBusy} onClick={handleLogout}>
-                {logoutBusy ? 'Logging out…' : 'Logout'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
       <GarmentPairingModal
         isOpen={!!activePairingGarment}
         onClose={() => setActivePairingGarment(null)}
