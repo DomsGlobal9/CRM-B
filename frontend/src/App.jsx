@@ -9688,7 +9688,13 @@ Complete the Payment stage with this partial payment?`)) return;
                       disabled={assigningStageKey === stage.stage_key}
                       onChange={(e) => handleAssignStage(activeReviewOrder.id, stage.stage_key, e.target.value, stage.garment_job || null)}
                     >
-                      <option value="">Unassigned</option>
+                      {/* No one set on this step: it is the order's stitching tailor's
+                          (stitching, hemming) or master's, as My work already treats it. */}
+                      <option value="">{(() => {
+                        const tailorStep = TAILOR_STEPS.includes(stage.stage_key);
+                        const name = tailorStep ? activeReviewOrder.tailor_name : activeReviewOrder.master_name;
+                        return name ? `${name} (order's ${tailorStep ? 'stitching tailor' : 'master'})` : 'Unassigned';
+                      })()}</option>
                       {eligibleStaffForStage(stage.stage_key).map(t => (
                         <option key={t.id} value={t.id}>{t.name} · {t.role}</option>
                       ))}
