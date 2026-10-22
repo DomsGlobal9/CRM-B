@@ -88,11 +88,16 @@ const MEASUREMENT_ZONES = [
     label: 'Pants, Salwar & Trouser',
     garments: 'Pants, Churidar, Salwar, Sharara, Trouser, Jeans, Shorts',
     other: true,
-    keys: [
-      'hip_round', 'pant_waist', 'pant_length', 'knee_length', 'ankle_length',
-      'inseam', 'ankle_round', 'crotch_length', 'outseam', 'crotch',
-      'thigh', 'knee', 'calf', 'ankle'
-    ]
+    // Waist and hip, the crotch, the full lengths, then down the leg with each
+    // length beside its round. Knee / Crotch / Calf are the earlier boxes under
+    // clearer names; Ankle left the section (its saved values are kept).
+    steps: [
+      ['Waist & hip', ['pant_waist', 'hip_round', 'thigh']],
+      ['Crotch', ['crotch', 'crotch_length']],
+      ['Full lengths', ['pant_length', 'outseam', 'inseam']],
+      ['Down the leg', ['knee_length', 'knee', 'calf_length', 'calf', 'ankle_length', 'ankle_round']],
+    ],
+    labels: { knee: 'Knee Round', crotch: 'Crotch Round', calf: 'Calf Round' },
   }
 ].map((zone) => (zone.steps ? { ...zone, keys: zone.steps.flatMap(([, keys]) => keys) } : zone));
 
