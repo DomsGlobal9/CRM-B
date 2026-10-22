@@ -109,13 +109,75 @@ def effective_window(profile, start, end):
     return first, last
 
 
-def attendance_metrics(staff, start, end):
+class TeamReadings:
+    """The team dashboard's rows for everybody at once: one query per source.
+
+    `staff_metrics` reads a person's stages, attendance, QC records and garment
+    counts. Asked person by person that was three or four queries each -- a
+    fan-out across the team, with django-tenants' SET search_path in front of
+    every one. This reads each source ONCE across the widest of the windows and
+    hands every person their own rows; the per-person functions then apply
+    exactly the filters they always applied, so the figures cannot differ.
+
+    `windows` maps a staff id to that person's (first, last) employed days.
+    """
+
+    def __init__(self, windows):
+        self.stages, self.sessions, self.qc, self.jobs = {}, {}, [], {}
+        if not windows:
+            return
+        ids = list(windows)
+        first = min(window[0] for window in windows.values())
+        last = max(window[1] for window in windows.values())
+
+        # The same three clauses as _stages_for, over the widest window. Each
+        # person's own window is applied again when their rows are read.
+        lo = datetime.combine(first - timedelta(days=1), time.min, tzinfo=utc)
+        hi = datetime.combine(last + timedelta(days=1), time.max, tzinfo=utc)
+        for stage in OrderStage.objects.filter(
+            Q(completed_at__range=(lo, hi))
+            | Q(completed_at__isnull=True, started_at__range=(lo, hi))
+            | ~Q(status__in=SETTLED),
+            assigned_to__in=ids,
+        ):
+            self.stages.setdefault(stage.assigned_to_id, []).append(stage)
+
+        for session in AttendanceSession.objects.filter(
+                staff__in=ids, date__gte=first, date__lte=last):
+            self.sessions.setdefault(session.staff_id, []).append(session)
+
+        from apps.production.models import QCRecord
+        # created_at__date compares in the current time zone; localtime() below
+        # puts each row on the same day for the per-person filter.
+        self.qc = [(timezone.localtime(created_at).date(), inspector_id, assignee_id, status)
+                   for created_at, inspector_id, assignee_id, status in
+                   QCRecord.objects.filter(created_at__date__gte=first,
+                                           created_at__date__lte=last)
+                   .values_list('created_at', 'inspector_id', 'task__assigned_to_id', 'status')]
+
+        order_ids = {stage.order_id for rows in self.stages.values() for stage in rows}
+        if order_ids:
+            from apps.catalog.models import GarmentJob
+            self.jobs = dict(GarmentJob.objects.filter(order_id__in=order_ids)
+                             .values_list('order_id').annotate(n=Count('id')))
+
+    def stages_for(self, staff):
+        return self.stages.get(staff.id, [])
+
+    def sessions_for(self, staff):
+        return self.sessions.get(staff.id, [])
+
+
+def attendance_metrics(staff, start, end, readings=None):
     """Hours and days actually attended. Source: AttendanceSession."""
     # Closed and open rows in ONE read. Counting the open ones separately cost a
     # second query per staff member, which on a team dashboard is a per-person
     # fan-out for a number already present in the rows just fetched.
-    every = list(AttendanceSession.objects.filter(
-        staff=staff, date__gte=start, date__lte=end))
+    if readings is not None:
+        every = [s for s in readings.sessions_for(staff) if start <= s.date <= end]
+    else:
+        every = list(AttendanceSession.objects.filter(
+            staff=staff, date__gte=start, date__lte=end))
     sessions = [s for s in every if s.check_out is not None]
     open_count = len(every) - len(sessions)
     if not sessions:
@@ -150,7 +212,7 @@ def _stages_in_window(staff, start, end):
     return in_window
 
 
-def _stages_for(staff, start, end):
+def _stages_for(staff, start, end, readings=None):
     """One read, two answers: the period's stages and the open backlog.
 
     A stage counts as this PERIOD'S if it was completed in it, or is still open
@@ -172,12 +234,15 @@ def _stages_for(staff, start, end):
     lo = datetime.combine(start - timedelta(days=1), time.min, tzinfo=utc)
     hi = datetime.combine(end + timedelta(days=1), time.max, tzinfo=utc)
     rows, open_stages = [], []
-    for stage in OrderStage.objects.filter(
+    # TeamReadings' rows are a superset (the widest window on the team); the
+    # exact local-date test below is what decides, so the result is the same.
+    candidates = readings.stages_for(staff) if readings is not None else OrderStage.objects.filter(
         Q(completed_at__range=(lo, hi))
         | Q(completed_at__isnull=True, started_at__range=(lo, hi))
         | ~Q(status__in=SETTLED),
         assigned_to=staff,
-    ):
+    )
+    for stage in candidates:
         if stage.status not in SETTLED:
             open_stages.append(stage)
         moment = stage.completed_at or stage.started_at
@@ -189,7 +254,7 @@ def _stages_for(staff, start, end):
     return rows, open_stages
 
 
-def _garments_in(stages):
+def _garments_in(stages, readings=None):
     """Dresses touched, not stages: the garment jobs across the stages' orders.
 
     An order placed before multi-garment orders existed carries no GarmentJob
@@ -199,15 +264,17 @@ def _garments_in(stages):
     order_ids = {s.order_id for s in stages}
     if not order_ids:
         return 0
-    from apps.catalog.models import GarmentJob
-    # ponytail: one query per staff member on the team dashboard; batch across
-    # the team if it ever shows up in the timings.
-    jobs = dict(GarmentJob.objects.filter(order_id__in=order_ids)
-                .values_list('order_id').annotate(n=Count('id')))
+    if readings is not None:
+        # Counted once across the whole team by TeamReadings.
+        jobs = readings.jobs
+    else:
+        from apps.catalog.models import GarmentJob
+        jobs = dict(GarmentJob.objects.filter(order_id__in=order_ids)
+                    .values_list('order_id').annotate(n=Count('id')))
     return sum(jobs.get(order_id, 1) for order_id in order_ids)
 
 
-def productivity_metrics(staff, start, end, stages=None):
+def productivity_metrics(staff, start, end, stages=None, readings=None):
     """Work touched in the period, and how much of it finished. Source: OrderStage.
 
     `in_period` counts stages this person STARTED OR COMPLETED inside the window,
@@ -235,7 +302,7 @@ def productivity_metrics(staff, start, end, stages=None):
     counted = [s for s in stages if s.status != 'SKIPPED']
     return {
         'in_period': _metric(len(stages)),
-        'garments': _metric(_garments_in(stages)),
+        'garments': _metric(_garments_in(stages, readings)),
         'completed': _metric(len(completed)),
         'completion_rate': _ratio(len(completed), len(counted)),
         # Assigned to them AND done by them. The gap between this and
@@ -289,7 +356,7 @@ def timeliness_metrics(staff, start, end, stages=None):
     }
 
 
-def quality_metrics(staff, start, end):
+def quality_metrics(staff, start, end, readings=None):
     """Quality, from whatever QC records exist. Never invented.
 
     See the module docstring: QCRecords CAN be written (via /api/production/qc/)
@@ -309,13 +376,24 @@ def quality_metrics(staff, start, end):
     # Kept apart but fetched TOGETHER: four conditional counts in one aggregate
     # rather than a query apiece, because this runs once per staff member on a
     # team dashboard and django-tenants adds a SET search_path to each one.
-    counts = QCRecord.objects.filter(**period).aggregate(
-        inspected=Count('id', filter=Q(inspector=staff)),
-        checked=Count('id', filter=Q(task__assigned_to=staff)),
-        passed=Count('id', filter=Q(task__assigned_to=staff, status='PASSED')),
-        rework=Count('id', filter=Q(task__assigned_to=staff,
-                                    status='REWORK_REQUIRED')),
-    )
+    if readings is not None:
+        # The same four counts, over the team's rows read once.
+        mine = [r for r in readings.qc if start <= r[0] <= end]
+        checked = [r for r in mine if r[2] == staff.id]
+        counts = {
+            'inspected': sum(1 for r in mine if r[1] == staff.id),
+            'checked': len(checked),
+            'passed': sum(1 for r in checked if r[3] == 'PASSED'),
+            'rework': sum(1 for r in checked if r[3] == 'REWORK_REQUIRED'),
+        }
+    else:
+        counts = QCRecord.objects.filter(**period).aggregate(
+            inspected=Count('id', filter=Q(inspector=staff)),
+            checked=Count('id', filter=Q(task__assigned_to=staff)),
+            passed=Count('id', filter=Q(task__assigned_to=staff, status='PASSED')),
+            rework=Count('id', filter=Q(task__assigned_to=staff,
+                                        status='REWORK_REQUIRED')),
+        )
     inspected = counts['inspected']
     total = counts['checked']
     if not total:
@@ -406,11 +484,12 @@ def design_metrics(staff, start, end):
     }
 
 
-def staff_metrics(staff, start, end, *, profile=None):
+def staff_metrics(staff, start, end, *, profile=None, readings=None):
     """Everything measurable about one person's work in one period.
 
     The window is narrowed to the employment first, so somebody who joined
-    midway is measured on the days they were actually here.
+    midway is measured on the days they were actually here. `readings` is a
+    TeamReadings covering this person, when a whole team is being measured.
     """
     if profile is None:
         profile = StaffProfile.objects.filter(staff=staff).first()
@@ -441,8 +520,8 @@ def staff_metrics(staff, start, end, *, profile=None):
     # Read once, shared by the four groups that need them. Each of these used
     # to fetch its own copy, so a single staff member cost three identical
     # stage queries and two identical attendance queries.
-    stages, open_stages = _stages_for(staff, first, last)
-    attendance = attendance_metrics(staff, first, last)
+    stages, open_stages = _stages_for(staff, first, last, readings)
+    attendance = attendance_metrics(staff, first, last, readings)
     extra = {'design': design_metrics(staff, first, last)} if staff.role == 'Designer' else {}
     return {
         **extra,
@@ -453,9 +532,9 @@ def staff_metrics(staff, start, end, *, profile=None):
         'period_end': last,
         'employed_in_period': True,
         'attendance': attendance,
-        'productivity': productivity_metrics(staff, first, last, stages),
+        'productivity': productivity_metrics(staff, first, last, stages, readings),
         'timeliness': timeliness_metrics(staff, first, last, stages),
-        'quality': quality_metrics(staff, first, last),
+        'quality': quality_metrics(staff, first, last, readings),
         'reliability': reliability_metrics(staff, first, last, stages, attendance,
                                            open_stages),
     }

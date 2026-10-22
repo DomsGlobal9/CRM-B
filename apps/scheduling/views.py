@@ -2,6 +2,7 @@ from rest_framework import viewsets
 
 from core.permissions import visible_customers
 from crm_api.models import Customer
+from domains.customers.repositories import customer_serializer_relations
 from .models import Appointment
 from .notifications import send_appointment_booked
 from .serializers import AppointmentSerializer
@@ -13,7 +14,14 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         customers = visible_customers(Customer.objects.all(), self.request.user)
-        queryset = super().get_queryset().filter(customer__in=customers)
+        # Each row carries its full customer (CustomerSerializer, with their
+        # orders) and its staff member (TailorSerializer reads staff_profile),
+        # so both are fetched up front rather than once per appointment.
+        select, prefetch = customer_serializer_relations('customer__')
+        queryset = (super().get_queryset()
+                    .select_related(*select, 'assigned_staff__staff_profile')
+                    .prefetch_related(*prefetch)
+                    .filter(customer__in=customers))
 
         # The dashboard panel is headed "Upcoming Appointments" and was handed
         # every appointment the boutique had ever booked, oldest first -- so a

@@ -40,7 +40,9 @@ import { AddCustomerChooser, CustomerForm, DeleteAllCustomersDialog } from './fe
 import CustomerFilters from './features/customers/CustomerFilters';
 import CustomerReferrals from './features/customers/CustomerReferrals';
 import BoutiqueProductionDialog from './features/production/BoutiqueProduction';
-import { EMPTY_CUSTOMER_FILTERS, activeFilterCount, applyCustomerFilters } from './features/customers/filterRules';
+import { EMPTY_CUSTOMER_FILTERS, activeFilterCount } from './features/customers/filterRules';
+import CustomerPicker from './features/customers/CustomerPicker';
+import { useCustomerLookup, useDebouncedValue } from './features/customers/useCustomerLookup';
 import OrderKanban from './features/orders/OrderKanban';
 import { expressLabel, isExpressJob, isExpressOrder } from './features/orders/express';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
@@ -228,8 +230,7 @@ function Pager({ page, pageCount, pageSize, sizes, onPage, onSize, label = 'Per 
   );
 }
 const customerTier = (record) => (TIERS.includes(record?.customer_type) ? record.customer_type : 'Silver');
-const tierCounts = (customers) =>
-  TIERS.reduce((acc, tier) => ({ ...acc, [tier]: customers.filter((c) => customerTier(c) === tier).length }), {});
+const NO_TIERS = { Platinum: 0, Gold: 0, Silver: 0 };
 const TIER_TONES = {
   Platinum: { background: 'var(--accent-color)', color: 'var(--brand-link)', border: '1px solid var(--primary-color)' },
   Gold: { background: 'var(--warning-bg)', color: 'var(--warning-color)', border: '1px solid color-mix(in srgb, var(--warning-color) 35%, transparent)' },
@@ -2239,7 +2240,10 @@ function App() {
   const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [fabrics, setFabrics] = useState([]);
   const [allDesigns, setAllDesigns] = useState([]);
-  const [customersList, setCustomersList] = useState([]);
+  // The whole book's size and tiers (/customers/stats/). The book itself is no
+  // longer downloaded: the Customers page asks for one page at a time, and the
+  // pickers search as they are typed into.
+  const [customerStats, setCustomerStats] = useState(null);
   
   const [startingBoutiqueRun, setStartingBoutiqueRun] = useState(false);
   const [ordersList, setOrdersList] = useState([]);
@@ -2250,7 +2254,6 @@ function App() {
   const [sendError, setSendError] = useState('');
   const [sendBusy, setSendBusy] = useState(false);
 
-  const [allCustomers, setAllCustomers] = useState([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
@@ -2259,6 +2262,10 @@ function App() {
   const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
   const [customerPageSize, setCustomerPageSize] = useState(CUSTOMER_PAGE_SIZES[0]);
   const [customerFilters, setCustomerFilters] = useState(EMPTY_CUSTOMER_FILTERS);
+  // The Customers page's current page, as the server answered it.
+  const [customerDirectory, setCustomerDirectory] = useState({ key: '', forView: null, data: null, error: false });
+  const [directoryVersion, setDirectoryVersion] = useState(0);
+  const directorySearch = useDebouncedValue(searchQuery);
   const [ordersSearch, setOrdersSearch] = useState('');
   const [ordersTabPick, setOrdersFilterTab] = useState(null);
   const ordersFilterTab = dashboardTab === 'workshop' ? 'workshop' : (ordersTabPick || 'new');
@@ -2449,9 +2456,10 @@ function App() {
         }
       }),
 
-      load('customers', api.getCustomers, (data) => {
-        setCustomersList(data);
-        setAllCustomers(data);
+      load('customers', api.getCustomerStats, (data) => {
+        setCustomerStats(data);
+        // An open Customers page asks again too, so it shows what just changed.
+        setDirectoryVersion((v) => v + 1);
       }),
 
       load('orders', api.getOrders, setOrdersList),
@@ -3025,15 +3033,12 @@ function App() {
   };
   const handleSelectExistingCustomer = (cust) => startService('stitch', cust);
 
-  /** Customers whose number contains what has been typed so far. */
-  const customerMatches = React.useMemo(() => {
-    if (customerId) return [];
-    const digits = (customerForm.mobile_number || '').replace(/\D/g, '');
-    if (digits.length < 3) return [];
-    return allCustomers
-      .filter(c => (c.mobile_number || '').replace(/\D/g, '').includes(digits))
-      .slice(0, 5);
-  }, [allCustomers, customerForm.mobile_number, customerId]);
+  /** Customers whose number contains what has been typed so far: the five
+   *  newest, as full rows, because picking one fills the order form. */
+  const matchDigits = customerId ? '' : (customerForm.mobile_number || '').replace(/\D/g, '');
+  const { results: customerMatches, loading: customerMatchesLoading } = useCustomerLookup({
+    mobile: matchDigits.length >= 3 ? matchDigits : '', limit: 5, full: true,
+  });
   /** Garments we delivered to the chosen customer: the only ones an alteration can name. */
   const alterCandidates = React.useMemo(() => {
     if (!customerId) return [];
@@ -3651,29 +3656,50 @@ function App() {
   };
 
   
-  // A lead is a portal sign-up nobody has contacted or taken an order for yet.
+  // The Customers (or Leads) page: the server filters, sorts, counts and pages
+  // the book (domains/customers/directory.py) and sends back one page with the
+  // counts the stat cards, chips and filter menus show. Leads are portal
+  // sign-ups nobody has contacted or taken an order for yet.
   const isLead = (c) => !!c.is_lead && !((c.order_count ?? c.orders?.length ?? 0) > 0);
-  const bookList = React.useMemo(
-    () => customersList.filter(c => isLead(c) === (customerView === 'leads')),
-    [customersList, customerView]);
-  const directoryCustomers = React.useMemo(() => {
-    const term = searchQuery.toLowerCase();
-    return applyCustomerFilters(bookList.filter(cust => {
-      const matchesSearch =
-        ((cust.first_name || '') + ' ' + (cust.last_name || '')).toLowerCase().includes(term) ||
-        (cust.mobile_number || '').includes(term) ||
-        (cust.email_address || '').toLowerCase().includes(term);
-      const matchesType = customerTypeFilter === 'All' || customerTier(cust) === customerTypeFilter;
-      return matchesSearch && matchesType;
-    }), customerFilters);
-  }, [bookList, searchQuery, customerTypeFilter, customerFilters]);
-  
   const customerPageKey = `${customerView}|${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
   const customerPage = customerPageAt.key === customerPageKey ? customerPageAt.page : 1;
-  const customerPageCount = Math.max(1, Math.ceil(directoryCustomers.length / customerPageSize));
-  const customerPageNow = Math.min(customerPage, customerPageCount);
-  const customerPageFrom = (customerPageNow - 1) * customerPageSize;
-  const pagedCustomers = directoryCustomers.slice(customerPageFrom, customerPageFrom + customerPageSize);
+  const onCustomerBook = dashboardTab === 'customers' || dashboardTab === 'leads';
+  const directoryParams = React.useMemo(() => ({
+    view: customerView,
+    search: directorySearch.trim(),
+    tier: customerTypeFilter === 'All' ? '' : customerTypeFilter,
+    ...customerFilters,
+    page: customerPage,
+    page_size: customerPageSize,
+  }), [customerView, directorySearch, customerTypeFilter, customerFilters, customerPage, customerPageSize]);
+  // Which question the page on screen answers; a newer one makes it "loading".
+  const directoryKey = `${JSON.stringify(directoryParams)}|${directoryVersion}`;
+  useEffect(() => {
+    if (!onCustomerBook || !currentUser) return undefined;
+    let cancelled = false;
+    api.getCustomerDirectory(directoryParams)
+      .then((data) => {
+        if (!cancelled) setCustomerDirectory({ key: directoryKey, forView: directoryParams.view, data, error: false });
+      })
+      .catch(() => { if (!cancelled) setCustomerDirectory((d) => ({ ...d, key: directoryKey, error: true })); });
+    return () => { cancelled = true; };
+  }, [onCustomerBook, currentUser, directoryParams, directoryKey]);
+  const directoryLoading = onCustomerBook && customerDirectory.key !== directoryKey;
+  /** After a customer is added elsewhere: the totals and the open page again. */
+  const refreshCustomerBook = () => {
+    api.getCustomerStats().then(setCustomerStats).catch(() => {});
+    setDirectoryVersion((v) => v + 1);
+  };
+  // What another view (customers vs leads) answered is not shown for this one.
+  const directoryData = customerDirectory.forView === customerView ? customerDirectory.data : null;
+  const bookSummary = directoryData?.summary || { total: 0, with_orders: 0, new_this_month: 0, tiers: NO_TIERS };
+  const directoryCount = directoryData?.count || 0;
+  const pagedCustomers = directoryData?.results || [];
+  const customerPageNow = directoryData?.page || 1;
+  const customerPageCount = directoryData?.page_count || 1;
+  const customerPageFrom = (customerPageNow - 1) * (directoryData?.page_size || customerPageSize);
+  const bookTotal = customerStats?.total ?? 0;
+  const bookTiers = customerStats?.tiers || NO_TIERS;
   const goToCustomerPage = (n) => {
     setCustomerPageAt({ key: customerPageKey, page: n });
     document.querySelector('.customers-list-container')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -3709,7 +3735,7 @@ function App() {
   /** Whether the owner handed this user `task` as Admin (core/admin_access.py). */
   const adminCan = (task) => (currentUser?.admin_tasks || []).includes(task);
   const canAddCustomer = !currentUser?.role || currentUser.role === 'Owner' || adminCan('customers.add');
-  const guideCustomers = !loading && canAddCustomer && customersList.length < 10;
+  const guideCustomers = !loading && canAddCustomer && bookTotal < 10;
   const guideOrders = !loading && ordersList.length < 10;
   
   const sidebarHint = {
@@ -3719,7 +3745,7 @@ function App() {
 
   const onboardingSteps = [
     { key: 'boutique', label: 'Create your boutique', done: true },
-    { key: 'customer', label: 'Add your first customer', done: customersList.length > 0, go: () => setView('order-selector') },
+    { key: 'customer', label: 'Add your first customer', done: bookTotal > 0, go: () => setView('order-selector') },
     { key: 'order', label: 'Take your first order', done: ordersList.length > 0, go: () => setView('order-selector') },
     { key: 'staff', label: 'Add your tailors, masters and designers', done: tailors.length > 0, tab: 'staff', go: () => setDashboardTab('staff') },
     { key: 'fabrics', label: 'Put your first fabric on the shelf', done: fabrics.length > 0, tab: 'inventory', go: () => setDashboardTab('inventory') },
@@ -4534,7 +4560,7 @@ function App() {
                                 sub={`${t('dashboard.dueThisWeek', '{n} due this week', { n: s.due_soon ?? 0 })}${overdue ? ` · ${t('dashboard.overdueCount', '{n} overdue', { n: overdue })}` : ''}`}
                                 onClick={() => setDashboardTab('workshop')} />
                       <StatCard icon={Users} tone="blue" label={t('dashboard.totalCustomers', 'Customers')} value={s.total_customers ?? 0}
-                                sub={(() => { const c = tierCounts(customersList); return t('dashboard.tierSummary', '{platinum} Platinum · {gold} Gold · {silver} Silver', { platinum: c.Platinum, gold: c.Gold, silver: c.Silver }); })()}
+                                sub={(() => { const c = bookTiers; return t('dashboard.tierSummary', '{platinum} Platinum · {gold} Gold · {silver} Silver', { platinum: c.Platinum, gold: c.Gold, silver: c.Silver }); })()}
                                 onClick={() => setDashboardTab('customers')} />
                     </section>
                   );
@@ -5347,8 +5373,9 @@ function App() {
                           </div>
                           <button type="button" className="btn-secondary at-btn-sm"
                                   onClick={() => {
-                                    const cust = customersList.find((c) => c.id === order.customer) || { id: order.customer, first_name: order.customer_name, last_name: '' };
-                                    setDashboardTab('customers'); openDirectoryCustomer(cust);
+                                    // The name to show while openDirectoryCustomer fetches the full record.
+                                    setDashboardTab('customers');
+                                    openDirectoryCustomer({ id: order.customer, first_name: order.customer_name, last_name: '' });
                                   }}>
                             {t('ordersPage.viewCustomer', 'View customer')} <ArrowRight size={14} />
                           </button>
@@ -5670,7 +5697,7 @@ function App() {
                             }} />
             )}
             {deletingAllCustomers && (
-              <DeleteAllCustomersDialog total={customersList.length}
+              <DeleteAllCustomersDialog total={bookTotal}
                                         onClose={() => setDeletingAllCustomers(false)}
                                         onDeleted={() => fetchDashboardAndConfig()} />
             )}
@@ -5679,7 +5706,7 @@ function App() {
                                   onImported={() => fetchDashboardAndConfig()} />
             )}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
-              <CustomerForm customers={customersList} onBack={() => setCustomerAddMode('choose')}
+              <CustomerForm onBack={() => setCustomerAddMode('choose')}
                             onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
             )}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (
@@ -5700,13 +5727,13 @@ function App() {
                   )}
                   actions={canAddCustomer && (
                     <>
-                      {customersList.length > 0 && (
+                      {bookTotal > 0 && (
                         <button type="button" className="btn-secondary at-btn-danger" style={{ padding: '10px 18px' }}
                                 onClick={() => setDeletingAllCustomers(true)}>
                           <Trash2 size={16} /> Delete all
                         </button>
                       )}
-                      <GuidedHighlight show={guideCustomers} text={customersList.length ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
+                      <GuidedHighlight show={guideCustomers} text={bookTotal ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
                         <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
                           <Plus size={16} /> Add Customer
                         </button>
@@ -5716,17 +5743,13 @@ function App() {
                 />
 
                 {(() => {
-                  const now = new Date();
-                  const thisMonth = bookList.filter(c => {
-                    const d = new Date(c.created_at);
-                    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-                  }).length;
-                  const tiers = tierCounts(bookList);
-                  const withOrders = bookList.filter(c => (c.order_count ?? c.orders?.length ?? 0) > 0).length;
+                  const thisMonth = bookSummary.new_this_month;
+                  const tiers = bookSummary.tiers;
+                  const withOrders = bookSummary.with_orders;
                   return (
                     <>
                       <section className="at-stat-grid">
-                        <StatCard icon={Users} tone="green" label={customerView === 'leads' ? 'Total Leads' : 'Total Customers'} value={bookList.length}
+                        <StatCard icon={Users} tone="green" label={customerView === 'leads' ? 'Total Leads' : 'Total Customers'} value={bookSummary.total}
                                   sub={t('customersPage.withOrdersCount', '{n} with orders', { n: withOrders })} />
                         <StatCard icon={Crown} tone="amber" label="Platinum customers" value={tiers.Platinum}
                                   sub={`${tiers.Gold} Gold · ${tiers.Silver} Silver`} />
@@ -5735,36 +5758,36 @@ function App() {
                       </section>
                       <div className="at-toolbar">
                         <Chips value={customerTypeFilter} onChange={setCustomerTypeFilter} options={[
-                          { key: 'All', label: t('customersPage.filterAll'), count: bookList.length },
+                          { key: 'All', label: t('customersPage.filterAll'), count: bookSummary.total },
                           ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
                         ]} />
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                          {directoryCustomers.length
-                            ? `Showing ${customerPageFrom + 1}–${customerPageFrom + pagedCustomers.length} of ${directoryCustomers.length}`
+                          {directoryCount
+                            ? `Showing ${customerPageFrom + 1}–${customerPageFrom + pagedCustomers.length} of ${directoryCount}`
                             : 'Showing 0'}
-                          {directoryCustomers.length !== bookList.length ? ` (${bookList.length} in total)` : ''}
+                          {directoryCount !== bookSummary.total ? ` (${bookSummary.total} in total)` : ''}
                         </span>
                       </div>
-                      {bookList.length > 0 && (
-                        <CustomerFilters customers={bookList} filters={customerFilters} onChange={setCustomerFilters} />
+                      {bookSummary.total > 0 && (
+                        <CustomerFilters facets={directoryData.facets} filters={customerFilters} onChange={setCustomerFilters} />
                       )}
                     </>
                   );
                 })()}
 
                 <div className="customers-list-container at-stack">
-                  {loading && bookList.length === 0 ? (
+                  {!directoryData && !customerDirectory.error ? (
                     <div className="ui-card" style={{ padding: 'var(--space-4)' }}>
                       <LoaderRows rows={6} />
                     </div>
-                  ) : loadErrors.includes('customers') ? (
+                  ) : customerDirectory.error && !directoryData ? (
                     <div style={{ padding: '48px', textAlign: 'center', background: 'var(--danger-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--danger-color)' }}>
                       <div style={{ color: 'var(--danger-color)', marginBottom: '12px' }}>Could not load the customer directory.</div>
-                      <button type="button" className="btn-secondary" onClick={() => fetchDashboardAndConfig()}>Retry</button>
+                      <button type="button" className="btn-secondary" onClick={() => setDirectoryVersion((v) => v + 1)}>Retry</button>
                     </div>
-                  ) : directoryCustomers.length === 0 ? (
+                  ) : directoryCount === 0 ? (
                     <div className="ui-card" style={{ padding: '48px', textAlign: 'center' }}>
-                      {bookList.length === 0 ? (
+                      {bookSummary.total === 0 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
                           <div style={{ fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}>{t('customersPage.noCustomersYet')}</div>
                           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', maxWidth: '44ch', lineHeight: 'var(--leading-normal)' }}>
@@ -5788,7 +5811,8 @@ function App() {
                   ) : (
                     
                     <>
-                    <div className="at-table-wrap">
+                    <div className="at-table-wrap" aria-busy={directoryLoading}
+                         style={{ opacity: directoryLoading ? 0.6 : 1, transition: 'opacity .15s' }}>
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
@@ -5919,7 +5943,7 @@ function App() {
                         </tbody>
                       </table>
                     </div>
-                    {directoryCustomers.length > CUSTOMER_PAGE_SIZES[0] && (
+                    {directoryCount > CUSTOMER_PAGE_SIZES[0] && (
                       <Pager page={customerPageNow} pageCount={customerPageCount} pageSize={customerPageSize}
                              sizes={CUSTOMER_PAGE_SIZES} onPage={goToCustomerPage} onSize={setCustomerPageSize}
                              label="Customers per page" />
@@ -6264,9 +6288,8 @@ function App() {
                     <CustomerReferrals
                       customer={c}
                       canAdd={isOwner || adminCan('customers.edit')}
-                      customers={customersList}
                       onOpenCustomer={(id) => openDirectoryCustomer({ id })}
-                      onCustomerAdded={() => api.getCustomers().then(setCustomersList).catch(() => {})}
+                      onCustomerAdded={refreshCustomerBook}
                     />
 
                     <SectionCard icon={ImageIcon} tone="green" title="Saved Designs & Inspiration">
@@ -6581,8 +6604,8 @@ function App() {
               const busyTailors = tailors.filter(t => t.status === 'Busy').length;
 
               const segments = (() => {
-                const total = customersList.length || 1;
-                const counts = tierCounts(customersList);
+                const total = bookTotal || 1;
+                const counts = bookTiers;
                 const colors = { Platinum: 'var(--primary-color)', Gold: 'var(--warning-color)', Silver: 'var(--border-strong)' };
                 const rows = TIERS.map(tier => ({
                   name: t(`wizard.${tier.toLowerCase()}`, tier), count: counts[tier], color: colors[tier],
@@ -6628,7 +6651,7 @@ function App() {
                     <StatCard icon={BarChart2} tone="blue" label={t('analyticsPage.avgTicketSize', 'Average Ticket Size')}
                               value={inr(aov)} sub={t('analyticsPage.perBespokeOrder', 'Per bespoke order')} />
                     <StatCard icon={Users} tone="violet" label={t('analyticsPage.clientBase', 'Client Base')}
-                              value={`${customersList.length} ${customersList.length === 1 ? t('analyticsPage.clientSingle', 'Client') : t('analyticsPage.clientPlural', 'Clients')}`}
+                              value={`${bookTotal} ${bookTotal === 1 ? t('analyticsPage.clientSingle', 'Client') : t('analyticsPage.clientPlural', 'Clients')}`}
                               sub={t('analyticsPage.totalDirectoryProfiles', 'Total boutique directory profiles')} />
                   </section>
 
@@ -6650,7 +6673,7 @@ function App() {
                         <div style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'center', flexWrap: 'wrap' }}>
                           <div className="at-donut" style={{ background: segments.gradient }}>
                             <div className="at-donut-label">
-                              <span className="at-donut-value">{customersList.length}</span>
+                              <span className="at-donut-value">{bookTotal}</span>
                               <span className="at-donut-sub">Customers</span>
                             </div>
                           </div>
@@ -7007,14 +7030,10 @@ function App() {
                         <span className="od-hint">They are added to your customers, and the confirmation goes to this number.</span>
                       </div>
                     ) : (
-                      <select className="form-control" required disabled={!!editingAppointment}
-                              value={appointmentForm.customer}
-                              onChange={(e) => setAppointmentForm({ ...appointmentForm, customer: e.target.value })}>
-                        <option value="">Select a client</option>
-                        {allCustomers.map(c => (
-                          <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>
-                        ))}
-                      </select>
+                      <CustomerPicker required disabled={!!editingAppointment}
+                                      value={appointmentForm.customer ? String(appointmentForm.customer) : ''}
+                                      onChange={(next) => setAppointmentForm((f) => ({ ...f, customer: next }))}
+                                      placeholder="Search a client by name or mobile" />
                     )}
                   </div>
                   <div>
@@ -7633,7 +7652,7 @@ function App() {
                         </div>
                       )}
                       {serviceType === 'alter' ? (
-                        customerForm.mobile_number.replace(/\D/g, '').length >= 4 && customerMatches.length === 0 && (
+                        customerForm.mobile_number.replace(/\D/g, '').length >= 4 && customerMatches.length === 0 && !customerMatchesLoading && (
                           <p className="od-hint" style={{ marginTop: '8px' }}>
                             {t('wizard.noCustomerForAlter', 'No customer with this number. Alterations can only be raised on a garment we made, so the customer must already be in your book.')}
                           </p>
@@ -8121,7 +8140,6 @@ function App() {
                             <Suspense fallback={<ScreenLoading />}>
                               <CustomerDesigns
                                 customerId={customerId}
-                                customers={allCustomers}
                                 orders={ordersList}
                                 garmentTemplates={garmentTemplates}
                                 templateId={job.template?.id}
@@ -8129,7 +8147,7 @@ function App() {
                                 newCustomer={customerForm}
                                 onCustomerCreated={(row) => {
                                   setCustomerId(row.id);
-                                  setAllCustomers((prev) => [row, ...prev]);
+                                  refreshCustomerBook();
                                 }}
                               />
                             </Suspense>
