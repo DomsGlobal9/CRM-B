@@ -79,6 +79,12 @@ export function formatDateTime(value) {
 
 /** The order number a customer reads: '#24', or the internal id for a row
  *  written before numbering existed. Mirrors Order.reference on the server. */
+/** The boutique's own login page: the site plus its short name
+ *  ("https://boutique.scaleezy.com/jyotiatelier"); the bare site when it has none. */
+export function boutiqueLoginUrl(shopSlug) {
+  return shopSlug ? `${window.location.origin}/${shopSlug}` : window.location.origin;
+}
+
 export function orderRef(order) {
   if (!order) return '';
   return order.order_reference

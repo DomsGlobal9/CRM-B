@@ -4864,6 +4864,7 @@ function App() {
                       <DesignDashboard
                         onOpenLibrary={() => setDesignsView('library')}
                         canManageDesigners={!currentUser?.role || currentUser.role === 'Owner'}
+                        shopSlug={currentUser?.shop_slug}
                       />
                     ) : (
                       <DesignLibrary

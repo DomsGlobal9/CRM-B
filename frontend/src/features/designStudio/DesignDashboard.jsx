@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Award, Clock, Eye, Image as ImageIcon, Key, LayoutGrid, ShoppingCart, Upload, UserPlus, Users } from 'lucide-react';
 
+import { boutiqueLoginUrl } from '../../services/format';
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -84,7 +85,7 @@ function CategoriesPanel({ onOpenLibrary }) {
   );
 }
 
-function DesignerRoster() {
+function DesignerRoster({ portalUrl }) {
   const [designers, setDesigners] = useState([]);
   const [error, setError] = useState(null);
   const [emailDrafts, setEmailDrafts] = useState({});
@@ -218,6 +219,7 @@ function DesignerRoster() {
             this is the only time the password is shown here.
           </div>
           <div>
+            Login link: <strong style={{ overflowWrap: 'anywhere' }}>{portalUrl}</strong> &nbsp;·&nbsp;
             Email: <strong>{issued.email}</strong>
             {issued.password ? (
               <> &nbsp;·&nbsp; Password: <strong style={{ fontFamily: 'ui-monospace, monospace' }}>{issued.password}</strong></>
@@ -238,7 +240,7 @@ function DesignerRoster() {
   );
 }
 
-export default function DesignDashboard({ onOpenLibrary, canManageDesigners = false }) {
+export default function DesignDashboard({ onOpenLibrary, canManageDesigners = false, shopSlug = '' }) {
   const { t } = useLanguage();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
@@ -291,7 +293,7 @@ export default function DesignDashboard({ onOpenLibrary, canManageDesigners = fa
       <DesignStrip icon={Clock} tone="violet" title={t('designsPage.trendingThisWeek', 'Trending This Week')} subtitle="Most viewed in the last 7 days"
                    designs={data.trending} metric="views" emptyText="Nothing trending in the last 7 days." />
 
-      {canManageDesigners && <DesignerRoster />}
+      {canManageDesigners && <DesignerRoster portalUrl={boutiqueLoginUrl(shopSlug)} />}
     </div>
   );
 }
