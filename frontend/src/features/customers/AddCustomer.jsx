@@ -74,11 +74,14 @@ const MEASUREMENT_ZONES = [
     label: 'Lehenga, Skirt & Gown',
     garments: 'Lehenga, Petticoat, Skirt, Anarkali, Gown',
     other: true,
-    keys: [
-      'lehenga_length', 'lehenga_waist', 'high_round', 'floor_length', 'height',
-      'high_waist', 'waist_to_hip', 'waist_to_floor', 'waist_to_ankle', 'heel_height',
-      'total_ghera', 'hem_circumference', 'bottom_full_length'
-    ]
+    // Waist, then the lengths down the leg, then the flare. Floor length,
+    // height, waist to hip / floor, heel height and bottom full length left
+    // this section; a customer's saved values for them are kept (and searchable).
+    steps: [
+      ['Waist', ['lehenga_waist', 'high_waist', 'high_round']],
+      ['Lengths', ['waist_to_knee', 'waist_to_ankle', 'lehenga_length']],
+      ['Flare & hem', ['total_ghera', 'hem_circumference']],
+    ],
   },
   {
     id: 'pants_bottoms',
