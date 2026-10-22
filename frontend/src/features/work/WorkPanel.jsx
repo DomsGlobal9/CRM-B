@@ -3,6 +3,7 @@ import { ArrowLeft, Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseI
 
 import { api } from '../../services/api';
 import { expressLabel, isExpressJob, isExpressOrder } from '../orders/express';
+import { TODO_KIND, workKind } from '../../services/workKind';
 import { orderRef, formatDate, formatDateTime } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { inventoryImage } from '../../services/inventoryImages';
@@ -152,6 +153,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   const [open, setOpen] = useState(null); // { orderId, stageKey }
   const [seen, setSeen] = useState(() => new Set()); // 'orderId:stageKey' ticked this session
   const [toast, setToast] = useState('');
+  // My work's status tab: 'all' is the whole list, as it always was.
+  const [tab, setTab] = useState('all');
   // Work handed to me that I have not opened yet is marked NEW, so a fresh
   // assignment stands out from the jobs already on my list. Opened jobs are
   // remembered on this device per person; a job handed back to me counts again.
@@ -276,7 +279,9 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     : isExpressOrder(order));
 
   const card = ({ order, stage }, extra) => (
-    <button type="button" key={`${order.id}-${stage.id}`} className={`wk-card${stageIsExpress(order, stage) ? ' gh-express' : ''}${isNew(order, stage) ? ' wk-card--new' : ''}`} onClick={() => { markOpened(order, stage); setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null }); }}>
+    <button type="button" key={`${order.id}-${stage.id}`} className={`wk-card${stageIsExpress(order, stage) ? ' gh-express' : ''}${isNew(order, stage) ? ' wk-card--new' : ''}`}
+            data-kind={workKind(stage.stage_key).key} style={{ '--wk-kind': workKind(stage.stage_key).color }}
+            onClick={() => { markOpened(order, stage); setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null }); }}>
       <div className="wk-card-head">
         <div className="wk-card-title">{jobTitle(order, stage, t)}
           {isNew(order, stage) && (
@@ -288,7 +293,10 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
         </div>
         {extra.chip}
       </div>
-      <div className="wk-card-sub">{stageRef(order, stage)} · {order.customer_name}</div>
+      <div className="wk-card-sub">
+        <span className="wk-kind-tag">{workKind(stage.stage_key).label}</span>
+        {stageRef(order, stage)} · {order.customer_name}
+      </div>
       {extra.meta && <div className="wk-card-meta">{extra.meta}</div>}
       <CardGlance order={order} stage={stage} t={t} />
       {extra.body}
@@ -301,7 +309,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       <section className="wk-group">
         <h3 className="wk-group-title">{t('workPage.tasks', 'Tasks')} <span className="wk-count">{tasks.length}</span></h3>
         {tasks.map((task) => (
-          <div key={`todo-${task.id}`} className="wk-card">
+          <div key={`todo-${task.id}`} className="wk-card" data-kind={TODO_KIND.key} style={{ '--wk-kind': TODO_KIND.color }}>
             <div className="wk-card-head">
               <div className="wk-card-title">{task.title}</div>
               <span className={`ui-badge ui-badge--${task.status === 'IN_PROGRESS' ? 'warning' : 'neutral'}`}>
@@ -309,6 +317,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
               </span>
             </div>
             <div className="wk-card-sub">
+              <span className="wk-kind-tag">{TODO_KIND.label}</span>
               {task.created_by_name && t('workPage.taskFrom', 'From {who}', { who: task.created_by_name })}
               {task.due_date && <> · {t('workPage.due', 'Due')} {formatDate(task.due_date)}</>}
             </div>
@@ -356,7 +365,59 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       ['next', t('workPage.next', 'Next')],
       ['waiting', t('workPage.waitingForMaster', 'Waiting for the master')],
     ];
-    body = items.length === 0 && !taskSection && !newSection
+    // One card of a Do now / Next / Waiting list (also the status tabs' cards).
+    const groupCard = (key, it) => {
+      const sentBack = key === 'now' && it.stage.verification_note;
+      const chip = key === 'now'
+        ? <span className={`ui-badge ui-badge--${sentBack ? 'danger' : 'warning'}`}>{sentBack ? t('workPage.sentBack', 'Sent back') : t('workPage.inProgress', 'In progress')}</span>
+        : key === 'next'
+          ? <span className="ui-badge ui-badge--neutral">{t('workPage.ready', 'Ready')}</span>
+          : <span className="ui-badge ui-badge--info">{t('workPage.waiting', 'Waiting')}</span>;
+      const due = it.order.estimated_delivery && <span>{t('workPage.due', 'Due')} {formatDate(it.order.estimated_delivery)}</span>;
+      const sent = key === 'waiting' && <span>· {t('workPage.sentAgo', 'sent {n} ago', { n: ago(submittedAt(it.order, it.stage), t) })}</span>;
+      return card(it, {
+        chip, meta: (due || sent) && <>{due}{sent}</>,
+        body: sentBack && <div className="wk-card-note">{String(it.stage.verification_note).split('\n')[0]}</div>,
+      });
+    };
+    // Status tabs over the same list. A tab shows one status, newest
+    // assignment first; "All" is the whole list exactly as before.
+    const byStatus = (group) => [
+      ...newOnTop.filter((i) => i.group === group),
+      ...items.filter((i) => i.group === group && !newOnTop.includes(i)),
+    ];
+    const tabs = [
+      ['all', t('workPage.tabAll', 'All'), null],
+      ['assigned', t('workPage.tabAssigned', 'Assigned'), byStatus('next')],
+      ['now', t('workPage.inProgress', 'In progress'), byStatus('now')],
+      ['waiting', t('workPage.tabWaiting', 'Waiting for check'), byStatus('waiting')],
+      ['todos', t('workPage.tasks', 'Tasks'), tasks],
+    ].filter(([key, , list]) => key === 'all' || key === 'assigned' || key === 'now' || list.length > 0);
+    const active = tabs.some(([key]) => key === tab) ? tab : 'all';
+    const tabBar = (
+      <div className="wk-tabs" role="tablist" aria-label={t('workPage.byStatus', 'Work by status')}>
+        {tabs.map(([key, label, list]) => (
+          <button key={key} type="button" role="tab" aria-selected={active === key}
+                  className={`tab-btn${active === key ? ' active' : ''}`} onClick={() => setTab(key)}>
+            {label}
+            <span className="wk-count">{key === 'all' ? items.length + tasks.length : list.length}</span>
+          </button>
+        ))}
+      </div>
+    );
+    const tabList = tabs.find(([key]) => key === active)?.[2];
+    if (active !== 'all') {
+      body = (
+        <>
+          {tabBar}
+          {tabList.length === 0
+            ? <div className="wk-empty">{t('workPage.emptyTab', 'Nothing here right now.')}</div>
+            : active === 'todos'
+              ? taskSection
+              : <section className="wk-group">{tabList.map((it) => groupCard(active === 'assigned' ? 'next' : active, it))}</section>}
+        </>
+      );
+    } else body = items.length === 0 && !taskSection && !newSection
       ? (
         <div className="wk-empty">
           {later
@@ -366,6 +427,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       )
       : (
         <>
+          {tabBar}
           {newSection}
           {taskSection}
           {groups.map(([key, label]) => {
@@ -374,20 +436,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
             return (
               <section key={key} className="wk-group">
                 <h3 className="wk-group-title">{label} <span className="wk-count">{list.length}</span></h3>
-                {list.map((it) => {
-                  const sentBack = key === 'now' && it.stage.verification_note;
-                  const chip = key === 'now'
-                    ? <span className={`ui-badge ui-badge--${sentBack ? 'danger' : 'warning'}`}>{sentBack ? t('workPage.sentBack', 'Sent back') : t('workPage.inProgress', 'In progress')}</span>
-                    : key === 'next'
-                      ? <span className="ui-badge ui-badge--neutral">{t('workPage.ready', 'Ready')}</span>
-                      : <span className="ui-badge ui-badge--info">{t('workPage.waiting', 'Waiting')}</span>;
-                  const due = it.order.estimated_delivery && <span>{t('workPage.due', 'Due')} {formatDate(it.order.estimated_delivery)}</span>;
-                  const sent = key === 'waiting' && <span>· {t('workPage.sentAgo', 'sent {n} ago', { n: ago(submittedAt(it.order, it.stage), t) })}</span>;
-                  return card(it, {
-                    chip, meta: (due || sent) && <>{due}{sent}</>,
-                    body: sentBack && <div className="wk-card-note">{String(it.stage.verification_note).split('\n')[0]}</div>,
-                  });
-                })}
+                {list.map((it) => groupCard(key, it))}
               </section>
             );
           })}
