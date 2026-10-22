@@ -40,7 +40,12 @@ class GarmentTemplateViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = GarmentTemplateSerializer
 
     def get_queryset(self):
-        queryset = _full_template_queryset().filter(is_active=True)
+        # The list is GarmentTemplateSummarySerializer, which prints no
+        # sections. Prefetching the whole section/field/option tree for it read
+        # ~1,900 field rows to return 3 KB; only the detail view needs them.
+        base = (GarmentTemplate.objects.all() if self.action == 'list'
+                else _full_template_queryset())
+        queryset = base.filter(is_active=True)
         label = self.request.headers.get('X-Template-Variant')
         if label:
             forked = set(

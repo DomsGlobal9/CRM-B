@@ -1,8 +1,14 @@
 /* The Customers page filters: by the mobile's country code, the first letter
    of the name, orders, measurements, when they joined, birthdays, source,
-   gender and city -- and a sort. All of it runs on the customer list the page
-   already holds; nothing is asked of the server. */
-import { COUNTRY_CODES, countryOf, splitStoredMobile } from '../../services/phone';
+   gender and city -- and a sort.
+
+   The page no longer runs these: the server does, one page at a time, in
+   domains/customers/directory.py, which is a port of the rules below and is
+   held to them case by case. The options, labels and counting helpers here are
+   what the filter bar still uses; keep the two in step when a rule changes. */
+import {
+  COUNTRY_CODES, DEFAULT_COUNTRY, countryOf, splitInternational, splitStoredMobile,
+} from '../../services/phone';
 
 export const EMPTY_CUSTOMER_FILTERS = {
   country: '', letter: '', orders: '', measurements: '', added: '', birthday: '',
@@ -78,6 +84,16 @@ const birthdayMatches = (c, when) => {
   if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
   return next - today <= 30 * DAY;
 };
+
+/** "+44 United Kingdom & others": a country code as the filter offers it.
+ *  The same name countryOptions gives -- a code shared by several countries is
+ *  named after the one a pasted number would pick. */
+export function countryLabel(dial) {
+  if (dial === '1') return '+1 USA / Canada';
+  const iso = (splitInternational(`+${dial}`, null) || {}).iso || DEFAULT_COUNTRY;
+  const shared = COUNTRY_CODES.filter((x) => x.dial === dial).length > 1;
+  return `+${dial} ${countryOf(iso).name}${shared ? ' & others' : ''}`;
+}
 
 /** The countries found among the customers' mobiles, most customers first. */
 export function countryOptions(customers) {

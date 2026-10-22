@@ -1,11 +1,12 @@
 /* The filter bar over the customer list: country code, orders, measurements
    and sort always in view, the rest behind "More filters", and the A–Z strip
-   for the first letter of the name. The rules live in filterRules.js. */
+   for the first letter of the name. The server applies the filters and counts
+   the options (`facets`, from the directory response); this only draws them. */
 import { useMemo, useState } from 'react';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import {
   ADDED_OPTIONS, BIRTHDAY_OPTIONS, EMPTY_CUSTOMER_FILTERS, LETTERS, MEASUREMENT_OPTIONS, ORDER_OPTIONS, SORT_OPTIONS,
-  activeFilterCount, cityOptions, countryOptions, genderOptions, letterCounts, sourceOptions,
+  activeFilterCount, countryLabel,
 } from './filterRules';
 
 const ROW = { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12 };
@@ -27,17 +28,17 @@ function Select({ label, value, onChange, options, allLabel }) {
   );
 }
 
-export default function CustomerFilters({ customers, filters, onChange }) {
+export default function CustomerFilters({ facets, filters, onChange }) {
   const [more, setMore] = useState(false);
   const set = (key) => (value) => onChange({ ...filters, [key]: value });
 
   const lists = useMemo(() => ({
-    countries: countryOptions(customers),
-    sources: sourceOptions(customers),
-    genders: genderOptions(customers),
-    cities: cityOptions(customers),
-    letters: letterCounts(customers),
-  }), [customers]);
+    countries: (facets?.countries || []).map((c) => ({ key: c.key, label: countryLabel(c.key), count: c.count })),
+    sources: facets?.sources || [],
+    genders: facets?.genders || [],
+    cities: facets?.cities || [],
+    letters: facets?.letters || {},
+  }), [facets]);
 
   const active = activeFilterCount(filters);
   const hiddenActive = ['added', 'birthday', 'source', 'gender', 'city'].filter((k) => filters[k] !== '').length;
