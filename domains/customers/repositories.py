@@ -9,7 +9,7 @@ CUSTOMER_PREFETCH = (
 )
 
 
-def _orders_prefetch():
+def _orders_prefetch(prefix=''):
     # CustomerSerializer.get_orders runs the full OrderSerializer over these, so
     # they get everything OrderRepository fetches for it. A hand-kept subset
     # here drifted: garment jobs, images, purchases and alterations were each
@@ -19,8 +19,30 @@ def _orders_prefetch():
     # order Postgres read them -- insertion order on a plain scan, but not once
     # the joins above change the plan. Ordered by id to keep that order stable.
     from domains.orders.repositories import OrderRepository
-    return Prefetch('orders', queryset=OrderRepository.with_serializer_relations(
+    return Prefetch(f'{prefix}orders', queryset=OrderRepository.with_serializer_relations(
         Order.objects.order_by('id')))
+
+
+def customer_serializer_relations(prefix):
+    """What CustomerSerializer reads, for customers reached through `prefix`.
+
+    `prefix` is the path from the rows being listed to their customer, e.g.
+    'customer__' from an appointment. Returns (select_related, prefetch_related)
+    lookups. Used where a full customer is nested in each row of a list: without
+    them every row re-ran the customer's own queries and each of its orders' --
+    917 queries for ten upcoming appointments, measured locally.
+    """
+    from crm_api.models import CustomerReferral
+    select = (f'{prefix}measurements',)
+    prefetch = (
+        *(f'{prefix}{name}' for name in CUSTOMER_PREFETCH),
+        _orders_prefetch(prefix),
+        # get_referred_by: CustomerReferral's default order (newest first) is
+        # the row its .first() picks.
+        Prefetch(f'{prefix}referrals_received',
+                 queryset=CustomerReferral.objects.select_related('referrer')),
+    )
+    return select, prefetch
 
 
 class CustomerRepository:

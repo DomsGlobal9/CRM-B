@@ -724,7 +724,13 @@ class CustomerSerializer(serializers.ModelSerializer):
     def get_referred_by(self, obj):
         """Who referred this customer: {id, name}, or None. `id` is None once the
         referrer has been deleted; the name then comes from the snapshot."""
-        referral = obj.referrals_received.select_related('referrer').first()
+        if 'referrals_received' in getattr(obj, '_prefetched_objects_cache', {}):
+            # Prefetched in CustomerReferral's default order (newest first),
+            # the row .first() would have picked -- without a query per customer.
+            received = obj.referrals_received.all()
+            referral = received[0] if received else None
+        else:
+            referral = obj.referrals_received.select_related('referrer').first()
         if referral is None:
             return None
         referrer = referral.referrer
