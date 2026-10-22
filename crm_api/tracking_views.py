@@ -2,13 +2,14 @@
 from decimal import Decimal
 
 from django.db import connection
-from django.http import Http404
+from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import render
-from django.views.decorators.http import require_GET
+from django.urls import reverse
+from django.views.decorators.http import require_GET, require_POST
 from django_tenants.utils import get_public_schema_name, get_tenant_model, schema_context
 
 from core.modules import is_enabled
-from crm_api.models import BoutiqueSettings, Order
+from crm_api.models import BoutiqueSettings, GarmentPhotoReview, Notification, Order
 from domains.orders.garments import garment_names
 from domains.orders.tracking import read_token
 
@@ -21,8 +22,9 @@ def _payment_status(total, paid):
     return 'Payment Pending'
 
 
-@require_GET
-def order_tracking(request, token):
+def _tracked(token):
+    """(tenant, schema, order_id) for a tracking link, or Http404 -- the token
+    and the two gates below, shared by the page and the photo review."""
     schema_name, order_id = read_token(token)
     if not schema_name or schema_name == get_public_schema_name():
         raise Http404
@@ -49,6 +51,12 @@ def order_tracking(request, token):
     if not is_enabled(getattr(tenant, 'plan', None), getattr(tenant, 'enabled_modules', None),
                       'order_tracking'):
         raise Http404
+    return tenant, schema_name, order_id
+
+
+@require_GET
+def order_tracking(request, token):
+    tenant, schema_name, order_id = _tracked(token)
 
     with schema_context(schema_name):
         order = (
@@ -101,6 +109,15 @@ def order_tracking(request, token):
 
         garments = garment_names(order)
 
+        # Each garment's photos once they were sent to the customer, with their
+        # latest answer, for the approve / ask-for-changes form.
+        photo_garments = []
+        for job in order.garment_jobs.all():
+            sent = [i for i in order.garment_images.all() if i.garment_job_id == job.pk and i.sent_at]
+            if sent:
+                review = order.photo_reviews.filter(garment_job=job).first()
+                photo_garments.append({'job': job, 'name': job.display_name, 'images': sent, 'review': review})
+
         context = {
             'boutique': boutique,
             'tenant': tenant,
@@ -110,6 +127,9 @@ def order_tracking(request, token):
             'garment_heading': 'Garments' if len(garments) > 1 else 'Garment',
             'stages': stages,
             'garment_images': garment_images,
+            'photo_garments': photo_garments,
+            'token': token,
+            'review_sent': request.GET.get('review') == 'thanks',
             'trial': trial,
             'total': total,
             'paid': paid,
@@ -121,3 +141,31 @@ def order_tracking(request, token):
     response['Cache-Control'] = 'private, no-store'
     response['X-Robots-Tag'] = 'noindex, nofollow'
     return response
+
+
+@require_POST
+def garment_photo_review(request, token):
+    """The customer's answer to a garment's photos: approve, or ask for
+    changes (saying what). The boutique gets an alert; the page reloads."""
+    tenant, schema_name, order_id = _tracked(token)
+    decision = request.POST.get('decision')
+    note = (request.POST.get('note') or '').strip()[:500]
+    with schema_context(schema_name):
+        order = Order.objects.select_related('customer').filter(order_id=order_id).first()
+        if order is None or order.customer_id is None:
+            raise Http404
+        job = order.garment_jobs.filter(pk=request.POST.get('garment_job')).first()
+        sent = job is not None and order.garment_images.filter(garment_job=job, sent_at__isnull=False).exists()
+        if not sent or decision not in (GarmentPhotoReview.APPROVED, GarmentPhotoReview.CHANGES):
+            raise Http404
+        GarmentPhotoReview.objects.create(order=order, garment_job=job, decision=decision, note=note)
+        who = f"{order.customer.first_name} {order.customer.last_name}".strip()
+        if decision == GarmentPhotoReview.APPROVED:
+            title = f"Photos approved: {job.display_name} ({order.reference})"
+            message = f"{who} approved the photos of their {job.display_name} on order {order.reference}."
+        else:
+            title = f"Changes asked: {job.display_name} ({order.reference})"
+            message = (f"{who} asked for changes to their {job.display_name} on order {order.reference}: "
+                       f"{note or '(no details given)'}")
+        Notification.objects.create(recipient_role='Owner', title=title, message=message)
+    return HttpResponseRedirect(reverse('order-tracking', args=[token]) + '?review=thanks#photos')

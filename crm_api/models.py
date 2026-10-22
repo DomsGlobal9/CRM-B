@@ -503,17 +503,43 @@ class GarmentImage(models.Model):
     ]
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='garment_images')
+    #: The garment this photo shows, on an order of several; empty on photos
+    #: of the whole order (the order-level gallery, as it always was).
+    garment_job = models.ForeignKey('catalog.GarmentJob', on_delete=models.CASCADE, null=True, blank=True,
+                                    related_name='photos')
     view = models.CharField(max_length=20, choices=VIEW_CHOICES, default='FRONT')
     image = models.ImageField(upload_to=upload_to_finished_garments,
                               max_length=IMAGE_PATH_MAX_LENGTH)
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    #: When it went to the customer's WhatsApp (send-garment-photos); the
+    #: tracking page shows a garment's photos once they are sent.
+    sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['view', 'uploaded_at']
 
     def __str__(self):
         return f"{self.order.order_id} - {self.get_view_display()}"
+
+
+class GarmentPhotoReview(models.Model):
+    """The customer's answer to a garment's photos, from the tracking page:
+    approved, or changes asked (with what). The latest one is the answer."""
+
+    APPROVED = 'APPROVED'
+    CHANGES = 'CHANGES'
+    DECISION_CHOICES = [(APPROVED, 'Approved'), (CHANGES, 'Changes asked')]
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='photo_reviews')
+    garment_job = models.ForeignKey('catalog.GarmentJob', on_delete=models.CASCADE, null=True, blank=True,
+                                    related_name='photo_reviews')
+    decision = models.CharField(max_length=10, choices=DECISION_CHOICES)
+    note = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 class CustomerMessage(models.Model):

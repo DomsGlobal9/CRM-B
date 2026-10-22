@@ -135,3 +135,55 @@ def _deliver_invoice(message):
         message.status = 'FAILED'
         message.error = str(exc)
     message.save(update_fields=['provider_message_id', 'status', 'error'])
+
+
+def send_customer_garment_photos(order, garment_name, images, sent_by=None):
+    """One garment's finished photos on the customer's WhatsApp: a message
+    with the tracking link (where they approve or ask for changes), then each
+    photo. Logged as a CustomerMessage ('garment_photos'); sent on commit."""
+    config, _ = BoutiqueSettings.objects.get_or_create(id=1)
+    if not config.customer_messaging_enabled or order.customer_id is None:
+        return None
+    from domains.orders.tracking import tracking_url
+    body = (f"Dear {order.customer.first_name}, your {garment_name} for order {order.reference} is ready! "
+            f"Here are its photos. Please tell us if it looks good, or what you would like changed: "
+            f"{tracking_url(order)}")
+    message = CustomerMessage.objects.create(
+        order=order, template_key='garment_photos', to_number=order.customer.mobile_number,
+        body=body, sent_by=sent_by)
+    image_ids = [image.pk for image in images]
+    if get_backend() is not None:
+        transaction.on_commit(lambda: _deliver_photos(message, image_ids))
+    return message
+
+
+def _deliver_photos(message, image_ids):
+    import mimetypes
+    backend = get_backend()
+    try:
+        if backend is whatsapp_backend:
+            from django.db import connection
+            from crm_api.models import GarmentImage
+            from crm_api.whatsapp_service import send_whatsapp_document, send_whatsapp_message
+            tenant = getattr(connection, 'tenant', None)
+            sent = send_whatsapp_message(phone=message.to_number, message_text=message.body, tenant=tenant)
+            if not sent.get('success'):
+                raise RuntimeError(f"WhatsApp sending failed: {sent.get('error') or sent.get('data')}")
+            for image in GarmentImage.objects.filter(pk__in=image_ids):
+                with image.image.open('rb') as handle:
+                    content = handle.read()
+                mime = mimetypes.guess_type(image.image.name)[0] or 'image/jpeg'
+                res = send_whatsapp_document(
+                    phone=message.to_number, content=content, filename=image.image.name.rsplit('/', 1)[-1],
+                    caption=image.get_view_display(), mime_type=mime, media_type='image', tenant=tenant)
+                if not res.get('success'):
+                    raise RuntimeError(f"WhatsApp photo failed: {res.get('error') or res.get('data')}")
+            message.provider_message_id = 'whatsapp_sent'
+        else:
+            message.provider_message_id = backend(message) or ''
+        message.status = 'SENT'
+    except Exception as exc:  # noqa: BLE001 - a failed send is a failed message, nothing more
+        logger.exception("garment photos message %s failed", message.pk)
+        message.status = 'FAILED'
+        message.error = str(exc)
+    message.save(update_fields=['provider_message_id', 'status', 'error'])

@@ -926,10 +926,12 @@ export const api = {
 
   // Finished-garment photographs. Published as a set, because publishing is
   // what tells the customer their outfit is ready.
-  async uploadGarmentImage(orderId, view, file) {
+  // `garmentJob`: which garment the photo shows, on an order of several.
+  async uploadGarmentImage(orderId, view, file, garmentJob = null) {
     const formData = new FormData();
     formData.append('view', view);
-    formData.append('image', file);
+    formData.append('image', await shrinkImage(file));
+    if (garmentJob) formData.append('garment_job', garmentJob);
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/garment-images/`, {
       method: 'POST',
       headers: getHeaders(true),
@@ -954,6 +956,16 @@ export const api = {
       headers: getHeaders(),
     });
     if (!res.ok) throw new Error(describeApiError(res, await res.json().catch(() => ({}))));
+  },
+
+  // One finished garment's photos to the customer's WhatsApp (after its QC).
+  async sendGarmentPhotos(orderId, garmentJob) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/send-garment-photos/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify({ garment_job: garmentJob }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data));
+    return data;
   },
 
   async publishGarmentImages(orderId, published = true) {

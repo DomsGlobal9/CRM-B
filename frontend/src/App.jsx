@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, ListTodo } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, ListTodo, Send } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { notificationKind } from './services/notificationKind';
@@ -685,16 +685,29 @@ const GARMENT_VIEWS = [
   ['DUPATTA', 'Dupatta styling'],
 ];
 
-function GarmentGallery({ order, onChanged }) {
+function GarmentGallery({ order, onChanged, role }) {
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [view, setView] = useState('FRONT');
+  // Which garment's photos: each garment is photographed, and sent to the
+  // customer, on its own once it passes Master quality check. '' is the
+  // order's own gallery, as it always was.
+  const jobs = order.garment_jobs || [];
+  const [jobId, setJobId] = useState(jobs[0]?.id || '');
+  const job = jobs.find((j) => j.id === jobId) || null;
 
-  const images = order.garment_images || [];
+  const images = (order.garment_images || []).filter((i) => (i.garment_job || '') === (job ? job.id : ''));
+  const qcDone = job && (order.stages || []).some((st) => st.stage_key === 'master_quality_check'
+    && st.garment_job === job.id && st.status === 'COMPLETED');
+  const canSend = !role || ['Owner', 'Designer', 'Master'].includes(role);
+  const sentAt = images.map((i) => i.sent_at).filter(Boolean).sort().pop();
+  const review = job && (order.photo_reviews || []).find((r) => r.garment_job === job.id);
   const published = order.garment_images_published;
   const have = new Set(images.map((i) => i.view));
-  const missing = ['FRONT', 'BACK'].filter((v) => !have.has(v));
+  // Share with customer (the whole order's gallery) checks every photo on the order, as it always did.
+  const orderViews = new Set((order.garment_images || []).map((i) => i.view));
+  const missing = ['FRONT', 'BACK'].filter((v) => !orderViews.has(v));
 
   const run = async (work) => {
     setBusy(true);
@@ -730,9 +743,22 @@ function GarmentGallery({ order, onChanged }) {
           </select>
           <AddPhotoButton camera className="btn-primary at-btn-sm" icon={Plus} disabled={busy}
                           label={busy ? 'Working…' : t('common.addPhoto', 'Add photo')}
-                          onFiles={([file]) => { const bad = imageFilesError([file]); if (bad) { alert(bad); return; } run(() => api.uploadGarmentImage(order.id, view, file)); }} />
+                          onFiles={([file]) => { const bad = imageFilesError([file]); if (bad) { alert(bad); return; } run(() => api.uploadGarmentImage(order.id, view, file, job?.id || null)); }} />
         </div>
       </div>
+
+      {jobs.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          <label htmlFor="gallery-garment" className="od-hint" style={{ margin: 0 }}>Photos of</label>
+          <select id="gallery-garment" className="form-control od-select" value={jobId} disabled={busy}
+                  onChange={(e) => setJobId(e.target.value)}>
+            {jobs.map((j, i) => (
+              <option key={j.id} value={j.id}>{jobs.length > 1 ? `${i + 1}. ` : ''}{j.display_name || j.template_name || 'Garment'}</option>
+            ))}
+            <option value="">Whole order</option>
+          </select>
+        </div>
+      )}
 
       {error && <div className="od-error">{error}</div>}
 
@@ -763,6 +789,29 @@ function GarmentGallery({ order, onChanged }) {
           <span className="od-hint">{t('ordersPage.needsFrontAndBack', 'needs front and back')}</span>
         )}
       </div>
+
+      {/* This garment's photos to the customer's WhatsApp, once it has passed
+          Master quality check; the customer approves or asks for changes on
+          their tracking page. */}
+      {job && canSend && (
+        <div className="od-gallery-foot" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <button type="button" className="btn-primary at-btn-sm"
+                  disabled={busy || !qcDone || images.length === 0}
+                  onClick={() => run(() => api.sendGarmentPhotos(order.id, job.id))}>
+            <Send size={14} /> {sentAt ? 'Send photos again on WhatsApp' : 'Send photos to customer on WhatsApp'}
+          </button>
+          {!qcDone ? <span className="od-hint">after Master quality check</span>
+            : images.length === 0 ? <span className="od-hint">add a photo of this garment first</span> : null}
+          {sentAt && (
+            <span className="od-hint">
+              Sent {fmtDateTime(sentAt)}
+              {review ? (review.decision === 'APPROVED'
+                ? ' · ✓ Approved by the customer'
+                : ` · ✎ Changes asked${review.note ? `: "${review.note}"` : ''}`) : ' · waiting for the customer'}
+            </span>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -5325,7 +5374,7 @@ function App() {
 
                     <aside className="od-side">
                       <OrderGarmentsCard order={order} focus={focusJob?.id} onSelectStage={(stage) => openStageReview(order, stage)} />
-                      <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} />
+                      <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} role={currentUser?.role} />
                       <section className="at-section od-customer">
                         <div className="od-section-head" style={{ marginBottom: 0 }}>
                           <IconTile icon={User} tone="neutral" size={40} iconSize={18} />

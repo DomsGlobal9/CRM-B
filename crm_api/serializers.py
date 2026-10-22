@@ -11,7 +11,7 @@ CUSTOMER_MOBILE_ERROR = 'Enter a 10-digit mobile number, or a full international
 
 from apps.design_studio.models import DesignAsset
 from .models import (
-    Customer, CustomerMessage, CustomerReferral, GarmentImage, Measurement, DesignPreference,
+    Customer, CustomerMessage, CustomerReferral, GarmentImage, GarmentPhotoReview, Measurement, DesignPreference,
     FabricSelection, Tailor, Order, BoutiqueDesign,
     Notification, OrderStageHistory, BoutiqueSettings, MeasurementHistory,
     OrderStage, OrderActivity, national_mobile, whatsapp_number
@@ -362,8 +362,14 @@ class GarmentImageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GarmentImage
-        fields = ['id', 'order', 'view', 'view_label', 'image', 'uploaded_at']
-        read_only_fields = ['id', 'order', 'view_label', 'uploaded_at']
+        fields = ['id', 'order', 'garment_job', 'view', 'view_label', 'image', 'uploaded_at', 'sent_at']
+        read_only_fields = ['id', 'order', 'view_label', 'uploaded_at', 'sent_at']
+
+
+class GarmentPhotoReviewSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GarmentPhotoReview
+        fields = ['id', 'garment_job', 'decision', 'note', 'created_at']
 
 class OrderSerializer(serializers.ModelSerializer):
     tailor_name = serializers.CharField(source='tailor.name', read_only=True)
@@ -383,6 +389,7 @@ class OrderSerializer(serializers.ModelSerializer):
     stages = OrderStageSerializer(many=True, read_only=True)
     activities = OrderActivitySerializer(many=True, read_only=True)
     garment_images = GarmentImageSerializer(many=True, read_only=True)
+    photo_reviews = GarmentPhotoReviewSerializer(many=True, read_only=True)
     garment_jobs = serializers.SerializerMethodField()
     purchases = serializers.SerializerMethodField()
     garments = serializers.SerializerMethodField()
@@ -420,7 +427,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'special_instructions', 'instructions_voice_note',
             'instructions_voice_note_by', 'instructions_voice_note_at',
             'master_verification', 'stage_histories', 'current_stage_key', 'production_status',
-            'stages', 'activities', 'garment_images', 'garment_images_published',
+            'stages', 'activities', 'garment_images', 'garment_images_published', 'photo_reviews',
             'garment_jobs', 'purchases', 'invoice_template', 'flow',
         ]
         extra_kwargs = {

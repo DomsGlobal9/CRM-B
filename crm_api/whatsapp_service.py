@@ -57,7 +57,8 @@ def send_whatsapp_message(phone: str, message_text: str, session_id: str = None,
 
 
 def send_whatsapp_document(phone: str, content: bytes, filename: str, caption: str = '',
-                           mime_type: str = 'application/pdf', session_id: str = None, tenant=None) -> dict:
+                           mime_type: str = 'application/pdf', session_id: str = None, tenant=None,
+                           media_type: str = 'document') -> dict:
     """A file (an invoice PDF) to a customer, through whatsapp_service's
     /whatsapp/send-media. Same session lookup, secret and answer shape as
     send_whatsapp_message."""
@@ -76,7 +77,7 @@ def send_whatsapp_document(phone: str, content: bytes, filename: str, caption: s
         'X-Internal-API-Secret': getattr(settings, 'INTERNAL_API_SECRET', ''),
     }
     payload = {
-        'sessionId': session_id, 'phone': phone, 'mediaType': 'document',
+        'sessionId': session_id, 'phone': phone, 'mediaType': media_type,
         'mediaBase64': base64.b64encode(content).decode('ascii'),
         'mimeType': mime_type, 'filename': filename, 'caption': caption,
     }
