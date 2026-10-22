@@ -36,7 +36,13 @@ const MEASUREMENT_ZONES = [
     id: 'core',
     label: 'Core Body Baseline',
     garments: 'General Baseline (All Garments)',
-    keys: ['bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length']
+    // The stored keys are the ones the garment forms already read, so a value
+    // typed here still pre-fills them; only the names shown are the boutique's.
+    keys: ['length', 'shoulder', 'bust', 'waist', 'hips', 'arm_length', 'bicep_round',
+           'front_neck_depth', 'back_neck_depth'],
+    labels: { length: 'Bodice Length', hips: 'Hip', bicep_round: 'Arm Rounding',
+              front_neck_depth: 'Front Neck', back_neck_depth: 'Back Neck' },
+    other: true,
   },
   {
     id: 'upper_body',
@@ -311,6 +317,10 @@ function customerToForm(customer) {
   const measurements = {};
   CORE.forEach(([key]) => { measurements[key] = asInch(m[key]); });
   MORE_KEYS.forEach((key) => { measurements[key] = asInch(extra[key]); });
+  // Parts typed in under "Other" are kept by their own name.
+  Object.keys(extra).forEach((key) => {
+    if (!(key in measurements) && !CORE_KEYS.has(key) && asInch(extra[key]) !== '') measurements[key] = asInch(extra[key]);
+  });
   const text = (key) => (customer[key] === null || customer[key] === undefined ? '' : String(customer[key]));
   return {
     full_name: [text('first_name'), text('last_name')].map((v) => v.trim()).filter(Boolean).join(' '),
@@ -414,6 +424,25 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
     setPhoto(bad ? null : (file || null));
   };
 
+  // Body parts added under "Other" (stored by their own name in additional_measurements).
+  const [customKeys, setCustomKeys] = useState(
+    () => Object.keys(initial.measurements).filter((key) => !CORE_KEYS.has(key) && !MORE_KEYS.includes(key)));
+  const [otherName, setOtherName] = useState('');
+  const [otherError, setOtherError] = useState('');
+  const addOther = () => {
+    const key = otherName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+    if (!key) { setOtherError('Type the body part, e.g. Thigh.'); return; }
+    setOtherError('');
+    setOtherName('');
+    // A name the form already knows just brings that box here.
+    setCustomKeys((prev) => (prev.includes(key) || MEASUREMENT_ZONES[0].keys.includes(key) ? prev : [...prev, key]));
+    setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: prev.measurements[key] ?? '' } }));
+  };
+  const removeOther = (key) => {
+    setCustomKeys((prev) => prev.filter((k) => k !== key));
+    setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: '' } }));
+  };
+
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const setInch = (key, value) => setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: value } }));
 
@@ -432,12 +461,13 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
     const moved = (key) => (form.measurements[key] ?? '') !== (initial.measurements[key] ?? '');
     const core = {};
     CORE.forEach(([key]) => { if (moved(key)) core[key] = form.measurements[key] === '' ? null : Number(form.measurements[key]); });
-    if (MORE_KEYS.some(moved)) {
+    const extraKeys = [...MORE_KEYS, ...customKeys.filter((key) => !MORE_KEYS.includes(key) && !CORE_KEYS.has(key))];
+    if (extraKeys.some(moved)) {
       // The whole extras object is replaced on save, so it starts from what
       // the customer already has -- keys this form does not show survive.
       const extras = { ...((customer.measurements || {}).additional_measurements || {}) };
-      MORE_KEYS.forEach((key) => {
-        if (form.measurements[key] === '') delete extras[key];
+      extraKeys.forEach((key) => {
+        if ((form.measurements[key] ?? '') === '') delete extras[key];
         else extras[key] = Number(form.measurements[key]);
       });
       core.additional_measurements = extras;
@@ -795,8 +825,33 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
 
             {/* Active Zone Fields */}
             <div style={INCH_GRID}>
-              {activeZoneObj.keys.map((key) => inchInput(key, label(key)))}
+              {activeZoneObj.keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
+              {activeZoneObj.other && customKeys.map((key) => (
+                <div key={key} style={{ position: 'relative' }}>
+                  {inchInput(key, label(key))}
+                  <button type="button" onClick={() => removeOther(key)} aria-label={`Remove ${label(key)}`} title="Remove"
+                          style={{ position: 'absolute', top: 6, right: 6, border: 'none', background: 'transparent',
+                                   cursor: 'pointer', color: 'var(--text-tertiary, #9ca3af)', padding: 2 }}>
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
             </div>
+            {activeZoneObj.other && (
+              <div style={{ marginTop: 12 }}>
+                <label className="form-label" htmlFor="cf-other-part" style={{ fontSize: '12px', fontWeight: 600 }}>
+                  Other — add another body part
+                </label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input id="cf-other-part" type="text" className="form-control" maxLength={40} value={otherName}
+                         placeholder="e.g. Thigh, Calf, Armhole" style={{ maxWidth: 260, height: 36 }}
+                         onChange={(e) => setOtherName(e.target.value)}
+                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOther(); } }} />
+                  <button type="button" className="btn-secondary" onClick={addOther}>+ Other</button>
+                </div>
+                {otherError && <div role="alert" style={{ fontSize: '12px', color: 'var(--danger, #b42318)', marginTop: 4 }}>{otherError}</div>}
+              </div>
+            )}
 
           </>
         )}
