@@ -1702,6 +1702,11 @@ function App() {
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  // The login boxes stay read-only until touched, so the browser does not
+  // silently fill a saved login (an owner's, on a shared computer) on load;
+  // touching one offers the saved logins to pick from instead.
+  const [loginUnlocked, setLoginUnlocked] = useState(false);
+  const unlockLogin = () => setLoginUnlocked(true);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   const [resetEmail, setResetEmail] = useState('');
@@ -2840,6 +2845,7 @@ function App() {
     setAuthBusy(true);
     try {
       const res = await api.login(loginEmail, loginPassword, portalSlug);
+      setLoginPassword('');  // signed in: the password is not kept in the form
       setJustRegistered(false);
       setCurrentUser(res.user);
       setView('dashboard');
@@ -2928,6 +2934,10 @@ function App() {
       await api.logout();
       setCurrentUser(null);
       setJustRegistered(false);
+      // The login screen opens empty, not with the last person's details.
+      setLoginEmail('');
+      setLoginPassword('');
+      setLoginUnlocked(false);
       setView('login');
     } finally {
       setLogoutBusy(false);
@@ -3915,6 +3925,9 @@ function App() {
                     type="text" 
                     placeholder="Enter your email"
                     value={loginEmail}
+                    readOnly={!loginUnlocked}
+                    onPointerDown={unlockLogin}
+                    onFocus={unlockLogin}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     style={{ width: '100%', padding: '12px 14px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
@@ -3930,6 +3943,9 @@ function App() {
                     type={showLoginPassword ? "text" : "password"} 
                     placeholder="Enter your password"
                     value={loginPassword}
+                    readOnly={!loginUnlocked}
+                    onPointerDown={unlockLogin}
+                    onFocus={unlockLogin}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     style={{ width: '100%', padding: '12px 40px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
