@@ -448,6 +448,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [], port
   };
 
   if (created) {
+    const roleLine = (created.role || form.role) ? `\nRole: ${created.role || form.role}` : '';
     const done = () => { onSaved(); onCancel(); };
     return (
       <Modal title="Account created" onClose={done}>
@@ -473,7 +474,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [], port
             className="btn-secondary"
             style={copied === 'done' ? { color: 'var(--success-color)', borderColor: 'var(--success-color)' } : undefined}
             onClick={async () => {
-              const text = `Atelier Staff Login Credentials:\nPortal: ${portalUrl}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`;
+              const text = `Atelier Staff Login Credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`;
               try {
                 await navigator.clipboard.writeText(text);
                 setCopied('done');
@@ -490,7 +491,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [], port
             target="_blank"
             rel="noreferrer"
             href={`https://wa.me/?text=${encodeURIComponent(
-              `Hello ${created.name},\nHere are your Atelier login credentials:\nPortal: ${portalUrl}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`
+              `Hello ${created.name},\nHere are your Atelier login credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`
             )}`}
           >Share on WhatsApp</a>
           <button type="button" className="btn-primary" onClick={done}>Done</button>
@@ -749,8 +750,9 @@ function CredentialsDialog({ member, onClose, portalUrl = window.location.origin
     }
   };
 
+  const roleLine = (member.role || (member.isDesigner ? 'Designer' : '')) ? `\nRole: ${member.role || 'Designer'}` : '';
   const message = issued
-    ? `Hello ${member.name},\nHere are your Atelier login credentials:\nPortal: ${portalUrl}\nEmail: ${email}\nPassword: ${issued.bootstrap_password}`
+    ? `Hello ${member.name},\nHere are your Atelier login credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${email}\nPassword: ${issued.bootstrap_password}`
     : '';
 
   return (
@@ -769,7 +771,7 @@ function CredentialsDialog({ member, onClose, portalUrl = window.location.origin
                 className="btn-secondary"
                 style={copied === 'done' ? { color: 'var(--success-color)', borderColor: 'var(--success-color)' } : undefined}
                 onClick={async () => {
-                  const text = `Atelier Staff Login Credentials:\nPortal: ${portalUrl}\nEmail: ${email}\nPassword: ${issued.bootstrap_password}`;
+                  const text = `Atelier Staff Login Credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${email}\nPassword: ${issued.bootstrap_password}`;
                   try {
                     await navigator.clipboard.writeText(text);
                     setCopied('done');
