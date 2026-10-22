@@ -882,7 +882,7 @@ function Roster({ isOwner, canSeeTeam }) {
         api.getStaffProfiles().catch(() => []),
         isOwner ? api.getDeposits().catch(() => []) : Promise.resolve([]),
         isOwner ? api.getAdvances({ active: 'true' }).catch(() => []) : Promise.resolve([]),
-        canSeeTeam ? api.getAttendance({ date: today }).catch(() => []) : Promise.resolve([]),
+        isOwner ? api.getAttendance({ date: today }).catch(() => []) : Promise.resolve([]),
       ]);
       setRoster(Array.isArray(people) ? people : []);
       setDesigners(Array.isArray(designed) ? designed : []);
@@ -1002,8 +1002,10 @@ function Roster({ isOwner, canSeeTeam }) {
                       sub={`${roster.length} people`} />
             <StatCard icon={UserCheck} tone="amber" label="Available now" value={analytics.available}
                       sub={analytics.busy ? `${analytics.busy} busy` : 'nobody busy'} />
-            <StatCard icon={Clock} tone="blue" label="Present today" value={analytics.presentToday}
-                      sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'Marked in attendance'} />
+            {isOwner && (
+              <StatCard icon={Clock} tone="blue" label="Present today" value={analytics.presentToday}
+                        sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'Marked in attendance'} />
+            )}
             <StatCard icon={Briefcase} tone="violet" label="Pay details added" value={withTerms}
                       sub={`${withTerms} of ${roster.length + designers.length}`} />
           </div>
@@ -1139,7 +1141,7 @@ function Roster({ isOwner, canSeeTeam }) {
                 </td>
 
                 <td>
-                  {member.status && canSeeTeam && !member.isDesigner
+                  {member.status && isOwner && !member.isDesigner
                    && !attendanceToday.some((s) => String(s.staff) === String(member.id)) ? (
                     // Not marked in today: the stored Available/Busy is stale until they arrive.
                     <span className="ui-badge ui-badge--danger">● Absent</span>
@@ -1147,7 +1149,7 @@ function Roster({ isOwner, canSeeTeam }) {
                     <span className={`ui-badge ui-badge--${member.status === 'Available' ? 'success' : member.status === 'Busy' ? 'warning' : 'neutral'}`}>
                       ● {member.status}
                     </span>
-                  ) : member.isDesigner && canSeeTeam ? (
+                  ) : member.isDesigner && isOwner ? (
                     // A designer's attendance is recorded on their linked row (member.staff).
                     member.staff && attendanceToday.some((s) => String(s.staff) === String(member.staff))
                       ? <span className="ui-badge ui-badge--success">● Present</span>
@@ -1494,8 +1496,9 @@ export default function StaffPanel({ currentUser }) {
 
       {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} />}
       {tab === 'tasks' && <TeamTasks currentUser={currentUser} canSeeTeam={canSeeTeam} />}
+      {/* The team's attendance is the owner's alone; everyone else sees their own. */}
       {tab === 'attendance' && (
-        <Attendance isOwner={isOwner} canSeeTeam={canSeeTeam} />
+        <Attendance isOwner={isOwner} canSeeTeam={isOwner} />
       )}
       {tab === 'payroll' && (
         isOwner ? <Payroll /> : (
