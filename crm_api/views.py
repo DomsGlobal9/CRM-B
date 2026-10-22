@@ -1669,33 +1669,41 @@ class DashboardView(views.APIView):
         # the only figure recorded). revenue = everything collected to date.
         collected = Coalesce(Greatest('amount_paid', 'advance_paid'),
                              Value(Decimal('0'), output_field=MONEY))
-        money = orders.exclude(order_status='Cancelled').aggregate(
-            revenue_total=Sum(collected),
-            revenue_month=Sum(collected, filter=Q(order_date__date__gte=month_start)),
-            billed=Sum('total_amount'),
-        )
-        revenue_total = float(money['revenue_total'] or 0)
-        revenue_month = float(money['revenue_month'] or 0)
         # Outstanding: what is billed but not yet collected on live orders. A
         # per-row max(total - collected, 0) so an overpaid row cannot net off a
         # genuine debt on another.
         outstanding_expr = Greatest(
             ExpressionWrapper(F('total_amount') - collected, output_field=MONEY),
             Value(Decimal('0'), output_field=MONEY))
-        outstanding = float(
-            orders.exclude(order_status__in=self.CLOSED_STATUSES)
-                  .aggregate(due=Sum(outstanding_expr))['due'] or 0)
+        # Every money figure and count below in one pass over the orders, each
+        # with the filter it used to be asked with separately: these were six
+        # queries, and each one is a round trip to the database's region.
+        # order_status is NOT NULL, so ~Q() keeps exactly the rows .exclude() did.
+        not_cancelled = ~Q(order_status='Cancelled')
+        live = ~Q(order_status__in=self.CLOSED_STATUSES)
+        figures = orders.aggregate(
+            revenue_total=Sum(collected, filter=not_cancelled),
+            revenue_month=Sum(collected, filter=not_cancelled
+                              & Q(order_date__date__gte=month_start)),
+            outstanding=Sum(outstanding_expr, filter=live),
+            total_orders=Count('id'),
+            active_orders=Count('id', filter=live),
+            due_soon=Count('id', filter=live & Q(estimated_delivery__gte=today,
+                                                 estimated_delivery__lte=today + timedelta(days=7))),
+            overdue=Count('id', filter=live & Q(estimated_delivery__lt=today)),
+        )
+        revenue_total = float(figures['revenue_total'] or 0)
+        revenue_month = float(figures['revenue_month'] or 0)
+        outstanding = float(figures['outstanding'] or 0)
 
         # ---- orders & pipeline ----------------------------------------------
         status_counts = orders.values('order_status').annotate(
             count=Count('id', distinct=True))
         pipeline = {item['order_status']: item['count'] for item in status_counts}
-        total_orders = orders.count()
-        active = orders.exclude(order_status__in=self.CLOSED_STATUSES)
-        active_orders = active.count()
-        due_soon = active.filter(estimated_delivery__gte=today,
-                                 estimated_delivery__lte=today + timedelta(days=7)).count()
-        overdue = active.filter(estimated_delivery__lt=today).count()
+        total_orders = figures['total_orders']
+        active_orders = figures['active_orders']
+        due_soon = figures['due_soon']
+        overdue = figures['overdue']
 
         recent_orders_data = OrderSummarySerializer(
             visible_orders(OrderRepository.summary_queryset(), request.user)[:6],
@@ -1768,8 +1776,9 @@ class DashboardView(views.APIView):
         collected = Coalesce(Greatest('amount_paid', 'advance_paid'),
                              Value(Decimal('0'), output_field=MONEY))
         balance = ExpressionWrapper(F('total_amount') - collected, output_field=MONEY)
+        # alteration_of: o.reference below prints the parent's reference.
         unpaid = (live.annotate(_balance=balance).filter(_balance__gt=0)
-                  .select_related('customer').order_by('-_balance')[:5])
+                  .select_related('customer', 'alteration_of').order_by('-_balance')[:5])
         out['unpaid'] = [{
             'id': o.id, 'order_id': o.order_id, 'reference': o.reference,
             'customer': f"{o.customer.first_name} {o.customer.last_name}".strip()
@@ -1780,7 +1789,7 @@ class DashboardView(views.APIView):
         due = (live.filter(estimated_delivery__isnull=False)
                .filter(Q(estimated_delivery__lt=today)
                        | Q(estimated_delivery__lte=today + timedelta(days=7)))
-               .select_related('customer').order_by('estimated_delivery')[:5])
+               .select_related('customer', 'alteration_of').order_by('estimated_delivery')[:5])
         out['due'] = [{
             'id': o.id, 'order_id': o.order_id, 'reference': o.reference,
             'customer': f"{o.customer.first_name} {o.customer.last_name}".strip()

@@ -397,10 +397,16 @@ class OrderSerializer(serializers.ModelSerializer):
     alterations = serializers.SerializerMethodField()
 
     def get_alterations(self, obj):
+        # OrderRepository prefetches these already in alteration_seq order;
+        # .order_by() here would throw that away and ask again for every order.
+        if 'alterations' in getattr(obj, '_prefetched_objects_cache', {}):
+            alterations = obj.alterations.all()
+        else:
+            alterations = obj.alterations.order_by('alteration_seq')
         return [{'id': a.id, 'order_reference': a.reference, 'order_status': a.order_status,
                  'current_stage_key': a.current_stage_key, 'order_date': a.order_date,
                  'garment_label': a.alteration_garment_name, 'total_amount': a.total_amount}
-                for a in obj.alterations.order_by('alteration_seq')]
+                for a in alterations]
 
     class Meta:
         model = Order
@@ -627,10 +633,20 @@ class CustomerSerializer(serializers.ModelSerializer):
     def get_orders(self, obj):
         from core.permissions import visible_orders
 
+        from domains.orders.repositories import OrderRepository
+
         queryset = obj.orders.all()
         request = self.context.get('request')
         if request is not None:
-            queryset = visible_orders(queryset, request.user)
+            visible = visible_orders(queryset, request.user)
+            # Narrowed for this user, the rows are asked for again, so they need
+            # the serializer's prefetches again too. Cleared first: the narrowed
+            # queryset can carry the customer's own lookups, and Django refuses
+            # the same lookup twice with a different queryset.
+            if visible is not queryset:
+                visible = OrderRepository.with_serializer_relations(
+                    visible.prefetch_related(None)).order_by('id')
+            queryset = visible
         return OrderSerializer(queryset, many=True, context=self.context).data
 
     def to_internal_value(self, data):
