@@ -3,6 +3,7 @@ import { AlertTriangle, Camera, Shirt, User, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { Dropzone } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
+import CustomerPicker from '../customers/CustomerPicker';
 import {
   LIMITS, tenDigits, mobileError, cleanName, nameError, cleanAmount, amountError,
 } from '../../services/validate';
@@ -20,11 +21,9 @@ import {
  * After that it is an alteration like any other.
  */
 
-const customerName = (c) => `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.mobile_number || 'Customer';
 const NEW = '__new__';
 
 export default function OutsideGarmentIntake({ onClose, onCreated }) {
-  const [customers, setCustomers] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [form, setForm] = useState({
     customer_id: '', new_first_name: '', new_last_name: '', new_mobile: '',
@@ -36,18 +35,15 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  // The two lists this form's selects are built from. Both are requested at
-  // once rather than one after the other, and `listsLoading` keeps the empty
-  // selects from reading as "this boutique has no customers".
+  // The garment types for the select. Customers are searched as they are
+  // typed (CustomerPicker) rather than listed, so the whole book is never
+  // downloaded; `listsLoading` keeps the empty select from reading as "no
+  // garment types".
   const [listsLoading, setListsLoading] = useState(true);
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      api.getCustomers().catch(() => []),
-      api.getGarmentTemplates().catch(() => []),
-    ]).then(([c, tpl]) => {
+    api.getGarmentTemplates().catch(() => []).then((tpl) => {
       if (cancelled) return;
-      setCustomers(c.results || c || []);
       setTemplates(tpl.results || tpl || []);
       setListsLoading(false);
     });
@@ -133,11 +129,10 @@ export default function OutsideGarmentIntake({ onClose, onCreated }) {
         <div className="form-grid-2" style={{ gap: '12px' }}>
           <div style={field}>
             <label style={label}><User size={12} style={{ verticalAlign: '-2px' }} /> Customer</label>
-            <select className="form-control" value={form.customer_id} onChange={set('customer_id')} disabled={listsLoading}>
-              <option value="">{listsLoading ? 'Loading customers…' : 'Choose a customer…'}</option>
-              <option value={NEW}>+ New customer (walk-in)</option>
-              {customers.map((c) => <option key={c.id} value={c.id}>{customerName(c)}{c.mobile_number ? ` · ${c.mobile_number}` : ''}</option>)}
-            </select>
+            <CustomerPicker value={form.customer_id}
+                            onChange={(next) => setForm((prev) => ({ ...prev, customer_id: next }))}
+                            extraOptions={[{ value: NEW, label: '+ New customer (walk-in)' }]}
+                            placeholder="Search a customer by name or mobile…" />
           </div>
           <div style={field}>
             <label style={label}><Shirt size={12} style={{ verticalAlign: '-2px' }} /> Garment type</label>
