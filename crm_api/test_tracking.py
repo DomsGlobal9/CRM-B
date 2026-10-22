@@ -267,13 +267,15 @@ class CustomerMessageTests(TrackingTestBase):
         for stage in ['finishing', 'pressing']:
             OrderService.transition_order_stage(self.order, stage, 'COMPLETED', user=owner)
 
-        # 3. TryOn step
+        # 3. Trial booked: the confirmation and the invoice; the trial itself is the try-on step
         OrderService.transition_order_stage(self.order, 'master_quality_check', 'COMPLETED', user=owner)
         OrderService.transition_order_stage(self.order, 'trial_scheduled', 'COMPLETED', user=owner)
+        self.assertTrue(CustomerMessage.objects.filter(order=self.order, template_key='trial_scheduled').exists())
+        self.assertTrue(CustomerMessage.objects.filter(order=self.order, template_key='invoice').exists())
+        OrderService.transition_order_stage(self.order, 'trial_completed', 'COMPLETED', user=owner)
         self.assertTrue(CustomerMessage.objects.filter(order=self.order, template_key='tryon_step').exists())
 
         # 4. Ready for delivery
-        OrderService.transition_order_stage(self.order, 'trial_completed', 'COMPLETED', user=owner)
         OrderService.transition_order_stage(self.order, 'ready_for_delivery', 'COMPLETED', user=owner)
         self.assertTrue(CustomerMessage.objects.filter(order=self.order, template_key='ready_for_delivery').exists())
 

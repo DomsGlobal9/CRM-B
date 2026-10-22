@@ -56,6 +56,40 @@ def send_whatsapp_message(phone: str, message_text: str, session_id: str = None,
         }
 
 
+def send_whatsapp_document(phone: str, content: bytes, filename: str, caption: str = '',
+                           mime_type: str = 'application/pdf', session_id: str = None, tenant=None) -> dict:
+    """A file (an invoice PDF) to a customer, through whatsapp_service's
+    /whatsapp/send-media. Same session lookup, secret and answer shape as
+    send_whatsapp_message."""
+    import base64
+
+    if not session_id and tenant:
+        account = getattr(tenant, 'whatsapp_account', None)
+        if account:
+            session_id = account.session_id
+    if not session_id:
+        session_id = 'default'
+
+    base_url = getattr(settings, 'WHATSAPP_SERVICE_URL', 'http://127.0.0.1:3001').rstrip('/')
+    headers = {
+        'Content-Type': 'application/json',
+        'X-Internal-API-Secret': getattr(settings, 'INTERNAL_API_SECRET', ''),
+    }
+    payload = {
+        'sessionId': session_id, 'phone': phone, 'mediaType': 'document',
+        'mediaBase64': base64.b64encode(content).decode('ascii'),
+        'mimeType': mime_type, 'filename': filename, 'caption': caption,
+    }
+    try:
+        response = requests.post(f"{base_url}/whatsapp/send-media", json=payload, headers=headers, timeout=30)
+        res_data = (response.json() if response.headers.get('content-type', '').startswith('application/json')
+                    else {'raw': response.text})
+        return {'success': response.status_code == 200, 'status_code': response.status_code, 'data': res_data}
+    except Exception as exc:
+        logger.error(f"[Django WhatsApp Client] Failed to send a document via session {session_id}: {exc}")
+        return {'success': False, 'status_code': 500, 'error': str(exc)}
+
+
 def get_whatsapp_status(session_id: str = None, tenant=None) -> dict:
     """
     Client function in Django to query whatsapp_service for session connection status and QR code.

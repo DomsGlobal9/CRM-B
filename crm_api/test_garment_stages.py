@@ -174,6 +174,32 @@ class PerGarmentStageTests(StateMachineTestBase):
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual(self.row('pattern_cutting', self.saree).status, 'COMPLETED')
 
+    def test_the_first_trial_booking_sends_a_confirmation_and_the_invoice(self):
+        from unittest import mock
+        from crm_api.models import CustomerMessage
+
+        self.finish_garment(self.saree)
+        with mock.patch('crm_api.whatsapp_service.send_whatsapp_message',
+                        return_value={'success': True, 'data': {'messageId': 'm1'}}) as text, \
+             mock.patch('crm_api.whatsapp_service.send_whatsapp_document',
+                        return_value={'success': True, 'data': {'messageId': 'd1'}}) as document, \
+             self.captureOnCommitCallbacks(execute=True):
+            self.go('trial_scheduled', self.saree)
+
+        sent = dict(CustomerMessage.objects.filter(order=self.order).values_list('template_key', 'status'))
+        self.assertEqual(sent.get('trial_scheduled'), 'SENT')
+        self.assertEqual(sent.get('invoice'), 'SENT')
+        self.assertIn('scheduled', text.call_args.kwargs['message_text'])
+        pdf = document.call_args.kwargs
+        self.assertTrue(pdf['content'].startswith(b'%PDF'))
+        self.assertTrue(pdf['filename'].startswith('Invoice-') and pdf['filename'].endswith('.pdf'))
+
+        # The next garment's trial booking says nothing new to the customer.
+        self.finish_garment(self.blouse)
+        self.go('trial_scheduled', self.blouse)
+        self.assertEqual(CustomerMessage.objects.filter(order=self.order, template_key='trial_scheduled').count(), 1)
+        self.assertEqual(CustomerMessage.objects.filter(order=self.order, template_key='invoice').count(), 1)
+
     def test_an_order_with_one_garment_keeps_the_key_alone_working(self):
         other = self._order(order_id='T2B-SM-2', with_materials=False)
         ensure_garment_stages(other)
@@ -271,3 +297,4 @@ class MixedPathTests(StateMachineTestBase):
         for job in (self.maggam, self.plain, self.blouse):
             self.assertTrue(set(MAGGAM_PATH) <= self.keys(job))
             self.assertNotIn('pattern_cutting', self.keys(job))
+
