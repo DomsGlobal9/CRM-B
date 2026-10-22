@@ -62,12 +62,17 @@ export default defineConfig({
       // static HTML assembled by build-site.mjs after this runs -- it has no
       // bundle, no framework and no client-side routing on purpose, because a
       // crawler that does not execute JavaScript has to be able to read it.
-      // Two entries, two bundles, on purpose. The platform console shares no
-      // component with the boutique workspace and is opened by a handful of
-      // people; folding it into app.html would put it in the download every
-      // boutique makes. They share React and lucide-react, which the chunking
-      // below already splits out, so the second entry costs its own code and
-      // nothing else.
+      // Two entries, two bundles, on purpose. The platform console is opened
+      // by a handful of people; folding it into app.html would put its
+      // screens in the download every boutique makes. It is built on the
+      // workspace design system -- it imports src/index.css and the shared UI
+      // components (components/ui: Atelier, Loader, RowMenu) -- but the
+      // dependency only runs that way: nothing in the app imports the
+      // console, so its code stays out of the app bundle. What the two
+      // entries share (React and lucide-react, by the rule below; the
+      // stylesheet and those components, by ordinary code splitting) lands in
+      // common chunks, so the second entry costs its own code and nothing
+      // else.
       input: {
         app: fileURLToPath(new URL('./app.html', import.meta.url)),
         superadmin: fileURLToPath(new URL('./superadmin.html', import.meta.url)),

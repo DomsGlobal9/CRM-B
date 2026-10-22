@@ -27,17 +27,24 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, UserX, Users } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import {
-  Async, Confirm, Empty, Pager, Pill, SearchBox, SectionHead, Select, Stat, Table,
-  count, useApi, useToast,
+  Async, Chips, Confirm, Empty, Note, PageHeader, Pager, Pill, SearchBox, Select, Stat, StatGrid,
+  Table, Toolbar, count, useApi, useToast,
 } from '../ui';
 
 // MAX_PAGE_SIZE in superadmin/users.py. The token flag is filtered here, so a
 // bigger page is a truer answer; the server clamps anything larger anyway.
 const PAGE_SIZE = 200;
+
+// The token filter, as workspace chips. No counts: they could only count the
+// page that was loaded, and the stat tiles already say that, with its scope.
+const TOKEN_CHIPS = [
+  { key: 'token', label: 'Has a live token' },
+  { key: 'all', label: 'Every account' },
+];
 
 export default function Sessions({ route }) {
   const toast = useToast();
@@ -82,6 +89,17 @@ export default function Sessions({ route }) {
     }
   };
 
+  // What the stats and the table both read. The stats sit above the toolbar
+  // (the workspace order), so they are drawn from the loaded page here rather
+  // than inside <Async>; on a failure or an empty sweep they are not drawn.
+  const loaded = state.data && !state.error ? state.data : null;
+  const nothing = loaded && loaded.users.length === 0 && loaded.unreadable.length === 0;
+  const holders = loaded ? loaded.users.filter((u) => u.has_token) : [];
+  const stranded = holders.filter((u) => !u.is_active).length;
+  // With one page, the loaded set IS the platform. With more, every figure
+  // counts only what was fetched, and says so.
+  const scope = loaded && loaded.pages > 1 ? 'On this page' : 'Platform-wide';
+
   const columns = [
     {
       key: 'who',
@@ -90,7 +108,7 @@ export default function Sessions({ route }) {
         const name = [u.first_name, u.last_name].filter(Boolean).join(' ');
         return (
           <>
-            <div className="sa-name">{name || u.username}</div>
+            <div className="at-row-title">{name || u.username}</div>
             <div className="sa-schema">{u.username}</div>
           </>
         );
@@ -101,7 +119,7 @@ export default function Sessions({ route }) {
       label: 'Boutique',
       render: (u) => (
         <>
-          <button className="sa-link" onClick={() => route.go(`boutiques/${u.boutique}`)}>
+          <button type="button" className="at-link" onClick={() => route.go(`boutiques/${u.boutique}`)}>
             {u.boutique_name}
           </button>
           <div className="sa-schema">{u.boutique}</div>
@@ -114,7 +132,7 @@ export default function Sessions({ route }) {
       label: 'API token',
       render: (u) => (
         <Pill value="token" tone={u.has_token ? 'ok' : 'muted'}
-          label={u.has_token ? 'Live, no expiry' : 'None'} />
+          label={u.has_token ? 'Live token' : 'None'} />
       ),
     },
     {
@@ -128,84 +146,91 @@ export default function Sessions({ route }) {
     {
       key: 'act',
       label: '',
+      dataLabel: 'Actions',
+      className: 'sa-actions',
       render: (u) => (
-        <button className="sa-btn danger" disabled={!u.has_token}
-          title={u.has_token ? undefined : 'This account holds no token, so there is nothing to revoke.'}
-          onClick={() => setPending(u)}>
-          <KeyRound size={13} /> Revoke
-        </button>
+        <div className="sa-inline sa-inline--end">
+          <button type="button" className="btn-secondary at-btn-sm at-btn-danger" disabled={!u.has_token}
+            title={u.has_token ? undefined : 'This account holds no token, so there is nothing to revoke.'}
+            onClick={() => setPending(u)}>
+            <KeyRound size={14} /> Revoke
+          </button>
+        </div>
       ),
     },
   ];
 
   return (
     <>
-      <SectionHead
+      <PageHeader
         title="Who has access"
         subtitle="Accounts that currently hold a working sign-in. Revoke one to sign that person out everywhere."
-      >
-        <SearchBox value={filters.q} onChange={set('q')} placeholder="Name, username or email…" />
-        <Select value={filters.boutique} onChange={set('boutique')} label="Boutique"
-          options={boutiques} />
-        <Select value={tokenOnly} onChange={setTokenOnly} label="Token" options={[
-          { value: 'token', label: 'Has a live token' },
-          { value: 'all', label: 'Every account' },
-        ]} />
-      </SectionHead>
+      />
 
-      <div className="sa-note info">
+      {loaded && !nothing && (
+        <StatGrid label="Token totals">
+          <Stat icon={KeyRound} label="Live tokens" value={count(holders.length)} note={scope} />
+          <Stat icon={Users} label="Accounts" value={count(loaded.users.length)}
+            note={loaded.pages > 1 ? `Page ${loaded.page} of ${loaded.pages}` : 'Every account'} />
+          <Stat icon={UserX} label="Held by deactivated accounts" value={count(stranded)}
+            tone={stranded > 0 ? 'warn' : undefined}
+            note="Refused while deactivated, live again the moment they are reactivated" />
+        </StatGrid>
+      )}
+
+      {loaded && loaded.unreadable.length > 0 && (
+        <Note tone="error">
+          {count(loaded.unreadable.length)} boutique schema(s) could not be read, so anyone
+          holding a token there is missing from this screen: {loaded.unreadable.join(', ')}.
+        </Note>
+      )}
+
+      <Note tone="info">
         This product issues DRF tokens and nothing else. They never expire, there is no
         session timeout, and no sign-in is recorded anywhere — so there is no “last active”
         to show and no way to tell a key in use from a key sitting in an old browser.
         Deleting the token is the only sign-out that exists here. It does not lock the
         account: the person can sign in again immediately and get a new key. Deactivate,
         on the Users screen, is what locks an account.
-      </div>
+      </Note>
+
+      {/* Outside <Async>, so the filters stay on screen while a page loads or
+          fails. The token chips on the left; search and the boutique list
+          on the right. */}
+      <Toolbar right={(
+        <>
+          <SearchBox value={filters.q} onChange={set('q')} placeholder="Name, username or email…" />
+          <Select value={filters.boutique} onChange={set('boutique')} label="Boutique"
+            options={boutiques} />
+        </>
+      )}>
+        <Chips label="Token" value={tokenOnly} onChange={setTokenOnly} options={TOKEN_CHIPS} />
+      </Toolbar>
 
       {overview.error && (
-        <div className="sa-note info">
+        <Note tone="info">
           The boutique list did not load, so that filter only offers “All boutiques”.
-        </div>
+        </Note>
       )}
 
       <Async
         state={state}
         isEmpty={(d) => d.users.length === 0 && d.unreadable.length === 0}
-        empty={<Empty icon={<KeyRound size={22} />} title="No accounts to show."
+        empty={<Empty icon={<KeyRound size={20} />} title="No accounts to show."
           detail="Tokens appear here once boutiques have staff who can sign in." />}
       >
         {(data) => {
-          const holders = data.users.filter((u) => u.has_token);
-          const stranded = holders.filter((u) => !u.is_active).length;
+          // `holders` is this same page (data is state.data once loaded).
           const rows = tokenOnly === 'token' ? holders : data.users;
-          // With one page, the loaded set IS the platform. With more, every
-          // figure below counts only what was fetched, and says so.
-          const scope = data.pages > 1 ? 'On this page' : 'Platform-wide';
 
           return (
             <>
-              {data.unreadable.length > 0 && (
-                <div className="sa-note error">
-                  {data.unreadable.length} boutique schema(s) could not be read, so anyone
-                  holding a token there is missing from this screen: {data.unreadable.join(', ')}.
-                </div>
-              )}
-
-              <div className="sa-stats">
-                <Stat label="Live tokens" value={count(holders.length)} note={scope} />
-                <Stat label="Accounts" value={count(data.users.length)}
-                  note={data.pages > 1 ? `Page ${data.page} of ${data.pages}` : 'Every account'} />
-                <Stat label="Held by deactivated accounts" value={count(stranded)}
-                  tone={stranded > 0 ? 'warn' : undefined}
-                  note="Refused while deactivated, live again the moment they are reactivated" />
-              </div>
-
               {tokenOnly === 'token' && data.pages > 1 && (
-                <div className="sa-note info">
+                <Note tone="info">
                   The API has no token filter, so “has a live token” narrows the {PAGE_SIZE}
                   {' '}accounts on this page — not the {count(data.count)} on the platform.
                   Step through the pages, or pick one boutique, to see all of them.
-                </div>
+                </Note>
               )}
 
               <Table
@@ -230,14 +255,16 @@ export default function Sessions({ route }) {
         title={pending && `Revoke ${pending.username}'s token?`}
         body={pending && (
           <>
-            <p style={{ marginBottom: 8 }}>
+            <p>
               <strong>{pending.username}</strong> at {pending.boutique_name}
               {pending.role && ` · ${pending.role}`}
             </p>
-            Their key stops working on the next request, on every device it is stored on.
-            They can sign in again straight away and be issued a new one — this is a
-            sign-out, not a lock. Deactivate them on the Users screen if they should not
-            be able to get back in.
+            <p>
+              Their key stops working on the next request, on every device it is stored on.
+              They can sign in again straight away and be issued a new one — this is a
+              sign-out, not a lock. Deactivate them on the Users screen if they should not
+              be able to get back in.
+            </p>
           </>
         )}
         confirmLabel="Revoke"

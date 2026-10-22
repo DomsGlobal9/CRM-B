@@ -1,788 +1,459 @@
-/* The console's own stylesheet.
+/* The platform console's own layer, on top of the workspace design system.
  *
- * It re-declares the product's design tokens rather than importing
- * src/index.css, which is the workspace's several thousand lines of
- * application CSS. The console shares the product's look; it does not share
- * one class with it, so importing that file would ship all of it in this
- * bundle to use none of it. Values are copied from src/index.css :root -- keep
- * them in step if the palette changes.
+ * The console looks exactly like the boutique workspace because it IS the
+ * workspace design system: main.jsx imports src/index.css (which brings
+ * themes.css), so every token, every .at-* / .ui-* / .btn-* / .portal-* recipe
+ * and the global input, focus and type rules come from there. The console is
+ * pinned to Scaleezy light -- plain :root, no data-theme -- so a boutique's
+ * theme or dark mode left in shared localStorage never reaches it.
+ *
+ * This file only adds what the workspace has no recipe for: the drill-in
+ * split, key/value lists, code and machine-value cells, sticky and suspended
+ * table rows, the global-search dropdown, the console's sign-in and shell
+ * refinements, and the few state cards and toasts the console needs. Rules:
+ *   - tokens only (var(--...) or color-mix of them), never a literal colour;
+ *   - every selector is scoped under a .sa-* class (or refines a workspace
+ *     class from inside one), so nothing here can restyle a bare element;
+ *   - text on --primary-color is always --primary-foreground, never white.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap');
+/* --- Type ------------------------------------------------------------- */
 
-:root {
-  --bg-color: #f9f9f9;
-  --surface-color: #ffffff;
-  --text-primary: #1a1c1c;
-  --text-secondary: #5a5f66;
-  --text-muted: #8d939e;
-  --primary-color: #1a1c1c;
-  --primary-hover: #333638;
-  --border-color: #e2e4e8;
-  --success-color: #2e7d32;
-  --success-bg: #e8f5e9;
-  --danger-color: #b3261e;
-  --danger-bg: #fdecea;
-  --warn-color: #8a6100;
-  --warn-bg: #fff4d6;
-  --info-color: #0060ac;
-  --info-bg: #d4e3ff;
-  --accent-text: #b07c40;
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-serif: 'Playfair Display', Georgia, Cambria, 'Times New Roman', Times, serif;
-}
+/* Buttons do not inherit the page font by default. Zero specificity, so any
+   workspace recipe that names its own font still wins. */
+:where(.sa-shell, .sa-signin) :where(button) { font-family: inherit; }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  font-family: var(--font-sans);
-  background: var(--bg-color);
-  color: var(--text-primary);
-  line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* --- Sign-in ---------------------------------------------------------- */
-
-.sa-signin {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-
-.sa-signin-card {
-  width: 100%;
-  max-width: 400px;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 40px;
-  box-shadow: var(--shadow-sm);
-}
-
-.sa-signin-card h1 {
-  font-family: var(--font-serif);
-  font-size: 26px;
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-
-.sa-signin-card p.sa-sub { color: var(--text-secondary); font-size: 14px; margin-bottom: 28px; }
+.sa-shell .ui-badge { white-space: nowrap; }
 
 /* --- Shell ------------------------------------------------------------ */
 
-.sa-header {
-  background: var(--surface-color);
-  border-bottom: 1px solid var(--border-color);
-  padding: 14px 28px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  flex-wrap: wrap;
+/* overflow: visible so position: sticky inside a screen (the drill-in
+   sidebar) sticks to the viewport rather than to a box that never scrolls;
+   min-width: 0 keeps a wide table from stretching the grid column. */
+.sa-shell .portal-main { overflow: visible; min-width: 0; }
+
+/* Wordmark with the console's name under it. */
+.sa-brand-lockup { min-width: 0; }
+.sa-brand-lockup .portal-wordmark { margin-bottom: var(--space-1); }
+.sa-brand-lockup .portal-sidebar-logo-sub { padding-right: 0; font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
+
+/* Sign out is the one menu entry that is a button rather than a link. */
+:where(.sa-shell) :where(button).portal-menu-item { width: 100%; border: 0; background-color: transparent; text-align: left; cursor: pointer; }
+
+/* The unresolved-error count on the Crashes item: a small danger count. */
+.sa-nav-count {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: var(--danger-color); color: var(--surface-color);
+  font-size: var(--text-2xs); font-weight: var(--weight-bold); line-height: 1; font-variant-numeric: tabular-nums;
 }
 
-.sa-brand {
-  font-family: var(--font-serif);
-  font-size: 19px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 9px;
+/* Collapsed rail: 44px icon squares instead of 20px slivers, the lime bar
+   kept inside the menu's scroll box, and the group lines in the shell's own
+   hairline colour. */
+@media (min-width: 1025px) {
+  .sa-shell.nav-collapsed .portal-sidebar { padding-left: var(--space-2); padding-right: var(--space-2); }
+  .sa-shell.nav-collapsed .portal-menu { padding: 0 var(--space-2); }
+  .sa-shell.nav-collapsed .portal-menu-item.active::before { left: calc(-1 * var(--space-2)); }
+  .sa-shell.nav-collapsed .portal-menu-group { background: color-mix(in srgb, var(--shell-fg) 12%, transparent); }
+  .sa-shell.nav-collapsed .sa-brand-lockup { display: none; }
+  .sa-shell.nav-collapsed .sa-nav-count { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; font-size: var(--text-2xs); }
 }
 
-.sa-brand .sa-tag {
-  font-family: var(--font-sans);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent-text);
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  padding: 2px 9px;
+/* Tablet and phone: the workspace drawer, opened from the shell-coloured bar.
+   The workspace hides this bar below 768px because its phone layout has a
+   bottom nav; the console has none, so the bar stays and the main column
+   does not reserve the bottom nav's 84px.
+   The bar shrinks with the screen: the brand gives way (the label ellipsises,
+   then goes at 480px) and the menu button, wordmark and crash count keep
+   their size, so the bar never sets a minimum width for the page. */
+.sa-mobile-brand { display: flex; align-items: center; gap: var(--space-3); flex: 1 1 auto; min-width: 0; }
+.sa-mobile-brand > :not(.sa-mobile-label) { flex: none; }
+.sa-mobile-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.14em; text-transform: uppercase; color: var(--shell-muted); white-space: nowrap; }
+.sa-shell .mobile-hamburger-btn { min-width: 44px; min-height: 44px; }
+.sa-mobile-errors {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--shell-fg) 15%, transparent); border-radius: var(--radius-lg);
+  background: transparent; color: var(--shell-fg);
+}
+.sa-mobile-errors .sa-nav-count { margin-left: 0; }
+@media (max-width: 1024px) {
+  /* min-width: 0, or the bar's content width is the floor of the layout's
+     single 1fr column and the whole page scrolls sideways on a phone. */
+  .sa-shell .mobile-portal-header { display: flex; gap: var(--space-3); min-width: 0; }
+  /* The bar is a grid row here (the drawer is fixed), so on a page shorter
+     than the screen the layout's min-height would stretch it too. */
+  .sa-shell.portal-layout { grid-template-rows: auto 1fr; }
+  /* A closed drawer is only slid off-screen, so its links would still take
+     Tab. Hidden once the slide-out has finished (the visibility change waits
+     for the transform), shown at once when it opens. */
+  .sa-shell .portal-sidebar:not(.mobile-open) { visibility: hidden; transition: transform .28s ease-in-out, visibility 0s linear .28s; }
+  .sa-shell .portal-sidebar.mobile-open { visibility: visible; transition: transform .28s ease-in-out; }
+}
+@media (max-width: 768px) {
+  .sa-shell .portal-main { padding-bottom: var(--space-10) !important; }
+}
+@media (max-width: 480px) {
+  .sa-mobile-label { display: none; }
 }
 
-.sa-tabs { display: flex; gap: 4px; margin-left: 12px; }
+/* Session check, before anything else is drawn. */
+.sa-boot { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-6); background: var(--bg-color); }
+.sa-boot .ld--inline { font-size: var(--text-sm); }
 
-.sa-tab {
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 14px;
-  color: var(--text-secondary);
-  padding: 7px 14px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-.sa-tab:hover { background: var(--bg-color); color: var(--text-primary); }
-.sa-tab[aria-current='page'] { background: var(--primary-color); color: #fff; }
+/* --- Top row: global search, who is signed in, refresh ----------------- */
 
-.sa-header-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
-.sa-who { font-size: 13px; color: var(--text-secondary); }
+.sa-topbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-6); }
+.sa-topbar-right { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.sa-who { min-width: 0; cursor: default; font-weight: var(--weight-medium); color: var(--text-secondary); }
+.sa-who-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sa-who-text strong { color: var(--text-primary); font-weight: var(--weight-semibold); }
 
-.sa-main { padding: 28px; max-width: 1400px; margin: 0 auto; }
-
-.sa-section-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-.sa-section-head h2 { font-family: var(--font-serif); font-size: 22px; font-weight: 600; }
-.sa-section-head p { font-size: 13.5px; color: var(--text-secondary); }
-
-/* --- Stat tiles ------------------------------------------------------- */
-
-.sa-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-  margin-bottom: 28px;
-}
-
-.sa-stat {
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 16px 18px;
-}
-.sa-stat .sa-stat-label {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.sa-stat .sa-stat-value {
-  font-size: 27px;
-  font-weight: 600;
-  margin-top: 6px;
-  font-variant-numeric: tabular-nums;
-}
-.sa-stat .sa-stat-note { font-size: 12.5px; color: var(--text-secondary); margin-top: 2px; }
-
-/* --- Tables ----------------------------------------------------------- */
-
-.sa-table-wrap {
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow-x: auto;
-}
-
-table.sa-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-
-.sa-table th {
-  text-align: left;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border-color);
-  white-space: nowrap;
-}
-
-.sa-table td {
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--border-color);
-  vertical-align: middle;
-}
-.sa-table tr:last-child td { border-bottom: none; }
-.sa-table tr.sa-suspended td:not(.sa-actions) { opacity: 0.55; }
-.sa-table td.sa-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.sa-table th.sa-num { text-align: right; }
-.sa-name { font-weight: 500; }
-.sa-owner { font-size: 13px; color: var(--text-secondary); }
-/* overflow-wrap because these carry machine values -- schema names, ALLOWED_HOSTS,
-   URLs -- which have no spaces to break at, so on a narrow screen a single long
-   one pushed the whole Configuration and Integrations pages sideways. */
-.sa-schema { font-size: 12px; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
-
-/* Suspend/Reactivate is the only action in the table, and the table is wide
- * enough to scroll on a laptop -- so the action pins to the right edge rather
- * than disappearing off it. Without this the primary control was reachable
- * only by scrolling sideways, which is where it was found in review. */
-.sa-table .sa-sticky-end {
-  position: sticky;
-  right: 0;
-  background: var(--surface-color);
-  box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.12);
-}
-.sa-table tr.sa-suspended .sa-sticky-end { background: var(--surface-color); }
-
-/* --- Bits ------------------------------------------------------------- */
-
-.sa-pill {
-  display: inline-block;
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 3px 9px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-.sa-pill.ok { background: var(--success-bg); color: var(--success-color); }
-.sa-pill.off { background: var(--danger-bg); color: var(--danger-color); }
-.sa-pill.warn { background: var(--warn-bg); color: var(--warn-color); }
-.sa-pill.info { background: var(--info-bg); color: var(--info-color); }
-
-/* The ⋯ row menu (Boutiques.jsx RowMenu): one column of actions, dropped
-   under the button. Fixed, because the table scrolls sideways inside
-   .sa-table-wrap and an absolute menu would be clipped at its edge. */
-.sa-menu-btn { padding: 6px 10px; line-height: 0; }
-.sa-menu {
-  position: fixed;
-  z-index: 1000;
-  min-width: 180px;
-  padding: 6px;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
-  display: flex; flex-direction: column;
-}
-.sa-menu-item {
-  display: flex; align-items: center; gap: 10px;
-  width: 100%; padding: 9px 12px;
-  font: inherit; font-size: 13.5px; text-align: left;
-  background: none; border: 0; border-radius: 8px;
-  color: var(--text-primary); cursor: pointer;
-}
-.sa-menu-item:hover { background: var(--bg-color); }
-.sa-menu-item.danger { color: var(--danger-color); }
-.sa-menu-item.danger:hover { background: var(--danger-bg); }
-
-.sa-btn {
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 500;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-  background: var(--surface-color);
-  color: var(--text-primary);
-  padding: 7px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.sa-btn:hover:not(:disabled) { background: var(--bg-color); }
-.sa-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.sa-btn.primary { background: var(--primary-color); border-color: var(--primary-color); color: #fff; width: 100%; padding: 11px; font-size: 14.5px; }
-.sa-btn.primary:hover:not(:disabled) { background: var(--primary-hover); }
-.sa-btn.danger { color: var(--danger-color); border-color: #f0c9c6; }
-.sa-btn.danger:hover:not(:disabled) { background: var(--danger-bg); }
-
-.sa-field { margin-bottom: 16px; }
-.sa-field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
-.sa-input, .sa-select, .sa-textarea {
-  width: 100%;
-  font: inherit;
-  font-size: 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  background: var(--surface-color);
-  color: var(--text-primary);
-}
-.sa-input:focus, .sa-select:focus, .sa-textarea:focus { outline: none; border-color: var(--primary-color); }
-
-/* Keyboard focus, which this console had nowhere at all.
-   The rule above removes the browser's outline on the three form controls and
-   replaces it with a border colour; every BUTTON -- the navigation, Sign out,
-   Deactivate, Revoke, Reset, the pagers, the tabs, the confirm dialogs -- had
-   no focus indicator of any kind, so a keyboard user tabbing through the
-   platform's most destructive controls could not see which one they were about
-   to press.
-   :focus-visible rather than :focus, so a mouse click does not leave a ring
-   behind; outline-offset so the ring stays legible on the dark
-   aria-current='page' navigation pill, where an inset outline would disappear. */
-.sa-nav-item:focus-visible,
-.sa-btn:focus-visible,
-.sa-tab:focus-visible,
-.sa-input:focus-visible,
-.sa-select:focus-visible,
-.sa-textarea:focus-visible,
-button:focus-visible,
-a:focus-visible,
-[tabindex]:focus-visible {
-  outline: 2px solid var(--primary-color);
-  outline-offset: 2px;
-  border-radius: var(--radius-md);
-}
-.sa-select { padding: 7px 10px; font-size: 13.5px; }
-.sa-textarea { min-height: 60px; resize: vertical; font-size: 13.5px; }
-
-.sa-note {
-  border-radius: var(--radius-md);
-  padding: 11px 14px;
-  font-size: 13.5px;
-  margin-bottom: 18px;
-}
-.sa-note.error { background: var(--danger-bg); color: var(--danger-color); }
-.sa-note.info { background: var(--info-bg); color: var(--info-color); }
-
-.sa-empty { padding: 40px 20px; text-align: center; color: var(--text-secondary); font-size: 14px; }
-.sa-muted { color: var(--text-muted); }
-
-.sa-link {
-  border: none;
-  background: none;
-  font: inherit;
-  font-weight: 500;
-  color: var(--text-primary);
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
-  text-decoration: underline;
-  text-decoration-color: var(--border-color);
-  text-underline-offset: 3px;
-}
-.sa-link:hover { text-decoration-color: var(--text-primary); }
-
-/* --- Boutique drill-in ------------------------------------------------ */
-
-.sa-split { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 18px; align-items: start; }
-
-.sa-side {
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 8px;
-  position: sticky;
-  top: 78px;
-  /* The sidebar lists every table in the schema -- around fifty -- so it
-     scrolls inside itself rather than making the page as tall as the list. */
-  max-height: calc(100vh - 110px);
-  overflow-y: auto;
-}
-
-.sa-side-group + .sa-side-group { margin-top: 10px; }
-.sa-side-title {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 8px 10px 4px;
-}
-
-.sa-side-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  text-align: left;
-  padding: 7px 10px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-.sa-side-item:hover { background: var(--bg-color); color: var(--text-primary); }
-.sa-side-item[aria-current='page'] { background: var(--primary-color); color: #fff; }
-
-.sa-side-count { font-size: 12px; font-variant-numeric: tabular-nums; opacity: 0.8; }
-.sa-side-count.zero { opacity: 0.35; }
-
-.sa-pane { min-width: 0; }
-
-.sa-pane-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-.sa-pane-title { font-size: 15px; font-weight: 600; margin-right: auto; }
-.sa-search { width: auto; min-width: 200px; flex: 0 1 260px; padding: 7px 10px; font-size: 13.5px; }
-
-/* A generic table has as many columns as the model has fields -- forty on an
-   order -- so cells do not wrap and the table scrolls sideways instead. */
-.sa-pane .sa-table td, .sa-pane .sa-table th { white-space: nowrap; }
-.sa-pane .sa-table td { font-size: 13px; }
-
-.sa-json {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  color: var(--text-secondary);
-  display: inline-block;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  vertical-align: bottom;
-}
-
-.sa-pager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 14px;
-  font-size: 13.5px;
-}
-
-@media (max-width: 900px) {
-  .sa-split { grid-template-columns: 1fr; }
-  .sa-side { position: static; max-height: 220px; }
-}
-
-/* --- Console shell: nav rail + content -------------------------------- */
-
-.sa-shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100vh; }
-
-.sa-nav {
-  background: var(--surface-color);
-  border-right: 1px solid var(--border-color);
-  padding: 14px 10px 28px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-}
-
-.sa-nav-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-serif);
-  font-size: 18px;
-  font-weight: 600;
-  padding: 6px 10px 14px;
-}
-.sa-nav-brand .sa-tag { font-family: var(--font-sans); }
-
-.sa-nav-group { margin-top: 14px; }
-.sa-nav-group-title {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 6px 10px 4px;
-}
-
-.sa-nav-item {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: 100%;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  text-align: left;
-  padding: 7px 10px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-}
-.sa-nav-item:hover { background: var(--bg-color); color: var(--text-primary); }
-.sa-nav-item[aria-current='page'] { background: var(--primary-color); color: #fff; }
-.sa-nav-item .sa-nav-badge {
-  margin-left: auto;
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--danger-bg);
-  color: var(--danger-color);
-  border-radius: 999px;
-  padding: 1px 7px;
-}
-.sa-nav-item[aria-current='page'] .sa-nav-badge { background: rgba(255,255,255,0.22); color: #fff; }
-
-.sa-content { min-width: 0; display: flex; flex-direction: column; }
-
-.sa-topbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--surface-color);
-  position: sticky;
-  top: 0;
-  z-index: 20;
-}
-.sa-topbar .sa-searchbox { flex: 0 1 380px; }
-.sa-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-
-.sa-page { padding: 22px 24px 60px; max-width: 1500px; width: 100%; }
-
-.sa-section-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
-/* --- Global search results ------------------------------------------- */
-
+/* The results hang off the search box itself, so they follow its height. */
+.sa-global-search { position: relative; flex: 1 1 320px; max-width: 480px; min-width: 0; }
+.sa-global-search .at-search { max-width: none; }
 .sa-results {
-  position: absolute;
-  top: 46px;
-  left: 0;
-  right: 0;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md, 0 8px 30px rgba(0,0,0,0.09));
-  max-height: 60vh;
-  overflow-y: auto;
-  z-index: 40;
-  padding: 6px;
+  position: absolute; top: calc(100% + var(--space-1)); left: 0; right: 0; z-index: 40;
+  max-height: 60vh; overflow-y: auto; padding: 6px;
+  background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
 }
 .sa-result {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  width: 100%;
-  border: none;
-  background: none;
-  font: inherit;
-  text-align: left;
-  padding: 8px 10px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
+  display: flex; align-items: baseline; gap: var(--space-3); width: 100%; min-height: 40px; padding: var(--space-2) 10px;
+  border: 0; border-radius: var(--radius-md); background: transparent; color: var(--text-primary);
+  font-size: var(--text-sm); text-align: left; cursor: pointer;
 }
-.sa-result:hover { background: var(--bg-color); }
-.sa-result .sa-result-type {
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  min-width: 74px;
-}
-.sa-result .sa-result-sub { font-size: 12.5px; color: var(--text-muted); margin-left: auto; }
-
-/* --- Loading / empty / error states ----------------------------------- */
-
-.sa-skeleton { padding: 4px 0; }
-.sa-skeleton-row {
-  height: 44px;
-  border-radius: var(--radius-md);
-  margin-bottom: 8px;
-  background: linear-gradient(90deg, #eef0f3 25%, #f7f8fa 50%, #eef0f3 75%);
-  background-size: 400% 100%;
-  animation: sa-shimmer 1.4s ease-in-out infinite;
-}
-@keyframes sa-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
-
-@media (prefers-reduced-motion: reduce) {
-  .sa-skeleton-row { animation: none; background: #eef0f3; }
-}
-
-.sa-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-align: center;
-  padding: 46px 24px;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  color: var(--text-secondary);
-}
-.sa-state h3 { font-size: 15px; font-weight: 600; color: var(--text-primary); }
-.sa-state p { font-size: 13.5px; max-width: 460px; }
-.sa-state.error { border-color: #f0c9c6; color: var(--danger-color); }
-.sa-state.error h3 { color: var(--danger-color); }
-.sa-state.muted { color: var(--text-muted); }
-
-/* --- Toasts ----------------------------------------------------------- */
-
-.sa-toasts {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 200;
-}
-.sa-toast {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-left: 3px solid var(--success-color);
-  border-radius: var(--radius-md);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-  padding: 11px 13px;
-  font-size: 13.5px;
-  max-width: 400px;
-}
-.sa-toast.off { border-left-color: var(--danger-color); color: var(--danger-color); }
-.sa-toast-x { border: none; background: none; cursor: pointer; color: inherit; opacity: 0.6; padding: 0; }
-.sa-toast-x:hover { opacity: 1; }
-
-/* --- Modal ------------------------------------------------------------ */
-
-.sa-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(20, 22, 24, 0.42);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  z-index: 150;
-}
-.sa-modal {
-  background: var(--surface-color);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  width: 100%;
-  max-width: 480px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-}
-.sa-modal h3 { font-family: var(--font-serif); font-size: 19px; font-weight: 600; margin-bottom: 10px; }
-.sa-modal-body { font-size: 13.5px; color: var(--text-secondary); margin-bottom: 16px; }
-.sa-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
-
-.sa-btn.primary-inline { background: var(--primary-color); border-color: var(--primary-color); color: #fff; }
-.sa-btn.primary-inline:hover:not(:disabled) { background: var(--primary-hover); }
-.sa-btn.danger-solid { background: var(--danger-color); border-color: var(--danger-color); color: #fff; }
-.sa-btn.danger-solid:hover:not(:disabled) { filter: brightness(1.08); }
-
-/* --- Search box ------------------------------------------------------- */
-
-.sa-searchbox { position: relative; display: flex; align-items: center; }
-.sa-searchbox > svg { position: absolute; left: 10px; color: var(--text-muted); pointer-events: none; }
-.sa-searchbox .sa-input { padding-left: 32px; padding-right: 30px; }
-.sa-searchbox-x {
-  position: absolute; right: 8px; border: none; background: none;
-  cursor: pointer; color: var(--text-muted); padding: 2px; display: flex;
-}
-.sa-searchbox-x:hover { color: var(--text-primary); }
-
-/* --- Bits ------------------------------------------------------------- */
-
-.sa-pill.muted { background: #eef0f3; color: var(--text-muted); }
-.sa-table tr.sa-clickable { cursor: pointer; }
-.sa-table tr.sa-clickable:hover { background: var(--bg-color); }
-
-.sa-stat.clickable { cursor: pointer; text-align: left; font: inherit; width: 100%; }
-.sa-stat.clickable:hover { border-color: var(--text-muted); }
-.sa-stat.off .sa-stat-value { color: var(--danger-color); }
-.sa-stat.warn .sa-stat-value { color: var(--warn-color); }
-
-.sa-meter { height: 6px; background: #eef0f3; border-radius: 999px; overflow: hidden; margin-top: 8px; }
-.sa-meter > span { display: block; height: 100%; background: var(--success-color); border-radius: 999px; }
-.sa-meter.warn > span { background: var(--warn-color); }
-.sa-meter.off > span { background: var(--danger-color); }
-
-.sa-kv { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 6px 18px; font-size: 13.5px; }
-.sa-kv dt { color: var(--text-muted); }
-.sa-kv dd { color: var(--text-primary); }
-
-.sa-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
-.sa-card {
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: 16px 18px;
-}
-.sa-card h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
-/* overflow-wrap because these cards carry machine strings with nothing to break
-   at. The System Health page prints MEDIA_ROOT as an absolute filesystem path,
-   and on a 375px screen that one unbreakable word set the card's min-content
-   width to 448px, blew the grid column out past the viewport, and gave the whole
-   page a horizontal scrollbar -- on the screen an administrator opens when
-   something is already wrong. */
-.sa-card p { font-size: 13px; color: var(--text-secondary); overflow-wrap: anywhere; }
-
-.sa-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-
-@media (max-width: 900px) {
-  .sa-shell { grid-template-columns: 1fr; }
-  .sa-nav { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border-color); }
-  .sa-page { padding: 16px 14px 48px; }
-  .sa-topbar { padding: 10px 14px; flex-wrap: wrap; }
-
-  /* The rail becomes a strip that scrolls SIDEWAYS, not a block that wraps.
-     `display: inline-block` on the groups let the 17 nav items reflow into a
-     ragged two-column stack about 1200px tall, so on a 375px phone every
-     screen in the console opened below a full page of navigation and the
-     content had to be scrolled to -- on the dashboard, on every boutique, on
-     the audit trail, every time. Measured at 375x812 before this rule.
-
-     One row that scrolls horizontally costs ~56px instead, keeps every
-     destination reachable, and needs no disclosure widget or JavaScript: the
-     group headings are dropped on this width because they were what forced
-     the wrap, and the item labels already say where each one goes. */
-  .sa-nav {
-    display: flex;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 4px;
-    overflow-x: auto;
-    /* Momentum scrolling on iOS, and a scrollbar that does not eat a row. */
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    padding: 8px 10px;
-  }
-  .sa-nav-group { display: contents; }
-  .sa-nav-group-title { display: none; }
-  .sa-nav-brand { flex: 0 0 auto; margin: 0 8px 0 0; }
-  /* width:auto matters as much as the nowrap. The rail sets width:100% so an
-     item fills a 232px column; inside this flex strip that percentage resolves
-     against the STRIP, so every pill became ~300px on a 320px phone and the
-     seventeen of them were 5,100px of sideways scrolling. Content-width pills
-     put most of the console within one or two swipes. */
-  .sa-nav-item { flex: 0 0 auto; width: auto; white-space: nowrap; margin: 0; }
-}
+.sa-result:hover, .sa-result:focus-visible { background: var(--surface-2); }
+.sa-result-type { flex: 0 0 74px; font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-secondary); }
+.sa-result-label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.sa-result-sub { margin-left: auto; font-size: var(--text-xs); color: var(--text-secondary); white-space: nowrap; }
+.sa-results-empty { padding: var(--space-4); text-align: center; font-size: var(--text-sm); color: var(--text-secondary); }
 
 @media (max-width: 640px) {
-  .sa-main { padding: 18px 14px; }
-  .sa-header { padding: 12px 16px; }
-  .sa-tabs { margin-left: 0; order: 3; width: 100%; }
-
-  /* Sign out was falling off the right edge of a 320px screen -- measured at
-     every route, the button's right edge sat 11px past the viewport. The
-     topbar already wraps at this width, but `margin-left: auto` kept this group
-     pinned as one 317px block that could not wrap within itself. Letting it
-     wrap and letting the administrator's email give up its space first keeps
-     both controls on screen, which matters more than seeing the whole address:
-     signing out is the one thing on this bar that must always be reachable. */
-  .sa-topbar-right { margin-left: 0; width: 100%; flex-wrap: wrap; gap: 8px; }
-  .sa-topbar-right .sa-who {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  .sa-global-search { flex-basis: 100%; max-width: none; }
+  .sa-topbar-right { width: 100%; justify-content: space-between; }
 }
 
-/* --- One-time link ---------------------------------------------------- */
+/* --- Page rhythm ------------------------------------------------------- */
 
-.sa-onetime { margin-top: 4px; }
-.sa-onetime-row { display: flex; gap: 8px; align-items: stretch; }
-.sa-onetime-row .sa-input {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12.5px;
+/* Every block a screen renders at its top level is 20px from the one before;
+   a sub-section heading gets more air above and sits close to what it names.
+   Vertical margins collapse, so the workspace's own margins (PageHeader's 24,
+   the toolbar's 20/16) still decide where they are larger. */
+.sa-page { min-width: 0; }
+/* BoutiqueDetail's title is a raw schema name, with no spaces to break at. */
+.sa-page .at-page-title { overflow-wrap: anywhere; }
+.sa-page > :where(* + *) { margin-top: var(--space-5); }
+.sa-page > :where(* + .sa-section-head) { margin-top: var(--space-8); }
+.sa-page > :where(.sa-section-head + *) { margin-top: var(--space-3); }
+.sa-page > :where(.at-table-wrap + .at-pager) { margin-top: 0; }
+/* A dialog's fixed overlay is rendered in the flow (in the page, in a card
+   body), so no rhythm margin may push it down off the viewport's top. */
+.sa-shell .at-modal-overlay { margin: 0; }
+
+/* Sub-section heading (SectionHead): the card-title type, on the page. */
+.sa-section-head { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3) var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.sa-section-head-text { flex: 1 1 280px; min-width: 0; }
+
+/* A row of controls or buttons. */
+.sa-inline { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; min-width: 0; }
+.sa-inline--end { justify-content: flex-end; }
+
+/* Filter rows (Toolbar's right side, SectionHead's controls) take the room
+   the row has rather than their shrink-wrapped width, so a search box and two
+   selects stay on one line at desktop width instead of wrapping early. */
+.sa-page .at-toolbar-right { margin-left: auto; }
+.sa-page .at-toolbar-right, .sa-page .sa-section-head > .sa-inline { flex: 1 1 auto; justify-content: flex-end; }
+/* select.form-control is width: 100% in the workspace and outranks .at-filter. */
+.sa-page select.form-control.at-filter { width: auto; }
+@media (max-width: 640px) {
+  .sa-page .at-toolbar-right { flex-basis: 100%; min-width: 0; margin-left: 0; }
+  .sa-page .at-toolbar-right .at-search { max-width: none; }
+  /* Selects share a row and fill it, rather than one ragged line each. A
+     select is as wide as its longest option, so min-width: 0 lets a long
+     boutique name truncate inside it instead of widening the page. */
+  .sa-page .at-toolbar-right > select.at-filter { flex: 1 1 140px; min-width: 0; max-width: none; }
 }
-.sa-onetime-row .sa-btn { white-space: nowrap; }
-.sa-onetime-note {
-  display: flex;
-  gap: 7px;
-  align-items: flex-start;
-  font-size: 12.5px;
-  color: var(--warn-color);
-  margin-top: 10px;
-  line-height: 1.45;
+
+/* Stat tiles wide enough that a rupee total never breaks mid-number. */
+.sa-page .at-stat-grid { grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); }
+/* The workspace minimums are wider than a 320px phone's content column. */
+.sa-page .at-grid-2 { grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+.sa-page .at-grid-3 { grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); }
+
+/* --- Cards (Card), notes (Note), tabs (Tabs) --------------------------- */
+
+.sa-card-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); flex-wrap: wrap; margin-left: auto; }
+/* A card's status Pill and header link stay on the title's row, top right,
+   and the title wraps instead (never an ellipsis). In a grid of cards, where
+   a card is a third of the page, the actions stack in that corner -- the
+   Pill over the link, which may wrap -- and take at most half the row, so
+   every card of the grid has its Pill in the same place and its title room
+   to read. A phone card is the page's full width and keeps the workspace's
+   wrap. */
+@media (min-width: 641px) {
+  .sa-card-head { flex-wrap: nowrap; }
+  .sa-card-head > .at-section-heading { flex: 1 1 0%; min-width: 0; }
+  .sa-card-head .at-section-heading > div { min-width: 0; }
+  .sa-card-head .at-section-title { overflow-wrap: break-word; }
+  .sa-card-head > .sa-card-actions { flex: none; }
+  /* In a narrow grid card the title keeps whole words; the link gives way
+     (it wraps) before the title breaks inside one. */
+  :is(.at-grid-2, .at-grid-3) .sa-card-head > .at-section-heading,
+  :is(.at-grid-2, .at-grid-3) .sa-card-head .at-section-heading > div { min-width: auto; }
+  :is(.at-grid-2, .at-grid-3) .sa-card-head > .sa-card-actions { flex: 0 1 auto; flex-direction: column; align-items: flex-end; gap: var(--space-1); max-width: 50%; }
+  :is(.at-grid-2, .at-grid-3) .sa-card-actions > .at-link { white-space: normal; text-align: right; }
 }
+.sa-card-body { min-width: 0; font-size: var(--text-sm); line-height: var(--leading-normal); color: var(--text-secondary); overflow-wrap: anywhere; }
+.sa-card-body > :where(* + *) { margin-top: var(--space-3); }
+:where(.sa-card-body, .sa-dialog-text, .sa-note) strong { color: var(--text-primary); font-weight: var(--weight-semibold); }
+:where(.sa-card-body, .sa-dialog-text, .sa-note, .sa-empty-detail) code {
+  padding: 1px 5px; border-radius: var(--radius-sm); background: var(--surface-inset);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.92em; color: var(--text-primary);
+}
+
+.sa-note--danger { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger-color) 35%, transparent); }
+.sa-note--danger .at-note-icon, .sa-note--danger .at-note-title, .sa-note--danger .at-note-text { color: var(--danger-color); }
+.sa-note .at-note-text > :where(* + *) { margin-top: var(--space-2); }
+.sa-note .at-note-text :where(ul, ol) { margin: var(--space-1) 0 0; padding-left: 18px; }
+.sa-note-action { flex-shrink: 0; align-self: center; margin-left: auto; }
+@media (max-width: 640px) {
+  .sa-note { flex-wrap: wrap; }
+  .sa-note-action { margin-left: 0; flex-basis: 100%; }
+}
+
+/* Block-level, so its rhythm margin collapses with PageHeader's like every
+   other block (inline-flex left a 44px gap); fit-content keeps it a strip. */
+.sa-tabs { display: flex; width: fit-content; max-width: 100%; }
+.sa-tabs .tab-btn { cursor: pointer; white-space: nowrap; }
+.sa-tab-count {
+  min-width: 20px; padding: 0 6px; border-radius: 999px; text-align: center;
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold); line-height: 18px; font-variant-numeric: tabular-nums;
+}
+
+/* Quiet buttons. The workspace ships .btn-ghost / .btn-link as colour roles
+   only; inside the console they get the button box so they can stand alone. */
+.sa-shell :where(.btn-ghost, .btn-link) {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  font-family: var(--font-sans); font-size: var(--text-base); font-weight: var(--weight-semibold); line-height: 1.2;
+  border-width: 1px; border-style: solid; border-radius: var(--radius-lg); cursor: pointer;
+  transition: color .15s ease, background-color .15s ease, border-color .15s ease;
+}
+.sa-shell :where(.btn-ghost) { min-height: 40px; padding: 0 var(--space-4); }
+.sa-shell :where(.btn-ghost, .btn-link):disabled { opacity: .5; cursor: not-allowed; }
+.sa-shell :where(.btn-ghost, .btn-link) svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+/* Form controls that live in a dense table cell. */
+:is(input, select, textarea).sa-compact { min-height: 36px; padding: 6px 10px; font-size: var(--text-sm); }
+textarea.sa-compact { min-height: 64px; resize: vertical; }
+select.sa-compact { padding-right: 30px; }
+/* A full-width (form-control) textarea adds no minimum to an auto-layout
+   column, so the column could squeeze it to nothing. */
+.at-table textarea.sa-wide { min-width: 260px; }
+/* A short number or code field (a rollout percent, a plan picker in a row). */
+:is(input, select).sa-narrow { width: 96px; max-width: 100%; }
+select.sa-narrow { width: 120px; }
+
+/* --- Key / value lists (KeyValue) ------------------------------------- */
+
+/* No margin reset here: index.css already zeroes every element's margin, and
+   one here would cancel the card-body gap above a list after a paragraph. */
+.sa-kv { display: grid; grid-template-columns: minmax(120px, max-content) minmax(0, 1fr); gap: var(--space-2) var(--space-5); font-size: var(--text-sm); }
+.sa-kv--3 { grid-template-columns: minmax(110px, max-content) minmax(0, 1fr) 46px; align-items: center; }
+.sa-kv-row { display: contents; }
+.sa-kv dt { color: var(--text-secondary); }
+.sa-kv dd { margin: 0; min-width: 0; color: var(--text-primary); overflow-wrap: anywhere; }
+.sa-kv dd.sa-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 480px) {
+  .sa-kv:not(.sa-kv--3) { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .sa-kv:not(.sa-kv--3) dd { margin-bottom: var(--space-2); }
+}
+
+/* --- Tables (.at-table additions) ------------------------------------- */
+
+.at-table .sa-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.at-table td.sa-actions { white-space: nowrap; }
+/* Several row actions stay on one line on desktop (the table scrolls under
+   the pinned column instead); stacked, they wrap and sit under their label. */
+@media (min-width: 1025px) {
+  .at-table td.sa-actions .sa-inline { flex-wrap: nowrap; }
+}
+@media (max-width: 1024px) {
+  .at-table--fit td.sa-actions .sa-inline { justify-content: flex-start; }
+}
+.at-table tr.sa-clickable { cursor: pointer; }
+.at-table tr.sa-clickable:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+/* A suspended boutique or account reads as switched off; its actions do not. */
+.at-table tr.sa-suspended td:not(.sa-actions) { opacity: .55; }
+/* The expanded half of an expandable row. Its content takes the row's width
+   but adds nothing to the columns' (width 0 sizes it out of the table's
+   column measuring, min-width 100% then fills the cell), so opening a row
+   neither moves the columns nor lets a long traceback line widen the table. */
+.at-table tr.sa-detail-row > td { background: var(--surface-2); padding: var(--space-4) var(--space-5); }
+.at-table tr.sa-detail-row > td > * { width: 0; min-width: 100%; }
+/* A message line under a title can hold a URL or a token with no spaces. */
+.sa-page .at-table td .at-row-sub { overflow-wrap: anywhere; }
+/* A quiet button that is the whole of a cell (Modules' module state). Its
+   padding stays as the hover area but is pulled out into the cell's own, so
+   what it holds lines up with the column header and the stacked label. */
+.at-table .sa-cell-btn { justify-content: flex-start; padding-inline: var(--space-3) !important; margin-inline: calc(-1 * var(--space-3) - 1px); }
+/* Long free text (a browser's user agent): two lines, the rest in title=. */
+.sa-clamp-2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+/* Generic data tables (forty columns on an order) scroll rather than wrap. */
+.at-table.sa-nowrap th, .at-table.sa-nowrap td { white-space: nowrap; }
+/* One cell that must not wrap: a date or a timestamp. Stacked (<=1024px),
+   the workspace's !important lets it wrap again, as it should on a phone. */
+.at-table :is(th, td).sa-nowrap { white-space: nowrap; }
+/* Column sizing for free text: a visitor's message is capped on desktop
+   (stacked, it takes the card's width), an editable note keeps room to type. */
+@media (min-width: 1025px) {
+  .at-table td.sa-col-prose { max-width: 320px; }
+}
+.at-table td.sa-col-note { min-width: 220px; }
+
+/* Pinned columns: the row's action stays on screen while a wide table scrolls
+   sideways inside .at-table-wrap, and a matrix keeps its row names. Opaque,
+   so scrolled cells pass underneath; the row hover still tints them. The
+   opaque fill also covers the collapsed row border, so the cell draws its
+   own (the inset line); the last body row has none, like the rest of it. */
+.at-table .sa-sticky-end, .at-table .sa-sticky-start { position: sticky; z-index: 1; background: var(--surface-color); }
+.at-table .sa-sticky-end { right: 0; box-shadow: -8px 0 8px -8px color-mix(in srgb, var(--text-primary) 22%, transparent), inset 0 -1px 0 var(--border-color); }
+.at-table .sa-sticky-start { left: 0; box-shadow: 8px 0 8px -8px color-mix(in srgb, var(--text-primary) 22%, transparent), inset 0 -1px 0 var(--border-color); }
+.at-table :where(tbody tr:last-child) > .sa-sticky-end { box-shadow: -8px 0 8px -8px color-mix(in srgb, var(--text-primary) 22%, transparent); }
+.at-table :where(tbody tr:last-child) > .sa-sticky-start { box-shadow: 8px 0 8px -8px color-mix(in srgb, var(--text-primary) 22%, transparent); }
+.at-table th.sa-sticky-end, .at-table th.sa-sticky-start { background: var(--surface-2); }
+
+@media (max-width: 1024px) {
+  /* Stacked into cards: nothing scrolls sideways, so nothing is pinned. */
+  .at-table--fit .sa-sticky-end, .at-table--fit .sa-sticky-start { position: static; box-shadow: none; background: transparent; }
+  .at-table--fit tr.sa-detail-row > td { padding: var(--space-3) var(--space-4); }
+  /* The stacked layout lets every cell wrap; a traceback must keep its lines,
+     a before/after value still wraps, and a clamp still clips. */
+  .at-table--fit td .sa-code { white-space: pre !important; overflow: auto !important; }
+  .at-table--fit td .sa-code--wrap { white-space: pre-wrap !important; }
+  .at-table--fit td .sa-clamp-2 { overflow: hidden !important; }
+  /* An expandable row's chevron is not a line of its own: it sits in the
+     card's top-right corner, and the card keeps its text clear of it. The
+     whole row stays the toggle, by click and by keyboard. */
+  .at-table--fit tr:has(> td.sa-expand-cell) { position: relative; padding-right: var(--space-8); }
+  .at-table--fit td.sa-expand-cell { position: absolute; top: var(--space-2); right: var(--space-2); width: auto; padding: var(--space-2); line-height: 0; color: var(--text-secondary); }
+}
+
+/* --- Machine values: schema names, JSON, code ------------------------- */
+
+.sa-muted { color: var(--text-secondary); }
+.sa-schema, .sa-mono, input.sa-mono, textarea.sa-mono, .sa-json, .sa-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+/* overflow-wrap because schema names, hosts and paths have no spaces to break
+   at, and one long one used to push a whole page sideways on a phone. */
+.sa-schema { font-size: var(--text-xs); color: var(--text-secondary); overflow-wrap: anywhere; }
+.sa-mono, input.sa-mono, textarea.sa-mono { font-size: var(--text-xs); }
+.sa-json { display: inline-block; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; font-size: var(--text-xs); color: var(--text-secondary); }
+.sa-code {
+  margin: 0; padding: var(--space-3) 14px; max-height: 300px; overflow: auto; white-space: pre;
+  font-size: var(--text-xs); line-height: 1.6; color: var(--text-primary);
+  background: var(--surface-2); border: 1px solid var(--border-color); border-radius: var(--radius-md);
+}
+/* A value rather than a listing (Audit's before/after): it wraps. */
+.sa-code--wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Status glyphs (a tick, a cross) and before/after diffs only -- never
+   headings, numbers or body copy; status words belong in a Pill. */
+.sa-text-ok { color: var(--success-color); }
+.sa-text-off { color: var(--danger-color); }
+
+/* --- Boutique drill-in: table list beside the data pane ---------------- */
+
+.sa-split { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: var(--space-5); align-items: start; }
+.sa-side {
+  position: sticky; top: var(--space-5); max-height: calc(100vh - 2 * var(--space-5)); overflow-y: auto;
+  padding: var(--space-2); background: var(--surface-color);
+  border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
+}
+.sa-side-group + .sa-side-group { margin-top: var(--space-3); }
+.sa-side-title { padding: var(--space-2) 10px var(--space-1); font-size: var(--text-2xs); font-weight: var(--weight-semibold); letter-spacing: 0.13em; text-transform: uppercase; color: var(--text-secondary); }
+.sa-side-item {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  width: 100%; min-height: 36px; padding: 6px 10px; border: 0; border-radius: var(--radius-md);
+  background: transparent; color: var(--text-secondary); font-size: var(--text-sm); text-align: left; cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.sa-side-item:hover { background: var(--surface-inset); color: var(--text-primary); }
+.sa-side-item.active, .sa-side-item[aria-current='page'] { background: var(--accent-color); color: var(--text-primary); font-weight: var(--weight-semibold); box-shadow: inset 3px 0 0 var(--primary-color); }
+.sa-side-count { font-size: var(--text-xs); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.sa-side-count.zero { opacity: .45; }
+.sa-pane { min-width: 0; }
+.sa-pane-head { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-3); }
+.sa-pane-title { margin-right: auto; font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--text-primary); }
+@media (max-width: 1024px) {
+  .sa-split { grid-template-columns: minmax(0, 1fr); }
+  .sa-side { position: static; max-height: 240px; }
+}
+
+/* --- Empty, not-built and failed states (Empty / NotBuilt / Failed) --- */
+
+.sa-empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-10) var(--space-6); text-align: center; }
+.sa-empty-state .at-tile { width: 44px; height: 44px; margin-bottom: var(--space-2); }
+.sa-empty-title { margin: 0; font-size: var(--text-lg); font-weight: var(--weight-semibold); letter-spacing: -0.02em; line-height: var(--leading-tight); color: var(--text-primary); }
+.sa-empty-detail { max-width: 460px; margin: 0; font-size: var(--text-sm); color: var(--text-secondary); overflow-wrap: anywhere; }
+.sa-empty-action { margin-top: var(--space-3); }
+
+/* --- Dialog body copy (Confirm / Modal) ------------------------------- */
+
+.sa-dialog-text { font-size: var(--text-base); line-height: var(--leading-normal); color: var(--text-secondary); overflow-wrap: anywhere; }
+.sa-dialog-text > :where(* + *) { margin-top: var(--space-2); }
+
+/* A Confirm is a few lines and two buttons. On a phone the workspace dialog
+   is a full-height page; a Confirm is a bottom sheet as tall as it is. */
+@media (max-width: 640px) {
+  .at-modal:has(> .sa-confirm-body) { height: auto; border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+}
+
+/* --- Toasts (the workspace toast, stacked) ---------------------------- */
+
+.sa-toasts {
+  position: fixed; left: var(--space-4); right: var(--space-4); bottom: var(--space-4); z-index: 1400;
+  display: flex; flex-direction: column; gap: var(--space-2); pointer-events: none;
+}
+.sa-toast {
+  pointer-events: auto; display: flex; align-items: center; gap: 10px; padding: var(--space-3) var(--space-4);
+  background: var(--brand-dark); color: var(--brand-dark-foreground); border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  font-family: var(--font-sans); font-size: var(--text-base); line-height: 1.4;
+}
+/* A failure keeps the dark fill but carries a danger edge, so it cannot be
+   read as a confirmation at a glance. */
+.sa-toast--error { box-shadow: inset 4px 0 0 var(--danger-color), var(--shadow-lg); }
+.sa-toast > svg { flex-shrink: 0; }
+.sa-toast-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.sa-toast .at-icon-btn { width: 28px; height: 28px; min-height: 28px; flex-shrink: 0; color: inherit; opacity: .7; }
+.sa-toast .at-icon-btn:hover:not(:disabled) { opacity: 1; color: inherit; background: color-mix(in srgb, var(--brand-dark-foreground) 14%, transparent); }
+@media (min-width: 900px) {
+  .sa-toasts { left: auto; right: var(--space-6); bottom: var(--space-6); width: 420px; max-width: calc(100vw - 2 * var(--space-6)); }
+}
+
+/* --- Search box clear button (SearchBox) ------------------------------ */
+
+.sa-search input { padding-right: 40px; }
+.sa-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.sa-search .sa-search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
+.sa-search .sa-search-clear svg { position: static; transform: none; }
+
+/* --- One-time sign-in link (OneTimeLink) ------------------------------ */
+
+.sa-onetime { display: flex; flex-direction: column; gap: var(--space-3); }
+.sa-onetime-row { display: flex; gap: var(--space-2); align-items: stretch; }
+.sa-onetime-row .form-control { flex: 1 1 auto; min-width: 0; }
+.sa-onetime-row .btn-primary { flex-shrink: 0; min-height: 44px; }
+.sa-onetime-note { display: flex; gap: var(--space-2); align-items: flex-start; margin: 0; font-size: var(--text-xs); line-height: 1.45; color: var(--text-secondary); }
 .sa-onetime-note > svg { flex: none; margin-top: 2px; }
-.sa-onetime-note.sa-muted { color: var(--text-muted); }
+@media (max-width: 480px) {
+  .sa-onetime-row { flex-direction: column; }
+}
+
+/* --- Sign-in (the workspace entry page) ------------------------------- */
+
+.sa-signin { padding: var(--space-10) var(--space-4); }
+.sa-signin .portal-wordmark--auth { margin-bottom: var(--space-6); }
+.sa-signin .auth-card { max-width: 420px; gap: var(--space-5); padding: clamp(20px, 5vw, 32px); }
+.sa-signin-head { text-align: center; }
+.sa-signin .auth-title { margin: 0; font-size: 24px; font-weight: var(--weight-semibold); letter-spacing: -0.02em; color: var(--text-primary); }
+.sa-signin .auth-subtitle { margin: 6px 0 0; font-size: var(--text-base); }
+.sa-signin .btn-primary { width: 100%; min-height: 44px; }

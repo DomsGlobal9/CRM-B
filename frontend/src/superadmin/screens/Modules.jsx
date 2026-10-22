@@ -17,10 +17,15 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { Info, Lock, MonitorSmartphone, PackageSearch, ShieldCheck } from 'lucide-react';
+import {
+  ChevronRight, Lock, MonitorSmartphone, PackageSearch, RotateCcw, ShieldCheck, ToggleRight,
+} from 'lucide-react';
 
 import { consoleApi } from '../api';
-import { Async, Confirm, Empty, Pill, SearchBox, SectionHead, useApi, useToast } from '../ui';
+import {
+  Async, Card, Confirm, Empty, Modal, Note, PageHeader, Pill, SearchBox, SectionHead, Select,
+  Toolbar, useApi, useToast,
+} from '../ui';
 
 /* The server sends each boutique's `entitled` list (plan + overrides, computed
    in core/modules.py); this screen never re-derives it, so it cannot disagree
@@ -28,10 +33,12 @@ import { Async, Confirm, Empty, Pill, SearchBox, SectionHead, useApi, useToast }
 const isOn = (row, key) => row.entitled.includes(key);
 const isOverride = (row, key) => row.enabled_modules && key in row.enabled_modules;
 
-// Twelve columns on a laptop, so the boutique name pins to the left instead of
-// scrolling out of sight and leaving a row of anonymous switches. Same problem
-// .sa-sticky-end fixes for the action column on Boutiques, other edge.
-const PINNED = { position: 'sticky', left: 0, background: 'var(--surface-color)', zIndex: 1 };
+// Twelve columns on a laptop, so the boutique name pins to the left (the
+// sa-sticky-start cell) instead of scrolling out of sight and leaving a row of
+// anonymous switches. Same problem .sa-sticky-end fixes for the action column
+// on Boutiques, other edge. sa-nowrap keeps that name on one line: the grid
+// scrolls sideways anyway, and a wrapping name column is the one that gets
+// squeezed to a word wide. Stacked on a phone, the cells wrap as usual.
 
 export default function Modules() {
   const toast = useToast();
@@ -108,164 +115,159 @@ export default function Modules() {
 
   return (
     <>
+      <PageHeader
+        title="Features per boutique"
+        subtitle="Modules per boutique — CRM, Design Studio, Inventory, Team Management, Finance, Try-On, Marketing. The plan sets them; open a module to switch its features one by one. The server enforces it, not just the menu."
+      />
+
       <Async
         state={state}
         isEmpty={(d) => d.boutiques.length === 0}
-        empty={<Empty icon={<PackageSearch size={22} />} title="No boutiques to configure."
+        empty={<Empty icon={<PackageSearch size={20} />} title="No boutiques to configure."
           detail="Modules are set per boutique, and none have signed up yet." />}
       >
         {(data) => (
           <>
-            <SectionHead
-              title="Features per boutique"
-              subtitle="Modules per boutique — CRM, Design Studio, Inventory, Team Management, Finance, Try-On, Marketing. The plan sets them; open a module to switch its features one by one. The server enforces it, not just the menu."
-            >
-              <SearchBox value={term} onChange={setTerm} placeholder="Boutique name or schema…" />
-            </SectionHead>
+            {note && <Note tone="info">{note}</Note>}
 
-            {note && <div className="sa-note info">{note}</div>}
+            <Toolbar right={
+              <SearchBox value={term} onChange={setTerm} placeholder="Boutique name or schema…" />
+            } />
 
             {rows.length === 0 ? (
               <Empty title="No boutique matches that search." detail="Clear the search to see them all." />
             ) : (
-              <div className="sa-table-wrap">
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th style={PINNED}>Boutique</th>
-                      <th>Plan</th>
-                      {productModules.map((mod) => (
-                        <th key={mod.key} title={mod.description}>
-                          {mod.label}
-                          <div className="sa-schema">
-                            {mod.features.length ? `${mod.features.length} feature${mod.features.length === 1 ? '' : 's'}` : 'coming soon'}
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((b) => {
-                      const row = stored[b.schema_name] ?? b;
-                      return (
-                        <tr key={b.schema_name}>
-                          <td style={PINNED}>
-                            <div className="sa-name">{b.name}</div>
-                            <div className="sa-schema">{b.schema_name}</div>
-                            {/* A suspended boutique reaches nothing at all, so its
-                                switches are still worth setting but not worth
-                                reading as live. */}
-                            {!b.is_active && <Pill value="suspended" />}
-                          </td>
-                          <td>
-                            <select className="sa-select" style={{ width: 110 }} value={row.plan}
-                              aria-label={`Plan for ${b.name}`}
-                              onChange={(e) => setPending({ boutique: b, plan: e.target.value })}>
-                              {data.plans.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-                            </select>
-                          </td>
-                          {productModules.map((mod) => {
-                            const st = moduleState(row, mod);
-                            const tone = { on: 'ok', partly: 'warn', off: 'off', 'coming soon': 'muted' }[st];
-                            const overridden = mod.features.some((k) => isOverride(row, k));
-                            return (
-                              <td key={mod.key}>
-                                <button className="sa-btn" disabled={!mod.features.length}
-                                  aria-label={`${mod.label} for ${b.name}: ${st}`}
-                                  onClick={() => setOpen({ boutique: b, module: mod })}>
-                                  <Pill value={st} tone={tone} label={st} />{overridden ? " *" : ""}{mod.features.length ? <span className="sa-schema"> · {mod.features.length} feature{mod.features.length === 1 ? "" : "s"} ▸</span> : null}
-                                </button>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                <p className="sa-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+              <>
+                <div className="at-table-wrap">
+                  <table className="at-table at-table--fit sa-nowrap">
+                    <thead>
+                      <tr>
+                        <th scope="col" className="sa-sticky-start">Boutique</th>
+                        <th scope="col">Plan</th>
+                        {productModules.map((mod) => (
+                          <th key={mod.key} scope="col" title={mod.description}>
+                            {mod.label}
+                            <div className="at-row-sub">
+                              {mod.features.length ? `${mod.features.length} feature${mod.features.length === 1 ? '' : 's'}` : 'coming soon'}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((b) => {
+                        const row = stored[b.schema_name] ?? b;
+                        return (
+                          <tr key={b.schema_name}>
+                            <td data-label="Boutique" className="sa-sticky-start">
+                              <div className="at-row-title">{b.name}</div>
+                              <div className="sa-schema">{b.schema_name}</div>
+                              {/* A suspended boutique reaches nothing at all, so its
+                                  switches are still worth setting but not worth
+                                  reading as live. */}
+                              {!b.is_active && <Pill value="suspended" />}
+                            </td>
+                            <td data-label="Plan">
+                              <Select className="form-control sa-compact sa-narrow" value={row.plan}
+                                label={`Plan for ${b.name}`}
+                                options={data.plans.map((p) => ({ value: p.key, label: p.label }))}
+                                onChange={(plan) => setPending({ boutique: b, plan })} />
+                            </td>
+                            {productModules.map((mod) => {
+                              const st = moduleState(row, mod);
+                              // Off is a decision (the plan, or a hand-set value), not a
+                              // fault, so it is grey like 'coming soon', never red.
+                              const tone = { on: 'ok', partly: 'warn', off: 'muted', 'coming soon': 'muted' }[st];
+                              const overridden = mod.features.some((k) => isOverride(row, k));
+                              return (
+                                <td key={mod.key} data-label={mod.label}>
+                                  <button type="button" className="btn-ghost at-btn-sm sa-cell-btn" disabled={!mod.features.length}
+                                    aria-label={`${mod.label} for ${b.name}: ${st}`}
+                                    onClick={() => setOpen({ boutique: b, module: mod })}>
+                                    <Pill value={st} tone={tone} label={st} />{overridden ? ' *' : ''}
+                                    {mod.features.length ? (
+                                      <>
+                                        <span className="at-row-sub">· {mod.features.length} feature{mod.features.length === 1 ? '' : 's'}</span>
+                                        <ChevronRight size={14} aria-hidden="true" className="sa-muted" />
+                                      </>
+                                    ) : null}
+                                  </button>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="at-row-sub">
                   Click a module to see and switch its features. * means at least one feature is set by hand, overriding the plan.
                 </p>
-              </div>
+              </>
             )}
 
-            <div style={{ marginTop: 32 }}>
-              <SectionHead title="What each plan includes"
-                subtitle="On top of orders, customers, invoices and reports, which every boutique has." />
-              <div className="sa-cards">
-                {data.plans.map((p) => (
-                  <div key={p.key} className="sa-card">
-                    <h4><PackageSearch size={14} /> {p.label}</h4>
-                    <p>{p.modules.map((k) => productModules.find((m) => m.key === k)?.label || k).join(' · ')}</p>
-                  </div>
-                ))}
-                <div className="sa-card">
-                  <h4><PackageSearch size={14} /> Add-ons</h4>
-                  <p>{data.addons.map((k) => labelOf(k)).join(' · ')} — CRM features sold separately; switch them on per boutique inside CRM. Included in {planLabel('atelier')}.</p>
-                </div>
-              </div>
+            <SectionHead title="What each plan includes"
+              subtitle="On top of orders, customers, invoices and reports, which every boutique has." />
+            <div className="at-grid-3">
+              {data.plans.map((p) => (
+                <Card key={p.key} icon={PackageSearch} title={p.label}>
+                  <p>{p.modules.map((k) => productModules.find((m) => m.key === k)?.label || k).join(' · ')}</p>
+                </Card>
+              ))}
+              <Card icon={PackageSearch} title="Add-ons">
+                <p>{data.addons.map((k) => labelOf(k)).join(' · ')} — CRM features sold separately; switch them on per boutique inside CRM. Included in {planLabel('atelier')}.</p>
+              </Card>
             </div>
 
-            <div style={{ marginTop: 32 }}>
-              <SectionHead title="Plumbing, always on"
-                subtitle="Parts every screen depends on. Not sold, not switchable: a switch here would break the product, not restrict it." />
-              <div className="sa-cards">
-                {data.modules.filter((m) => m.infrastructure).map((m) => (
-                  <div key={m.key} className="sa-card">
-                    <h4><ShieldCheck size={14} /> {m.label}</h4>
-                    <p>{m.description}</p>
-                  </div>
-                ))}
-              </div>
+            <SectionHead title="Plumbing, always on"
+              subtitle="Parts every screen depends on. Not sold, not switchable: a switch here would break the product, not restrict it." />
+            <div className="at-grid-3">
+              {data.modules.filter((m) => m.infrastructure).map((m) => (
+                <Card key={m.key} icon={ShieldCheck} title={m.label}>
+                  <p>{m.description}</p>
+                </Card>
+              ))}
             </div>
 
-            <div style={{ marginTop: 32 }}>
-              <SectionHead
-                title="Always available"
-                subtitle="Orders and customers are the product itself; switching them off would break everything else."
-              />
-              <div className="sa-cards">
-                {data.structural.map((s) => (
-                  <div key={s.key} className="sa-card">
-                    <h4><Lock size={14} /> {s.label}</h4>
-                    {/* Verbatim from the server. Paraphrasing a reason is how a
-                        console and its middleware start disagreeing. */}
-                    <p>{s.reason}</p>
-                  </div>
-                ))}
-              </div>
+            <SectionHead
+              title="Always available"
+              subtitle="Orders and customers are the product itself; switching them off would break everything else."
+            />
+            <div className="at-grid-2">
+              {data.structural.map((s) => (
+                <Card key={s.key} icon={Lock} title={s.label}>
+                  {/* Verbatim from the server. Paraphrasing a reason is how a
+                      console and its middleware start disagreeing. */}
+                  <p>{s.reason}</p>
+                </Card>
+              ))}
             </div>
 
-            <div style={{ marginTop: 32 }}>
-              <SectionHead
-                title="Screens only, no switch"
-                subtitle="These exist only in the app, not on the server, so a switch here would hide a menu item without actually blocking anything. Not offered, to be honest about it."
-              />
-              <div className="sa-cards">
-                {data.client_only.map((c) => (
-                  <div key={c.key} className="sa-card">
-                    <h4><MonitorSmartphone size={14} /> {c.key.replace(/_/g, ' ')}</h4>
-                    <p>{c.reason}</p>
-                  </div>
-                ))}
-              </div>
+            <SectionHead
+              title="Screens only, no switch"
+              subtitle="These exist only in the app, not on the server, so a switch here would hide a menu item without actually blocking anything. Not offered, to be honest about it."
+            />
+            <div className="at-grid-3">
+              {data.client_only.map((c) => (
+                <Card key={c.key} icon={MonitorSmartphone} title={c.key.replace(/_/g, ' ')}>
+                  <p>{c.reason}</p>
+                </Card>
+              ))}
             </div>
 
-            <div style={{ marginTop: 32 }}>
-              <SectionHead title="Always on"
-                subtitle="Signing in and settings can never be switched off." />
-              <div className="sa-card">
-                <h4><ShieldCheck size={14} /> Authentication, settings, the dashboard and this console</h4>
-                <p>
-                  Login shares the <code>/api/</code> mount with the business routers, so a rule
-                  keyed on it would lock every boutique out of its own account with no way back
-                  in — and a console that can lock itself out is a console that will.
-                </p>
-                <p className="sa-schema" style={{ marginTop: 10 }}>
-                  {data.always_on.join('   ')}
-                </p>
-              </div>
-            </div>
+            <SectionHead title="Always on"
+              subtitle="Signing in and settings can never be switched off." />
+            <Card icon={ShieldCheck} title="Authentication, settings, the dashboard and this console">
+              <p>
+                Login shares the <code>/api/</code> mount with the business routers, so a rule
+                keyed on it would lock every boutique out of its own account with no way back
+                in — and a console that can lock itself out is a console that will.
+              </p>
+              <p className="sa-schema">
+                {data.always_on.join('   ')}
+              </p>
+            </Card>
           </>
         )}
       </Async>
@@ -273,25 +275,41 @@ export default function Modules() {
       {open && (() => {
         const row = stored[open.boutique.schema_name] ?? open.boutique;
         const mod = open.module;
+        const close = () => setOpen(null);
         return (
-          <div className="sa-modal-backdrop" onClick={() => setOpen(null)}>
-            <div className="sa-modal" onClick={(e) => e.stopPropagation()} role="dialog"
-              aria-label={`${mod.label} features for ${open.boutique.name}`}>
-              <h3>{mod.label} — {open.boutique.name}</h3>
-              <p className="sa-muted">{mod.description}</p>
-              <div style={{ display: 'flex', gap: 8, margin: '12px 0' }}>
-                <button className="sa-btn" onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: true })}>
-                  Whole module on
-                </button>
-                <button className="sa-btn danger" onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: false })}>
-                  Whole module off
-                </button>
-                <button className="sa-btn" onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: null })}>
-                  ↺ Follow plan
-                </button>
-              </div>
-              <table className="sa-table">
-                <thead><tr><th>Feature</th><th>State</th><th>Set by</th><th></th></tr></thead>
+          <Modal
+            icon={ToggleRight}
+            title={`${mod.label} — ${open.boutique.name}`}
+            subtitle={mod.description}
+            width="760px"
+            busy={busy}
+            onClose={close}
+            footer={<button type="button" className="btn-secondary" onClick={close}>Close</button>}
+          >
+            <div className="sa-inline">
+              <button type="button" className="btn-secondary"
+                onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: true })}>
+                Whole module on
+              </button>
+              <button type="button" className="btn-secondary at-btn-danger"
+                onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: false })}>
+                Whole module off
+              </button>
+              <button type="button" className="btn-secondary"
+                onClick={() => setPending({ boutique: open.boutique, bundle: mod, next: null })}>
+                <RotateCcw size={16} /> Follow plan
+              </button>
+            </div>
+            <div className="at-table-wrap">
+              <table className="at-table at-table--fit">
+                <thead>
+                  <tr>
+                    <th scope="col">Feature</th>
+                    <th scope="col">State</th>
+                    <th scope="col">Set by</th>
+                    <th scope="col"></th>
+                  </tr>
+                </thead>
                 <tbody>
                   {mod.features.map((k) => {
                     const f = featureOf(k);
@@ -299,34 +317,38 @@ export default function Modules() {
                     const override = isOverride(row, k);
                     return (
                       <tr key={k}>
-                        <td title={f?.description}>
-                          {f?.label || k}{f?.addon ? <span className="sa-schema"> add-on</span> : null}
+                        <td data-label="Feature" title={f?.description}>
+                          {f?.label || k}{f?.addon ? <span className="at-row-sub"> add-on</span> : null}
                         </td>
-                        <td><Pill value={on ? 'on' : 'off'} tone={on ? 'ok' : 'off'} label={on ? 'on' : 'off'} /></td>
-                        <td className="sa-muted">{override ? 'by hand' : `${planLabel(row.plan)} plan`}</td>
-                        <td style={{ whiteSpace: 'nowrap' }}>
-                          <button className={`sa-btn${on ? ' danger' : ''}`}
-                            onClick={() => setPending({ boutique: open.boutique, module: f, next: !on })}>
-                            Switch {on ? 'off' : 'on'}
-                          </button>
-                          {override && (
-                            <button className="sa-btn" style={{ marginLeft: 4 }}
-                              title="Remove the hand-set value so this follows the plan again"
-                              onClick={() => setPending({ boutique: open.boutique, module: f, next: null })}>
-                              ↺
+                        <td data-label="State">
+                          <Pill value={on ? 'on' : 'off'} tone={on ? 'ok' : 'muted'} label={on ? 'on' : 'off'} />
+                        </td>
+                        <td data-label="Set by" className="sa-muted">
+                          {override ? 'by hand' : `${planLabel(row.plan)} plan`}
+                        </td>
+                        <td data-label="Actions" className="sa-actions">
+                          <div className="sa-inline">
+                            <button type="button" className={`btn-secondary at-btn-sm${on ? ' at-btn-danger' : ''}`}
+                              onClick={() => setPending({ boutique: open.boutique, module: f, next: !on })}>
+                              Switch {on ? 'off' : 'on'}
                             </button>
-                          )}
+                            {override && (
+                              <button type="button" className="at-icon-btn"
+                                title="Remove the hand-set value so this follows the plan again"
+                                aria-label="Remove the hand-set value so this follows the plan again"
+                                onClick={() => setPending({ boutique: open.boutique, module: f, next: null })}>
+                                <RotateCcw size={16} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
-              <div style={{ textAlign: 'right', marginTop: 12 }}>
-                <button className="sa-btn" onClick={() => setOpen(null)}>Close</button>
-              </div>
             </div>
-          </div>
+          </Modal>
         );
       })()}
 
@@ -358,7 +380,7 @@ export default function Modules() {
               <strong>{planLabel(pending.plan)}</strong>:{' '}
               {(state.data?.plans.find((p) => p.key === pending.plan)?.modules || []).map(labelOf).join(', ')}.
             </p>
-            <p style={{ marginTop: 8 }}>
+            <p>
               Anything set by hand for this boutique (marked *) stays as it is. Screens for
               modules the new plan lacks stop answering; nothing is deleted.
             </p>
@@ -375,7 +397,7 @@ export default function Modules() {
               <span className="sa-schema">{pending.module.prefixes.join(' ')}</span>
               {pending.module.addon ? ' — an add-on on top of their plan.' : ' again.'}
             </p>
-            <p style={{ marginTop: 8 }}>{pending.module.description}</p>
+            <p>{pending.module.description}</p>
           </>
         ) : (
           <>
@@ -384,14 +406,11 @@ export default function Modules() {
               <span className="sa-schema">{pending.module.prefixes.join(' ')}</span> is refused
               by the server until you switch it back on.
             </p>
-            <p style={{ marginTop: 8 }}>
+            <p>
               {pending.module.description} Their screens that call those URLs will fail rather
               than disappear. Nothing is deleted, and switching it back on restores it.
             </p>
-            <p style={{ marginTop: 8 }}>
-              <Info size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
-              Other server workers apply this within 5 minutes.
-            </p>
+            <Note tone="info">Other server workers apply this within 5 minutes.</Note>
           </>
         ))}
         onConfirm={apply}

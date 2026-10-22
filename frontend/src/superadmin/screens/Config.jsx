@@ -16,11 +16,14 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Info, Lock, Power, Server } from 'lucide-react';
+import { Lock, Power, Server } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import { LIMITS } from '../../services/validate';
-import { Async, Confirm, Empty, Pill, SectionHead, Table, moment, useApi, useToast } from '../ui';
+import {
+  Async, Card, Confirm, Empty, Field, KeyValue, Note, PageHeader, Pill, SectionHead, Table, moment,
+  useApi, useToast,
+} from '../ui';
 
 /** Plain names for the keys ConfigView reports on. */
 const CREDENTIAL_NAMES = {
@@ -31,6 +34,13 @@ const CREDENTIAL_NAMES = {
   design_studio_pinterest: 'Design search — Pinterest',
   design_studio_google: 'Design search — Google Images',
   guardian_whatsapp_number: 'Watchdog WhatsApp number',
+};
+
+/** A key the list above does not name yet, in sentence case like every title. */
+const credentialName = (key) => {
+  if (CREDENTIAL_NAMES[key]) return CREDENTIAL_NAMES[key];
+  const words = key.replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
 const MAINTENANCE = 'maintenance_mode';
@@ -103,6 +113,11 @@ export default function Config() {
 
   return (
     <>
+      <PageHeader
+        title="Settings & maintenance"
+        subtitle="Maintenance mode, the settings the product reads at runtime, and what the server is configured with."
+      />
+
       <Async state={state}>
         {(data) => {
           const stored = maintenanceOf(data.settings);
@@ -113,58 +128,57 @@ export default function Config() {
           return (
             <>
               {stored.on && (
-                <div className="sa-note error">
-                  <strong>Maintenance mode is on.</strong> Every boutique is being refused with a
-                  503. This console, sign-in and the Django admin stay reachable — that exemption
-                  is the only reason it can be switched off from here.
-                </div>
+                <Note tone="error" title="Maintenance mode is on.">
+                  Every boutique is being refused with a 503. This console, sign-in and the
+                  Django admin stay reachable — that exemption is the only reason it can be
+                  switched off from here.
+                </Note>
               )}
-              {note && <div className="sa-note info">{note}</div>}
+              {note && <Note tone="info">{note}</Note>}
 
-              <SectionHead title="Maintenance mode"
-                subtitle="Pauses the whole platform: every boutique sees a maintenance message until this is switched off." />
-
-              <div className="sa-card" style={{ marginBottom: 32 }}>
-                <h4>
-                  <Power size={14} />
+              <Card
+                icon={Power}
+                tone={stored.on ? 'rose' : 'neutral'}
+                title="Maintenance mode"
+                subtitle="Pauses the whole platform: every boutique sees a maintenance message until this is switched off."
+                actions={(
                   <Pill value={stored.on ? 'critical' : 'healthy'}
                     label={stored.on ? 'Locked down' : 'Serving normally'} />
-                </h4>
-
-                <div className="sa-field" style={{ marginTop: 14, marginBottom: 10 }}>
-                  <label htmlFor="sa-maint-message">Message every boutique sees</label>
-                  <textarea id="sa-maint-message" className="sa-textarea" value={message} maxLength={LIMITS.reason}
+                )}
+              >
+                <Field label="Message every boutique sees" htmlFor="sa-maint-message">
+                  <textarea id="sa-maint-message" className="form-control" value={message} maxLength={LIMITS.reason}
                     placeholder="Back at 03:00 UTC. Nothing has been lost."
                     disabled={busy === MAINTENANCE}
                     onChange={(e) => setDraft(e.target.value)} />
-                </div>
+                </Field>
 
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="sa-inline">
                   {stored.on ? (
-                    <button className="sa-btn" disabled={busy === MAINTENANCE}
+                    <button type="button" className="btn-secondary at-btn-sm" disabled={busy === MAINTENANCE}
                       onClick={() => write(MAINTENANCE, { enabled: false, message: message.trim() },
                         '', 'Maintenance mode is off. Boutiques are being let back in.')}>
-                      <Power size={13} /> Turn maintenance off
+                      <Power size={14} /> Turn maintenance off
                     </button>
                   ) : (
-                    <button className="sa-btn danger" disabled={busy === MAINTENANCE}
+                    <button type="button" className="btn-secondary at-btn-sm at-btn-danger" disabled={busy === MAINTENANCE}
                       onClick={() => setAsking(true)}>
-                      <Power size={13} /> Turn maintenance on
+                      <Power size={14} /> Turn maintenance on
                     </button>
                   )}
-                  <button className="sa-btn"
+                  <button type="button" className="btn-primary at-btn-sm"
                     disabled={message === stored.message || busy === MAINTENANCE}
                     onClick={() => write(MAINTENANCE, { enabled: stored.on, message: message.trim() },
                       '', 'Maintenance message saved.')}>
                     Save message
                   </button>
-                  <span className="sa-muted" style={{ fontSize: 12.5 }}>
+                  <span className="sa-muted">
                     {message === stored.message
                       ? 'The message is saved. Editing it enables the button.'
                       : 'Unsaved message.'}
                   </span>
                 </div>
-              </div>
+              </Card>
 
               <SectionHead title="Platform settings"
                 subtitle="Values the product reads at runtime. Text must be in double quotes." />
@@ -176,16 +190,19 @@ export default function Config() {
                     label: 'Setting',
                     render: (s) => (
                       <>
-                        <div className="sa-name">{s.key}</div>
-                        {s.description && <div className="sa-owner">{s.description}</div>}
+                        <div className="at-row-title">{s.key}</div>
+                        {s.description && <div className="at-row-sub">{s.description}</div>}
                       </>
                     ),
                   },
                   {
                     key: 'value',
                     label: 'Value',
+                    // .form-control is width 100%, which on its own lets a table
+                    // column squeeze the editor to nothing; .sa-wide gives it a
+                    // floor (about 260px), enough to read a JSON value.
                     render: (s) => (
-                      <textarea className="sa-textarea" style={{ minWidth: 260 }}
+                      <textarea className="form-control sa-compact sa-mono sa-wide"
                         aria-label={`Value of ${s.key}`} disabled={busy === s.key}
                         value={edits[s.key] ?? JSON.stringify(s.value ?? null)}
                         onChange={(e) => setEdits((all) => ({ ...all, [s.key]: e.target.value }))} />
@@ -194,18 +211,22 @@ export default function Config() {
                   {
                     key: 'updated',
                     label: 'Last change',
+                    dataLabel: 'Last change',
+                    className: 'sa-nowrap',
                     render: (s) => (
                       <>
                         <div>{s.updated_by || <span className="sa-muted">unknown</span>}</div>
-                        <div className="sa-schema">{moment(s.updated_at)}</div>
+                        <div className="at-row-sub">{moment(s.updated_at)}</div>
                       </>
                     ),
                   },
                   {
                     key: 'save',
                     label: '',
+                    dataLabel: 'Actions',
+                    className: 'sa-actions',
                     render: (s) => (
-                      <button className="sa-btn"
+                      <button type="button" className="btn-secondary at-btn-sm"
                         disabled={edits[s.key] === undefined || busy === s.key}
                         onClick={() => saveSetting(s)}>
                         {busy === s.key ? 'Saving…' : 'Save'}
@@ -219,56 +240,42 @@ export default function Config() {
                   detail="Rows appear here once something writes one. The application reads settings.py for anything it needs at import time — those are below, and they are not editable from a console." />}
               />
 
-              <div style={{ marginTop: 32 }}>
-                <SectionHead title="Server settings"
-                  subtitle="Set on the server, shown here for reference. Changing one means a redeploy, not a click." />
-                <div className="sa-card">
-                  <dl className="sa-kv">
-                    <dt>DEBUG</dt>
-                    <dd>
-                      <Pill value={env.debug ? 'warning' : 'healthy'} label={env.debug ? 'on' : 'off'} />
+              <SectionHead title="Server settings"
+                subtitle="Set on the server, shown here for reference. Changing one means a redeploy, not a click." />
+              <Card>
+                <KeyValue items={[
+                  ['DEBUG', (
+                    <div className="sa-inline">
+                      <Pill value={env.debug ? 'warning' : 'healthy'} label={env.debug ? 'On' : 'Off'} />
                       {env.debug && (
-                        <span className="sa-muted" style={{ marginLeft: 8, fontSize: 12.5 }}>
-                          Stack traces go back to whoever triggered the error.
-                        </span>
+                        <span className="sa-muted">Stack traces go back to whoever triggered the error.</span>
                       )}
-                    </dd>
-                    <dt>Allowed hosts</dt>
-                    <dd className="sa-schema">{(env.allowed_hosts || []).join(', ') || '—'}</dd>
-                    <dt>Time zone</dt>
-                    <dd>{env.time_zone || '—'}</dd>
-                    <dt>Tracking base URL</dt>
-                    <dd className="sa-schema">{env.tracking_base_url || '—'}</dd>
-                    <dt>WhatsApp country code</dt>
-                    <dd>{env.whatsapp_country_code || '—'}</dd>
-                  </dl>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 32 }}>
-                <SectionHead title="Keys and passwords"
-                  subtitle="Only whether each one is set. The value itself is never shown here." />
-                <div className="sa-cards">
-                  {Object.entries(data.credentials || {}).map(([key, present]) => (
-                    <div key={key} className="sa-card">
-                      <h4 style={{ textTransform: 'capitalize' }}>
-                        {present ? <Lock size={14} /> : <Server size={14} />}
-                        {CREDENTIAL_NAMES[key] || key.replace(/_/g, ' ')}
-                      </h4>
-                      {/* not_configured is grey. Several of these are absent by
-                          design, and a red light would send someone hunting a
-                          bug that does not exist. */}
-                      <Pill value={present ? 'ok' : 'not_configured'}
-                        label={present ? 'set' : 'not set'} />
                     </div>
-                  ))}
-                </div>
-                <p className="sa-muted" style={{ fontSize: 12.5, marginTop: 10 }}>
-                  <Info size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
-                  Values are never displayed here because they are never sent here. Set them in the
-                  deployment environment.
-                </p>
+                  )],
+                  ['Allowed hosts', <span className="sa-schema">{(env.allowed_hosts || []).join(', ') || '—'}</span>],
+                  ['Time zone', env.time_zone || '—'],
+                  ['Tracking base URL', <span className="sa-schema">{env.tracking_base_url || '—'}</span>],
+                  ['WhatsApp country code', env.whatsapp_country_code || '—'],
+                ]} />
+              </Card>
+
+              <SectionHead title="Keys and passwords"
+                subtitle="Only whether each one is set. The value itself is never shown here." />
+              <div className="at-grid-3">
+                {Object.entries(data.credentials || {}).map(([key, present]) => (
+                  <Card key={key} icon={present ? Lock : Server} title={credentialName(key)}>
+                    {/* not_configured is grey. Several of these are absent by
+                        design, and a red light would send someone hunting a
+                        bug that does not exist. */}
+                    <Pill value={present ? 'ok' : 'not_configured'}
+                      label={present ? 'Set' : 'Not set'} />
+                  </Card>
+                ))}
               </div>
+              <Note tone="info">
+                Values are never displayed here because they are never sent here. Set them in the
+                deployment environment.
+              </Note>
             </>
           );
         }}
@@ -288,14 +295,11 @@ export default function Config() {
               cannot sign in to their workspace, the mobile app stops, and the public order
               tracking page stops with it.
             </p>
-            <p style={{ marginTop: 8 }}>
+            <p>
               This console stays reachable, and so do sign-in and the Django admin — that is what
               lets you switch it off again from here.
             </p>
-            <p style={{ marginTop: 8 }}>
-              <Info size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
-              Other server workers apply this within 5 minutes, in both directions.
-            </p>
+            <Note tone="info">Other server workers apply this within 5 minutes, in both directions.</Note>
           </>
         )}
         onCancel={() => setAsking(false)}
