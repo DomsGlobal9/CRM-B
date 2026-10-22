@@ -1010,6 +1010,30 @@ export const api = {
     return data;
   },
 
+  // My Profile: the signed-in user's own name. Returns the user object, as /auth/me/ does.
+  async updateMyName(firstName, lastName) {
+    const res = await guardedFetch(`${BASE_URL}/auth/me/`, {
+      method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ first_name: firstName, last_name: lastName }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data));
+    return data;
+  },
+
+  // My Profile: change the password, knowing the current one. The server
+  // replaces the login token (other devices are signed out); this one keeps
+  // working on the new token it hands back.
+  async changeMyPassword(currentPassword, newPassword) {
+    const res = await guardedFetch(`${BASE_URL}/auth/change-password/`, {
+      method: 'POST', headers: getHeaders(),
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data));
+    if (data.token) localStorage.setItem('token', data.token);
+    return data;
+  },
+
   // Owner only. The server deactivates the designer's login rather than
   // deleting it, as it does for a roster member.
   async deleteDesigner(id) {

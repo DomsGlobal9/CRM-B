@@ -1144,3 +1144,59 @@ class RoleBoundaryTests(TenantTestCase):
         self.assertEqual(listing.status_code, 200)
         cleared = self.client.post(reverse('notification-mark-all-read'), {}, format='json')
         self.assertEqual(cleared.status_code, 200, cleared.data)
+
+
+class MyProfileTests(TenantTestCase):
+    """My Profile: a signed-in user renames themselves and changes their password."""
+
+    @classmethod
+    def setup_tenant(cls, tenant):
+        tenant.owner_email = "profile@test.com"
+        tenant.name = "Profile Atelier"
+        return tenant
+
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        from django.db import connection
+        connection.set_tenant(self.tenant)
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="sunita@test.com", email="sunita@test.com",
+            password="original-password-1", first_name="Sunita", last_name="Devi")
+        self.tailor = Tailor.objects.create(name="Sunita Devi", specialty="Stitching",
+                                            role="Tailor", user=self.user)
+        self.token = Token.objects.create(user=self.user)
+        self.client = self.as_token(self.token.key)
+
+    def as_token(self, key):
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Token " + key,
+                           HTTP_X_TENANT_ID=self.tenant.schema_name)
+        return client
+
+    def test_renaming_updates_the_login_and_the_staff_record(self):
+        res = self.client.patch(reverse('auth-me'), {'first_name': 'Sunita', 'last_name': 'Rao'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual((res.data['first_name'], res.data['last_name']), ('Sunita', 'Rao'))
+        self.tailor.refresh_from_db()
+        self.assertEqual(self.tailor.name, 'Sunita Rao')
+        bad = self.client.patch(reverse('auth-me'), {'first_name': ''}, format='json')
+        self.assertEqual(bad.status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, 'Sunita')
+
+    def test_password_change_needs_the_current_one_and_signs_other_devices_out(self):
+        url = reverse('auth-change-password')
+        wrong = self.client.post(url, {'current_password': 'nope', 'new_password': 'Brand-new-pass-7'}, format='json')
+        self.assertEqual(wrong.status_code, 400)
+        weak = self.client.post(url, {'current_password': 'original-password-1', 'new_password': '123'}, format='json')
+        self.assertEqual(weak.status_code, 400)
+        res = self.client.post(url, {'current_password': 'original-password-1',
+                                     'new_password': 'Brand-new-pass-7'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('Brand-new-pass-7'))
+        # The old token is gone; the one handed back works.
+        self.assertEqual(self.client.get(reverse('auth-me')).status_code, 401)
+        self.assertEqual(self.as_token(res.data['token']).get(reverse('auth-me')).status_code, 200)

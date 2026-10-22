@@ -14,7 +14,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.authtoken.models import Token
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import connection, transaction
@@ -501,23 +501,79 @@ class MeView(views.APIView):
         once.
         """
         photo = request.FILES.get('profile_photo')
-        if photo is None:
+        # Their own name too, from My Profile: first_name / last_name.
+        renaming = 'first_name' in request.data or 'last_name' in request.data
+        if photo is None and not renaming:
             return Response({'error': 'No photo was sent.'},
                             status=status.HTTP_400_BAD_REQUEST)
-        if not (photo.content_type or '').startswith('image/'):
-            return Response({'error': 'Your profile photo must be an image.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        if photo.size > 5 * 1024 * 1024:
-            return Response({'error': 'That image is larger than 5MB.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        if photo is not None:
+            if not (photo.content_type or '').startswith('image/'):
+                return Response({'error': 'Your profile photo must be an image.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if photo.size > 5 * 1024 * 1024:
+                return Response({'error': 'That image is larger than 5MB.'},
+                                status=status.HTTP_400_BAD_REQUEST)
 
-        from crm_api.models import UserAvatar
-        avatar, _ = UserAvatar.objects.get_or_create(user=request.user)
-        avatar.image = photo
-        avatar.save()
+        user = request.user
+        if renaming:
+            first = validate_name(request.data.get('first_name', user.first_name), label='First name')
+            last = validate_name(request.data.get('last_name', user.last_name),
+                                 label='Last name', required=False)
+            user.first_name, user.last_name = first, last
+            user.save(update_fields=['first_name', 'last_name'])
+            # The staff list and Design Studio show their roster name: keep it the same.
+            full = f'{first} {last}'.strip()
+            for profile in (getattr(user, 'tailor_profile', None), getattr(user, 'designer_profile', None)):
+                if profile is not None and profile.name != full:
+                    profile.name = full
+                    profile.save(update_fields=['name'])
+
+        if photo is not None:
+            from crm_api.models import UserAvatar
+            avatar, _ = UserAvatar.objects.get_or_create(user=user)
+            avatar.image = photo
+            avatar.save()
         return Response({**user_payload(request.user),
                          "tenant_id": connection.schema_name},
                         status=status.HTTP_200_OK)
+
+class _PasswordChangeThrottle(UserRateThrottle):
+    # Same rate as reset: a stolen session cannot guess the current password fast.
+    scope = 'password_reset'
+
+
+class ChangePasswordView(views.APIView):
+    """A signed-in user changes their own password, knowing the current one.
+
+    Their login token is replaced, so every other device signed in as them is
+    signed out; the new token comes back for this one to keep working.
+    """
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [_PasswordChangeThrottle]
+
+    def post(self, request):
+        user = request.user
+        current = request.data.get('current_password') or ''
+        new = request.data.get('new_password') or ''
+        if not user.check_password(current):
+            return Response({'error': 'Your current password is not right.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if new == current:
+            return Response({'error': 'Choose a password different from the current one.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(new, user)
+        except DjangoValidationError as exc:
+            return Response({'error': ' '.join(exc.messages)},
+                            status=status.HTTP_400_BAD_REQUEST)
+        with transaction.atomic():
+            user.set_password(new)
+            user.save(update_fields=['password'])
+            Token.objects.filter(user=user).delete()
+            token = Token.objects.create(user=user)
+        return Response({'detail': 'Your password has been changed.', 'token': token.key},
+                        status=status.HTTP_200_OK)
+
 
 class _PasswordResetThrottle(AnonRateThrottle):
 

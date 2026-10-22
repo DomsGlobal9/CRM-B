@@ -3,6 +3,7 @@ import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { notificationKind } from './services/notificationKind';
+import MyDetails from './features/staff/MyDetails';
 import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
 import {
   formatMoney, formatDate as fmtDate, formatDateTime as fmtDateTime,
@@ -6817,6 +6818,9 @@ function App() {
                     </div>
                   </div>
 
+                  {/* Right column: everyone's own details, then the owner's boutique profile. */}
+                  <div className="at-stack">
+                  <MyDetails key={currentUser.id} user={currentUser} onUser={setCurrentUser} />
                   {/* Owner only: submitting POSTs /boutique-settings/, which
                       RolePermission refuses for every other role. A form that
                       cannot succeed should not be drawn. */}
@@ -6937,6 +6941,7 @@ function App() {
                       </form>
                     </SectionCard>
                   )}
+                  </div>
                 </div>
               </>
               );
@@ -9393,37 +9398,25 @@ Complete the Payment stage with this partial payment?`)) return;
                     <span className="ui-eyebrow" style={{ color: 'var(--text-primary)' }}>Status</span>
                     <span className={`ui-badge ui-badge--${tone}`}>● {STEP_LABEL[STEP_STATE(stage.status)]}</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-                    <div>
-                      <div className="ui-eyebrow">Started</div>
-                      <div className="stage-meta-value" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <Calendar size={14} /> {stage.started_at ? fmtDateTime(stage.started_at) : '—'}
+                  {/* One row per fact: icon and label on the left, the value on the right,
+                      a rule between rows -- lines up however many facts there are. */}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {[
+                      ['Started', Calendar, stage.started_at ? fmtDateTime(stage.started_at) : '—'],
+                      ['SLA / target', Clock, `${stage.sla_hours} hours`],
+                      stage.completed_at && ['Completed', CheckCircle2, fmtDateTime(stage.completed_at)],
+                      stage.duration_seconds > 0 && ['Actual duration', History, duration],
+                      stage.performed_by_name && ['Performed by', User, stage.performed_by_name],
+                    ].filter(Boolean).map(([label, Icon, value], i) => (
+                      <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)',
+                                                padding: '10px 0', borderTop: i ? '1px solid var(--border-color)' : 'none' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)',
+                                       color: 'var(--text-secondary)', flexShrink: 0 }}>
+                          <Icon size={15} style={{ flexShrink: 0 }} /> {label}
+                        </span>
+                        <span className="stage-meta-value" style={{ margin: 0, textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere' }}>{value}</span>
                       </div>
-                    </div>
-                    <div>
-                      <div className="ui-eyebrow">SLA / target</div>
-                      <div className="stage-meta-value" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <Clock size={14} /> {stage.sla_hours} hours
-                      </div>
-                    </div>
-                    {stage.completed_at && (
-                      <div>
-                        <div className="ui-eyebrow">Completed</div>
-                        <div className="stage-meta-value">{fmtDateTime(stage.completed_at)}</div>
-                      </div>
-                    )}
-                    {stage.duration_seconds > 0 && (
-                      <div>
-                        <div className="ui-eyebrow">Actual duration</div>
-                        <div className="stage-meta-value">{duration}</div>
-                      </div>
-                    )}
-                    {stage.performed_by_name && (
-                      <div>
-                        <div className="ui-eyebrow">Performed by</div>
-                        <div className="stage-meta-value">{stage.performed_by_name}</div>
-                      </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               )}
