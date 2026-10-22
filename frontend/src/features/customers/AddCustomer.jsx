@@ -49,13 +49,25 @@ const MEASUREMENT_ZONES = [
     label: 'Blouse, Kurti & Tops',
     garments: 'Blouse, Kurti, Suit, Shirt, Sherwani, Jacket',
     other: true,
-    keys: [
-      'collar_neck', 'front_shoulder', 'back_shoulder', 'front_neck_depth', 'back_neck_depth',
-      'upper_chest', 'underbust', 'armhole', 'bicep_length', 'bicep_round',
-      'elbow_length', 'elbow_round', 'full_sleeves_round', 'sleeve_opening',
-      'wrist', 'upper_arm', 'elbow', 'sleeve_length', 'shoulder_to_bust', 'shoulder_to_waist',
-      'blouse_length', 'neck_circumference', 'across_chest', 'across_back', 'full_length'
-    ]
+    // In the order a tailor takes them, top to bottom. Every earlier box is
+    // still here; four sleeve boxes only carry clearer names, four are new.
+    // [heading, keys]; in the sleeve step each length is followed by its round.
+    steps: [
+      ['Length & shoulders', ['blouse_length', 'full_length', 'front_shoulder', 'back_shoulder',
+                              'shoulder_to_bust', 'shoulder_to_waist']],
+      ['Chest & bust', ['upper_chest', 'bust', 'underbust', 'across_chest', 'across_back']],
+      ['Armhole & arm', ['armhole', 'upper_arm', 'bicep_length', 'bicep_round']],
+      ['Sleeve', ['short_sleeve_length', 'short_hand_round', 'elbow_length', 'elbow_round',
+                  'three_quarter_sleeve_length', 'three_quarter_round', 'sleeve_length', 'full_sleeves_round',
+                  'elbow', 'wrist', 'sleeve_opening']],
+      ['Neck', ['front_neck_depth', 'back_neck_depth', 'collar_neck', 'neck_circumference']],
+    ],
+    labels: {
+      short_sleeve_length: 'Short Sleeve Length', short_hand_round: 'Short Hand Rounding',
+      elbow_length: 'Elbow Sleeve Length', elbow_round: 'Elbow Rounding',
+      three_quarter_sleeve_length: '3/4 Sleeve Length', three_quarter_round: '3/4 Rounding',
+      sleeve_length: 'Full Sleeve Length', full_sleeves_round: 'Full Rounding',
+    },
   },
   {
     id: 'lehenga_gown',
@@ -79,7 +91,7 @@ const MEASUREMENT_ZONES = [
       'thigh', 'knee', 'calf', 'ankle'
     ]
   }
-];
+].map((zone) => (zone.steps ? { ...zone, keys: zone.steps.flatMap(([, keys]) => keys) } : zone));
 
 
 
@@ -560,7 +572,7 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
           <span>{name}</span>
           <span className="od-hint" style={{ color: hasValue ? 'var(--brand-primary, #047857)' : 'var(--text-tertiary, #9ca3af)', fontSize: '11px', fontWeight: 500 }}>in</span>
         </label>
-        <input id={`cf-${key}`} type="number" className="form-control" min="0" max="120" step="0.25"
+        <input id={`cf-${key}`} type="number" className="form-control no-spinners" min="0" max="120" step="0.25"
                style={{ fontSize: '14px', height: '36px', background: 'var(--surface-2, #f9fafb)' }}
                value={inch(form.measurements[key])} onChange={(e) => setInch(key, e.target.value)}
                placeholder="0.00" />
@@ -826,9 +838,20 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
               <span><strong>Used for:</strong> {activeZoneObj.garments}</span>
             </div>
 
-            {/* Active Zone Fields */}
+            {/* Active Zone Fields: in numbered steps where the zone has them. */}
+            {activeZoneObj.steps?.map(([title, keys], i) => (
+              <div key={title} style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                              color: 'var(--brand-primary, #047857)', marginBottom: 8 }}>
+                  Step {i + 1} · {title}
+                </div>
+                <div style={INCH_GRID}>
+                  {keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
+                </div>
+              </div>
+            ))}
             <div style={INCH_GRID}>
-              {activeZoneObj.keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
+              {!activeZoneObj.steps && activeZoneObj.keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
               {activeZoneObj.other && customKeys.map((key) => (
                 <div key={key} style={{ position: 'relative' }}>
                   {inchInput(key, label(key))}
