@@ -75,6 +75,27 @@ class SendToWorkshopTests(WorkflowTestBase):
         res = self.send(order, user=self.tailor_user, master=self.master.id)
         self.assertEqual(res.status_code, 403)
 
+    def test_finishing_goes_to_whoever_the_workflow_lets_finish(self):
+        """Read from the stage's roles, not a fixed list: a fixed list handed
+        Hemming & finishing to a Tailor the workflow did not let finish, which
+        put a step in their queue that refused them on Start."""
+        order = self.make_order(tailor=False, master=False)
+        self.assertEqual(self.send(order, master=self.master.id, tailor=self.tailor.id).status_code, 200)
+        self.assertEqual(self.stage(order, "stitching_in_progress").assigned_to_id, self.tailor.id)
+        # The default lets a Tailor finish (crm_api 0068_tailor_on_finishing).
+        self.assertEqual(self.stage(order, "finishing").assigned_to_id, self.tailor.id)
+
+        # A boutique that keeps finishing with its Masters gets it on the master.
+        from crm_api.models import BoutiqueSettings
+        settings = BoutiqueSettings.objects.get(id=1)
+        for s in settings.workflow_config:
+            if s["key"] == "finishing":
+                s["roles"] = [r for r in s["roles"] if r != "Tailor"]
+        settings.save(update_fields=["workflow_config"])
+        order = self.make_order(customer=order.customer, tailor=False, master=False)
+        self.assertEqual(self.send(order, master=self.master.id, tailor=self.tailor.id).status_code, 200)
+        self.assertEqual(self.stage(order, "finishing").assigned_to_id, self.master.id)
+
     def test_master_may_send(self):
         order = self.make_order(tailor=False, master=False)
         res = self.send(order, user=self.master_user, tailor=self.tailor.id)

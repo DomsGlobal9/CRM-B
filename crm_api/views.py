@@ -1385,13 +1385,16 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.master = master
         if tailor:
             order.tailor = tailor
+        from domains.orders import workflow
+        tailor_stages = tuple(workflow.worker_stage_keys(
+            BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config,
+            order.tailor.role if order.tailor else None))
         if master or tailor:
             order.save(update_fields=['master', 'tailor'])
             refresh_staff_availability(old_tailor, old_master, order.tailor, order.master)
-            # Same hand-out as order creation: tailor stages to the tailor,
-            # the rest to the master; and tell them, as PATCH /orders/ does.
+            # Same hand-out as order creation: the worker's stages to the
+            # worker, the rest to the master; and tell them, as PATCH /orders/ does.
             from apps.production.models import ProductionTask
-            tailor_stages = ('stitching_in_progress', 'finishing', 'alteration_work')
             tasks = ProductionTask.objects.filter(order=order)
             if order.tailor_id != (old_tailor.id if old_tailor else None):
                 tasks.filter(stage_key__in=tailor_stages).update(assigned_to=order.tailor)
@@ -1437,7 +1440,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     OrderService.transition_order_stage(
                         order=order, stage_key=row.stage_key, new_status='IN_PROGRESS',
                         user=request.user, garment_job=row.garment_job_id)
-                tailor_step = nxt.stage_key in ('stitching_in_progress', 'finishing', 'alteration_work')
+                tailor_step = nxt.stage_key in tailor_stages
                 order.stages.filter(first, assigned_to__isnull=True).update(
                     assigned_to=(order.tailor if tailor_step else order.master) or order.tailor or order.master)
                 started = nxt.stage_key

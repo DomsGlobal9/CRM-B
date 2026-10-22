@@ -1636,8 +1636,12 @@ function App() {
   useEffect(() => {
     const slug = currentUser?.shop_slug;
     if (!slug || portalSlugFromPath() === slug) return;
+    // ?register only chose the signup screen; a signed-in URL should not keep it.
+    const params = new URLSearchParams(window.location.search);
+    params.delete('register');
+    const search = params.toString();
     window.history.replaceState(window.history.state, '',
-                                `/${slug}${window.location.search}`);
+                                `/${slug}${search ? `?${search}` : ''}`);
   }, [currentUser]);
   const { t, language } = useLanguage();
   const currentUserName = currentUser?.first_name || currentUser?.name || currentUser?.email?.split('@')[0] || 'User';
@@ -2693,8 +2697,20 @@ function App() {
 
   
   const TAILOR_STEPS = ['stitching_in_progress', 'finishing', 'alteration_work'];
+  const staffRole = (id) => tailors.find(tl => String(tl.id) === String(id))?.role;
+  // The supervising Master's steps are the rest of the garment -- but not a
+  // step Send to workshop handed a specialist by role (a Maggam Karigar's
+  // embroidery, QC Staff's check). Picking a Master here used to take those.
   const garmentSteps = (order, jobId, tailor) => (order.stages || [])
-    .filter(st => st.garment_job === jobId && TAILOR_STEPS.includes(st.stage_key) === tailor);
+    .filter(st => st.garment_job === jobId && TAILOR_STEPS.includes(st.stage_key) === tailor
+      && (tailor || !st.assigned_to || staffRole(st.assigned_to) === 'Master'));
+  // Whether the picked person may take this step at all: assign-stage refuses
+  // otherwise, which stopped the loop halfway with a partial save.
+  const mayTake = (staffId, stageKey) => {
+    const roles = (boutiqueSettings?.workflow_config || []).find(s => s.key === stageKey)?.roles || [];
+    const role = staffRole(staffId);
+    return !staffId || !role || !roles.length || roles.includes(role);
+  };
   const garmentHolder = (order, jobId, tailor) => {
     const rows = garmentSteps(order, jobId, tailor);
     const row = rows.find(st => st.status === 'NOT_STARTED')
@@ -2704,7 +2720,8 @@ function App() {
   
   const assignGarmentSteps = async (order, jobId, tailor, staffId) => {
     if (assigningWorkflowOrderId) return;
-    const open = garmentSteps(order, jobId, tailor).filter(st => st.status === 'NOT_STARTED');
+    const open = garmentSteps(order, jobId, tailor)
+      .filter(st => st.status === 'NOT_STARTED' && mayTake(staffId, st.stage_key));
     if (!open.length) {
       alert('Every one of these steps on this garment has already started. Reassign a started step from its stage window.');
       return;
