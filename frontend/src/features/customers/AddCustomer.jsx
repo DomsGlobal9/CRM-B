@@ -48,6 +48,7 @@ const MEASUREMENT_ZONES = [
     id: 'upper_body',
     label: 'Blouse, Kurti & Tops',
     garments: 'Blouse, Kurti, Suit, Shirt, Sherwani, Jacket',
+    other: true,
     keys: [
       'collar_neck', 'front_shoulder', 'back_shoulder', 'front_neck_depth', 'back_neck_depth',
       'upper_chest', 'underbust', 'armhole', 'bicep_length', 'bicep_round',
@@ -60,6 +61,7 @@ const MEASUREMENT_ZONES = [
     id: 'lehenga_gown',
     label: 'Lehenga, Skirt & Gown',
     garments: 'Lehenga, Petticoat, Skirt, Anarkali, Gown',
+    other: true,
     keys: [
       'lehenga_length', 'lehenga_waist', 'high_round', 'floor_length', 'height',
       'high_waist', 'waist_to_hip', 'waist_to_floor', 'waist_to_ankle', 'heel_height',
@@ -70,6 +72,7 @@ const MEASUREMENT_ZONES = [
     id: 'pants_bottoms',
     label: 'Pants, Salwar & Trouser',
     garments: 'Pants, Churidar, Salwar, Sharara, Trouser, Jeans, Shorts',
+    other: true,
     keys: [
       'hip_round', 'pant_waist', 'pant_length', 'knee_length', 'ankle_length',
       'inseam', 'ankle_round', 'crotch_length', 'outseam', 'crotch',
@@ -435,7 +438,7 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
     setOtherError('');
     setOtherName('');
     // A name the form already knows just brings that box here.
-    setCustomKeys((prev) => (prev.includes(key) || MEASUREMENT_ZONES[0].keys.includes(key) ? prev : [...prev, key]));
+    setCustomKeys((prev) => (prev.includes(key) || activeZoneObj.keys.includes(key) ? prev : [...prev, key]));
     setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: prev.measurements[key] ?? '' } }));
   };
   const removeOther = (key) => {
@@ -842,6 +845,11 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
                 <label className="form-label" htmlFor="cf-other-part" style={{ fontSize: '12px', fontWeight: 600 }}>
                   Other — add another body part
                 </label>
+                {customKeys.length > 0 && (
+                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary, #9ca3af)', marginBottom: 6 }}>
+                    Other parts are kept for this customer and show in every section.
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <input id="cf-other-part" type="text" className="form-control" maxLength={40} value={otherName}
                          placeholder="e.g. Thigh, Calf, Armhole" style={{ maxWidth: 260, height: 36 }}
