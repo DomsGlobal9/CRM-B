@@ -5,6 +5,7 @@ import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar } from 'lucide-react';
 import { api } from '../../services/api';
 import { LIMITS } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
+import { currentLocation } from '../../services/location';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -118,25 +119,6 @@ function Modal({ title, onClose, children, width = '520px' }) {
   );
 }
 
-/**
- * The phone's position for a check-in, or null. Never rejects: a denied, absent
- * or slow GPS records "no location" -- it never stops anyone checking in. The
- * outer timer is there because the browser's own timeout does not start until
- * the permission prompt is answered, and an ignored prompt would hang the tap.
- */
-const currentLocation = () => new Promise((resolve) => {
-  if (!navigator.geolocation) { resolve(null); return; }
-  const giveUp = setTimeout(() => resolve(null), 15000);
-  navigator.geolocation.getCurrentPosition(
-    ({ coords }) => {
-      clearTimeout(giveUp);
-      resolve({ latitude: coords.latitude, longitude: coords.longitude,
-                accuracy: Math.round(coords.accuracy) });
-    },
-    () => { clearTimeout(giveUp); resolve(null); },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-  );
-});
 
 const checkInHere = async () => {
   const location = await currentLocation();

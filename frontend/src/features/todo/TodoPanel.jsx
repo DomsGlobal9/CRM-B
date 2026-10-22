@@ -7,12 +7,13 @@
    this screen only reads the can_* flags it sends back. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ListTodo, Plus, Calendar, Trash2, Send, UserCheck, CircleDot, Loader2, CheckCircle2, Image as ImageIcon, Mic,
+  ListTodo, Plus, Calendar, Trash2, Send, UserCheck, CircleDot, Loader2, CheckCircle2, Image as ImageIcon, Mic, MapPin,
 } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { formatDate, formatDateTime } from '../../services/format';
 import { LIMITS, imageFilesError } from '../../services/validate';
+import { currentLocation } from '../../services/location';
 import {
   AvatarInitials, PageHeader, Segmented, FormModal, Field, AddPhotoButton, PhotoTile,
 } from '../../components/ui/Atelier';
@@ -185,6 +186,13 @@ function AddTodoForm({ people, canAssign, meId, initial, onCancel, onSaved }) {
   // A voice note said for the title or the details: uploaded when it stops,
   // kept under its own heading. Saving waits while one is still uploading.
   const [fieldVoice, setFieldVoice] = useState({ title: '', description: '' });
+  // Where the form is being filled: asked for as it opens, kept with the to-do.
+  const locating = useRef(null);
+  const [place, setPlace] = useState('locating'); // 'locating' | {latitude, longitude, accuracy} | null
+  useEffect(() => {
+    locating.current = currentLocation();
+    locating.current.then(setPlace);
+  }, []);
   const [voiceUploads, setVoiceUploads] = useState(0);
   const recordFor = (key) => async (blob) => {
     setVoiceUploads((n) => n + 1);
@@ -218,6 +226,13 @@ function AddTodoForm({ people, canAssign, meId, initial, onCancel, onSaved }) {
       if (fieldVoice.description) body.append('description_voice_note', fieldVoice.description);
       if (form.order_stage) body.append('order_stage', form.order_stage);
       photos.forEach((file) => body.append('photos', file));
+      // Still on its way: wait for it (it gives up by itself after 15 s).
+      const located = await locating.current;
+      if (located) {
+        body.append('latitude', located.latitude);
+        body.append('longitude', located.longitude);
+        if (located.accuracy != null) body.append('accuracy', located.accuracy);
+      }
       onSaved(await api.createTodo(body));
     } catch (err) {
       setError(err.message || 'Could not save this to-do.');
@@ -244,6 +259,12 @@ function AddTodoForm({ people, canAssign, meId, initial, onCancel, onSaved }) {
     >
       <form id="add-todo-form" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {error && <div style={errorBox} role="alert">{error}</div>}
+        <div style={{ ...muted, display: 'flex', alignItems: 'center', gap: '6px' }} role="status">
+          <MapPin size={13} />
+          {place === 'locating' ? 'Getting your location…'
+            : place ? `Location captured${place.accuracy != null ? ` (±${place.accuracy} m)` : ''} — saved with this to-do`
+              : 'Location not shared — the to-do saves without it'}
+        </div>
         <Field label="Title" required htmlFor="todo-title">
           {/* One line, as before: Enter still adds the to-do. */}
           <VoiceTextarea id="todo-title" rows={1} value={form.title} onChange={set('title')} maxLength={MAX_TITLE}
@@ -403,6 +424,31 @@ function TodoDetail({ todo, people, canAssign, meId, onClose, onChanged, onDelet
       )}
     >
       {error && <div style={errorBox} role="alert">{error}</div>}
+
+      {/* Where and when the to-do was added (place name: OpenStreetMap, free). */}
+      <div style={{ margin: '0 0 14px', fontSize: 'var(--text-sm)' }}>
+        <div style={attachLabel}><MapPin size={13} /> Added at</div>
+        {todo.location_latitude != null ? (
+          <>
+            <div style={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+              {todo.location_name || `${todo.location_latitude}, ${todo.location_longitude}`}
+            </div>
+            <div style={muted}>
+              {formatDateTime(todo.created_at)}
+              {todo.location_name && ` · ${todo.location_latitude}, ${todo.location_longitude}`}
+              {todo.location_accuracy_m != null && ` · ±${todo.location_accuracy_m} m`}
+              {' · '}
+              <a href={`https://www.google.com/maps?q=${todo.location_latitude},${todo.location_longitude}`}
+                 target="_blank" rel="noreferrer">View on map</a>
+              {todo.location_name && (
+                <> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap</a></>
+              )}
+            </div>
+          </>
+        ) : (
+          <div style={muted}>{formatDateTime(todo.created_at)} · Location not shared</div>
+        )}
+      </div>
 
       {todo.title_voice_note && (
         <div style={{ margin: '0 0 14px' }}>

@@ -33,6 +33,12 @@ class Todo(models.Model):
     #: Voice notes said for the title and for the details (URLs from /api/voice-notes/).
     title_voice_note = models.CharField(max_length=IMAGE_PATH_MAX_LENGTH, blank=True, default='')
     description_voice_note = models.CharField(max_length=IMAGE_PATH_MAX_LENGTH, blank=True, default='')
+    #: Where the person was when they filled the form, if their device shared it,
+    #: and its place name from OpenStreetMap ('' when no lookup answered).
+    location_latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    location_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    location_accuracy_m = models.PositiveIntegerField(null=True, blank=True)
+    location_name = models.CharField(max_length=255, blank=True, default='')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
     #: When the work starts and when it should end (the end is `due_date`).
     start_date = models.DateField(null=True, blank=True)

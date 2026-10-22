@@ -37,6 +37,7 @@ class TodoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Todo
         fields = ['id', 'title', 'description', 'title_voice_note', 'description_voice_note',
+                  'location_latitude', 'location_longitude', 'location_accuracy_m', 'location_name',
                   'status', 'start_date', 'due_date',
                   'created_by', 'created_by_name',
                   'assigned_to', 'assigned_to_name', 'assigned_to_role', 'order_stage',
