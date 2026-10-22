@@ -29,15 +29,15 @@
 
 import { Fragment, useCallback, useState } from 'react';
 import {
-  Ban, Bug, ChevronDown, ChevronRight, MessageSquareWarning, MonitorX, PackageX,
-  ShieldCheck,
+  Ban, Bug, ChevronDown, ChevronRight, FileWarning, Layers, MessageSquareWarning, MonitorX,
+  PackageX, ShieldCheck, X,
 } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import { LIMITS } from '../../services/validate';
 import {
-  Async, Confirm, Empty, Pager, Pill, SearchBox, SectionHead, Select, Stat,
-  count, moment, since, useApi, useToast,
+  Async, Chips, Confirm, Empty, Field, KeyValue, Note, PageHeader, Pager, Pill, SearchBox,
+  Stat, StatGrid, Tabs, Toolbar, count, moment, since, useApi, useToast,
 } from '../ui';
 
 const PAGE_SIZE = 25;
@@ -77,12 +77,14 @@ const KINDS = [
       + 'invisible, and no amount of capture fixes that.',
     columns: [
       {
+        // The message column is prose and is capped on desktop, so the
+        // identifier beside it (a module path, a URL) keeps its width.
         label: 'Failure',
-        width: 400,
+        className: 'sa-col-prose',
         render: (e) => (
           <>
-            <div className="sa-name">{e.exception_type}</div>
-            <div style={SUB}>{e.message}</div>
+            <div className="at-row-title">{e.exception_type}</div>
+            <div className="at-row-sub">{e.message}</div>
           </>
         ),
       },
@@ -111,11 +113,11 @@ const KINDS = [
     columns: [
       {
         label: 'Control',
-        width: 260,
+        className: 'sa-col-prose',
         render: (e) => (
           <>
-            <div className="sa-name">{e.exception_type}</div>
-            <div style={SUB}>{e.message}</div>
+            <div className="at-row-title">{e.exception_type}</div>
+            <div className="at-row-sub">{e.message}</div>
           </>
         ),
       },
@@ -147,11 +149,11 @@ const KINDS = [
     columns: [
       {
         label: 'Endpoint',
-        width: 320,
+        className: 'sa-col-prose',
         render: (e) => (
           <>
-            <div className="sa-name">{e.method} {e.path}</div>
-            <div style={SUB}>{e.message}</div>
+            <div className="at-row-title">{e.method} {e.path}</div>
+            <div className="at-row-sub">{e.message}</div>
           </>
         ),
       },
@@ -160,7 +162,7 @@ const KINDS = [
         render: (e) => (
           <>
             <Pill value="info" label={String(e.status_code)} />
-            <div className="sa-schema" style={{ marginTop: 4 }}>{e.exception_type}</div>
+            <div className="sa-schema">{e.exception_type}</div>
           </>
         ),
       },
@@ -183,11 +185,11 @@ const KINDS = [
     columns: [
       {
         label: 'Crash',
-        width: 400,
+        className: 'sa-col-prose',
         render: (e) => (
           <>
-            <div className="sa-name">{e.exception_type}</div>
-            <div style={SUB}>{e.message}</div>
+            <div className="at-row-title">{e.exception_type}</div>
+            <div className="at-row-sub">{e.message}</div>
           </>
         ),
       },
@@ -201,16 +203,15 @@ const KINDS = [
   },
 ];
 
-const SUB = { fontSize: 13, color: 'var(--text-secondary)' };
-
 const byKey = (key) => KINDS.find((k) => k.key === key) || KINDS[0];
 
+/** Status chips. The keys are the filter values the server takes; '' is all. */
 const STATUSES = [
-  { value: '', label: 'All statuses' },
-  { value: 'new', label: 'New' },
-  { value: 'acknowledged', label: 'Acknowledged' },
-  { value: 'resolved', label: 'Resolved' },
-  { value: 'ignored', label: 'Ignored' },
+  { key: '', label: 'All' },
+  { key: 'new', label: 'New' },
+  { key: 'acknowledged', label: 'Acknowledged' },
+  { key: 'resolved', label: 'Resolved' },
+  { key: 'ignored', label: 'Ignored' },
 ];
 
 /* ------------------------------------------------------------------ moves */
@@ -254,7 +255,7 @@ const movesFor = (kind) => (kind.resolvable
 function Stack({ text, kind }) {
   if (kind.key === 'refusal') {
     return (
-      <p className="sa-muted" style={{ fontSize: 13, margin: 0 }}>
+      <p className="sa-muted">
         A refusal has no stack. Nothing went wrong: a control was consulted and it said no.
         The row above is the whole event.
       </p>
@@ -262,7 +263,7 @@ function Stack({ text, kind }) {
   }
   if (!text) {
     return (
-      <p className="sa-muted" style={{ fontSize: 13, margin: 0 }}>
+      <p className="sa-muted">
         {kind.key === 'client'
           ? 'A 4xx raised and handled by the framework carries no stack worth keeping — the '
             + 'view above is the address.'
@@ -270,16 +271,7 @@ function Stack({ text, kind }) {
       </p>
     );
   }
-  return (
-    <pre style={{
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-      fontSize: 12, lineHeight: 1.6, margin: 0, padding: '12px 14px',
-      background: 'var(--bg-color)', border: '1px solid var(--border-color)',
-      borderRadius: 'var(--radius-md)', maxHeight: 300, overflow: 'auto',
-    }}>
-      {text}
-    </pre>
-  );
+  return <pre className="sa-code">{text}</pre>;
 }
 
 export default function ErrorHandling({ route, onBadges }) {
@@ -302,6 +294,13 @@ export default function ErrorHandling({ route, onBadges }) {
   const set = (patch) => setFilters((f) => ({ ...f, page: 1, ...patch }));
   const anyFilter = Boolean(filters.status || filters.boutique || filters.q);
   const clear = () => setFilters({ status: '', boutique: '', q: '', page: 1 });
+
+  const isEmpty = (d) => d.count === 0 && !anyFilter;
+  // The stats sit above the toolbar, outside <Async>, but are drawn exactly
+  // when <Async> draws its children -- loaded, not failed, not the empty tab
+  // -- which is where they used to live.
+  const loaded = Boolean(state.data) && !state.error && !isEmpty(state.data);
+  const summary = loaded ? state.data.summary : null;
 
   // Switching tab resets the filters and the expanded row. A status filter that
   // survived the move would silently hide most of the tab someone just opened.
@@ -341,221 +340,230 @@ export default function ErrorHandling({ route, onBadges }) {
 
   const moves = movesFor(kind);
 
+  // The counts come from the summary, which is unfiltered on purpose: a tab
+  // label that moved with the filters would make the other tabs look empty
+  // whenever one was narrowed.
+  const byKind = state.data?.summary?.by_kind;
+
   return (
     <>
-      <SectionHead title="Other errors" subtitle={kind.title}>
-        <SearchBox value={filters.q} onChange={(q) => set({ q })}
-          placeholder="Exception, message or path…" />
-        <Select value={filters.status} onChange={(status) => set({ status })}
-          label="Status" options={STATUSES} />
-      </SectionHead>
+      <PageHeader title="Other errors" subtitle={kind.title} />
 
-      <div className="sa-tabs" style={{ marginLeft: 0, marginBottom: 14, flexWrap: 'wrap' }}>
-        {KINDS.map((k) => {
-          const Icon = k.icon;
-          return (
-            <button key={k.key} className="sa-tab"
-              aria-current={k.key === kind.key ? 'page' : undefined}
-              onClick={() => goKind(k.key)}>
-              <Icon size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
-              {k.label}
-              {/* The count comes from the summary, which is unfiltered on
-                  purpose: a tab label that moved with the filters would make
-                  the other tabs look empty whenever one was narrowed. */}
-              {state.data?.summary?.by_kind?.[k.key] > 0 && (
-                <span style={{ marginLeft: 7, opacity: 0.75 }}>
-                  {count(state.data.summary.by_kind[k.key])}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs
+        ariaLabel="Kinds of error"
+        value={kind.key}
+        onChange={goKind}
+        items={KINDS.map((k) => ({
+          key: k.key,
+          label: k.label,
+          icon: k.icon,
+          count: byKind?.[k.key] > 0 ? byKind[k.key] : undefined,
+        }))}
+      />
 
-      <div className="sa-note" style={{ marginBottom: 16 }}>{kind.blurb}</div>
+      <Note tone="info">{kind.blurb}</Note>
 
-      {filters.boutique && (
-        <div className="sa-filters">
-          <span className="sa-muted" style={{ fontSize: 13 }}>Only rows last seen in</span>
-          <span className="sa-schema">{filters.boutique}</span>
-          <button className="sa-btn" onClick={() => set({ boutique: '' })}>Clear</button>
-        </div>
+      {summary && (
+        <StatGrid>
+          <Stat icon={kind.icon} label="Open in this tab"
+            value={count(summary.by_kind?.[kind.key])}
+            note="Not resolved or ignored" />
+          <Stat icon={Layers} label="Distinct rows" value={count(state.data.count)}
+            note={anyFilter ? 'Matching these filters' : 'Ever recorded, this kind'} />
+          {/* Deliberately shown next to every tab: this screen exists
+              because these kinds were being confused with crashes, and the
+              crash count is the number they must not be added to. */}
+          <Stat icon={FileWarning} label="Unresolved crashes" value={count(summary.unresolved)}
+            tone={summary.unresolved > 0 ? 'warn' : undefined}
+            note="Under Crashes, not this screen"
+            onClick={() => route.go('errors')} />
+        </StatGrid>
       )}
+
+      {/* Outside <Async>: a filter that makes the server fail must stay on
+          screen so it can be changed back. */}
+      <Toolbar
+        right={(
+          <SearchBox value={filters.q} onChange={(q) => set({ q })}
+            placeholder="Exception, message or path…" />
+        )}
+      >
+        <Chips label="Status" options={STATUSES} value={filters.status}
+          onChange={(status) => set({ status })} />
+        {filters.boutique && (
+          <div className="sa-inline">
+            <span className="at-row-sub">Only rows last seen in</span>
+            <span className="sa-schema">{filters.boutique}</span>
+            <button type="button" className="btn-secondary at-btn-sm"
+              onClick={() => set({ boutique: '' })}>
+              Clear <X size={14} />
+            </button>
+          </div>
+        )}
+      </Toolbar>
 
       <Async
         state={state}
-        isEmpty={(d) => d.count === 0 && !anyFilter}
-        empty={<Empty icon={<ShieldCheck size={22} />}
+        isEmpty={isEmpty}
+        empty={<Empty icon={<ShieldCheck size={20} />}
           title={`Nothing under ${kind.label.toLowerCase()}.`} detail={kind.empty} />}
       >
         {(data) => (
           <>
-            <div className="sa-stats">
-              <Stat label="Open in this tab" value={count(data.summary.by_kind?.[kind.key])}
-                note="Not resolved or ignored" />
-              <Stat label="Distinct rows" value={count(data.count)}
-                note={anyFilter ? 'Matching these filters' : 'Ever recorded, this kind'} />
-              {/* Deliberately shown next to every tab: this screen exists
-                  because these kinds were being confused with crashes, and the
-                  crash count is the number they must not be added to. */}
-              <Stat label="Unresolved crashes" value={count(data.summary.unresolved)}
-                tone={data.summary.unresolved > 0 ? 'warn' : undefined}
-                note="Under Crashes, not this screen"
-                onClick={() => route.go('errors')} />
-            </div>
-
             {data.errors.length === 0 ? (
-              <Empty icon={<Bug size={22} />} title="Nothing matches those filters."
+              <Empty icon={<Bug size={20} />} title="Nothing matches those filters."
                 detail="This tab is not empty — the filters are just too narrow."
-                action={<button className="sa-btn" onClick={clear}>Clear the filters</button>} />
+                action={(
+                  <button type="button" className="btn-secondary at-btn-sm" onClick={clear}>
+                    Clear the filters
+                  </button>
+                )} />
             ) : (
-              <div className="sa-table-wrap">
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 28 }} />
-                      {kind.columns.map((c) => <th key={c.label}>{c.label}</th>)}
-                      <th>Status</th>
-                      <th className="sa-num">Occurrences</th>
-                      <th>Last seen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.errors.map((e) => {
-                      const expanded = open === e.id;
-                      const last = since(e.last_seen);
-                      const seenIn = e.boutiques || [];
-                      return (
-                        <Fragment key={e.id}>
-                          <tr className="sa-clickable"
-                            onClick={() => setOpen(expanded ? null : e.id)}>
-                            <td>
-                              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </td>
-                            {kind.columns.map((c) => (
-                              <td key={c.label} style={c.width ? { maxWidth: c.width } : undefined}>
-                                {c.render(e)}
+              <>
+                <div className="at-table-wrap">
+                  <table className="at-table at-table--fit">
+                    <thead>
+                      <tr>
+                        <th scope="col" />
+                        {kind.columns.map((c) => <th key={c.label} scope="col">{c.label}</th>)}
+                        <th scope="col">Status</th>
+                        <th scope="col" className="sa-num">Occurrences</th>
+                        <th scope="col">Last seen</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.errors.map((e) => {
+                        const expanded = open === e.id;
+                        const toggle = () => setOpen(expanded ? null : e.id);
+                        const last = since(e.last_seen);
+                        const seenIn = e.boutiques || [];
+                        return (
+                          <Fragment key={e.id}>
+                            <tr className="sa-clickable" tabIndex={0} aria-expanded={expanded}
+                              onClick={toggle}
+                              onKeyDown={(ev) => {
+                                if (ev.target === ev.currentTarget
+                                  && (ev.key === 'Enter' || ev.key === ' ')) {
+                                  ev.preventDefault();
+                                  toggle();
+                                }
+                              }}>
+                              <td className="sa-expand-cell">
+                                {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                               </td>
-                            ))}
-                            <td>
-                              <Pill value={e.status} />
-                              {e.resolved_by && (
-                                <div className="sa-schema" style={{ marginTop: 4 }}>
-                                  {e.resolved_by}, {moment(e.resolved_at)}
-                                </div>
-                              )}
-                            </td>
-                            <td className="sa-num" style={{ fontSize: 19, fontWeight: 600 }}>
-                              {count(e.count)}
-                            </td>
-                            <td style={{ whiteSpace: 'nowrap' }}>
-                              {/* Inverted against the boutique screens on
-                                  purpose: a boutique that ordered today is
-                                  healthy, a failure that fired today is not. */}
-                              <Pill value={last.tone === 'ok' ? 'warning' : 'healthy'}
-                                label={last.text} />
-                              <div className="sa-schema" style={{ marginTop: 4 }}>
-                                {moment(e.last_seen)}
-                              </div>
-                            </td>
-                          </tr>
+                              {kind.columns.map((c) => (
+                                <td key={c.label} data-label={c.label} className={c.className}>
+                                  {c.render(e)}
+                                </td>
+                              ))}
+                              <td data-label="Status">
+                                <Pill value={e.status} />
+                                {e.resolved_by && (
+                                  <div className="at-row-sub">
+                                    {e.resolved_by}, {moment(e.resolved_at)}
+                                  </div>
+                                )}
+                              </td>
+                              <td data-label="Occurrences" className="at-num sa-num">
+                                <strong>{count(e.count)}</strong>
+                              </td>
+                              <td data-label="Last seen" className="sa-nowrap">
+                                {/* Inverted against the boutique screens on
+                                    purpose: a boutique that ordered today is
+                                    healthy, a failure that fired today is not. */}
+                                <Pill value={last.tone === 'ok' ? 'warning' : 'healthy'}
+                                  label={last.text} />
+                                <div className="at-row-sub">{moment(e.last_seen)}</div>
+                              </td>
+                            </tr>
 
-                          {expanded && (
-                            <tr>
-                              <td colSpan={kind.columns.length + 4}
-                                style={{ background: 'var(--bg-color)' }}>
-                                <div style={{ display: 'grid', gap: 16, padding: '4px 0 8px' }}>
-                                  <Stack text={e.traceback} kind={kind} />
+                            {expanded && (
+                              <tr className="sa-detail-row">
+                                <td colSpan={kind.columns.length + 4}>
+                                  <div className="at-stack">
+                                    <Stack text={e.traceback} kind={kind} />
 
-                                  <dl className="sa-kv">
-                                    <dt>Seen in</dt>
-                                    <dd>
-                                      {seenIn.length === 0 ? (
+                                    <KeyValue items={[
+                                      ['Seen in', seenIn.length === 0 ? (
                                         <span className="sa-muted">
                                           No boutique — this happened on a public-schema request.
                                         </span>
                                       ) : (
                                         <>
-                                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                          <div className="sa-inline">
                                             {seenIn.map((schema) => (
-                                              <button key={schema} className="sa-btn"
-                                                style={MONO}
+                                              <button key={schema} type="button"
+                                                className="btn-secondary at-btn-sm sa-mono"
                                                 onClick={() => set({ boutique: schema })}>
                                                 {schema}
                                               </button>
                                             ))}
                                           </div>
-                                          <div className="sa-muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+                                          <div className="at-row-sub">
                                             {count(seenIn.length)} boutique(s), capped
                                             server-side — read it as a floor, not a total.
                                           </div>
                                         </>
-                                      )}
-                                    </dd>
+                                      )],
+                                      ['Most recent occurrence', (
+                                        <>
+                                          {e.boutique ? (
+                                            <button type="button" className="at-link sa-mono"
+                                              onClick={() => route.go(`boutiques/${e.boutique}`)}>
+                                              {e.boutique}
+                                            </button>
+                                          ) : <span className="sa-muted">public schema</span>}
+                                          {e.username && <span className="sa-muted"> · as {e.username}</span>}
+                                        </>
+                                      )],
+                                      ['First seen', moment(e.first_seen)],
+                                      ['Fingerprint', <span className="sa-schema">{e.fingerprint}</span>],
+                                    ]} />
 
-                                    <dt>Most recent occurrence</dt>
-                                    <dd>
-                                      {e.boutique ? (
-                                        <button className="sa-link"
-                                          onClick={() => route.go(`boutiques/${e.boutique}`)}>
-                                          {e.boutique}
+                                    <Field label="Internal notes" htmlFor={`hnote-${e.id}`}>
+                                      <textarea id={`hnote-${e.id}`} className="form-control"
+                                        maxLength={LIMITS.note}
+                                        defaultValue={e.notes}
+                                        placeholder="What you found, what you tried…"
+                                        onBlur={(ev) => {
+                                          if (ev.target.value !== e.notes) saveNotes(e, ev.target.value);
+                                        }} />
+                                    </Field>
+
+                                    <div className="sa-inline">
+                                      {moves.map((m) => (
+                                        <button key={m.value} type="button"
+                                          className={`btn-secondary at-btn-sm${m.confirm?.danger ? ' at-btn-danger' : ''}`}
+                                          disabled={busy || e.status === m.value}
+                                          title={e.status === m.value ? m.already : undefined}
+                                          onClick={() => (m.confirm
+                                            ? setPending({ error: e, move: m })
+                                            : move(e, m.value))}>
+                                          {m.label}
                                         </button>
-                                      ) : <span className="sa-muted">public schema</span>}
-                                      {e.username && <span className="sa-muted"> · as {e.username}</span>}
-                                    </dd>
-
-                                    <dt>First seen</dt>
-                                    <dd>{moment(e.first_seen)}</dd>
-
-                                    <dt>Fingerprint</dt>
-                                    <dd className="sa-schema">{e.fingerprint}</dd>
-                                  </dl>
-
-                                  <div>
-                                    <label htmlFor={`hnote-${e.id}`} style={LABEL}>
-                                      Internal notes
-                                    </label>
-                                    <textarea id={`hnote-${e.id}`} className="sa-textarea" maxLength={LIMITS.note}
-                                      defaultValue={e.notes}
-                                      placeholder="What you found, what you tried…"
-                                      onBlur={(ev) => {
-                                        if (ev.target.value !== e.notes) saveNotes(e, ev.target.value);
-                                      }} />
+                                      ))}
+                                      {!kind.resolvable && (
+                                        <span className="at-row-sub">
+                                          No “Resolve” here: {kind.noun} is the system working,
+                                          and it will go on happening for as long as the reason
+                                          holds. Ignore is the honest verb.
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
-
-                                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                    {moves.map((m) => (
-                                      <button key={m.value}
-                                        className={`sa-btn${m.confirm?.danger ? ' danger' : ''}`}
-                                        disabled={busy || e.status === m.value}
-                                        title={e.status === m.value ? m.already : undefined}
-                                        onClick={() => (m.confirm
-                                          ? setPending({ error: e, move: m })
-                                          : move(e, m.value))}>
-                                        {m.label}
-                                      </button>
-                                    ))}
-                                    {!kind.resolvable && (
-                                      <span className="sa-muted" style={HINT}>
-                                        No “Resolve” here: {kind.noun} is the system working,
-                                        and it will go on happening for as long as the reason
-                                        holds. Ignore is the honest verb.
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
                 <Pager page={data.page} pages={data.pages} total={data.count}
                   onPage={(page) => { setOpen(null); setFilters((f) => ({ ...f, page })); }} />
-              </div>
+              </>
             )}
           </>
         )}
@@ -569,11 +577,11 @@ export default function ErrorHandling({ route, onBadges }) {
         title={pending?.move.confirm.title}
         body={pending && (
           <>
-            <div className="sa-schema" style={{ marginBottom: 8 }}>
+            <div className="sa-schema">
               {pending.error.exception_type} at {pending.error.path || '—'}
-              {' '}· {count(pending.error.count)} occurrence(s)
             </div>
-            {pending.move.confirm.body}
+            <div className="at-row-sub">{count(pending.error.count)} occurrence(s)</div>
+            <p>{pending.move.confirm.body}</p>
           </>
         )}
         confirmLabel={pending?.move.confirm.confirmLabel}
@@ -583,7 +591,3 @@ export default function ErrorHandling({ route, onBadges }) {
     </>
   );
 }
-
-const MONO = { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 12 };
-const LABEL = { display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 6 };
-const HINT = { fontSize: 12.5, alignSelf: 'center', maxWidth: 460 };

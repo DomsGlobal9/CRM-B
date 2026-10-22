@@ -21,10 +21,12 @@
  */
 
 import { useCallback } from 'react';
-import { Lock, Plug } from 'lucide-react';
+import { Lock, Plug, Server } from 'lucide-react';
 
 import { consoleApi } from '../api';
-import { Async, Pill, SectionHead, useApi } from '../ui';
+import {
+  Async, Card, KeyValue, Note, PageHeader, Pill, Table, useApi,
+} from '../ui';
 
 /**
  * The seams, in the order an administrator would ask about them.
@@ -72,6 +74,38 @@ function providerStatus(configured) {
     + 'credential to return the provider to its dormant state.'];
 }
 
+/** The table's columns; each row is a seam with its status worked out. */
+const COLUMNS = [
+  {
+    key: 'label',
+    label: 'Service',
+    render: (row) => (
+      <>
+        <div className="at-row-title">{row.label}</div>
+        {!row.check && <div className="at-row-sub">No health check</div>}
+      </>
+    ),
+  },
+  { key: 'status', label: 'Status', render: (row) => <Pill value={row.status} /> },
+  {
+    key: 'credential',
+    label: 'Key set?',
+    render: (row) => (row.configured === null ? (
+      <span className="sa-muted">none to set</span>
+    ) : (
+      <>
+        {/* The same words as Settings & maintenance: 'Set' / 'Not set'. */}
+        <Pill value={row.configured ? 'ok' : 'not_configured'}
+          label={row.configured ? 'Set' : 'Not set'} />
+        <div className="sa-schema">{row.credentialLabel}</div>
+      </>
+    )),
+  },
+  // The prose column is capped on desktop so the identifiers in 'Key set?'
+  // (CUSTOMER_MESSAGE_BACKEND) keep enough width not to break mid-name.
+  { key: 'detail', label: 'What it means right now', className: 'sa-col-prose' },
+];
+
 export default function Integrations() {
   const state = useApi(useCallback(
     () => Promise.all([consoleApi.health(), consoleApi.config()])
@@ -81,7 +115,7 @@ export default function Integrations() {
 
   return (
     <>
-      <SectionHead
+      <PageHeader
         title="Connected services"
         subtitle="Every outside service the product talks to, and whether it is set up. Statuses come from the health checks; nothing is pinged from here."
       />
@@ -91,66 +125,27 @@ export default function Integrations() {
           const checks = Object.fromEntries((health.checks || []).map((c) => [c.key, c]));
           const credentials = config.credentials || {};
 
+          const rows = SEAMS.map((seam) => {
+            const check = seam.check ? checks[seam.check] : null;
+            const configured = seam.credential
+              ? Boolean(credentials[seam.credential]) : null;
+            const [status, detail] = check
+              ? [check.status, check.detail]
+              : providerStatus(configured);
+            return { ...seam, configured, status, detail };
+          });
+
           return (
             <>
-              <div className="sa-note info">
-                <Lock size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
+              <Note tone="info" icon={Lock}>
                 The server sends whether a credential is present, never its value. Nothing on this
                 page can reveal a secret, and nothing here asks for one.
-              </div>
+              </Note>
 
-              <div className="sa-table-wrap">
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th>Service</th>
-                      <th>Status</th>
-                      <th>Key set?</th>
-                      <th>What it means right now</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {SEAMS.map((seam) => {
-                      const check = seam.check ? checks[seam.check] : null;
-                      const configured = seam.credential
-                        ? Boolean(credentials[seam.credential]) : null;
-                      const [status, detail] = check
-                        ? [check.status, check.detail]
-                        : providerStatus(configured);
+              <Table columns={COLUMNS} rows={rows} keyFor={(row) => row.key} />
 
-                      return (
-                        <tr key={seam.key}>
-                          <td>
-                            <div className="sa-name">{seam.label}</div>
-                            {!seam.check && (
-                              <div className="sa-schema">no health check</div>
-                            )}
-                          </td>
-                          <td><Pill value={status} /></td>
-                          <td>
-                            {configured === null ? (
-                              <span className="sa-muted">none to set</span>
-                            ) : (
-                              <>
-                                <Pill value={configured ? 'active' : 'not_configured'}
-                                  label={configured ? 'Present' : 'Absent'} />
-                                <div className="sa-schema">{seam.credentialLabel}</div>
-                              </>
-                            )}
-                          </td>
-                          <td style={{ maxWidth: 560, whiteSpace: 'normal', fontSize: 13.5 }}>
-                            {detail}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="sa-cards" style={{ marginTop: 22 }}>
-                <div className="sa-card">
-                  <h4><Plug size={14} /> Why so much grey</h4>
+              <div className="at-grid-2">
+                <Card icon={Plug} title="Why so much grey">
                   <p>
                     Grey is <em>not configured</em>, and for most of these rows it is permanent by
                     design rather than pending. Payments, SMS and background jobs have no
@@ -158,20 +153,22 @@ export default function Integrations() {
                     what staff typed, and every operation runs inside the request that asked for it.
                     Colouring those red would invent an outage.
                   </p>
-                </div>
-                <div className="sa-card">
-                  <h4>Environment</h4>
-                  <dl className="sa-kv">
-                    <dt>DEBUG</dt>
-                    <dd>{String(config.environment?.debug)}</dd>
-                    <dt>Time zone</dt>
-                    <dd>{config.environment?.time_zone}</dd>
-                    <dt>Tracking base URL</dt>
-                    <dd className="sa-schema">{config.environment?.tracking_base_url}</dd>
-                    <dt>WhatsApp country code</dt>
-                    <dd>{config.environment?.whatsapp_country_code}</dd>
-                  </dl>
-                </div>
+                </Card>
+                <Card icon={Server} title="Environment">
+                  <KeyValue items={[
+                    // A Pill 'On' / 'Off', as on Settings & maintenance. A
+                    // payload without the flag shows a dash, not a guess.
+                    ['DEBUG', typeof config.environment?.debug === 'boolean' ? (
+                      <Pill value={config.environment.debug ? 'warning' : 'healthy'}
+                        label={config.environment.debug ? 'On' : 'Off'} />
+                    ) : null],
+                    ['Time zone', config.environment?.time_zone],
+                    ['Tracking base URL', (
+                      <span className="sa-schema">{config.environment?.tracking_base_url}</span>
+                    )],
+                    ['WhatsApp country code', config.environment?.whatsapp_country_code],
+                  ]} />
+                </Card>
               </div>
             </>
           );

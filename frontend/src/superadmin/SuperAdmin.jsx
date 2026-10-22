@@ -9,17 +9,22 @@
  * Deliberately separate from src/App.jsx. That is a boutique's workspace, signed
  * in as a boutique and scoped to one tenant; this is signed in as the platform
  * and scoped to all of them. One bundle for both would mean a boutique-role bug
- * becomes a cross-tenant one.
+ * becomes a cross-tenant one. The two share the design system -- the same
+ * dark sidebar, drawer, sign-in page and components -- and nothing else.
  */
 
-import { Component, useCallback, useEffect, useState } from 'react';
-import { LogOut, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Component, Fragment, useCallback, useEffect, useState } from 'react';
+import {
+  FileWarning, Lock, LogOut, Menu, PanelLeftClose, PanelLeftOpen, RotateCw, User, X,
+} from 'lucide-react';
 
 import { reportCrash } from '../services/reportCrash';
 import { clearToken, consoleApi, getToken } from './api';
 import { NAV, ROUTES } from './nav';
 import { useRoute } from './router';
-import { Empty, Failed, SearchBox, ToastHost, count } from './ui';
+import {
+  AvatarInitials, Empty, Failed, Field, Loader, Note, SearchBox, ToastHost, count,
+} from './ui';
 import './superadmin.css';
 
 import Dashboard from './screens/Dashboard.jsx';
@@ -68,6 +73,8 @@ const SCREENS = {
   support: Support,
 };
 
+const WORDMARK = '/scaleezy-wordmark.webp';
+
 /* ---------------------------------------------------------------- guard */
 
 /**
@@ -115,6 +122,7 @@ class Boundary extends Component {
 
 /* -------------------------------------------------------------- sign in */
 
+/** The workspace entry page: the wordmark on the shell colour, one card. */
 function SignIn({ onSignedIn }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -135,25 +143,27 @@ function SignIn({ onSignedIn }) {
   };
 
   return (
-    <div className="sa-signin">
-      <form className="sa-signin-card" onSubmit={submit}>
-        <h1>Platform console</h1>
-        <p className="sa-sub">Scaleezy administrators only.</p>
+    <div className="auth-page sa-signin">
+      <img className="portal-wordmark portal-wordmark--auth" src={WORDMARK} alt="Scaleezy" />
 
-        {error && <div className="sa-note error">{error}</div>}
+      <form className="auth-card" onSubmit={submit}>
+        <div className="sa-signin-head">
+          <h1 className="auth-title">Platform console</h1>
+          <p className="auth-subtitle">Scaleezy administrators only.</p>
+        </div>
 
-        <div className="sa-field">
-          <label htmlFor="sa-username">Administrator username</label>
-          <input id="sa-username" className="sa-input" value={username} autoComplete="username"
+        {error && <Note tone="error">{error}</Note>}
+
+        <Field label="Administrator username" htmlFor="sa-username" icon={User}>
+          <input id="sa-username" type="text" value={username} autoComplete="username"
             onChange={(e) => setUsername(e.target.value)} required />
-        </div>
-        <div className="sa-field">
-          <label htmlFor="sa-password">Password</label>
-          <input id="sa-password" className="sa-input" type="password" value={password}
+        </Field>
+        <Field label="Password" htmlFor="sa-password" icon={Lock}>
+          <input id="sa-password" type="password" value={password}
             autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} required />
-        </div>
+        </Field>
 
-        <button className="sa-btn primary" type="submit" disabled={busy}>
+        <button className="btn-primary" type="submit" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
@@ -180,18 +190,20 @@ function GlobalSearch({ onOpen }) {
   }, [term]);
 
   return (
-    <div style={{ position: 'relative', flex: '0 1 380px' }}>
+    // The results hang off this box, so they sit under the input whatever
+    // height the input is.
+    <div className="sa-global-search">
       <SearchBox value={term} onChange={setTerm}
         placeholder="Search boutiques, users, customers, orders, errors…" />
       {results && (
         <div className="sa-results">
-          {busy && <div className="sa-empty">Searching…</div>}
-          {!busy && results.length === 0 && <div className="sa-empty">Nothing matches.</div>}
+          {busy && <div className="sa-results-empty"><Loader inline label="Searching…" /></div>}
+          {!busy && results.length === 0 && <div className="sa-results-empty">Nothing matches.</div>}
           {results.map((r, i) => (
-            <button key={`${r.type}-${r.id}-${i}`} className="sa-result"
+            <button key={`${r.type}-${r.id}-${i}`} type="button" className="sa-result"
               onClick={() => { setTerm(''); setResults(null); onOpen(r); }}>
               <span className="sa-result-type">{r.type}</span>
-              <span>
+              <span className="sa-result-label">
                 {r.label}
                 {r.sublabel && <span className="sa-muted"> — {r.sublabel}</span>}
               </span>
@@ -204,19 +216,70 @@ function GlobalSearch({ onOpen }) {
   );
 }
 
+/* ----------------------------------------------------------- navigation */
+
+/**
+ * One sidebar entry: a link for a screen (so it can be opened in a new tab),
+ * a button for Sign out. Collapsed, the label is a flyout on hover and focus,
+ * as in the workspace.
+ */
+function NavItem({ icon: Icon, label, href, active, collapsed, badge, ariaLabel, onClick }) {
+  const [flyout, setFlyout] = useState(null);
+  const show = (e) => {
+    if (!collapsed) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    setFlyout({ top: r.top + r.height / 2, left: r.right + 10 });
+  };
+  const hide = () => setFlyout(null);
+  const Tag = href ? 'a' : 'button';
+
+  return (
+    <Tag
+      className={`portal-menu-item${active ? ' active' : ''}`}
+      href={href}
+      type={href ? undefined : 'button'}
+      aria-current={active ? 'page' : undefined}
+      aria-label={collapsed ? ariaLabel || label : undefined}
+      onClick={onClick}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+    >
+      <Icon size={16} aria-hidden="true" />
+      <span className="portal-menu-label">{label}</span>
+      {badge}
+      {collapsed && flyout && (
+        <span className="portal-flyout" role="tooltip" style={{ top: flyout.top, left: flyout.left }}>{label}</span>
+      )}
+    </Tag>
+  );
+}
+
 /* ------------------------------------------------------------------ app */
+
+// Its own key, not the workspace's 'nav_collapsed': the two apps share an
+// origin, and folding the console's rail should not fold a boutique's.
+const NAV_KEY = 'sa_nav_collapsed';
+
+const readCollapsed = () => {
+  try { return localStorage.getItem(NAV_KEY) === '1'; } catch { return false; }
+};
 
 export default function SuperAdmin() {
   const [user, setUser] = useState(null);
-  const [checking, setChecking] = useState(true);
-  const [errorCount, setErrorCount] = useState(0);
-  const route = useRoute();
-
   // A token in storage is not proof of a live session -- it may have been
   // revoked, or belong to an account that is no longer a superuser -- so the
-  // console asks the server before it draws anything.
+  // console asks the server before it draws anything. With no token there is
+  // nothing to ask, and the sign-in page is drawn straight away.
+  const [checking, setChecking] = useState(() => Boolean(getToken()));
+  const [errorCount, setErrorCount] = useState(0);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [drawer, setDrawer] = useState(false);
+  const route = useRoute();
+
   useEffect(() => {
-    if (!getToken()) { setChecking(false); return; }
+    if (!getToken()) return;
     consoleApi.me()
       .then(setUser)
       .catch(() => clearToken())
@@ -234,7 +297,32 @@ export default function SuperAdmin() {
 
   useEffect(() => { refreshBadges(); }, [refreshBadges, route.head]);
 
+  // Escape closes the drawer, as tapping the shade behind it does.
+  useEffect(() => {
+    if (!drawer) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') setDrawer(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [drawer]);
+
+  // The drawer belongs to the tablet and phone layout. Widened past 1024px
+  // (a tablet turned to landscape) the desktop rail takes over, and an open
+  // drawer left behind would keep the collapsed rail from labelling its icons.
+  useEffect(() => {
+    const wide = window.matchMedia('(min-width: 1025px)');
+    const onChange = (e) => { if (e.matches) setDrawer(false); };
+    wide.addEventListener('change', onChange);
+    return () => wide.removeEventListener('change', onChange);
+  }, []);
+
+  const toggleNav = () => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try { localStorage.setItem(NAV_KEY, next ? '1' : '0'); } catch { /* per-device convenience only */ }
+  };
+
   const signOut = async () => {
+    setDrawer(false);
     await consoleApi.logout();
     setUser(null);
   };
@@ -246,8 +334,21 @@ export default function SuperAdmin() {
     else if (result.boutique) route.go(`boutiques/${result.boutique}/data`);
   };
 
+  // A plain click routes in place and closes the drawer; a modified click
+  // (new tab, new window) is left to the browser, which the href makes work.
+  const pick = (key) => (event) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    route.go(key);
+    setDrawer(false);
+  };
+
   if (checking) {
-    return <div className="sa-empty" style={{ paddingTop: 80 }}>Checking your session…</div>;
+    return (
+      <div className="sa-boot">
+        <Loader inline label="Checking your session…" />
+      </div>
+    );
   }
   if (!user) return <SignIn onSignedIn={setUser} />;
 
@@ -255,49 +356,88 @@ export default function SuperAdmin() {
   // reload and can be linked to.
   const isDetail = route.head === 'boutiques' && route.parts.length > 1;
   const Screen = isDetail ? BoutiqueDetail : SCREENS[route.head];
+  // Collapsing is a desktop affordance; the drawer always shows labels.
+  const railCollapsed = collapsed && !drawer;
 
   return (
     <ToastHost>
-      <div className="sa-shell">
-        <nav className="sa-nav">
-          <div className="sa-nav-brand">
-            <ShieldCheck size={19} />
-            Scaleezy
-            <span className="sa-tag">Platform</span>
+      <div className={`portal-layout sa-shell${collapsed ? ' nav-collapsed' : ''}`}>
+        {/* Tablet and phone: the shell-coloured bar that opens the drawer. */}
+        <div className="mobile-portal-header">
+          <div className="sa-mobile-brand">
+            <button type="button" className="mobile-hamburger-btn" onClick={() => setDrawer((open) => !open)}
+              aria-label="Toggle navigation menu" aria-expanded={drawer}>
+              {drawer ? <X size={22} /> : <Menu size={22} />}
+            </button>
+            <img className="portal-wordmark portal-wordmark--sm" src={WORDMARK} alt="Scaleezy" />
+            <span className="sa-mobile-label">Platform console</span>
+          </div>
+          {errorCount > 0 && (
+            <button type="button" className="sa-mobile-errors"
+              aria-label={`Crashes, ${count(errorCount)} unresolved`}
+              onClick={() => { route.go('errors'); setDrawer(false); }}>
+              <FileWarning size={16} aria-hidden="true" />
+              <span className="sa-nav-count">{count(errorCount)}</span>
+            </button>
+          )}
+        </div>
+
+        {drawer && <div className="mobile-portal-overlay" onClick={() => setDrawer(false)} />}
+
+        <aside className={`portal-sidebar${drawer ? ' mobile-open' : ''}`}>
+          <div className="portal-sidebar-header-desktop">
+            <div className="portal-sidebar-brand">
+              <div className="sa-brand-lockup">
+                <img className="portal-wordmark" src={WORDMARK} alt="Scaleezy" />
+                <div className="portal-sidebar-logo-sub">Platform console</div>
+              </div>
+              <div className="portal-sidebar-mark" aria-hidden="true">S</div>
+              <button type="button" className="portal-nav-toggle" onClick={toggleNav}
+                aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+                aria-expanded={!collapsed}
+                title={collapsed ? 'Expand navigation' : 'Collapse navigation'}>
+                {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+              </button>
+            </div>
           </div>
 
-          {NAV.map((group) => (
-            <div key={group.group} className="sa-nav-group">
-              <div className="sa-nav-group-title">{group.group}</div>
-              {group.items.map((item) => {
-                const Icon = item.icon;
-                const active = route.head === item.key;
-                return (
-                  <button key={item.key} className="sa-nav-item"
-                    aria-current={active ? 'page' : undefined}
-                    onClick={() => route.go(item.key)}>
-                    <Icon size={14} />
-                    {item.label}
-                    {item.badge === 'errors' && errorCount > 0 && (
-                      <span className="sa-nav-badge">{count(errorCount)}</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+          <nav className="portal-menu" aria-label="Console">
+            {NAV.map((group) => (
+              <Fragment key={group.group}>
+                <div className="portal-menu-group">{group.group}</div>
+                {group.items.map((item) => {
+                  const showCount = item.badge === 'errors' && errorCount > 0;
+                  return (
+                    <NavItem key={item.key}
+                      icon={item.icon}
+                      label={item.label}
+                      href={`#/${item.key}`}
+                      active={route.head === item.key}
+                      collapsed={railCollapsed}
+                      ariaLabel={showCount ? `${item.label}, ${count(errorCount)}` : item.label}
+                      badge={showCount && <span className="sa-nav-count">{count(errorCount)}</span>}
+                      onClick={pick(item.key)} />
+                  );
+                })}
+              </Fragment>
+            ))}
+            <div className="portal-menu-divider" />
+            <NavItem icon={LogOut} label="Sign out" collapsed={railCollapsed} onClick={signOut} />
+          </nav>
+        </aside>
 
-        <div className="sa-content">
+        {/* Landmarks: the top row is the banner, the screen alone is main, so
+            jumping to main lands on the content rather than the search box. */}
+        <div className="portal-main">
           <header className="sa-topbar">
             <GlobalSearch onOpen={openResult} />
             <div className="sa-topbar-right">
-              <button className="sa-btn" onClick={() => window.location.reload()}>
-                <RefreshCw size={13} /> Refresh
-              </button>
-              <span className="sa-who">{user.username}</span>
-              <button className="sa-btn" onClick={signOut}>
-                <LogOut size={13} /> Sign out
+              <div className="user-profile-widget sa-who">
+                <AvatarInitials name={user.username} size={32} />
+                <span className="sa-who-text">Signed in as <strong>{user.username}</strong></span>
+              </div>
+              <button type="button" className="btn-secondary at-btn-sm" onClick={() => window.location.reload()}>
+                <RotateCw size={14} /> Refresh
               </button>
             </div>
           </header>
@@ -308,9 +448,11 @@ export default function SuperAdmin() {
                 ? <Screen route={route} onBadges={refreshBadges} />
                 : <Empty title="No such screen."
                     detail={`"${route.head}" is not part of the console.`}
-                    action={<button className="sa-btn" onClick={() => route.go('dashboard')}>
-                      Go to the dashboard
-                    </button>} />}
+                    action={(
+                      <button type="button" className="btn-secondary" onClick={() => route.go('dashboard')}>
+                        Go to the dashboard
+                      </button>
+                    )} />}
             </Boundary>
           </main>
         </div>

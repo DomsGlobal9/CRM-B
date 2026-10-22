@@ -16,11 +16,11 @@
  */
 
 import { Fragment, useCallback, useState } from 'react';
-import { ChevronDown, ChevronRight, ScrollText } from 'lucide-react';
+import { ChevronDown, ChevronRight, ScrollText, X } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import {
-  Async, Empty, Pager, SearchBox, SectionHead, Select, moment, useApi,
+  Async, Card, Empty, Note, PageHeader, Pager, SearchBox, Select, Toolbar, moment, useApi,
 } from '../ui';
 
 const PAGE_SIZE = 50;
@@ -50,23 +50,23 @@ const isPlainObject = (value) =>
 function Diff({ before, after }) {
   if (before === null && after === null) {
     return (
-      <p className="sa-muted" style={{ fontSize: 13 }}>
+      <p className="sa-muted">
         This action recorded no before/after state — the reason is the whole record of it.
       </p>
     );
   }
 
   if (!isPlainObject(before) || !isPlainObject(after)) {
+    // at-grid-3's narrower floor (280px) is deliberate: inside a stacked
+    // table cell on a phone a 320px floor would overflow the card.
     return (
-      <div className="sa-cards">
-        <div className="sa-card">
-          <h4>Before</h4>
-          <p className="sa-schema" style={{ whiteSpace: 'pre-wrap' }}>{show(before)}</p>
-        </div>
-        <div className="sa-card">
-          <h4>After</h4>
-          <p className="sa-schema" style={{ whiteSpace: 'pre-wrap' }}>{show(after)}</p>
-        </div>
+      <div className="at-grid-3">
+        <Card title="Before">
+          <pre className="sa-code sa-code--wrap">{show(before)}</pre>
+        </Card>
+        <Card title="After">
+          <pre className="sa-code sa-code--wrap">{show(after)}</pre>
+        </Card>
       </div>
     );
   }
@@ -77,7 +77,7 @@ function Diff({ before, after }) {
 
   if (keys.length === 0) {
     return (
-      <p className="sa-muted" style={{ fontSize: 13 }}>
+      <p className="sa-muted">
         Nothing changed. The request was recorded because it was made, not because it had an
         effect — which is itself worth knowing.
       </p>
@@ -85,24 +85,34 @@ function Diff({ before, after }) {
   }
 
   return (
-    <table className="sa-table" style={{ background: 'var(--surface-color)' }}>
-      <thead>
-        <tr><th>Field</th><th>Before</th><th>After</th></tr>
-      </thead>
-      <tbody>
-        {keys.map((key) => (
-          <tr key={key}>
-            <td className="sa-name">{key}</td>
-            <td className="sa-schema" style={{ color: 'var(--danger-color)' }}>
-              {key in before ? show(before[key]) : <span className="sa-muted">not set</span>}
-            </td>
-            <td className="sa-schema" style={{ color: 'var(--success-color)' }}>
-              {key in after ? show(after[key]) : <span className="sa-muted">removed</span>}
-            </td>
+    <div className="at-table-wrap">
+      <table className="at-table at-table--fit">
+        <thead>
+          <tr>
+            <th scope="col">Field</th>
+            <th scope="col">Before</th>
+            <th scope="col">After</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {keys.map((key) => (
+            <tr key={key}>
+              <td data-label="Field"><span className="at-row-title">{key}</span></td>
+              <td data-label="Before">
+                {key in before
+                  ? <span className="sa-schema sa-text-off">{show(before[key])}</span>
+                  : <span className="sa-muted">not set</span>}
+              </td>
+              <td data-label="After">
+                {key in after
+                  ? <span className="sa-schema sa-text-ok">{show(after[key])}</span>
+                  : <span className="sa-muted">removed</span>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -121,137 +131,164 @@ export default function Audit() {
   const anyFilter = Boolean(filters.actor || filters.action || filters.boutique || filters.q);
   const clear = () => setFilters({ actor: '', action: '', boutique: '', q: '', page: 1 });
 
+  const isEmpty = (d) => d.count === 0 && !anyFilter;
+  // The toolbar sits outside <Async> so the search box is always on screen,
+  // as it was in the page header. The action filter and the filter chips are
+  // drawn exactly when <Async> draws its children -- loaded, not failed, not
+  // the empty trail -- which is where they used to live.
+  const loaded = Boolean(state.data) && !state.error && !isEmpty(state.data);
+
   return (
     <>
-      <SectionHead
+      <PageHeader
         title="What admins did"
         subtitle="Every action taken from this console — who, when, to which boutique, and the reason they typed."
-      >
-        <SearchBox value={filters.q} onChange={(q) => set({ q })}
-          placeholder="Actor, target, action or reason…" />
-      </SectionHead>
+      />
 
-      <div className="sa-note info">
+      <Note tone="info">
         This trail is append-only: it is written by one function on the server and the console
         offers no route that edits or deletes an entry — a record the credential that took the
         action can rewrite is not an audit trail. That is enforced by the API surface and by
         convention, not by the database, which still permits an UPDATE from a Postgres session.
-      </div>
+      </Note>
+
+      <Toolbar
+        right={(
+          <>
+            {/* Search first, then the select, as on every other screen. */}
+            <SearchBox value={filters.q} onChange={(q) => set({ q })}
+              placeholder="Actor, target, action or reason…" />
+            {/* The action list comes from the server's own choices field, so a
+                new action type appears in this dropdown without an edit here. */}
+            {loaded && (
+              <Select value={filters.action} onChange={(action) => set({ action })} label="Action"
+                options={[{ value: '', label: 'All actions' }, ...state.data.actions]} />
+            )}
+          </>
+        )}
+      >
+        {/* Both of these filter on an exact match server-side, which is
+            why the rows below are clickable: typing a schema name exactly
+            is a worse way to get one than clicking the one you can see.
+            Free text is what `q` is for. */}
+        {loaded && anyFilter && (
+          <div className="sa-inline">
+            {filters.actor && (
+              <button type="button" className="btn-secondary at-btn-sm" onClick={() => set({ actor: '' })}>
+                Actor: {filters.actor} <X size={14} />
+              </button>
+            )}
+            {filters.boutique && (
+              <button type="button" className="btn-secondary at-btn-sm" onClick={() => set({ boutique: '' })}>
+                Boutique: {filters.boutique} <X size={14} />
+              </button>
+            )}
+            <button type="button" className="btn-secondary at-btn-sm" onClick={clear}>Clear all filters</button>
+          </div>
+        )}
+      </Toolbar>
 
       <Async
         state={state}
-        isEmpty={(d) => d.count === 0 && !anyFilter}
+        isEmpty={isEmpty}
         empty={(
-          <Empty icon={<ScrollText size={22} />} title="Nothing has been recorded yet."
+          <Empty icon={<ScrollText size={20} />} title="Nothing has been recorded yet."
             detail="Suspensions, module changes, feature flags, user actions, password resets and
                     console sign-ins all land here the moment one happens." />
         )}
       >
-        {(data) => (
+        {(data) => (data.entries.length === 0 ? (
+          <Empty title="No entry matches those filters."
+            detail="The trail is not empty — these filters are just too narrow."
+            action={(
+              <button type="button" className="btn-secondary at-btn-sm" onClick={clear}>
+                Clear the filters
+              </button>
+            )} />
+        ) : (
           <>
-            {/* The action list comes from the server's own choices field, so a
-                new action type appears in this dropdown without an edit here. */}
-            <div className="sa-filters">
-              <Select value={filters.action} onChange={(action) => set({ action })} label="Action"
-                options={[{ value: '', label: 'All actions' }, ...data.actions]} />
-              {/* Both of these filter on an exact match server-side, which is
-                  why the rows below are clickable: typing a schema name exactly
-                  is a worse way to get one than clicking the one you can see.
-                  Free text is what `q` is for. */}
-              {filters.actor && (
-                <button className="sa-btn" onClick={() => set({ actor: '' })}>
-                  Actor: {filters.actor} ✕
-                </button>
-              )}
-              {filters.boutique && (
-                <button className="sa-btn" onClick={() => set({ boutique: '' })}>
-                  Boutique: {filters.boutique} ✕
-                </button>
-              )}
-              {anyFilter && (
-                <button className="sa-btn" onClick={clear}>Clear all filters</button>
-              )}
-            </div>
-
-            {data.entries.length === 0 ? (
-              <Empty title="No entry matches those filters."
-                detail="The trail is not empty — these filters are just too narrow."
-                action={<button className="sa-btn" onClick={clear}>Clear the filters</button>} />
-            ) : (
-              <div className="sa-table-wrap">
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: 28 }} />
-                      <th>When</th>
-                      <th>Who</th>
-                      <th>What</th>
-                      <th>Target</th>
-                      <th>Boutique</th>
-                      <th>Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.entries.map((entry) => {
-                      const expanded = open === entry.id;
-                      return (
-                        <Fragment key={entry.id}>
-                          <tr className="sa-clickable"
-                            onClick={() => setOpen(expanded ? null : entry.id)}>
-                            <td>
-                              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                            </td>
-                            <td style={{ whiteSpace: 'nowrap', fontSize: 13 }}>
-                              {moment(entry.created_at)}
-                            </td>
-                            <td>
-                              <button className="sa-link"
-                                onClick={(e) => { e.stopPropagation(); set({ actor: entry.actor }); }}>
-                                {entry.actor || <span className="sa-muted">no actor</span>}
+            <div className="at-table-wrap">
+              <table className="at-table at-table--fit">
+                <thead>
+                  <tr>
+                    <th scope="col" />
+                    <th scope="col">When</th>
+                    <th scope="col">Who</th>
+                    <th scope="col">What</th>
+                    <th scope="col">Target</th>
+                    <th scope="col">Boutique</th>
+                    <th scope="col">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.entries.map((entry) => {
+                    const expanded = open === entry.id;
+                    const toggle = () => setOpen(expanded ? null : entry.id);
+                    return (
+                      <Fragment key={entry.id}>
+                        <tr className="sa-clickable" tabIndex={0} aria-expanded={expanded}
+                          onClick={toggle}
+                          onKeyDown={(e) => {
+                            if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                              e.preventDefault();
+                              toggle();
+                            }
+                          }}>
+                          <td className="sa-expand-cell">
+                            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                          </td>
+                          <td data-label="When" className="sa-nowrap">
+                            {moment(entry.created_at)}
+                          </td>
+                          <td data-label="Who">
+                            <button type="button" className="at-link"
+                              onClick={(e) => { e.stopPropagation(); set({ actor: entry.actor }); }}>
+                              {entry.actor || <span className="sa-muted">no actor</span>}
+                            </button>
+                            {entry.ip && <div className="sa-schema">{entry.ip}</div>}
+                          </td>
+                          <td data-label="What"><div className="at-row-title">{entry.action_label}</div></td>
+                          <td data-label="Target">
+                            {entry.target
+                              ? <span className="sa-schema">{entry.target}</span>
+                              : <span className="sa-muted">—</span>}
+                          </td>
+                          <td data-label="Boutique">
+                            {entry.boutique ? (
+                              <button type="button" className="at-link sa-mono"
+                                onClick={(e) => { e.stopPropagation(); set({ boutique: entry.boutique }); }}>
+                                {entry.boutique}
                               </button>
-                              {entry.ip && <div className="sa-schema">{entry.ip}</div>}
-                            </td>
-                            <td className="sa-name">{entry.action_label}</td>
-                            <td className="sa-schema">{entry.target || '—'}</td>
-                            <td>
-                              {entry.boutique ? (
-                                <button className="sa-link"
-                                  onClick={(e) => { e.stopPropagation(); set({ boutique: entry.boutique }); }}>
-                                  <span className="sa-schema">{entry.boutique}</span>
-                                </button>
-                              ) : <span className="sa-muted">—</span>}
-                            </td>
-                            {/* The reason is the only part of a row that was
-                                typed by a person, so it gets room rather than a
-                                tooltip. Blank is stated, not left as a gap: the
-                                API requires a reason on the destructive actions
-                                and not on the rest. */}
-                            <td style={{ maxWidth: 300, fontSize: 13.5 }}>
-                              {entry.reason || <span className="sa-muted">none given</span>}
+                            ) : <span className="sa-muted">—</span>}
+                          </td>
+                          {/* The reason is the only part of a row that was
+                              typed by a person, so it gets room rather than a
+                              tooltip. Blank is stated, not left as a gap: the
+                              API requires a reason on the destructive actions
+                              and not on the rest. */}
+                          <td data-label="Reason">
+                            {entry.reason || <span className="sa-muted">none given</span>}
+                          </td>
+                        </tr>
+
+                        {expanded && (
+                          <tr className="sa-detail-row">
+                            <td colSpan={7}>
+                              <Diff before={entry.before} after={entry.after} />
                             </td>
                           </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-                          {expanded && (
-                            <tr>
-                              <td colSpan={7} style={{ background: 'var(--bg-color)' }}>
-                                <div style={{ padding: '4px 0 8px' }}>
-                                  <Diff before={entry.before} after={entry.after} />
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </Fragment>
-                      );
-                    })}
-                  </tbody>
-                </table>
-
-                <Pager page={data.page} pages={data.pages} total={data.count}
-                  onPage={(page) => { setOpen(null); setFilters((f) => ({ ...f, page })); }} />
-              </div>
-            )}
+            <Pager page={data.page} pages={data.pages} total={data.count}
+              onPage={(page) => { setOpen(null); setFilters((f) => ({ ...f, page })); }} />
           </>
-        )}
+        ))}
       </Async>
     </>
   );

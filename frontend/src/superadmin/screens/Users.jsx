@@ -28,8 +28,8 @@ import { KeyRound, Link2, Mail, Pause, Play, Users as UsersIcon } from 'lucide-r
 
 import { consoleApi } from '../api';
 import {
-  Async, Confirm, Empty, OneTimeLink, Pager, Pill, SearchBox, SectionHead, Select,
-  day, moment, useApi, useToast,
+  Async, Chips, Confirm, Empty, Modal, Note, OneTimeLink, PageHeader, Pager, Pill, RowMenu,
+  SearchBox, Select, Table, Toolbar, count, day, moment, useApi, useToast,
 } from '../ui';
 
 const PAGE_SIZE = 50;
@@ -155,31 +155,162 @@ export default function Users({ route }) {
 
   const act = ACTIONS[pending?.action];
 
+  // The table's columns. `tracked` is the envelope's last_login_tracked -- see
+  // the file header for why the last sign-in column follows it.
+  const columnsFor = (tracked) => [
+    {
+      key: 'account',
+      label: 'Account',
+      render: (u) => {
+        const name = [u.first_name, u.last_name].filter(Boolean).join(' ');
+        return (
+          <>
+            <div className="at-row-title">{name || u.username}</div>
+            {name && <div className="sa-schema">{u.username}</div>}
+            <div className="at-row-sub">{u.email || <span className="sa-muted">no email on file</span>}</div>
+          </>
+        );
+      },
+    },
+    {
+      key: 'boutique',
+      label: 'Boutique',
+      render: (u) => (
+        <>
+          <button type="button" className="at-link" onClick={() => route.go(`boutiques/${u.boutique}`)}>
+            {u.boutique_name}
+          </button>
+          <div className="sa-schema">{u.boutique}</div>
+        </>
+      ),
+    },
+    {
+      key: 'role',
+      label: 'Role',
+      render: (u) => (
+        <>
+          {u.role || <span className="sa-muted">—</span>}
+          {/* Where the role came from. Owner is resolved from the
+              registry, everything else from one of these two. */}
+          {u.tailor_id && <div className="at-row-sub">tailor #{u.tailor_id}</div>}
+          {u.designer_id && <div className="at-row-sub">designer profile</div>}
+        </>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (u) => (
+        <Pill value={u.is_active ? 'active' : 'disabled'}
+          label={u.is_active ? 'Active' : 'Deactivated'} />
+      ),
+    },
+    {
+      key: 'token',
+      label: 'API token',
+      // A boolean. There is no key to show and there must not be one -- see
+      // the file header.
+      render: (u) => (
+        <Pill value="token" tone={u.has_token ? 'ok' : 'muted'}
+          label={u.has_token ? 'Live token' : 'None'} />
+      ),
+    },
+    {
+      key: 'joined',
+      label: 'Joined',
+      // sa-nowrap keeps "12 Sept 2025" on one line on desktop; stacked cards
+      // below 1024px still wrap it.
+      className: 'sa-nowrap',
+      render: (u) => day(u.date_joined) || '—',
+    },
+    {
+      key: 'last_login',
+      label: 'Last sign-in',
+      className: 'sa-nowrap',
+      render: (u) => (tracked
+        ? (moment(u.last_login) || <span className="sa-muted">—</span>)
+        : <Pill value="not_tracked" label="Not tracked" />),
+    },
+    {
+      // Sticky, like Boutiques: this table is wide enough to scroll on a
+      // laptop and the actions are the point of it. One primary action stays
+      // visible; the other three sit behind the workspace ⋯ menu, which keeps
+      // the sticky column narrow enough not to cover the columns beside it.
+      key: 'actions',
+      label: '',
+      dataLabel: 'Actions',
+      className: 'sa-actions sa-sticky-end',
+      render: (u) => (
+        <div className="sa-inline sa-inline--end">
+          <button type="button"
+            className={`btn-secondary at-btn-sm${u.is_active ? ' at-btn-danger' : ''}`}
+            onClick={() => setPending({
+              user: u, action: u.is_active ? 'deactivate' : 'activate',
+            })}>
+            {u.is_active
+              ? <><Pause size={14} /> Deactivate</>
+              : <><Play size={14} /> Activate</>}
+          </button>
+          <RowMenu label={`More actions for ${u.username}`} items={[
+            // Disabled with no live token: there is nothing to revoke.
+            { label: 'Revoke', icon: <KeyRound size={14} />, danger: true,
+              disabled: !u.has_token,
+              title: u.has_token ? undefined : 'No live token to revoke.',
+              onClick: () => setPending({ user: u, action: 'revoke' }) },
+            // Works with no email address on file and with no mail server,
+            // which is why it sits before Reset: it is the one that always
+            // has an answer. Disabled until the account is reactivated.
+            { label: 'Sign-in link', icon: <Link2 size={14} />,
+              disabled: !u.is_active,
+              title: u.is_active ? 'Create a one-time link you can send them'
+                : 'Reactivate the account first.',
+              onClick: () => setPending({ user: u, action: 'access-link' }) },
+            // The reset view skips inactive users silently, so offering it
+            // there would promise an email nobody sends.
+            { label: 'Reset', icon: <Mail size={14} />,
+              disabled: !u.is_active,
+              title: u.is_active ? undefined
+                : 'Reactivate the account first — password resets skip deactivated users.',
+              onClick: () => setPending({ user: u, action: 'reset-password' }) },
+          ]} />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <>
-      <SectionHead
+      <PageHeader
         title="Staff accounts"
-        subtitle="Every staff account on every boutique. Deactivate, sign out everywhere, or send a one-time sign-in link. The product does not record last sign-in, so that column says not recorded."
-      >
-        <SearchBox value={filters.q} onChange={set('q')} placeholder="Name, username or email…" />
-        <Select value={filters.boutique} onChange={set('boutique')} label="Boutique"
-          options={boutiques} />
-        <Select value={filters.role} onChange={set('role')} label="Role" options={[
-          { value: '', label: 'All roles' },
-          ...ROLES.map((r) => ({ value: r, label: r })),
+        subtitle="Every staff account on every boutique. Deactivate, sign out everywhere, or send a one-time sign-in link. The product does not record last sign-in, so that column says not tracked."
+      />
+
+      {/* Status as workspace chips on the left (the server sends no
+          per-status counts, so none are shown); search and the long boutique
+          and role lists stay on the right. */}
+      <Toolbar right={(
+        <>
+          <SearchBox value={filters.q} onChange={set('q')} placeholder="Name, username or email…" />
+          <Select value={filters.boutique} onChange={set('boutique')} label="Boutique"
+            options={boutiques} />
+          <Select value={filters.role} onChange={set('role')} label="Role" options={[
+            { value: '', label: 'All roles' },
+            ...ROLES.map((r) => ({ value: r, label: r })),
+          ]} />
+        </>
+      )}>
+        <Chips label="Status" value={filters.status} onChange={set('status')} options={[
+          { key: '', label: 'All' },
+          { key: 'active', label: 'Active' },
+          { key: 'inactive', label: 'Deactivated' },
         ]} />
-        <Select value={filters.status} onChange={set('status')} label="Status" options={[
-          { value: '', label: 'Active and deactivated' },
-          { value: 'active', label: 'Active only' },
-          { value: 'inactive', label: 'Deactivated only' },
-        ]} />
-      </SectionHead>
+      </Toolbar>
 
       {overview.error && (
-        <div className="sa-note info">
+        <Note tone="info">
           The boutique list did not load, so that filter only offers “All boutiques”.
           Everything else on this screen is unaffected.
-        </div>
+        </Note>
       )}
 
       <Async
@@ -188,115 +319,28 @@ export default function Users({ route }) {
         // returns no users and a full `unreadable` list, and "no accounts yet"
         // would be the wrong answer to that.
         isEmpty={(d) => d.users.length === 0 && d.unreadable.length === 0}
-        empty={<Empty icon={<UsersIcon size={22} />} title="No staff accounts anywhere yet."
+        empty={<Empty icon={<UsersIcon size={20} />} title="No staff accounts anywhere yet."
           detail="Accounts appear here as boutiques sign up and add their team." />}
       >
         {(data) => (
           <>
             {data.unreadable.length > 0 && (
-              <div className="sa-note error">
-                {data.unreadable.length} boutique schema(s) could not be read, so nobody from
+              <Note tone="error">
+                {count(data.unreadable.length)} boutique schema(s) could not be read, so nobody from
                 them is listed or counted below: {data.unreadable.join(', ')}.
-              </div>
+              </Note>
             )}
 
-            {data.users.length === 0 ? (
-              <Empty title="No account matches those filters."
-                detail="Clear the search, or widen the boutique, role and status filters." />
-            ) : (
-              <div className="sa-table-wrap">
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th>Account</th><th>Boutique</th><th>Role</th><th>Status</th>
-                      <th>API token</th><th>Joined</th><th>Last sign-in</th>
-                      <th className="sa-sticky-end" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.users.map((u) => {
-                      const name = [u.first_name, u.last_name].filter(Boolean).join(' ');
-                      return (
-                        <tr key={`${u.boutique}/${u.username}`}
-                          className={u.is_active ? '' : 'sa-suspended'}>
-                          <td>
-                            <div className="sa-name">{name || u.username}</div>
-                            {name && <div className="sa-schema">{u.username}</div>}
-                            <div className="sa-owner">{u.email || <span className="sa-muted">no email on file</span>}</div>
-                          </td>
-                          <td>
-                            <button className="sa-link" onClick={() => route.go(`boutiques/${u.boutique}`)}>
-                              {u.boutique_name}
-                            </button>
-                            <div className="sa-schema">{u.boutique}</div>
-                          </td>
-                          <td>
-                            {u.role || <span className="sa-muted">—</span>}
-                            {/* Where the role came from. Owner is resolved from the
-                                registry, everything else from one of these two. */}
-                            {u.tailor_id && <div className="sa-schema">tailor #{u.tailor_id}</div>}
-                            {u.designer_id && <div className="sa-schema">designer profile</div>}
-                          </td>
-                          <td>
-                            <Pill value={u.is_active ? 'active' : 'disabled'}
-                              label={u.is_active ? 'Active' : 'Deactivated'} />
-                          </td>
-                          <td>
-                            {/* A boolean. There is no key to show and there must
-                                not be one -- see the file header. */}
-                            <Pill value="token" tone={u.has_token ? 'ok' : 'muted'}
-                              label={u.has_token ? 'Live token' : 'None'} />
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>{day(u.date_joined) || '—'}</td>
-                          <td>
-                            {data.last_login_tracked
-                              ? (moment(u.last_login) || <span className="sa-muted">—</span>)
-                              : <Pill value="not_tracked" label="not tracked" />}
-                          </td>
-                          {/* Sticky, like Boutiques: this table is wide enough to
-                              scroll on a laptop and the actions are the point of it. */}
-                          <td className="sa-actions sa-sticky-end">
-                            <button className={`sa-btn ${u.is_active ? 'danger' : ''}`}
-                              onClick={() => setPending({
-                                user: u, action: u.is_active ? 'deactivate' : 'activate',
-                              })}>
-                              {u.is_active
-                                ? <><Pause size={13} /> Deactivate</>
-                                : <><Play size={13} /> Activate</>}
-                            </button>
-                            <button className="sa-btn" style={{ marginLeft: 6 }}
-                              disabled={!u.has_token}
-                              title={u.has_token ? undefined : 'No live token to revoke.'}
-                              onClick={() => setPending({ user: u, action: 'revoke' })}>
-                              <KeyRound size={13} /> Revoke
-                            </button>
-                            {/* The reset view skips inactive users silently, so
-                                offering it here would promise an email nobody sends. */}
-                            {/* Works with no email address on file and with no
-                                mail server, which is why it sits before Reset:
-                                it is the one that always has an answer. */}
-                            <button className="sa-btn" style={{ marginLeft: 6 }}
-                              disabled={!u.is_active}
-                              title={u.is_active ? 'Create a one-time link you can send them'
-                                : 'Reactivate the account first.'}
-                              onClick={() => setPending({ user: u, action: 'access-link' })}>
-                              <Link2 size={13} /> Sign-in link
-                            </button>
-                            <button className="sa-btn" style={{ marginLeft: 6 }}
-                              disabled={!u.is_active}
-                              title={u.is_active ? undefined
-                                : 'Reactivate the account first — password resets skip deactivated users.'}
-                              onClick={() => setPending({ user: u, action: 'reset-password' })}>
-                              <Mail size={13} /> Reset
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <Table
+              columns={columnsFor(data.last_login_tracked)}
+              rows={data.users}
+              keyFor={(u) => `${u.boutique}/${u.username}`}
+              rowClassName={(u) => (u.is_active ? '' : 'sa-suspended')}
+              empty={(
+                <Empty title="No account matches those filters."
+                  detail="Clear the search, or widen the boutique, role and status filters." />
+              )}
+            />
 
             <Pager page={data.page} pages={data.pages} onPage={setPage} total={data.count} />
           </>
@@ -304,29 +348,30 @@ export default function Users({ route }) {
       </Async>
 
       {issued && (
-        <div className="sa-modal-backdrop" onClick={() => setIssued(null)}>
-          <div className="sa-modal" role="dialog" aria-modal="true"
-            aria-label="Sign-in link" onClick={(e) => e.stopPropagation()}>
-            <h3>Sign-in link for {issued.user.username}</h3>
-            <div className="sa-modal-body">
-              <p style={{ marginBottom: 10 }}>
-                Send this to <strong>{issued.user.username}</strong> at{' '}
-                {issued.boutique || issued.user.boutique_name}. Opening it lets them
-                set their own password and signs them in.
-                {issued.emailed
-                  ? ` It has also been emailed to ${issued.email_address}.`
-                  : ' The platform has no mail server configured, so it has not been'
-                    + ' emailed — you need to deliver it yourself.'}
-              </p>
-              <OneTimeLink value={issued.link} expiresMinutes={issued.expires_minutes} />
-            </div>
-            <div className="sa-modal-actions">
-              <button className="sa-btn primary-inline" onClick={() => setIssued(null)}>
-                Done
-              </button>
-            </div>
+        <Modal
+          title={`Sign-in link for ${issued.user.username}`}
+          icon={Link2}
+          width="560px"
+          onClose={() => setIssued(null)}
+          footer={(
+            <button type="button" className="btn-secondary" onClick={() => setIssued(null)}>
+              Done
+            </button>
+          )}
+        >
+          <div className="sa-dialog-text">
+            <p>
+              Send this to <strong>{issued.user.username}</strong> at{' '}
+              {issued.boutique || issued.user.boutique_name}. Opening it lets them
+              set their own password and signs them in.
+              {issued.emailed
+                ? ` It has also been emailed to ${issued.email_address}.`
+                : ' The platform has no mail server configured, so it has not been'
+                  + ' emailed — you need to deliver it yourself.'}
+            </p>
           </div>
-        </div>
+          <OneTimeLink value={issued.link} expiresMinutes={issued.expires_minutes} />
+        </Modal>
       )}
 
       <Confirm
@@ -337,11 +382,11 @@ export default function Users({ route }) {
         title={pending && `${act.verb}: ${pending.user.username}?`}
         body={pending && (
           <>
-            <p style={{ marginBottom: 8 }}>
+            <p>
               <strong>{pending.user.username}</strong> at {pending.user.boutique_name}
               {pending.user.role && ` · ${pending.user.role}`}
             </p>
-            {act.body}
+            <p>{act.body}</p>
           </>
         )}
         confirmLabel={act?.verb}

@@ -19,13 +19,14 @@
 
 import { useCallback, useState } from 'react';
 import {
-  ArrowLeft, ArrowUpRight, Database, Lock, Table2, Wrench,
+  ArrowLeft, ArrowRight, Ban, CalendarClock, ClipboardList, Contact, Copy, Database, KeyRound, Lock,
+  PackageSearch, Palette, RotateCw, Sparkles, Table2, TrendingUp, Users, Wallet, Wrench,
 } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import {
-  Async, Confirm, Empty, Pager, Pill, SearchBox, SectionHead, Select, Stat,
-  count, day, money, moment, useApi, useToast,
+  Async, Card, Confirm, Empty, Field, KeyValue, Meter, Note, PageHeader, Pager, Pill, SearchBox,
+  Select, Stat, StatGrid, Tabs, count, day, money, moment, useApi, useToast,
 } from '../ui';
 
 /** See core.modules.is_enabled -- absent and malformed both mean ON. */
@@ -81,7 +82,7 @@ function DataPane({ schema, dataset }) {
       <Async
         state={state}
         isEmpty={(d) => d.rows.length === 0}
-        empty={<Empty icon={<Table2 size={22} />}
+        empty={<Empty icon={<Table2 size={20} />}
           title={term ? 'Nothing in this table matches that.' : 'This table is empty.'}
           detail={term ? 'The search covers every text column the server will return.'
             : 'No rows have been written here yet.'} />}
@@ -89,25 +90,24 @@ function DataPane({ schema, dataset }) {
         {(data) => {
           const redacted = data.columns.filter((c) => c.redacted);
           return (
-            <>
+            <div className="at-stack">
               {redacted.length > 0 && (
-                <div className="sa-note info">
-                  <Lock size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
+                <Note tone="info" icon={Lock}>
                   {redacted.map((c) => c.label).join(', ')} {redacted.length === 1 ? 'is' : 'are'} never
                   sent by the server. Password hashes and API tokens are replaced before the response
                   leaves the process, so there is nothing here to reveal.
-                </div>
+                </Note>
               )}
 
-              <div className="sa-table-wrap">
-                <table className="sa-table">
+              {/* Not --fit: forty columns on an order scroll sideways rather
+                  than stack, so the pager sits outside the scroller. */}
+              <div className="at-table-wrap">
+                <table className="at-table sa-nowrap">
                   <thead>
                     <tr>
                       {data.columns.map((column) => (
-                        <th key={column.name} title={column.type}>
-                          {column.redacted && (
-                            <Lock size={11} style={{ verticalAlign: '-1px', marginRight: 4 }} />
-                          )}
+                        <th key={column.name} scope="col" title={column.type}>
+                          {column.redacted && <><Lock size={12} />{' '}</>}
                           {column.label}
                         </th>
                       ))}
@@ -117,15 +117,17 @@ function DataPane({ schema, dataset }) {
                     {data.rows.map((row, i) => (
                       <tr key={i}>
                         {data.columns.map((column) => (
-                          <td key={column.name}><Cell value={row[column.name]} /></td>
+                          <td key={column.name} data-label={column.label}>
+                            <Cell value={row[column.name]} />
+                          </td>
                         ))}
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <Pager page={data.page} pages={data.pages} total={data.count} onPage={setPage} />
               </div>
-            </>
+              <Pager page={data.page} pages={data.pages} total={data.count} onPage={setPage} />
+            </div>
           );
         }}
       </Async>
@@ -142,7 +144,7 @@ function DataBrowser({ schema }) {
     <Async
       state={state}
       isEmpty={(d) => d.datasets.length === 0}
-      empty={<Empty icon={<Database size={22} />} title="Nothing browsable in this schema."
+      empty={<Empty icon={<Database size={20} />} title="Nothing browsable in this schema."
         detail="Either the schema is not migrated or every model in it is excluded." />}
     >
       {(data) => {
@@ -163,18 +165,21 @@ function DataBrowser({ schema }) {
               {Object.entries(groups).map(([app, items]) => (
                 <div key={app} className="sa-side-group">
                   <div className="sa-side-title">{app}</div>
-                  {items.map((item) => (
-                    <button key={item.key} className="sa-side-item"
-                      aria-current={item.key === active?.key ? 'page' : undefined}
-                      onClick={() => setChosen(item)}>
-                      <span>{item.label}</span>
-                      <span className={`sa-side-count${item.count ? '' : ' zero'}`}>
-                        {/* null means the table is missing from this schema --
-                            a migration not applied there, not an empty table. */}
-                        {item.count === null ? '?' : count(item.count)}
-                      </span>
-                    </button>
-                  ))}
+                  {items.map((item) => {
+                    const on = item.key === active?.key;
+                    return (
+                      <button key={item.key} type="button" className={`sa-side-item${on ? ' active' : ''}`}
+                        aria-current={on ? 'page' : undefined}
+                        onClick={() => setChosen(item)}>
+                        <span>{item.label}</span>
+                        <span className={`sa-side-count${item.count ? '' : ' zero'}`}>
+                          {/* null means the table is missing from this schema --
+                              a migration not applied there, not an empty table. */}
+                          {item.count === null ? '?' : count(item.count)}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </aside>
@@ -223,20 +228,25 @@ function AppearanceCard({ schema, boutique }) {
   };
 
   return (
-    <div className="sa-card">
-      <h4>Appearance</h4>
-      <p style={{ marginBottom: 10 }}>
+    <Card icon={Palette} title="Appearance">
+      <p>
         The design system and light/dark mode this boutique&apos;s workspace runs. Recorded in
         the audit trail; the boutique itself cannot change it.
       </p>
-      <div style={{ display: 'grid', gap: 8 }}>
-        <Select label="Design system" value={system} onChange={setSystem} options={DESIGN_SYSTEMS} />
-        <Select label="Light or dark" value={mode} onChange={setMode} options={COLOR_MODES} />
+      <Field label="Design system" htmlFor="sa-appearance-system">
+        <Select id="sa-appearance-system" className="form-control" label="Design system"
+          value={system} onChange={setSystem} options={DESIGN_SYSTEMS} />
+      </Field>
+      <Field label="Light or dark" htmlFor="sa-appearance-mode">
+        <Select id="sa-appearance-mode" className="form-control" label="Light or dark"
+          value={mode} onChange={setMode} options={COLOR_MODES} />
+      </Field>
+      <div className="sa-inline">
+        <button type="button" className="btn-primary at-btn-sm" disabled={!dirty || saving} onClick={save}>
+          {saving ? 'Saving…' : 'Apply to this boutique'}
+        </button>
       </div>
-      <button className="sa-btn" style={{ marginTop: 10 }} disabled={!dirty || saving} onClick={save}>
-        {saving ? 'Saving…' : 'Apply to this boutique'}
-      </button>
-    </div>
+    </Card>
   );
 }
 
@@ -290,97 +300,112 @@ function PortalAccessCard({ schema }) {
   };
 
   return (
-    <div className="sa-card">
-      <h4><Lock size={14} /> Access — Customer Portal API</h4>
-      <Async state={state} skeletonRows={2}>
-        {() => (
-          <>
-            <p style={{ marginBottom: 10 }}>
-              Lets this boutique&apos;s own website take customer details through{' '}
-              <code>/intake/</code>. Set here by the platform only; the
-              boutique cannot grant it to itself. Recorded in the audit trail.
-            </p>
-
-            <div style={{ marginBottom: 10 }}>
-              <Pill value={current?.enabled ? 'active' : 'disabled'}
-                    label={current?.enabled ? 'Enabled' : 'Disabled'} />
-            </div>
-
-            {current?.enabled && (
-              <div style={{ display: 'grid', gap: 6, marginBottom: 10 }}>
-                <div>Key id <code>{current.key_id}</code></div>
-                <div>Website {current.allowed_origin
-                  ? <code>{current.allowed_origin}</code>
-                  : <span>— none set, so no browser on another origin can read a reply.</span>}
-                </div>
-                <div>Last used {current.last_used_at ? moment(current.last_used_at) : 'never'}</div>
-              </div>
-            )}
-
-            {freshKey ? (
-              <div className="sa-card" style={{ margin: '10px 0' }}>
-                <strong>Copy this API key now. For security, the secret will not be
-                  shown again.</strong>
-                <div style={{ margin: '8px 0', wordBreak: 'break-all' }}>
-                  <code>{freshKey}</code>
-                </div>
-                <button className="sa-btn" onClick={copy}>Copy API key</button>
-                <button className="sa-btn" style={{ marginLeft: 6 }}
-                        onClick={() => setFreshKey('')}>I have copied it</button>
-              </div>
-            ) : current?.enabled && (
-              <div style={{ marginBottom: 10 }}>
-                API key <code>••••••••••••••••••</code>{' '}
-                <span>— stored hashed, so it cannot be shown again. Rotate to issue a new one.</span>
-              </div>
-            )}
-
-            <label style={{ display: 'block', marginBottom: 10 }}>
-              <div>Website address (optional)</div>
-              <input className="sa-input" value={origin} placeholder="https://their-site.example"
-                     onChange={(e) => setOrigin(e.target.value)} />
-            </label>
-
-            {current?.enabled ? (
-              <>
-                <button className="sa-btn" disabled={busy}
-                        onClick={() => setConfirming('rotate')}>Rotate key</button>
-                <button className="sa-btn danger" style={{ marginLeft: 6 }} disabled={busy}
-                        onClick={() => setConfirming('revoke')}>Revoke access</button>
-              </>
-            ) : (
-              <button className="sa-btn" disabled={busy}
-                      onClick={() => setConfirming('enable')}>Enable access</button>
-            )}
-
-            <Confirm
-              open={confirming === 'enable'}
-              title="Enable Customer Portal API?"
-              body="A new API key is generated and shown once. Any earlier key for this boutique stops working."
-              confirmLabel="Enable access" busy={busy}
-              onCancel={() => setConfirming(null)}
-              onConfirm={() => act('enable')}
-            />
-            <Confirm
-              open={confirming === 'rotate'}
-              title="Rotate the API key?"
-              body="The current key stops working immediately. The new one is shown once."
-              confirmLabel="Rotate key" busy={busy}
-              onCancel={() => setConfirming(null)}
-              onConfirm={() => act('rotate')}
-            />
-            <Confirm
-              open={confirming === 'revoke'}
-              title="Revoke Customer Portal API access for this boutique?"
-              body="The key stops working immediately and the boutique's website can no longer take customer details."
-              confirmLabel="Revoke access" danger requireReason busy={busy}
-              onCancel={() => setConfirming(null)}
-              onConfirm={(reason) => act('revoke', reason)}
-            />
-          </>
+    <>
+      <Card
+        icon={Lock}
+        title="Access — Customer Portal API"
+        actions={current && (
+          // Grey when off: not granted is a platform decision, not a fault.
+          <Pill value={current.enabled ? 'active' : 'not_configured'}
+                label={current.enabled ? 'Enabled' : 'Disabled'} />
         )}
-      </Async>
-    </div>
+      >
+        <Async state={state} skeletonRows={2}>
+          {() => (
+            <>
+              <p>
+                Lets this boutique&apos;s own website take customer details through{' '}
+                <code>/intake/</code>. Set here by the platform only; the
+                boutique cannot grant it to itself. Recorded in the audit trail.
+              </p>
+
+              {current?.enabled && (
+                <KeyValue items={[
+                  ['Key id', <code>{current.key_id}</code>],
+                  ['Website', current.allowed_origin
+                    ? <code>{current.allowed_origin}</code>
+                    : '— none set, so no browser on another origin can read a reply.'],
+                  ['Last used', current.last_used_at ? moment(current.last_used_at) : 'never'],
+                  !freshKey && ['API key', (
+                    <>
+                      <code>••••••••••••••••••</code>{' '}
+                      — stored hashed, so it cannot be shown again. Rotate to issue a new one.
+                    </>
+                  )],
+                ]} />
+              )}
+
+              {freshKey && (
+                <Note tone="warning" icon={KeyRound}
+                  title="Copy this API key now. For security, the secret will not be shown again.">
+                  <p><code>{freshKey}</code></p>
+                  <div className="sa-inline">
+                    <button type="button" className="btn-secondary at-btn-sm" onClick={copy}>
+                      <Copy size={14} /> Copy API key
+                    </button>
+                    <button type="button" className="btn-secondary at-btn-sm"
+                            onClick={() => setFreshKey('')}>I have copied it</button>
+                  </div>
+                </Note>
+              )}
+
+              <Field label="Website address" optional htmlFor="sa-portal-origin">
+                <input id="sa-portal-origin" type="text" value={origin}
+                       placeholder="https://their-site.example"
+                       onChange={(e) => setOrigin(e.target.value)} />
+              </Field>
+
+              <div className="sa-inline">
+                {current?.enabled ? (
+                  <>
+                    <button type="button" className="btn-secondary at-btn-sm" disabled={busy}
+                            onClick={() => setConfirming('rotate')}>
+                      <RotateCw size={14} /> Rotate key
+                    </button>
+                    <button type="button" className="btn-secondary at-btn-sm at-btn-danger" disabled={busy}
+                            onClick={() => setConfirming('revoke')}>
+                      <Ban size={14} /> Revoke access
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="btn-secondary at-btn-sm" disabled={busy}
+                          onClick={() => setConfirming('enable')}>
+                    <KeyRound size={14} /> Enable access
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </Async>
+      </Card>
+
+      {/* Outside the card body: a dialog is a fixed overlay, and the body's
+          spacing rule would push it 12px down the viewport. */}
+      <Confirm
+        open={confirming === 'enable'}
+        title="Enable Customer Portal API?"
+        body="A new API key is generated and shown once. Any earlier key for this boutique stops working."
+        confirmLabel="Enable access" busy={busy}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => act('enable')}
+      />
+      <Confirm
+        open={confirming === 'rotate'}
+        title="Rotate the API key?"
+        body="The current key stops working immediately. The new one is shown once."
+        confirmLabel="Rotate key" busy={busy}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() => act('rotate')}
+      />
+      <Confirm
+        open={confirming === 'revoke'}
+        title="Revoke Customer Portal API access for this boutique?"
+        body="The key stops working immediately and the boutique's website can no longer take customer details."
+        confirmLabel="Revoke access" danger requireReason busy={busy}
+        onCancel={() => setConfirming(null)}
+        onConfirm={(reason) => act('revoke', reason)}
+      />
+    </>
   );
 }
 
@@ -397,52 +422,60 @@ function Overview({ schema, route }) {
         return (
           <>
             {!usage.healthy && (
-              <div className="sa-note error">
+              <Note tone="error">
                 This boutique&apos;s schema could not be read, so the figures below are blank rather
                 than zero. A missing or half-migrated schema is an engineering repair, not a quiet
                 boutique.
-              </div>
+              </Note>
             )}
 
-            <div className="sa-stats">
-              <Stat label="Staff" value={count(usage.staff)} />
-              <Stat label="Customers" value={count(usage.customers)} />
-              <Stat label="Orders" value={count(usage.orders)}
+            <StatGrid>
+              <Stat icon={Users} label="Staff" value={count(usage.staff)} />
+              <Stat icon={Contact} label="Customers" value={count(usage.customers)} />
+              <Stat icon={ClipboardList} label="Orders" value={count(usage.orders)}
                 note={`${count(usage.open_orders)} still open`} />
-              <Stat label="Booked" value={usage.revenue === null ? '—' : money(usage.revenue)}
+              <Stat icon={TrendingUp} label="Booked" value={usage.revenue === null ? '—' : money(usage.revenue)}
                 note="Sum of order totals" />
-              <Stat label="Collected" value={usage.collected === null ? '—' : money(usage.collected)}
+              <Stat icon={Wallet} label="Collected" value={usage.collected === null ? '—' : money(usage.collected)}
                 note="Sum of amounts actually paid" />
-              <Stat label="Last order" value={usage.last_order ? day(usage.last_order) : '—'} />
-            </div>
+              <Stat icon={CalendarClock} label="Last order" value={usage.last_order ? day(usage.last_order) : '—'} />
+            </StatGrid>
 
-            <div className="sa-cards">
-              <div className="sa-card">
-                <h4>Onboarding</h4>
+            <div className="at-grid-3">
+              <Card
+                icon={Sparkles}
+                title="Onboarding"
+                actions={onboarding.readable && (
+                  <button type="button" className="at-link" onClick={() => route.go('onboarding')}>
+                    Full checklist <ArrowRight size={14} />
+                  </button>
+                )}
+              >
                 {onboarding.readable ? (
                   <>
-                    <p style={{ marginBottom: 8 }}>
+                    <p>
                       <strong>{onboarding.percent}%</strong> — {onboarding.percent_basis}
                     </p>
-                    <div className="sa-meter">
-                      <span style={{ width: `${onboarding.percent}%` }} />
-                    </div>
+                    <Meter pct={onboarding.percent} />
                     {onboarding.blocked_on ? (
-                      <div style={{ marginTop: 10 }}>
-                        <div className="sa-name">Waiting on: {onboarding.blocked_on.label}</div>
+                      <div>
+                        <div className="at-row-title">Waiting on: {onboarding.blocked_on.label}</div>
                         <p>{onboarding.blocked_on.detail}</p>
                       </div>
-                    ) : <p style={{ marginTop: 10 }}>Nothing outstanding.</p>}
-                    <button className="sa-btn" style={{ marginTop: 10 }}
-                      onClick={() => route.go('onboarding')}>
-                      Full checklist <ArrowUpRight size={13} />
-                    </button>
+                    ) : <p>Nothing outstanding.</p>}
                   </>
                 ) : <p>{onboarding.detail}</p>}
-              </div>
+              </Card>
 
-              <div className="sa-card">
-                <h4>Modules</h4>
+              <Card
+                icon={PackageSearch}
+                title="Modules"
+                actions={(
+                  <button type="button" className="at-link" onClick={() => route.go('modules')}>
+                    Change modules <ArrowRight size={14} />
+                  </button>
+                )}
+              >
                 {off.length === 0 ? (
                   <p>
                     Every switchable module is on. A key absent from the stored map counts as on,
@@ -450,39 +483,37 @@ function Overview({ schema, route }) {
                   </p>
                 ) : (
                   <>
-                    <p style={{ marginBottom: 8 }}>
+                    <p>
                       Switched off, so this boutique&apos;s staff are refused those URLs outright:
                     </p>
-                    <div>
+                    <div className="sa-inline">
                       {off.map((m) => (
-                        <span key={m.key} style={{ marginRight: 6 }}>
-                          <Pill value="disabled" label={m.label} />
-                        </span>
+                        <Pill key={m.key} value="not_configured" label={m.label} />
                       ))}
                     </div>
                   </>
                 )}
-                <button className="sa-btn" style={{ marginTop: 10 }}
-                  onClick={() => route.go('modules')}>
-                  Change modules <ArrowUpRight size={13} />
-                </button>
-              </div>
+              </Card>
 
               <AppearanceCard schema={schema} boutique={boutique} />
 
               <PortalAccessCard schema={schema} />
 
-              <div className="sa-card">
-                <h4><Wrench size={14} /> Going further</h4>
+              {/* Wrench is the One boutique in depth screen's own nav icon. */}
+              <Card
+                icon={Wrench}
+                title="Going further"
+                actions={(
+                  <button type="button" className="at-link" onClick={() => route.go(`support/${schema}`)}>
+                    One boutique in depth <ArrowRight size={14} />
+                  </button>
+                )}
+              >
                 <p>
                   Errors, the audit trail and every account in this boutique are on the One boutique in depth
                   screen, which fetches them in the same request as the figures above.
                 </p>
-                <button className="sa-btn" style={{ marginTop: 10 }}
-                  onClick={() => route.go(`support/${schema}`)}>
-                  One boutique in depth <ArrowUpRight size={13} />
-                </button>
-              </div>
+              </Card>
             </div>
           </>
         );
@@ -498,35 +529,36 @@ export default function BoutiqueDetail({ route }) {
   if (!schema) {
     return <Empty title="No boutique named in the address."
       detail="Open one from the boutiques list."
-      action={<button className="sa-btn" onClick={() => route.go('boutiques')}>Boutiques</button>} />;
+      action={(
+        <button type="button" className="btn-secondary" onClick={() => route.go('boutiques')}>
+          Boutiques
+        </button>
+      )} />;
   }
 
   return (
     <>
-      <button className="sa-link" style={{ marginBottom: 12, display: 'inline-flex', gap: 6 }}
-        onClick={() => route.go('boutiques')}>
+      <button type="button" className="at-link" onClick={() => route.go('boutiques')}>
         <ArrowLeft size={14} /> All boutiques
       </button>
 
-      <SectionHead
+      <PageHeader
         title={schema}
         subtitle={tab === 'overview'
           // Said plainly: /support/ writes a data.view row, and this tab calls it.
           ? 'Usage, onboarding and modules. Opening this records a data.view entry in the audit log against your account.'
           : "Every table in this boutique's schema, read live. Read-only — the rules that keep this data correct live in the boutique's own API."}
-      >
-        <div className="sa-tabs">
-          <button className="sa-tab" aria-current={tab === 'overview' ? 'page' : undefined}
-            onClick={() => route.go(`boutiques/${schema}`)}>
-            Overview
-          </button>
-          <button className="sa-tab" aria-current={tab === 'data' ? 'page' : undefined}
-            onClick={() => route.go(`boutiques/${schema}/data`)}>
-            <Database size={13} style={{ verticalAlign: '-2px', marginRight: 5 }} />
-            Data
-          </button>
-        </div>
-      </SectionHead>
+      />
+
+      <Tabs
+        ariaLabel="Boutique"
+        value={tab}
+        onChange={(key) => route.go(key === 'data' ? `boutiques/${schema}/data` : `boutiques/${schema}`)}
+        items={[
+          { key: 'overview', label: 'Overview' },
+          { key: 'data', label: 'Data', icon: Database },
+        ]}
+      />
 
       {tab === 'overview'
         ? <Overview key={schema} schema={schema} route={route} />

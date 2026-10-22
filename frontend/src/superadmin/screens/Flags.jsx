@@ -17,12 +17,12 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Flag, Plus, Trash2 } from 'lucide-react';
+import { Flag, Plus, Trash2, X } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import { LIMITS } from '../../services/validate';
 import {
-  Async, Confirm, Empty, Pill, SectionHead, Select, Table,
+  Async, Card, Confirm, Empty, Field, PageHeader, Pill, Select, Table,
   day, moment, useApi, useToast,
 } from '../ui';
 
@@ -89,9 +89,9 @@ export default function Flags() {
       label: 'Flag',
       render: (f) => (
         <>
-          <div className="sa-name">{f.key}</div>
-          {f.description && <div className="sa-owner">{f.description}</div>}
-          <div className="sa-muted" style={{ fontSize: 12.5 }}>{reach(f)}</div>
+          <div className="at-row-title">{f.key}</div>
+          {f.description && <div className="at-row-sub">{f.description}</div>}
+          <div className="at-row-sub">{reach(f)}</div>
         </>
       ),
     },
@@ -99,7 +99,10 @@ export default function Flags() {
       key: 'enabled',
       label: 'Global',
       render: (f) => (
-        <button className={`sa-btn${f.enabled ? '' : ' danger'}`} disabled={busyKey === f.key}
+        // A state, not a destructive action, so neither side is red;
+        // aria-pressed and the word carry it.
+        <button type="button" disabled={busyKey === f.key}
+          className="btn-secondary at-btn-sm"
           aria-pressed={f.enabled}
           onClick={() => run(f.key,
             () => consoleApi.updateFlag(f.key, { enabled: !f.enabled }),
@@ -114,8 +117,8 @@ export default function Flags() {
       numeric: true,
       render: (f) => (
         <input
-          className="sa-input" type="number" min="0" max="100" step="1"
-          style={{ width: 82 }} disabled={busyKey === f.key}
+          className="form-control sa-compact sa-narrow" type="number" min="0" max="100" step="1"
+          disabled={busyKey === f.key}
           // Keyed on the stored value so a server-side clamp re-mounts the input.
           // Without it the box keeps showing what was typed while the flag holds
           // something else.
@@ -140,19 +143,19 @@ export default function Flags() {
         const targets = f.enabled_for || [];
         const rest = boutiques.filter((b) => !targets.includes(b.schema_name));
         return (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', minWidth: 240 }}>
+          <div className="sa-inline">
             {targets.map((schema) => {
               const known = boutiques.find((b) => b.schema_name === schema);
               return (
-                <button key={schema} className="sa-btn" disabled={busyKey === f.key}
+                <button key={schema} type="button" className="btn-secondary at-btn-sm" disabled={busyKey === f.key}
                   aria-label={`Stop targeting ${schema} with ${f.key}`}
                   onClick={() => setTargets(f, targets.filter((s) => s !== schema))}>
-                  {known ? known.name : schema} ×
+                  {known ? known.name : schema} <X size={14} aria-hidden="true" />
                 </button>
               );
             })}
             {rest.length === 0 ? (
-              <span className="sa-muted" style={{ fontSize: 12.5 }}>
+              <span className="sa-muted">
                 {boutiques.length ? 'Every boutique.' : 'No boutiques to target.'}
               </span>
             ) : (
@@ -170,11 +173,13 @@ export default function Flags() {
     {
       key: 'changed',
       label: 'Last change',
+      dataLabel: 'Last change',
+      className: 'sa-nowrap',
       render: (f) => (
         <>
           <div>{f.modified_by || f.created_by || <span className="sa-muted">unknown</span>}</div>
-          <div className="sa-schema">{moment(f.updated_at)}</div>
-          <div className="sa-muted" style={{ fontSize: 12 }}>
+          <div className="at-row-sub">{moment(f.updated_at)}</div>
+          <div className="at-row-sub">
             created {day(f.created_at)}{f.created_by ? ` by ${f.created_by}` : ''}
           </div>
         </>
@@ -183,10 +188,12 @@ export default function Flags() {
     {
       key: 'delete',
       label: '',
+      dataLabel: 'Actions',
+      className: 'sa-actions',
       render: (f) => (
-        <button className="sa-btn danger" disabled={busyKey === f.key}
+        <button type="button" className="btn-secondary at-btn-sm at-btn-danger" disabled={busyKey === f.key}
           onClick={() => setPending(f)}>
-          <Trash2 size={13} /> Delete
+          <Trash2 size={14} /> Delete
         </button>
       ),
     },
@@ -194,7 +201,7 @@ export default function Flags() {
 
   return (
     <>
-      <SectionHead
+      <PageHeader
         title="Feature flags"
         subtitle="Checked in this order: a boutique in Targeted is on whatever else says; then Global on means everyone; then the rollout percent — a stable hash of the schema name, so a boutique inside the rollout stays inside it rather than flickering between requests."
       />
@@ -204,36 +211,36 @@ export default function Flags() {
           <>
             {/* Above the table, and outside Async's empty state: a console with
                 no flags and no way to make one is a dead end. */}
-            <div className="sa-card" style={{ marginBottom: 18 }}>
-              <h4><Plus size={14} /> New flag</h4>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 12 }}>
-                <div className="sa-field" style={{ marginBottom: 0, flex: '0 1 220px' }}>
-                  <label htmlFor="sa-flag-key">Key</label>
-                  <input id="sa-flag-key" className="sa-input" value={draft.key} maxLength={80}
+            <Card icon={Plus} title="New flag">
+              <div className="at-form-grid">
+                <Field label="Key" htmlFor="sa-flag-key">
+                  <input id="sa-flag-key" type="text" value={draft.key} maxLength={80}
                     placeholder="new_order_wizard"
                     onChange={(e) => setDraft((d) => ({ ...d, key: e.target.value }))} />
-                </div>
-                <div className="sa-field" style={{ marginBottom: 0, flex: '1 1 320px' }}>
-                  <label htmlFor="sa-flag-desc">What it does</label>
-                  <input id="sa-flag-desc" className="sa-input" value={draft.description} maxLength={LIMITS.reason}
+                </Field>
+                <Field label="What it does" htmlFor="sa-flag-desc">
+                  <input id="sa-flag-desc" type="text" value={draft.description} maxLength={LIMITS.reason}
                     placeholder="Who reads this in six months, and what will they need to know?"
                     onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))} />
-                </div>
-                <button className="sa-btn primary-inline" disabled={Boolean(keyProblem) || busyKey === '+'}
+                </Field>
+              </div>
+              <div className="sa-inline">
+                <button type="button" className="btn-primary at-btn-sm"
+                  disabled={Boolean(keyProblem) || busyKey === '+'}
                   onClick={create}>
                   {busyKey === '+' ? 'Creating…' : 'Create'}
                 </button>
+                <span className="sa-muted">
+                  {keyProblem || 'Created switched off. Turn it on, target boutiques or set a rollout below.'}
+                </span>
               </div>
-              <p className="sa-muted" style={{ fontSize: 12.5, marginTop: 10 }}>
-                {keyProblem || 'Created switched off. Turn it on, target boutiques or set a rollout below.'}
-              </p>
-            </div>
+            </Card>
 
             <Table
               columns={columns(data.boutiques)}
               rows={data.flags}
               keyFor={(f) => f.key}
-              empty={<Empty icon={<Flag size={22} />} title="No feature flags yet."
+              empty={<Empty icon={<Flag size={20} />} title="No feature flags yet."
                 detail="Create one above. The code asks for a flag by key; a key nothing asks for does nothing." />}
             />
           </>
@@ -256,11 +263,11 @@ export default function Flags() {
                 ? `, including the ${pending.enabled_for.length} it is targeted at`
                 : ''}.
             </p>
-            <p style={{ marginTop: 8 }}>
+            <p>
               There is no undo. Recreating it starts from off, with no targets and no rollout.
             </p>
             {pending.enabled && (
-              <p style={{ marginTop: 8 }}>
+              <p>
                 <Pill value="warning" label="Currently on for everyone" />
               </p>
             )}
