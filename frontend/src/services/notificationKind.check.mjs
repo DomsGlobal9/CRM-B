@@ -32,6 +32,8 @@ const cases = {
   'Order Confirmed: #16': 'order',
   'Order #16 Update: Cutting': 'order',
   'Order Update: Cutting': 'order',
+  'Birthday today: Vanshika': 'birthday',
+  'Birthday in 3 days: Vanshika': 'birthday',
   'Samar opened your Cutting submission': 'update',
   '': 'update',
 };

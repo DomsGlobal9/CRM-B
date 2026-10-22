@@ -7,6 +7,7 @@
    Self-check: node src/services/notificationKind.check.mjs */
 
 const KINDS = [
+  { key: 'birthday', label: 'Birthday', color: '#e11d48', test: /^birthday (today|in )/i },
   { key: 'sent_back', label: 'Sent back', color: '#dc2626', test: /^sent back/i },
   { key: 'check', label: 'To check', color: '#d97706', test: /^verify |quality check|^qc record/i },
   { key: 'new_work', label: 'New work', color: '#2563eb',
