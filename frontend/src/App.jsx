@@ -388,6 +388,12 @@ const formatMobile = (raw) => {
 
 
 const waLink = (raw) => `https://wa.me/${String(raw || '').replace(/\D/g, '')}`;
+// Numbers are stored as digits, with the country code when there is one
+// (formatMobile): a dialler needs the + in front of the code.
+const telLink = (raw) => {
+  const digits = String(raw || '').replace(/\D/g, '');
+  return `tel:${digits.length > 10 ? '+' : ''}${digits}`;
+};
 
 
 
@@ -1651,6 +1657,15 @@ function App() {
   const navSections = visibleNav(currentUser, t);
 
   const navTabs = navSections.flatMap((s) => s.items.map((i) => i.tab));
+  // The phone header's avatar menu: the Account entries this user's sidebar
+  // shows, then Sign out. `go` is how that screen switches tab.
+  const headerAccountItems = (go) => [
+    ...['account', 'settings'].filter((tab) => navTabs.includes(tab)).map((tab) => ({
+      key: tab, label: tab === 'account' ? t('nav.account') : t('nav.settings'),
+      icon: tab === 'account' ? User : Settings, onClick: () => go(tab),
+    })),
+    { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => setShowLogoutConfirm(true) },
+  ];
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
 
@@ -4296,6 +4311,7 @@ function App() {
             currentUser={currentUser}
             notificationsCount={notifications.filter(n => !n.is_read).length}
             onOpenMenu={() => setMobileNavOpen(!mobileNavOpen)}
+            accountItems={headerAccountItems((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}
             onOpenNotifications={() => {
               setShowNotificationsDrawer(true);
               if (markingNotificationsRead) return;
@@ -5793,7 +5809,9 @@ function App() {
                   ) : (
                     
                     <>
-                    <div className="at-table-wrap" aria-busy={directoryLoading}
+                    {/* cust-list: below 1024px each row becomes its own card
+                        (index.css), with call/WhatsApp buttons for the phone. */}
+                    <div className="at-table-wrap cust-list" aria-busy={directoryLoading}
                          style={{ opacity: directoryLoading ? 0.6 : 1, transition: 'opacity .15s' }}>
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
@@ -5849,19 +5867,23 @@ function App() {
                                   <span style={{ flexShrink: 0 }}><TierBadge tier={customerTier(cust)} /></span>
                                 </div>
                                 <div style={sub} title={contact.join(' · ')}>
-                                  <Phone size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />{contact.join(' · ')}
+                                  {cust.mobile_number
+                                    ? <Phone size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />
+                                    : cust.email_address && <Mail size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />}
+                                  {contact.join(' · ')}
                                 </div>
                               </div>
+                              <ChevronRight size={18} className="cust-phone" aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                             </div>
                           </td>
 
-                          <td data-label="Body measurements" style={{ overflow: 'hidden' }}>
+                          <td data-label="Body measurements" className="cust-measure" style={{ overflow: 'hidden' }}>
                             {m && shown.length > 0 ? (
                               <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
                                    title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
                                 {shown.map(([k, label], i) => (
-                                  <span key={k}>
-                                    {i > 0 && <span style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
+                                  <span key={k} className="cust-chip">
+                                    {i > 0 && <span className="cust-sep" style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
                                     <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{label} </span>
                                     <strong>{measure(m[k])}</strong>
                                   </span>
@@ -5872,7 +5894,7 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Style notes" style={{ overflow: 'hidden' }}>
+                          <td data-label="Style notes" className={tags.length || cust.custom_requirements ? undefined : 'cust-empty'} style={{ overflow: 'hidden' }}>
                             <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
                               {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
@@ -5881,14 +5903,31 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Orders" style={{ overflow: 'hidden' }}>
-                            <div style={{ fontWeight: 700 }}>{orders}</div>
-                            <div style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
+                          <td data-label="Orders" className="cust-orders" style={{ overflow: 'hidden' }}>
+                            <div className="cust-desk" style={{ fontWeight: 700 }}>{orders}</div>
+                            <div className="cust-desk" style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
                               {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
                             </div>
+                            <dl className="cust-stats">
+                              <div><dt>{orders === 1 ? 'Order' : 'Orders'}</dt><dd>{orders}</dd></div>
+                              <div><dt>Spent</dt><dd>{inr(cust.total_spend)}</dd></div>
+                              <div><dt>Since</dt><dd>{fmtDate(cust.created_at)}</dd></div>
+                            </dl>
                           </td>
 
-                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td className="cust-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {cust.mobile_number && (
+                              <span className="cust-contact" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                <a className="btn-secondary at-btn-sm" href={telLink(cust.mobile_number)}
+                                   aria-label={`Call ${cust.first_name} ${cust.last_name}`}>
+                                  <Phone size={14} /> Call
+                                </a>
+                                <a className="btn-secondary at-btn-sm" href={waLink(cust.mobile_number)} target="_blank" rel="noreferrer"
+                                   aria-label={`WhatsApp ${cust.first_name} ${cust.last_name}`}>
+                                  <MessageSquare size={14} /> WhatsApp
+                                </a>
+                              </span>
+                            )}
                             <button
                               type="button"
                               className="at-link"
@@ -5917,7 +5956,7 @@ function App() {
                                 </button>
                               </span>
                             )}
-                            <ChevronRight size={16} style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
+                            <ChevronRight size={16} className="cust-desk" style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
                           </td>
                         </tr>
                       );
@@ -7313,6 +7352,7 @@ function App() {
             currentUser={currentUser}
             notificationsCount={notifications.filter(n => !n.is_read).length}
             onOpenMenu={() => setMobileNavOpen(!mobileNavOpen)}
+            accountItems={headerAccountItems((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })}
             onOpenNotifications={() => {
               setShowNotificationsDrawer(true);
               if (markingNotificationsRead) return;

@@ -4477,6 +4477,51 @@ table.data-table tbody tr:hover {
   .at-table--fit td[data-label]::before { content: attr(data-label); display: block; font-size: var(--text-2xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
   .at-table--fit tbody tr:hover td { background: transparent; }
 }
+/* The customer directory, stacked: each customer is a card of its own --
+   who they are, three figures, measurements as chips, style tags, then an
+   action row a thumb can hit (call and WhatsApp first: on a phone that is
+   what a customer list is for). */
+.cust-phone, .cust-stats, .cust-contact { display: none; }
+@media (max-width: 1024px) {
+  .cust-desk { display: none !important; }
+  .cust-phone { display: block; }
+  .at-table-wrap.cust-list { background: transparent; border: none; border-radius: 0; overflow: visible; }
+  .cust-list .at-table--fit tr { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-xl); box-shadow: var(--shadow-card); padding: var(--space-4) 0 0; margin-bottom: var(--space-3); overflow: hidden; display: flex; flex-direction: column; }
+  /* The figures sit under the name, where a glance lands first. */
+  .cust-list td.cust-orders { order: 1; }
+  .cust-list td.cust-measure { order: 2; }
+  .cust-list td[data-label="Style notes"] { order: 3; }
+  .cust-list td.cust-actions { order: 4; }
+  .cust-list .at-table--fit tr:last-child { border-bottom: 1px solid var(--border-color); margin-bottom: 0; }
+  .cust-list .at-table--fit tr:active { background: var(--surface-2); }
+  .cust-list .at-table--fit td { padding: 0 var(--space-4); margin-bottom: var(--space-3); }
+  .cust-list .at-table--fit td[data-label]::before { text-transform: none; letter-spacing: 0; font-size: var(--text-xs); margin-bottom: 6px; }
+  .cust-list td[data-label="Customer"]::before, .cust-list td.cust-orders::before { display: none; }
+  .cust-list td[data-label="Customer"] .at-avatar { width: 44px !important; height: 44px !important; font-size: 15px !important; }
+  .cust-list td[data-label="Customer"] span[title] { font-size: var(--text-base); }
+  .cust-list td.cust-empty { display: none; }
+
+  .cust-list .cust-measure > div { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cust-list .cust-chip { background: var(--surface-inset); border-radius: var(--radius-sm); padding: 4px 10px; font-size: var(--text-sm); }
+  .cust-list .cust-sep { display: none; }
+
+  .cust-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; background: var(--surface-inset); border-radius: var(--radius-lg); }
+  .cust-stats > div { padding: 10px 12px; min-width: 0; }
+  .cust-stats > div + div { border-left: 1px solid var(--border-color); }
+  .cust-stats dt { font-size: var(--text-2xs); color: var(--text-muted); }
+  .cust-stats dd { margin: 2px 0 0; font-size: var(--text-sm); font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+  .cust-list td.cust-actions { display: flex !important; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0; padding: 10px var(--space-4); border-top: 1px solid var(--border-color); }
+  .cust-contact { display: flex; gap: var(--space-2); flex: 1 1 100%; }
+  .cust-contact a { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; text-decoration: none; }
+  .cust-list .cust-actions .at-link { min-height: 40px; margin-right: auto; }
+  .cust-list .cust-actions .at-icon-btn { width: 40px; height: 40px; }
+}
+/* A tablet has room for the whole action row on one line. */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .cust-contact { flex: 0 0 auto; }
+  .cust-contact a { flex: 0 0 auto; padding-inline: 16px !important; }
+}
 .at-num { font-variant-numeric: tabular-nums; }
 .at-cell-person { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .at-btn-sm { padding: 6px 12px !important; font-size: var(--text-xs) !important; }
@@ -5741,3 +5786,22 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .row-menu-item:disabled { opacity: .5; cursor: default; }
 .row-menu-item--danger { color: var(--danger-color); }
 .row-menu-item--danger:hover:not(:disabled) { background: var(--danger-bg); }
+/* The phone header's avatar: a button opening the account menu, styled as
+   the row menu is. 44px is the tap target; the picture stays 32px. */
+.mobile-account { position: relative; }
+.mobile-account-btn { width: 44px; height: 44px; min-height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 50%; cursor: pointer; }
+.mobile-account-btn:disabled { cursor: default; }
+.mobile-account-btn[aria-expanded="true"] img { outline: 2px solid var(--shell-accent, var(--primary-color)); outline-offset: 2px; }
+.mobile-account-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 1100; min-width: 220px; max-width: calc(100vw - 24px); padding: 6px; display: flex; flex-direction: column; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14); }
+.mobile-account-who { padding: 10px 12px 12px; margin-bottom: 4px; border-bottom: 1px solid var(--border-color); }
+.mobile-account-name { font-weight: 600; font-size: var(--text-base); color: var(--text-primary); overflow-wrap: anywhere; }
+.mobile-account-role { font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; }
+.mobile-account-item { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px; font: inherit; font-size: var(--text-base); text-align: left; background: none; border: 0; border-radius: 8px; color: var(--text-primary); cursor: pointer; }
+.mobile-account-item:hover, .mobile-account-item:focus-visible { background: var(--surface-inset); }
+.mobile-account-item--danger { color: var(--danger-color); }
+.mobile-account-item--danger:hover, .mobile-account-item--danger:focus-visible { background: var(--danger-bg); }
+/* The menu sits inside the dark header bar: undo the bar's light icon colour
+   and the app-wide centring of icon-only buttons (the text is a node, not an
+   element, so :only-child matches these items too). */
+.app-container .mobile-account-menu .mobile-account-item { justify-content: flex-start; }
+.mobile-header-bar .mobile-account-menu svg { color: currentColor; }
