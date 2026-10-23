@@ -141,7 +141,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
 
   return (
     <div
-      className="settings-card"
+      className="settings-card its-card"
       style={{
         backgroundColor: 'var(--surface-color)',
         border: '1px solid var(--border-color)',
@@ -196,6 +196,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
           <div style={{ position: 'relative', marginTop: '12px' }}>
             {/* Single Displayed Template Card */}
             <div
+              className="its-tpl"
               style={{
                 border: isSelected ? '2px solid var(--primary-color, #2563eb)' : '1px solid var(--border-color, #e2e8f0)',
                 borderRadius: '14px',
@@ -207,7 +208,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
               }}
             >
               {/* Header Info */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', paddingRight: '40px' }}>
+              <div className="its-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', paddingRight: '40px' }}>
                 <div>
                   <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 2px 0', color: 'var(--text-primary, #0f172a)' }}>
                     {currentTplDetails.name}
@@ -217,7 +218,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                   </span>
                 </div>
                 {isSelected ? (
-                  <span style={{
+                  <span className="its-badge" style={{
                     backgroundColor: 'var(--primary-color)',
                     color: 'var(--primary-foreground)',
                     fontSize: '11px',
@@ -231,7 +232,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                     <Check size={12} /> {t('settingsPage.activeDefault', 'Active Default')}
                   </span>
                 ) : (
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'var(--surface-inset)', padding: '3px 8px', borderRadius: '8px', fontWeight: 600 }}>
+                  <span className="its-badge" style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'var(--surface-inset)', padding: '3px 8px', borderRadius: '8px', fontWeight: 600 }}>
                     {currentIndex + 1} {t('settingsPage.of', 'of')} {availableTemplates.length}
                   </span>
                 )}
@@ -243,6 +244,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
 
               {/* Scaled Invoice Frame */}
               <div
+                className="its-frame"
                 onClick={() => setPreviewModalTemplate(currentTemplate)}
                 style={{
                   border: '1px solid #cbd5e1',
@@ -285,7 +287,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
+              <div className="its-actions" style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
                 <button
                   type="button"
                   disabled={saving}
@@ -332,6 +334,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
             {/* Right Arrow Navigation Button */}
             <button
               type="button"
+              className="its-arrow its-arrow--next"
               onClick={handleNext}
               style={{
                 position: 'absolute',
@@ -360,6 +363,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
             {/* Left Arrow Navigation Button */}
             <button
               type="button"
+              className="its-arrow its-arrow--prev"
               onClick={handlePrev}
               style={{
                 position: 'absolute',
@@ -389,7 +393,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
 
         {/* Wide Popup Modal */}
         {previewModalTemplate && (
-          <div style={{
+          <div className="its-modal" style={{
             position: 'fixed',
             top: 0,
             left: 0,
@@ -403,7 +407,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
             zIndex: 99999,
             padding: '20px'
           }}>
-            <div style={{
+            <div className="its-modal-box" style={{
               backgroundColor: '#ffffff',
               borderRadius: '16px',
               width: '100%',
@@ -415,7 +419,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
               overflow: 'hidden'
             }}>
               {/* Modal Header */}
-              <div style={{
+              <div className="its-modal-head" style={{
                 display: 'flex',
                 justify: 'space-between',
                 alignItems: 'center',
@@ -437,12 +441,12 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
               </div>
 
               {/* Modal Body - Wide Invoice Display */}
-              <div style={{ padding: '32px 40px', overflowY: 'auto', flex: 1, backgroundColor: '#ffffff' }}>
+              <div className="its-modal-body" style={{ padding: '32px 40px', overflowY: 'auto', flex: 1, backgroundColor: '#ffffff' }}>
                 <InvoiceRenderer template={previewModalTemplate.id} data={previewData} />
               </div>
 
               {/* Modal Footer Controls */}
-              <div style={{
+              <div className="its-modal-foot" style={{
                 display: 'flex',
                 justify: 'space-between',
                 alignItems: 'center',

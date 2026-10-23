@@ -53,8 +53,8 @@ export default function DailySummarySettings({ iconChip }) {
       {!rows && !error && <LoaderRows rows={4} />}
 
       {rows && (
-        <div className="at-table-wrap">
-          <table className="at-table" style={{ minWidth: '560px' }}>
+        <div className="at-table-wrap dss-wrap">
+          <table className="at-table dss-table" style={{ minWidth: '560px' }}>
             <thead>
               <tr>
                 <th>{t('summarySettings.person', 'Person')}</th>
@@ -65,28 +65,28 @@ export default function DailySummarySettings({ iconChip }) {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.user_id}>
-                  <td>
+                <tr key={row.user_id} className="dss-row">
+                  <td className="dss-person">
                     <div style={{ fontWeight: 600 }}>
                       {row.name}{row.role === 'Owner' ? ` (${t('summarySettings.you', 'you')})` : ''}
                     </div>
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{row.role}</div>
                   </td>
-                  <td>
+                  <td className="dss-receive">
                     <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                       <input type="checkbox" checked={row.enabled} disabled={saving === row.user_id}
                              onChange={(e) => save(row, { enabled: e.target.checked })} />
                       {row.enabled ? t('summarySettings.on', 'On') : t('summarySettings.off', 'Off')}
                     </label>
                   </td>
-                  <td>
+                  <td className="dss-lang">
                     <select className="form-control" value={row.language} disabled={saving === row.user_id}
                             aria-label={`${t('summarySettings.language', 'Language')}: ${row.name}`}
                             onChange={(e) => save(row, { language: e.target.value })}>
                       {LANGUAGES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
                     </select>
                   </td>
-                  <td style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{channel[row.channel]}</td>
+                  <td className="dss-chan" data-label={t('summarySettings.channel', 'Sent by')} style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{channel[row.channel]}</td>
                 </tr>
               ))}
             </tbody>
