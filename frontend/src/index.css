@@ -6208,3 +6208,62 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .orders-book > tbody > tr > td:not(:first-child) .at-stage-strip { justify-content: center; }
   .orders-book > tbody > tr > td:last-child > div { justify-content: center !important; }
 }
+
+/* ---- Order journey & tasks on a tablet and a phone ---------------------
+   Below 1024px each step was a tall labelled card (TASK / STATUS /
+   COMPLETED ON / button). Here the steps read as a timeline instead:
+     (✓)  Paper cutting                       ( View )
+      |   ● Completed · 15 Oct 2026
+     (3)  Stitching                         ( Update )
+   A circle per step -- a green tick once done, the step's number while
+   still to come, a lime ring on the one being worked on -- joined by a line
+   to the next. The current step keeps its tint as a rounded band. */
+@media (max-width: 1024px) {
+  .od-tasks-wrap.at-table-wrap { border: none !important; background: transparent !important; margin: 0; }
+  .od-tasks.at-table--fit tbody tr {
+    position: relative;
+    display: grid !important; grid-template-columns: 28px auto minmax(0, 1fr) auto;
+    grid-template-areas: "num task task action" "num status when action";
+    align-items: center; column-gap: 12px; row-gap: 5px;
+    padding: 10px 8px !important; border-bottom: none !important;
+  }
+  .od-tasks.at-table--fit tbody tr > td { padding: 0 !important; width: auto !important; min-width: 0; background: transparent !important; }
+  .od-tasks.at-table--fit tbody tr > td[data-label]::before { display: none !important; }
+
+  /* The step circle (the # cell, hidden in the stacked layout, back as a marker). */
+  .od-tasks tbody tr > td.od-tasks-num {
+    display: flex !important; grid-area: num; align-self: start; z-index: 1;
+    width: 28px !important; height: 28px; border-radius: 50%;
+    align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--text-secondary);
+    background: var(--surface-color) !important; border: 2px solid var(--border-strong);
+  }
+  .od-tasks tbody tr.od-tasks-row--done > td.od-tasks-num {
+    font-size: 0; background: var(--success-color) !important; border-color: var(--success-color);
+  }
+  .od-tasks tbody tr.od-tasks-row--done > td.od-tasks-num::after { content: '\2713'; font-size: 14px; color: #fff; }
+  .od-tasks tbody tr.od-tasks-row--current > td.od-tasks-num {
+    color: var(--text-primary); border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 30%, transparent);
+  }
+  /* The line down to the next step: green below a finished one. */
+  .od-tasks tbody tr:not(:last-child)::before {
+    content: ''; position: absolute; left: 21px; top: 40px; bottom: -10px; width: 2px;
+    background: var(--border-color); border-radius: 2px;
+  }
+  .od-tasks tbody tr.od-tasks-row--done:not(:last-child)::before { background: var(--success-color); opacity: .55; }
+
+  .od-tasks tbody tr > td:nth-child(2) { grid-area: task; }
+  .od-tasks tbody tr > td:nth-child(2) .od-tasks-name { font-size: 14.5px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+  .od-tasks tbody tr > td:nth-child(3) { grid-area: status; }
+  .od-tasks tbody tr > td:nth-child(3) .ui-badge { font-size: 11px; padding: 1px 8px; white-space: nowrap !important; }
+  .od-tasks tbody tr > td:nth-child(4) { grid-area: when; font-size: 12px; color: var(--text-muted); white-space: nowrap !important; }
+  .od-tasks tbody tr > td:nth-child(5) { grid-area: action; align-self: center; }
+  .od-tasks tbody tr > td:nth-child(5) .at-btn-sm {
+    min-height: 32px !important; height: 32px; padding: 0 14px !important;
+    border-radius: 999px; font-size: 12.5px !important; font-weight: 600;
+  }
+
+  /* The step being worked on: its tint as a rounded band. */
+  .od-tasks tbody tr.od-tasks-row--current { background: var(--accent-color); border-radius: 12px; }
+}
