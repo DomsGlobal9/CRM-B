@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, ListTodo } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, ListTodo, Send } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
+import { notificationKind } from './services/notificationKind';
+import MyDetails from './features/staff/MyDetails';
 import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
 import {
   formatMoney, formatDate as fmtDate, formatDateTime as fmtDateTime,
@@ -684,16 +686,30 @@ const GARMENT_VIEWS = [
   ['DUPATTA', 'Dupatta styling'],
 ];
 
-function GarmentGallery({ order, onChanged }) {
+function GarmentGallery({ order, onChanged, role }) {
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [view, setView] = useState('FRONT');
+  // Which garment's photos: each garment is photographed, and sent to the
+  // customer, on its own once it passes Master quality check. '' is the
+  // order's own gallery, as it always was.
+  const jobs = order.garment_jobs || [];
+  const [jobId, setJobId] = useState(jobs[0]?.id || '');
+  const job = jobs.find((j) => j.id === jobId) || null;
 
-  const images = order.garment_images || [];
+  const images = (order.garment_images || []).filter((i) => (i.garment_job || '') === (job ? job.id : ''));
+  const qcDone = job && (order.stages || []).some((st) => st.stage_key === 'master_quality_check'
+    && st.garment_job === job.id && st.status === 'COMPLETED');
+  const canSend = !role || ['Owner', 'Designer', 'Master'].includes(role);
+  const sentAt = images.map((i) => i.sent_at).filter(Boolean).sort().pop();
+  const review = job && (order.photo_reviews || []).find((r) => r.garment_job === job.id);
+  const tryons = job ? (order.garment_tryons || []).filter((r) => r.garment_job === job.id) : [];
   const published = order.garment_images_published;
   const have = new Set(images.map((i) => i.view));
-  const missing = ['FRONT', 'BACK'].filter((v) => !have.has(v));
+  // Share with customer (the whole order's gallery) checks every photo on the order, as it always did.
+  const orderViews = new Set((order.garment_images || []).map((i) => i.view));
+  const missing = ['FRONT', 'BACK'].filter((v) => !orderViews.has(v));
 
   const run = async (work) => {
     setBusy(true);
@@ -729,9 +745,22 @@ function GarmentGallery({ order, onChanged }) {
           </select>
           <AddPhotoButton camera className="btn-primary at-btn-sm" icon={Plus} disabled={busy}
                           label={busy ? 'Working…' : t('common.addPhoto', 'Add photo')}
-                          onFiles={([file]) => { const bad = imageFilesError([file]); if (bad) { alert(bad); return; } run(() => api.uploadGarmentImage(order.id, view, file)); }} />
+                          onFiles={([file]) => { const bad = imageFilesError([file]); if (bad) { alert(bad); return; } run(() => api.uploadGarmentImage(order.id, view, file, job?.id || null)); }} />
         </div>
       </div>
+
+      {jobs.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+          <label htmlFor="gallery-garment" className="od-hint" style={{ margin: 0 }}>Photos of</label>
+          <select id="gallery-garment" className="form-control od-select" value={jobId} disabled={busy}
+                  onChange={(e) => setJobId(e.target.value)}>
+            {jobs.map((j, i) => (
+              <option key={j.id} value={j.id}>{jobs.length > 1 ? `${i + 1}. ` : ''}{j.display_name || j.template_name || 'Garment'}</option>
+            ))}
+            <option value="">Whole order</option>
+          </select>
+        </div>
+      )}
 
       {error && <div className="od-error">{error}</div>}
 
@@ -762,6 +791,53 @@ function GarmentGallery({ order, onChanged }) {
           <span className="od-hint">{t('ordersPage.needsFrontAndBack', 'needs front and back')}</span>
         )}
       </div>
+
+      {/* This garment's photos to the customer's WhatsApp, once it has passed
+          Master quality check; the customer approves or asks for changes on
+          their tracking page. */}
+      {job && canSend && (
+        <div className="od-gallery-foot" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <button type="button" className="btn-primary at-btn-sm"
+                  disabled={busy || !qcDone || images.length === 0}
+                  onClick={() => run(() => api.sendGarmentPhotos(order.id, job.id))}>
+            <Send size={14} /> {sentAt ? 'Send photos again on WhatsApp' : 'Send photos to customer on WhatsApp'}
+          </button>
+          {!qcDone ? <span className="od-hint">after Master quality check</span>
+            : images.length === 0 ? <span className="od-hint">add a photo of this garment first</span> : null}
+          {sentAt && (
+            <span className="od-hint">
+              Sent {fmtDateTime(sentAt)}
+              {review ? (review.decision === 'APPROVED'
+                ? ' · ✓ Approved by the customer'
+                : ` · ✎ Changes asked${review.note ? `: "${review.note}"` : ''}`) : ' · waiting for the customer'}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* The customer's own try-on pictures of this garment, made from the
+          try-on link sent with its photos. */}
+      {tryons.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div className="od-hint" style={{ marginBottom: 6 }}>Customer try-on ({tryons.length})</div>
+          <div className="od-photos">
+            {tryons.map((tryon) => (
+              <a key={tryon.id} href={resolveMediaUrl(tryon.image_url)} target="_blank" rel="noopener noreferrer"
+                 title={`Made ${fmtDateTime(tryon.created_at)}`}>
+                <PhotoTile src={resolveMediaUrl(tryon.image_url)} alt="Customer try-on"
+                           label={fmtDateTime(tryon.created_at)} size={112}
+                           onRemove={busy ? undefined : (e) => {
+                             // The tile sits inside the link that opens it.
+                             e.preventDefault();
+                             e.stopPropagation();
+                             if (!window.confirm('Delete this try-on picture? The customer will no longer see it.')) return;
+                             run(() => api.deleteGarmentTryOn(order.id, tryon.id));
+                           }} />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -1656,6 +1732,11 @@ function App() {
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  // The login boxes stay read-only until touched, so the browser does not
+  // silently fill a saved login (an owner's, on a shared computer) on load;
+  // touching one offers the saved logins to pick from instead.
+  const [loginUnlocked, setLoginUnlocked] = useState(false);
+  const unlockLogin = () => setLoginUnlocked(true);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   const [resetEmail, setResetEmail] = useState('');
@@ -1674,7 +1755,6 @@ function App() {
       return localStorage.getItem(`onboarding_dismissed_${localStorage.getItem('tenant_id') || ''}`) === '1';
     } catch { return false; }
   });
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
 
   const [findSlug, setFindSlug] = useState('');
@@ -2815,6 +2895,7 @@ function App() {
     setAuthBusy(true);
     try {
       const res = await api.login(loginEmail, loginPassword, portalSlug);
+      setLoginPassword('');  // signed in: the password is not kept in the form
       setJustRegistered(false);
       setCurrentUser(res.user);
       setView('dashboard');
@@ -2903,8 +2984,11 @@ function App() {
       await api.logout();
       setCurrentUser(null);
       setJustRegistered(false);
+      // The login screen opens empty, not with the last person's details.
+      setLoginEmail('');
+      setLoginPassword('');
+      setLoginUnlocked(false);
       setView('login');
-      setShowLogoutConfirm(false);
     } finally {
       setLogoutBusy(false);
     }
@@ -2928,7 +3012,9 @@ function App() {
   const ensureCustomerId = async () => {
     if (customerId) return customerId;
     const last10 = (value) => String(value || '').replace(/\D/g, '').slice(-10);
-    const found = allCustomers.find(c => last10(c.mobile_number) === last10(customerForm.mobile_number));
+    const typed = last10(customerForm.mobile_number);
+    const matches = typed ? await api.lookupCustomers({ mobile: typed, limit: 50 }) : [];
+    const found = (matches || []).find(c => last10(c.mobile_number) === typed);
     const optional = Object.fromEntries(['email_address', 'gender', 'city_region', 'address']
       .filter(key => String(customerForm[key] || '').trim()).map(key => [key, customerForm[key]]));
     const cust = found || await api.createCustomer({
@@ -2936,7 +3022,7 @@ function App() {
       mobile_number: String(customerForm.mobile_number).trim(), ...optional,
     });
     setCustomerId(cust.id);
-    if (!found) setAllCustomers(prev => [cust, ...prev]);
+    if (!found) refreshCustomerBook();
     return cust.id;
   };
   const clearPickedCustomer = (mobile) => {
@@ -3598,6 +3684,32 @@ function App() {
   };
 
   
+  // A photo added straight from the customer's profile header.
+  const [customerPhotoBusy, setCustomerPhotoBusy] = useState(false);
+  const uploadDirectoryCustomerPhoto = async (cust, file) => {
+    if (!file || customerPhotoBusy) return;
+    const bad = imageFilesError([file]);
+    if (bad) { alert(bad); return; }
+    setCustomerPhotoBusy(true);
+    try {
+      const row = await api.uploadCustomerPhoto(cust.id, file);
+      setSelectedDirectoryCustomer((current) =>
+        current && current.id === cust.id ? { ...current, profile_photo: row.profile_photo } : current);
+      // The page already loaded shows it too, without a reload.
+      setCustomerDirectory((d) => (d.data ? {
+        ...d,
+        data: {
+          ...d.data,
+          results: d.data.results.map((x) => (x.id === cust.id ? { ...x, profile_photo: row.profile_photo } : x)),
+        },
+      } : d));
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setCustomerPhotoBusy(false);
+    }
+  };
+
   const openDirectoryCustomer = async (summaryRow) => {
     setViewAllCustomerMeasurements(false);
     setSelectedDirectoryCustomer(summaryRow);
@@ -3905,6 +4017,9 @@ function App() {
                     type="text" 
                     placeholder="Enter your email"
                     value={loginEmail}
+                    readOnly={!loginUnlocked}
+                    onPointerDown={unlockLogin}
+                    onFocus={unlockLogin}
                     onChange={(e) => setLoginEmail(e.target.value)}
                     style={{ width: '100%', padding: '12px 14px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
@@ -3920,6 +4035,9 @@ function App() {
                     type={showLoginPassword ? "text" : "password"} 
                     placeholder="Enter your password"
                     value={loginPassword}
+                    readOnly={!loginUnlocked}
+                    onPointerDown={unlockLogin}
+                    onFocus={unlockLogin}
                     onChange={(e) => setLoginPassword(e.target.value)}
                     style={{ width: '100%', padding: '12px 40px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
                     required
@@ -4403,7 +4521,7 @@ function App() {
                 }}
               />
               <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
-                       onClick={() => { setShowLogoutConfirm(true); setMobileNavOpen(false); }} />
+                       onClick={() => { setMobileNavOpen(false); handleLogout(); }} />
             </nav>
 
 
@@ -4903,6 +5021,7 @@ function App() {
                       <DesignDashboard
                         onOpenLibrary={() => setDesignsView('library')}
                         canManageDesigners={!currentUser?.role || currentUser.role === 'Owner'}
+                        shopSlug={currentUser?.shop_slug}
                       />
                     ) : (
                       <DesignLibrary
@@ -5363,7 +5482,7 @@ function App() {
 
                     <aside className="od-side">
                       <OrderGarmentsCard order={order} focus={focusJob?.id} onSelectStage={(stage) => openStageReview(order, stage)} />
-                      <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} />
+                      <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} role={currentUser?.role} />
                       <section className="at-section od-customer">
                         <div className="od-section-head" style={{ marginBottom: 0 }}>
                           <IconTile icon={User} tone="neutral" size={40} iconSize={18} />
@@ -5857,7 +5976,8 @@ function App() {
                         >
                           <td data-label="Customer" style={{ overflow: 'hidden' }}>
                             <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
-                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36} />
+                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36}
+                                              src={cust.profile_photo ? resolveMediaUrl(cust.profile_photo) : ''} />
                               <div style={{ minWidth: 0, flex: 1 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                                   <span style={{ ...line, fontWeight: 'var(--weight-semibold)', color: 'var(--text-primary)' }}
@@ -6068,7 +6188,23 @@ function App() {
 
                 <div className="ui-card at-profile-head">
                   <div className="at-profile-id">
-                    <AvatarInitials name={`${c.first_name} ${c.last_name}`} size={96} tone="rose" />
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      <AvatarInitials name={`${c.first_name} ${c.last_name}`} size={96} tone="rose"
+                                      src={c.profile_photo ? resolveMediaUrl(c.profile_photo) : ''} />
+                      {/* Same people as the Edit button. */}
+                      {!isLead(c) && (isOwner || adminCan('customers.edit')) && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <button type="button" className="btn-secondary at-btn-sm" disabled={customerPhotoBusy}
+                                  onClick={() => document.getElementById('cust-profile-photo').click()}>
+                            <Upload size={12} /> {customerPhotoBusy ? 'Saving…' : (c.profile_photo ? 'Change photo' : 'Add photo')}
+                          </button>
+                          <CameraButton label="Take photo" disabled={customerPhotoBusy}
+                                        onFiles={([f]) => uploadDirectoryCustomerPhoto(c, f)} />
+                          <input id="cust-profile-photo" type="file" accept="image/*" hidden aria-label="Customer photo"
+                                 onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; uploadDirectoryCustomerPhoto(c, f); }} />
+                        </div>
+                      )}
+                    </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         <h2 className="at-page-title" style={{ fontSize: 'var(--text-2xl)' }}>{c.first_name} {c.last_name}</h2>
@@ -6837,6 +6973,9 @@ function App() {
                     </div>
                   </div>
 
+                  {/* Right column: everyone's own details, then the owner's boutique profile. */}
+                  <div className="at-stack">
+                  <MyDetails key={currentUser.id} user={currentUser} onUser={setCurrentUser} />
                   {/* Owner only: submitting POSTs /boutique-settings/, which
                       RolePermission refuses for every other role. A form that
                       cannot succeed should not be drawn. */}
@@ -6957,6 +7096,7 @@ function App() {
                       </form>
                     </SectionCard>
                   )}
+                  </div>
                 </div>
               </>
               );
@@ -7368,7 +7508,7 @@ function App() {
                 onPick={(tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); }}
               />
               <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
-                       onClick={() => { setShowLogoutConfirm(true); setMobileNavOpen(false); }} />
+                       onClick={() => { setMobileNavOpen(false); handleLogout(); }} />
             </nav>
           </aside>
 
@@ -9211,8 +9351,8 @@ function App() {
               <Bell size={20} style={{ color: 'var(--accent-text, #b07c40)' }} />
               <h3 style={{ fontSize: '18px', fontWeight: 600, margin: 0, fontFamily: 'var(--font-serif)' }}>Boutique alerts</h3>
             </div>
-            <button 
-              className="btn-secondary" 
+            <button
+              className="btn-primary"
               style={{ padding: '4px 10px', fontSize: '12px' }}
               onClick={() => setShowNotificationsDrawer(false)}
             >
@@ -9234,23 +9374,33 @@ function App() {
                 No notifications received yet.
               </div>
             ) : (
-              notifications.map(n => (
+              notifications.map(n => {
+                // Coloured by what it is about: new work, to check, sent back, ready...
+                const kind = notificationKind(n.title);
+                return (
                 <div key={n.id} style={{
                   padding: '16px',
                   backgroundColor: n.is_read ? 'rgba(0,0,0,0.01)' : 'rgba(212,175,55,0.04)',
                   border: `1px solid ${n.is_read ? 'var(--border-color)' : 'rgba(212,175,55,0.2)'}`,
+                  borderLeft: `4px solid ${kind.color}`,
                   borderRadius: '8px',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '6px'
                 }}>
+                  <span style={{ alignSelf: 'flex-start', fontSize: '10px', fontWeight: 700, letterSpacing: '0.04em',
+                                 textTransform: 'uppercase', padding: '2px 8px', borderRadius: '999px',
+                                 color: kind.color, background: `${kind.color}1a` }}>
+                    {kind.label}
+                  </span>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>{n.title}</span>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{fmtDateTime(n.created_at)}</span>
                   </div>
                   <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>{n.message}</p>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -9415,37 +9565,25 @@ Complete the Payment stage with this partial payment?`)) return;
                     <span className="ui-eyebrow" style={{ color: 'var(--text-primary)' }}>Status</span>
                     <span className={`ui-badge ui-badge--${tone}`}>● {STEP_LABEL[STEP_STATE(stage.status)]}</span>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-                    <div>
-                      <div className="ui-eyebrow">Started</div>
-                      <div className="stage-meta-value" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <Calendar size={14} /> {stage.started_at ? fmtDateTime(stage.started_at) : '—'}
+                  {/* One row per fact: icon and label on the left, the value on the right,
+                      a rule between rows -- lines up however many facts there are. */}
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {[
+                      ['Started', Calendar, stage.started_at ? fmtDateTime(stage.started_at) : '—'],
+                      ['SLA / target', Clock, `${stage.sla_hours} hours`],
+                      stage.completed_at && ['Completed', CheckCircle2, fmtDateTime(stage.completed_at)],
+                      stage.duration_seconds > 0 && ['Actual duration', History, duration],
+                      stage.performed_by_name && ['Performed by', User, stage.performed_by_name],
+                    ].filter(Boolean).map(([label, Icon, value], i) => (
+                      <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-3)',
+                                                padding: '10px 0', borderTop: i ? '1px solid var(--border-color)' : 'none' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)',
+                                       color: 'var(--text-secondary)', flexShrink: 0 }}>
+                          <Icon size={15} style={{ flexShrink: 0 }} /> {label}
+                        </span>
+                        <span className="stage-meta-value" style={{ margin: 0, textAlign: 'right', minWidth: 0, overflowWrap: 'anywhere' }}>{value}</span>
                       </div>
-                    </div>
-                    <div>
-                      <div className="ui-eyebrow">SLA / target</div>
-                      <div className="stage-meta-value" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                        <Clock size={14} /> {stage.sla_hours} hours
-                      </div>
-                    </div>
-                    {stage.completed_at && (
-                      <div>
-                        <div className="ui-eyebrow">Completed</div>
-                        <div className="stage-meta-value">{fmtDateTime(stage.completed_at)}</div>
-                      </div>
-                    )}
-                    {stage.duration_seconds > 0 && (
-                      <div>
-                        <div className="ui-eyebrow">Actual duration</div>
-                        <div className="stage-meta-value">{duration}</div>
-                      </div>
-                    )}
-                    {stage.performed_by_name && (
-                      <div>
-                        <div className="ui-eyebrow">Performed by</div>
-                        <div className="stage-meta-value">{stage.performed_by_name}</div>
-                      </div>
-                    )}
+                    ))}
                   </div>
                 </div>
               )}
@@ -9667,7 +9805,13 @@ Complete the Payment stage with this partial payment?`)) return;
                       disabled={assigningStageKey === stage.stage_key}
                       onChange={(e) => handleAssignStage(activeReviewOrder.id, stage.stage_key, e.target.value, stage.garment_job || null)}
                     >
-                      <option value="">Unassigned</option>
+                      {/* No one set on this step: it is the order's stitching tailor's
+                          (stitching, hemming) or master's, as My work already treats it. */}
+                      <option value="">{(() => {
+                        const tailorStep = TAILOR_STEPS.includes(stage.stage_key);
+                        const name = tailorStep ? activeReviewOrder.tailor_name : activeReviewOrder.master_name;
+                        return name ? `${name} (order's ${tailorStep ? 'stitching tailor' : 'master'})` : 'Unassigned';
+                      })()}</option>
                       {eligibleStaffForStage(stage.stage_key).map(t => (
                         <option key={t.id} value={t.id}>{t.name} · {t.role}</option>
                       ))}
@@ -9818,30 +9962,6 @@ Complete the Payment stage with this partial payment?`)) return;
           </div>
         </div>
       )}
-      {/* Rendered at the root so both sidebars' Logout items reach it,
-          whichever view is on screen. */}
-      {showLogoutConfirm && (
-        <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
-          <div className="search-modal-card" style={{ maxWidth: '360px', width: '100%', padding: '24px', textAlign: 'center' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)', marginBottom: '8px' }}>
-              Sign out of your boutique
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-              You&apos;ll need to sign in again to get back to your orders.
-            </p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-              <button type="button" className="btn-secondary" disabled={logoutBusy} onClick={() => setShowLogoutConfirm(false)}>
-                Cancel
-              </button>
-              <button type="button" className="btn-primary" disabled={logoutBusy} onClick={handleLogout}>
-                {logoutBusy ? 'Signing out…' : 'Sign out'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
       <GarmentPairingModal
         isOpen={!!activePairingGarment}
         onClose={() => setActivePairingGarment(null)}

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Try on your {{ garment_name }} &middot; {{ boutique.name }}</title>
+<style>
+  /* Self-contained like the tracking page: opened once, on a phone. */
+  :root {
+    --ink: #1b1b1f;
+    --muted: #6b6b76;
+    --line: #e4e4e9;
+    --bg: #f7f7f9;
+    --accent: #b07c40;
+    --done: #1f7a4d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 0 40px;
+    background: var(--bg); color: var(--ink);
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 0 16px; }
+  header { background: #fff; border-bottom: 1px solid var(--line); padding: 20px 0; margin-bottom: 16px; }
+  header .wrap { display: flex; align-items: center; gap: 12px; }
+  header img { width: 48px; height: 48px; object-fit: contain; border-radius: 8px; }
+  header h1 { font-size: 18px; margin: 0; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  .hint { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+  .gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .gallery figure { margin: 0; }
+  .gallery img {
+    width: 100%; aspect-ratio: 3 / 4; object-fit: cover;
+    border-radius: 8px; border: 1px solid var(--line); background: var(--bg);
+  }
+  .gallery figcaption { font-size: 12px; color: var(--muted); margin-top: 4px; text-align: center; }
+  .result img { width: 100%; border-radius: 10px; border: 1px solid var(--line); display: block; }
+  .result + .result { margin-top: 12px; }
+  .result a { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent); font-weight: 600; }
+  .pick {
+    display: grid; place-items: center; gap: 6px; text-align: center;
+    min-height: 140px; padding: 16px; border: 2px dashed var(--line); border-radius: 10px;
+    cursor: pointer; color: var(--muted); font-size: 14px;
+  }
+  .pick strong { color: var(--ink); font-size: 16px; }
+  .pick input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  #preview { max-width: 100%; max-height: 320px; border-radius: 8px; display: none; }
+  button.go {
+    width: 100%; min-height: 48px; margin-top: 12px; border: 0; border-radius: 10px;
+    background: var(--accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer;
+  }
+  button.go:disabled { opacity: .55; cursor: default; }
+  .notice { border-radius: 10px; padding: 12px 14px; font-size: 14px; margin-bottom: 12px; }
+  .notice.error { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+  .notice.ok { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+  .working { display: none; text-align: center; padding: 18px 8px 4px; color: var(--muted); font-size: 14px; }
+  .working.on { display: block; }
+  .spinner {
+    width: 34px; height: 34px; margin: 0 auto 10px; border-radius: 50%;
+    border: 3px solid var(--line); border-top-color: var(--accent); animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  ul.tips { margin: 0 0 12px; padding-left: 18px; color: var(--muted); font-size: 14px; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding-top: 8px; }
+  footer a { color: inherit; display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    {% if boutique.logo %}<img src="{{ boutique.logo.url }}" alt="">{% endif %}
+    <div>
+      <h1>{{ boutique.name }}</h1>
+      <p>Order {{ order.reference }} &middot; {{ garment_name }}</p>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="card">
+    <h2>Your {{ garment_name }}</h2>
+    <div class="gallery">
+      {% for photo in photos %}
+        <figure>
+          <img src="{{ photo.image.url }}" alt="{{ photo.get_view_display }}" loading="lazy">
+          <figcaption>{{ photo.get_view_display }}</figcaption>
+        </figure>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div id="result"></div>
+  {% if just_made %}<div class="notice ok">Here you are in your {{ garment_name }}!</div>{% endif %}
+  {% if results %}
+  <section class="card">
+    <h2>You in your {{ garment_name }}</h2>
+    {% for result in results %}
+      <div class="result">
+        <img src="{{ result.result_image.url }}" alt="You wearing your {{ garment_name }}">
+        <a href="{{ result.result_image.url }}" target="_blank" rel="noopener" download>Open / save picture</a>
+      </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <div id="tryon"></div>
+  {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+  {% if expired %}
+  <section class="card">
+    <h2>Try it on</h2>
+    <p class="hint">This garment has been delivered, so the try-on has closed. We hope you love it!</p>
+  </section>
+  {% elif tries_left > 0 %}
+  <section class="card">
+    <h2>See it on you</h2>
+    <p class="hint">Upload a photo of yourself and we will show you wearing your {{ garment_name }}.</p>
+    <ul class="tips">
+      <li>Stand straight, facing the camera</li>
+      <li>Your full body in the photo, and only you</li>
+    </ul>
+    <form method="post" enctype="multipart/form-data" id="tryon-form">
+      {% csrf_token %}
+      <label class="pick">
+        <img id="preview" alt="Your photo">
+        <strong id="pick-label">Choose your photo</strong>
+        <span>{{ tries_left }} of {{ max_tries }} try-on{{ max_tries|pluralize }} left</span>
+        <input type="file" name="photo" id="photo" accept="image/*" required>
+      </label>
+      <button type="submit" class="go" id="go" disabled>Show me in it</button>
+      <div class="working" id="working">
+        <div class="spinner"></div>
+        Making your picture&hellip; this takes about a minute.<br>Please keep this page open.
+      </div>
+    </form>
+  </section>
+  {% else %}
+  <section class="card">
+    <h2>Try it on</h2>
+    <p class="hint">You have used all {{ max_tries }} try-ons for this garment.</p>
+  </section>
+  {% endif %}
+
+  <footer>
+    Questions? Call <a href="tel:{{ boutique.phone }}">{{ boutique.phone }}</a>
+  </footer>
+
+</div>
+
+<script>
+// Show the chosen photo, and send it as a JPEG: an iPhone photo (HEIC) is
+// turned into one here, where the phone itself can read it. If anything here
+// fails the form still sends the photo as it was chosen.
+(function () {
+  var form = document.getElementById('tryon-form');
+  if (!form) return;
+  var input = document.getElementById('photo');
+  var preview = document.getElementById('preview');
+  var go = document.getElementById('go');
+  var jpeg = null;
+
+  input.addEventListener('change', function () {
+    jpeg = null;
+    var file = input.files && input.files[0];
+    go.disabled = !file;
+    if (!file) return;
+    document.getElementById('pick-label').textContent = 'Change photo';
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload = function () {
+      preview.src = url;
+      preview.style.display = 'block';
+      try {
+        var scale = Math.min(1, 2048 / Math.max(img.naturalWidth, img.naturalHeight));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.naturalWidth * scale);
+        canvas.height = Math.round(img.naturalHeight * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(function (blob) { jpeg = blob; }, 'image/jpeg', 0.9);
+      } catch (e) { jpeg = null; }
+    };
+    img.src = url;
+  });
+
+  form.addEventListener('submit', function () {
+    if (jpeg && window.DataTransfer) {
+      try {
+        var box = new DataTransfer();
+        box.items.add(new File([jpeg], 'photo.jpg', { type: 'image/jpeg' }));
+        input.files = box.files;
+      } catch (e) { /* send the original */ }
+    }
+    go.disabled = true;
+    go.textContent = 'Please wait…';
+    document.getElementById('working').className = 'working on';
+  });
+})();
+</script>
+</body>
+</html>

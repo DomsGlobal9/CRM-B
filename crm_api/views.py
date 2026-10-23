@@ -961,17 +961,25 @@ class OrderViewSet(viewsets.ModelViewSet):
         except ValidationError as exc:
             return _refused(exc)
 
+        # Which garment it shows, on an order of several; none is the order's own gallery.
+        job = None
+        if request.data.get('garment_job'):
+            job = order.garment_jobs.filter(pk=request.data.get('garment_job')).first()
+            if job is None:
+                return Response({'error': 'That garment is not on this order.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+
         serializer = GarmentImageSerializer(
             data={'view': view, 'image': request.FILES['image']}
         )
         serializer.is_valid(raise_exception=True)
 
-        for existing in order.garment_images.filter(view=view):
+        for existing in order.garment_images.filter(view=view, garment_job=job):
             existing.image.delete(save=False)  # the file, not just the row
             existing.delete()
 
         image = serializer.save(
-            order=order,
+            order=order, garment_job=job,
             uploaded_by=request.user if request.user.is_authenticated else None,
         )
         return Response(GarmentImageSerializer(image).data,
@@ -986,6 +994,20 @@ class OrderViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_404_NOT_FOUND)
         image.image.delete(save=False)
         image.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['DELETE'], url_path='garment-tryons/(?P<tryon_id>[0-9]+)')
+    def delete_garment_tryon(self, request, pk=None, tryon_id=None):
+        """Take one of the customer's try-on pictures off the order, and off
+        their try-on page. The try it used is theirs again."""
+        order = self.get_object()
+        tryon = order.garment_tryons.filter(id=tryon_id).first()
+        if tryon is None:
+            return Response({'error': 'No such try-on picture on this order.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        if tryon.result_image:
+            tryon.result_image.delete(save=False)
+        tryon.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['DELETE'], url_path='stage-notes/(?P<activity_id>[0-9]+)/voice-note')
@@ -1048,6 +1070,45 @@ class OrderViewSet(viewsets.ModelViewSet):
             )
 
         return Response(OrderSerializer(order, context={'request': request}).data)
+
+    @action(detail=True, methods=['POST'], url_path='send-garment-photos')
+    def send_garment_photos(self, request, pk=None):
+        """One finished garment's photos to the customer's WhatsApp.
+
+        Owner, Designer or Master; only once that garment's Master quality
+        check is done, and with at least one photo of it. The customer
+        answers on the tracking page (approve, or ask for changes).
+        """
+        from django.utils import timezone as dj_timezone
+        from domains.orders.messaging import send_customer_garment_photos
+
+        order = self.get_object()
+        if resolve_user_role(request.user) not in (OWNER, DESIGNER, MASTER):
+            return Response({'error': 'Only the owner, a designer or a master can send photos to the customer.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        job = order.garment_jobs.filter(pk=request.data.get('garment_job')).first()
+        if job is None:
+            return Response({'error': 'Choose a garment on this order.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not order.stages.filter(stage_key='master_quality_check', garment_job=job, status='COMPLETED').exists():
+            return Response({'error': f'{job.display_name} has not passed Master quality check yet.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        images = list(order.garment_images.filter(garment_job=job))
+        if not images:
+            return Response({'error': 'Add at least one photo of this garment first.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if order.customer_id is None:
+            return Response({'error': 'This order has no customer to send to.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            message = send_customer_garment_photos(order, job.display_name, images, sent_by=request.user)
+            if message is None:
+                return Response({'error': 'Customer messaging is switched off in Settings.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            order.garment_images.filter(pk__in=[i.pk for i in images]).update(sent_at=dj_timezone.now())
+            OrderActivity.objects.create(
+                order=order, event_type='GARMENT_PHOTOS_SENT', user=request.user,
+                metadata={'garment_job': str(job.pk), 'garment': job.display_name, 'photos': len(images)})
+        return Response(OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data)
 
     @action(detail=False, methods=['GET'], url_path='customer-messages',
             permission_classes=[OwnerOnly])

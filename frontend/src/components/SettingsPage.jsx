@@ -176,12 +176,17 @@ export const SettingsPage = ({
             </div>
 
             {currentUser?.shop_slug && (
-              <div className="ui-row" style={infoRow}>
-                <span style={infoRowLabel}><Link2 size={16} /> {t('settingsPage.boutiqueUrl', 'Boutique sign-in URL')}</span>
-                <span style={{ ...infoRowValue, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {`${window.location.host}/${currentUser.shop_slug}`}
+              <div className="ui-row" style={{ ...infoRow, flexWrap: 'wrap' }}>
+                {/* A long address breaks onto the next line and, on a narrow
+                    screen, the row wraps -- it never runs out of the card. */}
+                <span style={{ ...infoRowLabel, whiteSpace: 'nowrap' }}><Link2 size={16} /> {t('settingsPage.boutiqueUrl', 'Boutique sign-in URL')}</span>
+                <span style={{ ...infoRowValue, display: 'flex', alignItems: 'center', gap: '10px',
+                               minWidth: 0, flex: '1 1 180px', justifyContent: 'flex-end' }}>
+                  <span style={{ minWidth: 0, overflowWrap: 'anywhere', textAlign: 'right' }}>
+                    {`${window.location.host}/${currentUser.shop_slug}`}
+                  </span>
                   <button type="button" onClick={handleCopyUrl}
-                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-text, #b07c40)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-text, #b07c40)', fontWeight: 600, fontSize: 'var(--text-sm)', flexShrink: 0 }}>
                     {copied ? t('settingsPage.copied', 'Copied') : t('settingsPage.copy', 'Copy')}
                   </button>
                 </span>

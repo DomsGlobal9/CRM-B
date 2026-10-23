@@ -5,6 +5,7 @@ import { Check,
   User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil, ChevronDown, ChevronUp, KeyRound,
 } from 'lucide-react';
 
+import { boutiqueLoginUrl } from '../../services/format';
 import { api } from '../../services/api';
 import {
   AvatarInitials, PageHeader, SearchBox, StatCard, FormModal, Field, Dropzone, InfoNote, FormSection, IconTile, CameraButton,
@@ -268,7 +269,7 @@ function DocumentThumb({ url }) {
   );
 }
 
-function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
+function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [], portalUrl = window.location.origin }) {
   const editing = Boolean(member);
   const [form, setForm] = useState({
     name: member?.name || '',
@@ -447,6 +448,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
   };
 
   if (created) {
+    const roleLine = (created.role || form.role) ? `\nRole: ${created.role || form.role}` : '';
     const done = () => { onSaved(); onCancel(); };
     return (
       <Modal title="Account created" onClose={done}>
@@ -472,7 +474,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
             className="btn-secondary"
             style={copied === 'done' ? { color: 'var(--success-color)', borderColor: 'var(--success-color)' } : undefined}
             onClick={async () => {
-              const text = `Atelier Staff Login Credentials:\nPortal: ${window.location.origin}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`;
+              const text = `Atelier Staff Login Credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`;
               try {
                 await navigator.clipboard.writeText(text);
                 setCopied('done');
@@ -489,7 +491,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
             target="_blank"
             rel="noreferrer"
             href={`https://wa.me/?text=${encodeURIComponent(
-              `Hello ${created.name},\nHere are your Atelier login credentials:\nPortal: ${window.location.origin}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`
+              `Hello ${created.name},\nHere are your Atelier login credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`
             )}`}
           >Share on WhatsApp</a>
           <button type="button" className="btn-primary" onClick={done}>Done</button>
@@ -727,7 +729,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [] }) {
    Passwords are stored hashed, so the old one cannot be shown -- a new one is
    issued instead and displayed once, with the same Copy / WhatsApp handover
    as the "Account created" screen. */
-function CredentialsDialog({ member, onClose }) {
+function CredentialsDialog({ member, onClose, portalUrl = window.location.origin }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [issued, setIssued] = useState(null);
@@ -748,8 +750,9 @@ function CredentialsDialog({ member, onClose }) {
     }
   };
 
+  const roleLine = (member.role || (member.isDesigner ? 'Designer' : '')) ? `\nRole: ${member.role || 'Designer'}` : '';
   const message = issued
-    ? `Hello ${member.name},\nHere are your Atelier login credentials:\nPortal: ${window.location.origin}\nEmail: ${email}\nPassword: ${issued.bootstrap_password}`
+    ? `Hello ${member.name},\nHere are your Atelier login credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${email}\nPassword: ${issued.bootstrap_password}`
     : '';
 
   return (
@@ -768,7 +771,7 @@ function CredentialsDialog({ member, onClose }) {
                 className="btn-secondary"
                 style={copied === 'done' ? { color: 'var(--success-color)', borderColor: 'var(--success-color)' } : undefined}
                 onClick={async () => {
-                  const text = `Atelier Staff Login Credentials:\nPortal: ${window.location.origin}\nEmail: ${email}\nPassword: ${issued.bootstrap_password}`;
+                  const text = `Atelier Staff Login Credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${email}\nPassword: ${issued.bootstrap_password}`;
                   try {
                     await navigator.clipboard.writeText(text);
                     setCopied('done');
@@ -853,7 +856,7 @@ function DeleteMemberDialog({ state, onCancel, onConfirm }) {
   );
 }
 
-function Roster({ isOwner, canSeeTeam }) {
+function Roster({ isOwner, canSeeTeam, portalUrl }) {
   const [roster, setRoster] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [terms, setTerms] = useState([]);
@@ -882,7 +885,7 @@ function Roster({ isOwner, canSeeTeam }) {
         api.getStaffProfiles().catch(() => []),
         isOwner ? api.getDeposits().catch(() => []) : Promise.resolve([]),
         isOwner ? api.getAdvances({ active: 'true' }).catch(() => []) : Promise.resolve([]),
-        canSeeTeam ? api.getAttendance({ date: today }).catch(() => []) : Promise.resolve([]),
+        isOwner ? api.getAttendance({ date: today }).catch(() => []) : Promise.resolve([]),
       ]);
       setRoster(Array.isArray(people) ? people : []);
       setDesigners(Array.isArray(designed) ? designed : []);
@@ -1002,8 +1005,10 @@ function Roster({ isOwner, canSeeTeam }) {
                       sub={`${roster.length} people`} />
             <StatCard icon={UserCheck} tone="amber" label="Available now" value={analytics.available}
                       sub={analytics.busy ? `${analytics.busy} busy` : 'nobody busy'} />
-            <StatCard icon={Clock} tone="blue" label="Present today" value={analytics.presentToday}
-                      sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'Marked in attendance'} />
+            {isOwner && (
+              <StatCard icon={Clock} tone="blue" label="Present today" value={analytics.presentToday}
+                        sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'Marked in attendance'} />
+            )}
             <StatCard icon={Briefcase} tone="violet" label="Pay details added" value={withTerms}
                       sub={`${withTerms} of ${roster.length + designers.length}`} />
           </div>
@@ -1139,7 +1144,7 @@ function Roster({ isOwner, canSeeTeam }) {
                 </td>
 
                 <td>
-                  {member.status && canSeeTeam && !member.isDesigner
+                  {member.status && isOwner && !member.isDesigner
                    && !attendanceToday.some((s) => String(s.staff) === String(member.id)) ? (
                     // Not marked in today: the stored Available/Busy is stale until they arrive.
                     <span className="ui-badge ui-badge--danger">● Absent</span>
@@ -1147,7 +1152,7 @@ function Roster({ isOwner, canSeeTeam }) {
                     <span className={`ui-badge ui-badge--${member.status === 'Available' ? 'success' : member.status === 'Busy' ? 'warning' : 'neutral'}`}>
                       ● {member.status}
                     </span>
-                  ) : member.isDesigner && canSeeTeam ? (
+                  ) : member.isDesigner && isOwner ? (
                     // A designer's attendance is recorded on their linked row (member.staff).
                     member.staff && attendanceToday.some((s) => String(s.staff) === String(member.staff))
                       ? <span className="ui-badge ui-badge--success">● Present</span>
@@ -1384,6 +1389,7 @@ function Roster({ isOwner, canSeeTeam }) {
 
       {adding && (
         <AddStaffForm
+          portalUrl={portalUrl}
           onCancel={() => setAdding(false)}
           onSaved={refresh}
           customRoles={rosterRoles}
@@ -1392,6 +1398,7 @@ function Roster({ isOwner, canSeeTeam }) {
 
       {person && (
         <AddStaffForm
+          portalUrl={portalUrl}
           member={person}
           terms={termsFor(person)}
           onCancel={() => setPerson(null)}
@@ -1402,6 +1409,7 @@ function Roster({ isOwner, canSeeTeam }) {
 
       {credentialsFor && (
         <CredentialsDialog
+          portalUrl={portalUrl}
           member={credentialsFor}
           onClose={() => setCredentialsFor(null)}
         />
@@ -1492,10 +1500,11 @@ export default function StaffPanel({ currentUser }) {
         })}
       </div>
 
-      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} />}
+      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)} />}
       {tab === 'tasks' && <TeamTasks currentUser={currentUser} canSeeTeam={canSeeTeam} />}
+      {/* The team's attendance is the owner's alone; everyone else sees their own. */}
       {tab === 'attendance' && (
-        <Attendance isOwner={isOwner} canSeeTeam={canSeeTeam} />
+        <Attendance isOwner={isOwner} canSeeTeam={isOwner} />
       )}
       {tab === 'payroll' && (
         isOwner ? <Payroll /> : (

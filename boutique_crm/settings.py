@@ -448,6 +448,13 @@ DESIGN_STUDIO_GOOGLE_API_KEY = os.environ.get('DESIGN_STUDIO_GOOGLE_API_KEY', ''
 # Off until the vendor's generate API accepts `measurements`: the live one
 # refuses unknown fields. See docs/design-studio-customer-payload.md.
 DESIGN_STUDIO_SEND_MEASUREMENTS = os.environ.get('DESIGN_STUDIO_SEND_MEASUREMENTS', '').lower() in ('1', 'true', 'yes')
+# Customer try-on (domains/orders/tryon.py): the TryOn2Buy external API that
+# dresses the customer's own photo in their finished garment. Off whenever the
+# key is unset; the key never leaves the server.
+TRYON_API_URL = os.environ.get(
+    'TRYON_API_URL',
+    'https://api-super-admin.onrender.com/api/gateway/external/api/external/tryon')
+TRYON_API_KEY = os.environ.get('TRYON_API_KEY', '')
 
 #: No fallback. A working URL and token were written here and in
 #: apps/email_service/services/redis_service.py, so the live credentials of the

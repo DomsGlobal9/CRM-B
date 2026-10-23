@@ -36,6 +36,10 @@ def upload_to_finished_garments(instance, filename):
     return _unguessable_path('finished_garments', filename)
 
 
+def upload_to_garment_tryons(instance, filename):
+    return _unguessable_path('garment_tryons', filename)
+
+
 def upload_to_fabrics(instance, filename):
     return _unguessable_path('fabrics', filename)
 
@@ -503,17 +507,69 @@ class GarmentImage(models.Model):
     ]
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='garment_images')
+    #: The garment this photo shows, on an order of several; empty on photos
+    #: of the whole order (the order-level gallery, as it always was).
+    garment_job = models.ForeignKey('catalog.GarmentJob', on_delete=models.CASCADE, null=True, blank=True,
+                                    related_name='photos')
     view = models.CharField(max_length=20, choices=VIEW_CHOICES, default='FRONT')
     image = models.ImageField(upload_to=upload_to_finished_garments,
                               max_length=IMAGE_PATH_MAX_LENGTH)
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    #: When it went to the customer's WhatsApp (send-garment-photos); the
+    #: tracking page shows a garment's photos once they are sent.
+    sent_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['view', 'uploaded_at']
 
     def __str__(self):
         return f"{self.order.order_id} - {self.get_view_display()}"
+
+
+class GarmentPhotoReview(models.Model):
+    """The customer's answer to a garment's photos, from the tracking page:
+    approved, or changes asked (with what). The latest one is the answer."""
+
+    APPROVED = 'APPROVED'
+    CHANGES = 'CHANGES'
+    DECISION_CHOICES = [(APPROVED, 'Approved'), (CHANGES, 'Changes asked')]
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='photo_reviews')
+    garment_job = models.ForeignKey('catalog.GarmentJob', on_delete=models.CASCADE, null=True, blank=True,
+                                    related_name='photo_reviews')
+    decision = models.CharField(max_length=10, choices=DECISION_CHOICES)
+    note = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class GarmentTryOn(models.Model):
+    """One try-on the customer asked for from their garment's try-on link:
+    their photo dressed in the finished garment. Their own photo is not kept,
+    only the picture made from it. A row is written before the paid call, so
+    the tries a garment has had are counted even when one fails."""
+
+    PENDING = 'PENDING'
+    DONE = 'DONE'
+    FAILED = 'FAILED'
+    #: The service gave up after 90 s; the picture may still have been made,
+    #: and charged, so it counts as a try.
+    TIMEOUT = 'TIMEOUT'
+    STATUS_CHOICES = [(PENDING, 'Making'), (DONE, 'Made'), (FAILED, 'Failed'), (TIMEOUT, 'Timed out')]
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='garment_tryons')
+    garment_job = models.ForeignKey('catalog.GarmentJob', on_delete=models.CASCADE, related_name='tryons')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    result_image = models.ImageField(upload_to=upload_to_garment_tryons, max_length=IMAGE_PATH_MAX_LENGTH,
+                                     blank=True)
+    error = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
 
 
 class CustomerMessage(models.Model):
@@ -553,6 +609,34 @@ class CustomerMessage(models.Model):
 
     def __str__(self):
         return f"{self.order.order_id} - {self.template_key} ({self.status})"
+
+
+class BirthdayGreeting(models.Model):
+    """One birthday event for one customer in one year: the boutique's
+    reminder three days ahead (REMINDER) and the customer's WhatsApp wish at
+    12 AM on the day (WISH). The unique row is what keeps a cron that runs
+    every 15 minutes from doing either twice (domains.customers.birthdays)."""
+
+    KIND_REMINDER = 'REMINDER'
+    KIND_WISH = 'WISH'
+    KIND_CHOICES = [(KIND_REMINDER, 'Reminder to the boutique'), (KIND_WISH, 'Wish to the customer')]
+
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='birthday_greetings')
+    year = models.PositiveSmallIntegerField()
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    #: SENT, FAILED (retried while the 12 AM hour lasts) or SKIPPED (no number, messaging off).
+    status = models.CharField(max_length=10, default='PENDING')
+    error = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['customer', 'year', 'kind'],
+                                               name='one_birthday_greeting_per_year')]
+
+    def __str__(self):
+        return f"{self.customer_id} {self.year} {self.kind} ({self.status})"
+
 
 def get_default_workflow():
     """The workroom's steps, named for the task done at each one.

@@ -336,14 +336,11 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [StaffSelfOrOwner]
 
     def get_queryset(self):
-        """Owner and supervisors see the floor; everyone else sees their own days.
-
-        The same scoping StaffProfileViewSet uses, and for the same reason:
-        supervising a floor means knowing who is on it. Attendance carries no
-        money, so unlike employment terms there is nothing here to strip.
+        """Only the owner sees the team's attendance; everyone else -- the
+        Master included -- sees their own days.
         """
         queryset = AttendanceSession.objects.select_related('staff')
-        if _can_see_team(self.request.user):
+        if _is_owner(self.request.user):
             # Both filters go through the database as-is, so both used to turn a
             # malformed query string into a 500: `?staff=abc` raises ValueError
             # out of IntegerField.get_prep_value and `?date=abc` raises Django's
@@ -575,7 +572,8 @@ class TimesheetView(views.APIView):
     def get(self, request):
         requested = request.query_params.get('staff')
 
-        if _can_see_team(request.user):
+        # Only the owner may open someone else's timesheet.
+        if _is_owner(request.user):
             # int() first: a non-numeric id reached IntegerField.get_prep_value
             # and raised ValueError, which DRF does not convert, so `?staff=abc`
             # was a 500 rather than the 400 below.

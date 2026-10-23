@@ -13,7 +13,9 @@ from core.permissions import SUPERVISOR_ROLES, ModuleAccess
 from core.roles import OWNER, resolve_user_role
 from core.validators import validate_http_url, validate_image_uploads, validate_text
 
-from . import services
+from apps.staff.views import _location_from
+
+from . import geocode, services
 from .models import Todo, TodoPhoto, TodoUpdate
 from .signals import moving_todo
 from .serializers import TodoSerializer
@@ -243,6 +245,8 @@ class TodoViewSet(viewsets.GenericViewSet):
         todo = Todo(
             title=title,
             description=validate_text(request.data.get('description'), label='Description'),
+            title_voice_note=validate_http_url(request.data.get('title_voice_note'), label='Voice note'),
+            description_voice_note=validate_http_url(request.data.get('description_voice_note'), label='Voice note'),
             start_date=self._date(request.data.get('start_date'), 'start_date'),
             due_date=self._date(request.data.get('due_date')),
             created_by=request.user,
@@ -251,6 +255,15 @@ class TodoViewSet(viewsets.GenericViewSet):
         )
         self._check_dates(todo)
         self._set_assignee(todo, self._assignee(request.data.get('assigned_to')))
+        # Where the form was filled, when the device shared it. Malformed or
+        # missing coordinates are dropped, never refused (as at check-in).
+        location = _location_from({'location': {k: request.data.get(k)
+                                                for k in ('latitude', 'longitude', 'accuracy')}})
+        if location:
+            todo.location_latitude = location['latitude']
+            todo.location_longitude = location['longitude']
+            todo.location_accuracy_m = location['accuracy']
+            todo.location_name = geocode.place_name(location['latitude'], location['longitude'])
         todo.save()
         self._add_note(todo, request)
         self._notify_assigned(todo)

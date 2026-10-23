@@ -213,6 +213,87 @@ class PerGarmentStageTests(StateMachineTestBase):
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual(self.row('pattern_cutting', self.saree).status, 'COMPLETED')
 
+    def test_the_first_trial_booking_sends_a_confirmation_and_the_invoice(self):
+        from unittest import mock
+        from crm_api.models import CustomerMessage
+
+        self.finish_garment(self.saree)
+        with mock.patch('crm_api.whatsapp_service.send_whatsapp_message',
+                        return_value={'success': True, 'data': {'messageId': 'm1'}}) as text, \
+             mock.patch('crm_api.whatsapp_service.send_whatsapp_document',
+                        return_value={'success': True, 'data': {'messageId': 'd1'}}) as document, \
+             self.captureOnCommitCallbacks(execute=True):
+            self.go('trial_scheduled', self.saree)
+
+        sent = dict(CustomerMessage.objects.filter(order=self.order).values_list('template_key', 'status'))
+        self.assertEqual(sent.get('trial_scheduled'), 'SENT')
+        self.assertEqual(sent.get('invoice'), 'SENT')
+        self.assertIn('scheduled', text.call_args.kwargs['message_text'])
+        pdf = document.call_args.kwargs
+        self.assertTrue(pdf['content'].startswith(b'%PDF'))
+        self.assertTrue(pdf['filename'].startswith('Invoice-') and pdf['filename'].endswith('.pdf'))
+
+        # The next garment's trial booking says nothing new to the customer.
+        self.finish_garment(self.blouse)
+        self.go('trial_scheduled', self.blouse)
+        self.assertEqual(CustomerMessage.objects.filter(order=self.order, template_key='trial_scheduled').count(), 1)
+        self.assertEqual(CustomerMessage.objects.filter(order=self.order, template_key='invoice').count(), 1)
+
+    def test_a_finished_garments_photos_go_to_the_customer_who_approves_them(self):
+        from unittest import mock
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from django.db import connection
+        from django.test import Client
+        from core.test_images import JPEG
+        from crm_api.models import CustomerMessage, GarmentPhotoReview, Notification
+        from domains.orders.tracking import build_token
+
+        client = self.api()
+        url = reverse('order-garment-images', args=[self.order.pk])
+        for view in ('FRONT', 'BACK'):
+            res = client.post(url, {'view': view, 'garment_job': str(self.saree.id),
+                                    'image': SimpleUploadedFile(f'{view}.jpg', JPEG, content_type='image/jpeg')},
+                              format='multipart')
+            self.assertEqual(res.status_code, 201, res.content)
+        send = reverse('order-send-garment-photos', args=[self.order.pk])
+
+        # Not before its Master quality check.
+        res = client.post(send, {'garment_job': str(self.saree.id)}, format='json')
+        self.assertEqual(res.status_code, 400)
+        self.finish_garment(self.saree)
+
+        # A tailor cannot send.
+        tailor = APIClient()
+        token, _ = Token.objects.get_or_create(user=self.tailor_user)
+        tailor.credentials(HTTP_AUTHORIZATION='Token ' + token.key, HTTP_X_TENANT_ID=self.tenant.schema_name)
+        self.assertEqual(tailor.post(send, {'garment_job': str(self.saree.id)}, format='json').status_code, 403)
+
+        with mock.patch('crm_api.whatsapp_service.send_whatsapp_message',
+                        return_value={'success': True, 'data': {}}) as text, \
+             mock.patch('crm_api.whatsapp_service.send_whatsapp_document',
+                        return_value={'success': True, 'data': {}}) as photo, \
+             self.captureOnCommitCallbacks(execute=True):
+            res = client.post(send, {'garment_job': str(self.saree.id)}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(CustomerMessage.objects.get(order=self.order, template_key='garment_photos').status, 'SENT')
+        self.assertIn('/track/', text.call_args.kwargs['message_text'])
+        self.assertEqual(photo.call_count, 2)
+        self.assertEqual({c.kwargs['media_type'] for c in photo.call_args_list}, {'image'})
+        self.assertTrue(all(i['sent_at'] for i in res.json()['garment_images']))
+
+        # The customer approves from the tracking page; the boutique is told.
+        review = Client().post(f"/track/{build_token(self.order)}/photo-review/",
+                               {'garment_job': str(self.saree.id), 'decision': 'APPROVED'})
+        connection.set_tenant(self.tenant)
+        self.assertEqual(review.status_code, 302)
+        self.assertEqual(GarmentPhotoReview.objects.get().decision, 'APPROVED')
+        self.assertTrue(Notification.objects.filter(title__startswith='Photos approved').exists())
+        # A garment whose photos were never sent cannot be reviewed.
+        refused = Client().post(f"/track/{build_token(self.order)}/photo-review/",
+                                {'garment_job': str(self.blouse.id), 'decision': 'APPROVED'})
+        connection.set_tenant(self.tenant)
+        self.assertEqual(refused.status_code, 404)
+
     def test_an_order_with_one_garment_keeps_the_key_alone_working(self):
         other = self._order(order_id='T2B-SM-2', with_materials=False)
         ensure_garment_stages(other)
@@ -310,3 +391,4 @@ class MixedPathTests(StateMachineTestBase):
         for job in (self.maggam, self.plain, self.blouse):
             self.assertTrue(set(MAGGAM_PATH) <= self.keys(job))
             self.assertNotIn('pattern_cutting', self.keys(job))
+

@@ -204,6 +204,17 @@ afterwards does not undo.
   them the command warns and emails go to the log. A missed 11 PM hour is not
   sent late; `--ignore-window [--schema <boutique>]` sends by hand. Until this
   job is scheduled no summary is sent.
+* **Every-15-minutes cron for birthdays (same schedule `*/15 * * * *`):**
+  ```bash
+  python manage.py send_birthday_wishes
+  ```
+  At 12 AM in each boutique's own time zone, wishes every customer whose
+  birthday it is on WhatsApp (the boutique's paired session) and puts a
+  "Birthday today" alert in front of the owner; a "Birthday in 3 days" alert
+  comes three days ahead. `BirthdayGreeting` keeps each to once per customer
+  per year, and a failed wish is retried by the next runs in that hour.
+  `--ignore-window [--schema <boutique>]` runs it by hand. Until this job is
+  scheduled no birthday is wished.
 * **Region:** put the service in the same region as the Supabase database
   (`ap-southeast-1`). Every request makes several database round trips, so a
   cross-region service pays that latency several times over per request. This is

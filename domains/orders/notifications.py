@@ -4,9 +4,26 @@ from decimal import Decimal
 from crm_api.models import Notification
 from domains.orders.garments import garment_label, garment_names
 from domains.orders.emails import send_order_confirmation, send_stage_update_email
-from domains.orders.messaging import send_customer_message
+from domains.orders.messaging import send_customer_invoice, send_customer_message
 from domains.orders.tracking import tracking_url
 
+
+
+def trial_confirmation(order):
+    """'Your trial for order #16 has been scheduled for 25 Oct 2026, 4:00 PM...'
+    The time comes from a Garment Trial appointment booked for this order, when
+    there is one; otherwise the boutique confirms it with them."""
+    from apps.scheduling.models import Appointment
+    from core.formatting import format_datetime
+    from crm_api.models import BoutiqueSettings
+
+    boutique = BoutiqueSettings.objects.filter(id=1).values_list('name', flat=True).first() or 'our boutique'
+    trial = (Appointment.objects.filter(order=order, appointment_type='TRIAL')
+             .exclude(status='CANCELLED').order_by('-scheduled_time').first())
+    when = (f" for {format_datetime(trial.scheduled_time)}" if trial
+            else '; we will confirm the exact time with you')
+    return (f"Your trial for order {order.reference} has been scheduled{when}. "
+            f"Please visit {boutique} for your fitting. Your invoice is attached below.")
 
 
 def create_order_notifications(order, created=False, status_changed=True, stage_name=None, stage_key=None,
@@ -81,6 +98,11 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
         elif s_key in ('stitching_in_progress', 'master_quality_check') or s_name in ('stitching', 'master quality check'):
             msg_template = 'product_ready'
             cust_msg = f"Your {piece or 'outfit'} for order {order.reference} is ready! Stitching and quality inspection are completed."
+        # Trial booked (the workflow's Trial booking step): a confirmation,
+        # followed by the invoice PDF -- once per order (see below).
+        elif s_key == 'trial_scheduled':
+            msg_template = 'trial_scheduled'
+            cust_msg = trial_confirmation(order)
         # Step 3: TryOn step (trial scheduled / completed)
         elif s_key in ('trial_scheduled', 'trial_completed') or 'trial' in s_name or 'tryon' in s_name:
             msg_template = 'tryon_step'
@@ -131,7 +153,7 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
         # so any garment's earlier send of the same milestone already covers it.
         if msg_template != 'stage_update':
             sent = order.customer_messages.filter(template_key=msg_template).exclude(status='FAILED')
-            if stage_key is not None:
+            if stage_key is not None and msg_template != 'trial_scheduled':
                 sent = sent.filter(garment_job=garment_job)
             if sent.exists():
                 return
@@ -148,12 +170,17 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
             recipient_role="Customer",
             recipient_email=client_email
         )
+        # Trial booking is per garment, but the customer hears about it, and
+        # gets the invoice, once per order -- at the first garment's booking
+        # (the check above keeps it order-wide).
         send_customer_message(
             order,
             msg_template,
             f"Dear {order.customer.first_name}, {cust_msg}\nTrack your order: {tracking_url(order)}",
             garment_job=garment_job,
         )
+        if msg_template == 'trial_scheduled':
+            send_customer_invoice(order)
         send_stage_update_email(
             order,
             stage_name=display_stage,
