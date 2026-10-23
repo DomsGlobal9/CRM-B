@@ -4932,7 +4932,7 @@ function App() {
                   {/* Dashboard first: stats before images, so opening the module
                       answers "how is the library doing" rather than dropping
                       straight into a grid. */}
-                  <div className="tabs-header" style={{ marginBottom: '16px' }}>
+                  <div className="tabs-header dl-tabs" style={{ marginBottom: '16px' }}>
                     <button className={`tab-btn ${designsView === 'dashboard' ? 'active' : ''}`}
                             onClick={() => setDesignsView('dashboard')}>
                       {t('designsPage.overviewTab', 'Overview')}

@@ -5776,3 +5776,148 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 @media (max-width: 359px) {
   .inv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
 }
+
+/* ---- Design Library on a phone ----------------------------------------
+   Everything below 600px only (bar the Filters button, which exists only
+   for the phone). The library's cards are styled inline for larger screens,
+   so these win with !important. */
+.dl-filter-toggle { display: none; }
+@media (max-width: 600px) {
+  /* Overview: four summary cards two to a row; the garment categories as
+     tiles two to a row, the way a shop shows its departments. */
+  .dl-page .dl-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .dl-page .dl-stats .at-stat { padding: 10px !important; gap: 8px !important; align-items: center !important; }
+  .dl-page .dl-stats .at-tile { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
+  .dl-page .dl-stats .at-tile svg { width: 15px; height: 15px; }
+  .dl-page .dl-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dl-page .dl-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
+  .dl-page .dl-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dl-page .dl-cats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .dl-page .dl-cats .at-cat { position: relative; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; min-height: 0; }
+  .dl-page .dl-cats .at-tile { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
+  .dl-page .dl-cats .at-tile svg { width: 17px; height: 17px; }
+  .dl-page .dl-cats .at-cat > span { width: 100%; }
+  .dl-page .dl-cats .at-cat-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dl-cats .at-cat-count { font-size: 11px; }
+  .dl-page .dl-cats .at-cat-chevron { position: absolute; top: 12px; right: 10px; width: 16px; height: 16px; }
+
+  /* One garment's designs: back and upload on one line, the name under them. */
+  .dl-page.content-card { padding: 14px !important; }
+  .dl-page .dl-head { gap: 6px 8px !important; margin-bottom: 12px !important; }
+  .dl-page .dl-back { order: 1; }
+  .dl-page .dl-upload { order: 2; margin-left: auto !important; }
+  .dl-page .dl-title { order: 3; flex: 1 1 100%; font-size: 22px !important; line-height: 1.2; margin-top: 4px !important; }
+  .dl-page .dl-count { order: 4; margin-top: -4px; }
+
+  /* Filters: the search and one Filters button; the rest opens under them. */
+  .dl-page .dl-filters { display: flex !important; flex-wrap: wrap; gap: 8px !important; padding: 10px !important; margin-bottom: 14px !important; border-radius: 12px !important; }
+  .dl-page .dl-filter-search { flex: 1 1 0; min-width: 0; }
+  .dl-page .dl-filter-toggle { display: inline-flex; align-items: center; gap: 6px; align-self: flex-end; flex: none; white-space: nowrap; min-height: 40px; padding: 0 12px; font-size: 13px; }
+  .dl-page .dl-filters:not(.dl-filters--open) .dl-filter-more { display: none !important; }
+  .dl-page .dl-filter-more { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .dl-page .dl-filter-price { flex-basis: 100%; }
+  /* 16px stops a phone zooming the page when a box is tapped. */
+  .dl-page .dl-filters .form-control { font-size: 16px !important; min-height: 40px; }
+  .dl-page .dl-filter-search .form-control { padding-left: 28px !important; }
+
+  /* The designs, two to a row like a shop's product grid. */
+  .dl-page .dl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .dl-page .dl-card { border-radius: 12px !important; min-width: 0; }
+  .dl-page .dl-card-img { height: auto !important; aspect-ratio: 4 / 5; }
+  .dl-page .dl-card-img img { display: block; }
+  .dl-page .dl-card-status { top: 6px !important; right: 6px !important; padding: 2px 6px !important; font-size: 8px !important; }
+  .dl-page .dl-card-body { padding: 8px 9px 10px !important; gap: 3px !important; }
+  .dl-page .dl-card-title { font-size: 13px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dl-card-meta { font-size: 10.5px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dl-card-stats { font-size: 10.5px !important; gap: 8px !important; }
+  .dl-page .dl-card-stock { align-self: stretch !important; justify-content: center; margin-top: 4px; padding: 0 8px !important; min-height: 32px !important; font-size: 11px !important; white-space: nowrap; }
+
+  /* A design opened: a sheet up from the bottom, thumb-high actions. */
+  .dl-page .dl-detail { align-items: flex-end !important; padding: 0 !important; }
+  .dl-page .dl-detail-card { max-height: 92vh !important; border-radius: 18px 18px 0 0 !important; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)) !important; }
+  .dl-page .dl-detail-img { max-height: 55vh; }
+  .dl-page .dl-detail-actions { flex-wrap: wrap; }
+  .dl-page .dl-detail-actions > button { flex: 1 1 auto; justify-content: center; min-height: 40px; }
+}
+
+/* ---- Designs page tabs and its Overview on a phone -------------------- */
+@media (max-width: 600px) {
+  /* Overview / Boutique designs / Design requests on one line, not wrapped. */
+  .dl-tabs { display: flex !important; flex-wrap: nowrap !important; width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .dl-tabs::-webkit-scrollbar { display: none; }
+  .dl-tabs .tab-btn { flex: 1 0 auto; white-space: nowrap; font-size: 13px; padding: 6px 10px; }
+
+  /* Recently added, two to a row; categories, two to a row; the paired
+     panels (most viewed / most ordered) one under the other. */
+  .dl-page .dd-recent { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .dl-page .dd-recent .at-row-title { font-size: 13px; }
+  .dl-page .dd-recent .at-row-sub { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dd-cats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .dl-page .dd-cats .at-cat { padding: 10px 12px; min-width: 0; }
+  .dl-page .dd-cats .at-cat-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dd-pair { grid-template-columns: minmax(0, 1fr) !important; }
+
+  /* Designers: each box a full row, buttons full width, 16px so the phone
+     does not zoom in on a tap. */
+  .dl-page .dd-add-designer .form-control,
+  .dl-page .dd-grant .form-control { font-size: 16px !important; min-height: 40px; flex: 1 1 100% !important; }
+  .dl-page .dd-add-designer button { flex: 1 1 100%; justify-content: center; min-height: 40px; font-size: 13px !important; }
+  .dl-page .dd-designer > span:first-child { flex: 1 1 auto !important; }
+  .dl-page .dd-grant { flex: 1 1 100% !important; max-width: none !important; margin-left: 0 !important; flex-wrap: wrap; }
+  .dl-page .dd-grant button { flex: 1 1 100%; justify-content: center; min-height: 40px; font-size: 13px !important; }
+}
+
+/* ---- Staff list on a phone: each person a box, not a table row --------
+   The table is unchanged above 600px. Below it, a row is a card: the person
+   on top, then Status / Contact / Work type / Pay / Advances as labelled
+   pairs (the labels are the cells' data-label), the actions along the foot.
+   An opened row's pay details hang under its card. */
+@media (max-width: 600px) {
+  .staff-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
+  .staff-table { min-width: 0 !important; display: block; }
+  .staff-table thead { display: none; }
+  .staff-table tbody { display: flex; flex-direction: column; gap: 10px; }
+  /* A compact card: the person and their buttons on the first line, a thin
+     rule, then the details three to a line. */
+  .staff-table tr.staff-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+    padding: 10px 12px; background: var(--surface-color); border: 1px solid var(--border-color);
+    border-radius: 12px; box-shadow: var(--shadow-card);
+  }
+  .staff-table tr.staff-row::after { content: ''; order: 1; flex: 1 1 100%; height: 1px; background: var(--border-color); }
+  .staff-table tbody tr.staff-row:hover td { background: transparent; }
+  .staff-table tr.staff-row > td { display: block; padding: 0 !important; border: none !important; min-width: 0; background: transparent; }
+  .staff-table td.staff-cell-member { order: 0; flex: 1 1 0; }
+  .staff-table td.staff-cell-member .ui-avatar,
+  .staff-table td.staff-cell-member > div > :first-child { flex-shrink: 0; }
+  .staff-table td.staff-cell-member button { min-height: 0 !important; }
+  .staff-table td.staff-cell-actions { order: 0; flex: none; white-space: nowrap !important; }
+  .staff-table td.staff-cell-actions > div { display: flex !important; gap: 4px !important; }
+  /* Compact buttons, so the person's name keeps the room it needs. */
+  .staff-table td.staff-cell-actions button {
+    height: 30px; min-height: 30px !important; min-width: 30px !important;
+    padding: 0 8px !important; font-size: 12px !important; gap: 4px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .staff-table td.staff-cell-actions button svg { width: 13px; height: 13px; }
+  /* Name and role one line each; a long one ends in "…" rather than wrapping. */
+  .staff-table td.staff-cell-member > div > div:last-child { flex: 1 1 0; min-width: 0; }
+  .staff-table td.staff-cell-member > div > div:last-child > * {
+    display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Exactly a third each (two 10px gaps between three), so a second line of
+     details sits under the first in the same columns instead of stretching. */
+  .staff-table td[data-label] { order: 2; flex: 0 0 calc((100% - 20px) / 3); font-size: 12.5px !important; overflow-wrap: anywhere; align-self: flex-start; }
+  .staff-table td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 2px;
+    font-size: 9.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted);
+  }
+  .staff-table td[data-label] .ui-badge { font-size: 11px; padding: 1px 7px; }
+  .staff-table tr.staff-row--open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .staff-table tr.staff-detail {
+    display: block; margin-top: -10px; padding: 0 14px 14px;
+    background: var(--surface-2); border: 1px solid var(--border-color); border-top: none;
+    border-radius: 0 0 14px 14px;
+  }
+  .staff-table tr.staff-detail > td { display: block; padding: 0 !important; border: none !important; background: transparent !important; }
+}
