@@ -5664,7 +5664,7 @@ function App() {
 
                       return (
                       <div className="at-table-wrap">
-                      <table className="at-table at-table--fit">
+                      <table className="at-table at-table--fit orders-book">
                         <thead>
                           <tr>
                             <th>Order ID</th>

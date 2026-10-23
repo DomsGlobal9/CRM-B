@@ -6196,3 +6196,15 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .at-account form.at-stack > div:last-child:not([class]) > button { width: 100%; justify-content: center; min-height: 44px; }
   .at-account .at-form-foot > span { order: 0; margin-right: 0; }
 }
+
+/* ---- Orders / Workshop list on a computer: columns centred -------------
+   Every column but Order ID has its heading in the middle, over contents
+   centred under it -- the status badge or stage strip and the Action
+   buttons included. Below 1025px the rows stack into cards (.at-table--fit)
+   and nothing here applies. */
+@media (min-width: 1025px) {
+  .orders-book > thead > tr > th:not(:first-child),
+  .orders-book > tbody > tr > td:not(:first-child) { text-align: center !important; }
+  .orders-book > tbody > tr > td:not(:first-child) .at-stage-strip { justify-content: center; }
+  .orders-book > tbody > tr > td:last-child > div { justify-content: center !important; }
+}
