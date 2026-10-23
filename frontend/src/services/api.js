@@ -958,6 +958,14 @@ export const api = {
     if (!res.ok) throw new Error(describeApiError(res, await res.json().catch(() => ({}))));
   },
 
+  async deleteGarmentTryOn(orderId, tryonId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/garment-tryons/${tryonId}/`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error(describeApiError(res, await res.json().catch(() => ({}))));
+  },
+
   // One finished garment's photos to the customer's WhatsApp (after its QC).
   async sendGarmentPhotos(orderId, garmentJob) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/send-garment-photos/`, {

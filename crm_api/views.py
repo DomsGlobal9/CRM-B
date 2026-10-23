@@ -905,6 +905,20 @@ class OrderViewSet(viewsets.ModelViewSet):
         image.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=['DELETE'], url_path='garment-tryons/(?P<tryon_id>[0-9]+)')
+    def delete_garment_tryon(self, request, pk=None, tryon_id=None):
+        """Take one of the customer's try-on pictures off the order, and off
+        their try-on page. The try it used is theirs again."""
+        order = self.get_object()
+        tryon = order.garment_tryons.filter(id=tryon_id).first()
+        if tryon is None:
+            return Response({'error': 'No such try-on picture on this order.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        if tryon.result_image:
+            tryon.result_image.delete(save=False)
+        tryon.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['DELETE'], url_path='stage-notes/(?P<activity_id>[0-9]+)/voice-note')
     def delete_stage_note_voice(self, request, pk=None, activity_id=None):
         """Take the recording off one note in a stage's thread.

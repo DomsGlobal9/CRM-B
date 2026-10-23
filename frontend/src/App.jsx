@@ -824,7 +824,14 @@ function GarmentGallery({ order, onChanged, role }) {
               <a key={tryon.id} href={resolveMediaUrl(tryon.image_url)} target="_blank" rel="noopener noreferrer"
                  title={`Made ${fmtDateTime(tryon.created_at)}`}>
                 <PhotoTile src={resolveMediaUrl(tryon.image_url)} alt="Customer try-on"
-                           label={fmtDateTime(tryon.created_at)} size={112} />
+                           label={fmtDateTime(tryon.created_at)} size={112}
+                           onRemove={busy ? undefined : (e) => {
+                             // The tile sits inside the link that opens it.
+                             e.preventDefault();
+                             e.stopPropagation();
+                             if (!window.confirm('Delete this try-on picture? The customer will no longer see it.')) return;
+                             run(() => api.deleteGarmentTryOn(order.id, tryon.id));
+                           }} />
               </a>
             ))}
           </div>

@@ -158,6 +158,25 @@ class GarmentTryOnTests(StateMachineTestBase):
             self.upload()
         call.assert_not_called()
 
+    def test_the_boutique_deletes_a_try_on_picture(self):
+        from rest_framework.authtoken.models import Token
+        from rest_framework.test import APIClient
+        with mock.patch(POST, return_value=vendor_answer()):
+            self.upload()
+        made = GarmentTryOn.objects.get()
+        stored = made.result_image.name
+        client = APIClient()
+        token, _ = Token.objects.get_or_create(user=self.owner)
+        client.credentials(HTTP_AUTHORIZATION='Token ' + token.key, HTTP_X_TENANT_ID=self.tenant.schema_name)
+
+        res = client.delete(f'/api/orders/{self.order.pk}/garment-tryons/{made.pk}/')
+        self.assertEqual(res.status_code, 204, res.content)
+        self.assertFalse(GarmentTryOn.objects.exists())
+        self.assertFalse(made.result_image.storage.exists(stored))
+        self.assertEqual(tryon.tries_left(self.job), 3)
+        self.assertNotContains(self.get(), stored)
+        self.assertEqual(client.delete(f'/api/orders/{self.order.pk}/garment-tryons/{made.pk}/').status_code, 404)
+
     def test_a_garment_whose_photos_were_not_sent_has_no_page(self):
         GarmentImage.objects.filter(pk=self.front.pk).update(sent_at=None)
         self.assertEqual(self.get().status_code, 404)
