@@ -185,10 +185,9 @@ const UserAvatar = ({ user, size }) => {
     return <img src={url} alt="" style={{ ...box, borderRadius: '50%', objectFit: 'cover' }} />;
   }
   return (
-    <div className="user-avatar-initial"
-         style={{ ...box, borderRadius: '50%', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', background: 'color-mix(in srgb, var(--primary-color) 24%, var(--surface-color))',
-                  color: 'var(--accent-text)', fontWeight: 700, fontSize: size ? size * 0.42 : '1em' }}>
+    <div style={{ ...box, borderRadius: '50%', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', background: 'var(--selected-bg)', color: 'var(--selected-fg)',
+                  fontWeight: 600, fontSize: size ? size * 0.42 : '1em' }}>
       {initial}
     </div>
   );
@@ -391,12 +390,6 @@ const formatMobile = (raw) => {
 
 
 const waLink = (raw) => `https://wa.me/${String(raw || '').replace(/\D/g, '')}`;
-// Numbers are stored as digits, with the country code when there is one
-// (formatMobile): a dialler needs the + in front of the code.
-const telLink = (raw) => {
-  const digits = String(raw || '').replace(/\D/g, '');
-  return `tel:${digits.length > 10 ? '+' : ''}${digits}`;
-};
 
 
 
@@ -1734,15 +1727,6 @@ function App() {
   const navSections = visibleNav(currentUser, t);
 
   const navTabs = navSections.flatMap((s) => s.items.map((i) => i.tab));
-  // The phone header's avatar menu: the Account entries this user's sidebar
-  // shows, then Sign out. `go` is how that screen switches tab.
-  const headerAccountItems = (go) => [
-    ...['account', 'settings'].filter((tab) => navTabs.includes(tab)).map((tab) => ({
-      key: tab, label: tab === 'account' ? t('nav.account') : t('nav.settings'),
-      icon: tab === 'account' ? User : Settings, onClick: () => go(tab),
-    })),
-    { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => handleLogout() },
-  ];
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
 
@@ -4431,10 +4415,7 @@ function App() {
       {view === 'dashboard' && currentUser && (
         <div className={`portal-layout${navCollapsed ? ' nav-collapsed' : ''}`}>
           <MobileHeader
-            // The sidebar's own label first, so the two never disagree
-            // ("To-do" in the menu, "Todo" in the header); the key lookup
-            // covers tabs the sidebar does not list.
-            title={navSections.flatMap((s) => s.items).find((i) => i.tab === dashboardTab)?.label || t(
+            title={t(
               dashboardTab === 'overview' ? 'nav.dashboard' :
               dashboardTab === 'orders' ? 'nav.manageOrders' :
               dashboardTab === 'workshop' ? 'nav.workshop' :
@@ -4451,7 +4432,6 @@ function App() {
             currentUser={currentUser}
             notificationsCount={notifications.filter(n => !n.is_read).length}
             onOpenMenu={() => setMobileNavOpen(!mobileNavOpen)}
-            accountItems={headerAccountItems((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}
             onOpenNotifications={() => {
               setShowNotificationsDrawer(true);
               if (markingNotificationsRead) return;
@@ -4764,7 +4744,7 @@ function App() {
                     the right add up to the attention list beside them. */}
                 <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)', alignItems: 'stretch' }}>
                   <SectionCard icon={AlertCircle} tone="rose" title={t('dashboard.needsAttention', 'Needs attention')}
-                               action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'See all')}>
+                               action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View All')}>
                     {(() => {
                       const att = dashboardData?.attention || {};
                       const due = att.due || [];
@@ -5728,7 +5708,7 @@ function App() {
                             {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
                               <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
                             )}
-                            <span className="at-phone-only at-phone-line" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}><User size={12} aria-hidden="true" /> {order.customer_name}</span></td>
+                            <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
                           <td className="at-desk-only">{job ? (jobMaggam ? 'Maggam' : 'Stitching') : order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td className="at-desk-only">
                             {order.customer_name}
@@ -5950,9 +5930,7 @@ function App() {
                   ) : (
                     
                     <>
-                    {/* cust-list: below 1024px each row becomes its own card
-                        (index.css), with call/WhatsApp buttons for the phone. */}
-                    <div className="at-table-wrap cust-list" aria-busy={directoryLoading}
+                    <div className="at-table-wrap" aria-busy={directoryLoading}
                          style={{ opacity: directoryLoading ? 0.6 : 1, transition: 'opacity .15s' }}>
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
@@ -6009,23 +5987,19 @@ function App() {
                                   <span style={{ flexShrink: 0 }}><TierBadge tier={customerTier(cust)} /></span>
                                 </div>
                                 <div style={sub} title={contact.join(' · ')}>
-                                  {cust.mobile_number
-                                    ? <Phone size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />
-                                    : cust.email_address && <Mail size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />}
-                                  {contact.join(' · ')}
+                                  <Phone size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />{contact.join(' · ')}
                                 </div>
                               </div>
-                              <ChevronRight size={18} className="cust-phone" aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                             </div>
                           </td>
 
-                          <td data-label="Body measurements" className="cust-measure" style={{ overflow: 'hidden' }}>
+                          <td data-label="Body measurements" style={{ overflow: 'hidden' }}>
                             {m && shown.length > 0 ? (
                               <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
                                    title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
                                 {shown.map(([k, label], i) => (
-                                  <span key={k} className="cust-chip">
-                                    {i > 0 && <span className="cust-sep" style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
+                                  <span key={k}>
+                                    {i > 0 && <span style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
                                     <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{label} </span>
                                     <strong>{measure(m[k])}</strong>
                                   </span>
@@ -6036,7 +6010,7 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Style notes" className={tags.length || cust.custom_requirements ? undefined : 'cust-empty'} style={{ overflow: 'hidden' }}>
+                          <td data-label="Style notes" style={{ overflow: 'hidden' }}>
                             <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
                               {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
@@ -6045,31 +6019,14 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Orders" className="cust-orders" style={{ overflow: 'hidden' }}>
-                            <div className="cust-desk" style={{ fontWeight: 700 }}>{orders}</div>
-                            <div className="cust-desk" style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
+                          <td data-label="Orders" style={{ overflow: 'hidden' }}>
+                            <div style={{ fontWeight: 700 }}>{orders}</div>
+                            <div style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
                               {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
                             </div>
-                            <dl className="cust-stats">
-                              <div><dt>{orders === 1 ? 'Order' : 'Orders'}</dt><dd>{orders}</dd></div>
-                              <div><dt>Spent</dt><dd>{inr(cust.total_spend)}</dd></div>
-                              <div><dt>Since</dt><dd>{fmtDate(cust.created_at)}</dd></div>
-                            </dl>
                           </td>
 
-                          <td className="cust-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            {cust.mobile_number && (
-                              <span className="cust-contact" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                                <a className="btn-secondary at-btn-sm" href={telLink(cust.mobile_number)}
-                                   aria-label={`Call ${cust.first_name} ${cust.last_name}`}>
-                                  <Phone size={14} /> Call
-                                </a>
-                                <a className="btn-secondary at-btn-sm" href={waLink(cust.mobile_number)} target="_blank" rel="noreferrer"
-                                   aria-label={`WhatsApp ${cust.first_name} ${cust.last_name}`}>
-                                  <MessageSquare size={14} /> WhatsApp
-                                </a>
-                              </span>
-                            )}
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <button
                               type="button"
                               className="at-link"
@@ -6098,7 +6055,7 @@ function App() {
                                 </button>
                               </span>
                             )}
-                            <ChevronRight size={16} className="cust-desk" style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
+                            <ChevronRight size={16} style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
                           </td>
                         </tr>
                       );
@@ -6284,7 +6241,7 @@ function App() {
                     <SectionCard icon={Ruler} tone="amber" title={t('customersPage.measurementsTitle', 'Measurements')}
                                  subtitle={parts.length > 0 ? t('customersPage.stitchingParts', 'Stitching: {parts}', { parts: parts.join(', ') }) : undefined}
                                  action={allCustomerMeasurements.length > 0 ? () => setViewAllCustomerMeasurements(!viewAllCustomerMeasurements) : undefined}
-                                 actionLabel={viewAllCustomerMeasurements ? 'View less' : 'View all'}>
+                                 actionLabel={viewAllCustomerMeasurements ? 'View Less' : 'View All'}>
                       {c.measurements && allCustomerMeasurements.length > 0 ? (
                         <>
                           <div className="at-measure-cols">
@@ -6603,7 +6560,7 @@ function App() {
                     same height and the money columns line up down the page;
                     below 1024px the rows stack into labelled cards. */}
                 <div className="invoices-content at-table-wrap">
-                  <table className="at-table at-table--fit at-table--pairs" style={{ tableLayout: 'fixed' }}>
+                  <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                     <thead>
                       <tr>
                         <th style={{ width: '7%' }}>{t('invoicesPage.invoiceId', 'Invoice ID')}</th>
@@ -6931,11 +6888,7 @@ function App() {
             {/* 8. MY ACCOUNT SETTINGS TAB */}
             {dashboardTab === 'account' && (() => {
               const isOwner = !currentUser?.role || currentUser.role === 'Owner';
-              // The address a customer or staff member opens: the shop's own
-              // page, not the schema name (which is internal).
-              const tenant = currentUser?.shop_slug
-                ? `${window.location.origin}/${currentUser.shop_slug}`
-                : (localStorage.getItem('tenant_id') || '--');
+              const tenant = localStorage.getItem('tenant_id') || '--';
               const copyText = (text) => navigator.clipboard?.writeText(text);
               return (
               <>
@@ -6990,7 +6943,7 @@ function App() {
                           <div className="at-measure-value" style={{ overflowWrap: 'anywhere' }}>{tenant}</div>
                         </div>
                         {tenant !== '--' && (
-                          <button type="button" className="at-modal-close" style={{ width: 30, height: 30 }} onClick={() => copyText(tenant)} aria-label="Copy boutique web address">
+                          <button type="button" className="at-modal-close" style={{ width: 30, height: 30 }} onClick={() => copyText(tenant)} aria-label="Copy tenant domain">
                             <Copy size={13} />
                           </button>
                         )}
@@ -7518,7 +7471,6 @@ function App() {
             currentUser={currentUser}
             notificationsCount={notifications.filter(n => !n.is_read).length}
             onOpenMenu={() => setMobileNavOpen(!mobileNavOpen)}
-            accountItems={headerAccountItems((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })}
             onOpenNotifications={() => {
               setShowNotificationsDrawer(true);
               if (markingNotificationsRead) return;
