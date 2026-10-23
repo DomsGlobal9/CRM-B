@@ -158,7 +158,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       />
 
       {summary && (
-        <div className="at-stat-grid">
+        <div className="at-stat-grid inv-stats">
           <StatCard icon={Package} tone="green" label={t('inventoryPage.stockValue')} value={money(summary.inventory_value)}
                     sub={`${summary.item_count} ${summary.item_count === 1 ? t('inventoryPage.itemsTrackedOne', 'item in stock') : t('inventoryPage.itemsTracked', 'items in stock')}`} />
           <StatCard icon={AlertTriangle} tone="amber" label={t('inventoryPage.outOfStock')} value={summary.out_of_stock_count}
@@ -413,7 +413,7 @@ function ItemsTab({
           {t('inventoryPage.noMatchingItems', 'No items match these filters.')}
         </div>
       ) : (
-        <div style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
+        <div className="inv-grid" style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
           {shown.map((item) => {
             const availableColor = Number(item.available_stock) <= 0 ? 'var(--danger-color)' : item.needs_reorder ? 'var(--warning-color)' : 'var(--text-muted)';
             const pill = {
@@ -426,13 +426,13 @@ function ItemsTab({
               display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', padding: 0,
             };
             return (
-              <div key={item.id} style={{ ...panel, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 12 }}>
+              <div key={item.id} className="inv-card" style={{ ...panel, overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 12 }}>
                 <div style={{ position: 'relative', aspectRatio: '4 / 5', background: 'var(--surface-inset, #f3f2ee)' }}>
                   <img src={inventoryImage(item)} alt="" loading="lazy"
                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <span style={{ ...pill, left: 10 }} title={item.item_code}>{item.item_code}</span>
-                  <span style={{ ...pill, right: 10 }} title={categoryLabel[item.category] || item.category}>{categoryLabel[item.category] || item.category}</span>
-                  <div style={{ position: 'absolute', right: 10, bottom: 10, display: 'flex', gap: 6 }}>
+                  <span className="inv-card-pill inv-card-pill--left" style={{ ...pill, left: 10 }} title={item.item_code}>{item.item_code}</span>
+                  <span className="inv-card-pill inv-card-pill--right" style={{ ...pill, right: 10 }} title={categoryLabel[item.category] || item.category}>{categoryLabel[item.category] || item.category}</span>
+                  <div className="inv-card-actions" style={{ position: 'absolute', right: 10, bottom: 10, display: 'flex', gap: 6 }}>
                     <button type="button" style={circleBtn} title={t('inventoryPage.view', 'View')} aria-label={t('inventoryPage.view', 'View')} onClick={() => setPreviewItem(item)}>
                       <Eye size={14} />
                     </button>
@@ -446,8 +446,8 @@ function ItemsTab({
                     )}
                   </div>
                 </div>
-                <div style={{ padding: '14px 14px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontWeight: 700, fontSize: '15px', display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className="inv-card-body" style={{ padding: '14px 14px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div className="inv-card-name" style={{ fontWeight: 700, fontSize: '15px', display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.name}
                     {item.needs_reorder && (
                       <span title="At or below reorder level" style={{ display: 'inline-flex', color: 'var(--warning-color)', flexShrink: 0 }}>
@@ -455,15 +455,15 @@ function ItemsTab({
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: '11.5px', color: availableColor, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div className="inv-card-meta" style={{ fontSize: '11.5px', color: availableColor, fontVariantNumeric: 'tabular-nums', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <b>{qty(item.available_stock)}</b> {item.unit_display} {t('inventoryPage.tableAvailable', 'Available').toLowerCase()}
                     {item.color ? ` · ${item.color}` : ''}
                     {item.rack_location ? ` · ${item.rack_location}` : ''}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                  <div className="inv-card-meta" style={{ fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                     {qty(item.current_stock)} {t('inventoryPage.tableInStock', 'In stock').toLowerCase()} · {qty(item.reserved_stock)} {t('inventoryPage.tableReserved', 'Reserved').toLowerCase()}
                   </div>
-                  <button type="button" onClick={() => onMove(item)} style={{
+                  <button type="button" className="inv-card-btn" onClick={() => onMove(item)} style={{
                     marginTop: 10, width: '100%', padding: '11px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
                     background: '#1a1a1a', color: '#fff', fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,

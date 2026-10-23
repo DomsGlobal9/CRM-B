@@ -5741,3 +5741,38 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .row-menu-item:disabled { opacity: .5; cursor: default; }
 .row-menu-item--danger { color: var(--danger-color); }
 .row-menu-item--danger:hover:not(:disabled) { background: var(--danger-bg); }
+
+/* Fabrics & Materials on a phone: small cards, three to a row, like a shop's
+   product grid. The cards are styled inline for larger screens, so these
+   win with !important; nothing here applies above 600px. */
+@media (max-width: 600px) {
+  .inv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important; margin-top: 14px !important; }
+  .inv-card { border-radius: 10px !important; }
+  .inv-card-pill { top: 5px !important; padding: 2px 5px !important; font-size: 8px !important; letter-spacing: 0.03em !important; border-radius: 4px !important; max-width: 46% !important; }
+  .inv-card-pill--left { left: 5px !important; }
+  .inv-card-pill--right { right: 5px !important; }
+  .inv-card-actions { right: 4px !important; bottom: 4px !important; gap: 3px !important; }
+  /* The phone-wide 40px button minimum would make these three swallow the photo. */
+  .inv-card-actions button { width: 22px !important; height: 22px !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; flex: none !important; }
+  .inv-card-actions svg { width: 11px; height: 11px; }
+  .inv-card-body { padding: 7px 7px 8px !important; gap: 1px !important; }
+  .inv-card-name { font-size: 12.5px !important; gap: 3px !important; }
+  .inv-card-meta { font-size: 10px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inv-card-btn { margin-top: 6px !important; padding: 7px 4px !important; font-size: 9px !important; letter-spacing: 0.03em !important; gap: 3px !important; border-radius: 6px !important; white-space: nowrap; }
+  .inv-card-btn svg { width: 11px; height: 11px; flex-shrink: 0; }
+}
+/* Its four summary cards (stock value, out of stock, low, idle) on a phone:
+   two to a row and compact, instead of four full-width cards. */
+@media (max-width: 600px) {
+  .inv-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .inv-stats .at-stat { padding: 10px !important; gap: 8px !important; align-items: center !important; min-height: 0 !important; }
+  .inv-stats .at-tile { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
+  .inv-stats .at-tile svg { width: 15px; height: 15px; }
+  .inv-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .inv-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
+  .inv-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+/* The narrowest phones: two to a row, so the button still reads. */
+@media (max-width: 359px) {
+  .inv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
