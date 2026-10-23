@@ -183,9 +183,10 @@ const UserAvatar = ({ user, size }) => {
     return <img src={url} alt="" style={{ ...box, borderRadius: '50%', objectFit: 'cover' }} />;
   }
   return (
-    <div style={{ ...box, borderRadius: '50%', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', background: 'var(--selected-bg)', color: 'var(--selected-fg)',
-                  fontWeight: 600, fontSize: size ? size * 0.42 : '1em' }}>
+    <div className="user-avatar-initial"
+         style={{ ...box, borderRadius: '50%', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', background: 'color-mix(in srgb, var(--primary-color) 24%, var(--surface-color))',
+                  color: 'var(--accent-text)', fontWeight: 700, fontSize: size ? size * 0.42 : '1em' }}>
       {initial}
     </div>
   );
@@ -4294,7 +4295,10 @@ function App() {
       {view === 'dashboard' && currentUser && (
         <div className={`portal-layout${navCollapsed ? ' nav-collapsed' : ''}`}>
           <MobileHeader
-            title={t(
+            // The sidebar's own label first, so the two never disagree
+            // ("To-do" in the menu, "Todo" in the header); the key lookup
+            // covers tabs the sidebar does not list.
+            title={navSections.flatMap((s) => s.items).find((i) => i.tab === dashboardTab)?.label || t(
               dashboardTab === 'overview' ? 'nav.dashboard' :
               dashboardTab === 'orders' ? 'nav.manageOrders' :
               dashboardTab === 'workshop' ? 'nav.workshop' :
@@ -4624,7 +4628,7 @@ function App() {
                     the right add up to the attention list beside them. */}
                 <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)', alignItems: 'stretch' }}>
                   <SectionCard icon={AlertCircle} tone="rose" title={t('dashboard.needsAttention', 'Needs attention')}
-                               action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View All')}>
+                               action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'See all')}>
                     {(() => {
                       const att = dashboardData?.attention || {};
                       const due = att.due || [];
@@ -5587,7 +5591,7 @@ function App() {
                             {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
                               <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
                             )}
-                            <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
+                            <span className="at-phone-only at-phone-line" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}><User size={12} aria-hidden="true" /> {order.customer_name}</span></td>
                           <td className="at-desk-only">{job ? (jobMaggam ? 'Maggam' : 'Stitching') : order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td className="at-desk-only">
                             {order.customer_name}
@@ -6126,7 +6130,7 @@ function App() {
                     <SectionCard icon={Ruler} tone="amber" title={t('customersPage.measurementsTitle', 'Measurements')}
                                  subtitle={parts.length > 0 ? t('customersPage.stitchingParts', 'Stitching: {parts}', { parts: parts.join(', ') }) : undefined}
                                  action={allCustomerMeasurements.length > 0 ? () => setViewAllCustomerMeasurements(!viewAllCustomerMeasurements) : undefined}
-                                 actionLabel={viewAllCustomerMeasurements ? 'View Less' : 'View All'}>
+                                 actionLabel={viewAllCustomerMeasurements ? 'View less' : 'View all'}>
                       {c.measurements && allCustomerMeasurements.length > 0 ? (
                         <>
                           <div className="at-measure-cols">
@@ -6445,7 +6449,7 @@ function App() {
                     same height and the money columns line up down the page;
                     below 1024px the rows stack into labelled cards. */}
                 <div className="invoices-content at-table-wrap">
-                  <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
+                  <table className="at-table at-table--fit at-table--pairs" style={{ tableLayout: 'fixed' }}>
                     <thead>
                       <tr>
                         <th style={{ width: '7%' }}>{t('invoicesPage.invoiceId', 'Invoice ID')}</th>
@@ -6773,7 +6777,11 @@ function App() {
             {/* 8. MY ACCOUNT SETTINGS TAB */}
             {dashboardTab === 'account' && (() => {
               const isOwner = !currentUser?.role || currentUser.role === 'Owner';
-              const tenant = localStorage.getItem('tenant_id') || '--';
+              // The address a customer or staff member opens: the shop's own
+              // page, not the schema name (which is internal).
+              const tenant = currentUser?.shop_slug
+                ? `${window.location.origin}/${currentUser.shop_slug}`
+                : (localStorage.getItem('tenant_id') || '--');
               const copyText = (text) => navigator.clipboard?.writeText(text);
               return (
               <>
@@ -6828,7 +6836,7 @@ function App() {
                           <div className="at-measure-value" style={{ overflowWrap: 'anywhere' }}>{tenant}</div>
                         </div>
                         {tenant !== '--' && (
-                          <button type="button" className="at-modal-close" style={{ width: 30, height: 30 }} onClick={() => copyText(tenant)} aria-label="Copy tenant domain">
+                          <button type="button" className="at-modal-close" style={{ width: 30, height: 30 }} onClick={() => copyText(tenant)} aria-label="Copy boutique web address">
                             <Copy size={13} />
                           </button>
                         )}

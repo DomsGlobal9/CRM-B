@@ -285,13 +285,14 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ marginTop: '16px', display: 'flex', gap: '10px' }}>
+              {/* Wraps on a narrow phone rather than clipping "Active Template". */}
+              <div style={{ marginTop: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   disabled={saving}
                   className={isSelected ? 'btn-primary' : 'btn-secondary'}
                   style={{
-                    flex: 1,
+                    flex: '1 1 140px',
                     justifyContent: 'center',
                     fontSize: '13px',
                     padding: '8px 14px',
@@ -321,7 +322,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                 <button
                   type="button"
                   className="btn-secondary"
-                  style={{ fontSize: '13px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px' }}
+                  style={{ flex: '1 1 auto', justifyContent: 'center', fontSize: '13px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px' }}
                   onClick={() => setPreviewModalTemplate(currentTemplate)}
                 >
                   <Eye size={14} /> {t('settingsPage.previewWide', 'Preview Wide')}

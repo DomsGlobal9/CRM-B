@@ -1089,7 +1089,7 @@ function Roster({ isOwner, canSeeTeam }) {
           const muted = <span style={{ color: 'var(--text-muted)' }}>—</span>;
           return (
         <div className="at-table-wrap">
-          <table className="at-table">
+          <table className="at-table at-table--phone-stack">
             <thead>
               <tr>
                 <th>Team member</th>
@@ -1138,7 +1138,7 @@ function Roster({ isOwner, canSeeTeam }) {
                   </div>
                 </td>
 
-                <td>
+                <td data-label="Today">
                   {member.status && canSeeTeam && !member.isDesigner
                    && !attendanceToday.some((s) => String(s.staff) === String(member.id)) ? (
                     // Not marked in today: the stored Available/Busy is stale until they arrive.
@@ -1157,13 +1157,13 @@ function Roster({ isOwner, canSeeTeam }) {
                   ) : null}
                 </td>
 
-                <td style={cell}>
+                <td data-label="Contact" style={cell}>
                   {member.phone
                     ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Phone size={12} /> {member.phone}</span>
                     : muted}
                 </td>
 
-                <td style={cell}>
+                <td data-label="Work type" style={cell}>
                   {t ? (
                     <>
                       <div>{employmentLabel(t.employment_type)}</div>
@@ -1183,7 +1183,7 @@ function Roster({ isOwner, canSeeTeam }) {
                 </td>
 
                 {showPay && (
-                  <td style={cell}>
+                  <td data-label="Pay" style={cell}>
                     {t && showsPay(t) ? (
                       <>
                         <div>{money(t.hourly_rate)}<span style={{ color: 'var(--text-muted)' }}>/hr</span></div>
@@ -1198,7 +1198,7 @@ function Roster({ isOwner, canSeeTeam }) {
                 )}
 
                 {showPay && (
-                  <td style={cell}>
+                  <td data-label="Advances" style={cell}>
                     {t && showsPay(t) && !member.isDesigner ? (
                       <>
                         <div>{outstanding > 0 ? money(outstanding) : <span style={{ color: 'var(--text-muted)' }}>None</span>}</div>
@@ -1209,7 +1209,7 @@ function Roster({ isOwner, canSeeTeam }) {
                 )}
 
                 {isOwner && (
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td className="at-cell-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
                       {t && showsPay(t) && !member.isDesigner && (
                         <button type="button" className="btn-secondary at-btn-sm"
@@ -1460,7 +1460,7 @@ export default function StaffPanel({ currentUser }) {
 
       {/* Tab strip, not pill buttons: these switch a view, and an underline on
           the active one reads as navigation rather than four call-to-actions. */}
-      <div style={{
+      <div className="at-scroll-tabs" style={{
         display: 'flex', gap: 'var(--space-1)', flexWrap: 'wrap', margin: 'var(--space-5) 0 var(--space-6)',
         borderBottom: '1px solid var(--border-color)',
       }}>
