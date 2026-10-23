@@ -5852,11 +5852,14 @@ function App() {
                           <Trash2 size={16} /> Delete all
                         </button>
                       )}
-                      <GuidedHighlight show={guideCustomers} text={bookTotal ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
-                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                          <Plus size={16} /> Add Customer
-                        </button>
-                      </GuidedHighlight>
+                      {/* Leads come in through the lead API, not the counter: no Add here. */}
+                      {customerView !== 'leads' && (
+                        <GuidedHighlight show={guideCustomers} text={bookTotal ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
+                          <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                            <Plus size={16} /> Add Customer
+                          </button>
+                        </GuidedHighlight>
+                      )}
                     </>
                   )}
                 />
@@ -5912,9 +5915,11 @@ function App() {
                           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', maxWidth: '44ch', lineHeight: 'var(--leading-normal)' }}>
                             Everyone you take an order for is kept here, with their measurements, past orders and preferences.
                           </div>
-                          <button className="btn-primary" onClick={handleStartNewCustomer}>
-                            {t('customersPage.addFirstCustomer')}
-                          </button>
+                          {customerView !== 'leads' && (
+                            <button className="btn-primary" onClick={handleStartNewCustomer}>
+                              {t('customersPage.addFirstCustomer')}
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
