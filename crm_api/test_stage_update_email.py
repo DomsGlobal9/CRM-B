@@ -70,3 +70,29 @@ class StageUpdateEmailTests(TenantTestCase):
         self.assertIn("Pattern Cutting", args['subject'])
         self.assertIn("Pattern Cutting", args['html_message'])
 
+
+    @patch("apps.email_service.services.email_job_service.EmailJobService.enqueue_job")
+    def test_the_trial_booking_email_carries_the_invoice_pdf(self, mock_enqueue):
+        from django.core import mail
+        with self.captureOnCommitCallbacks(execute=True):
+            send_stage_update_email(self.order, stage_name="Trial booking",
+                                    custom_message="Your trial has been scheduled. Your invoice is attached below.",
+                                    attach_invoice=True)
+
+        mock_enqueue.assert_not_called()
+        self.assertEqual(len(mail.outbox), 1)
+        sent = mail.outbox[0]
+        self.assertEqual(sent.to, ["priya.sharma@example.com"])
+        self.assertIn("Trial booking", sent.subject)
+        [(filename, content, mimetype)] = sent.attachments
+        self.assertEqual(mimetype, "application/pdf")
+        self.assertTrue(filename.endswith(".pdf"))
+        self.assertTrue(content.startswith(b"%PDF"))
+
+    @patch("apps.email_service.services.email_job_service.EmailJobService.enqueue_job")
+    def test_other_stage_emails_carry_no_attachment(self, mock_enqueue):
+        from django.core import mail
+        with self.captureOnCommitCallbacks(execute=True):
+            send_stage_update_email(self.order, stage_name="Pattern Cutting")
+        mock_enqueue.assert_called_once()
+        self.assertEqual(len(mail.outbox), 0)
