@@ -17,10 +17,12 @@
  */
 
 import { useCallback } from 'react';
-import { AlertTriangle, Check, Info, RefreshCw } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, Info, RotateCw } from 'lucide-react';
 
 import { consoleApi } from '../api';
-import { Async, Pill, SectionHead, moment, useApi, wordFor } from '../ui';
+import {
+  Async, Card, Note, PageHeader, Pill, SectionHead, TONES, moment, useApi, wordFor,
+} from '../ui';
 
 /** Worst first. not_configured sorts below healthy: it is a decision, not a fault. */
 const RANK = { critical: 0, offline: 1, degraded: 2, warning: 3, healthy: 4, not_configured: 5 };
@@ -29,38 +31,47 @@ const RANK = { critical: 0, offline: 1, degraded: 2, warning: 3, healthy: 4, not
 // green ones. A word this console has never seen is not evidence of health.
 const rankOf = (check) => RANK[check.status] ?? 3.5;
 
+/** The card's tile follows the check's own status, as a Stat's does. */
+const TILE = { off: 'rose', warn: 'amber' };
+
+/**
+ * Checks whose problem is worked on in another screen. The way there sits in
+ * the card header as a text link, as a workspace section card's "View all"
+ * does, rather than as a button under the server's detail.
+ */
+const OPENS = {
+  errors: { to: 'errors', label: 'Open Crashes' },
+  whatsapp: { to: 'messaging', label: 'Open WhatsApp backlog' },
+};
+
 function Group({ title, hint, icon, checks, route }) {
   if (checks.length === 0) return null;
   return (
-    <div style={{ marginBottom: 24 }}>
+    <>
       <SectionHead title={`${title} (${checks.length})`} subtitle={hint} />
-      <div className="sa-cards">
-        {checks.map((c) => (
-          <div key={c.key} className="sa-card">
-            <h4>
-              {icon}
-              {c.label}
-              <span style={{ marginLeft: 'auto' }}><Pill value={c.status} /></span>
-            </h4>
-            {/* Verbatim from the server. Each detail was written to explain one
-                specific state and loses its meaning if it is condensed. */}
-            <p>{c.detail}</p>
-            {c.key === 'errors' && (
-              <button className="sa-btn" style={{ marginTop: 10 }}
-                onClick={() => route.go('errors')}>
-                Open Crashes
-              </button>
-            )}
-            {c.key === 'whatsapp' && (
-              <button className="sa-btn" style={{ marginTop: 10 }}
-                onClick={() => route.go('messaging')}>
-                Open WhatsApp backlog
-              </button>
-            )}
-          </div>
-        ))}
+      <div className="at-grid-3">
+        {checks.map((c) => {
+          const opens = OPENS[c.key];
+          return (
+            <Card key={c.key} icon={icon} tone={TILE[TONES[c.status]] || 'neutral'} title={c.label}
+              actions={(
+                <>
+                  <Pill value={c.status} />
+                  {opens && (
+                    <button type="button" className="at-link" onClick={() => route.go(opens.to)}>
+                      {opens.label} <ArrowRight size={14} />
+                    </button>
+                  )}
+                </>
+              )}>
+              {/* Verbatim from the server. Each detail was written to explain one
+                  specific state and loses its meaning if it is condensed. */}
+              <p>{c.detail}</p>
+            </Card>
+          );
+        })}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -73,17 +84,21 @@ export default function Health({ route }) {
 
   return (
     <>
-      <SectionHead
+      <PageHeader
         title="Is everything working?"
         subtitle="Checked fresh each time this page opens. Red needs action, amber is worth a look, grey is simply not part of the product."
-      >
-        {state.data && <Pill value={state.data.overall} />}
-        {/* Reload keeps the old cards on screen (useApi holds data through a
-            refetch), so re-running does not flash the page back to skeletons. */}
-        <button className="sa-btn" onClick={state.reload} disabled={state.loading}>
-          <RefreshCw size={13} /> {state.loading ? 'Checking…' : 'Re-run checks'}
-        </button>
-      </SectionHead>
+        meta={state.data && <>Checked {moment(state.data.asked_at)} · {state.data.checks.length} checks</>}
+        actions={(
+          <>
+            {state.data && <Pill value={state.data.overall} />}
+            {/* Reload keeps the old cards on screen (useApi holds data through a
+                refetch), so re-running does not flash the page back to skeletons. */}
+            <button type="button" className="btn-secondary" onClick={state.reload} disabled={state.loading}>
+              <RotateCw size={16} /> {state.loading ? 'Checking…' : 'Re-run checks'}
+            </button>
+          </>
+        )}
+      />
 
       <Async state={state} skeletonRows={6} isEmpty={(d) => d.checks.length === 0}>
         {(data) => {
@@ -95,33 +110,29 @@ export default function Health({ route }) {
           return (
             <>
               {attention.length === 0 && (
-                <div className="sa-note info">
+                <Note tone="info">
                   Nothing is failing. The headline reads{' '}
                   <strong>{wordFor(data.overall)}</strong>
                   {data.overall === 'not_configured'
                     ? ' only because something this product does not have is listed below in grey.'
                     : '.'}
-                </div>
+                </Note>
               )}
 
               <Group title="Needs attention" route={route}
-                icon={<AlertTriangle size={15} />}
+                icon={AlertTriangle}
                 hint="Something is wrong, slow, or could not be checked."
                 checks={attention} />
 
               <Group title="Working" route={route}
-                icon={<Check size={15} />}
+                icon={Check}
                 hint="Checked just now and answering."
                 checks={healthy} />
 
               <Group title="Not part of the product" route={route}
-                icon={<Info size={15} />}
+                icon={Info}
                 hint="Left out on purpose. Grey, not red: nothing here needs fixing."
                 checks={absent} />
-
-              <p className="sa-muted" style={{ fontSize: 12.5 }}>
-                Checked {moment(data.asked_at)} · {data.checks.length} checks
-              </p>
             </>
           );
         }}

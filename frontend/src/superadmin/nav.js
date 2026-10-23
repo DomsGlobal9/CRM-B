@@ -1,7 +1,7 @@
 /**
  * The console's navigation, as data.
  *
- * One list rather than markup, because three things read it: the nav rail, the
+ * One list rather than markup, because three things read it: the sidebar, the
  * router's screen lookup, and the "unknown route" fallback. When those drifted
  * apart in the boutique workspace the desktop and mobile menus ended up
  * disagreeing about which screens exist (frontend/src/App.jsx nav vs
@@ -15,7 +15,7 @@
  */
 
 import {
-  Activity, AlertTriangle, Building2, FileWarning, Fingerprint, Gauge, HeartPulse,
+  Activity, Building2, FileWarning, Fingerprint, HeartPulse,
   KeyRound, LayoutDashboard, Mail, Plug, PackageSearch, ScrollText, Settings,
   ShieldAlert, ShoppingBag, Sparkles, Users, Wrench,
 } from 'lucide-react';

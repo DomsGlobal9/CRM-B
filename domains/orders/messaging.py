@@ -66,7 +66,7 @@ def _deliver(message):
     message.save(update_fields=['provider_message_id', 'status', 'error'])
 
 
-def send_customer_message(order, template_key, body, sent_by=None):
+def send_customer_message(order, template_key, body, sent_by=None, garment_job=None):
     config, _ = BoutiqueSettings.objects.get_or_create(id=1)
     if not config.customer_messaging_enabled:
         return None
@@ -80,6 +80,7 @@ def send_customer_message(order, template_key, body, sent_by=None):
         to_number=order.customer.mobile_number,
         body=body,
         sent_by=sent_by,
+        garment_job=garment_job,
     )
     if get_backend() is not None:
         transaction.on_commit(lambda: _deliver(message))

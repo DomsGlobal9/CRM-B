@@ -13,9 +13,9 @@
  * available.
  */
 
-import { Gauge, Info } from 'lucide-react';
+import { Gauge } from 'lucide-react';
 
-import { SectionHead } from '../ui';
+import { Card, Note, PageHeader } from '../ui';
 
 const CONTENT = {
   jobs: {
@@ -44,18 +44,13 @@ export default function NotMeasured({ route }) {
 
   return (
     <>
-      <SectionHead title={content.title} subtitle={content.subtitle} />
-      <div className="sa-state muted" style={{ alignItems: 'flex-start', textAlign: 'left' }}>
-        <Gauge size={22} />
-        <h3>There is no data behind this screen, and that is the finding.</h3>
+      <PageHeader title={content.title} subtitle={content.subtitle} />
+      <Card icon={Gauge} title="There is no data behind this screen, and that is the finding.">
         {content.body.map((paragraph, i) => (
-          <p key={i} style={{ maxWidth: 720 }}>{paragraph}</p>
+          <p key={i}>{paragraph}</p>
         ))}
-        <p style={{ maxWidth: 720, borderTop: '1px solid var(--border-color)', paddingTop: 12, marginTop: 6 }}>
-          <Info size={13} style={{ verticalAlign: '-2px', marginRight: 6 }} />
-          {content.build}
-        </p>
-      </div>
+        <Note tone="info">{content.build}</Note>
+      </Card>
     </>
   );
 }

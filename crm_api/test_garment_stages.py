@@ -6,6 +6,7 @@ wait for every garment. These tests pin the split and the scoping of every
 rule to a garment's own rows.
 """
 
+from django.test.utils import override_settings
 from django.urls import reverse
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
@@ -124,6 +125,44 @@ class PerGarmentStageTests(StateMachineTestBase):
         # The last handover delivers the order.
         self.order.refresh_from_db()
         self.assertEqual(self.order.order_status, 'Delivered')
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend')
+    def test_the_customer_hears_each_garments_milestones_once(self):
+        """Trial and pickup are per garment, so the customer hears about each
+        garment -- by name -- once per milestone, and Delivered once at the end."""
+        from crm_api.models import CustomerMessage
+        for job in (self.saree, self.blouse, self.petti):
+            self.finish_garment(job)
+            for key in FINISHING + ['payment', 'delivered']:
+                self.go(key, job)
+
+        sent = CustomerMessage.objects.filter(order=self.order)
+        for job in (self.saree, self.blouse, self.petti):
+            for key in ('product_ready', 'tryon_step', 'ready_for_delivery'):
+                rows = sent.filter(template_key=key, garment_job=job)
+                self.assertEqual(rows.count(), 1, (job.display_name, key))
+                self.assertIn(job.display_name, rows.get().body)
+        delivered = [m for m in sent if 'successfully Delivered' in m.body]
+        self.assertEqual(len(delivered), 1)
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend')
+    def test_a_status_change_with_no_stage_does_not_repeat_a_garments_milestone(self):
+        from crm_api.models import CustomerMessage
+        from domains.orders.notifications import create_order_notifications
+        for job in (self.saree, self.blouse, self.petti):
+            self.finish_garment(job)
+            for key in FINISHING:
+                self.go(key, job)
+        self.order.refresh_from_db()
+        # The path under test: with no stage, 'Ready for Dispatch' picks the
+        # ready-for-delivery message, which each garment has already had.
+        self.assertEqual(self.order.order_status, 'Ready for Dispatch')
+        before = CustomerMessage.objects.filter(order=self.order, template_key='ready_for_delivery').count()
+        self.assertEqual(before, 3)
+        # What update-status and a PATCH of order_status do: no stage, no garment.
+        create_order_notifications(self.order, created=False)
+        self.assertEqual(CustomerMessage.objects.filter(
+            order=self.order, template_key='ready_for_delivery').count(), before)
 
     def test_rollup_reads_the_order_as_a_whole(self):
         self.go('pattern_cutting', self.saree)

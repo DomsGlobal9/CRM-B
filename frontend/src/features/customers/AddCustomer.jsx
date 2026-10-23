@@ -7,6 +7,7 @@ import { formatMobile } from '../../services/format';
 import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
 import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../services/phone';
 import { CameraButton, FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
+import { useCustomerLookup } from './useCustomerLookup';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same
    card design as the order chooser (.wz-services), rendered inside the
@@ -359,18 +360,11 @@ const customerLabel = (c) => `${c?.first_name || ''} ${c?.last_name || ''}`.trim
 
 /** Who referred a new customer: an existing customer, searched by name or
  *  mobile and picked from the list. The referrer must already be in the book,
- *  so a number that matches nobody cannot be entered as one. */
-function ReferredByPicker({ customers, value, onChange }) {
+ *  so a number that matches nobody cannot be entered as one. The search is the
+ *  server's (/customers/lookup/): the whole book is not held in the browser. */
+function ReferredByPicker({ value, onChange }) {
   const [query, setQuery] = useState('');
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
-    const digits = q.replace(/\D/g, '');
-    return (customers || []).filter((c) => (
-      customerLabel(c).toLowerCase().includes(q)
-      || (digits && String(c.mobile_number || '').replace(/\D/g, '').includes(digits))
-    )).slice(0, 8);
-  }, [customers, query]);
+  const { results: matches, loading } = useCustomerLookup({ q: query, limit: 8, enabled: !value });
 
   if (value) {
     return (
@@ -402,7 +396,8 @@ function ReferredByPicker({ customers, value, onChange }) {
                       overflow: 'hidden', background: 'var(--surface-1, #fff)' }}>
           {matches.length === 0 ? (
             <p style={{ margin: 0, padding: '10px 12px', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-              No customer matches that. The referrer has to be someone already in the customer book.
+              {loading ? 'Searching…'
+                : 'No customer matches that. The referrer has to be someone already in the customer book.'}
             </p>
           ) : matches.map((c) => (
             <button key={c.id} type="button" className="at-row"
@@ -423,7 +418,7 @@ function ReferredByPicker({ customers, value, onChange }) {
  *  Owner's; the server refuses an edit from any other role). An edit sends
  *  only what changed, so a value from before today's rules (a legacy source,
  *  an old mobile spelling) never blocks saving something else. */
-export function CustomerForm({ customer = null, customers = [], onBack, onSaved }) {
+export function CustomerForm({ customer = null, onBack, onSaved }) {
   const editing = Boolean(customer);
   const [initial] = useState(() => (customer ? customerToForm(customer) : EMPTY));
   const [form, setForm] = useState(initial);
@@ -708,7 +703,7 @@ export function CustomerForm({ customer = null, customers = [], onBack, onSaved 
           </div>
         </div>
         {!editing && form.source === 'Referral' && (
-          <ReferredByPicker customers={customers} value={referredBy}
+          <ReferredByPicker value={referredBy}
                             onChange={(picked) => { setReferredBy(picked); if (picked) set('source', 'Referral'); }} />
         )}
         <div className="form-group">

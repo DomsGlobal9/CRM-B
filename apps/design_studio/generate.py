@@ -34,11 +34,18 @@ from .web_search import GARMENT_IDS, DiscoveryError, area_for_part, configured, 
 
 logger = logging.getLogger(__name__)
 
-# The vendor measured 30-45 s for a first-time pass and 60-95 s with a
-# regeneration, and cuts itself off at 100 s plus one retry. The read timeout
-# is between bytes; keep-alive pings arrive throughout, so it only has to
-# outlast a silent stretch, not the whole run.
-TIMEOUT = (12, 150)
+# The vendor: about a minute for most pictures, 2-3 minutes on a customer's
+# own photo, and "set the timeout for generate to at least 4 minutes; do not
+# cancel the request yourself before that". The read timeout is between
+# bytes and keep-alive pings arrive every 10 s, so it never trips while the
+# vendor is working; it is 4 minutes so a silent stretch is not cut short either.
+TIMEOUT = (12, 240)
+# When the stream ends without `done` or `error`, the finished job is
+# collected from GET /result/{jobId}, asked every POLL_EVERY seconds.
+POLL_EVERY = 10
+# The whole preview -- stream plus collecting -- must answer before gunicorn's
+# 300 s worker timeout (gunicorn.conf.py), with time left to save the pictures.
+TOTAL_BUDGET = 270
 # The vendor's own limit (GET /options maxDesigns; raised from 6 on 13 Oct
 # 2026): a design-library saree has 7 parts, and the 7th used to be cut here.
 MAX_DESIGNS = 8
@@ -52,6 +59,8 @@ DATA_URI = re.compile(r'^data:image/[\w.+-]+;base64,', re.I)
 MAIN_SLOTS = {'MAIN_FABRIC', 'SAREE_BODY'}
 # The vendor makes front then back by default; `views` asks for one side.
 VIEWS = ('front', 'back')
+# How the garment is shown; the first is the vendor's default and is not sent.
+PRESENTATIONS = ('model', 'mannequin', 'sketch')
 MAX_MEASUREMENTS = 40
 # Our templates say 'Inches'; the vendor gets one short spelling per unit.
 MEASUREMENT_UNITS = {'in': 'in', 'inch': 'in', 'inches': 'in', 'cm': 'cm', 'centimetres': 'cm',
@@ -111,7 +120,8 @@ def _image_source(url):
 
 def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None,
                   fabric_items=None, fabric_slots=(), notes='', product_name='',
-                  model_image='', views=None, measurements=None):
+                  model_image='', views=None, measurements=None, presentation='model',
+                  model_gender='', pair_with=None, keep_motif_colors=True, coverage='full'):
     """The vendor's request off the wizard's own maps. Pure, so it is testable
     without the vendor: pictures are passed by address and resolved by the
     caller (see `resolve_images`).
@@ -129,6 +139,12 @@ def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None
     measurements [{key, label, value, unit}] the customer's, for a picture
                  on the customer; sent only once the vendor takes them
                  (settings.DESIGN_STUDIO_SEND_MEASUREMENTS)
+    presentation 'model' (a photograph on a person), 'mannequin' (on a
+                 headless dress form) or 'sketch' (one labelled illustration)
+    model_gender 'female' or 'male'; the vendor defaults to female
+    pair_with    {color, color_hex, note}: what the product is worn with
+    keep_motif_colors / coverage  applied to every design (vendor defaults:
+                 True / 'full')
     """
     garment_id = GARMENT_IDS.get((garment_key or '').lower(), '')
     if not garment_id:
@@ -154,7 +170,16 @@ def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None
         if not area or area in seen:
             continue
         seen.add(area)
-        designs.append({'area': area, 'image': url})
+        row = {'area': area, 'image': url}
+        # The design's own caption is its instruction (the vendor's designs[].note).
+        note = str((image or {}).get('caption') or (image or {}).get('note') or '').strip()
+        if note:
+            row['note'] = note[:300]
+        if not keep_motif_colors:
+            row['keepMotifColors'] = False
+        if coverage == 'reference':
+            row['coverage'] = 'reference'
+        designs.append(row)
     if not designs:
         raise DiscoveryError('Choose at least one design for this garment first.', status=400)
 
@@ -196,8 +221,17 @@ def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None
         payload['notes'] = notes.strip()[:600]
     if product_name and product_name.strip():
         payload['productName'] = product_name.strip()[:120]
-    if model_image and model_image.strip():
+    if presentation in PRESENTATIONS[1:]:
+        payload['presentation'] = presentation
+    elif model_image and model_image.strip():
+        # A model photo dresses a real person, so it goes with `model` only
+        # (with a mannequin or a sketch the vendor refuses it).
         payload['modelImageUrl'] = model_image.strip()
+    if model_gender in ('female', 'male'):
+        payload['modelGender'] = model_gender
+    pair = _pair_with(pair_with)
+    if pair:
+        payload['pairWith'] = pair
     wanted = [v for v in VIEWS if v in (views or ())]
     if len(wanted) == 1:
         payload['views'] = wanted
@@ -206,6 +240,19 @@ def build_payload(*, client_id, garment_key, parts, part_refs=None, fabrics=None
     if rows and getattr(settings, 'DESIGN_STUDIO_SEND_MEASUREMENTS', False):
         payload['measurements'] = rows
     return payload
+
+
+def _pair_with(raw):
+    """The vendor's pairWith off ours, keeping only what it accepts."""
+    raw = raw if isinstance(raw, dict) else {}
+    pair = {}
+    if str(raw.get('color') or '').strip():
+        pair['color'] = str(raw['color']).strip()[:60]
+    if re.match(r'^#[0-9a-fA-F]{6}$', str(raw.get('color_hex') or '')):
+        pair['colorHex'] = raw['color_hex']
+    if str(raw.get('note') or '').strip():
+        pair['note'] = str(raw['note']).strip()[:300]
+    return pair
 
 
 def _measurements(raw):
@@ -271,22 +318,36 @@ RETRY_AFTER = 2
 def generate(payload):
     """POST the payload, read the stream to its end, return the photographs.
 
-    Returns {images, width, height, quality, warnings, attempts}; `images` is
-    {view: data URI} in the vendor's order (front, then back), one per `image`
-    event. Raises DiscoveryError for every way it can not happen, with a
-    status the view can answer with. A momentary failure is tried once more.
+    Returns {images, width, height, quality, warnings, attempts, annotations,
+    presentation}; `images` is {view: data URI} in the vendor's order (front,
+    then back, or one 'sheet'). Raises DiscoveryError for every way it can not
+    happen, with a status the view can answer with. A momentary failure is
+    tried once more; a stream cut off mid-job is collected by its jobId.
     """
     if not available():
         raise DiscoveryError('Garment preview is not set up on this server.', status=503)
+    deadline = time.monotonic() + TOTAL_BUDGET
     try:
-        return _attempt(payload)
+        return _attempt(payload, deadline)
     except Momentary:
         logger.info('Preview: momentary failure, retrying once in %ss', RETRY_AFTER)
     time.sleep(RETRY_AFTER)
-    return _attempt(payload)
+    return _attempt(payload, deadline)
 
 
-def _attempt(payload):
+def _raise_for(code, message):
+    """The vendor's error (in the stream or in a collected result) as ours."""
+    message = message or 'The preview could not be made.'
+    if code in ('GENERATION_BLOCKED', 'GENERATION_REJECTED'):
+        raise DiscoveryError(f'{message} Try different pictures.', status=422)
+    if code == 'CANCELLED':
+        raise DiscoveryError('The preview was cancelled.', status=409)
+    if code == 'MODEL_QUOTA_EXCEEDED':
+        raise DiscoveryError('The preview service has used up its allowance.', status=503)
+    raise DiscoveryError(f'{message} Try again.', status=502)
+
+
+def _attempt(payload, deadline):
     try:
         res = requests.post(f'{_url()}/generate', json=payload, headers=_headers(),
                             timeout=TIMEOUT, stream=True)
@@ -297,7 +358,8 @@ def _attempt(payload):
     if res.status_code != 200 or 'text/event-stream' not in (res.headers.get('Content-Type') or ''):
         _refusal(res)
 
-    images, first, done, warnings, events = {}, {}, {}, [], 0
+    images, first, done, warnings, events, annotations = {}, {}, {}, [], 0, []
+    job_id, finished = '', False
     try:
         for line in res.iter_lines(decode_unicode=True):
             if not line or not line.startswith('data:'):
@@ -309,29 +371,31 @@ def _attempt(payload):
             events += 1
             kind = event.get('type')
             if kind in ('start', 'brief'):
+                # The first event names the job, so a cut-off stream can still be collected.
+                job_id = job_id or str(event.get('jobId') or '')
                 warnings += [str(w) for w in (event.get('warnings') or [])]
             elif kind == 'image' and event.get('image'):
-                # An event with no view is the older single photograph: the front.
+                # An event with no view is the older single photograph: the
+                # front. A sketch arrives once, as view 'sheet', with its labels.
                 images[event.get('view') or 'front'] = event['image']
                 first = first or event
+                annotations = event.get('annotations') or annotations
             elif kind == 'done':
-                done = event
+                done, finished = event, True
             elif kind == 'error':
-                code = event.get('code') or ''
-                message = event.get('message') or 'The preview could not be made.'
-                if code in ('GENERATION_BLOCKED', 'GENERATION_REJECTED'):
-                    raise DiscoveryError(f'{message} Try different pictures.', status=422)
-                if code == 'CANCELLED':
-                    raise DiscoveryError('The preview was cancelled.', status=409)
-                if code == 'MODEL_QUOTA_EXCEEDED':
-                    raise DiscoveryError('The preview service has used up its allowance.', status=503)
-                raise DiscoveryError(f'{message} Try again.', status=502)
+                finished = True
+                _raise_for(event.get('code') or '', event.get('message'))
     except requests.RequestException:
-        logger.warning('Preview: stream broke', exc_info=True)
-        raise DiscoveryError('The preview took too long. Try again.', status=504)
+        # Cut on the way while the job may well be running on: collected below.
+        logger.warning('Preview: stream broke (job %s)', job_id or 'unknown', exc_info=True)
+        if not job_id:
+            raise DiscoveryError('The connection to the preview service broke. Try again.', status=504)
     finally:
         res.close()
 
+    if not finished and job_id:
+        logger.info('Preview: stream ended without done/error; collecting job %s', job_id)
+        return _collect(job_id, deadline, warnings)
     if not images:
         if not events:   # closed before `start`: nothing was made
             raise Momentary('The preview service ended without a photograph. Try again.')
@@ -343,6 +407,68 @@ def _attempt(payload):
         'quality': done.get('quality') or {},
         'attempts': done.get('attempts'),
         'warnings': warnings,
+        'annotations': annotations,
+        'presentation': done.get('presentation') or 'model',
+    }
+
+
+def _collect(job_id, deadline, warnings):
+    """Ask GET /result/{jobId} every POLL_EVERY seconds until the job is done.
+
+    Free on the vendor's side (no new picture) and only for our own key; a
+    finished job is kept 15 minutes. Stops at the request's deadline rather
+    than outlive the worker.
+    """
+    url = f'{_url()}/result/{job_id}'
+    while True:
+        body = None
+        try:
+            res = requests.get(url, headers=_headers(), timeout=(TIMEOUT[0], 30))
+            if res.status_code == 404:
+                raise DiscoveryError('The picture could not be collected any more. Draw it again.', status=502)
+            if res.ok:
+                body = res.json() or {}
+        except (requests.RequestException, ValueError):
+            logger.warning('Preview: collecting job %s failed once', job_id, exc_info=True)
+
+        state = (body or {}).get('status')
+        if state == 'done':
+            return _collected(body, warnings)
+        if state in ('error', 'cancelled'):
+            error = body.get('error')
+            code = error.get('code') if isinstance(error, dict) else ('CANCELLED' if state == 'cancelled' else '')
+            message = error.get('message') if isinstance(error, dict) else error
+            _raise_for(code or '', message)
+        if time.monotonic() + POLL_EVERY > deadline:
+            raise DiscoveryError('The picture is still being made. Draw again in a minute to see it.', status=504)
+        time.sleep(POLL_EVERY)
+
+
+def _collected(body, warnings):
+    """A finished job from /result in the same shape the stream gives."""
+    raw = body.get('images') or {}
+    entries = (list(raw.items()) if isinstance(raw, dict)
+               else [((r or {}).get('view') or 'front', r) for r in raw] if isinstance(raw, list) else [])
+    images, first, annotations = {}, {}, body.get('annotations') or []
+    for view, entry in entries:
+        image = entry.get('image') if isinstance(entry, dict) else entry
+        if not image:
+            continue
+        images[view] = image
+        if isinstance(entry, dict):
+            first = first or entry
+            annotations = entry.get('annotations') or annotations
+    if not images:
+        raise DiscoveryError('The preview service finished without a photograph. Try again.', status=502)
+    return {
+        'images': images,
+        'width': first.get('width') or body.get('width'),
+        'height': first.get('height') or body.get('height'),
+        'quality': body.get('quality') or {},
+        'attempts': body.get('attempts'),
+        'warnings': warnings,
+        'annotations': annotations,
+        'presentation': body.get('presentation') or 'model',
     }
 
 

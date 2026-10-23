@@ -7,22 +7,35 @@
  */
 
 import { useCallback } from 'react';
-import { Fingerprint } from 'lucide-react';
+import { Fingerprint, Globe, KeyRound, LogIn, ShieldX } from 'lucide-react';
 
 import { consoleApi } from '../api';
-import { Async, Empty, Pill, SectionHead, Stat, Table, moment, useApi } from '../ui';
+import {
+  Async, Empty, Note, PageHeader, Pill, Stat, StatGrid, Table, count, moment, useApi,
+} from '../ui';
 
 const KIND = { login: 'Boutique', console: 'Console', reset: 'Reset' };
 
 const COLUMNS = [
-  { key: 'at', label: 'When', render: (r) => moment(r.at) },
+  { key: 'at', label: 'When', className: 'sa-nowrap', render: (r) => moment(r.at) },
   { key: 'ok', label: 'Result',
-    render: (r) => <Pill value={r.ok ? 'ok' : 'failed'} tone={r.ok ? 'ok' : 'off'} /> },
+    render: (r) => (
+      <Pill value={r.ok ? 'ok' : 'failed'} tone={r.ok ? 'ok' : 'off'} label={r.ok ? 'OK' : 'Failed'} />
+    ) },
   { key: 'kind', label: 'Kind', render: (r) => KIND[r.kind] || r.kind },
-  { key: 'username', label: 'Account' },
-  { key: 'boutique', label: 'Boutique' },
+  // Usernames and schema names are machine values, mono as on every other
+  // screen. A blank one (a console sign-in has no boutique) stays blank.
+  { key: 'username', label: 'Account',
+    render: (r) => (r.username ? <span className="sa-schema">{r.username}</span> : null) },
+  { key: 'boutique', label: 'Boutique',
+    render: (r) => (r.boutique ? <span className="sa-schema">{r.boutique}</span> : null) },
   { key: 'ip', label: 'From' },
-  { key: 'user_agent', label: 'Browser' },
+  // A user agent is long and rarely read in full: two lines in the table,
+  // the whole string on hover.
+  { key: 'user_agent', label: 'Browser', className: 'sa-col-prose',
+    render: (r) => (r.user_agent
+      ? <span className="sa-clamp-2" title={r.user_agent}>{r.user_agent}</span>
+      : null) },
 ];
 
 export default function Signins() {
@@ -30,33 +43,30 @@ export default function Signins() {
 
   return (
     <>
-      <SectionHead
+      <PageHeader
         title="Sign-in attempts"
         subtitle="Who tried to sign in, from where, and whether it worked — boutiques and this console. Suspicious patterns in the last hour are flagged here and sent to WhatsApp."
-      >
-        <button className="sa-btn" onClick={state.reload} disabled={state.loading}>Refresh</button>
-      </SectionHead>
+      />
 
       <Async state={state} skeletonRows={6}>
         {(d) => (
           <>
-            <div className="sa-stats">
-              <Stat label="Attempts, 24h" value={d.last_24h.total} />
-              <Stat label="Failed, 24h" value={d.last_24h.failed}
+            <StatGrid label="Last 24 hours">
+              <Stat icon={LogIn} label="Attempts, 24h" value={count(d.last_24h.total)} />
+              <Stat icon={ShieldX} label="Failed, 24h" value={count(d.last_24h.failed)}
                 tone={d.last_24h.failed ? 'warn' : undefined} />
-              <Stat label="Reset requests, 24h" value={d.last_24h.reset_requests} />
-              <Stat label="Distinct addresses, 24h" value={d.last_24h.distinct_ips} />
-            </div>
+              <Stat icon={KeyRound} label="Reset requests, 24h" value={count(d.last_24h.reset_requests)} />
+              <Stat icon={Globe} label="Addresses, 24h" value={count(d.last_24h.distinct_ips)} />
+            </StatGrid>
 
             {d.suspicious.length > 0 && (
-              <div className="sa-note error">
-                <strong>Right now:</strong>
+              <Note tone="error" title="Right now:">
                 <ul>{d.suspicious.map((t) => <li key={t}>{t}</li>)}</ul>
-              </div>
+              </Note>
             )}
 
             <Table columns={COLUMNS} rows={d.recent} keyFor={(r, i) => i}
-              empty={<Empty icon={<Fingerprint size={18} />}
+              empty={<Empty icon={<Fingerprint size={20} />}
                 title="No sign-ins recorded yet."
                 detail="Rows appear from the next sign-in or reset request on any boutique." />} />
           </>

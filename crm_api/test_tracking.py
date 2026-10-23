@@ -279,6 +279,24 @@ class CustomerMessageTests(TrackingTestBase):
         OrderService.transition_order_stage(self.order, 'ready_for_delivery', 'COMPLETED', user=owner)
         self.assertTrue(CustomerMessage.objects.filter(order=self.order, template_key='ready_for_delivery').exists())
 
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend')
+    def test_each_milestone_reaches_the_customer_once(self):
+        """'Ready' is sent by stitching and by QC, try-on by both trial steps,
+        ready-for-delivery by every stage after it: once each, not per stage."""
+        owner = self._owner()
+        self.order.tailor = Tailor.objects.create(name="Durga", role="Tailor")
+        self.order.save()
+        Measurement.objects.create(customer=self.order.customer, bust=36, waist=28, hips=38)
+        for stage in ('pattern_cutting', 'stitching_in_progress', 'finishing', 'pressing',
+                      'master_quality_check', 'trial_scheduled', 'trial_completed',
+                      'ready_for_delivery', 'payment', 'delivered'):
+            OrderService.transition_order_stage(self.order, stage, 'COMPLETED', user=owner)
+
+        sent = CustomerMessage.objects.filter(order=self.order)
+        for key in ('product_ready', 'tryon_step', 'ready_for_delivery'):
+            self.assertEqual(sent.filter(template_key=key).count(), 1, key)
+        self.assertIn('successfully Delivered', sent.order_by('-id').first().body)
+
 
 
 

@@ -8,6 +8,8 @@ import { resolveMediaUrl } from '../../services/media';
 import { Dropzone, Field, FormModal } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import Loader from '../../components/ui/Loader';
+import CustomerPicker from '../customers/CustomerPicker';
+import { useCustomerById } from '../customers/useCustomerLookup';
 import {
   LIMITS,
   tenDigits,
@@ -28,9 +30,10 @@ import {
  * never ask which. The form is one form with the picture-taking half swapped:
  * a drop zone for a photograph, a canvas for a drawing.
  *
- * Reads what the wizard already holds -- the boutique's customers, orders and
- * garment templates -- rather than fetching its own copies, and starts on the
- * customer the order is being taken for.
+ * Reads what the wizard already holds -- the boutique's orders and garment
+ * templates -- rather than fetching its own copies, and starts on the customer
+ * the order is being taken for. Customers are searched as they are typed
+ * (CustomerPicker); the whole book is not held in the browser.
  */
 
 const FALLBACK =
@@ -243,7 +246,7 @@ function strokesToFile(strokes) {
 // ---------------------------------------------------------------------------
 // The form: one form, two ways of taking the picture
 
-function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initialCustomerId, newCustomer,
+function CustomerDesignForm({ mode, orders, garmentTemplates, initialCustomerId, newCustomer,
   initialTemplateId = '', onClose, onSaved, onCustomerCreated }) {
   const pendingNew = !initialCustomerId && (newCustomer?.first_name || '').trim() && (newCustomer?.mobile_number || '').trim()
     ? newCustomer : null;
@@ -337,16 +340,13 @@ function CustomerDesignForm({ mode, customers, orders, garmentTemplates, initial
         <Field label="Customer" required icon={User}
           hint={!initialCustomerId && !pendingNew
             ? 'For a new customer, enter their name and mobile at the top of this step first.' : undefined}>
-          <select className="form-control" value={form.customer}
-            onChange={(e) => setForm((f) => ({ ...f, customer: e.target.value, order: '' }))}>
-            <option value="">Choose a customer</option>
-            {pendingNew && (
-              <option value={NEW_CUSTOMER}>
-                New: {customerName(pendingNew)} ({pendingNew.mobile_number}) — will be created
-              </option>
-            )}
-            {(customers || []).map((c) => <option key={c.id} value={c.id}>{customerName(c)}</option>)}
-          </select>
+          <CustomerPicker value={form.customer ? String(form.customer) : ''}
+            onChange={(next) => setForm((f) => ({ ...f, customer: next, order: '' }))}
+            extraOptions={pendingNew ? [{
+              value: NEW_CUSTOMER,
+              label: `New: ${customerName(pendingNew)} (${pendingNew.mobile_number}) — will be created`,
+            }] : []}
+            placeholder="Search a customer by name or mobile" />
         </Field>
         <Field label="Garment" optional icon={Shirt}>
           <select className="form-control" value={form.template} onChange={set('template')}>
@@ -469,7 +469,7 @@ function CustomerDesignView({ design, onClose }) {
 // ---------------------------------------------------------------------------
 // The list
 
-export default function CustomerDesigns({ customerId, customers = [], orders = [], garmentTemplates = [],
+export default function CustomerDesigns({ customerId, orders = [], garmentTemplates = [],
   newCustomer = null, onCustomerCreated, templateId = '', garmentName = '' }) {
   const [allDesigns, setDesigns] = useState(null);
   const designs = useMemo(() => (allDesigns && garmentName
@@ -489,10 +489,8 @@ export default function CustomerDesigns({ customerId, customers = [], orders = [
     return () => { cancelled = true; };
   }, [customerId, reloadToken]);
 
-  const forName = useMemo(() => {
-    const c = customers.find((x) => String(x.id) === String(customerId));
-    return c ? customerName(c) : '';
-  }, [customers, customerId]);
+  const forCustomer = useCustomerById(customerId);
+  const forName = forCustomer ? customerName(forCustomer) : '';
 
   const saved = (created) => {
     setMode(null);
@@ -607,7 +605,7 @@ export default function CustomerDesigns({ customerId, customers = [], orders = [
 
       {mode && (
         <CustomerDesignForm
-          mode={mode} customers={customers} orders={orders} garmentTemplates={garmentTemplates}
+          mode={mode} orders={orders} garmentTemplates={garmentTemplates}
           initialCustomerId={customerId} newCustomer={newCustomer} onCustomerCreated={onCustomerCreated}
           initialTemplateId={templateId} onClose={() => setMode(null)} onSaved={saved}
         />

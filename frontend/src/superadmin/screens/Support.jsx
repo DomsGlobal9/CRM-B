@@ -9,7 +9,7 @@
  * why the subtitle says so. A person should know when their own use of a tool is
  * being written down.
  *
- * Every section ends in a link rather than an action. Suspending a boutique,
+ * Every section links out, from its header, rather than acting. Suspending a boutique,
  * switching a module, resolving an error and deactivating a user all live on
  * screens that already do them properly, with their own confirmations and their
  * own audit reasons. A second copy here would be a second set of rules to keep
@@ -18,13 +18,14 @@
 
 import { useCallback } from 'react';
 import {
-  AlertTriangle, ArrowUpRight, Building2, ScrollText, Users, Wrench,
+  ArrowRight, Building2, CalendarClock, ClipboardList, Contact, FileWarning, PackageSearch,
+  ScrollText, Sparkles, TrendingUp, Users, Wallet,
 } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import {
-  Async, Empty, Pill, SectionHead, Select, Stat,
-  count, day, money, moment, useApi,
+  Async, Card, Empty, KeyValue, Meter, Note, PageHeader, Pill, SectionHead, Select, Stat, StatGrid,
+  Table, Toolbar, count, day, money, moment, useApi,
 } from '../ui';
 
 /**
@@ -41,6 +42,50 @@ const moduleOn = (enabled, key) => {
       || Object.keys(enabled).length === 0) return true;
   return enabled[key] !== false;
 };
+
+const ERROR_COLUMNS = [
+  { key: 'exception_type', label: 'Exception', render: (e) => <div className="at-row-title">{e.exception_type}</div> },
+  { key: 'path', label: 'Path', render: (e) => <span className="sa-schema">{e.path}</span> },
+  { key: 'count', label: 'Seen', numeric: true, render: (e) => count(e.count) },
+  { key: 'severity', label: 'Severity', render: (e) => <Pill value={e.severity} /> },
+  { key: 'status', label: 'Status', render: (e) => <Pill value={e.status} /> },
+  { key: 'last_seen', label: 'Last seen', dataLabel: 'Last seen', className: 'sa-nowrap', render: (e) => moment(e.last_seen) },
+];
+
+const ACCOUNT_COLUMNS = [
+  { key: 'username', label: 'Username', render: (u) => <div className="at-row-title">{u.username}</div> },
+  {
+    key: 'name',
+    label: 'Name',
+    render: (u) => `${u.first_name} ${u.last_name}`.trim() || <span className="sa-muted">—</span>,
+  },
+  { key: 'email', label: 'Email', render: (u) => u.email || <span className="sa-muted">—</span> },
+  { key: 'role', label: 'Role' },
+  {
+    key: 'status',
+    label: 'Status',
+    render: (u) => (
+      <Pill value={u.is_active ? 'active' : 'disabled'} label={u.is_active ? 'Active' : 'Deactivated'} />
+    ),
+  },
+  {
+    // Whether a token exists, never which token it is.
+    key: 'token',
+    label: 'Token',
+    render: (u) => (
+      <Pill value="token" tone={u.has_token ? 'ok' : 'muted'} label={u.has_token ? 'Live token' : 'None'} />
+    ),
+  },
+  { key: 'joined', label: 'Joined', dataLabel: 'Joined', className: 'sa-nowrap', render: (u) => day(u.date_joined) },
+];
+
+const AUDIT_COLUMNS = [
+  { key: 'when', label: 'When', dataLabel: 'When', className: 'sa-nowrap', render: (a) => moment(a.created_at) },
+  { key: 'actor', label: 'Who' },
+  { key: 'action_label', label: 'What' },
+  { key: 'target', label: 'Target', render: (a) => <span className="sa-schema">{a.target}</span> },
+  { key: 'reason', label: 'Reason', render: (a) => a.reason || <span className="sa-muted">none given</span> },
+];
 
 function Picker({ value, onChange }) {
   const state = useApi(useCallback(() => consoleApi.overview(), []));
@@ -74,60 +119,66 @@ function Diagnostics({ schema, route }) {
             <SectionHead title={boutique.name}
               subtitle={`${boutique.owner_email} · ${boutique.schema_name} · signed up ${day(boutique.created_on)}`}>
               <Pill value={boutique.is_active ? 'active' : 'suspended'} />
-              <button className="sa-btn" onClick={() => route.go(`boutiques/${schema}`)}>
-                Open boutique <ArrowUpRight size={13} />
+              <button type="button" className="at-link" onClick={() => route.go(`boutiques/${schema}`)}>
+                Open boutique <ArrowRight size={14} />
               </button>
             </SectionHead>
 
             {!usage.healthy && (
-              <div className="sa-note error">
+              <Note tone="error">
                 This boutique&apos;s schema could not be read, so every usage figure below is blank
                 rather than zero. That is a missing or half-migrated schema — an engineering repair,
                 not a boutique that has done nothing.
-              </div>
+              </Note>
             )}
 
-            <div className="sa-stats">
-              <Stat label="Staff" value={count(usage.staff)} />
-              <Stat label="Customers" value={count(usage.customers)} />
-              <Stat label="Orders" value={count(usage.orders)}
+            <StatGrid label="Usage">
+              <Stat icon={Users} label="Staff" value={count(usage.staff)} />
+              <Stat icon={Contact} label="Customers" value={count(usage.customers)} />
+              <Stat icon={ClipboardList} label="Orders" value={count(usage.orders)}
                 note={`${count(usage.open_orders)} still open`} />
-              <Stat label="Booked" value={usage.revenue === null ? '—' : money(usage.revenue)} />
-              <Stat label="Collected" value={usage.collected === null ? '—' : money(usage.collected)} />
-              <Stat label="Last order" value={usage.last_order ? day(usage.last_order) : '—'} />
-            </div>
+              <Stat icon={TrendingUp} label="Booked" value={usage.revenue === null ? '—' : money(usage.revenue)} />
+              <Stat icon={Wallet} label="Collected" value={usage.collected === null ? '—' : money(usage.collected)} />
+              <Stat icon={CalendarClock} label="Last order" value={usage.last_order ? day(usage.last_order) : '—'} />
+            </StatGrid>
 
-            <div className="sa-cards" style={{ marginBottom: 24 }}>
-              <div className="sa-card">
-                <h4><Wrench size={14} /> Onboarding</h4>
+            <div className="at-grid-3">
+              <Card
+                icon={Sparkles}
+                title="Onboarding"
+                actions={onboarding.readable && (
+                  <button type="button" className="at-link" onClick={() => route.go('onboarding')}>
+                    Full checklist <ArrowRight size={14} />
+                  </button>
+                )}
+              >
                 {onboarding.readable ? (
                   <>
-                    <p style={{ marginBottom: 8 }}>
+                    <p>
                       <strong>{onboarding.percent}%</strong> — {onboarding.percent_basis}
                     </p>
-                    <div className="sa-meter">
-                      <span style={{ width: `${onboarding.percent}%` }} />
-                    </div>
-                    <div style={{ marginTop: 10 }}>
-                      {onboarding.blocked_on ? (
-                        <>
-                          <div className="sa-name">Waiting on: {onboarding.blocked_on.label}</div>
-                          <p>{onboarding.blocked_on.detail}</p>
-                        </>
-                      ) : <p>Nothing outstanding.</p>}
-                    </div>
-                    <button className="sa-btn" style={{ marginTop: 10 }}
-                      onClick={() => route.go('onboarding')}>
-                      Full checklist <ArrowUpRight size={13} />
-                    </button>
+                    <Meter pct={onboarding.percent} />
+                    {onboarding.blocked_on ? (
+                      <div>
+                        <div className="at-row-title">Waiting on: {onboarding.blocked_on.label}</div>
+                        <p>{onboarding.blocked_on.detail}</p>
+                      </div>
+                    ) : <p>Nothing outstanding.</p>}
                   </>
                 ) : (
                   <p>{onboarding.detail}</p>
                 )}
-              </div>
+              </Card>
 
-              <div className="sa-card">
-                <h4>Modules</h4>
+              <Card
+                icon={PackageSearch}
+                title="Modules"
+                actions={(
+                  <button type="button" className="at-link" onClick={() => route.go('modules')}>
+                    Change modules <ArrowRight size={14} />
+                  </button>
+                )}
+              >
                 {off.length === 0 ? (
                   <p>
                     Every switchable module is on. Absent keys count as on — see
@@ -135,153 +186,87 @@ function Diagnostics({ schema, route }) {
                   </p>
                 ) : (
                   <>
-                    <p style={{ marginBottom: 8 }}>
+                    <p>
                       {off.length} module(s) are switched off, so this boutique&apos;s staff get a 403
                       on those URLs and any onboarding step behind them is excluded from its
                       percentage rather than counted as failed:
                     </p>
-                    <div>
+                    <div className="sa-inline">
                       {off.map((m) => (
-                        <span key={m.key} style={{ marginRight: 6 }}>
-                          <Pill value="disabled" label={m.label} />
-                        </span>
+                        <Pill key={m.key} value="not_configured" label={m.label} />
                       ))}
                     </div>
                   </>
                 )}
-                <button className="sa-btn" style={{ marginTop: 10 }}
-                  onClick={() => route.go('modules')}>
-                  Change modules <ArrowUpRight size={13} />
-                </button>
-              </div>
+              </Card>
 
-              <div className="sa-card">
-                <h4>Order operations</h4>
-                <dl className="sa-kv">
-                  <dt>Orders</dt><dd>{count(operations.orders)}</dd>
-                  <dt>Created today</dt><dd>{count(operations.created?.today)}</dd>
-                  <dt>Overdue</dt><dd>{count(operations.overdue?.count)}</dd>
-                  <dt>Queued messages</dt><dd>{count(operations.queued_messages)}</dd>
-                </dl>
+              <Card
+                icon={ClipboardList}
+                title="Order operations"
+                actions={(
+                  <button type="button" className="at-link" onClick={() => route.go('orders')}>
+                    Orders monitor <ArrowRight size={14} />
+                  </button>
+                )}
+              >
+                <KeyValue items={[
+                  ['Orders', count(operations.orders)],
+                  ['Created today', count(operations.created?.today)],
+                  ['Overdue', count(operations.overdue?.count)],
+                  ['Queued messages', count(operations.queued_messages)],
+                ]} />
                 {/* The caveat travels with the number from superadmin/metrics.py
                     so that no screen can print the count on its own. */}
                 {operations.overdue?.caveat && (
-                  <p style={{ marginTop: 8 }}>
+                  <p>
                     <strong>Overdue is an upper bound.</strong> {operations.overdue.caveat}
                   </p>
                 )}
-                <button className="sa-btn" style={{ marginTop: 10 }}
-                  onClick={() => route.go('orders')}>
-                  Orders monitor <ArrowUpRight size={13} />
-                </button>
-              </div>
+              </Card>
             </div>
 
             <SectionHead title="Recent errors"
               subtitle="Errors this boutique has hit, newest first.">
-              <button className="sa-btn" onClick={() => route.go('errors')}>
-                Crashes <ArrowUpRight size={13} />
+              <button type="button" className="at-link" onClick={() => route.go('errors')}>
+                Crashes <ArrowRight size={14} />
               </button>
             </SectionHead>
-            {errors.length === 0 ? (
-              <Empty icon={<AlertTriangle size={22} />} title="No errors recorded for this boutique."
-                detail="Unhandled server exceptions would appear here with a count and a fingerprint." />
-            ) : (
-              <div className="sa-table-wrap" style={{ marginBottom: 24 }}>
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th>Exception</th><th>Path</th><th className="sa-num">Seen</th>
-                      <th>Severity</th><th>Status</th><th>Last seen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {errors.map((e) => (
-                      <tr key={e.id}>
-                        <td className="sa-name">{e.exception_type}</td>
-                        <td className="sa-schema">{e.path}</td>
-                        <td className="sa-num">{count(e.count)}</td>
-                        <td><Pill value={e.severity} /></td>
-                        <td><Pill value={e.status} /></td>
-                        <td className="sa-schema" style={{ whiteSpace: 'nowrap' }}>{moment(e.last_seen)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <Table
+              columns={ERROR_COLUMNS}
+              rows={errors}
+              keyFor={(e) => e.id}
+              empty={<Empty icon={<FileWarning size={20} />} title="No errors recorded for this boutique."
+                detail="Unhandled server exceptions would appear here with a count and a fingerprint." />}
+            />
 
             <SectionHead title="Accounts"
               subtitle={users.last_login_tracked ? undefined
                 : 'Last sign-in is not recorded anywhere in this product, so there is no column for it.'}>
-              <button className="sa-btn" onClick={() => route.go('users')}>
-                All users <ArrowUpRight size={13} />
+              <button type="button" className="at-link" onClick={() => route.go('users')}>
+                All users <ArrowRight size={14} />
               </button>
             </SectionHead>
-            {users.users.length === 0 ? (
-              <Empty icon={<Users size={22} />} title="No accounts could be read in this boutique." />
-            ) : (
-              <div className="sa-table-wrap" style={{ marginBottom: 24 }}>
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th>Username</th><th>Name</th><th>Email</th><th>Role</th>
-                      <th>Status</th><th>Token</th><th>Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.users.map((u) => (
-                      <tr key={u.username} className={u.is_active ? '' : 'sa-suspended'}>
-                        <td className="sa-name">{u.username}</td>
-                        <td>{`${u.first_name} ${u.last_name}`.trim() || <span className="sa-muted">—</span>}</td>
-                        <td>{u.email || <span className="sa-muted">—</span>}</td>
-                        <td>{u.role}</td>
-                        <td><Pill value={u.is_active ? 'active' : 'disabled'} /></td>
-                        {/* Whether a token exists, never which token it is. */}
-                        <td>{u.has_token
-                          ? <Pill value="active" label="Signed in" />
-                          : <span className="sa-muted">none</span>}</td>
-                        <td className="sa-schema" style={{ whiteSpace: 'nowrap' }}>{day(u.date_joined)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <Table
+              columns={ACCOUNT_COLUMNS}
+              rows={users.users}
+              keyFor={(u) => u.username}
+              rowClassName={(u) => (u.is_active ? '' : 'sa-suspended')}
+              empty={<Empty icon={<Users size={20} />} title="No accounts could be read in this boutique." />}
+            />
 
             <SectionHead title="What admins did here"
               subtitle="Every console action taken on this boutique, newest first.">
-              <button className="sa-btn" onClick={() => route.go('audit')}>
-                Audit log <ArrowUpRight size={13} />
+              <button type="button" className="at-link" onClick={() => route.go('audit')}>
+                Audit log <ArrowRight size={14} />
               </button>
             </SectionHead>
-            {audit.length === 0 ? (
-              <Empty icon={<ScrollText size={22} />} title="Nothing has been done to this boutique."
-                detail="Suspensions, module changes and account actions are recorded here with the reason typed at the time." />
-            ) : (
-              <div className="sa-table-wrap">
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th>When</th><th>Who</th><th>What</th><th>Target</th><th>Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {audit.map((a, i) => (
-                      <tr key={`${a.created_at}-${i}`}>
-                        <td className="sa-schema" style={{ whiteSpace: 'nowrap' }}>{moment(a.created_at)}</td>
-                        <td>{a.actor}</td>
-                        <td>{a.action_label}</td>
-                        <td className="sa-schema">{a.target}</td>
-                        <td style={{ maxWidth: 340 }}>
-                          {a.reason || <span className="sa-muted">— none given</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <Table
+              columns={AUDIT_COLUMNS}
+              rows={audit}
+              keyFor={(a, i) => `${a.created_at}-${i}`}
+              empty={<Empty icon={<ScrollText size={20} />} title="Nothing has been done to this boutique."
+                detail="Suspensions, module changes and account actions are recorded here with the reason typed at the time." />}
+            />
           </>
         );
       }}
@@ -294,17 +279,19 @@ export default function Support({ route }) {
 
   return (
     <>
-      <SectionHead
+      <PageHeader
         title="One boutique in depth"
         subtitle="Everything about one boutique on one page. Opening it is recorded under What admins did, because looking into a customer's data should leave a trace."
-      >
+      />
+
+      <Toolbar right={(
         <Picker value={schema}
           onChange={(next) => route.go(next ? `support/${next}` : 'support')} />
-      </SectionHead>
+      )} />
 
       {schema
         ? <Diagnostics key={schema} schema={schema} route={route} />
-        : <Empty icon={<Building2 size={22} />} title="Choose a boutique."
+        : <Empty icon={<Building2 size={20} />} title="Choose a boutique."
             detail="Nothing is fetched until you do, because fetching writes an audit entry against the boutique you look at." />}
     </>
   );

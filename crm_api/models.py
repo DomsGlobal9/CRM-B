@@ -583,6 +583,10 @@ class CustomerMessage(models.Model):
     ]
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='customer_messages')
+    #: The garment a per-garment milestone was about (its trial, its pickup);
+    #: null for order-wide messages. Keys the once-per-milestone check.
+    garment_job = models.ForeignKey('catalog.GarmentJob', on_delete=models.SET_NULL,
+                                    null=True, blank=True, related_name='+')
     channel = models.CharField(max_length=30, default='whatsapp')
     template_key = models.CharField(max_length=100, db_index=True)
     to_number = models.CharField(max_length=20)

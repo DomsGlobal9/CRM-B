@@ -22,6 +22,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db.models import Q, Sum
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 
 TWO_DP = Decimal('0.01')
@@ -83,6 +84,36 @@ def _window(since, until):
     return start, end
 
 
+def _revenue_rows(since, until):
+    from crm_api.models import Order
+    from .models import Payment
+
+    rows = Payment.objects.filter(received_on__gte=since, received_on__lte=until)
+    rows = rows.exclude(order__order_status='Cancelled')
+    # A boutique's own production run is a cost, never a sale.
+    return rows.exclude(order__kind=Order.KIND_INTERNAL)
+
+
+def _payout_rows(since, until):
+    from apps.payroll.models import Payout
+    return Payout.objects.filter(paid_at__date__gte=since, paid_at__date__lte=until)
+
+
+def _committed_pos(since, until):
+    from apps.inventory.models import PurchaseOrder
+    return PurchaseOrder.objects.filter(
+        status__in=_COMMITTED_PO,
+        # PurchaseOrder.order_date is a DateField (Order.order_date is a
+        # DateTimeField -- same name, different type), so no __date transform.
+        order_date__gte=since, order_date__lte=until,
+    ).prefetch_related('lines')
+
+
+def _expense_rows(since, until):
+    from .models import Expense
+    return Expense.objects.filter(incurred_on__gte=since, incurred_on__lte=until)
+
+
 def revenue_for(since, until):
     """Money received in the window, by the date it was received.
 
@@ -91,14 +122,9 @@ def revenue_for(since, until):
     overstates what the boutique earned. Everything else counts, whether the
     order is finished or not -- an advance is money in the till.
     """
-    from crm_api.models import Order
     from .models import Payment
 
-    rows = Payment.objects.filter(received_on__gte=since, received_on__lte=until)
-    rows = rows.exclude(order__order_status='Cancelled')
-    # A boutique's own production run is a cost, never a sale.
-    rows = rows.exclude(order__kind=Order.KIND_INTERNAL)
-    agg = rows.aggregate(
+    agg = _revenue_rows(since, until).aggregate(
         total=Sum('amount'),
         dated=Sum('amount', filter=~Q(source=Payment.Source.BACKFILL)),
         estimated=Sum('amount', filter=Q(source=Payment.Source.BACKFILL)),
@@ -135,10 +161,7 @@ def salaries_for(since, until):
     which is also what the owner watched happen on the payout screen. An
     approved-but-unpaid week has not been spent yet and is deliberately absent.
     """
-    from apps.payroll.models import Payout
-    total = Payout.objects.filter(paid_at__date__gte=since,
-                                  paid_at__date__lte=until).aggregate(
-        s=Sum('amount'))['s']
+    total = _payout_rows(since, until).aggregate(s=Sum('amount'))['s']
     return _money(total)
 
 
@@ -150,20 +173,13 @@ def inventory_for(since, until):
     is small, so iterating is fine; if purchasing volume ever makes this bite,
     the fix is a stored total column, not a cleverer query.
     """
-    from apps.inventory.models import PurchaseOrder
-    pos = PurchaseOrder.objects.filter(
-        status__in=_COMMITTED_PO,
-        # PurchaseOrder.order_date is a DateField (Order.order_date is a
-        # DateTimeField -- same name, different type), so no __date transform.
-        order_date__gte=since, order_date__lte=until,
-    ).prefetch_related('lines')
+    pos = _committed_pos(since, until)
     return _money(sum((Decimal(po.total) for po in pos), ZERO))
 
 
 def manual_costs_for(since, until):
     from .models import Expense
-    rows = (Expense.objects
-            .filter(incurred_on__gte=since, incurred_on__lte=until)
+    rows = (_expense_rows(since, until)
             .values('category')
             .annotate(amount=Sum('amount'))
             .order_by('category'))
@@ -227,12 +243,53 @@ def trend(period=None, since=None, until=None, points=12):
             buckets.append((max(cursor, since), min(nxt - timedelta(days=1), until)))
             cursor = nxt
 
+    if not buckets:
+        return {'step': step, 'series': []}
+
+    # Each source is read ONCE for the whole window, a day at a time, and the
+    # days are added up into buckets here. Asking every bucket separately was
+    # four queries a bucket -- 89 for a month of days, 178 round trips with
+    # django-tenants' SET search_path in front of each -- to draw one chart.
+    # The figures are the ones the per-bucket functions above produce: the
+    # same rows, the same filters, rounded at the same point.
+    revenue_by_day, salaries_by_day, inventory_by_day, manual_by_day = _daily_figures(
+        buckets[0][0], buckets[-1][1])
+
+    def within(by_day, start, end):
+        return (amount for day, amount in by_day.items() if start <= day <= end)
+
     series = []
     for start, end in buckets:
-        revenue = revenue_for(start, end)['total']
-        costs = (salaries_for(start, end) + inventory_for(start, end)
-                 + manual_costs_for(start, end)[1])
+        revenue = _money(sum(within(revenue_by_day, start, end), ZERO))
+        # manual_costs_for rounds each category's total before adding them up.
+        by_category = {}
+        for (day, category), amount in manual_by_day.items():
+            if start <= day <= end:
+                by_category[category] = by_category.get(category, ZERO) + amount
+        manual = sum((_money(amount) for amount in by_category.values()), ZERO)
+        costs = (_money(sum(within(salaries_by_day, start, end), ZERO))
+                 + _money(sum(within(inventory_by_day, start, end), ZERO))
+                 + manual)
         series.append({'since': start.isoformat(), 'until': end.isoformat(),
                        'revenue': revenue, 'costs': costs,
                        'profit': revenue - costs})
     return {'step': step, 'series': series}
+
+
+def _daily_figures(since, until):
+    """Revenue and each cost in the window, summed per day (manual per day and category)."""
+    revenue = {day: amount or ZERO for day, amount in
+               _revenue_rows(since, until).order_by().values('received_on')
+               .annotate(amount=Sum('amount')).values_list('received_on', 'amount')}
+    # TruncDate converts to the current time zone, the same day __date filters on.
+    salaries = {day: amount or ZERO for day, amount in
+                _payout_rows(since, until).order_by().annotate(day=TruncDate('paid_at'))
+                .values('day').annotate(amount=Sum('amount')).values_list('day', 'amount')}
+    # PurchaseOrder.total is a Python property; see inventory_for.
+    inventory = {}
+    for po in _committed_pos(since, until):
+        inventory[po.order_date] = inventory.get(po.order_date, ZERO) + Decimal(po.total)
+    manual = {(day, category): amount or ZERO for day, category, amount in
+              _expense_rows(since, until).order_by().values('incurred_on', 'category')
+              .annotate(amount=Sum('amount')).values_list('incurred_on', 'category', 'amount')}
+    return revenue, salaries, inventory, manual

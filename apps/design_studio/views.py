@@ -46,6 +46,17 @@ from .serializers import (
 )
 
 
+def _with_card_relations(queryset):
+    """Everything DesignAssetSerializer reads off a design, fetched up front.
+
+    `images` is nested and `inventory_item_id` reads `stocked_as`, so without
+    these each card ran its own SELECT for them -- 64 for one boutique's library
+    and 36 across the four dashboard lists, measured on production.
+    """
+    return (queryset.select_related('designer_ref', 'template', 'collection')
+            .prefetch_related('images', 'stocked_as'))
+
+
 def _log(request, entity, action_name, title, description, new_value=None,
          entity_type="DesignBoard"):
     user = request.user if request.user.is_authenticated else None
@@ -266,8 +277,7 @@ class DesignAssetViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        queryset = (DesignAsset.objects.select_related('designer_ref', 'template')
-                    .prefetch_related('stocked_as'))
+        queryset = _with_card_relations(DesignAsset.objects.all())
         params = self.request.query_params
 
         for name, field in self.DIRECT_FILTERS.items():
@@ -458,8 +468,14 @@ class DesignDashboardView(views.APIView):
         assets = DesignAsset.objects.all()
         active = assets.filter(status=DesignAsset.Status.ACTIVE)
         week_ago = timezone.now() - timedelta(days=7)
+        # The four lists below are serialised as cards; the counts stay plain.
+        cards = _with_card_relations(assets)
+        active_cards = cards.filter(status=DesignAsset.Status.ACTIVE)
 
-        top = lambda qs, field: DesignAssetSerializer(qs.order_by(f'-{field}')[:5], many=True).data
+        # Ties broken newest first: most designs sit on 0 views and 0 orders, and
+        # without a tiebreaker which five of them showed was up to the query plan.
+        top = lambda qs, field: DesignAssetSerializer(
+            qs.order_by(f'-{field}', '-created_at', 'pk')[:5], many=True).data
 
         return Response({
             'total_designs': assets.count(),
@@ -468,11 +484,12 @@ class DesignDashboardView(views.APIView):
             'collections': Collection.objects.filter(is_active=True).count(),
             'pending_approval': assets.filter(status=DesignAsset.Status.PENDING).count(),
             'recent_uploads': DesignAssetSerializer(
-                assets.order_by('-created_at')[:8], many=True).data,
-            'most_viewed': top(active, 'view_count'),
-            'most_ordered': top(active, 'order_count'),
+                cards.order_by('-created_at')[:8], many=True).data,
+            'most_viewed': top(active_cards, 'view_count'),
+            'most_ordered': top(active_cards, 'order_count'),
             'trending': DesignAssetSerializer(
-                active.filter(updated_at__gte=week_ago).order_by('-view_count')[:5],
+                active_cards.filter(updated_at__gte=week_ago)
+                .order_by('-view_count', '-created_at', 'pk')[:5],
                 many=True).data,
         })
 
@@ -658,6 +675,29 @@ class WebDesignKeepView(views.APIView):
             status=status.HTTP_201_CREATED)
 
 
+def _preview_client(request):
+    """The vendor clientId for this drawing, or (None, refusal).
+
+    A picture of a customer is sent with `clientId` = that customer's ID, which
+    must be a customer of this boutique, and is passed on as it is (a random
+    UUID, so it is unique across boutiques). Anything else is the person drawing.
+    """
+    from django.db import connection
+    from crm_api.models import Customer
+
+    raw = (request.data or {}).get('clientId')
+    if not raw:
+        return f'{connection.schema_name}:{request.user.id}', None
+    try:
+        known = Customer.objects.filter(pk=uuid.UUID(str(raw))).exists()
+    except ValueError:
+        known = False
+    if not known:
+        return None, Response({'error': 'That customer is not in this boutique.'},
+                              status=status.HTTP_400_BAD_REQUEST)
+    return str(uuid.UUID(str(raw))), None
+
+
 class GarmentPreviewView(views.APIView):
     """One photograph of the garment the wizard put together, on a model.
 
@@ -686,7 +726,6 @@ class GarmentPreviewView(views.APIView):
         return Response({'available': generate.available(), 'garments': sorted(GARMENT_IDS)})
 
     def post(self, request):
-        from django.db import connection
         from apps.inventory.models import InventoryItem
         from crm_api.fabric_taxonomy import GARMENTS
         from . import generate
@@ -706,9 +745,12 @@ class GarmentPreviewView(views.APIView):
             'id', 'name', 'material_type', 'color', 'color_hex', 'image_url', 'item_code')}
         slots = {slot for section in ((GARMENTS.get(garment_key) or {}).get('sections') or {}).values()
                  for slot in section}
+        client_id, refusal = _preview_client(request)
+        if refusal:
+            return refusal
         try:
             payload = generate.build_payload(
-                client_id=f'{connection.schema_name}:{request.user.id}',
+                client_id=client_id,
                 garment_key=garment_key,
                 parts=data.get('parts') if isinstance(data.get('parts'), dict) else {},
                 part_refs=data.get('part_refs') if isinstance(data.get('part_refs'), dict) else {},
@@ -718,6 +760,11 @@ class GarmentPreviewView(views.APIView):
                 model_image=str(data.get('model_image') or ''),
                 views=data.get('views') if isinstance(data.get('views'), list) else None,
                 measurements=data.get('measurements'),
+                presentation=str(data.get('presentation') or 'model'),
+                model_gender=str(data.get('model_gender') or ''),
+                pair_with=data.get('pair_with'),
+                keep_motif_colors=data.get('keep_motif_colors') is not False,
+                coverage=str(data.get('coverage') or 'full'),
             )
             result = generate.generate(generate.resolve_images(payload))
             result['images'] = {
@@ -728,6 +775,20 @@ class GarmentPreviewView(views.APIView):
         # image_url stays the primary photograph (front, or the one side asked for).
         result['image_url'] = next(iter(result['images'].values()))
         return Response(result, status=status.HTTP_201_CREATED)
+
+
+class GarmentPreviewCancelView(views.APIView):
+    """Stop this person's running preview (the Stop button). The vendor ends
+    the waiting stream with CANCELLED, which the POST above answers as 409."""
+
+    permission_classes = [DesignStudioPermission]
+
+    def post(self, request):
+        from . import generate
+        client_id, refusal = _preview_client(request)
+        if refusal:
+            return refusal
+        return Response({'cancelled': generate.cancel(client_id)})
 
 
 class DesignCatalogueView(views.APIView):

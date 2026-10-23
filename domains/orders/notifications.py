@@ -26,7 +26,8 @@ def trial_confirmation(order):
             f"Please visit {boutique} for your fitting. Your invoice is attached below.")
 
 
-def create_order_notifications(order, created=False, status_changed=True, stage_name=None, stage_key=None):
+def create_order_notifications(order, created=False, status_changed=True, stage_name=None, stage_key=None,
+                               garment_job=None):
     # A boutique's own production run has no customer to write to, no
     # confirmation to send and no tracking page to link.
     if order.customer_id is None:
@@ -82,6 +83,10 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
         display_stage = stage_name or status
 
         s_key = (stage_key or getattr(order, 'current_stage_key', '') or '').lower()
+        # A per-garment stage speaks for its own garment: on a saree with a
+        # blouse, the saree can be ready for its trial while the blouse is
+        # still on the table, so the message names it rather than the outfit.
+        piece = garment_job.display_name if garment_job is not None else ''
         s_name = (stage_name or '').lower()
         msg_template = 'stage_update'
 
@@ -92,7 +97,7 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
         # Step 2: Product ready (stitching completed / quality check)
         elif s_key in ('stitching_in_progress', 'master_quality_check') or s_name in ('stitching', 'master quality check'):
             msg_template = 'product_ready'
-            cust_msg = f"Your outfit for order {order.reference} is ready! Stitching and quality inspection are completed."
+            cust_msg = f"Your {piece or 'outfit'} for order {order.reference} is ready! Stitching and quality inspection are completed."
         # Trial booked (the workflow's Trial booking step): a confirmation,
         # followed by the invoice PDF -- once per order (see below).
         elif s_key == 'trial_scheduled':
@@ -101,18 +106,19 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
         # Step 3: TryOn step (trial scheduled / completed)
         elif s_key in ('trial_scheduled', 'trial_completed') or 'trial' in s_name or 'tryon' in s_name:
             msg_template = 'tryon_step'
-            cust_msg = f"Your outfit for order {order.reference} is ready for your Try-On fitting! Please visit our studio for your trial."
+            cust_msg = f"Your {piece or 'outfit'} for order {order.reference} is ready for your Try-On fitting! Please visit our studio for your trial."
         # Step 4: Ready for Delivery section
         elif s_key in ('ready_for_delivery', 'ready_for_dispatch') or s_name == 'ready for delivery' or status == 'Ready for Dispatch':
             msg_template = 'ready_for_delivery'
-            passed_qc = (order.stages.filter(stage_key='master_quality_check').exists()
-                         and not order.stages.filter(stage_key='master_quality_check')
-                         .exclude(status='COMPLETED').exists())
+            qc = order.stages.filter(stage_key='master_quality_check')
+            if garment_job is not None:
+                qc = qc.filter(garment_job=garment_job)
+            passed_qc = qc.exists() and not qc.exclude(status='COMPLETED').exists()
             if passed_qc:
-                cust_msg = f"Your garment for order {order.reference} has passed quality checks and is Ready for Delivery!"
+                cust_msg = f"Your {piece or 'garment'} for order {order.reference} has passed quality checks and is Ready for Delivery!"
             else:
-                cust_msg = f"Your garment for order {order.reference} is Ready for Delivery! You can collect your outfit or expect delivery shortly."
-        elif stage_name and stage_name != status:
+                cust_msg = f"Your {piece or 'garment'} for order {order.reference} is Ready for Delivery! You can collect your outfit or expect delivery shortly."
+        elif stage_name and stage_name != status and status != 'Delivered':
             cust_msg = f"Your garment for order {order.reference} is now in the {stage_name} stage ({status})."
             if status == 'Design & Creation':
                 cust_msg = f"Your garment for order {order.reference} is now in the {stage_name} stage. Our master tailors are crafting it!"
@@ -136,6 +142,21 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
        
         if not status_changed and msg_template == 'stage_update':
             return
+        # A milestone reaches the customer once per garment it is about (once
+        # for the order when it is order-wide). 'Ready' is sent by both
+        # Stitching and QC, try-on by both trial steps, ready-for-delivery by
+        # every step after it -- without this a two-garment order said "your
+        # outfit is ready" four times. Keyed per garment because trial and
+        # pickup are per garment: an order-wide key told the customer only
+        # about the first garment and never about the rest. A status change
+        # with no stage behind it (update-status, PATCH) speaks for no garment,
+        # so any garment's earlier send of the same milestone already covers it.
+        if msg_template != 'stage_update':
+            sent = order.customer_messages.filter(template_key=msg_template).exclude(status='FAILED')
+            if stage_key is not None and msg_template != 'trial_scheduled':
+                sent = sent.filter(garment_job=garment_job)
+            if sent.exists():
+                return
 
         Notification.objects.create(
             title=f"Order {order.reference} Update: {display_stage}",
@@ -149,17 +170,16 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
             recipient_role="Customer",
             recipient_email=client_email
         )
-        # Trial booking is per garment; the customer hears about it, and gets
-        # the invoice, once per order -- at the first garment's booking.
-        first_trial_booking = (msg_template == 'trial_scheduled'
-                               and not order.customer_messages.filter(template_key='trial_scheduled').exists())
-        if msg_template != 'trial_scheduled' or first_trial_booking:
-            send_customer_message(
-                order,
-                msg_template,
-                f"Dear {order.customer.first_name}, {cust_msg}\nTrack your order: {tracking_url(order)}",
-            )
-        if first_trial_booking:
+        # Trial booking is per garment, but the customer hears about it, and
+        # gets the invoice, once per order -- at the first garment's booking
+        # (the check above keeps it order-wide).
+        send_customer_message(
+            order,
+            msg_template,
+            f"Dear {order.customer.first_name}, {cust_msg}\nTrack your order: {tracking_url(order)}",
+            garment_job=garment_job,
+        )
+        if msg_template == 'trial_scheduled':
             send_customer_invoice(order)
         send_stage_update_email(
             order,

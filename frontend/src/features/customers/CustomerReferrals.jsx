@@ -10,6 +10,7 @@ import { LIMITS, cleanName, nameError } from '../../services/validate';
 import { DEFAULT_COUNTRY, composeMobile, phoneNumberError } from '../../services/phone';
 import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
 import { FormModal, SectionCard } from '../../components/ui/Atelier';
+import { useCustomerLookup } from './useCustomerLookup';
 
 const fullNameOf = (c) => `${c?.first_name || ''} ${c?.last_name || ''}`.trim();
 
@@ -20,7 +21,7 @@ const storedDigits = (iso, national) => {
   return iso === 'IN' ? `91${composed}` : composed.replace(/\D/g, '');
 };
 
-function AddReferralDialog({ referrer, customers, onClose, onSaved }) {
+function AddReferralDialog({ referrer, onClose, onSaved }) {
   const [fullName, setFullName] = useState('');
   const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [mobile, setMobile] = useState('');
@@ -30,11 +31,13 @@ function AddReferralDialog({ referrer, customers, onClose, onSaved }) {
   const [result, setResult] = useState(null);
 
   const phoneProblem = phoneNumberError(country, mobile);
-  const known = useMemo(() => {
-    if (phoneProblem) return null;
-    const digits = storedDigits(country, mobile);
-    return digits ? (customers || []).find((c) => String(c.mobile_number || '').replace(/\D/g, '') === digits) || null : null;
-  }, [customers, country, mobile, phoneProblem]);
+  // Someone already in the book with exactly this number: asked of the server,
+  // which narrows to numbers containing these digits; the exact one is picked here.
+  const digits = phoneProblem ? '' : storedDigits(country, mobile);
+  const { results: sameDigits } = useCustomerLookup({ mobile: digits, limit: 20, enabled: !!digits });
+  const known = useMemo(() => (digits
+    ? sameDigits.find((c) => String(c.mobile_number || '').replace(/\D/g, '') === digits) || null
+    : null), [sameDigits, digits]);
   const isSelf = known && String(known.id) === String(referrer.id);
 
   const submit = async (e) => {
@@ -122,7 +125,7 @@ function AddReferralDialog({ referrer, customers, onClose, onSaved }) {
   );
 }
 
-export default function CustomerReferrals({ customer, canAdd, customers, onOpenCustomer, onCustomerAdded }) {
+export default function CustomerReferrals({ customer, canAdd, onOpenCustomer, onCustomerAdded }) {
   const [loaded, setLoaded] = useState({ id: null, rows: [], error: null });
   const [version, setVersion] = useState(0);
   const [adding, setAdding] = useState(false);
@@ -187,7 +190,6 @@ export default function CustomerReferrals({ customer, canAdd, customers, onOpenC
       {adding && (
         <AddReferralDialog
           referrer={customer}
-          customers={customers}
           onClose={() => setAdding(false)}
           onSaved={(answer) => {
             setVersion((v) => v + 1);

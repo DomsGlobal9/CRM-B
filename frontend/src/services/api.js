@@ -1124,12 +1124,52 @@ export const api = {
     return true;
   },
 
-  // Customers & Orders full directory endpoints
+  // The whole customer book in one response. Nothing in the app calls this any
+  // more -- a large boutique's book is megabytes -- but the endpoint still
+  // answers it, so it stays for any caller that has not moved to pages.
   async getCustomers() {
     const res = await guardedFetch(`${BASE_URL}/customers/`, {
       headers: getHeaders()
     });
     if (!res.ok) await failWith(res, 'Failed to fetch customers');
+    return res.json();
+  },
+
+  // One page of the Customers page, filtered, sorted and counted by the
+  // server: { count, page, page_size, page_count, results, summary, facets }.
+  // `params` are the page's own: page, page_size, view, search, tier and the
+  // filter bar's keys (country, letter, orders, measurements, added,
+  // birthday, source, gender, city, sort).
+  async getCustomerDirectory(params = {}) {
+    const url = new URL(`${BASE_URL}/customers/`);
+    Object.entries({ page: 1, ...params }).forEach(([k, v]) => {
+      if (v !== '' && v !== null && v !== undefined) url.searchParams.append(k, v);
+    });
+    const res = await guardedFetch(url.toString(), { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Failed to fetch customers');
+    return res.json();
+  },
+
+  // The whole book's size and tiers: { total, tiers: { Platinum, Gold, Silver } }.
+  async getCustomerStats() {
+    const res = await guardedFetch(`${BASE_URL}/customers/stats/`, { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Failed to fetch customer totals');
+    return res.json();
+  },
+
+  // A few customers for a picker. { q } searches name, email and mobile;
+  // { mobile } narrows to numbers containing those digits; { ids } fetches
+  // particular customers. { full: true } returns the list's full rows rather
+  // than id / name / mobile / email / city / tier.
+  async lookupCustomers({ q = '', mobile = '', ids = [], limit = 20, full = false } = {}) {
+    const url = new URL(`${BASE_URL}/customers/lookup/`);
+    if (q) url.searchParams.append('q', q);
+    if (mobile) url.searchParams.append('mobile', mobile);
+    if (ids.length) url.searchParams.append('ids', ids.join(','));
+    url.searchParams.append('limit', limit);
+    if (full) url.searchParams.append('full', '1');
+    const res = await guardedFetch(url.toString(), { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Failed to search customers');
     return res.json();
   },
 
@@ -1504,6 +1544,12 @@ export const api = {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || describeApiError(res, data) || 'The preview could not be made.');
     return data;
+  },
+  async cancelGarmentPreview(customerId = null) {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/preview/cancel/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(customerId ? { clientId: customerId } : {}),
+    });
+    return res.ok ? res.json() : { cancelled: false };
   },
   async uploadReferenceImage(file) {
     const body = new FormData();

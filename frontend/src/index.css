@@ -3725,7 +3725,7 @@ table.data-table tbody tr:hover {
      stays for the 769-1024px tablet range, where there is no bottom nav and
      the drawer is the only way to reach the menu -- so it is hidden here
      rather than deleted. The drawer itself is still reachable on a phone
-     through the bottom nav's "Menu" tab, and still dismissable by tapping
+     through MobileHeader's own hamburger, and still dismissable by tapping
      .mobile-portal-overlay, which renders across the whole <=1024px range. */
   .mobile-portal-header {
     display: none;

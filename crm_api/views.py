@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import secrets
 import uuid
 from decimal import Decimal
@@ -30,7 +31,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import (
     Count, DecimalField, ExpressionWrapper, F, Q, Sum, Value,
 )
-from django.db.models.functions import Coalesce, Greatest
+from django.db.models.functions import Coalesce, Concat, Greatest
 
 #: One decimal shape for every money expression the dashboard builds, so
 #: Coalesce/Greatest/ExpressionWrapper never disagree on precision.
@@ -51,6 +52,7 @@ from .serializers import (
     CustomerReferralSerializer,
 )
 from apps.design_studio.models import DesignAsset
+from domains.customers.directory import directory_page
 from domains.customers.repositories import CustomerRepository
 from domains.customers.referrals import attach_referral, find_referrer, record_referral
 from domains.customers.services import import_customers
@@ -82,6 +84,93 @@ class CustomerViewSet(viewsets.ModelViewSet):
         base = (CustomerRepository.summary_queryset() if self.action == 'list'
                 else CustomerRepository.get_all())
         return visible_customers(base, self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        """The customer book, whole -- or, given ?page=, the Customers page.
+
+        With `page` this is the directory: filtered, sorted and counted here
+        (domains/customers/directory.py), returning one page of rows plus the
+        counts the page draws. Without it the whole book comes back exactly as
+        it always has, for any caller that has not moved to pages.
+        """
+        if 'page' not in request.query_params:
+            return super().list(request, *args, **kwargs)
+        queryset = self.get_queryset()
+        body, ids = directory_page(queryset, request.query_params)
+        rows = {row.id: row for row in queryset.filter(id__in=ids)}
+        body['results'] = CustomerSummarySerializer(
+            [rows[i] for i in ids if i in rows], many=True,
+            context=self.get_serializer_context()).data
+        return Response(body)
+
+    @action(detail=False, methods=['GET'])
+    def stats(self, request):
+        """How many customers, by tier, across the whole book (leads included).
+
+        What the dashboard and analytics drew from the full list they no longer
+        download.
+        """
+        figures = visible_customers(Customer.objects.all(), request.user).aggregate(
+            total=Count('id'),
+            platinum=Count('id', filter=Q(customer_type='Platinum')),
+            gold=Count('id', filter=Q(customer_type='Gold')),
+        )
+        return Response({
+            'total': figures['total'],
+            # Anything not Platinum or Gold is shown as Silver (customerTier in App.jsx).
+            'tiers': {'Platinum': figures['platinum'], 'Gold': figures['gold'],
+                      'Silver': figures['total'] - figures['platinum'] - figures['gold']},
+        })
+
+    @action(detail=False, methods=['GET'])
+    def lookup(self, request):
+        """A few customers matching what was typed, for the pickers.
+
+        `q` matches the name, email or mobile (and, if it holds digits, the
+        mobile's digits); `mobile` narrows to numbers containing those digits;
+        `ids` fetches particular customers (a picker showing its current
+        value). Slim rows by default; `full=1` returns the list's summary rows,
+        for a picker whose choice fills a form. At most `limit` rows (50).
+        """
+        params = request.query_params
+        q = (params.get('q') or '').strip()
+        mobile = re.sub(r'\D', '', params.get('mobile') or '')
+        ids = []
+        for raw in (params.get('ids') or '').split(','):
+            try:
+                ids.append(uuid.UUID(raw.strip()))
+            except ValueError:
+                pass  # not a customer id; ignored like any other stray value
+        if not (q or mobile or ids):
+            return Response([])
+        try:
+            limit = min(max(int(params.get('limit') or 20), 1), 50)
+        except ValueError:
+            limit = 20
+        full = params.get('full') == '1'
+
+        rows = (CustomerRepository.summary_queryset() if full
+                else Customer.objects.order_by('-created_at'))
+        rows = visible_customers(rows, request.user)
+        if ids:
+            rows = rows.filter(id__in=ids)
+        if mobile:
+            rows = rows.filter(mobile_number__contains=mobile)
+        if q:
+            match = (Q(_full_name__icontains=q) | Q(mobile_number__icontains=q)
+                     | Q(email_address__icontains=q))
+            q_digits = re.sub(r'\D', '', q)
+            if q_digits:
+                match |= Q(mobile_number__contains=q_digits)
+            rows = rows.annotate(
+                _full_name=Concat('first_name', Value(' '), 'last_name')).filter(match)
+        rows = rows[:limit]
+        if full:
+            return Response(CustomerSummarySerializer(
+                rows, many=True, context=self.get_serializer_context()).data)
+        return Response(list(rows.values(
+            'id', 'first_name', 'last_name', 'mobile_number', 'email_address',
+            'city_region', 'customer_type')))
 
     def create(self, request, *args, **kwargs):
         """Add one customer, optionally recording who referred them.
@@ -390,7 +479,9 @@ def issue_new_password(user, name):
 
 
 class TailorViewSet(viewsets.ModelViewSet):
-    queryset = Tailor.objects.all().order_by('-rating')
+    # staff_profile: TailorSerializer prints the phone kept on it, one SELECT
+    # per tailor without this.
+    queryset = Tailor.objects.select_related('staff_profile').order_by('-rating')
     serializer_class = TailorSerializer
 
     def get_queryset(self):
@@ -1446,13 +1537,16 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.master = master
         if tailor:
             order.tailor = tailor
+        from domains.orders import workflow
+        tailor_stages = tuple(workflow.worker_stage_keys(
+            BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config,
+            order.tailor.role if order.tailor else None))
         if master or tailor:
             order.save(update_fields=['master', 'tailor'])
             refresh_staff_availability(old_tailor, old_master, order.tailor, order.master)
-            # Same hand-out as order creation: tailor stages to the tailor,
-            # the rest to the master; and tell them, as PATCH /orders/ does.
+            # Same hand-out as order creation: the worker's stages to the
+            # worker, the rest to the master; and tell them, as PATCH /orders/ does.
             from apps.production.models import ProductionTask
-            tailor_stages = ('stitching_in_progress', 'finishing', 'alteration_work')
             tasks = ProductionTask.objects.filter(order=order)
             if order.tailor_id != (old_tailor.id if old_tailor else None):
                 tasks.filter(stage_key__in=tailor_stages).update(assigned_to=order.tailor)
@@ -1498,7 +1592,7 @@ class OrderViewSet(viewsets.ModelViewSet):
                     OrderService.transition_order_stage(
                         order=order, stage_key=row.stage_key, new_status='IN_PROGRESS',
                         user=request.user, garment_job=row.garment_job_id)
-                tailor_step = nxt.stage_key in ('stitching_in_progress', 'finishing', 'alteration_work')
+                tailor_step = nxt.stage_key in tailor_stages
                 order.stages.filter(first, assigned_to__isnull=True).update(
                     assigned_to=(order.tailor if tailor_step else order.master) or order.tailor or order.master)
                 started = nxt.stage_key
@@ -1730,33 +1824,41 @@ class DashboardView(views.APIView):
         # the only figure recorded). revenue = everything collected to date.
         collected = Coalesce(Greatest('amount_paid', 'advance_paid'),
                              Value(Decimal('0'), output_field=MONEY))
-        money = orders.exclude(order_status='Cancelled').aggregate(
-            revenue_total=Sum(collected),
-            revenue_month=Sum(collected, filter=Q(order_date__date__gte=month_start)),
-            billed=Sum('total_amount'),
-        )
-        revenue_total = float(money['revenue_total'] or 0)
-        revenue_month = float(money['revenue_month'] or 0)
         # Outstanding: what is billed but not yet collected on live orders. A
         # per-row max(total - collected, 0) so an overpaid row cannot net off a
         # genuine debt on another.
         outstanding_expr = Greatest(
             ExpressionWrapper(F('total_amount') - collected, output_field=MONEY),
             Value(Decimal('0'), output_field=MONEY))
-        outstanding = float(
-            orders.exclude(order_status__in=self.CLOSED_STATUSES)
-                  .aggregate(due=Sum(outstanding_expr))['due'] or 0)
+        # Every money figure and count below in one pass over the orders, each
+        # with the filter it used to be asked with separately: these were six
+        # queries, and each one is a round trip to the database's region.
+        # order_status is NOT NULL, so ~Q() keeps exactly the rows .exclude() did.
+        not_cancelled = ~Q(order_status='Cancelled')
+        live = ~Q(order_status__in=self.CLOSED_STATUSES)
+        figures = orders.aggregate(
+            revenue_total=Sum(collected, filter=not_cancelled),
+            revenue_month=Sum(collected, filter=not_cancelled
+                              & Q(order_date__date__gte=month_start)),
+            outstanding=Sum(outstanding_expr, filter=live),
+            total_orders=Count('id'),
+            active_orders=Count('id', filter=live),
+            due_soon=Count('id', filter=live & Q(estimated_delivery__gte=today,
+                                                 estimated_delivery__lte=today + timedelta(days=7))),
+            overdue=Count('id', filter=live & Q(estimated_delivery__lt=today)),
+        )
+        revenue_total = float(figures['revenue_total'] or 0)
+        revenue_month = float(figures['revenue_month'] or 0)
+        outstanding = float(figures['outstanding'] or 0)
 
         # ---- orders & pipeline ----------------------------------------------
         status_counts = orders.values('order_status').annotate(
             count=Count('id', distinct=True))
         pipeline = {item['order_status']: item['count'] for item in status_counts}
-        total_orders = orders.count()
-        active = orders.exclude(order_status__in=self.CLOSED_STATUSES)
-        active_orders = active.count()
-        due_soon = active.filter(estimated_delivery__gte=today,
-                                 estimated_delivery__lte=today + timedelta(days=7)).count()
-        overdue = active.filter(estimated_delivery__lt=today).count()
+        total_orders = figures['total_orders']
+        active_orders = figures['active_orders']
+        due_soon = figures['due_soon']
+        overdue = figures['overdue']
 
         recent_orders_data = OrderSummarySerializer(
             visible_orders(OrderRepository.summary_queryset(), request.user)[:6],
@@ -1829,8 +1931,9 @@ class DashboardView(views.APIView):
         collected = Coalesce(Greatest('amount_paid', 'advance_paid'),
                              Value(Decimal('0'), output_field=MONEY))
         balance = ExpressionWrapper(F('total_amount') - collected, output_field=MONEY)
+        # alteration_of: o.reference below prints the parent's reference.
         unpaid = (live.annotate(_balance=balance).filter(_balance__gt=0)
-                  .select_related('customer').order_by('-_balance')[:5])
+                  .select_related('customer', 'alteration_of').order_by('-_balance')[:5])
         out['unpaid'] = [{
             'id': o.id, 'order_id': o.order_id, 'reference': o.reference,
             'customer': f"{o.customer.first_name} {o.customer.last_name}".strip()
@@ -1841,7 +1944,7 @@ class DashboardView(views.APIView):
         due = (live.filter(estimated_delivery__isnull=False)
                .filter(Q(estimated_delivery__lt=today)
                        | Q(estimated_delivery__lte=today + timedelta(days=7)))
-               .select_related('customer').order_by('estimated_delivery')[:5])
+               .select_related('customer', 'alteration_of').order_by('estimated_delivery')[:5])
         out['due'] = [{
             'id': o.id, 'order_id': o.order_id, 'reference': o.reference,
             'customer': f"{o.customer.first_name} {o.customer.last_name}".strip()

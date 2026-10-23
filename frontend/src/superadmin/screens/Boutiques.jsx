@@ -10,68 +10,16 @@
  * same thing in superadmin/metrics.py.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Building2, Database, MoreHorizontal, Pause, Play, Trash2 } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  Building2, ClipboardList, Contact, Database, Pause, Play, Trash2, TrendingUp, Users, Wallet,
+} from 'lucide-react';
 
 import { consoleApi } from '../api';
 import {
-  Async, Confirm, Empty, Pill, SearchBox, SectionHead, Select, Stat,
-  count, day, money, since, useApi, useToast,
+  Async, Chips, Confirm, Empty, Modal, Note, PageHeader, Pill, RowMenu, SearchBox, Select, Stat,
+  StatGrid, Table, Toolbar, count, day, money, since, useApi, useToast,
 } from '../ui';
-
-/* The row's actions behind one ⋯ button. The open menu is one piece of
-   state on the screen (`menu`), so opening a second row's closes the first.
-   Rendered through a portal on <body>, fixed at the button's rectangle: the
-   Action cells are position: sticky with their own backgrounds, so a menu
-   left inside the table is painted under the rows below it. It drops below
-   the button, or opens upwards when the window has no room under it (the
-   last rows of the table), so every action stays on screen. */
-const MENU_GAP = 4;
-const MENU_EDGE = 8;
-
-function RowMenu({ id, menu, setMenu, items }) {
-  const open = menu?.id === id;
-  const menuRef = useRef(null);
-  const toggle = (e) => {
-    e.stopPropagation();
-    if (open) { setMenu(null); return; }
-    const r = e.currentTarget.getBoundingClientRect();
-    setMenu({ id, top: r.bottom + MENU_GAP, buttonTop: r.top, right: window.innerWidth - r.right });
-  };
-  // Measured before paint: below the button if it fits, else above it, else
-  // as low as the window allows.
-  useLayoutEffect(() => {
-    const el = menuRef.current;
-    if (!open || !el) return;
-    const height = el.offsetHeight;
-    const limit = window.innerHeight - MENU_EDGE;
-    const above = menu.buttonTop - MENU_GAP - height;
-    let top = menu.top;
-    if (top + height > limit) top = above >= MENU_EDGE ? above : Math.max(MENU_EDGE, limit - height);
-    el.style.top = `${top}px`;
-    el.style.visibility = 'visible';
-  }, [open, menu]);
-  return (
-    <>
-      <button className="sa-btn sa-menu-btn" onClick={toggle} aria-haspopup="menu" aria-expanded={open} aria-label="Actions">
-        <MoreHorizontal size={16} />
-      </button>
-      {open && createPortal(
-        <div ref={menuRef} className="sa-menu" role="menu" style={{ top: menu.top, right: menu.right, visibility: 'hidden' }}
-             onClick={(e) => e.stopPropagation()}>
-          {items.map((item) => (
-            <button key={item.label} role="menuitem" className={`sa-menu-item ${item.danger ? 'danger' : ''}`}
-              onClick={() => { setMenu(null); item.onClick(); }}>
-              {item.icon} {item.label}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
-    </>
-  );
-}
 
 const SORTS = [
   { value: 'name', label: 'Name' },
@@ -89,20 +37,6 @@ export default function Boutiques({ route }) {
   const [sort, setSort] = useState('name');
   const [pending, setPending] = useState(null);
   const [deleting, setDeleting] = useState(null); // { boutique, agreed, busy }
-  const [menu, setMenu] = useState(null); // { id, top, right } of the one open row menu
-  useEffect(() => {
-    if (!menu) return undefined;
-    const close = () => setMenu(null);
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('click', close);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('click', close);
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [menu]);
 
   const state = useApi(useCallback(() => consoleApi.overview(), []));
 
@@ -152,115 +86,144 @@ export default function Boutiques({ route }) {
     }
   };
 
+  const columns = [
+    {
+      key: 'boutique',
+      label: 'Boutique',
+      render: (b) => (
+        <>
+          <button type="button" className="at-link"
+            onClick={() => route.go(`boutiques/${b.schema_name}`)}>
+            {b.name}
+          </button>
+          <div className="at-row-sub">{b.owner_email}</div>
+          <div className="sa-schema">{b.schema_name}</div>
+        </>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (b) => (
+        <div className="sa-inline">
+          <Pill value={b.is_active ? 'active' : 'suspended'} />
+          {!b.healthy && <Pill value="warning" label="Unreadable" />}
+        </div>
+      ),
+    },
+    { key: 'staff', label: 'Staff', numeric: true, render: (b) => count(b.staff) },
+    { key: 'customers', label: 'Customers', numeric: true, render: (b) => count(b.customers) },
+    { key: 'orders', label: 'Orders', numeric: true, render: (b) => count(b.orders) },
+    { key: 'open_orders', label: 'Open', numeric: true, render: (b) => count(b.open_orders) },
+    {
+      key: 'revenue', label: 'Booked', numeric: true,
+      render: (b) => (b.revenue === null ? '—' : money(b.revenue)),
+    },
+    {
+      key: 'collected', label: 'Collected', numeric: true,
+      render: (b) => (b.collected === null ? '—' : money(b.collected)),
+    },
+    {
+      key: 'last_order',
+      label: 'Last order',
+      className: 'sa-nowrap',
+      render: (b) => {
+        const last = since(b.last_order);
+        return (
+          <>
+            <Pill value={last.tone === 'ok' ? 'healthy' : 'warning'} label={last.text} />
+            {b.last_order && <div className="at-row-sub">{day(b.last_order)}</div>}
+          </>
+        );
+      },
+    },
+    {
+      // The row's actions behind one ⋯ button: the workspace RowMenu, which
+      // portals its menu to <body> so the sticky Action cells below it cannot
+      // paint over it, and keeps one menu open at a time.
+      key: 'action',
+      label: 'Action',
+      className: 'sa-actions sa-sticky-end',
+      render: (b) => (
+        <RowMenu items={[
+          { label: 'Data', icon: <Database size={14} />,
+            onClick: () => route.go(`boutiques/${b.schema_name}/data`) },
+          b.is_active
+            ? { label: 'Suspend', icon: <Pause size={14} />, danger: true,
+                onClick: () => setPending({ boutique: b, next: false }) }
+            : { label: 'Reactivate', icon: <Play size={14} />,
+                onClick: () => setPending({ boutique: b, next: true }) },
+          // The template schema is what signup clones; it is not a boutique.
+          ...(b.schema_name === 'tenant_base' ? [] : [{
+            label: 'Delete', icon: <Trash2 size={14} />, danger: true,
+            onClick: () => setDeleting({ boutique: b, agreed: false, busy: false }),
+          }]),
+        ]} />
+      ),
+    },
+  ];
+
   return (
     <>
+      <PageHeader
+        title="All boutiques"
+        subtitle="Every boutique on the platform, counted live. Open one for its data, or suspend it."
+      />
+
       <Async
         state={state}
         isEmpty={(d) => d.boutiques.length === 0}
-        empty={<Empty icon={<Building2 size={22} />} title="No boutiques have signed up yet." />}
+        empty={<Empty icon={<Building2 size={20} />} title="No boutiques have signed up yet." />}
       >
         {(data) => (
           <>
-            <div className="sa-stats">
-              <Stat label="Boutiques" value={count(data.totals.boutiques)}
-                note={`${data.totals.active} active · ${data.totals.suspended} suspended`} />
-              <Stat label="Staff accounts" value={count(data.totals.staff)} />
-              <Stat label="Customers" value={count(data.totals.customers)} />
-              <Stat label="Orders" value={count(data.totals.orders)}
+            <StatGrid>
+              <Stat icon={Building2} label="Boutiques" value={count(data.totals.boutiques)}
+                note={`${count(data.totals.active)} active · ${count(data.totals.suspended)} suspended`} />
+              <Stat icon={Users} label="Staff accounts" value={count(data.totals.staff)} />
+              <Stat icon={Contact} label="Customers" value={count(data.totals.customers)} />
+              <Stat icon={ClipboardList} label="Orders" value={count(data.totals.orders)}
                 note={`${count(data.totals.open_orders)} still open`} />
-              <Stat label="Booked" value={money(data.totals.revenue)}
+              <Stat icon={TrendingUp} label="Booked" value={money(data.totals.revenue)}
                 note="Sum of order totals" />
-              <Stat label="Collected" value={money(data.totals.collected)}
+              <Stat icon={Wallet} label="Collected" value={money(data.totals.collected)}
                 note="Sum of amounts actually paid" />
-            </div>
+            </StatGrid>
 
             {data.totals.unreadable > 0 && (
-              <div className="sa-note error">
-                {data.totals.unreadable} boutique schema(s) could not be read, so the totals
+              <Note tone="error">
+                {count(data.totals.unreadable)} boutique schema(s) could not be read, so the totals
                 above exclude them. They are marked <em>Unreadable</em> below.
-              </div>
+              </Note>
             )}
 
-            <SectionHead title="All boutiques"
-              subtitle="Every boutique on the platform, counted live. Open one for its data, or suspend it.">
-              <SearchBox value={term} onChange={setTerm} placeholder="Name, owner or schema…" />
-              <Select value={status} onChange={setStatus} label="Status" options={[
-                { value: 'all', label: 'All statuses' },
-                { value: 'active', label: 'Active' },
-                { value: 'suspended', label: 'Suspended' },
-                { value: 'unreadable', label: 'Unreadable' },
+            {/* Status as workspace chips on the left, counted from the same
+                totals as the tiles above; search and sort on the right. */}
+            <Toolbar right={(
+              <>
+                <SearchBox value={term} onChange={setTerm} placeholder="Name, owner or schema…" />
+                <Select value={sort} onChange={setSort} label="Sort by"
+                  options={SORTS.map((s) => ({ value: s.value, label: `Sort: ${s.label}` }))} />
+              </>
+            )}>
+              <Chips label="Status" value={status} onChange={setStatus} options={[
+                { key: 'all', label: 'All', count: count(data.totals.boutiques) },
+                { key: 'active', label: 'Active', count: count(data.totals.active) },
+                { key: 'suspended', label: 'Suspended', count: count(data.totals.suspended) },
+                { key: 'unreadable', label: 'Unreadable', count: count(data.totals.unreadable) },
               ]} />
-              <Select value={sort} onChange={setSort} label="Sort by"
-                options={SORTS.map((s) => ({ value: s.value, label: `Sort: ${s.label}` }))} />
-            </SectionHead>
+            </Toolbar>
 
-            {rows.length === 0 ? (
-              <Empty title="No boutique matches those filters."
-                detail="Clear the search or widen the status filter." />
-            ) : (
-              <div className="sa-table-wrap">
-                <table className="sa-table">
-                  <thead>
-                    <tr>
-                      <th>Boutique</th><th>Status</th>
-                      <th className="sa-num">Staff</th><th className="sa-num">Customers</th>
-                      <th className="sa-num">Orders</th><th className="sa-num">Open</th>
-                      <th className="sa-num">Booked</th><th className="sa-num">Collected</th>
-                      <th>Last order</th><th className="sa-sticky-end">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((b) => {
-                      const last = since(b.last_order);
-                      return (
-                        <tr key={b.schema_name} className={b.is_active ? '' : 'sa-suspended'}>
-                          <td>
-                            <button className="sa-link"
-                              onClick={() => route.go(`boutiques/${b.schema_name}`)}>
-                              {b.name}
-                            </button>
-                            <div className="sa-owner">{b.owner_email}</div>
-                            <div className="sa-schema">{b.schema_name}</div>
-                          </td>
-                          <td>
-                            <Pill value={b.is_active ? 'active' : 'suspended'} />
-                            {!b.healthy && (
-                              <span style={{ marginLeft: 6 }}><Pill value="warning" label="Unreadable" /></span>
-                            )}
-                          </td>
-                          <td className="sa-num">{count(b.staff)}</td>
-                          <td className="sa-num">{count(b.customers)}</td>
-                          <td className="sa-num">{count(b.orders)}</td>
-                          <td className="sa-num">{count(b.open_orders)}</td>
-                          <td className="sa-num">{b.revenue === null ? '—' : money(b.revenue)}</td>
-                          <td className="sa-num">{b.collected === null ? '—' : money(b.collected)}</td>
-                          <td>
-                            <Pill value={last.tone === 'ok' ? 'healthy' : 'warning'} label={last.text} />
-                            {b.last_order && <div className="sa-schema">{day(b.last_order)}</div>}
-                          </td>
-                          <td className="sa-actions sa-sticky-end">
-                            <RowMenu id={b.schema_name} menu={menu} setMenu={setMenu} items={[
-                              { label: 'Data', icon: <Database size={14} />,
-                                onClick: () => route.go(`boutiques/${b.schema_name}/data`) },
-                              b.is_active
-                                ? { label: 'Suspend', icon: <Pause size={14} />, danger: true,
-                                    onClick: () => setPending({ boutique: b, next: false }) }
-                                : { label: 'Reactivate', icon: <Play size={14} />,
-                                    onClick: () => setPending({ boutique: b, next: true }) },
-                              // The template schema is what signup clones; it is not a boutique.
-                              ...(b.schema_name === 'tenant_base' ? [] : [{
-                                label: 'Delete', icon: <Trash2 size={14} />, danger: true,
-                                onClick: () => setDeleting({ boutique: b, agreed: false, busy: false }),
-                              }]),
-                            ]} />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <Table
+              columns={columns}
+              rows={rows}
+              keyFor={(b) => b.schema_name}
+              rowClassName={(b) => (b.is_active ? '' : 'sa-suspended')}
+              empty={(
+                <Empty title="No boutique matches those filters."
+                  detail="Clear the search or widen the status filter." />
+              )}
+            />
           </>
         )}
       </Async>
@@ -284,30 +247,36 @@ export default function Boutiques({ route }) {
         const { boutique, agreed, busy } = deleting;
         const close = () => { if (!busy) setDeleting(null); };
         return (
-          <div className="sa-modal-backdrop" onClick={close}>
-            <div className="sa-modal" role="dialog" aria-modal="true" aria-label="Delete this boutique?"
-              onClick={(e) => e.stopPropagation()}>
-              <h3>Delete this boutique?</h3>
-              <div className="sa-modal-body">
-                <p style={{ fontSize: 15, color: 'var(--text-primary)', marginBottom: 10 }}>
-                  <strong>{boutique.name}</strong>
-                </p>
-                <p>All of its data will be deleted: customers, orders, staff, everything.</p>
-                <p><strong>This action cannot be undone.</strong></p>
-              </div>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 16, cursor: 'pointer', fontSize: 14 }}>
-                <input type="checkbox" checked={agreed} autoFocus style={{ marginTop: 3 }}
-                  onChange={(e) => setDeleting((d) => ({ ...d, agreed: e.target.checked }))} />
-                <span>I understand. Delete this boutique and all its data.</span>
-              </label>
-              <div className="sa-modal-actions">
-                <button className="sa-btn" onClick={close} disabled={busy}>Cancel</button>
-                <button className="sa-btn danger-solid" onClick={destroy} disabled={busy || !agreed}>
+          <Modal
+            title="Delete this boutique?"
+            icon={Trash2}
+            tone="rose"
+            width="460px"
+            busy={busy}
+            onClose={close}
+            footer={(
+              <>
+                <button type="button" className="btn-secondary" onClick={close} disabled={busy}>
+                  Cancel
+                </button>
+                <button type="button" className="btn-secondary at-btn-danger" onClick={destroy}
+                  disabled={busy || !agreed}>
                   {busy ? 'Deleting…' : 'Delete'}
                 </button>
-              </div>
+              </>
+            )}
+          >
+            <div className="sa-dialog-text">
+              <p><strong>{boutique.name}</strong></p>
+              <p>All of its data will be deleted: customers, orders, staff, everything.</p>
+              <p><strong>This action cannot be undone.</strong></p>
             </div>
-          </div>
+            <label className="at-check-card">
+              <input type="checkbox" checked={agreed} autoFocus
+                onChange={(e) => setDeleting((d) => ({ ...d, agreed: e.target.checked }))} />
+              <span className="at-check-card-title">I understand. Delete this boutique and all its data.</span>
+            </label>
+          </Modal>
         );
       })()}
     </>

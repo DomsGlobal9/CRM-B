@@ -58,9 +58,9 @@ export function SectionCard({ icon, tone = 'neutral', title, subtitle, action, a
   );
 }
 
-export function Chips({ options, value, onChange }) {
+export function Chips({ options, value, onChange, ariaLabel }) {
   return (
-    <div className="at-chips" role="group">
+    <div className="at-chips" role="group" aria-label={ariaLabel}>
       {options.map(({ key, label, count }) => (
         <button
           key={key}

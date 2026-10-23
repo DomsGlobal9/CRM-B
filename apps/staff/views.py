@@ -863,12 +863,19 @@ class PerformanceView(views.APIView):
             mine = _staff_for(request.user)
             profiles = profiles.filter(staff=mine) if mine else profiles.none()
 
+        profiles = [p for p in profiles if p.staff is not None]
+        # Everybody's rows read once rather than person by person; see TeamReadings.
+        windows = {}
+        for profile in profiles:
+            first, last = performance.effective_window(profile, start, end)
+            if first <= last:
+                windows[profile.staff_id] = (first, last)
+        readings = performance.TeamReadings(windows)
+
         rows = []
         for profile in profiles:
-            if profile.staff is None:
-                continue
             metrics = performance.staff_metrics(
-                profile.staff, start, end, profile=profile)
+                profile.staff, start, end, profile=profile, readings=readings)
             metrics['headline'] = performance.headline_kpis(metrics)
             metrics['period_start'] = str(metrics['period_start'])
             metrics['period_end'] = str(metrics['period_end'])
