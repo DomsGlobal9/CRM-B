@@ -252,13 +252,14 @@ export default function GarmentPartTabs({
           )}
 
           {current?.images?.length > 0 && (
-            <div style={{ display: 'grid', gap: '16px',
+            <div className="dl-grid" style={{ display: 'grid', gap: '16px',
                           gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))' }}>
               {current.images.map((image) => (
                 // Opens the design the photograph came off, through the same
                 // detail panel a card in the design grid opens -- one View,
                 // not a second one written for this tab.
                 <div key={image.id}
+                     className="dl-card"
                      role="button"
                      tabIndex={0}
                      onClick={() => onOpenDesign?.(image.design_id)}
@@ -270,13 +271,13 @@ export default function GarmentPartTabs({
                      style={{ border: '1px solid var(--border-color)', borderRadius: '10px',
                               overflow: 'hidden', background: 'var(--surface-color)',
                               cursor: onOpenDesign ? 'pointer' : 'default' }}>
-                  <div style={{ height: '170px', background: 'var(--brand-dark)' }}>
+                  <div className="dl-card-img" style={{ height: '170px', background: 'var(--brand-dark)' }}>
                     <img src={resolveMediaUrl(image.image_url, FALLBACK)}
                          alt={image.caption || activeLabel} loading="lazy"
                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   </div>
-                  <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 600, overflow: 'hidden',
+                  <div className="dl-card-body" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div className="dl-card-title" style={{ fontSize: '14px', fontWeight: 600, overflow: 'hidden',
                                   textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {image.design_title || 'Untitled design'}
                     </div>

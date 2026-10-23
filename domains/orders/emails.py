@@ -199,8 +199,36 @@ def _stage_update_content(order, stage_name=None, custom_message=None):
     return subject, body, html
 
 
-def send_stage_update_email(order, stage_name=None, custom_message=None):
-    """Queue the stage update email, after the order transaction is safely committed."""
+def _deliver_with_invoice(order, subject, address, body, html):
+    """The trial-booking email with the order's invoice PDF attached -- the
+    same PDF the customer gets on WhatsApp. Sent directly: the job queue
+    carries text, not files. If the PDF cannot be built the email still goes,
+    through the usual path, without it."""
+    from django.core.mail import EmailMultiAlternatives
+    from crm_api.models import BoutiqueSettings
+    from domains.orders.invoice_pdf import build_invoice_pdf, invoice_filename
+
+    try:
+        config, _ = BoutiqueSettings.objects.get_or_create(id=1)
+        pdf = build_invoice_pdf(order, config)
+    except Exception:
+        logger.exception("Could not build the invoice PDF for order %s; emailing without it", order.order_id)
+        _deliver(subject, address, body, html)
+        return
+
+    email = EmailMultiAlternatives(
+        subject=subject, body=body, from_email=settings.DEFAULT_FROM_EMAIL, to=[address])
+    email.attach_alternative(html, "text/html")
+    email.attach(invoice_filename(order), pdf, "application/pdf")
+    # The order is already committed; a failed send must not raise into it.
+    email.send(fail_silently=True)
+
+
+def send_stage_update_email(order, stage_name=None, custom_message=None, attach_invoice=False):
+    """Queue the stage update email, after the order transaction is safely committed.
+
+    attach_invoice: the trial-booking email, which tells the customer their
+    invoice is attached, carries it as a PDF."""
     address = (getattr(order.customer, 'email_address', '') or '').strip()
     if not address:
         return
@@ -208,7 +236,10 @@ def send_stage_update_email(order, stage_name=None, custom_message=None):
     def _send():
         try:
             subject, body, html = _stage_update_content(order, stage_name, custom_message)
-            _deliver(subject, address, body, html)
+            if attach_invoice:
+                _deliver_with_invoice(order, subject, address, body, html)
+            else:
+                _deliver(subject, address, body, html)
         except Exception:
             logger.exception(
                 "Stage update email failed for order %s", order.order_id)

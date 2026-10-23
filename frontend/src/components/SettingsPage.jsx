@@ -148,10 +148,10 @@ export const SettingsPage = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             <div className="ui-row" style={infoRow}>
               <span style={infoRowLabel}><User size={16} /> {t('settingsPage.activeUser')}</span>
-              {/* .ui-badge for size/shape on the accent fill. The text is ink:
-                  --primary-color is lime in the Scaleezy pack (1.4:1 here), and
-                  --accent-text is only 4.16:1 on this fill. */}
-              <span className="ui-badge" style={{ background: 'var(--accent-color)', color: 'var(--text-primary)' }}>
+              {/* .ui-badge for size/shape on the accent fill, with its border. The
+                  text is ink: --primary-color is lime in the Scaleezy pack (1.4:1
+                  here), and --accent-text is only 4.16:1 on this fill. */}
+              <span className="ui-badge" style={{ background: 'var(--accent-color)', color: 'var(--text-primary)', border: '1px solid var(--accent-border)', fontWeight: 600 }}>
                 {currentUser?.role || 'Owner'} ({currentUser?.first_name || currentUser?.email || 'User'})
               </span>
             </div>

@@ -4999,7 +4999,7 @@ function App() {
                   {/* Dashboard first: stats before images, so opening the module
                       answers "how is the library doing" rather than dropping
                       straight into a grid. */}
-                  <div className="tabs-header" style={{ marginBottom: '16px' }}>
+                  <div className="tabs-header dl-tabs" style={{ marginBottom: '16px' }}>
                     <button className={`tab-btn ${designsView === 'dashboard' ? 'active' : ''}`}
                             onClick={() => setDesignsView('dashboard')}>
                       {t('designsPage.overviewTab', 'Overview')}
@@ -5664,7 +5664,7 @@ function App() {
 
                       return (
                       <div className="at-table-wrap">
-                      <table className="at-table at-table--fit">
+                      <table className="at-table at-table--fit orders-book">
                         <thead>
                           <tr>
                             <th>Order ID</th>
@@ -5852,11 +5852,14 @@ function App() {
                           <Trash2 size={16} /> Delete all
                         </button>
                       )}
-                      <GuidedHighlight show={guideCustomers} text={bookTotal ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
-                        <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                          <Plus size={16} /> Add Customer
-                        </button>
-                      </GuidedHighlight>
+                      {/* Leads come in through the lead API, not the counter: no Add here. */}
+                      {customerView !== 'leads' && (
+                        <GuidedHighlight show={guideCustomers} text={bookTotal ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
+                          <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                            <Plus size={16} /> Add Customer
+                          </button>
+                        </GuidedHighlight>
+                      )}
                     </>
                   )}
                 />
@@ -5912,9 +5915,11 @@ function App() {
                           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', maxWidth: '44ch', lineHeight: 'var(--leading-normal)' }}>
                             Everyone you take an order for is kept here, with their measurements, past orders and preferences.
                           </div>
-                          <button className="btn-primary" onClick={handleStartNewCustomer}>
-                            {t('customersPage.addFirstCustomer')}
-                          </button>
+                          {customerView !== 'leads' && (
+                            <button className="btn-primary" onClick={handleStartNewCustomer}>
+                              {t('customersPage.addFirstCustomer')}
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
@@ -5930,7 +5935,7 @@ function App() {
                   ) : (
                     
                     <>
-                    <div className="at-table-wrap" aria-busy={directoryLoading}
+                    <div className="at-table-wrap cust-list" aria-busy={directoryLoading}
                          style={{ opacity: directoryLoading ? 0.6 : 1, transition: 'opacity .15s' }}>
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
@@ -5968,13 +5973,14 @@ function App() {
                       return (
                         <tr
                           key={cust.id}
+                          className="cust-row"
                           role="button"
                           tabIndex={0}
                           style={{ cursor: 'pointer' }}
                           onClick={open}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
                         >
-                          <td data-label="Customer" style={{ overflow: 'hidden' }}>
+                          <td data-label="Customer" className="cust-c-person" style={{ overflow: 'hidden' }}>
                             <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
                               <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36}
                                               src={cust.profile_photo ? resolveMediaUrl(cust.profile_photo) : ''} />
@@ -5993,7 +5999,7 @@ function App() {
                             </div>
                           </td>
 
-                          <td data-label="Body measurements" style={{ overflow: 'hidden' }}>
+                          <td data-label="Body measurements" className="cust-c-measure" style={{ overflow: 'hidden' }}>
                             {m && shown.length > 0 ? (
                               <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
                                    title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
@@ -6010,7 +6016,7 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Style notes" style={{ overflow: 'hidden' }}>
+                          <td data-label="Style notes" className="cust-c-style" style={{ overflow: 'hidden' }}>
                             <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
                               {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
@@ -6019,14 +6025,14 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Orders" style={{ overflow: 'hidden' }}>
+                          <td data-label="Orders" className="cust-c-orders" style={{ overflow: 'hidden' }}>
                             <div style={{ fontWeight: 700 }}>{orders}</div>
                             <div style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
                               {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
                             </div>
                           </td>
 
-                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td className="cust-c-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <button
                               type="button"
                               className="at-link"
@@ -6528,7 +6534,7 @@ function App() {
                   )}
                 />
 
-                <section className="at-stat-grid">
+                <section className="at-stat-grid bill-stats">
                   <StatCard icon={Banknote} tone="green" label={t('invoicesPage.totalCollectedRevenue', 'Total Collected Revenue')}
                             value={formatMoney(paidTotal)} sub={`${paidCount} settled in full`} />
                   <StatCard icon={Wallet} tone="amber" label={t('invoicesPage.outstandingBalance', 'Outstanding Balance')}
@@ -6537,7 +6543,7 @@ function App() {
                             value={formatMoney(grandTotal)} sub={`${ordersList.length} invoice${ordersList.length === 1 ? '' : 's'}`} />
                 </section>
 
-                <div className="at-toolbar">
+                <div className="at-toolbar bill-toolbar">
                   <Chips value={invoiceFilter} onChange={setInvoiceFilter} options={[
                     { key: 'All', label: t('common.all', 'All'), count: ordersList.length },
                     { key: 'Paid', label: t('invoicesPage.paid', 'Paid'), count: paidCount },
@@ -6588,7 +6594,7 @@ function App() {
                         const balance = Math.max(0, total - paid);
                         const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
                         return (
-                          <tr key={order.id}>
+                          <tr key={order.id} className="bill-row">
                             <td data-label={t('invoicesPage.invoiceId', 'Invoice ID')} style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{orderRef(order)}</td>
                             <td data-label={t('invoicesPage.billingClient', 'Billing Client')} style={{ overflow: 'hidden' }}>
                               <span className="at-cell-person">
@@ -7519,12 +7525,40 @@ function App() {
                 <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>{t('entry.serviceQuestion', 'What are we doing for this customer today?')}</p>
               </div>
 
+              {/* The first question. Three doors, one wizard behind them. */}
+              <div className="wz-services">
+                <button type="button" className="wz-service" onClick={() => startService('stitch')}>
+                  <IconTile icon={Scissors} tone="green" size={48} iconSize={22} />
+                  <span className="wz-service-title">{t('entry.serviceStitch', 'Stitch something')}</span>
+                  <span className="wz-service-desc">{t('entry.serviceStitchDesc', 'A blouse, saree work, a lehenga. The look comes from our catalogue or the customer\u2019s own photos.')}</span>
+                </button>
+                <button type="button" className="wz-service" onClick={() => startService('alter')}
+                        disabled={currentUser?.role === 'Designer'}
+                        title={currentUser?.role === 'Designer' ? t('entry.serviceAlterNotYou', 'Alterations are raised at the counter.') : undefined}>
+                  <IconTile icon={Ruler} tone="amber" size={48} iconSize={22} />
+                  <span className="wz-service-title">{t('entry.serviceAlter', 'Alter a garment')}</span>
+                  <span className="wz-service-desc">{t('entry.serviceAlterDesc', 'Fix or adjust a garment we made and delivered.')}</span>
+                </button>
+                <button type="button" className="wz-service" onClick={() => startService('design')}>
+                  <IconTile icon={PenTool} tone="neutral" size={48} iconSize={22} />
+                  <span className="wz-service-title">{t('entry.serviceDesign', 'Design something new')}</span>
+                  <span className="wz-service-desc">{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
+                </button>
+                {(!currentUser?.role || currentUser.role === 'Owner') && (
+                  <button type="button" className="wz-service" onClick={() => setStartingBoutiqueRun(true)}>
+                    <IconTile icon={Factory} tone="violet" size={48} iconSize={22} />
+                    <span className="wz-service-title">{t('entry.serviceBoutique', 'Stitch for the boutique')}</span>
+                    <span className="wz-service-desc">{t('entry.serviceBoutiqueDesc', 'Garments for our own stock or the showroom. No customer — they go into inventory when they are done.')}</span>
+                  </button>
+                )}
+              </div>
+
               {/* Orders already being written. Offered, never resumed
                   silently: picking one up is a decision, and so is throwing it
                   away. Shows enough to tell two apart -- who it is for, what is
                   on it, how far it got and when it was last touched. */}
               {resumableDrafts.length > 0 && (
-                <div className="content-card" style={{ marginBottom: '20px' }}>
+                <div className="content-card" style={{ marginTop: '24px' }}>
                   <div style={{ fontWeight: 600, marginBottom: '4px' }}>
                     {resumableDrafts.length === 1
                       ? t('entry.orderInProgressOne', 'You have an order in progress')
@@ -7596,34 +7630,6 @@ function App() {
                   </div>
                 </div>
               )}
-
-              {/* The first question. Three doors, one wizard behind them. */}
-              <div className="wz-services">
-                <button type="button" className="wz-service" onClick={() => startService('stitch')}>
-                  <IconTile icon={Scissors} tone="green" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceStitch', 'Stitch something')}</span>
-                  <span className="wz-service-desc">{t('entry.serviceStitchDesc', 'A blouse, saree work, a lehenga. The look comes from our catalogue or the customer\u2019s own photos.')}</span>
-                </button>
-                <button type="button" className="wz-service" onClick={() => startService('alter')}
-                        disabled={currentUser?.role === 'Designer'}
-                        title={currentUser?.role === 'Designer' ? t('entry.serviceAlterNotYou', 'Alterations are raised at the counter.') : undefined}>
-                  <IconTile icon={Ruler} tone="amber" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceAlter', 'Alter a garment')}</span>
-                  <span className="wz-service-desc">{t('entry.serviceAlterDesc', 'Fix or adjust a garment we made and delivered.')}</span>
-                </button>
-                <button type="button" className="wz-service" onClick={() => startService('design')}>
-                  <IconTile icon={PenTool} tone="neutral" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceDesign', 'Design something new')}</span>
-                  <span className="wz-service-desc">{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
-                </button>
-                {(!currentUser?.role || currentUser.role === 'Owner') && (
-                  <button type="button" className="wz-service" onClick={() => setStartingBoutiqueRun(true)}>
-                    <IconTile icon={Factory} tone="violet" size={48} iconSize={22} />
-                    <span className="wz-service-title">{t('entry.serviceBoutique', 'Stitch for the boutique')}</span>
-                    <span className="wz-service-desc">{t('entry.serviceBoutiqueDesc', 'Garments for our own stock or the showroom. No customer — they go into inventory when they are done.')}</span>
-                  </button>
-                )}
-              </div>
               {startingBoutiqueRun && (
                 <BoutiqueProductionDialog
                   onClose={() => setStartingBoutiqueRun(false)}

@@ -35,7 +35,7 @@ function DesignStrip({ title, subtitle, icon, tone, designs, emptyText, metric, 
           ))}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-3)' }}>
+        <div className="dd-recent" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 'var(--space-3)' }}>
           {designs.map((d) => (
             <div key={d.id} style={{ minWidth: 0 }}>
               <img src={resolveMediaUrl(d.image_url, CARD_IMAGE_FALLBACK)} alt={d.title}
@@ -70,7 +70,7 @@ function CategoriesPanel({ onOpenLibrary }) {
       ) : categories.length === 0 ? (
         <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No garment categories yet.</div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 'var(--space-2)' }}>
+        <div className="dd-cats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: 'var(--space-2)' }}>
           {categories.slice(0, 6).map((c) => (
             <button key={c.key} type="button" className="at-cat" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}
                     onClick={onOpenLibrary}>
@@ -155,7 +155,7 @@ function DesignerRoster({ portalUrl }) {
     <SectionCard icon={Users} tone="blue" title="Designers" subtitle="Who is credited on the library, and who can sign in">
 
       <form onSubmit={add}
-            style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', margin: '4px 0 12px' }}>
+            className="dd-add-designer" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', margin: '4px 0 12px' }}>
         <input
           className="form-control" placeholder="Designer name" required
           style={{ padding: '5px 8px', fontSize: '12px', flex: '1 1 140px' }}
@@ -182,7 +182,7 @@ function DesignerRoster({ portalUrl }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {designers.map((d) => (
-            <div key={d.id} style={{
+            <div key={d.id} className="dd-designer" style={{
               display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', flexWrap: 'wrap',
               border: '1px solid var(--border-color)', borderRadius: '6px',
             }}>
@@ -193,7 +193,7 @@ function DesignerRoster({ portalUrl }) {
               {d.has_login ? (
                 <span style={{ fontSize: '11px', color: 'var(--success-color)', marginLeft: 'auto' }}>Has a login</span>
               ) : (
-                <span style={{ display: 'flex', gap: '6px', marginLeft: 'auto', flex: '1 1 auto', maxWidth: '360px' }}>
+                <span className="dd-grant" style={{ display: 'flex', gap: '6px', marginLeft: 'auto', flex: '1 1 auto', maxWidth: '360px' }}>
                   <input
                     className="form-control" type="email" placeholder="designer@boutique.com"
                     style={{ padding: '5px 8px', fontSize: '12px' }}
@@ -267,8 +267,8 @@ export default function DesignDashboard({ onOpenLibrary, canManageDesigners = fa
   if (!data) return <Loader page label={t('common.loading', 'Loading…')} />;
 
   return (
-    <div className="at-stack">
-      <div className="at-stat-grid">
+    <div className="at-stack dl-page">
+      <div className="at-stat-grid dl-stats">
         <StatCard icon={ImageIcon} tone="green" label={t('designsPage.totalDesigns', 'Total Designs')} value={data.total_designs}
                   sub={data.recent_uploads?.length ? `${data.recent_uploads.length} recent upload${data.recent_uploads.length === 1 ? '' : 's'}` : 'Nothing uploaded yet'} />
         <StatCard icon={Users} tone="amber" label={t('designsPage.designers', 'Designers')} value={data.designers} sub="Active" />
@@ -284,7 +284,7 @@ export default function DesignDashboard({ onOpenLibrary, canManageDesigners = fa
                      designs={data.recent_uploads} emptyText="Nothing uploaded yet." action={onOpenLibrary} />
         <CategoriesPanel onOpenLibrary={onOpenLibrary} />
       </div>
-      <div className="at-grid-2">
+      <div className="at-grid-2 dd-pair">
         <DesignStrip icon={Eye} tone="amber" title={t('designsPage.mostViewed', 'Most viewed')} subtitle={t('designsPage.mostViewedSub', 'Designs customers view most')}
                      designs={data.most_viewed} metric="views" emptyText="No views recorded yet." action={onOpenLibrary} />
         <DesignStrip icon={ShoppingCart} tone="green" title={t('designsPage.mostOrdered', 'Most ordered')} subtitle={t('designsPage.mostOrderedSub', 'Designs customers order most')}
