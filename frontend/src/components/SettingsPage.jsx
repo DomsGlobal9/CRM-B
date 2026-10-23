@@ -158,9 +158,10 @@ export const SettingsPage = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             <div className="ui-row" style={infoRow}>
               <span style={infoRowLabel}><User size={16} /> {t('settingsPage.activeUser')}</span>
-              {/* .ui-badge for size/shape; accent fill with forest text — accent-text
-                  on the cream fill is only 4.16:1, so the value uses --primary-color. */}
-              <span className="ui-badge" style={{ background: 'var(--accent-color)', color: 'var(--primary-color)' }}>
+              {/* .ui-badge for size/shape; the soft lime fill with the theme's dark
+                  olive text (--accent-text). --primary-color is now the bright lime
+                  itself, which on this fill could hardly be read. */}
+              <span className="ui-badge" style={{ background: 'var(--accent-color)', color: 'var(--accent-text, #5C6C13)', border: '1px solid var(--accent-border)', fontWeight: 600 }}>
                 {currentUser?.role || 'Owner'} ({currentUser?.first_name || currentUser?.email || 'User'})
               </span>
             </div>
