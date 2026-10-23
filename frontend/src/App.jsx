@@ -7462,12 +7462,40 @@ function App() {
                 <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>{t('entry.serviceQuestion', 'What are we doing for this customer today?')}</p>
               </div>
 
+              {/* The first question. Three doors, one wizard behind them. */}
+              <div className="wz-services">
+                <button type="button" className="wz-service" onClick={() => startService('stitch')}>
+                  <IconTile icon={Scissors} tone="green" size={48} iconSize={22} />
+                  <span className="wz-service-title">{t('entry.serviceStitch', 'Stitch something')}</span>
+                  <span className="wz-service-desc">{t('entry.serviceStitchDesc', 'A blouse, saree work, a lehenga. The look comes from our catalogue or the customer\u2019s own photos.')}</span>
+                </button>
+                <button type="button" className="wz-service" onClick={() => startService('alter')}
+                        disabled={currentUser?.role === 'Designer'}
+                        title={currentUser?.role === 'Designer' ? t('entry.serviceAlterNotYou', 'Alterations are raised at the counter.') : undefined}>
+                  <IconTile icon={Ruler} tone="amber" size={48} iconSize={22} />
+                  <span className="wz-service-title">{t('entry.serviceAlter', 'Alter a garment')}</span>
+                  <span className="wz-service-desc">{t('entry.serviceAlterDesc', 'Fix or adjust a garment we made and delivered.')}</span>
+                </button>
+                <button type="button" className="wz-service" onClick={() => startService('design')}>
+                  <IconTile icon={PenTool} tone="neutral" size={48} iconSize={22} />
+                  <span className="wz-service-title">{t('entry.serviceDesign', 'Design something new')}</span>
+                  <span className="wz-service-desc">{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
+                </button>
+                {(!currentUser?.role || currentUser.role === 'Owner') && (
+                  <button type="button" className="wz-service" onClick={() => setStartingBoutiqueRun(true)}>
+                    <IconTile icon={Factory} tone="violet" size={48} iconSize={22} />
+                    <span className="wz-service-title">{t('entry.serviceBoutique', 'Stitch for the boutique')}</span>
+                    <span className="wz-service-desc">{t('entry.serviceBoutiqueDesc', 'Garments for our own stock or the showroom. No customer — they go into inventory when they are done.')}</span>
+                  </button>
+                )}
+              </div>
+
               {/* Orders already being written. Offered, never resumed
                   silently: picking one up is a decision, and so is throwing it
                   away. Shows enough to tell two apart -- who it is for, what is
                   on it, how far it got and when it was last touched. */}
               {resumableDrafts.length > 0 && (
-                <div className="content-card" style={{ marginBottom: '20px' }}>
+                <div className="content-card" style={{ marginTop: '24px' }}>
                   <div style={{ fontWeight: 600, marginBottom: '4px' }}>
                     {resumableDrafts.length === 1
                       ? t('entry.orderInProgressOne', 'You have an order in progress')
@@ -7539,34 +7567,6 @@ function App() {
                   </div>
                 </div>
               )}
-
-              {/* The first question. Three doors, one wizard behind them. */}
-              <div className="wz-services">
-                <button type="button" className="wz-service" onClick={() => startService('stitch')}>
-                  <IconTile icon={Scissors} tone="green" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceStitch', 'Stitch something')}</span>
-                  <span className="wz-service-desc">{t('entry.serviceStitchDesc', 'A blouse, saree work, a lehenga. The look comes from our catalogue or the customer\u2019s own photos.')}</span>
-                </button>
-                <button type="button" className="wz-service" onClick={() => startService('alter')}
-                        disabled={currentUser?.role === 'Designer'}
-                        title={currentUser?.role === 'Designer' ? t('entry.serviceAlterNotYou', 'Alterations are raised at the counter.') : undefined}>
-                  <IconTile icon={Ruler} tone="amber" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceAlter', 'Alter a garment')}</span>
-                  <span className="wz-service-desc">{t('entry.serviceAlterDesc', 'Fix or adjust a garment we made and delivered.')}</span>
-                </button>
-                <button type="button" className="wz-service" onClick={() => startService('design')}>
-                  <IconTile icon={PenTool} tone="neutral" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceDesign', 'Design something new')}</span>
-                  <span className="wz-service-desc">{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
-                </button>
-                {(!currentUser?.role || currentUser.role === 'Owner') && (
-                  <button type="button" className="wz-service" onClick={() => setStartingBoutiqueRun(true)}>
-                    <IconTile icon={Factory} tone="violet" size={48} iconSize={22} />
-                    <span className="wz-service-title">{t('entry.serviceBoutique', 'Stitch for the boutique')}</span>
-                    <span className="wz-service-desc">{t('entry.serviceBoutiqueDesc', 'Garments for our own stock or the showroom. No customer — they go into inventory when they are done.')}</span>
-                  </button>
-                )}
-              </div>
               {startingBoutiqueRun && (
                 <BoutiqueProductionDialog
                   onClose={() => setStartingBoutiqueRun(false)}
