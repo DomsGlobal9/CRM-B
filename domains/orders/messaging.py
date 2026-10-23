@@ -148,6 +148,13 @@ def send_customer_garment_photos(order, garment_name, images, sent_by=None):
     body = (f"Dear {order.customer.first_name}, your {garment_name} for order {order.reference} is ready! "
             f"Here are its photos. Please tell us if it looks good, or what you would like changed: "
             f"{tracking_url(order)}")
+    # With the boutique's Try-On on, the customer can also see the garment on
+    # a photo of themselves.
+    from django.db import connection
+    from domains.orders import tryon
+    job = next((image.garment_job for image in images if image.garment_job_id), None)
+    if job is not None and tryon.enabled_for(getattr(connection, 'tenant', None)):
+        body += f"\n\nSee yourself in it -- upload your photo here: {tryon.tryon_url(order, job)}"
     message = CustomerMessage.objects.create(
         order=order, template_key='garment_photos', to_number=order.customer.mobile_number,
         body=body, sent_by=sent_by)

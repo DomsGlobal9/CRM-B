@@ -36,6 +36,10 @@ def upload_to_finished_garments(instance, filename):
     return _unguessable_path('finished_garments', filename)
 
 
+def upload_to_garment_tryons(instance, filename):
+    return _unguessable_path('garment_tryons', filename)
+
+
 def upload_to_fabrics(instance, filename):
     return _unguessable_path('fabrics', filename)
 
@@ -536,6 +540,32 @@ class GarmentPhotoReview(models.Model):
                                     related_name='photo_reviews')
     decision = models.CharField(max_length=10, choices=DECISION_CHOICES)
     note = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class GarmentTryOn(models.Model):
+    """One try-on the customer asked for from their garment's try-on link:
+    their photo dressed in the finished garment. Their own photo is not kept,
+    only the picture made from it. A row is written before the paid call, so
+    the tries a garment has had are counted even when one fails."""
+
+    PENDING = 'PENDING'
+    DONE = 'DONE'
+    FAILED = 'FAILED'
+    #: The service gave up after 90 s; the picture may still have been made,
+    #: and charged, so it counts as a try.
+    TIMEOUT = 'TIMEOUT'
+    STATUS_CHOICES = [(PENDING, 'Making'), (DONE, 'Made'), (FAILED, 'Failed'), (TIMEOUT, 'Timed out')]
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='garment_tryons')
+    garment_job = models.ForeignKey('catalog.GarmentJob', on_delete=models.CASCADE, related_name='tryons')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    result_image = models.ImageField(upload_to=upload_to_garment_tryons, max_length=IMAGE_PATH_MAX_LENGTH,
+                                     blank=True)
+    error = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

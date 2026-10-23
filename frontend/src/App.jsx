@@ -703,6 +703,7 @@ function GarmentGallery({ order, onChanged, role }) {
   const canSend = !role || ['Owner', 'Designer', 'Master'].includes(role);
   const sentAt = images.map((i) => i.sent_at).filter(Boolean).sort().pop();
   const review = job && (order.photo_reviews || []).find((r) => r.garment_job === job.id);
+  const tryons = job ? (order.garment_tryons || []).filter((r) => r.garment_job === job.id) : [];
   const published = order.garment_images_published;
   const have = new Set(images.map((i) => i.view));
   // Share with customer (the whole order's gallery) checks every photo on the order, as it always did.
@@ -810,6 +811,23 @@ function GarmentGallery({ order, onChanged, role }) {
                 : ` · ✎ Changes asked${review.note ? `: "${review.note}"` : ''}`) : ' · waiting for the customer'}
             </span>
           )}
+        </div>
+      )}
+
+      {/* The customer's own try-on pictures of this garment, made from the
+          try-on link sent with its photos. */}
+      {tryons.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div className="od-hint" style={{ marginBottom: 6 }}>Customer try-on ({tryons.length})</div>
+          <div className="od-photos">
+            {tryons.map((tryon) => (
+              <a key={tryon.id} href={resolveMediaUrl(tryon.image_url)} target="_blank" rel="noopener noreferrer"
+                 title={`Made ${fmtDateTime(tryon.created_at)}`}>
+                <PhotoTile src={resolveMediaUrl(tryon.image_url)} alt="Customer try-on"
+                           label={fmtDateTime(tryon.created_at)} size={112} />
+              </a>
+            ))}
+          </div>
         </div>
       )}
     </section>

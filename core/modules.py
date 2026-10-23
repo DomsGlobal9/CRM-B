@@ -165,6 +165,15 @@ MODULES = {
     # is a door onto the customer book that the boutique may not want open.
     # Switching it off closes the portal and leaves counter entry and the
     # spreadsheet import untouched.
+    # The page a customer opens from the WhatsApp with their finished
+    # garment's photos, to see it on a photo of themselves. Public, no
+    # sign-in; each picture is a paid call, so it is a switch of its own.
+    'try_on': (
+        'Virtual Try-On',
+        ('/try-on/',),
+        'A customer sees their finished garment on their own photo, from the link '
+        'sent with its photos. Public, no sign-in.',
+    ),
     'customer_portal': (
         'Customer Portal',
         ('/intake/',),
@@ -254,6 +263,7 @@ MODULE_GROUP = {
     'notifications': 'operations',
     'order_tracking': 'operations',
     'customer_portal': 'operations',
+    'try_on': 'operations',
     'email': 'platform',
     'whatsapp': 'platform',
     'alterations': 'operations',
@@ -306,8 +316,8 @@ PRODUCT_MODULES = {
                 'Business costs and the profit-and-loss report.',
                 ('finance', 'finance_pl')),
     'try_on': ('Try-On',
-               'Virtual try-on. Not built yet; listed so the plan it will belong to is decided now.',
-               ()),
+               'Virtual try-on: the customer sees their finished garment on their own photo.',
+               ('try_on',)),
     'marketing': ('Marketing',
                   'Campaigns, promotions and customer outreach. Not built yet.',
                   ()),
@@ -331,7 +341,7 @@ def _bundle(modules, addons=False):
 PLAN_MODULES = {
     'starter': ('Starter', ('crm',)),
     'studio': ('Studio', ('crm', 'design', 'inventory')),
-    'atelier': ('Atelier', ('crm', 'design', 'inventory', 'team', 'finance')),
+    'atelier': ('Atelier', ('crm', 'design', 'inventory', 'team', 'finance', 'try_on')),
 }
 PLANS = {
     key: (label, _bundle(modules, addons=(key == 'atelier')))
@@ -361,7 +371,6 @@ STRUCTURAL = {
 CLIENT_ONLY = {
     'invoices': 'Rendered in the browser from orders already fetched. No endpoint of its own.',
     'reports': 'Computed in the browser. The only server-side report is inventory reporting.',
-    'try_on': 'Not implemented anywhere in this product.',
 }
 
 ALWAYS_ON = (
