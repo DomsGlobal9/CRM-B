@@ -668,17 +668,19 @@ const WORK_STATUS = {
    done from the Work and Design screens. */
 function OrderWorkTable({ rows, showStaff, onOpen }) {
   const today = localDay(new Date());
-  const cell = { verticalAlign: 'top' };
+  // Every heading in the middle of its column, over contents centred under it.
+  const cell = { verticalAlign: 'middle', textAlign: 'center' };
+  const head = { textAlign: 'center' };
   return (
     <div className="at-table-wrap" style={panel}>
       <table className="at-table">
         <thead>
           <tr>
-            {showStaff && <th>Staff</th>}
-            <th>Task</th>
-            <th>Order</th>
-            <th>Status</th>
-            <th>Due</th>
+            {showStaff && <th style={head}>Staff</th>}
+            <th style={head}>Task</th>
+            <th style={head}>Order</th>
+            <th style={head}>Status</th>
+            <th style={head}>Due</th>
           </tr>
         </thead>
         <tbody>
@@ -689,9 +691,9 @@ function OrderWorkTable({ rows, showStaff, onOpen }) {
               <tr key={row.id}>
                 {showStaff && (
                   <td style={cell}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                       <AvatarInitials name={row.assigned_to_name} size={28} />
-                      <div>
+                      <div style={{ textAlign: 'left' }}>
                         <div style={{ fontWeight: 600 }}>{row.assigned_to_name}</div>
                         {row.assigned_to_role && <div style={muted}>{row.assigned_to_role}</div>}
                       </div>
@@ -702,7 +704,7 @@ function OrderWorkTable({ rows, showStaff, onOpen }) {
                   <button type="button" onClick={() => onOpen(row)} title="Add today's update as a to-do"
                           style={{ border: 'none', background: 'none', padding: 0, cursor: 'pointer',
                                    font: 'inherit', fontWeight: 600, color: 'var(--text-primary)',
-                                   textAlign: 'left', textDecoration: 'underline', overflowWrap: 'anywhere' }}>
+                                   textAlign: 'center', textDecoration: 'underline', overflowWrap: 'anywhere' }}>
                     {row.task}
                   </button>
                   {row.garment && <div style={muted}>{row.garment}</div>}
