@@ -675,6 +675,29 @@ class WebDesignKeepView(views.APIView):
             status=status.HTTP_201_CREATED)
 
 
+def _preview_client(request):
+    """The vendor clientId for this drawing, or (None, refusal).
+
+    A picture of a customer is sent with `clientId` = that customer's ID, which
+    must be a customer of this boutique, and is passed on as it is (a random
+    UUID, so it is unique across boutiques). Anything else is the person drawing.
+    """
+    from django.db import connection
+    from crm_api.models import Customer
+
+    raw = (request.data or {}).get('clientId')
+    if not raw:
+        return f'{connection.schema_name}:{request.user.id}', None
+    try:
+        known = Customer.objects.filter(pk=uuid.UUID(str(raw))).exists()
+    except ValueError:
+        known = False
+    if not known:
+        return None, Response({'error': 'That customer is not in this boutique.'},
+                              status=status.HTTP_400_BAD_REQUEST)
+    return str(uuid.UUID(str(raw))), None
+
+
 class GarmentPreviewView(views.APIView):
     """One photograph of the garment the wizard put together, on a model.
 
@@ -703,7 +726,6 @@ class GarmentPreviewView(views.APIView):
         return Response({'available': generate.available(), 'garments': sorted(GARMENT_IDS)})
 
     def post(self, request):
-        from django.db import connection
         from apps.inventory.models import InventoryItem
         from crm_api.fabric_taxonomy import GARMENTS
         from . import generate
@@ -723,9 +745,12 @@ class GarmentPreviewView(views.APIView):
             'id', 'name', 'material_type', 'color', 'color_hex', 'image_url', 'item_code')}
         slots = {slot for section in ((GARMENTS.get(garment_key) or {}).get('sections') or {}).values()
                  for slot in section}
+        client_id, refusal = _preview_client(request)
+        if refusal:
+            return refusal
         try:
             payload = generate.build_payload(
-                client_id=f'{connection.schema_name}:{request.user.id}',
+                client_id=client_id,
                 garment_key=garment_key,
                 parts=data.get('parts') if isinstance(data.get('parts'), dict) else {},
                 part_refs=data.get('part_refs') if isinstance(data.get('part_refs'), dict) else {},
@@ -735,6 +760,11 @@ class GarmentPreviewView(views.APIView):
                 model_image=str(data.get('model_image') or ''),
                 views=data.get('views') if isinstance(data.get('views'), list) else None,
                 measurements=data.get('measurements'),
+                presentation=str(data.get('presentation') or 'model'),
+                model_gender=str(data.get('model_gender') or ''),
+                pair_with=data.get('pair_with'),
+                keep_motif_colors=data.get('keep_motif_colors') is not False,
+                coverage=str(data.get('coverage') or 'full'),
             )
             result = generate.generate(generate.resolve_images(payload))
             result['images'] = {
@@ -745,6 +775,20 @@ class GarmentPreviewView(views.APIView):
         # image_url stays the primary photograph (front, or the one side asked for).
         result['image_url'] = next(iter(result['images'].values()))
         return Response(result, status=status.HTTP_201_CREATED)
+
+
+class GarmentPreviewCancelView(views.APIView):
+    """Stop this person's running preview (the Stop button). The vendor ends
+    the waiting stream with CANCELLED, which the POST above answers as 409."""
+
+    permission_classes = [DesignStudioPermission]
+
+    def post(self, request):
+        from . import generate
+        client_id, refusal = _preview_client(request)
+        if refusal:
+            return refusal
+        return Response({'cancelled': generate.cancel(client_id)})
 
 
 class DesignCatalogueView(views.APIView):

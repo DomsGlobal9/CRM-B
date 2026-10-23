@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Check, CheckCircle2, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User, X } from 'lucide-react';
 import { api } from '../../services/api';
-import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, nameError } from '../../services/validate';
+import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, imageFilesError, nameError } from '../../services/validate';
+import { resolveMediaUrl } from '../../services/media';
 import { formatMobile } from '../../services/format';
 import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
 import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../services/phone';
-import { FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
+import { CameraButton, FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
 import { useCustomerLookup } from './useCustomerLookup';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same
@@ -36,41 +37,70 @@ const MEASUREMENT_ZONES = [
     id: 'core',
     label: 'Core Body Baseline',
     garments: 'General Baseline (All Garments)',
-    keys: ['bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length']
+    // The stored keys are the ones the garment forms already read, so a value
+    // typed here still pre-fills them; only the names shown are the boutique's.
+    keys: ['length', 'shoulder', 'bust', 'waist', 'hips', 'arm_length', 'bicep_round',
+           'front_neck_depth', 'back_neck_depth'],
+    labels: { length: 'Bodice Length', hips: 'Hip', bicep_round: 'Arm Rounding',
+              front_neck_depth: 'Front Neck', back_neck_depth: 'Back Neck' },
+    other: true,
   },
   {
     id: 'upper_body',
     label: 'Blouse, Kurti & Tops',
     garments: 'Blouse, Kurti, Suit, Shirt, Sherwani, Jacket',
-    keys: [
-      'collar_neck', 'front_shoulder', 'back_shoulder', 'front_neck_depth', 'back_neck_depth',
-      'upper_chest', 'underbust', 'armhole', 'bicep_length', 'bicep_round',
-      'elbow_length', 'elbow_round', 'full_sleeves_round', 'sleeve_opening',
-      'wrist', 'upper_arm', 'elbow', 'sleeve_length', 'shoulder_to_bust', 'shoulder_to_waist',
-      'blouse_length', 'neck_circumference', 'across_chest', 'across_back', 'full_length'
-    ]
+    other: true,
+    // In the order a tailor takes them, top to bottom. Every earlier box is
+    // still here; four sleeve boxes only carry clearer names, four are new.
+    // [heading, keys]; in the sleeve step each length is followed by its round.
+    steps: [
+      ['Length & shoulders', ['blouse_length', 'full_length', 'front_shoulder', 'back_shoulder',
+                              'shoulder_to_bust', 'shoulder_to_waist']],
+      ['Chest & bust', ['upper_chest', 'bust', 'underbust', 'across_chest', 'across_back']],
+      ['Armhole & arm', ['armhole', 'upper_arm', 'bicep_length', 'bicep_round']],
+      ['Sleeve', ['short_sleeve_length', 'short_hand_round', 'elbow_length', 'elbow_round',
+                  'three_quarter_sleeve_length', 'three_quarter_round', 'sleeve_length', 'full_sleeves_round',
+                  'elbow', 'wrist', 'sleeve_opening']],
+      ['Neck', ['front_neck_depth', 'back_neck_depth', 'collar_neck', 'neck_circumference']],
+    ],
+    labels: {
+      short_sleeve_length: 'Short Sleeve Length', short_hand_round: 'Short Hand Rounding',
+      elbow_length: 'Elbow Sleeve Length', elbow_round: 'Elbow Rounding',
+      three_quarter_sleeve_length: '3/4 Sleeve Length', three_quarter_round: '3/4 Rounding',
+      sleeve_length: 'Full Sleeve Length', full_sleeves_round: 'Full Rounding',
+    },
   },
   {
     id: 'lehenga_gown',
     label: 'Lehenga, Skirt & Gown',
     garments: 'Lehenga, Petticoat, Skirt, Anarkali, Gown',
-    keys: [
-      'lehenga_length', 'lehenga_waist', 'high_round', 'floor_length', 'height',
-      'high_waist', 'waist_to_hip', 'waist_to_floor', 'waist_to_ankle', 'heel_height',
-      'total_ghera', 'hem_circumference', 'bottom_full_length'
-    ]
+    other: true,
+    // Waist, then the lengths down the leg, then the flare. Floor length,
+    // height, waist to hip / floor, heel height and bottom full length left
+    // this section; a customer's saved values for them are kept (and searchable).
+    steps: [
+      ['Waist', ['lehenga_waist', 'high_waist', 'high_round']],
+      ['Lengths', ['waist_to_knee', 'waist_to_ankle', 'lehenga_length']],
+      ['Flare & hem', ['total_ghera', 'hem_circumference']],
+    ],
   },
   {
     id: 'pants_bottoms',
     label: 'Pants, Salwar & Trouser',
     garments: 'Pants, Churidar, Salwar, Sharara, Trouser, Jeans, Shorts',
-    keys: [
-      'hip_round', 'pant_waist', 'pant_length', 'knee_length', 'ankle_length',
-      'inseam', 'ankle_round', 'crotch_length', 'outseam', 'crotch',
-      'thigh', 'knee', 'calf', 'ankle'
-    ]
+    other: true,
+    // Waist and hip, the crotch, the full lengths, then down the leg with each
+    // length beside its round. Knee / Crotch / Calf are the earlier boxes under
+    // clearer names; Ankle left the section (its saved values are kept).
+    steps: [
+      ['Waist & hip', ['pant_waist', 'hip_round', 'thigh']],
+      ['Crotch', ['crotch', 'crotch_length']],
+      ['Full lengths', ['pant_length', 'outseam', 'inseam']],
+      ['Down the leg', ['knee_length', 'knee', 'calf_length', 'calf', 'ankle_length', 'ankle_round']],
+    ],
+    labels: { knee: 'Knee Round', crotch: 'Crotch Round', calf: 'Calf Round' },
   }
-];
+].map((zone) => (zone.steps ? { ...zone, keys: zone.steps.flatMap(([, keys]) => keys) } : zone));
 
 
 
@@ -311,6 +341,10 @@ function customerToForm(customer) {
   const measurements = {};
   CORE.forEach(([key]) => { measurements[key] = asInch(m[key]); });
   MORE_KEYS.forEach((key) => { measurements[key] = asInch(extra[key]); });
+  // Parts typed in under "Other" are kept by their own name.
+  Object.keys(extra).forEach((key) => {
+    if (!(key in measurements) && !CORE_KEYS.has(key) && asInch(extra[key]) !== '') measurements[key] = asInch(extra[key]);
+  });
   const text = (key) => (customer[key] === null || customer[key] === undefined ? '' : String(customer[key]));
   return {
     full_name: [text('first_name'), text('last_name')].map((v) => v.trim()).filter(Boolean).join(' '),
@@ -398,6 +432,34 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
   // Who referred them, for a new customer only. Edit Customer never shows
   // this: a referral already recorded is the Referrals card's to change.
   const [referredBy, setReferredBy] = useState(null);
+  // A new photo picked here (a File); the saved one stays until it is replaced.
+  const [photo, setPhoto] = useState(null);
+  const photoPreview = useMemo(() => (photo ? URL.createObjectURL(photo) : ''), [photo]);
+  const savedPhoto = customer?.profile_photo ? resolveMediaUrl(customer.profile_photo) : '';
+  const pickPhoto = (file) => {
+    const bad = file ? imageFilesError([file]) : '';
+    setError(bad || null);
+    setPhoto(bad ? null : (file || null));
+  };
+
+  // Body parts added under "Other" (stored by their own name in additional_measurements).
+  const [customKeys, setCustomKeys] = useState(
+    () => Object.keys(initial.measurements).filter((key) => !CORE_KEYS.has(key) && !MORE_KEYS.includes(key)));
+  const [otherName, setOtherName] = useState('');
+  const [otherError, setOtherError] = useState('');
+  const addOther = () => {
+    const key = otherName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
+    if (!key) { setOtherError('Type the body part, e.g. Thigh.'); return; }
+    setOtherError('');
+    setOtherName('');
+    // A name the form already knows just brings that box here.
+    setCustomKeys((prev) => (prev.includes(key) || activeZoneObj.keys.includes(key) ? prev : [...prev, key]));
+    setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: prev.measurements[key] ?? '' } }));
+  };
+  const removeOther = (key) => {
+    setCustomKeys((prev) => prev.filter((k) => k !== key));
+    setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: '' } }));
+  };
 
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const setInch = (key, value) => setForm((prev) => ({ ...prev, measurements: { ...prev.measurements, [key]: value } }));
@@ -417,12 +479,13 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
     const moved = (key) => (form.measurements[key] ?? '') !== (initial.measurements[key] ?? '');
     const core = {};
     CORE.forEach(([key]) => { if (moved(key)) core[key] = form.measurements[key] === '' ? null : Number(form.measurements[key]); });
-    if (MORE_KEYS.some(moved)) {
+    const extraKeys = [...MORE_KEYS, ...customKeys.filter((key) => !MORE_KEYS.includes(key) && !CORE_KEYS.has(key))];
+    if (extraKeys.some(moved)) {
       // The whole extras object is replaced on save, so it starts from what
       // the customer already has -- keys this form does not show survive.
       const extras = { ...((customer.measurements || {}).additional_measurements || {}) };
-      MORE_KEYS.forEach((key) => {
-        if (form.measurements[key] === '') delete extras[key];
+      extraKeys.forEach((key) => {
+        if ((form.measurements[key] ?? '') === '') delete extras[key];
         else extras[key] = Number(form.measurements[key]);
       });
       core.additional_measurements = extras;
@@ -453,11 +516,12 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
     if (problem) { setError(problem); return; }
     if (editing) {
       const payload = changes();
-      if (!Object.keys(payload).length) { onBack?.(); return; }
+      if (!Object.keys(payload).length && !photo) { onBack?.(); return; }
       setBusy(true);
       setError(null);
       try {
-        const row = await api.updateCustomer(customer.id, payload);
+        let row = Object.keys(payload).length ? await api.updateCustomer(customer.id, payload) : customer;
+        if (photo) row = await api.uploadCustomerPhoto(customer.id, photo);
         await onSaved?.(row);
       } catch (err) {
         setError(err.message);
@@ -482,7 +546,13 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
     if (Object.keys(core).length || Object.keys(extras).length) payload.measurements = { ...core, additional_measurements: extras };
     if (referredBy) payload.referred_by = referredBy.id;
     try {
-      const row = await api.createCustomer(payload);
+      let row = await api.createCustomer(payload);
+      if (photo) {
+        // The customer is saved by now; a failed photo must not lose them.
+        try { row = await api.uploadCustomerPhoto(row.id, photo); } catch (err) {
+          alert(`Customer saved, but the photo could not be uploaded (${err.message}). Add it again from Edit.`);
+        }
+      }
       await onSaved?.(row);
     } catch (err) {
       setError(err.message);
@@ -505,7 +575,7 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
           <span>{name}</span>
           <span className="od-hint" style={{ color: hasValue ? 'var(--brand-primary, #047857)' : 'var(--text-tertiary, #9ca3af)', fontSize: '11px', fontWeight: 500 }}>in</span>
         </label>
-        <input id={`cf-${key}`} type="number" className="form-control" min="0" max="120" step="0.25"
+        <input id={`cf-${key}`} type="number" className="form-control no-spinners" min="0" max="120" step="0.25"
                style={{ fontSize: '14px', height: '36px', background: 'var(--surface-2, #f9fafb)' }}
                value={inch(form.measurements[key])} onChange={(e) => setInch(key, e.target.value)}
                placeholder="0.00" />
@@ -544,6 +614,30 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <IconTile icon={User} tone="green" size={36} iconSize={16} />
           <strong>Profile</strong>
+        </div>
+        <div className="form-group">
+          <span className="form-label">Customer photo</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
+                          background: 'var(--surface-inset)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--text-muted)' }}>
+              {(photoPreview || savedPhoto)
+                ? <img src={photoPreview || savedPhoto} alt="Customer photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <User size={26} />}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <button type="button" className="btn-secondary at-btn-sm"
+                      onClick={() => document.getElementById('cf-photo').click()}>
+                <Upload size={14} /> {savedPhoto || photo ? 'Change photo' : 'Choose file'}
+              </button>
+              <CameraButton onFiles={([f]) => pickPhoto(f)} />
+              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+                {photo ? photo.name : (savedPhoto ? 'Current photo' : 'No photo yet')}
+              </span>
+              <input id="cf-photo" type="file" accept="image/*" hidden aria-label="Customer photo"
+                     onChange={(e) => { const file = e.target.files?.[0] || null; e.target.value = ''; pickPhoto(file); }} />
+            </div>
+          </div>
         </div>
         <div className="form-group">
           <label className="form-label" htmlFor="cf-name">Full name <span className="required">*</span></label>
@@ -747,10 +841,51 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
               <span><strong>Used for:</strong> {activeZoneObj.garments}</span>
             </div>
 
-            {/* Active Zone Fields */}
+            {/* Active Zone Fields: in numbered steps where the zone has them. */}
+            {activeZoneObj.steps?.map(([title, keys], i) => (
+              <div key={title} style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                              color: 'var(--brand-primary, #047857)', marginBottom: 8 }}>
+                  Step {i + 1} · {title}
+                </div>
+                <div style={INCH_GRID}>
+                  {keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
+                </div>
+              </div>
+            ))}
             <div style={INCH_GRID}>
-              {activeZoneObj.keys.map((key) => inchInput(key, label(key)))}
+              {!activeZoneObj.steps && activeZoneObj.keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
+              {activeZoneObj.other && customKeys.map((key) => (
+                <div key={key} style={{ position: 'relative' }}>
+                  {inchInput(key, label(key))}
+                  <button type="button" onClick={() => removeOther(key)} aria-label={`Remove ${label(key)}`} title="Remove"
+                          style={{ position: 'absolute', top: 6, right: 6, border: 'none', background: 'transparent',
+                                   cursor: 'pointer', color: 'var(--text-tertiary, #9ca3af)', padding: 2 }}>
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
             </div>
+            {activeZoneObj.other && (
+              <div style={{ marginTop: 12 }}>
+                <label className="form-label" htmlFor="cf-other-part" style={{ fontSize: '12px', fontWeight: 600 }}>
+                  Other — add another body part
+                </label>
+                {customKeys.length > 0 && (
+                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary, #9ca3af)', marginBottom: 6 }}>
+                    Other parts are kept for this customer and show in every section.
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input id="cf-other-part" type="text" className="form-control" maxLength={40} value={otherName}
+                         placeholder="e.g. Thigh, Calf, Armhole" style={{ maxWidth: 260, height: 36 }}
+                         onChange={(e) => setOtherName(e.target.value)}
+                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOther(); } }} />
+                  <button type="button" className="btn-secondary" onClick={addOther}>+ Other</button>
+                </div>
+                {otherError && <div role="alert" style={{ fontSize: '12px', color: 'var(--danger, #b42318)', marginTop: 4 }}>{otherError}</div>}
+              </div>
+            )}
 
           </>
         )}

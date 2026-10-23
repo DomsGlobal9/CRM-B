@@ -6,7 +6,7 @@ from .views import (
     DesignerViewSet, DesignCategoryView, DesignCatalogueView, DesignDashboardView, CollectionViewSet,
     GarmentPartImageView,
     ReferenceUploadView,
-    WebDesignSearchView, WebDesignKeepView, GarmentPreviewView,
+    WebDesignSearchView, WebDesignKeepView, GarmentPreviewView, GarmentPreviewCancelView,
     DesignAssignmentViewSet,
     CustomerDesignViewSet,
 )
@@ -29,6 +29,7 @@ urlpatterns = [
     path('web-search/', WebDesignSearchView.as_view(), name='design-web-search'),
     path('web-keep/', WebDesignKeepView.as_view(), name='design-web-keep'),
     path('preview/', GarmentPreviewView.as_view(), name='design-preview'),
+    path('preview/cancel/', GarmentPreviewCancelView.as_view(), name='design-preview-cancel'),
     path('dashboard/', DesignDashboardView.as_view(), name='design-dashboard'),
     path('', include(router.urls)),
 ]

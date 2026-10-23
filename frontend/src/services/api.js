@@ -467,6 +467,18 @@ export const api = {
     return res.json();
   },
 
+  // The customer's photo on its own request: a multipart body cannot carry the
+  // nested measurements the JSON saves do, so the two never share one.
+  async uploadCustomerPhoto(customerId, file) {
+    const body = new FormData();
+    body.append('profile_photo', await shrinkImage(file, 800));
+    const res = await guardedFetch(`${BASE_URL}/customers/${customerId}/`, {
+      method: 'PATCH', headers: getHeaders(true), body,
+    });
+    if (!res.ok) await failWith(res, 'Failed to save the photo');
+    return res.json();
+  },
+
   // Owner only; the server refuses a customer who has orders or alterations,
   // because their invoices and payments would be deleted with them.
   async deleteCustomer(customerId) {
@@ -914,10 +926,12 @@ export const api = {
 
   // Finished-garment photographs. Published as a set, because publishing is
   // what tells the customer their outfit is ready.
-  async uploadGarmentImage(orderId, view, file) {
+  // `garmentJob`: which garment the photo shows, on an order of several.
+  async uploadGarmentImage(orderId, view, file, garmentJob = null) {
     const formData = new FormData();
     formData.append('view', view);
-    formData.append('image', file);
+    formData.append('image', await shrinkImage(file));
+    if (garmentJob) formData.append('garment_job', garmentJob);
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/garment-images/`, {
       method: 'POST',
       headers: getHeaders(true),
@@ -942,6 +956,24 @@ export const api = {
       headers: getHeaders(),
     });
     if (!res.ok) throw new Error(describeApiError(res, await res.json().catch(() => ({}))));
+  },
+
+  async deleteGarmentTryOn(orderId, tryonId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/garment-tryons/${tryonId}/`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    if (!res.ok) throw new Error(describeApiError(res, await res.json().catch(() => ({}))));
+  },
+
+  // One finished garment's photos to the customer's WhatsApp (after its QC).
+  async sendGarmentPhotos(orderId, garmentJob) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/send-garment-photos/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify({ garment_job: garmentJob }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data));
+    return data;
   },
 
   async publishGarmentImages(orderId, published = true) {
@@ -995,6 +1027,30 @@ export const api = {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || describeApiError(res, data));
+    return data;
+  },
+
+  // My Profile: the signed-in user's own name. Returns the user object, as /auth/me/ does.
+  async updateMyName(firstName, lastName) {
+    const res = await guardedFetch(`${BASE_URL}/auth/me/`, {
+      method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ first_name: firstName, last_name: lastName }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data));
+    return data;
+  },
+
+  // My Profile: change the password, knowing the current one. The server
+  // replaces the login token (other devices are signed out); this one keeps
+  // working on the new token it hands back.
+  async changeMyPassword(currentPassword, newPassword) {
+    const res = await guardedFetch(`${BASE_URL}/auth/change-password/`, {
+      method: 'POST', headers: getHeaders(),
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || describeApiError(res, data));
+    if (data.token) localStorage.setItem('token', data.token);
     return data;
   },
 
@@ -1488,6 +1544,12 @@ export const api = {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || describeApiError(res, data) || 'The preview could not be made.');
     return data;
+  },
+  async cancelGarmentPreview(customerId = null) {
+    const res = await guardedFetch(`${BASE_URL}/design-studio/preview/cancel/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(customerId ? { clientId: customerId } : {}),
+    });
+    return res.ok ? res.json() : { cancelled: false };
   },
   async uploadReferenceImage(file) {
     const body = new FormData();

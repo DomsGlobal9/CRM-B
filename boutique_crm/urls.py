@@ -3,12 +3,15 @@ from django.urls import path, include, re_path
 from django.conf import settings
 from django.views.static import serve
 
-from crm_api.tracking_views import order_tracking
+from crm_api.tracking_views import garment_photo_review, order_tracking
+from crm_api.tryon_views import garment_tryon
 from tenants.views import demo_request
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('track/<str:token>/', order_tracking, name='order-tracking'),
+    path('track/<str:token>/photo-review/', garment_photo_review, name='order-tracking-photo-review'),
+    path('try-on/<str:token>/', garment_tryon, name='garment-tryon'),
     path('demo-request/', demo_request, name='demo-request'),
     path('intake/', include('crm_api.portal_urls')),
     path('api/superadmin/', include('superadmin.urls')),

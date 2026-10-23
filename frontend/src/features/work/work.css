@@ -124,3 +124,13 @@
   .wk-sheet { inset: 0 0 0 auto; width: 560px; max-width: 100%; box-shadow: var(--shadow-lg); border-left: 1px solid var(--border-color); }
   .wk-toast { left: auto; right: 24px; bottom: 24px; max-width: 420px; }
 }
+
+/* The kind of work (Cutting, Maggam, Stitching...): a stripe and a tag in its
+   colour (services/workKind.js). A NEW card keeps its own lime stripe. */
+.wk-card[data-kind]:not(.wk-card--new) { border-left: 4px solid var(--wk-kind); }
+.wk-kind-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 1px 8px; border-radius: 999px; margin-right: 6px; vertical-align: 1px;
+  color: var(--wk-kind); background: color-mix(in srgb, var(--wk-kind) 12%, transparent); }
+/* My work's status tabs. */
+.wk-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-4, 16px); }
+.wk-tabs .tab-btn { display: inline-flex; align-items: center; gap: 6px; }

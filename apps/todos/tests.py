@@ -75,6 +75,20 @@ class TodoTests(TenantTestCase):
         self.assertEqual(len(note['photos']), 2)
         self.assertTrue(note['voice_note'].endswith('a.webm'))
 
+    def test_title_and_details_each_keep_their_own_voice_note(self):
+        response = self.call(self.tailor, 'post', '/api/todos/', {
+            'title': 'Blouse hand work', 'description': 'Gold zari on the sleeves',
+            'title_voice_note': 'https://media.test/voice_notes/title.webm',
+            'description_voice_note': 'https://media.test/voice_notes/details.webm',
+        }, fmt='multipart')
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(response.data['title_voice_note'].endswith('title.webm'))
+        self.assertTrue(response.data['description_voice_note'].endswith('details.webm'))
+        # Not a link the browser could run.
+        bad = self.call(self.tailor, 'post', '/api/todos/', {
+            'title': 'x', 'title_voice_note': 'javascript:alert(1)'}, fmt='multipart')
+        self.assertEqual(bad.status_code, 400)
+
     def test_a_title_is_required(self):
         response = self.call(self.tailor, 'post', '/api/todos/', {'title': '  '})
         self.assertEqual(response.status_code, 400)
@@ -382,3 +396,56 @@ class TodoTests(TenantTestCase):
         stitching.refresh_from_db()
         self.assertEqual(todo.status, Todo.STATUS_OPEN)
         self.assertEqual(stitching.status, 'NOT_STARTED')
+
+
+class TodoLocationTests(TenantTestCase):
+    """Where the to-do form was filled: coordinates and a free OpenStreetMap place name."""
+
+    setup_tenant = TodoTests.setup_tenant
+    _user, _staff, call = TodoTests._user, TodoTests._staff, TodoTests.call
+
+    def setUp(self):
+        super().setUp()
+        connection.set_tenant(self.tenant)
+        self.tailor = self._staff('Anita', 'Tailor')
+
+    def test_the_location_and_its_place_name_are_kept(self):
+        from unittest import mock
+        with mock.patch('apps.todos.geocode.place_name', return_value='Madhapur, Hyderabad, Telangana, 500081, India') as lookup:
+            response = self.call(self.tailor, 'post', '/api/todos/', {
+                'title': 'Blouse hand work', 'latitude': '17.4486123', 'longitude': '78.3908411', 'accuracy': '12',
+            }, fmt='multipart')
+        self.assertEqual(response.status_code, 201, response.data)
+        lookup.assert_called_once()
+        self.assertEqual(response.data['location_name'], 'Madhapur, Hyderabad, Telangana, 500081, India')
+        self.assertEqual(response.data['location_latitude'], '17.448612')
+        self.assertEqual(response.data['location_accuracy_m'], 12)
+
+    def test_no_or_bad_location_still_saves_without_one(self):
+        from unittest import mock
+        with mock.patch('apps.todos.geocode.place_name') as lookup:
+            for body in ({'title': 'a'}, {'title': 'b', 'latitude': '200', 'longitude': '78'}):
+                response = self.call(self.tailor, 'post', '/api/todos/', body, fmt='multipart')
+                self.assertEqual(response.status_code, 201, response.data)
+                self.assertIsNone(response.data['location_latitude'])
+                self.assertEqual(response.data['location_name'], '')
+        lookup.assert_not_called()
+
+    def test_the_lookup_falls_back_to_photon_and_never_raises(self):
+        from unittest import mock
+        from apps.todos import geocode
+
+        photon = mock.Mock(status_code=200)
+        photon.raise_for_status.return_value = None
+        photon.json.return_value = {'features': [{'properties': {
+            'name': 'Inorbit Mall', 'city': 'Hyderabad', 'state': 'Telangana', 'country': 'India'}}]}
+
+        def answer(url, **kwargs):
+            if 'nominatim' in url:
+                raise geocode.requests.Timeout()
+            return photon
+
+        with mock.patch.object(geocode.requests, 'get', side_effect=answer):
+            self.assertEqual(geocode.place_name(17.43, 78.38), 'Inorbit Mall, Hyderabad, Telangana, India')
+        with mock.patch.object(geocode.requests, 'get', side_effect=geocode.requests.ConnectionError()):
+            self.assertEqual(geocode.place_name(17.43, 78.38), '')

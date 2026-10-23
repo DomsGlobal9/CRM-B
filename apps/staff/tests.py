@@ -1080,10 +1080,14 @@ class AttendanceVisibilityTests(AttendanceTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 2)
 
-    def test_a_master_sees_the_team(self):
+    def test_a_master_sees_only_their_own_days(self):
+        # Staff attendance is the owner's to see; the Master is staff here.
+        AttendanceSession.objects.create(
+            staff=self.master, date=date(2026, 9, 1),
+            check_in=self._at(2026, 9, 1, 9, 0), check_out=self._at(2026, 9, 1, 18, 0), minutes=540)
         response = self.client_for(self.master_user).get(reverse('staff-attendance-list'))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual([row['staff_name'] for row in response.data], ['Mira'])
 
     def test_a_tailor_sees_only_their_own_days(self):
         response = self.client_for(self.anita_user).get(reverse('staff-attendance-list'))
@@ -1243,8 +1247,14 @@ class TimesheetTests(AttendanceTestCase):
         self.assertEqual(response.data['staff_name'], 'Anita')
         self.assertNotEqual(response.data['total_minutes'], 720)
 
-    def test_a_master_may_read_the_teams_timesheet(self):
+    def test_a_master_cannot_read_a_colleagues_timesheet(self):
         response = self.client_for(self.master_user).get(
+            reverse('staff-timesheet'), {'staff': self.anita.id, 'week': '2026-09-01'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['staff_name'], 'Mira')
+
+    def test_the_owner_may_read_anyones_timesheet(self):
+        response = self.client_for(self.owner).get(
             reverse('staff-timesheet'), {'staff': self.anita.id, 'week': '2026-09-01'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['staff_name'], 'Anita')

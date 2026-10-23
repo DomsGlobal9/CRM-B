@@ -4,7 +4,7 @@ from .views import CustomerViewSet, TailorViewSet, BoutiqueDesignViewSet, OrderV
 from .client_errors import ClientErrorView
 from .auth_views import (
     BoutiqueBySlugView, SignupView, LoginView, LogoutView, MeView, SeedDataView,
-    PasswordResetRequestView, PasswordResetConfirmView,
+    PasswordResetRequestView, PasswordResetConfirmView, ChangePasswordView,
 )
 
 router = DefaultRouter()
@@ -28,6 +28,7 @@ urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='auth-login'),
     path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
     path('auth/me/', MeView.as_view(), name='auth-me'),
+    path('auth/change-password/', ChangePasswordView.as_view(), name='auth-change-password'),
     path('auth/boutique/<slug:slug>/', BoutiqueBySlugView.as_view(),
          name='auth-boutique'),
     path('auth/seed-data/', SeedDataView.as_view(), name='auth-seed-data'),
