@@ -7290,16 +7290,13 @@ function App() {
           {/* Bottom navigation, phones only.
               It belongs to this view, not the order selector it was originally
               written into: its tabs drive dashboardTab, which only the dashboard
-              renders, so from anywhere else every tab was inert. */}
+              renders, so from anywhere else every tab was inert.
+              No "Menu" tab: MobileHeader's hamburger already opens the drawer. */}
           <BottomNavigation
-            tabs={[
-              ...navSections.flatMap((s) => s.items).filter((i) => i.phone)
-                .map((i) => ({ key: i.tab, label: i.phoneLabel || i.label, icon: i.icon })),
-              { key: 'more', label: t('nav.menu', 'Menu'), icon: Menu }
-            ]}
+            tabs={navSections.flatMap((s) => s.items).filter((i) => i.phone)
+              .map((i) => ({ key: i.tab, label: i.phoneLabel || i.label, icon: i.icon }))}
             activeTab={dashboardTab}
             onChangeTab={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); }}
-            onOpenMore={() => setMobileNavOpen(true)}
           />
         </div>
       )}
@@ -9789,17 +9786,17 @@ Complete the Payment stage with this partial payment?`)) return;
         <div className="existing-customer-search-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1300 }}>
           <div className="search-modal-card" style={{ maxWidth: '360px', width: '100%', padding: '24px', textAlign: 'center' }}>
             <h3 style={{ fontSize: '18px', fontWeight: 600, fontFamily: 'var(--font-serif)', marginBottom: '8px' }}>
-              Log out?
+              Sign out of your boutique
             </h3>
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-              You will need to sign in again to open your boutique.
+              You&apos;ll need to sign in again to get back to your orders.
             </p>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
               <button type="button" className="btn-secondary" disabled={logoutBusy} onClick={() => setShowLogoutConfirm(false)}>
                 Cancel
               </button>
               <button type="button" className="btn-primary" disabled={logoutBusy} onClick={handleLogout}>
-                {logoutBusy ? 'Logging out…' : 'Logout'}
+                {logoutBusy ? 'Signing out…' : 'Sign out'}
               </button>
             </div>
           </div>
