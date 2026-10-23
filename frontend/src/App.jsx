@@ -5866,7 +5866,7 @@ function App() {
                   ) : (
                     
                     <>
-                    <div className="at-table-wrap">
+                    <div className="at-table-wrap cust-list">
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
@@ -5903,13 +5903,14 @@ function App() {
                       return (
                         <tr
                           key={cust.id}
+                          className="cust-row"
                           role="button"
                           tabIndex={0}
                           style={{ cursor: 'pointer' }}
                           onClick={open}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
                         >
-                          <td data-label="Customer" style={{ overflow: 'hidden' }}>
+                          <td data-label="Customer" className="cust-c-person" style={{ overflow: 'hidden' }}>
                             <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
                               <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36}
                                               src={cust.profile_photo ? resolveMediaUrl(cust.profile_photo) : ''} />
@@ -5928,7 +5929,7 @@ function App() {
                             </div>
                           </td>
 
-                          <td data-label="Body measurements" style={{ overflow: 'hidden' }}>
+                          <td data-label="Body measurements" className="cust-c-measure" style={{ overflow: 'hidden' }}>
                             {m && shown.length > 0 ? (
                               <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
                                    title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
@@ -5945,7 +5946,7 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Style notes" style={{ overflow: 'hidden' }}>
+                          <td data-label="Style notes" className="cust-c-style" style={{ overflow: 'hidden' }}>
                             <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
                               {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
@@ -5954,14 +5955,14 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Orders" style={{ overflow: 'hidden' }}>
+                          <td data-label="Orders" className="cust-c-orders" style={{ overflow: 'hidden' }}>
                             <div style={{ fontWeight: 700 }}>{orders}</div>
                             <div style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
                               {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
                             </div>
                           </td>
 
-                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td className="cust-c-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <button
                               type="button"
                               className="at-link"

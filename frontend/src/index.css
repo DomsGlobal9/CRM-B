@@ -5867,12 +5867,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .dl-page .dd-grant button { flex: 1 1 100%; justify-content: center; min-height: 40px; font-size: 13px !important; }
 }
 
-/* ---- Staff list on a phone: each person a box, not a table row --------
-   The table is unchanged above 600px. Below it, a row is a card: the person
-   on top, then Status / Contact / Work type / Pay / Advances as labelled
-   pairs (the labels are the cells' data-label), the actions along the foot.
-   An opened row's pay details hang under its card. */
-@media (max-width: 600px) {
+/* ---- Staff list on a tablet and a phone: each person a box ------------
+   The table is unchanged above 1024px (below it, its seven columns no
+   longer fit and it scrolled sideways). Below it, a row is a card: the
+   person and their buttons on top, then Status / Contact / Work type / Pay /
+   Advances as labelled pairs (the labels are the cells' data-label) -- all
+   five on one line on a tablet, three to a line on a phone. An opened row's
+   pay details hang under its card. */
+@media (max-width: 1024px) {
   .staff-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
   .staff-table { min-width: 0 !important; display: block; }
   .staff-table thead { display: none; }
@@ -5921,6 +5923,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   }
   .staff-table tr.staff-detail > td { display: block; padding: 0 !important; border: none !important; background: transparent !important; }
 }
+/* A tablet has the width for all five details on one line (four 12px gaps),
+   and a little more room in the card. */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .staff-table tr.staff-row { padding: 12px 16px; gap: 10px 12px; }
+  .staff-table td[data-label] { flex: 0 0 calc((100% - 48px) / 5); font-size: 13px !important; }
+  .staff-table tr.staff-detail { padding: 0 16px 16px; }
+}
 
 /* ---- Bills & payments on a phone ---------------------------------------
    Below 1024px the bill rows already stack (.at-table--fit); on a phone each
@@ -5943,7 +5952,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .bill-toolbar { margin: 14px 0 12px !important; gap: 10px !important; }
   .bill-toolbar .at-toolbar-right { flex: 1 1 100%; }
   .bill-toolbar .at-toolbar-right > * { flex: 1 1 100%; width: 100%; max-width: none; }
-
+}
+/* The bill cards themselves: on a tablet too (below 1024px), where the
+   stacked rows were eight lines one under another down the whole width. */
+@media (max-width: 1024px) {
   .invoices-content.at-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
   .invoices-content tbody { display: flex !important; flex-direction: column; gap: 10px; }
   .invoices-content tr.bill-row {
@@ -5977,6 +5989,12 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .invoices-content tr.bill-row > td:nth-child(8) button { width: 100%; justify-content: center; min-height: 38px; }
   /* 16px stops the phone zooming in when the paid amount is tapped. */
   .invoices-content tr.bill-row input { font-size: 16px !important; }
+}
+/* A tablet: the bill cards two to a row, a little roomier. */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .invoices-content tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .invoices-content tr.bill-row { padding: 14px !important; gap: 12px 10px; }
+  .invoices-content tbody > tr:not(.bill-row) { grid-column: 1 / -1; }
 }
 
 /* ---- My Profile on a phone ---------------------------------------------
@@ -6088,4 +6106,93 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
     content: attr(data-label); display: block; margin-bottom: 1px;
     font-size: 9.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted);
   }
+}
+
+/* ---- Customers list on a tablet and a phone ----------------------------
+   Below 1024px the table already stacks (.at-table--fit), one long labelled
+   column per customer. Here each customer is a tidy card instead -- two to a
+   row on a tablet, one on a phone:
+     [photo] name  tier / phone
+     BODY MEASUREMENTS  Bust 30 · Waist 30 ...
+     STYLE NOTES            ORDERS
+     ----------------------------------
+     Style notes          edit  delete  >                                  */
+@media (max-width: 1024px) {
+  .cust-list.at-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
+  .cust-list .at-table--fit tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .cust-list .at-table--fit tr.cust-row {
+    display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "person person" "style orders" "actions actions";
+    gap: 10px 12px; align-content: start; padding: 14px !important;
+    background: var(--surface-color); border: 1px solid var(--border-color) !important;
+    border-radius: 12px; box-shadow: var(--shadow-card);
+  }
+  .cust-list .at-table--fit tr.cust-row:last-child { border-bottom: 1px solid var(--border-color) !important; }
+  .cust-list .at-table--fit tr.cust-row > td { padding: 0 !important; width: auto !important; min-width: 0; font-size: 13px; }
+  .cust-list .at-table--fit tr.cust-row > td[data-label]::before { font-size: 9.5px; letter-spacing: .05em; margin-bottom: 3px; }
+  .cust-list td.cust-c-person { grid-area: person; padding-bottom: 10px !important; border-bottom: 1px solid var(--border-color) !important; }
+  .cust-list td.cust-c-person::before { display: none !important; }
+  /* Measurements are read on the customer's own page (tap the card), not here. */
+  .cust-list td.cust-c-measure { display: none !important; }
+  .cust-list td.cust-c-style { grid-area: style; }
+  .cust-list td.cust-c-style .at-tags { flex-wrap: wrap !important; gap: 4px; }
+  .cust-list td.cust-c-orders { grid-area: orders; }
+  .cust-list td.cust-c-actions {
+    grid-area: actions; align-self: end; display: flex !important; align-items: center; gap: 4px;
+    padding-top: 8px !important; border-top: 1px solid var(--border-color) !important;
+  }
+  .cust-list td.cust-c-actions > .at-link { margin-right: auto; }
+  .cust-list td.cust-c-actions .at-row-actions { display: inline-flex; gap: 2px; }
+}
+@media (max-width: 600px) {
+  .cust-list .at-table--fit tbody { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .cust-list .at-table--fit tr.cust-row { padding: 12px !important; gap: 8px 12px; }
+}
+
+/* ---- My Profile: alignment at every size --------------------------------
+   Computer: the profile card stays in view beside the long column of forms.
+   Every form's buttons line up on the right, as the boutique form's do, and
+   its autosave note reads on the left of them instead of trailing after.
+   Tablet (one column): the profile card turns sideways -- photo beside the
+   name, the three details in a row -- instead of a tall centred block. */
+/* Computer, owner (two cards on the right): the profile card and My details
+   share the left column and the boutique form fills the right, so neither
+   side runs on alone past a long empty space. The right column's wrapper
+   steps aside (display: contents) for the grid to place its two cards; the
+   second row takes any spare height, so nothing gaps under the profile card.
+   With one card on the right (any other role) the layout is as before. */
+@media (min-width: 901px) {
+  .at-account:has(> .at-stack > :nth-child(2)) {
+    grid-template-columns: minmax(320px, 1fr) minmax(0, 1.5fr);
+    grid-template-rows: auto 1fr;
+  }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack { display: contents; }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-account-card { grid-column: 1; grid-row: 1; }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack > :nth-child(1) { grid-column: 1; grid-row: 2; align-self: start; }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack > :nth-child(2) { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+}
+.at-account form.at-stack > div:last-child:not([class]) { display: flex; justify-content: flex-end; }
+.at-account .at-form-foot { align-items: center; }
+.at-account .at-form-foot > span { order: -1; margin-right: auto; }
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .at-account .at-account-card {
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "cover cover" "avatar name" "avatar badge" "rows rows";
+    column-gap: 18px; text-align: left;
+  }
+  .at-account .at-cover { grid-area: cover; height: 96px; }
+  .at-account .at-account-avatar { grid-area: avatar; width: 100px; height: 100px; margin: -50px 0 0 24px; }
+  .at-account .at-account-name { grid-area: name; align-self: end; margin: 12px 24px 4px 0; }
+  .at-account .at-account-card > .ui-badge { grid-area: badge; justify-self: start; align-self: start; }
+  .at-account .at-account-rows {
+    grid-area: rows; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px; padding: 16px 24px 20px;
+  }
+}
+
+/* Phone: the forms' buttons full width; the autosave note back under them. */
+@media (max-width: 600px) {
+  .at-account form.at-stack > div:last-child:not([class]) > button { width: 100%; justify-content: center; min-height: 44px; }
+  .at-account .at-form-foot > span { order: 0; margin-right: 0; }
 }
