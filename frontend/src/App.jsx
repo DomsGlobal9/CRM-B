@@ -6464,7 +6464,7 @@ function App() {
                   )}
                 />
 
-                <section className="at-stat-grid">
+                <section className="at-stat-grid bill-stats">
                   <StatCard icon={Banknote} tone="green" label={t('invoicesPage.totalCollectedRevenue', 'Total Collected Revenue')}
                             value={formatMoney(paidTotal)} sub={`${paidCount} settled in full`} />
                   <StatCard icon={Wallet} tone="amber" label={t('invoicesPage.outstandingBalance', 'Outstanding Balance')}
@@ -6473,7 +6473,7 @@ function App() {
                             value={formatMoney(grandTotal)} sub={`${ordersList.length} invoice${ordersList.length === 1 ? '' : 's'}`} />
                 </section>
 
-                <div className="at-toolbar">
+                <div className="at-toolbar bill-toolbar">
                   <Chips value={invoiceFilter} onChange={setInvoiceFilter} options={[
                     { key: 'All', label: t('common.all', 'All'), count: ordersList.length },
                     { key: 'Paid', label: t('invoicesPage.paid', 'Paid'), count: paidCount },
@@ -6524,7 +6524,7 @@ function App() {
                         const balance = Math.max(0, total - paid);
                         const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
                         return (
-                          <tr key={order.id}>
+                          <tr key={order.id} className="bill-row">
                             <td data-label={t('invoicesPage.invoiceId', 'Invoice ID')} style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{orderRef(order)}</td>
                             <td data-label={t('invoicesPage.billingClient', 'Billing Client')} style={{ overflow: 'hidden' }}>
                               <span className="at-cell-person">

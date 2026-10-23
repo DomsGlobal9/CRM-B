@@ -5921,3 +5921,60 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   }
   .staff-table tr.staff-detail > td { display: block; padding: 0 !important; border: none !important; background: transparent !important; }
 }
+
+/* ---- Bills & payments on a phone ---------------------------------------
+   Below 1024px the bill rows already stack (.at-table--fit); on a phone each
+   is a compact card instead of eight lines one under another:
+     customer ............ status
+     bill no.   date       total
+     paid (bar) ......... balance
+     [ view bill ]
+   Cells keep their order in the markup; the grid only places them. */
+@media (max-width: 600px) {
+  .bill-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .bill-stats > :last-child { grid-column: 1 / -1; }
+  .bill-stats .at-stat { padding: 10px !important; gap: 8px !important; align-items: center !important; }
+  .bill-stats .at-tile { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
+  .bill-stats .at-tile svg { width: 15px; height: 15px; }
+  .bill-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bill-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
+  .bill-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .bill-toolbar { margin: 14px 0 12px !important; gap: 10px !important; }
+  .bill-toolbar .at-toolbar-right { flex: 1 1 100%; }
+  .bill-toolbar .at-toolbar-right > * { flex: 1 1 100%; width: 100%; max-width: none; }
+
+  .invoices-content.at-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
+  .invoices-content tbody { display: flex !important; flex-direction: column; gap: 10px; }
+  .invoices-content tr.bill-row {
+    display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas: "client client status" "id date total" "paid paid balance" "action action action";
+    gap: 10px 10px; padding: 12px !important; background: var(--surface-color);
+    border: 1px solid var(--border-color) !important; border-radius: 12px; box-shadow: var(--shadow-card);
+  }
+  .invoices-content tr.bill-row > td { width: auto !important; padding: 0 !important; min-width: 0; font-size: 13px; }
+  .invoices-content tr.bill-row > td[data-label]::before { font-size: 9.5px; letter-spacing: .05em; margin-bottom: 3px; }
+  .invoices-content tr.bill-row > td:nth-child(1) { grid-area: id; }
+  .invoices-content tr.bill-row > td:nth-child(2) { grid-area: client; align-self: center; padding-bottom: 10px !important; border-bottom: 1px solid var(--border-color) !important; }
+  .invoices-content tr.bill-row > td:nth-child(2)::before { display: none !important; }
+  .invoices-content tr.bill-row > td:nth-child(2) .at-cell-person > span:last-child { font-weight: 600 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+  .invoices-content tr.bill-row > td:nth-child(3) { grid-area: date; }
+  .invoices-content tr.bill-row > td:nth-child(4) { grid-area: total; }
+  .invoices-content tr.bill-row > td:nth-child(5) { grid-area: paid; }
+  .invoices-content tr.bill-row > td:nth-child(6) { grid-area: balance; }
+  .invoices-content tr.bill-row > td:nth-child(7) { grid-area: status; text-align: right !important; padding-bottom: 10px !important; border-bottom: 1px solid var(--border-color) !important; }
+  .invoices-content tr.bill-row > td:nth-child(7)::before { display: none !important; }
+  /* The status pill: small text on one line, so "Unpaid" / "Part paid" fit
+     their corner instead of being cut off by the phone's larger form text. */
+  .invoices-content tr.bill-row > td:nth-child(7) .ui-badge { max-width: 100%; }
+  .invoices-content tr.bill-row > td:nth-child(7) select {
+    min-width: 0 !important; max-width: 100% !important; width: auto !important;
+    height: 30px !important; min-height: 0 !important; padding: 0 22px 0 10px !important;
+    font-size: 12px !important; line-height: 30px !important; white-space: nowrap !important;
+    overflow: hidden !important; text-overflow: ellipsis !important; background-position: right 6px center !important;
+  }
+  .invoices-content tr.bill-row > td:nth-child(8) { grid-area: action; }
+  .invoices-content tr.bill-row > td:nth-child(8) button { width: 100%; justify-content: center; min-height: 38px; }
+  /* 16px stops the phone zooming in when the paid amount is tapped. */
+  .invoices-content tr.bill-row input { font-size: 16px !important; }
+}
