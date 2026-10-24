@@ -1702,9 +1702,19 @@ function App() {
 
   useEffect(() => { applyTenantTheme(currentUser); }, [currentUser]);
 
-  const [portalSlug] = useState(portalSlugFromPath);
+  const [portalSlug, setPortalSlug] = useState(portalSlugFromPath);
   const [portalBoutique, setPortalBoutique] = useState(null);
   const [portalLookupDone, setPortalLookupDone] = useState(() => !portalSlugFromPath());
+
+  // Signing in moves the address bar to the boutique's own path (below). The
+  // sign-in screen follows it, so signing out names this boutique -- not the
+  // one the page was first opened on -- and signs in against it.
+  const signedInSlug = currentUser?.shop_slug;
+  if (signedInSlug && signedInSlug !== portalSlug) {
+    setPortalSlug(signedInSlug);
+    setPortalBoutique(null);
+    setPortalLookupDone(false);
+  }
 
   useEffect(() => {
     if (!portalSlug) return;
