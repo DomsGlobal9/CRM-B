@@ -6298,3 +6298,25 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 @media (max-width: 480px) {
   .wz-who-wrap { padding: 0 8px; }
 }
+
+/* ---- New order > Garments step, before a garment is picked -------------
+   Like the Customer step: title and card in one centred column of a
+   comfortable width, and the garment picker as the card itself rather than
+   a box inside a box. Once a garment is on the order the wrapper steps aside
+   (display: contents) and the step keeps its full-width layout. */
+.wz-type-wrap { display: contents; }
+.wz-type-wrap--empty { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 760px; margin: 0 auto; }
+.wz-type-wrap--empty > .page-title-group { margin-bottom: 0; }
+.wz-type-wrap--empty > .wz-card { padding: 28px; }
+.wz-type-wrap--empty > .wz-card > div:first-child {
+  border: none !important; box-shadow: none !important; padding: 0 !important; margin: 0 !important; background: transparent !important;
+}
+@media (max-width: 640px) {
+  .wz-type-wrap--empty { gap: 14px; }
+  .wz-type-wrap--empty h1.page-title { font-size: 28px; }
+  .wz-type-wrap--empty > .wz-card { padding: 18px 16px; }
+  .wz-type-wrap--empty select.form-control { font-size: 16px; }
+}
+@media (max-width: 480px) {
+  .wz-type-wrap--empty { padding: 0 8px; }
+}

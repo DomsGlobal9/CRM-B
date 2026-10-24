@@ -7945,6 +7945,9 @@ function App() {
             {/* TYPE: the garments, and for each one only what its cut needs. */}
             {wizardStepKey === 'type' && (
               <>
+                {/* Before the first garment is picked: one centred column, like
+                    the Customer step. With garments, the full-width layout. */}
+                <div className={`wz-type-wrap${garmentJobs.length === 0 ? ' wz-type-wrap--empty' : ''}`}>
                 <div className="page-title-group">
                   <h1 className="page-title">{t('wizard.typeTitle', 'What are we making?')}</h1>
                   <p className="page-subtitle">{t('wizard.garmentFlowSubtitle', 'Each garment in turn: what it needs, then its design and fabric below.')}</p>
@@ -8542,6 +8545,7 @@ function App() {
                     </details>
                   )}
 
+                </div>
                 </div>
               </>
             )}
