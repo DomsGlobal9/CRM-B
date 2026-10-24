@@ -1,12 +1,12 @@
-/* The filter bar over the customer list: country code, orders, measurements
-   and sort always in view, the rest behind "More filters", and the A–Z strip
-   for the first letter of the name. The server applies the filters and counts
+/* The filter bar over the customer list: sort always in view, the rest
+   (orders, measurements, source, gender, city) behind "More filters". Country
+   code, the A–Z strip and the date-added and birthday filters were removed
+   (MOM, 2026-10-24); the server still accepts them. The server applies the filters and counts
    the options (`facets`, from the directory response); this only draws them. */
 import { useMemo, useState } from 'react';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import {
-  ADDED_OPTIONS, BIRTHDAY_OPTIONS, EMPTY_CUSTOMER_FILTERS, LETTERS, MEASUREMENT_OPTIONS, ORDER_OPTIONS, SORT_OPTIONS,
-  activeFilterCount, countryLabel,
+  EMPTY_CUSTOMER_FILTERS, MEASUREMENT_OPTIONS, ORDER_OPTIONS, SORT_OPTIONS, activeFilterCount,
 } from './filterRules';
 
 const ROW = { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12 };
@@ -28,31 +28,34 @@ function Select({ label, value, onChange, options, allLabel }) {
   );
 }
 
-export default function CustomerFilters({ facets, filters, onChange }) {
+export default function CustomerFilters({ facets, filters, onChange, leading = null, trailing = null }) {
   const [more, setMore] = useState(false);
   const set = (key) => (value) => onChange({ ...filters, [key]: value });
 
   const lists = useMemo(() => ({
-    countries: (facets?.countries || []).map((c) => ({ key: c.key, label: countryLabel(c.key), count: c.count })),
     sources: facets?.sources || [],
     genders: facets?.genders || [],
     cities: facets?.cities || [],
-    letters: facets?.letters || {},
   }), [facets]);
 
   const active = activeFilterCount(filters);
-  const hiddenActive = ['added', 'birthday', 'source', 'gender', 'city'].filter((k) => filters[k] !== '').length;
+  const hiddenActive = ['orders', 'measurements', 'source', 'gender', 'city'].filter((k) => filters[k] !== '').length;
   const showMore = more || hiddenActive > 0;
 
   return (
     <div className="cf-bar" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={ROW}>
-        <Select label="Country code" value={filters.country} onChange={set('country')}
-                allLabel="All countries" options={lists.countries} />
-        <Select label="Orders" value={filters.orders} onChange={set('orders')} options={ORDER_OPTIONS} />
-        <Select label="Measurements" value={filters.measurements} onChange={set('measurements')} options={MEASUREMENT_OPTIONS} />
-        <Select label="Sort by" value={filters.sort} onChange={set('sort')} options={SORT_OPTIONS} />
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
+      {/* One row: the tier chips (`leading`) on the left, sort and filters on
+          the right, so the page has a single toolbar instead of three rows. */}
+      <div className="cf-top">
+        {leading}
+        <div className="cf-top-end">
+          <label className="cf-inline">
+            <span className="cf-label">Sort</span>
+            <select className={`form-control cf-select${filters.sort ? ' cf-select--on' : ''}`} value={filters.sort}
+                    onChange={(e) => set('sort')(e.target.value)}>
+              {SORT_OPTIONS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+            </select>
+          </label>
           <button type="button" className="btn-secondary cf-btn" aria-expanded={showMore}
                   onClick={() => setMore(!showMore)} disabled={hiddenActive > 0}>
             <SlidersHorizontal size={15} /> More filters
@@ -66,35 +69,17 @@ export default function CustomerFilters({ facets, filters, onChange }) {
           )}
         </div>
       </div>
+      {trailing}
 
       {showMore && (
         <div style={ROW}>
-          <Select label="Added" value={filters.added} onChange={set('added')} options={ADDED_OPTIONS} />
-          <Select label="Birthday" value={filters.birthday} onChange={set('birthday')} options={BIRTHDAY_OPTIONS} />
+          <Select label="Orders" value={filters.orders} onChange={set('orders')} options={ORDER_OPTIONS} />
+          <Select label="Measurements" value={filters.measurements} onChange={set('measurements')} options={MEASUREMENT_OPTIONS} />
           <Select label="Source" value={filters.source} onChange={set('source')} allLabel="Any source" options={lists.sources} />
           <Select label="Gender" value={filters.gender} onChange={set('gender')} allLabel="Any" options={lists.genders} />
           <Select label="City / region" value={filters.city} onChange={set('city')} allLabel="Any city" options={lists.cities} />
         </div>
       )}
-
-      <div className="cf-letters" role="group" aria-label="Name starts with"
-           style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4 }}>
-        <span className="cf-label" style={{ marginRight: 6 }}>Name starts with</span>
-        <button type="button" className={`cf-letter${filters.letter === '' ? ' cf-letter--on' : ''}`}
-                aria-pressed={filters.letter === ''} onClick={() => set('letter')('')}>All</button>
-        {LETTERS.map((l) => {
-          const n = lists.letters[l];
-          const on = filters.letter === l;
-          return (
-            <button key={l} type="button" className={`cf-letter${on ? ' cf-letter--on' : ''}`}
-                    aria-pressed={on} disabled={!n && !on}
-                    title={l === '#' ? `Other characters: ${n}` : `${l}: ${n} customer${n === 1 ? '' : 's'}`}
-                    onClick={() => set('letter')(on ? '' : l)}>
-              {l}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }

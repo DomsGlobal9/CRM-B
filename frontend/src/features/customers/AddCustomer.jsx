@@ -284,8 +284,10 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
         <ArrowLeft size={16} /> Customers
       </button>
       <div className="selector-header">
-        <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>Add customer</h1>
-        <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>How would you like to add them?</p>
+        <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{onManual ? 'Add customer' : 'Import customers'}</h1>
+        <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>
+          {onManual ? 'How would you like to add them?' : 'Bring an existing customer list in from a spreadsheet. A single new customer is added when you take their order.'}
+        </p>
       </div>
       <input ref={fileRef} type="file" accept=".xlsx,.csv" style={{ display: 'none' }}
              onChange={(e) => { preview(e.target.files?.[0]); e.target.value = ''; }} />
@@ -295,11 +297,13 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
           <span className="wz-service-title">Upload Excel sheet</span>
           <span className="wz-service-desc">An .xlsx or .csv of customers with their measurements, up to 2000 at a time. Checked first, saved only after you confirm.</span>
         </button>
-        <button type="button" className="wz-service" onClick={onManual}>
-          <IconTile icon={Contact} tone="amber" size={48} iconSize={22} />
-          <span className="wz-service-title">Enter manually</span>
-          <span className="wz-service-desc">One customer, typed in: profile and measurements on a single page.</span>
-        </button>
+        {onManual && (
+          <button type="button" className="wz-service" onClick={onManual}>
+            <IconTile icon={Contact} tone="amber" size={48} iconSize={22} />
+            <span className="wz-service-title">Enter manually</span>
+            <span className="wz-service-desc">One customer, typed in: profile and measurements on a single page.</span>
+          </button>
+        )}
       </div>
       <p style={{ margin: '14px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', textAlign: 'center' }}>
         Not sure of the columns?{' '}

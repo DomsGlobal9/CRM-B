@@ -172,7 +172,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
       {/* Tab strip, not pill buttons: these switch a view, so an underline on
           the active one reads as navigation rather than seven call-to-actions. */}
-      <div style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-5)', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+      <div className="at-scroll-tabs" style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-5)', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
         {[
           { key: 'items', label: t('inventoryPage.items'), icon: Package },
           { key: 'catalog', label: t('inventoryPage.catalog'), icon: BookOpen },

@@ -180,10 +180,13 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     });
   };
   // My open to-dos (apps/todos), shown under the order work so a task handed
-  // to me is on the screen I work from, not only on the To-do tab.
+  // to me is on the screen I work from. Off while the To-do section is
+  // switched off (see App.jsx): `tasks` stays empty, so the Tasks tab and
+  // section never draw.
+  const TODOS_ON = false;
   const [tasks, setTasks] = useState([]);
   const [taskBusy, setTaskBusy] = useState(null);
-  const loadTasks = () => api.getTodos()
+  const loadTasks = () => (!TODOS_ON ? Promise.resolve() : api.getTodos())
     .then((rows) => setTasks((Array.isArray(rows) ? rows : rows?.results || [])
       // A to-do made from an order step is already here as that step's card.
       .filter((td) => td.status !== 'CLOSED' && td.assigned_to === currentUser?.id && !td.order_stage)))

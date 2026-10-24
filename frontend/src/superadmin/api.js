@@ -120,6 +120,11 @@ export const consoleApi = {
   deleteBoutique: (schema, confirmName, reason = '') =>
     request(`/boutiques/${schema}/`, { method: 'DELETE', body: { confirm_name: confirmName, reason } }),
 
+  // The bell: new-boutique sign-ups. markRead() with no ids marks them all.
+  notifications: () => request('/notifications/'),
+  markNotificationsRead: (ids) =>
+    request('/notifications/', { method: 'POST', body: ids ? { ids } : {} }),
+
   leads: () => request('/leads/'),
   updateLead: (id, fields) => request(`/leads/${id}/`, { method: 'PATCH', body: fields }),
 

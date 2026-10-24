@@ -191,14 +191,9 @@ function AddExpenseForm({ onCancel, onSaved }) {
 function CostRow({ label, amount, auto }) {
   return (
     <tr>
-      <td>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          {label}
-          {auto && (
-            <span className="ui-badge ui-badge--neutral" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>auto</span>
-          )}
-        </span>
-      </td>
+      {/* No "auto" badge beside the label: the Mode column already says so,
+          and the badge pushed this table wider than a phone. */}
+      <td>{label}</td>
       <td className="at-num" style={{ fontWeight: 600, textAlign: 'right' }}>{money(amount)}</td>
       <td style={{ color: 'var(--text-secondary)' }}>{auto ? 'Automatic' : 'Entered'}</td>
     </tr>

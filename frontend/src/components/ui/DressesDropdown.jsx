@@ -1,140 +1,120 @@
-import { Check, X, Shirt } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Check, Plus, Search, Shirt } from 'lucide-react';
+
+/** The order the garments are listed in, by key -- the way a counter thinks of
+ *  them, a saree beside its blouse and petticoat. A garment in none of these
+ *  (one added to the catalogue later) follows at the end. */
+const GARMENT_ORDER = [
+  'saree', 'blouse', 'petticoat', 'lehenga', 'lehenga_blouse', 'dupatta',
+  'kurti', 'anarkali', 'suit', 'bottom_wear', 'gown',
+  'sherwani', 'kurta', 'indo_western', 'mens_bottom_wear',
+  'shirt', 't_shirt', 'mens_suit', 'trouser', 'jeans', 'shorts', 'casual_wear',
+  'jacket', 'coat',
+];
+const orderGarments = (templates) => {
+  const rank = (tpl) => { const at = GARMENT_ORDER.indexOf(tpl.key); return at === -1 ? GARMENT_ORDER.length : at; };
+  return [...templates].sort((a, b) => rank(a) - rank(b));
+};
 
 /**
- * DressesDropdown - a native select for adding garments to the order, with the
- * chosen ones shown as removable pills above it. An order holds several
- * dresses, so picking one adds it and the select resets to ask for the next.
+ * DressesDropdown - picks the garments on an order, several at a time.
+ *
+ * Every garment type is a tick box; ticking a few and pressing "Add" puts them
+ * all on the order at once (MOM, 2026-10-24: "select multiple garments at a
+ * time"). Garments already on the order show as ticked and locked -- they are
+ * removed from their own card, where their details are.
  */
 export default function DressesDropdown({
-  title = "Dresses in this Order",
-  subtitle = "Pick every garment being stitched. Each one opens its own design parts below.",
+  title = 'Garments in this order',
+  subtitle = 'Tick every garment being made, then add them.',
   isRequired = false,
   garmentTemplates = [],
   garmentJobs = [],
   addingGarmentKey = null,
   garmentTemplatesError = null,
   loadGarmentTemplates = null,
-  addGarment,
-  removeGarment,
+  addGarments,
+  compact = false,
 }) {
-  const chosenKeys = new Set(garmentJobs.map((job) => job.key));
-  const available = garmentTemplates.filter((t) => !chosenKeys.has(t.key));
+  const [picked, setPicked] = useState([]);
+  const [query, setQuery] = useState('');
+  const onOrder = useMemo(
+    () => new Set(garmentJobs.map((job) => job.template?.key || job.key)),
+    [garmentJobs]);
+  const term = query.trim().toLowerCase();
+  const shown = orderGarments(garmentTemplates).filter((tpl) => !term || tpl.name.toLowerCase().includes(term));
+  const busy = !!addingGarmentKey;
+
+  const toggle = (key) => setPicked((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  const add = async () => {
+    // Added in the order the list shows them.
+    const keys = orderGarments(garmentTemplates).map((tpl) => tpl.key)
+      .filter((k) => picked.includes(k) && !onOrder.has(k));
+    if (!keys.length || busy) return;
+    await addGarments?.(keys);
+    setPicked([]);
+    setQuery('');
+  };
 
   return (
-    <div
-      style={{
-        background: 'var(--surface-color, #ffffff)',
-        border: '1px solid var(--border-color, #e5e1d7)',
-        borderRadius: '12px',
-        padding: '16px 18px',
-        marginBottom: '20px',
-        textAlign: 'left',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-      }}
-    >
-      {/* Section Header */}
-      <div style={{ marginBottom: '12px' }}>
-        <label
-          className="form-label"
-          style={{
-            fontWeight: 700,
-            fontSize: '14.5px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            margin: 0,
-            color: 'var(--text-primary, #1e293b)',
-          }}
-        >
-          <Shirt size={16} style={{ color: 'var(--accent-text, #18181b)' }} />
-          <span>{title}</span>
-          {isRequired && <span className="required" style={{ color: 'var(--danger-color)' }}>*</span>}
-        </label>
-        {subtitle && (
-          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary, #64748b)', marginTop: '4px' }}>
-            {subtitle}
+    <div className={`dd-picker${compact ? ' dd-picker--compact' : ''}`}>
+      {!compact && (
+        <div className="dd-picker-head">
+          <div className="form-label dd-picker-title">
+            <Shirt size={16} aria-hidden="true" />
+            <span>{title}</span>
+            {isRequired && <span className="required">*</span>}
           </div>
-        )}
-      </div>
-
-      {/* Chosen garments */}
-      {garmentJobs.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '10px' }}>
-          {garmentJobs.map((job) => {
-            const name = job.template?.name || job.key;
-            return (
-              <span
-                key={job.key}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  padding: '4px 10px',
-                  borderRadius: '20px',
-                  fontSize: '12.5px',
-                  fontWeight: 600,
-                  background: '#18181b',
-                  color: '#ffffff',
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-                }}
-              >
-                <Check size={12} style={{ color: '#4ade80' }} />
-                {name}
-                <button
-                  type="button"
-                  onClick={() => removeGarment?.(job.key)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'rgba(255,255,255,0.7)',
-                    cursor: 'pointer',
-                    padding: '0 2px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '50%',
-                    marginLeft: '2px',
-                  }}
-                  title={`Remove ${name}`}
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            );
-          })}
+          {subtitle && <div className="dd-picker-sub">{subtitle}</div>}
         </div>
       )}
 
-      {/* Garment picker. Value is pinned to '' so every pick re-arms it. */}
-      <select
-        className="form-control"
-        value=""
-        disabled={!!addingGarmentKey || available.length === 0}
-        onChange={(e) => { if (e.target.value) addGarment?.(e.target.value); }}
-      >
-        <option value="">
-          {addingGarmentKey
-            ? 'Loading…'
-            : available.length === 0 && garmentTemplates.length > 0
-              ? 'All garments added'
-              : 'Select Garment'}
-        </option>
-        {available.map((template) => (
-          <option key={template.key} value={template.key}>{template.name}</option>
-        ))}
-      </select>
+      {garmentTemplates.length > 8 && (
+        <div className="input-wrapper dd-picker-search">
+          <Search size={15} className="input-icon-left" aria-hidden="true" />
+          <input type="search" className="form-control" value={query} placeholder="Search garments"
+                 aria-label="Search garments" onChange={(e) => setQuery(e.target.value)} />
+        </div>
+      )}
 
-      {/* Error state if templates fail to load */}
+      <div className="dd-picker-grid" role="group" aria-label={title}>
+        {shown.map((tpl) => {
+          const already = onOrder.has(tpl.key);
+          const on = already || picked.includes(tpl.key);
+          return (
+            <button key={tpl.key} type="button" role="checkbox" aria-checked={on} disabled={already || busy}
+                    className={`dd-chip${on ? ' dd-chip--on' : ''}`}
+                    title={already ? `${tpl.name} is already on this order` : undefined}
+                    onClick={() => toggle(tpl.key)}>
+              <span className="dd-chip-box" aria-hidden="true">{on && <Check size={12} strokeWidth={3} />}</span>
+              <span className="dd-chip-name">{tpl.name}</span>
+            </button>
+          );
+        })}
+        {garmentTemplates.length > 0 && shown.length === 0 && (
+          <div className="dd-picker-sub">No garment matches “{query}”.</div>
+        )}
+      </div>
+
+      <div className="dd-picker-foot">
+        <button type="button" className="btn-primary" onClick={add} disabled={!picked.length || busy}>
+          <Plus size={15} />
+          {busy ? 'Adding…'
+            : picked.length > 1 ? `Add ${picked.length} garments`
+            : picked.length === 1 ? 'Add 1 garment'
+            : 'Tick garments to add'}
+        </button>
+        {picked.length > 0 && !busy && (
+          <button type="button" className="btn-secondary" onClick={() => setPicked([])}>Clear</button>
+        )}
+      </div>
+
       {garmentTemplates.length === 0 && garmentTemplatesError && (
-        <div style={{ fontSize: '12.5px', color: 'var(--danger-color)', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="dd-picker-error">
           <span>The garment list could not be loaded — {garmentTemplatesError}</span>
           {loadGarmentTemplates && (
-            <button
-              type="button"
-              className="btn-secondary"
-              style={{ padding: '3px 8px', fontSize: '12px' }}
-              onClick={loadGarmentTemplates}
-            >
+            <button type="button" className="btn-secondary" style={{ padding: '3px 8px', fontSize: '12px' }}
+                    onClick={loadGarmentTemplates}>
               Retry
             </button>
           )}

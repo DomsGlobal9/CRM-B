@@ -893,7 +893,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
           {ownOnly
             ? (referenceCount > 0
                 ? `${referenceCount} reference${referenceCount === 1 ? '' : 's'} across ${referencedParts} part${referencedParts === 1 ? '' : 's'}`
-                : (isFabric ? 'Add your own photos for each part' : 'Add your own photos or links for each part'))
+                : 'Upload a reference photo for each part (front, back, sleeves, neck)')
             : chosenCount > 0
             ? `${chosenCount} part${chosenCount === 1 ? '' : 's'} chosen — parts may come from different designs`
             : (openPart ? 'Click a photograph to choose this part'

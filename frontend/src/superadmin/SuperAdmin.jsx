@@ -13,9 +13,9 @@
  * dark sidebar, drawer, sign-in page and components -- and nothing else.
  */
 
-import { Component, Fragment, useCallback, useEffect, useState } from 'react';
+import { Component, Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import {
-  FileWarning, Lock, LogOut, Menu, PanelLeftClose, PanelLeftOpen, RotateCw, User, X,
+  Bell, Building2, FileWarning, Lock, LogOut, Menu, PanelLeftClose, PanelLeftOpen, RotateCw, User, X,
 } from 'lucide-react';
 
 import { reportCrash } from '../services/reportCrash';
@@ -23,7 +23,7 @@ import { clearToken, consoleApi, getToken } from './api';
 import { NAV, ROUTES } from './nav';
 import { useRoute } from './router';
 import {
-  AvatarInitials, Empty, Failed, Field, Loader, Note, SearchBox, ToastHost, count,
+  AvatarInitials, Empty, Failed, Field, Loader, Note, SearchBox, ToastHost, count, moment, useToast,
 } from './ui';
 import './superadmin.css';
 
@@ -210,6 +210,99 @@ function GlobalSearch({ onOpen }) {
               {r.boutique_name && <span className="sa-result-sub">{r.boutique_name}</span>}
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------- bell */
+
+/** How often the bell asks for new sign-ups while the console is open. */
+const BELL_POLL_MS = 60_000;
+
+/**
+ * New boutiques, as they sign up. Polled rather than pushed: the console has
+ * no socket, and a minute's delay on "someone registered" costs nothing. A
+ * notice that arrives while the console is open also raises a toast, so it is
+ * seen without anyone opening the panel.
+ */
+function NotificationBell({ onOpenBoutique }) {
+  const [data, setData] = useState({ unread: 0, notifications: [] });
+  const [open, setOpen] = useState(false);
+  const seen = useRef(null);
+  const box = useRef(null);
+  const toast = useToast();
+
+  const load = useCallback(() => {
+    consoleApi.notifications()
+      .then((d) => {
+        const ids = new Set(d.notifications.map((n) => n.id));
+        if (seen.current) {
+          d.notifications
+            .filter((n) => !n.read_at && !seen.current.has(n.id))
+            .forEach((n) => toast(n.title));
+        }
+        seen.current = ids;
+        setData(d);
+      })
+      .catch(() => { /* the bell stays as it was; the next poll tries again */ });
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, BELL_POLL_MS);
+    const onFocus = () => load();
+    window.addEventListener('focus', onFocus);
+    return () => { clearInterval(timer); window.removeEventListener('focus', onFocus); };
+  }, [load]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
+  }, [open]);
+
+  const markRead = (ids) => consoleApi.markNotificationsRead(ids).then(load).catch(() => {});
+
+  const pick = (n) => {
+    if (!n.read_at) markRead([n.id]);
+    setOpen(false);
+    if (n.boutique) onOpenBoutique(n.boutique);
+  };
+
+  return (
+    <div className="sa-bell" ref={box}>
+      <button type="button" className="at-icon-btn sa-bell-btn" onClick={() => setOpen((o) => !o)}
+        aria-label={data.unread ? `Notifications, ${data.unread} unread` : 'Notifications'}
+        aria-expanded={open}>
+        <Bell size={18} aria-hidden="true" />
+        {data.unread > 0 && <span className="sa-bell-count">{data.unread > 99 ? '99+' : data.unread}</span>}
+      </button>
+      {open && (
+        <div className="sa-bell-panel" role="dialog" aria-label="Notifications">
+          <div className="sa-bell-head">
+            <strong>New boutiques</strong>
+            {data.unread > 0 && (
+              <button type="button" className="at-link" onClick={() => markRead()}>Mark all read</button>
+            )}
+          </div>
+          {data.notifications.length === 0
+            ? <div className="sa-results-empty">No sign-ups yet.</div>
+            : data.notifications.map((n) => (
+              <button key={n.id} type="button" className={`sa-bell-item${n.read_at ? '' : ' sa-bell-item--unread'}`}
+                onClick={() => pick(n)}>
+                <Building2 size={16} aria-hidden="true" />
+                <span className="sa-bell-text">
+                  <span className="sa-bell-title">{n.title}</span>
+                  {n.body && <span className="sa-muted">{n.body}</span>}
+                  <span className="sa-bell-when">{moment(n.created_at)}</span>
+                </span>
+              </button>
+            ))}
         </div>
       )}
     </div>
@@ -432,6 +525,7 @@ export default function SuperAdmin() {
           <header className="sa-topbar">
             <GlobalSearch onOpen={openResult} />
             <div className="sa-topbar-right">
+              <NotificationBell onOpenBoutique={(schema) => route.go(`boutiques/${schema}`)} />
               <div className="user-profile-widget sa-who">
                 <AvatarInitials name={user.username} size={32} />
                 <span className="sa-who-text">Signed in as <strong>{user.username}</strong></span>

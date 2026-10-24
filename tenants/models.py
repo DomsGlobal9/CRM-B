@@ -50,9 +50,10 @@ class BoutiqueTenant(TenantMixin):
     design_system = models.CharField(max_length=32, choices=DESIGN_SYSTEMS, default='scaleezy')
     color_mode = models.CharField(max_length=16, choices=COLOR_MODES, default='light')
 
-    # When the owner accepted the Terms & Conditions and Privacy Policy at
-    # sign-up, and which version (crm_api.auth_views.TERMS_VERSION) they saw.
-    # Empty for boutiques that signed up before acceptance was recorded.
+    # When the owner ticked "I agree to the Terms & Conditions and Privacy
+    # Policy" at sign-up, and which version (crm_api.auth_views.TERMS_VERSION)
+    # they saw. Null / empty for boutiques registered before the box was
+    # enforced, or created from the console/admin rather than the sign-up form.
     terms_accepted_at = models.DateTimeField(null=True, blank=True)
     terms_version = models.CharField(max_length=20, blank=True, default='')
 
