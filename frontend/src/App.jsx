@@ -7821,8 +7821,14 @@ function App() {
                         <div className="wz-known-name">{customerForm.first_name} {customerForm.last_name} <TierBadge tier={customerTier(customerForm)} /></div>
                         <div className="od-hint">{formatMobile(customerForm.mobile_number)}{customerForm.city_region ? ` · ${customerForm.city_region}` : ''} · {t('wizard.knownCustomer', 'a customer we know')}</div>
                       </div>
-                      <button type="button" className="btn-secondary at-btn-sm" onClick={() => clearPickedCustomer(customerForm.mobile_number)}>
-                        {t('wizard.notThem', 'Not them')}
+                      {/* Takes the customer off this order -- the card, the name and the
+                          number -- to start again. The customer stays in the book. */}
+                      <button type="button" className="btn-secondary at-btn-sm"
+                              title={t('wizard.removeCustomer', 'Remove this customer from the order')}
+                              aria-label={t('wizard.removeCustomer', 'Remove this customer from the order')}
+                              style={{ color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
+                              onClick={() => { clearPickedCustomer(''); requestAnimationFrame(() => document.getElementById('wz-name')?.focus()); }}>
+                        <Trash2 size={14} /> {t('common.delete', 'Delete')}
                       </button>
                     </div>
                   ) : serviceType !== 'alter' && (
