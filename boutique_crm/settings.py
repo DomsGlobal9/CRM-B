@@ -422,6 +422,11 @@ CUSTOMER_MESSAGE_BACKEND = os.environ.get(
     'CUSTOMER_MESSAGE_BACKEND',
     'domains.orders.messaging.whatsapp_backend',
 )
+# A customer message's first try runs on its own thread after the commit, so
+# the request does not wait on WhatsApp; `manage.py send_queued_messages`
+# (a cron, every minute) retries. Tests send inline: a thread's connection
+# cannot see a TestCase's uncommitted rows.
+CUSTOMER_MESSAGES_IN_BACKGROUND = not _running_tests
 
 WHATSAPP_COUNTRY_CODE = os.environ.get('WHATSAPP_COUNTRY_CODE', '91')
 

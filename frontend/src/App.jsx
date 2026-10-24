@@ -53,6 +53,7 @@ import useAutosave from './hooks/useAutosave';
 import { followerOf, syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
+import CustomerMessageQueue from './features/orders/CustomerMessageQueue';
 import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
 import LanguageSelector from './components/LanguageSelector.jsx';
@@ -592,89 +593,6 @@ function ShopPin({ settings, onSaved }) {
           Clear
         </button>
       )}
-    </div>
-  );
-}
-
-function CustomerMessageQueue({ orderId, messages, onMarkSent }) {
-  const [busyId, setBusyId] = useState(null);
-  const [error, setError] = useState(null);
-
-  const markSent = async (messageId) => {
-    setBusyId(messageId);
-    setError(null);
-    try {
-      await onMarkSent(orderId, messageId);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  if (!messages.length && !error) return null;
-
-  const queued = messages.filter((m) => m.status === 'QUEUED');
-  const when = (iso) => {
-    if (!iso) return ['', ''];
-    const d = new Date(iso);
-    return [
-      d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
-      d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
-    ];
-  };
-
-  return (
-    <div className="at-section od-updates">
-      <div className="od-section-head">
-        <IconTile icon={MessageSquare} tone="neutral" size={36} iconSize={16} />
-        <div className="od-section-title">
-          <h3>Customer updates</h3>
-          {queued.length > 0
-            ? <span className="ui-badge ui-badge--warning">{queued.length} waiting to send</span>
-            : <span className="od-section-sub">Everything sent</span>}
-        </div>
-      </div>
-
-      {error && <div className="od-error">{error}</div>}
-
-      <ol className="od-feed">
-        {messages.map((message) => {
-          const isQueued = message.status === 'QUEUED';
-          const [day, time] = when(message.created_at);
-          return (
-            <li key={message.id} className={`od-feed-item${isQueued ? '' : ' od-feed-item--sent'}`}>
-              <span className={`od-feed-dot od-feed-dot--${isQueued ? 'queued' : 'sent'}`} aria-hidden="true" />
-              <div className="od-feed-when">{day}<br />{time}</div>
-              <div className="od-feed-body">
-                <div className="od-feed-meta">
-                  <span className="ui-badge ui-badge--neutral">{message.template_key.replace(/_/g, ' ')}</span>
-                  <span>{message.to_number}</span>
-                  {!isQueued && (
-                    <span>· {message.status.toLowerCase()}{message.sent_by_name ? ` by ${message.sent_by_name}` : ''}</span>
-                  )}
-                </div>
-                <p className="od-feed-text">{message.body}</p>
-              </div>
-              {isQueued && (
-                <div className="od-feed-actions">
-                  {message.whatsapp_url ? (
-                    <a href={message.whatsapp_url} target="_blank" rel="noopener noreferrer" className="btn-secondary at-btn-sm">
-                      <MessageSquare size={14} /> Open WhatsApp
-                    </a>
-                  ) : (
-                    <span className="od-hint">No mobile number</span>
-                  )}
-                  <button type="button" className="btn-secondary at-btn-sm" disabled={busyId === message.id}
-                          onClick={() => markSent(message.id)}>
-                    <Check size={14} /> {busyId === message.id ? 'Saving…' : 'Mark sent'}
-                  </button>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ol>
     </div>
   );
 }
@@ -2569,7 +2487,7 @@ function App() {
 
       hasModule(user, 'notifications') && load('notifications', () => fetchNotifications(user), () => {}),
 
-      (!user?.role || user.role === 'Owner' || (user.admin_tasks || []).includes('orders.notify'))
+      (!user?.role || ['Owner', 'Master'].includes(user.role) || (user.admin_tasks || []).includes('orders.notify'))
         && load('customer messages', api.getQueuedCustomerMessages, setQueuedMessages),
     ]);
 
@@ -2634,6 +2552,15 @@ function App() {
   const handleMarkMessageSent = async (orderId, messageId) => {
     await api.markMessageSent(orderId, messageId);
     setQueuedMessages((prev) => prev.filter((m) => m.id !== messageId));
+  };
+
+  // Sent this time: off the list. Failed again: stays, with the new error.
+  const handleRetryMessage = async (orderId, messageId) => {
+    const message = await api.retryCustomerMessage(orderId, messageId);
+    setQueuedMessages((prev) => (message.status === 'SENT'
+      ? prev.filter((m) => m.id !== messageId)
+      : prev.map((m) => (m.id === messageId ? message : m))));
+    if (message.status !== 'SENT') throw new Error(`Still not sent: ${message.error || 'WhatsApp did not accept it.'}`);
   };
 
   const blankAppointmentForm = {
@@ -4586,7 +4513,8 @@ function App() {
                   subtitle={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
                 />
                 <Suspense fallback={<ScreenLoading />}>
-                  <WorkPanel view={dashboardTab === 'work' ? 'open' : dashboardTab} orders={ordersList} currentUser={currentUser} workflowConfig={boutiqueSettings?.workflow_config || []} tailors={tailors} fabricTaxonomy={fabricTaxonomy} onChanged={fetchDashboardAndConfig} />
+                  <WorkPanel view={dashboardTab === 'work' ? 'open' : dashboardTab} orders={ordersList} currentUser={currentUser} workflowConfig={boutiqueSettings?.workflow_config || []} tailors={tailors} fabricTaxonomy={fabricTaxonomy} onChanged={fetchDashboardAndConfig}
+                              customerMessages={queuedMessages} onMarkMessageSent={handleMarkMessageSent} onRetryMessage={handleRetryMessage} />
                 </Suspense>
               </>
             )}
@@ -5352,9 +5280,9 @@ function App() {
                       </section>
 
                       <CustomerMessageQueue
-                        orderId={order.id}
                         messages={queuedMessages.filter(m => m.order === order.id)}
                         onMarkSent={handleMarkMessageSent}
+                        onRetry={handleRetryMessage}
                       />
 
                       {/* Raw materials checklist; nothing to gather, no section. */}
@@ -5670,6 +5598,28 @@ function App() {
                         )}
                       </div>
                     </>
+                  );
+                })()}
+
+                {/* Customer messages WhatsApp gave up on: each order is a link to
+                    its page, where Retry and Open WhatsApp are. On Workshop,
+                    only the orders being made. */}
+                {(() => {
+                  const failedOrders = [...new Set(queuedMessages.filter(m => m.status === 'FAILED').map(m => m.order))]
+                    .map(id => ordersList.find(o => o.id === id))
+                    .filter(o => o && (dashboardTab !== 'workshop' || orderBucket(o) === 'workshop'));
+                  if (!failedOrders.length) return null;
+                  return (
+                    <div className="msg-failed-banner" role="status">
+                      <AlertTriangle size={16} aria-hidden="true" />
+                      <strong>{failedOrders.length === 1 ? 'A customer message' : 'Customer messages'} could not be sent on WhatsApp.</strong>
+                      <span>Open the order to retry or send it yourself:</span>
+                      {failedOrders.map(o => (
+                        <button key={o.id} type="button" className="at-link" onClick={() => setOpenOrdersRowId(o.id)}>
+                          {orderRef(o)}
+                        </button>
+                      ))}
+                    </div>
                   );
                 })()}
 

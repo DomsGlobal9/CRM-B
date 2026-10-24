@@ -12,6 +12,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
+import CustomerMessageQueue from '../orders/CustomerMessageQueue';
 import { Lightbox } from '../designStudio/GarmentPartPicker';
 import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
 import './work.css';
@@ -146,7 +147,8 @@ function CardGlance({ order, stage, t }) {
   );
 }
 
-export default function WorkPanel({ view, orders = [], currentUser, workflowConfig = [], tailors, fabricTaxonomy, onChanged }) {
+export default function WorkPanel({ view, orders = [], currentUser, workflowConfig = [], tailors, fabricTaxonomy, onChanged,
+                                    customerMessages = [], onMarkMessageSent, onRetryMessage }) {
   const { t } = useLanguage();
   const me = currentUser?.tailor_id;
   const isSupervisor = ['Master', 'Designer'].includes(currentUser?.role);
@@ -471,8 +473,23 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       }));
   }
 
+  // A Master has no order page to reach: the Workshop orders' customer
+  // messages WhatsApp gave up on sit at the top of My work instead.
+  const failedMessages = view === 'open' && onRetryMessage
+    ? customerMessages.filter((m) => m.status === 'FAILED' && orders.some((o) => o.id === m.order && inWorkshop(o)))
+    : [];
+
   return (
     <div className="wk">
+      {failedMessages.length > 0 && (
+        <CustomerMessageQueue
+          title={t('workPage.failedMessages', 'Customer messages not sent')}
+          messages={failedMessages}
+          orderLabel={(m) => { const o = orders.find((x) => x.id === m.order); return o ? orderRef(o) : ''; }}
+          onMarkSent={onMarkMessageSent}
+          onRetry={onRetryMessage}
+        />
+      )}
       {body}
       {current && (
         <JobScreen key={`${current.order.id}-${current.stage.stage_key}`} order={current.order} stage={current.stage}

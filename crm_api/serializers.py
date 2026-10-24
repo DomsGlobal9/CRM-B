@@ -935,7 +935,7 @@ class CustomerMessageSerializer(serializers.ModelSerializer):
         model = CustomerMessage
         fields = [
             'id', 'order', 'template_key', 'to_number', 'body', 'status',
-            'whatsapp_url', 'sent_by_name', 'error', 'created_at',
+            'whatsapp_url', 'sent_by_name', 'error', 'attempts', 'created_at',
         ]
         read_only_fields = fields
 

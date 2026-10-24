@@ -16,7 +16,7 @@ from rest_framework.response import Response
 
 from core.admin_access import assigner_role, request_tasks
 from core.permissions import (
-    ModuleAccess, OwnerOnly, OwnNotifications, RolePermission, SUPERVISOR_ROLES,
+    ModuleAccess, OwnerOnly, OwnerOrMaster, OwnNotifications, RolePermission, SUPERVISOR_ROLES,
     visible_customers, visible_orders,
 )
 from core.roles import DESIGNER, MASTER, OWNER, assigns_work, can_assign, resolve_user_role
@@ -1111,17 +1111,45 @@ class OrderViewSet(viewsets.ModelViewSet):
         return Response(OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data)
 
     @action(detail=False, methods=['GET'], url_path='customer-messages',
-            permission_classes=[OwnerOnly])
+            permission_classes=[OwnerOrMaster])
     def customer_messages(self, request):
+        # What staff must send themselves: FAILED after its automatic tries,
+        # or queued with no automatic sender to try it (next_attempt_at null).
+        # A message still being tried is not listed.
         messages = (
             CustomerMessage.objects
-            .filter(status='QUEUED', order__in=self.get_queryset())
+            .filter(Q(status='FAILED') | Q(status='QUEUED', next_attempt_at__isnull=True),
+                    order__in=self.get_queryset())
             .select_related('sent_by')
         )
         return Response(CustomerMessageSerializer(messages, many=True).data)
 
+    @action(detail=True, methods=['POST'], url_path='retry-message',
+            permission_classes=[OwnerOrMaster])
+    def retry_message(self, request, pk=None):
+        """One more automatic try at a FAILED message, made now; the answer
+        is the message as it stands after it (SENT, or FAILED again)."""
+        from domains.orders import messaging
+        order = self.get_object()
+        try:
+            message_id = int(request.data.get('message_id'))
+        except (TypeError, ValueError):
+            return Response({'error': 'message_id must be a number.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        message = order.customer_messages.filter(id=message_id).first()
+        if message is None:
+            return Response({'error': 'No such message on this order.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        if message.status != 'FAILED':
+            return Response({'error': 'Only a message that failed to send can be retried.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if messaging.get_backend() is None:
+            return Response({'error': 'WhatsApp sending is not set up. Open WhatsApp and send it yourself.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return Response(CustomerMessageSerializer(messaging.retry(message)).data)
+
     @action(detail=True, methods=['POST'], url_path='mark-message-sent',
-            permission_classes=[OwnerOnly])
+            permission_classes=[OwnerOrMaster])
     def mark_message_sent(self, request, pk=None):
         order = self.get_object()
         try:
@@ -1141,7 +1169,8 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         message.status = 'SENT'
         message.sent_by = request.user
-        message.save(update_fields=['status', 'sent_by'])
+        message.next_attempt_at = None
+        message.save(update_fields=['status', 'sent_by', 'next_attempt_at'])
         return Response(CustomerMessageSerializer(message).data)
 
     @action(detail=True, methods=['PATCH'], url_path='submit-completion')
@@ -2604,8 +2633,12 @@ class OrderDraftViewSet(viewsets.ViewSet):
             brought = {}
 
             for index, garment in enumerate(garments):
+                # With its questions and their options, read once: the known
+                # keys below and the customer-material basket both walk them,
+                # and each walk was its own set of queries per section.
                 template = GarmentTemplate.objects.filter(
-                    pk=garment.get('template')).first()
+                    pk=garment.get('template')).prefetch_related(
+                    'sections__fields__options').first()
                 if template is None:
                     if any(money(v) for v in (garment.get('pricing') or {}).values()):
                         raise ValueError(

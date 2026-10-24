@@ -164,51 +164,94 @@ def ensure_garment_stages(order):
     # A plain garment on a maggam order takes the plain path's own stages (Cutting).
     plain_extra = ([s for s in workflow.stages_for_flow(config, 'stitching') if s not in stages]
                    if 'stitching' in paths.values() else [])
-    for s_conf in stages + plain_extra:
-        if s_conf.get('scope') != 'garment':
-            continue
+    scoped = [s for s in stages + plain_extra if s.get('scope') == 'garment']
+    if not scoped:
+        return
+
+    # Read once and write in bulk. This runs on every confirm, and the old
+    # shape -- a query per stage, an insert per row, then a delete per
+    # placeholder that also unlinked its to-dos and QC records one at a time --
+    # was most of what placing an order cost against a remote database.
+    # Rows are created and placeholders removed in the same per-key order as
+    # before, so the result is identical; only the round trips are batched.
+    keys = list(dict.fromkeys(s['key'] for s in scoped))
+    rows_by_key = {key: [] for key in keys}
+    for row in OrderStage.objects.filter(order=order, stage_key__in=keys):
+        rows_by_key[row.stage_key].append(row)
+    task_seeds = {}
+    for task in ProductionTask.objects.filter(
+            order=order, stage_key__in=keys, garment_job__isnull=True):
+        task_seeds.setdefault(task.stage_key, task)
+
+    stored_first_sequence = []  # read on first need, at most once
+
+    def first_garment_sequence(pending):
+        # The sequence of the earliest per-garment row, counting the rows this
+        # call is about to write as well as those already stored.
+        if not stored_first_sequence:
+            stored_first_sequence.append(
+                OrderStage.objects.filter(order=order, garment_job__isnull=False)
+                .order_by('sequence').values_list('sequence', flat=True).first())
+        found = [s for s in [stored_first_sequence[0], *(r.sequence for r in pending)]
+                 if s is not None]
+        return min(found) if found else None
+
+    new_stages, new_tasks, placeholders, emptied_keys = [], [], [], []
+    for s_conf in scoped:
         key = s_conf['key']
-        rows = list(OrderStage.objects.filter(order=order, stage_key=key))
+        rows = rows_by_key[key]
         if not rows and s_conf not in plain_extra:
             continue
         placeholder = next((r for r in rows if r.garment_job_id is None), None)
         # No row yet for a plain-path stage: it sits where the garments' work starts.
         seed = placeholder or (rows[0] if rows else OrderStage(
             stage_name=s_conf['name'], sla_hours=s_conf.get('sla_hours', 24),
-            sequence=OrderStage.objects.filter(order=order, garment_job__isnull=False)
-            .order_by('sequence').values_list('sequence', flat=True).first() or 1))
-        task_seed = ProductionTask.objects.filter(
-            order=order, stage_key=key, garment_job__isnull=True).first()
+            sequence=first_garment_sequence(new_stages) or 1))
+        task_seed = task_seeds.get(key)
         have = {r.garment_job_id for r in rows}
+        made = []
         for job in jobs:
             if job.id in have:
                 continue
             path = paths.get(job.id)
             if path and s_conf.get('flows') and path not in s_conf['flows']:
                 continue
-            OrderStage.objects.create(
+            made.append(OrderStage(
                 order=order, garment_job=job, stage_key=key, stage_name=seed.stage_name,
                 status=placeholder.status if placeholder else 'NOT_STARTED',
                 started_at=placeholder.started_at if placeholder else None,
                 completed_at=placeholder.completed_at if placeholder else None,
                 duration_seconds=placeholder.duration_seconds if placeholder else 0,
-                assigned_to=placeholder.assigned_to if placeholder else None,
-                performed_by=placeholder.performed_by if placeholder else None,
+                assigned_to_id=placeholder.assigned_to_id if placeholder else None,
+                performed_by_id=placeholder.performed_by_id if placeholder else None,
                 comments=placeholder.comments if placeholder else None,
-                sequence=seed.sequence, sla_hours=seed.sla_hours)
+                sequence=seed.sequence, sla_hours=seed.sla_hours))
             if key in ('created', 'payment', 'delivered') and task_seed is None:
                 continue  # these never carry a production task (seed_workflow)
-            ProductionTask.objects.create(
+            new_tasks.append(ProductionTask(
                 order=order, garment_job=job, stage_key=key,
                 title=f"{seed.stage_name} · {job.template.name}",
-                assigned_to=task_seed.assigned_to if task_seed else (order.master or order.tailor),
+                assigned_to_id=(task_seed.assigned_to_id if task_seed
+                                else (order.master_id or order.tailor_id)),
                 status=task_seed.status if task_seed else 'PENDING',
                 priority=task_seed.priority if task_seed else 'MEDIUM',
-                sequence=task_seed.sequence if task_seed else seed.sequence + 1)
+                sequence=task_seed.sequence if task_seed else seed.sequence + 1))
+        new_stages.extend(made)
+        # What a later pass over the same key would now read from the table.
+        rows_by_key[key] = [r for r in rows if r is not placeholder] + made
         if placeholder is not None:
-            ProductionTask.objects.filter(
-                order=order, stage_key=key, garment_job__isnull=True).delete()
-            placeholder.delete()
+            placeholders.append(placeholder.pk)
+            emptied_keys.append(key)
+            task_seeds.pop(key, None)
+
+    if new_stages:
+        OrderStage.objects.bulk_create(new_stages)
+    if new_tasks:
+        ProductionTask.objects.bulk_create(new_tasks)
+    if emptied_keys:
+        ProductionTask.objects.filter(
+            order=order, stage_key__in=emptied_keys, garment_job__isnull=True).delete()
+        OrderStage.objects.filter(pk__in=placeholders).delete()
 
 
 def _generate_internal_id():
@@ -421,7 +464,12 @@ def seed_workflow(order, config, tailor=None, master=None, priority=None):
 
 class OrderService:
     @staticmethod
-    @transaction.atomic
+    # savepoint=False: inside Confirm this is nested, and no caller catches an
+    # error from it and carries on inside the same transaction -- they all let
+    # it propagate or call it outermost. A savepoint here was two round trips
+    # for a rollback point nothing ever rolls back to. Add one back if a caller
+    # starts catching its errors inside an outer atomic block.
+    @transaction.atomic(savepoint=False)
     def create_order_for_customer(customer, data, user=None, notify=True):
         tailor_id = data.get('tailor_id')
         tailor = Tailor.objects.filter(id=tailor_id).first() if tailor_id else None

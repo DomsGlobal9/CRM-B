@@ -90,7 +90,12 @@ def plan_materials(order, bom, variables=None, *, user=None, include_optional=Fa
     return plan
 
 
-@transaction.atomic
+# savepoint=False on this, ensure_plan, reserve and sync_order_materials: on an
+# order's confirm they nest inside one another, and no caller catches their
+# errors and carries on inside the same transaction (the views that catch call
+# them outermost). Each savepoint was two round trips for a rollback point
+# nothing used. Restore it if a caller starts catching inside an atomic block.
+@transaction.atomic(savepoint=False)
 def plan_from_garment_jobs(order, *, user=None):
     if OrderMaterialPlan.objects.select_for_update().filter(
             order=order, status__in=[OrderMaterialPlan.Status.DRAFT,
@@ -192,7 +197,7 @@ def check_availability(plan):
 
 
 
-@transaction.atomic
+@transaction.atomic(savepoint=False)  # see plan_from_garment_jobs
 def reserve(plan, *, user=None, allow_partial=False, stage_key=None):
     locked = OrderMaterialPlan.objects.select_for_update().get(pk=plan.pk)
     if locked.status not in (OrderMaterialPlan.Status.DRAFT,
@@ -355,7 +360,7 @@ def live_plan(order):
     return OrderMaterialPlan.objects.filter(order=order, status__in=LIVE_STATUSES).first()
 
 
-@transaction.atomic
+@transaction.atomic(savepoint=False)  # see plan_from_garment_jobs
 def ensure_plan(order, *, user=None):
     existing = live_plan(order)
     if existing is not None:
@@ -363,7 +368,7 @@ def ensure_plan(order, *, user=None):
     return plan_from_garment_jobs(order, user=user)
 
 
-@transaction.atomic
+@transaction.atomic(savepoint=False)  # see plan_from_garment_jobs
 def sync_order_materials(order, stage_key, new_status, *, user=None, garment_job=None):
     if new_status != 'COMPLETED':
         return None

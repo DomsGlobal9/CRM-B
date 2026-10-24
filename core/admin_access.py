@@ -34,6 +34,7 @@ ACTION_TASKS = {
     ('order', 'partial_update'): _EDIT_ORDER,
     ('order', 'customer_messages'): ('orders.notify',),
     ('order', 'mark_message_sent'): ('orders.notify',),
+    ('order', 'retry_message'): ('orders.notify',),
     ('order', 'assignable_staff'): _ASSIGN,
     ('order', 'assign_stage'): _ASSIGN,
     ('order', 'send_to_workshop'): _ASSIGN + ('workshop.move',),
