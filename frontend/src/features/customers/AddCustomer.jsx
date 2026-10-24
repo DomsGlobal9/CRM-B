@@ -255,6 +255,7 @@ function downloadSampleSheet() {
 export function AddCustomerChooser({ onBack, onManual, onImported }) {
   const fileRef = useRef(null);
   const [imp, setImp] = useState(null); // { file, preview?, result?, busy }
+  const [over, setOver] = useState(false); // a file is being dragged over the drop area
 
   const preview = async (file) => {
     if (!file) return;
@@ -291,20 +292,36 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
       </div>
       <input ref={fileRef} type="file" accept=".xlsx,.csv" style={{ display: 'none' }}
              onChange={(e) => { preview(e.target.files?.[0]); e.target.value = ''; }} />
-      <div className="wz-services">
+      {/* Import only: one wide drop area, the way a file upload looks. */}
+      {!onManual && (
+        <div
+          role="button" tabIndex={0} aria-disabled={imp?.busy || undefined}
+          className={`cu-import-drop${over ? ' cu-import-drop--over' : ''}`}
+          onClick={() => { if (!imp?.busy) fileRef.current?.click(); }}
+          onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !imp?.busy) { e.preventDefault(); fileRef.current?.click(); } }}
+          onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+          onDragLeave={() => setOver(false)}
+          onDrop={(e) => { e.preventDefault(); setOver(false); if (!imp?.busy) preview(e.dataTransfer.files?.[0]); }}
+        >
+          <span className="cu-import-drop-icon"><Upload size={26} /></span>
+          <span className="cu-import-drop-title">Drag &amp; drop your Excel sheet here</span>
+          <span className="cu-import-drop-sub">or</span>
+          <span className="btn-primary cu-import-drop-btn"><Upload size={16} /> Choose file</span>
+          <span className="cu-import-drop-hint">.xlsx or .csv · up to 2,000 customers with their measurements · checked first, saved only after you confirm</span>
+        </div>
+      )}
+      {onManual && <div className="wz-services">
         <button type="button" className="wz-service" onClick={() => fileRef.current?.click()} disabled={imp?.busy}>
           <IconTile icon={Upload} tone="green" size={48} iconSize={22} />
           <span className="wz-service-title">Upload Excel sheet</span>
           <span className="wz-service-desc">An .xlsx or .csv of customers with their measurements, up to 2000 at a time. Checked first, saved only after you confirm.</span>
         </button>
-        {onManual && (
-          <button type="button" className="wz-service" onClick={onManual}>
-            <IconTile icon={Contact} tone="amber" size={48} iconSize={22} />
-            <span className="wz-service-title">Enter manually</span>
-            <span className="wz-service-desc">One customer, typed in: profile and measurements on a single page.</span>
-          </button>
-        )}
-      </div>
+        <button type="button" className="wz-service" onClick={onManual}>
+          <IconTile icon={Contact} tone="amber" size={48} iconSize={22} />
+          <span className="wz-service-title">Enter manually</span>
+          <span className="wz-service-desc">One customer, typed in: profile and measurements on a single page.</span>
+        </button>
+      </div>}
       <p style={{ margin: '14px 0 0', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', textAlign: 'center' }}>
         Not sure of the columns?{' '}
         <button type="button" className="at-link" onClick={downloadSampleSheet}
