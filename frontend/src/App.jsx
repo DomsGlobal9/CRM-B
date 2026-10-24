@@ -3193,6 +3193,10 @@ function App() {
   const wizardStepKey = wizardSteps[currentStep - 1]?.key;
   /** The garment being filled in on the Garments step. */
   const openGarment = garmentJobs.find(job => job.key === activeGarmentKey) || garmentJobs[0] || null;
+  /** Whether the wizard's right-hand column has anything to show: the open
+   *  garment's picture, or the order so far. Without, the form is full width. */
+  const wizardHasSidebar = (wizardStepKey === 'type' && Boolean(openGarment))
+    || (serviceType !== 'alter' && garmentJobs.length > 0);
   /** Open a garment's form from its top. */
   const openGarmentAt = (key) => {
     setActiveGarmentKey(key);
@@ -7794,7 +7798,7 @@ function App() {
             <div className="stepper-count">{t('entry.stepXofY', 'Step {step} of {total}', { step: currentStep, total: wizardSteps.length })}</div>
           </div>
 
-          <div className="main-content" style={{ padding: '40px 24px 100px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+          <div className={`main-content${wizardHasSidebar ? '' : ' full-width'}`} style={{ padding: '40px 24px 100px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
             <div className="workspace-panel">
 
             {/* WHO: the mobile number finds a customer the boutique already
@@ -7802,6 +7806,7 @@ function App() {
                 optional and folded away. */}
             {wizardStepKey === 'who' && (
               <>
+                <div className="wz-who-wrap">
                 <div className="page-title-group">
                   <h1 className="page-title">{t('wizard.whoTitle', 'Who is this for?')}</h1>
                   <p className="page-subtitle">
@@ -7811,11 +7816,11 @@ function App() {
                   </p>
                 </div>
 
-                <div className="content-card wz-card">
+                <div className="content-card wz-card wz-who">
                   {/* The customer's name first, then their mobile number. A
                       customer picked from the matches shows here in its place. */}
                   {customerId ? (
-                    <div className="wz-known" style={{ marginTop: 0, marginBottom: '14px' }}>
+                    <div className="wz-known">
                       <AvatarInitials name={`${customerForm.first_name} ${customerForm.last_name}`} size={40} />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div className="wz-known-name">{customerForm.first_name} {customerForm.last_name} <TierBadge tier={customerTier(customerForm)} /></div>
@@ -7842,6 +7847,8 @@ function App() {
                     </div>
                   )}
 
+                  <div className="wz-who-row">
+                  <div className="wz-who-col">
                   <div className="form-group">
                     <label className="form-label" htmlFor="wz-mobile">{t('wizard.mobileNumber', 'Mobile Number')} <span className="required">*</span></label>
                     <div className="input-wrapper">
@@ -7864,12 +7871,13 @@ function App() {
                         )}
                     </>
                   )}
+                  </div>
 
                   {/* Gender is kept on the customer's record; the garments were
                       chosen before we got here, so it filters nothing now.
                       Alterations skip it -- their garments come from past orders. */}
                   {serviceType !== 'alter' && (
-                    <div className="form-group" style={{ marginTop: '14px' }}>
+                    <div className="form-group">
                       <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
                       <select id="wz-gender" className="form-control" value={customerForm.gender || ''}
                               onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
@@ -7880,6 +7888,7 @@ function App() {
                       </select>
                     </div>
                   )}
+                  </div>
 
                   {serviceType !== 'alter' && (
                     <details className="wz-more">
@@ -7928,6 +7937,7 @@ function App() {
                     </details>
                   )}
 
+                </div>
                 </div>
               </>
             )}
@@ -9029,7 +9039,9 @@ function App() {
             )}
             </div>
 
-            {/* Right Sidebar */}
+            {/* Right Sidebar: the open garment's picture and the order so far,
+                when there is one; with neither, the form takes the full width. */}
+            {wizardHasSidebar && (
             <div className="sidebar-panel">
               {/* The open garment drawn on a model, from its designs and rolls.
                   Renders nothing where the vendor is not set up and there is no
@@ -9073,23 +9085,6 @@ function App() {
                     />
                 </Suspense>
               )}
-              <div className="sidebar-card">
-                <div className="sidebar-card-title">
-                  <Sparkles size={16} />
-                  {t('wizard.howItWorks', 'How it works')}
-                </div>
-                <div className="instruction-steps">
-                  {wizardSteps.map((step, index) => (
-                    <div className="instruction-step" key={step.key}>
-                      <div className="step-num-badge">{index + 1}</div>
-                      <div className="instruction-step-content">
-                        <span className="instruction-step-title">{t(`wizard.step.${step.key}`, step.label)}</span>
-                        <span className="instruction-step-desc">{t(`wizard.stepSub.${step.key}`, step.sub)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
               {serviceType !== 'alter' && garmentJobs.length > 0 && (
                 <div className="sidebar-card">
                   <div className="sidebar-card-title"><Shirt size={16} /> {t('wizard.thisOrder', 'This order')}</div>
@@ -9100,16 +9095,8 @@ function App() {
                   </div>
                 </div>
               )}
-              <div className="sidebar-card">
-                <div className="sidebar-card-title">
-                  <ShieldCheck size={16} />
-                  {t('wizard.privacyAssured', 'Privacy Assured')}
-                </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  {t('wizard.privacyAssuredDesc', 'Customer details, style files, and measurement records are saved exclusively to the Scaleezy database and never shared.')}
-                </p>
-              </div>
             </div>
+            )}
           </div>
         </div>
       )}

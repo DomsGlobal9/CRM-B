@@ -6267,3 +6267,34 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   /* The step being worked on: its tint as a rounded band. */
   .od-tasks tbody tr.od-tasks-row--current { background: var(--accent-color); border-radius: 12px; }
 }
+
+/* ---- New order > Customer step ------------------------------------------
+   One centred column of a comfortable reading width, title over card.
+   Inside the card: the name (or the customer picked) across the top; the
+   mobile number -- with the matches under it -- beside gender on a wide
+   screen, one under the other on a phone; then "More about the customer".
+   Even spacing between them, rather than labels pressed against the box
+   above. */
+.wz-who-wrap { width: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.wz-who-wrap > .page-title-group { margin-bottom: 0; }
+.wz-card.wz-who { gap: 20px; padding: 28px; }
+.wz-who .form-group { margin: 0; min-width: 0; }
+.wz-who .wz-known { margin: 0; }
+.wz-who .wz-more { margin-top: 0; }
+.wz-who-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.wz-who-row:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+.wz-who-col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wz-who .wz-matches { margin-top: 2px; }
+@media (max-width: 640px) {
+  .wz-who-wrap { gap: 14px; }
+  .wz-who-wrap h1.page-title { font-size: 28px; }
+  .wz-card.wz-who { gap: 16px; padding: 18px 16px; }
+  .wz-who-row { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .wz-who .wz-known { flex-wrap: wrap; }
+  .wz-who .form-control, .wz-who .input-wrapper input { font-size: 16px; }
+}
+/* The wizard's own phone padding is 8px a side; the step reads better with
+   the usual 16px between it and the screen's edge. */
+@media (max-width: 480px) {
+  .wz-who-wrap { padding: 0 8px; }
+}
