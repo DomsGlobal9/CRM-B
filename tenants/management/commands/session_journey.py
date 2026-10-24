@@ -69,7 +69,7 @@ class Command(BaseCommand):
         r = APIClient().post('/api/auth/signup/', {
             'first_name': 'Kavya', 'last_name': 'Reddy',
             'email_address': owner_email, 'mobile_number': '9600000000',
-            'password': pw}, format='json')
+            'password': pw, 'terms_accepted': True}, format='json')
         if not j.check('signup', r.status_code in (200, 201), f'{r.status_code} {getattr(r,"data",None)}'):
             return
         tenant = BoutiqueTenant.objects.filter(owner_email=owner_email).first()

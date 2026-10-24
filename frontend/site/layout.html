@@ -58,6 +58,14 @@
     if (e.target.tagName === 'A') { links.classList.remove('open'); toggle.setAttribute('aria-expanded', 'false'); }
   });
 
+  // "About Us" menu: hover and focus open it in CSS; a click (or tap) pins it
+  // open, and a click anywhere else or Escape closes it again.
+  var dd = document.getElementById('navdd'), ddBtn = document.getElementById('navddbtn');
+  var setDd = function (open) { dd.classList.toggle('open', open); ddBtn.setAttribute('aria-expanded', open); };
+  ddBtn.addEventListener('click', function (e) { e.stopPropagation(); setDd(!dd.classList.contains('open')); });
+  document.addEventListener('click', function (e) { if (!dd.contains(e.target)) setDd(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { setDd(false); ddBtn.blur(); } });
+
   var yr = document.getElementById('yr');
   if (yr) yr.textContent = new Date().getFullYear();
 
@@ -157,7 +165,9 @@
         "For customers": "ग्राहकों के लिए",
         "Blog": "ब्लॉग",
         "FAQ": "सवाल-जवाब",
-        "Sign in": "साइन इन करें"
+        "Sign in": "साइन इन करें",
+        "Sign up": "साइन अप करें",
+        "About Us": "हमारे बारे में"
       };
 
 

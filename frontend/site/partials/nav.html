@@ -2,21 +2,35 @@
   <div class="nav-in">
     <a href="/" class="logo">SCALEEZY <b>BOUTIQUE</b></a>
     <ul class="nav-links" id="navlinks">
-      <li><a href="/what-it-is" data-nav="what-it-is">What it is</a></li>
-      <li><a href="/modules" data-nav="modules">Modules</a></li>
-      <li><a href="/lifecycle" data-nav="lifecycle">Lifecycle</a></li>
-      <li><a href="/your-floor" data-nav="your-floor">Your floor</a></li>
-      <li><a href="/for-customers" data-nav="for-customers">For customers</a></li>
+      <!-- The five product pages sit under one "About Us" menu. They stay real
+           <a href> links inside it, so a crawler that never opens the menu
+           still reads every one of them. In the phone drawer the menu is
+           simply shown open, indented under its heading. -->
+      <li class="nav-dd" id="navdd">
+        <button type="button" class="nav-dd-btn" id="navddbtn" aria-expanded="false" aria-controls="navddmenu">
+          About Us
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <ul class="nav-dd-menu" id="navddmenu">
+          <li><a href="/what-it-is" data-nav="what-it-is">What it is</a></li>
+          <li><a href="/modules" data-nav="modules">Modules</a></li>
+          <li><a href="/lifecycle" data-nav="lifecycle">Lifecycle</a></li>
+          <li><a href="/your-floor" data-nav="your-floor">Your floor</a></li>
+          <li><a href="/for-customers" data-nav="for-customers">For customers</a></li>
+        </ul>
+      </li>
       <li><a href="/blog" data-nav="blog">Blog</a></li>
       <li><a href="/faq" data-nav="faq">FAQ</a></li>
-      <!-- The header's "Sign in" button is hidden below 920px to make room for
-           the demo CTA, and the drawer did not carry a replacement -- so on a
-           phone there was no way into the workspace from any page but the
-           home hero. This item is the drawer's copy of it. -->
+      <!-- The header's "Sign in" and "Sign up" buttons are hidden below 920px
+           to make room for the demo CTA, and the drawer did not carry a
+           replacement -- so on a phone there was no way into the workspace
+           from any page but the home hero. These items are the drawer's copy. -->
       <li class="nav-only-mobile"><a href="/app">Sign in</a></li>
+      <li class="nav-only-mobile"><a href="/app?register">Sign up</a></li>
     </ul>
     <div class="nav-cta">
       <a href="/app" class="btn btn-ghost btn-sm">Sign in</a>
+      <a href="/app?register" class="btn btn-ghost btn-sm">Sign up</a>
       <a href="/demo" class="btn btn-lime btn-sm" data-nav="demo">Book a demo</a>
       <button class="nav-toggle" id="navtoggle" aria-label="Open menu" aria-expanded="false" aria-controls="navlinks">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>

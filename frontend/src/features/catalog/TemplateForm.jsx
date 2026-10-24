@@ -47,7 +47,7 @@ const DEFAULT_UNIT = {
 
 function Field({ field, value, error, onChange, inventory, quantity, quantityError, onQuantityChange,
   source, brought, onSourceChange, onBroughtChange, purchase, onPurchaseChange, plainTextarea = false,
-  voiceKey = null, voiceValue = '' }) {
+  voiceKey = null, voiceValue = '', measuring = false }) {
   const common = {
     className: 'form-control',
     id: `tf-${field.key}`,
@@ -84,9 +84,19 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
           type="text"
           inputMode="decimal"
           onChange={(e) => onChange(field.key, cleanAmount(e.target.value, { max: field.validation?.max ?? 999.99, decimals: 2 }))}
-          placeholder="0.00"
+          placeholder={measuring ? '—' : '0.00'}
         />
       );
+      // A measurement reads as a number with its unit beside it, not a
+      // label carrying "(inches)" above every box.
+      if (measuring && field.unit) {
+        control = (
+          <div className="tf-unit-input">
+            {control}
+            <span className="tf-unit" aria-hidden="true">{/^in(ch(es)?)?$/i.test(field.unit) ? 'in' : field.unit}</span>
+          </div>
+        );
+      }
       break;
 
     case 'date':
@@ -429,10 +439,10 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
   }
 
   return (
-    <div className="form-group">
+    <div className={`form-group${measuring && field.field_type === 'textarea' ? ' tf-span-all' : ''}`}>
       <label className="form-label" htmlFor={`tf-${field.key}`}>
         {field.label}
-        {field.unit ? ` (${UNIT_NAMES[field.unit] || field.unit})` : ''}
+        {field.unit && !(measuring && field.field_type === 'number') ? ` (${UNIT_NAMES[field.unit] || field.unit})` : ''}
         {field.is_required && <span className="required"> *</span>}
       </label>
       {control}
@@ -513,10 +523,11 @@ export default function TemplateForm({
           </button>
         </div>
       )}
-      <div className="form-grid-2">
+      <div className={isMeasurements ? 'tf-measure-grid' : 'form-grid-2'}>
         {fields.map((field) => (
           <Field
             key={field.key}
+            measuring={isMeasurements}
             plainTextarea={plainTextarea}
             voiceKey={voiceFor?.[field.key] && hasField(voiceFor[field.key]) ? voiceFor[field.key] : null}
             voiceValue={voiceFor?.[field.key] ? values[voiceFor[field.key]] || '' : ''}

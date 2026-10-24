@@ -187,3 +187,30 @@ class LoginAttempt(models.Model):
 
     def __str__(self):
         return f'{self.kind} {self.username} {"ok" if self.ok else "failed"}'
+
+
+class PlatformNotification(models.Model):
+    """Something the platform administrators should know about, shown on the
+    console's bell until someone marks it read.
+
+    One shared inbox rather than per-administrator read state: the console is
+    run by a small team, and "has anyone looked at this yet" is the question
+    the bell answers.
+    """
+
+    BOUTIQUE_SIGNUP = 'boutique_signup'
+    KINDS = [(BOUTIQUE_SIGNUP, 'New boutique signed up')]
+
+    kind = models.CharField(max_length=40, choices=KINDS, db_index=True)
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True)
+    boutique = models.CharField(max_length=63, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    read_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    read_by = models.CharField(max_length=150, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title

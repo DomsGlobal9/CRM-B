@@ -69,7 +69,7 @@ class TemplateSeedTests(CatalogTestCase):
             self.assertEqual(first.default, 'inventory')
             self.assertEqual(
                 [(o.value, o.label) for o in first.options.all()],
-                [('inventory', 'From our inventory'), ('customer', 'Customer will provide'),
+                [('inventory', 'From our inventory'), ('customer', 'Provided by Customer'),
                  ('buy', 'Need to buy')],
             )
 

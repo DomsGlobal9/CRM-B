@@ -50,6 +50,11 @@ class BoutiqueTenant(TenantMixin):
     design_system = models.CharField(max_length=32, choices=DESIGN_SYSTEMS, default='scaleezy')
     color_mode = models.CharField(max_length=16, choices=COLOR_MODES, default='light')
 
+    # When the owner ticked "I agree to the Terms & Conditions" at sign-up.
+    # Null for boutiques registered before the box was enforced, or created
+    # from the console/admin rather than the sign-up form.
+    terms_accepted_at = models.DateTimeField(null=True, blank=True)
+
     auto_create_schema = True
 
     def __str__(self):

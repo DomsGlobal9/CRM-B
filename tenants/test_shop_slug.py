@@ -408,7 +408,7 @@ class SignupSlugTests(TransactionTestCase):
         res = APIClient().post(self.URL, {
             'first_name': 'Sarala', 'last_name': 'Devi',
             'email_address': email, 'mobile_number': '9876543210',
-            'password': 'a-long-enough-pass-123',
+            'password': 'a-long-enough-pass-123', 'terms_accepted': True,
             'business_name': business_name,
         }, format='json')
         connection.set_schema_to_public()

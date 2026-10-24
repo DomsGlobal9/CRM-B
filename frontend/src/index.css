@@ -5908,3 +5908,79 @@ button, input, select, textarea { font-family: inherit; }
   .app-container .at-table--phone-stack td[data-label]::before { content: attr(data-label); display: block; font-size: var(--text-xs); font-weight: 600; color: var(--text-muted); margin-bottom: 3px; }
   .app-container .at-table--phone-stack td.at-cell-actions > div { display: flex !important; justify-content: flex-start; }
 }
+
+/* ---- New order redesign (MOM, 2026-10-24) ------------------------------ */
+
+/* Three doors: Stitching, Alteration, In-house. */
+.wz-services--three { max-width: 980px; margin-inline: auto; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.wz-services--three .wz-service { min-height: 190px; }
+
+/* Steps with no right column read better at a comfortable line length. */
+.wizard-outer-wrapper .main-content.wz-main--narrow { max-width: 980px !important; }
+
+/* Customer step: name and number side by side. */
+.wz-who-grid { gap: 16px; }
+.wz-who-grid .form-group { margin-bottom: 0; }
+
+/* Alteration: whose garment is it. */
+.wz-seg { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 18px; border-radius: 999px; background: var(--surface-inset, #f1efe9); border: 1px solid var(--border-color); }
+.wz-seg-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 8px 16px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.wz-seg-btn:hover { color: var(--text-primary); }
+.wz-seg-btn--on { background: var(--surface-color); color: var(--text-primary); box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,.08)); cursor: default; }
+
+/* Garment picker: tick several, add once. */
+.dd-picker { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; }
+.dd-picker--compact { border: 0; padding: 0; margin: 0; background: transparent; }
+.dd-picker-head { margin-bottom: 12px; }
+.dd-picker-title { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; font-size: 14.5px; color: var(--text-primary); }
+.dd-picker-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; }
+.dd-picker-search { margin-bottom: 12px; max-width: 320px; }
+.dd-picker-search .form-control { padding-left: 34px; }
+.dd-picker-search .input-icon-left { left: 11px; color: var(--text-secondary); }
+.dd-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.dd-chip { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-color); font: inherit; font-size: 13px; color: var(--text-primary); text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.dd-chip:hover:not(:disabled) { border-color: var(--primary-color); }
+.dd-chip:disabled { cursor: default; }
+.dd-chip--on { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 14%, var(--surface-color)); color: var(--text-primary); font-weight: 600; }
+.dd-chip--on .dd-chip-name { color: var(--text-primary); }
+.dd-chip:disabled.dd-chip--on { opacity: .65; }
+.dd-chip-box { flex-shrink: 0; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--border-color); display: inline-flex; align-items: center; justify-content: center; color: var(--primary-foreground, #fff); }
+.dd-chip--on .dd-chip-box { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground, #fff); }
+.dd-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-picker-foot { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+.dd-picker-error { font-size: 12.5px; color: var(--danger-color); margin-top: 8px; display: flex; align-items: center; gap: 10px; }
+
+/* Measurements: a dense grid of inch boxes, notes across the full width. */
+.tf-measure-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px 16px; }
+.tf-measure-grid .form-group { margin-bottom: 0; }
+.tf-measure-grid .form-label { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-measure-grid .tf-span-all { grid-column: 1 / -1; }
+.tf-unit-input { position: relative; }
+.tf-unit-input .form-control { padding-right: 34px; font-variant-numeric: tabular-nums; }
+.tf-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-secondary); pointer-events: none; }
+.wz-measure-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border-color); }
+.wz-measure-title { font-family: var(--font-serif); font-size: 18px; font-weight: 600; color: var(--text-primary); }
+.wz-measure-loaded { font-size: 12px; color: #047857; background: #ecfdf5; padding: 3px 10px; border-radius: 999px; border: 1px solid #a7f3d0; font-weight: 500; white-space: nowrap; }
+@media (max-width: 640px) {
+  .tf-measure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .dd-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wz-seg { display: flex; }
+  .wz-seg-btn { flex: 1; justify-content: center; padding: 8px 8px; font-size: 12.5px; }
+  .wz-measure-head { flex-wrap: wrap; }
+}
+
+/* Customers page: chips, sort and filters on one row (MOM, 2026-10-24). */
+.cf-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cf-top-end { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.cf-inline { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+.cf-inline .cf-select { width: auto !important; min-width: 170px; }
+.cf-showing { display: block; font-size: var(--text-xs); color: var(--text-secondary); text-align: right; margin-top: -4px; }
+@media (max-width: 640px) {
+  .cf-top-end { margin-left: 0; width: 100%; }
+  .cf-inline { flex: 1 1 100%; }
+  .cf-inline .cf-select { flex: 1; min-width: 0; }
+  .cf-showing { text-align: left; }
+}
+
+/* An order begun from the customer's own page keeps their name and number. */
+#wz-name[readonly], #wz-mobile[readonly] { background: var(--surface-inset, #f3f1ec); color: var(--text-secondary); cursor: not-allowed; }

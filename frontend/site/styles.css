@@ -41,6 +41,26 @@ section{padding:clamp(64px,8vw,116px) 0}
 .nav.solid .nav-links a{color:var(--muted)}
 .nav.solid .nav-links a:hover{color:var(--forest)}
 .nav.solid .nav-links a[aria-current="page"]{color:var(--forest);border-bottom-color:var(--lime-dark)}
+.nav-dd{position:relative}
+.nav-dd-btn{display:inline-flex;align-items:center;gap:6px;background:none;border:0;border-bottom:2px solid transparent;padding:4px 0;font:inherit;color:rgba(245,242,236,.82);cursor:pointer;white-space:nowrap;transition:color .2s}
+.nav-dd-btn svg{transition:transform .2s}
+.nav-dd-btn:hover{color:var(--lime)}
+.nav-dd:has([aria-current="page"]) .nav-dd-btn{color:var(--lime);border-bottom-color:var(--lime)}
+.nav.solid .nav-dd-btn{color:var(--muted)}
+.nav.solid .nav-dd-btn:hover{color:var(--forest)}
+.nav.solid .nav-dd:has([aria-current="page"]) .nav-dd-btn{color:var(--forest);border-bottom-color:var(--lime-dark)}
+/* Opens on hover and keyboard focus, and on click for touch screens (the
+   script in layout.html sets .open). The padding-top bridge keeps the menu
+   open while the pointer travels from the button down into it. */
+.nav-dd-menu{display:none;position:absolute;top:100%;left:-16px;padding-top:12px;list-style:none;min-width:210px;z-index:70}
+.nav-dd-menu::before{content:"";position:absolute;inset:12px 0 0;background:var(--cream);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 40px rgba(15,41,30,.14);z-index:-1}
+.nav-dd:hover .nav-dd-menu,.nav-dd:focus-within .nav-dd-menu,.nav-dd.open .nav-dd-menu{display:block}
+.nav-dd:hover .nav-dd-btn svg,.nav-dd.open .nav-dd-btn svg{transform:rotate(180deg)}
+.nav-dd-menu li:first-child{padding-top:8px}
+.nav-dd-menu li:last-child{padding-bottom:8px}
+.nav-links .nav-dd-menu a,.nav.solid .nav-links .nav-dd-menu a{display:block;padding:9px 18px;color:var(--forest);border-bottom:0}
+.nav-links .nav-dd-menu a:hover{color:var(--forest);background:rgba(15,41,30,.05)}
+.nav-links .nav-dd-menu a[aria-current="page"]{color:var(--forest);font-weight:600;border-bottom:0}
 .nav-cta{display:flex;align-items:center;gap:12px}
 .lang-select{height:36px;padding:0 10px;border-radius:999px;border:1px solid rgba(245,242,236,.35);background:transparent;color:var(--cream);font:600 12.5px var(--sans);cursor:pointer}
 .lang-select:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
@@ -262,6 +282,14 @@ footer{background:var(--forest-deep);color:rgba(245,242,236,.6);padding:70px 0 3
   .nav-links.open{display:grid;position:absolute;top:72px;left:0;right:0;background:var(--cream);border-bottom:1px solid var(--line);padding:20px 24px;gap:18px}
   .nav-links.open a{color:var(--forest)}
   .nav-links.open a{display:block;padding:10px 0}
+  /* In the drawer the About Us menu is a heading with its pages listed
+     under it, always open: there is no hover on a phone. */
+  .nav-links.open .nav-dd-btn{color:var(--muted);cursor:default;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:10px 0 2px;border:0}
+  .nav-links.open .nav-dd-btn svg{display:none}
+  .nav-links.open .nav-dd-menu{display:block;position:static;padding:0 0 0 14px;min-width:0}
+  .nav-links.open .nav-dd-menu::before{display:none}
+  .nav-links.open .nav-dd-menu li{padding:0}
+  .nav-links.open .nav-dd-menu a{padding:10px 0}
 }
 @media(max-width:920px){
   .nav-cta .btn-ghost{display:none}

@@ -8,6 +8,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils import timezone
 from django.utils.text import slugify
 from rest_framework import status, views
 from rest_framework.exceptions import ValidationError
@@ -262,6 +263,13 @@ class SignupView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # The form disables its button until the box is ticked; this is the
+        # rule itself, so a boutique cannot exist without having accepted.
+        if request.data.get('terms_accepted') is not True:
+            return Response(
+                {"error": "Please accept the Terms & Conditions to create your boutique."},
+                status=status.HTTP_400_BAD_REQUEST)
+
         # One rule set with the customer book and the staff roster: the name
         # becomes the tenant's, the mobile the boutique's WhatsApp identity.
         try:
@@ -321,7 +329,8 @@ class SignupView(views.APIView):
                     # plan and is moved up from the console.
                     plan=DEFAULT_PLAN,
                 )
-            
+                BoutiqueTenant.objects.filter(pk=tenant.pk).update(terms_accepted_at=timezone.now())
+
                 Domain.objects.create(
                     domain=f"{schema_name}.localhost",
                     tenant=tenant,
@@ -356,7 +365,9 @@ class SignupView(views.APIView):
                 )
             
                 token, created = Token.objects.get_or_create(user=user)
-            
+
+                _notify_platform_of_signup(tenant, boutique_name, f'{first_name} {last_name}', email)
+
                 return Response({
                     "token": token.key,
                     "tenant_id": tenant.schema_name,
@@ -369,6 +380,26 @@ class SignupView(views.APIView):
             connection.set_schema_to_public()
             return Response({"error": "Something went wrong. Please try again."},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def _notify_platform_of_signup(tenant, boutique_name, owner_name, email):
+    """Put the new boutique on the platform console's bell.
+
+    Never allowed to fail the sign-up: the boutique exists either way, and the
+    console still lists it under All boutiques. The savepoint keeps a failed
+    insert from poisoning the surrounding provisioning transaction.
+    """
+    from superadmin.models import PlatformNotification
+    try:
+        with schema_context('public'), transaction.atomic():
+            PlatformNotification.objects.create(
+                kind=PlatformNotification.BOUTIQUE_SIGNUP,
+                title=f'New boutique: {boutique_name}',
+                body=f'{owner_name} ({email}) signed up.',
+                boutique=tenant.schema_name,
+            )
+    except Exception:
+        logger.exception('Could not record the sign-up notification for %s', tenant.schema_name)
+
 
 class _BoutiqueLookupThrottle(AnonRateThrottle):
 
