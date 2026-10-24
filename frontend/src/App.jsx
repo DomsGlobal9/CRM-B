@@ -3227,9 +3227,6 @@ function App() {
   const wizardStepKey = wizardSteps[currentStep - 1]?.key;
   /** The garment being filled in on the Garments step. */
   const openGarment = garmentJobs.find(job => job.key === activeGarmentKey) || garmentJobs[0] || null;
-  /** Whether the wizard's right-hand column has anything to show: the open
-   *  garment's picture. Without, the form is full width. */
-  const wizardHasSidebar = wizardStepKey === 'type' && Boolean(openGarment);
   /** Open a garment's form from its top. */
   const openGarmentAt = (key) => {
     setActiveGarmentKey(key);
@@ -7831,7 +7828,7 @@ function App() {
             <div className="stepper-count">{t('entry.stepXofY', 'Step {step} of {total}', { step: currentStep, total: wizardSteps.length })}</div>
           </div>
 
-          <div className={`main-content${wizardHasSidebar ? '' : ' full-width'}`} style={{ padding: '40px 24px 100px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+          <div className="main-content full-width" style={{ padding: '40px 24px 100px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
             <div className="workspace-panel">
 
             {/* WHO: the mobile number finds a customer the boutique already
@@ -8794,6 +8791,50 @@ function App() {
                     </Suspense>
                   )}
 
+                  {/* "See it on a model": every garment drawn on a model, from its
+                      designs and rolls -- here on the Review step, once the order's
+                      garments are all chosen. Renders nothing where the vendor is
+                      not set up and there is no base picture. The photograph lands
+                      on job.design.preview and confirms with the rest. */}
+                  <div className="wz-review-preview">
+                    <Suspense fallback={null}>
+                      <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
+                      // Picked from the book, or typed in validly on the Customer step.
+                      customer={{ id: customerId, name: customerName, mobile: customerForm.mobile_number,
+                                  given: !!customerId || (!customerBlank() && !customerProblem()) }}
+                      ensureCustomerId={ensureCustomerId}
+                      // No customer yet: back to the Customer step, as the stepper does.
+                      onCustomer={() => { jumpToStep(wizardSteps.findIndex(s => s.key === 'who') + 1); window.scrollTo(0, 0); }}
+                      onPreview={(jobKey, url, backUrl, { presentation, annotations } = {}) => {
+                        // Each kind of picture has its own place: a mannequin, the sketch (with
+                        // its labels), the customer's own photo (shared with the Review step),
+                        // or the standard model.
+                        const ai = customerForm.ai_model || {};
+                        const update = presentation === 'sketch'
+                          ? { sketch_preview: url, sketch_labels: annotations || [] }
+                          : presentation === 'mannequin'
+                            ? { mannequin_preview: url, mannequin_preview_back: backUrl || null }
+                            : ai.mode === 'customer' && ai.consent && ai.photo
+                              ? { customer_preview: url, customer_preview_back: backUrl || null }
+                              : { preview: url, preview_back: backUrl || null };
+                        setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                          ? { ...j, design: { ...(j.design || {}), ...update } } : j));
+                      }}
+                      // Rides customerForm, so it is saved with the draft; a different customer picked resets it.
+                      aiModel={customerForm.ai_model}
+                      onAiModel={(ai_model) => {
+                        // A new (or removed) customer photo: the customer's pictures show the
+                        // old person, so they go; the standard model's stay.
+                        if ((ai_model.photo || '') !== (customerForm.ai_model?.photo || '')) {
+                          setGarmentJobs(prev => prev.map(j => (j.design ? { ...j, design: { ...j.design,
+                            customer_preview: '', customer_preview_back: null } } : j)));
+                        }
+                        setCustomerForm(prev => ({ ...prev, ai_model }));
+                      }}
+                      />
+                    </Suspense>
+                  </div>
+
                   {/* Only with the customer's consent and photo, chosen on the Garments step. */}
                   {customerForm.ai_model?.mode === 'customer' && customerForm.ai_model.consent && customerForm.ai_model.photo
                     && card(t('wizard.reviewOnCustomer', 'AI pictures on the customer'), 'design', (
@@ -9077,54 +9118,6 @@ function App() {
             )}
             </div>
 
-            {/* Right Sidebar: the open garment's picture and the order so far,
-                when there is one; with neither, the form takes the full width. */}
-            {wizardHasSidebar && (
-            <div className="sidebar-panel">
-              {/* The open garment drawn on a model, from its designs and rolls.
-                  Renders nothing where the vendor is not set up and there is no
-                  base picture. The photograph lands on job.design.preview and
-                  confirms with the rest. */}
-              {wizardStepKey === 'type' && openGarment && (
-                <Suspense fallback={null}>
-                  <GarmentPreviews jobs={[openGarment]} title={t('wizard.reviewPreview', 'See it on a model')}
-                    // Picked from the book, or typed in validly on the Customer step.
-                    customer={{ id: customerId, name: customerName, mobile: customerForm.mobile_number,
-                                given: !!customerId || (!customerBlank() && !customerProblem()) }}
-                    ensureCustomerId={ensureCustomerId}
-                    // No customer yet: back to the Customer step, as the stepper does.
-                    onCustomer={() => { jumpToStep(wizardSteps.findIndex(s => s.key === 'who') + 1); window.scrollTo(0, 0); }}
-                    onPreview={(jobKey, url, backUrl, { presentation, annotations } = {}) => {
-                      // Each kind of picture has its own place: a mannequin, the sketch (with
-                      // its labels), the customer's own photo (shared with the Review step),
-                      // or the standard model.
-                      const ai = customerForm.ai_model || {};
-                      const update = presentation === 'sketch'
-                        ? { sketch_preview: url, sketch_labels: annotations || [] }
-                        : presentation === 'mannequin'
-                          ? { mannequin_preview: url, mannequin_preview_back: backUrl || null }
-                          : ai.mode === 'customer' && ai.consent && ai.photo
-                            ? { customer_preview: url, customer_preview_back: backUrl || null }
-                            : { preview: url, preview_back: backUrl || null };
-                      setGarmentJobs(prev => prev.map(j => j.key === jobKey
-                        ? { ...j, design: { ...(j.design || {}), ...update } } : j));
-                    }}
-                    // Rides customerForm, so it is saved with the draft; a different customer picked resets it.
-                    aiModel={customerForm.ai_model}
-                    onAiModel={(ai_model) => {
-                      // A new (or removed) customer photo: the customer's pictures show the
-                      // old person, so they go; the standard model's stay.
-                      if ((ai_model.photo || '') !== (customerForm.ai_model?.photo || '')) {
-                        setGarmentJobs(prev => prev.map(j => (j.design ? { ...j, design: { ...j.design,
-                          customer_preview: '', customer_preview_back: null } } : j)));
-                      }
-                      setCustomerForm(prev => ({ ...prev, ai_model }));
-                    }}
-                    />
-                </Suspense>
-              )}
-            </div>
-            )}
           </div>
         </div>
       )}

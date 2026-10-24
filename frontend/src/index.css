@@ -6352,3 +6352,93 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
    full width instead of leaving a blank strip. */
 .wizard-outer-wrapper .sidebar-panel:empty { display: none; }
 .wizard-outer-wrapper .main-content:has(> .sidebar-panel:empty) { grid-template-columns: minmax(0, 1fr); }
+
+/* ---- New order: one column, "See it on a model" on the Review step -----
+   The wizard no longer has a right-hand column. The Garments step, once a
+   garment is on the order, reads in a centred column of a comfortable width
+   (wider than the Customer step's, for the design and fabric pickers). On
+   the Review step the model preview is a card like the others: in the flow,
+   not pinned as it was in the side column. */
+.wz-type-wrap { display: flex; flex-direction: column; gap: 32px; width: 100%; max-width: 1040px; margin: 0 auto; }
+.wz-review-preview { margin-top: -16px; }
+.wz-review-preview .sidebar-card { position: static !important; padding: 16px 20px; }
+@media (max-width: 640px) {
+  .wz-type-wrap { gap: 20px; }
+  .wz-review-preview .sidebar-card { padding: 14px; }
+}
+/* Before the first garment, the step keeps its narrower column. */
+.wz-type-wrap.wz-type-wrap--empty { max-width: 760px; gap: 20px; }
+@media (max-width: 640px) { .wz-type-wrap.wz-type-wrap--empty { gap: 14px; } }
+
+/* ---- New order > Garments step, with garments on the order --------------
+   One card per garment, not a card inside a card: the step's outer box
+   steps back and each garment is the white card. Inside it the fields are a
+   size that suits a form of many questions -- 40px boxes, tighter labels and
+   even 16px gaps -- and the free-text note runs the card's full width. A
+   phone keeps 44px boxes and 16px text for the thumb and against zoom. */
+.wz-type-wrap:not(.wz-type-wrap--empty) > .wz-card {
+  background: transparent; border: none; box-shadow: none; padding: 0; gap: 0;
+}
+.wz-type-wrap:not(.wz-type-wrap--empty) .wz-garment {
+  margin-top: 0; padding: 20px 24px; background: var(--surface-color);
+  border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-card);
+}
+.wz-type-wrap:not(.wz-type-wrap--empty) .wz-garment + * { margin-top: 16px; }
+.wz-type-wrap .wz-garment-head { margin-bottom: 12px; }
+.wz-type-wrap .wz-garment-head .btn-secondary { min-height: 34px; height: 34px; padding: 0 12px; font-size: 13px; }
+.wz-type-wrap .wz-garment-name .btn-secondary { width: 30px; height: 30px; min-height: 0; padding: 0 !important; justify-content: center; }
+.wz-type-wrap .wz-garment .form-grid-2 { gap: 16px; }
+.wz-type-wrap .wz-garment .form-group { gap: 6px; }
+.wz-type-wrap .wz-garment .form-label { font-size: 11.5px; }
+.wz-type-wrap .wz-garment input.form-control,
+.wz-type-wrap .wz-garment select.form-control,
+.wz-type-wrap .wz-garment .form-control:not(textarea) { min-height: 40px; height: 40px; padding: 6px 12px; font-size: 14px; border-radius: 10px; }
+.wz-type-wrap .wz-garment textarea.form-control { min-height: 80px; padding: 10px 12px; border-radius: 10px; }
+.wz-type-wrap .wz-garment .wz-garment-section:has(> .od-hint) .form-grid-2 { grid-template-columns: minmax(0, 1fr); }
+.wz-type-wrap .wz-sec { margin-top: 16px; }
+.wz-type-wrap .wz-sec--first { margin-top: 4px; }
+.wz-type-wrap .wz-sec > summary.wz-sec-head { padding: 10px 0; font-size: 15px; }
+@media (max-width: 640px) {
+  .wz-type-wrap:not(.wz-type-wrap--empty) .wz-garment { padding: 14px; border-radius: 12px; }
+  .wz-type-wrap .wz-garment .form-grid-2 { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .wz-type-wrap .wz-garment input.form-control,
+  .wz-type-wrap .wz-garment select.form-control,
+  .wz-type-wrap .wz-garment .form-control:not(textarea) { min-height: 44px; height: 44px; font-size: 16px; }
+  .wz-type-wrap .wz-garment textarea.form-control { font-size: 16px; }
+  .wz-type-wrap .wz-garment-head { flex-wrap: wrap; }
+}
+/* Phone: 16px between the garment cards and the screen's edge, as on the other steps. */
+@media (max-width: 480px) {
+  .wz-type-wrap { padding: 0 8px; }
+}
+
+/* Garment questions: as many columns as fit at a comfortable width (about
+   three on a computer, two on a tablet, one on a phone) instead of two
+   stretched across the whole card. A question answered by a row of tick
+   boxes takes two columns, so its options are not squeezed. */
+.wz-type-wrap .wz-garment .form-grid-2 { grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); }
+@media (min-width: 641px) {
+  .wz-type-wrap .wz-garment .form-grid-2 > .form-group:has(input[type="checkbox"] ~ * input[type="checkbox"], label + label input[type="checkbox"]) { grid-column: span 2; }
+}
+/* A tablet (641-768px) has room for two garment questions a row; the general
+   rule above that width would otherwise stack every form to one column. */
+@media (min-width: 641px) and (max-width: 768px) {
+  .wz-type-wrap .wz-garment .form-grid-2 { grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)) !important; gap: 16px !important; }
+}
+
+/* ---- Garment questions: a strict two-column form ------------------------
+   Replaces the auto-fitting columns above, which left rows ragged (three
+   columns, gaps beside a short row, a note squeezed into one column). Now:
+   two even columns; every pick-one question takes one, every row of tick
+   boxes and every free-text note takes the whole row. The garment column is
+   a little narrower, so two columns are a comfortable width, not stretched.
+   A phone keeps one column (the general rule below 769px). */
+.wz-type-wrap:not(.wz-type-wrap--empty) { max-width: 880px; }
+.wz-type-wrap .wz-garment .form-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 20px; }
+@media (min-width: 641px) {
+  .wz-type-wrap .wz-garment .form-grid-2 > .form-group:has(input[type="checkbox"]),
+  .wz-type-wrap .wz-garment .form-grid-2 > .form-group:has(textarea) { grid-column: 1 / -1; }
+}
+@media (min-width: 641px) and (max-width: 768px) {
+  .wz-type-wrap .wz-garment .form-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
