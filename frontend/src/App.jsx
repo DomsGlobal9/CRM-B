@@ -1607,7 +1607,8 @@ function GuidedHighlight({ show, text, children }) {
   if (!show) return children;
   return (
     <span className="gh">
-      <span className="gh-callout" role="note">{text}</span>
+      {/* No text: the ring alone, without the callout above it. */}
+      {text && <span className="gh-callout" role="note">{text}</span>}
       <span className="gh-ring">{children}</span>
     </span>
   );
@@ -4647,7 +4648,8 @@ function App() {
                         {!loading && <RotateCw size={15} />}
                         <span>{loading ? t('common.loading', 'Loading...') : t('common.refresh', 'Refresh')}</span>
                       </button>
-                      <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
+                      {/* The dashboard's New order: highlighted, without the callout. */}
+                      <GuidedHighlight show={guideOrders}>
                         <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                           <Plus size={16} />
                           {t('dashboard.newOrder')}
@@ -5590,8 +5592,9 @@ function App() {
                           <Scissors size={16} /> Outside garment alteration
                         </button>
                       )}
+                      {/* New order: highlighted, without the callout. */}
                       {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
-                        <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
+                        <GuidedHighlight show={guideOrders}>
                           <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                             <Plus size={16} /> {t('ordersPage.newOrder')}
                           </button>
