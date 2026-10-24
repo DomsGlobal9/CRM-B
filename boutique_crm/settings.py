@@ -293,6 +293,13 @@ def _portal_origin(reset_url):
 
 PORTAL_BASE_URL = os.environ.get('PORTAL_BASE_URL') or _portal_origin(PASSWORD_RESET_BASE_URL)
 
+# Who hears about each new boutique sign-up by email: comma-separated
+# addresses. Empty, nobody is emailed; the console's bell still shows it.
+SIGNUP_ALERT_EMAILS = [
+    address.strip() for address in os.environ.get('SIGNUP_ALERT_EMAILS', '').split(',')
+    if address.strip()
+]
+
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT', '3600'))
 
 

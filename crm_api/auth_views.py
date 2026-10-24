@@ -1,4 +1,5 @@
 import logging
+import threading
 import uuid
 
 from django.conf import settings
@@ -377,6 +378,7 @@ class SignupView(views.APIView):
                 token, created = Token.objects.get_or_create(user=user)
 
                 _notify_platform_of_signup(tenant, boutique_name, f'{first_name} {last_name}', email)
+                _email_platform_of_signup(tenant, boutique_name, f'{first_name} {last_name}', email, mobile)
 
                 return Response({
                     "token": token.key,
@@ -409,6 +411,41 @@ def _notify_platform_of_signup(tenant, boutique_name, owner_name, email):
             )
     except Exception:
         logger.exception('Could not record the sign-up notification for %s', tenant.schema_name)
+
+
+def _email_platform_of_signup(tenant, boutique_name, owner_name, email, mobile):
+    """Email settings.SIGNUP_ALERT_EMAILS about the new boutique.
+
+    Sent once the sign-up commits -- a rolled-back sign-up announces nothing --
+    and on a thread of its own, so the new owner never waits on Gmail. Like the
+    bell, it can never fail the sign-up.
+    """
+    recipients = getattr(settings, 'SIGNUP_ALERT_EMAILS', [])
+    if not recipients:
+        return
+    console = f"{settings.PORTAL_BASE_URL.rstrip('/')}/superadmin#/boutiques/{tenant.schema_name}"
+    signed_up = timezone.localtime().strftime('%d %b %Y, %I:%M %p')
+    subject = f'New boutique signed up: {boutique_name}'
+    body = (
+        f'A new boutique has signed up on Scaleezy.\n\n'
+        f'Boutique: {boutique_name}\n'
+        f'Owner: {owner_name}\n'
+        f'Email: {email}\n'
+        f'Mobile: {mobile or "not given"}\n'
+        f'Signed up: {signed_up}\n'
+        f'Plan: {tenant.plan}\n\n'
+        f'Open it in the console:\n{console}\n'
+    )
+
+    def send():
+        try:
+            EmailService.send_email(subject=subject, recipient_list=recipients, body=body,
+                                    fail_silently=True)
+        except Exception:  # noqa: BLE001 - an alert that failed is only a log line
+            logger.exception('Could not email the sign-up alert for %s', tenant.schema_name)
+
+    transaction.on_commit(
+        lambda: threading.Thread(target=send, name='signup-alert', daemon=True).start())
 
 
 class _BoutiqueLookupThrottle(AnonRateThrottle):

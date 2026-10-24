@@ -1,9 +1,11 @@
 from contextlib import contextmanager
 from pathlib import Path
+from unittest import mock
 
 from django.contrib.auth.models import User
+from django.core import mail
 from django.db import connection
-from django.test import Client, TransactionTestCase
+from django.test import Client, TransactionTestCase, override_settings
 from django_tenants.utils import schema_context
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
@@ -355,6 +357,66 @@ class SignupIdentityTests(TransactionTestCase):
             self.assertIn('Terms Atelier', notice.title)
             self.assertIn(email, notice.body)
             self.assertIsNone(notice.read_at)
+        finally:
+            connection.set_schema_to_public()
+            PlatformNotification.objects.filter(body__contains=email).delete()
+            self._drop(email)
+
+    @override_settings(SIGNUP_ALERT_EMAILS=['alerts@platform.test', 'ops@platform.test'],
+                       PORTAL_BASE_URL='https://boutique.example.test')
+    def test_signup_emails_the_platform_alert_addresses(self):
+        from superadmin.models import PlatformNotification
+        email = 'alert.probe@ownerflow.test'
+        mail.outbox = []
+        try:
+            # The alert is sent on its own thread; run that thread's work inline.
+            with mock.patch('crm_api.auth_views.threading.Thread') as thread:
+                response = self._signup(email, business_name='Alert Atelier')
+                self.assertEqual(response.status_code, 201, response.data)
+                thread.assert_called_once()
+                self.assertEqual(mail.outbox, [], 'emailed on the request thread')
+                thread.call_args.kwargs['target']()
+            connection.set_schema_to_public()
+            tenant = BoutiqueTenant.objects.get(owner_email=email)
+
+            self.assertEqual(len(mail.outbox), 1)
+            alert = mail.outbox[0]
+            self.assertEqual(alert.to, ['alerts@platform.test', 'ops@platform.test'])
+            self.assertIn('Alert Atelier', alert.subject)
+            self.assertIn(email, alert.body)
+            self.assertIn('9600000000', alert.body)
+            self.assertIn(f'https://boutique.example.test/superadmin#/boutiques/{tenant.schema_name}',
+                          alert.body)
+        finally:
+            connection.set_schema_to_public()
+            PlatformNotification.objects.filter(body__contains=email).delete()
+            self._drop(email)
+
+    @override_settings(SIGNUP_ALERT_EMAILS=[])
+    def test_no_alert_addresses_means_no_email(self):
+        from superadmin.models import PlatformNotification
+        email = 'no.alert@ownerflow.test'
+        try:
+            with mock.patch('crm_api.auth_views.threading.Thread') as thread:
+                self.assertEqual(self._signup(email).status_code, 201)
+            thread.assert_not_called()
+        finally:
+            connection.set_schema_to_public()
+            PlatformNotification.objects.filter(body__contains=email).delete()
+            self._drop(email)
+
+    @override_settings(SIGNUP_ALERT_EMAILS=['alerts@platform.test'])
+    def test_a_mail_failure_does_not_fail_the_signup(self):
+        from superadmin.models import PlatformNotification
+        email = 'mail.down@ownerflow.test'
+        try:
+            with mock.patch('crm_api.auth_views.threading.Thread') as thread, \
+                    mock.patch('crm_api.auth_views.EmailService.send_email',
+                               side_effect=RuntimeError('smtp down')):
+                self.assertEqual(self._signup(email).status_code, 201)
+                thread.call_args.kwargs['target']()  # logs, does not raise
+            connection.set_schema_to_public()
+            self.assertTrue(BoutiqueTenant.objects.filter(owner_email=email).exists())
         finally:
             connection.set_schema_to_public()
             PlatformNotification.objects.filter(body__contains=email).delete()
