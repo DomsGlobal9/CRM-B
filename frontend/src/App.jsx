@@ -3870,7 +3870,11 @@ function App() {
 
   const onboardingSteps = [
     { key: 'boutique', label: 'Create your boutique', done: true },
-    { key: 'customer', label: 'Add your first customer', done: bookTotal > 0, go: () => setView('order-selector') },
+    // The same New customer form the Customers page's Add Customer leads to.
+    { key: 'customer', label: 'Add your first customer', done: bookTotal > 0, go: () => {
+      setSelectedDirectoryCustomer(null); setEditingCustomer(null);
+      setDashboardTab('customers'); setCustomerAddMode('manual');
+    } },
     { key: 'order', label: 'Take your first order', done: ordersList.length > 0, go: () => setView('order-selector') },
     { key: 'staff', label: 'Add your tailors, masters and designers', done: tailors.length > 0, tab: 'staff', go: () => setDashboardTab('staff') },
     { key: 'fabrics', label: 'Put your first fabric on the shelf', done: fabrics.length > 0, tab: 'inventory', go: () => setDashboardTab('inventory') },
@@ -7582,25 +7586,20 @@ function App() {
               <div className="wz-services">
                 <button type="button" className="wz-service" onClick={() => startService('stitch')}>
                   <IconTile icon={Scissors} tone="green" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceStitch', 'Stitch something')}</span>
+                  <span className="wz-service-title">{t('entry.serviceStitch', 'Stitching')}</span>
                   <span className="wz-service-desc">{t('entry.serviceStitchDesc', 'A blouse, saree work, a lehenga. The look comes from our catalogue or the customer\u2019s own photos.')}</span>
                 </button>
                 <button type="button" className="wz-service" onClick={() => startService('alter')}
                         disabled={currentUser?.role === 'Designer'}
                         title={currentUser?.role === 'Designer' ? t('entry.serviceAlterNotYou', 'Alterations are raised at the counter.') : undefined}>
                   <IconTile icon={Ruler} tone="amber" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceAlter', 'Alter a garment')}</span>
+                  <span className="wz-service-title">{t('entry.serviceAlter', 'Alteration')}</span>
                   <span className="wz-service-desc">{t('entry.serviceAlterDesc', 'Fix or adjust a garment we made and delivered.')}</span>
-                </button>
-                <button type="button" className="wz-service" onClick={() => startService('design')}>
-                  <IconTile icon={PenTool} tone="neutral" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceDesign', 'Design something new')}</span>
-                  <span className="wz-service-desc">{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
                 </button>
                 {(!currentUser?.role || currentUser.role === 'Owner') && (
                   <button type="button" className="wz-service" onClick={() => setStartingBoutiqueRun(true)}>
                     <IconTile icon={Factory} tone="violet" size={48} iconSize={22} />
-                    <span className="wz-service-title">{t('entry.serviceBoutique', 'Stitch for the boutique')}</span>
+                    <span className="wz-service-title">{t('entry.serviceBoutique', 'In house')}</span>
                     <span className="wz-service-desc">{t('entry.serviceBoutiqueDesc', 'Garments for our own stock or the showroom. No customer — they go into inventory when they are done.')}</span>
                   </button>
                 )}
