@@ -376,7 +376,7 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         self.assertEqual(kept['fabrics'], {'MAIN_FABRIC': [str(silk.id)], 'BORDER': [str(silk.id)]})
         self.assertEqual([f['name'] for f in kept['fabric_items']], ['Kanchipuram Silk'])
         self.assertEqual(kept['fabric_qty'][f'MAIN_FABRIC:{silk.id}'], 6)
-        self.assertEqual(kept['slot_labels']['MAIN_FABRIC'], 'Main Fabric / Body')
+        self.assertEqual(kept['slot_labels']['MAIN_FABRIC'], 'Body')
         # The stage panel reads the order, not the draft, and never /api/fabrics/.
         panel = response.data['garment_jobs'][0]['selections']
         self.assertEqual(panel['fabric_items'][0]['color'], 'Maroon')

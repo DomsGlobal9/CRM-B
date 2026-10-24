@@ -4,7 +4,7 @@ import { Check, ChevronDown, Inbox, X } from 'lucide-react';
 import { inventoryImage, inventoryTile } from '../../services/inventoryImages';
 import { LIMITS, cleanAmount } from '../../services/validate';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
-import { ACCESSORY_OPTIONS, accessoryOptionsFor } from '../designStudio/accessories';
+import { ACCESSORY_OPTIONS, accessoryOptionsFor, isAccessorySlot } from '../designStudio/accessories';
 import Loader from '../../components/ui/Loader';
 
 const unitShort = (f) => (
@@ -391,7 +391,7 @@ export default function GarmentFabricPicker({
           }));
         } else {
           allSlots = (spec?.sections || []).flatMap(section =>
-            (section.slots || []).map(slot => ({
+            (section.slots || []).filter(slot => !isAccessorySlot(garmentKey, slot.key)).map(slot => ({
               
               id: section.key ? `${section.key}:${slot.key}` : slot.key,
               key: slot.key,

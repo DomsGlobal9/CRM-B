@@ -4458,6 +4458,8 @@ table.data-table tbody tr:hover {
 .at-table { width: 100%; border-collapse: collapse; min-width: 760px; }
 .at-table th { font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); text-align: left; padding: 12px 16px; background: var(--surface-2); border-bottom: 1px solid var(--border-color); white-space: nowrap; }
 .at-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); font-size: var(--text-sm); vertical-align: middle; color: var(--text-primary); }
+/* The Customers list: its column headings sit centred over their columns. */
+.cust-list .at-table th { text-align: center; }
 .at-table tr:last-child td { border-bottom: none; }
 .at-table tbody tr:hover td { background: var(--surface-2); }
 /* A roster that fits the page instead of scrolling sideways: no floor on its
@@ -5789,6 +5791,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
    labelled selects, "More filters" for the rest, and the A-Z name strip. */
 .cf-bar { padding: var(--space-4); border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--surface-color); margin-bottom: var(--space-3); }
 .cf-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
+/* The headings over the More filters selects sit centred over their box. */
+.cf-field .cf-label { text-align: center; }
 .cf-bar select.cf-select { min-height: 38px; height: 38px; padding: 4px 30px 4px 12px; margin: 0; font-size: var(--text-sm); width: 100%; }
 .cf-bar select.cf-select--on { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 10%, var(--surface-color)); font-weight: 600; }
 .cf-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 14px; font-size: var(--text-sm); white-space: nowrap; }
@@ -6602,6 +6606,21 @@ button, input, select, textarea { font-family: inherit; }
 /* Three doors: Stitching, Alteration, In-house. */
 .wz-services--three { max-width: 980px; margin-inline: auto; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .wz-services--three .wz-service { min-height: 190px; }
+/* In the page's flex column the auto side margins shrink-wrap the grid to one
+   row of cards; a full width (still capped at 980px) lets them wrap. Three
+   across, or one under the other -- never two and a lone third. */
+.wz-services--three { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 720px) {
+  .wz-services--three { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 16px; }
+  .wz-services--three .wz-service { min-height: 0; }
+}
+/* A phone: each door is a row -- the icon beside its title and description. */
+@media (max-width: 560px) {
+  .wz-services--three .wz-service { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 4px; align-items: start; padding: 16px; }
+  .wz-services--three .wz-service > :first-child { grid-row: span 2; }
+  .wz-services--three .wz-service-title { font-size: 18px; }
+  .wz-services--three .wz-service-desc { font-size: 13px; }
+}
 
 /* Steps with no right column read better at a comfortable line length. */
 .wizard-outer-wrapper .main-content.wz-main--narrow { max-width: 980px !important; }
@@ -6655,6 +6674,108 @@ button, input, select, textarea { font-family: inherit; }
   .wz-seg { display: flex; }
   .wz-seg-btn { flex: 1; justify-content: center; padding: 8px 8px; font-size: 12.5px; }
   .wz-measure-head { flex-wrap: wrap; }
+}
+
+/* Measurements step: compact boxes, and a layout that fits any screen. The
+   inch boxes are a size smaller; the notes start two lines tall (still
+   resizable); the tailor's voice recorder sits in a strip under its text
+   rather than squeezing it from the side. */
+.wz-measure-card .tf-measure-grid .form-control:not(textarea) { min-height: 40px; height: 40px; padding: 6px 34px 6px 12px; font-size: 14px; }
+.wz-measure-card textarea.form-control { min-height: 64px; height: 64px; padding: 10px 12px; font-size: 14px; }
+.wz-measure-notes .at-field-control { flex-wrap: wrap; min-height: 0; }
+/* The two note boxes stop at a readable width on a wide screen; narrower
+   screens are under the cap, so there they still fill the card. */
+.wz-measure-card textarea.form-control,
+.wz-measure-notes .at-field-control { width: 100%; max-width: 720px; }
+/* The cards follow the boxes: as wide as a 720px box and its padding, so a
+   wide screen has no empty band beside the notes. Below that width they
+   fill the page as before. */
+.wz-measure-card.content-card, .wz-measure-notes.content-card { width: 100%; max-width: 784px; box-sizing: border-box; }
+/* Centred on the page, and the step's title rides in the same column so it
+   lines up with the cards (only the title directly above a measure card). */
+.wz-measure-card.content-card, .wz-measure-notes.content-card,
+.page-title-group:has(+ .wz-measure-card) { margin-left: auto; margin-right: auto; }
+.page-title-group:has(+ .wz-measure-card) { width: 100%; max-width: 784px; box-sizing: border-box; }
+
+/* Review step: smaller cards in one centred column -- the title, every card
+   and "See it on a model" line up -- with tighter garment details inside.
+   Below the cap they fill the page as before. The card's padding is inline,
+   so the phone padding needs !important. */
+.wz-review-card.content-card,
+.wz-review-card ~ .wz-review-preview,
+.page-title-group:has(~ .wz-review-card) {
+  width: 100%; max-width: 880px; margin-left: auto; margin-right: auto; box-sizing: border-box;
+}
+.wz-review-card .garment-card { padding: 12px 16px; gap: 12px; }
+.wz-review-card .garment-card-head { padding-bottom: 10px; }
+.wz-review-card .garment-section-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px 16px; }
+.wz-review-card .ui-badge { max-width: 100%; height: auto; white-space: normal; line-height: 1.4; }
+/* Complete the order & invoice: one compact card in a centred column (the
+   title and any error ride in it too), the price list filling the card so
+   every amount lines up on its right edge, like an invoice. */
+.wz-money-card.content-card,
+.page-title-group:has(~ .wz-money-card),
+.wz-error:has(~ .wz-money-card) {
+  width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box;
+}
+.wz-money-card.content-card { padding: 24px 28px; gap: 16px; }
+.wz-money-card .wz-money { max-width: none; }
+.wz-money-card .form-control:not(textarea) { min-height: 40px; height: 40px; }
+@media (max-width: 900px) {
+  .wz-money-card.content-card { padding: 20px; }
+}
+@media (max-width: 640px) {
+  .wz-money-card.content-card { padding: 16px; gap: 14px; }
+  .wz-money-card .wz-money-row { gap: 10px; }
+  .wz-money-card .wz-money-label { min-width: 0; overflow-wrap: anywhere; }
+  .wz-money-card .wz-money-input { flex-shrink: 0; }
+  .wz-money-card .wz-money-input .form-control { width: 116px; font-size: 16px; } /* 16px: no iOS zoom */
+  .wz-money-card .form-group { max-width: none !important; }
+  .wz-money-card #wz-ready { font-size: 16px; }
+}
+
+/* A laptop and wider: the review is a two-column sheet, so it fits the screen
+   instead of one tall column. Garments (the long card) on the left; the
+   customer and every shorter card stacked on the right, in their order; the
+   title across the top. The page is as tall as the longer column, not the
+   sum of every card. The fixed rows let Garments span the right column's
+   height with a set number of gaps; the last row takes whatever is left. */
+@media (min-width: 1100px) {
+  .workspace-panel:has(> .wz-review-card--main) {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    grid-template-rows: auto repeat(8, auto) 1fr;
+    gap: 0 20px; /* rows spaced by margins: an empty row adds no gap */
+    align-items: start;
+    max-width: 1180px; width: 100%; margin: 0 auto;
+  }
+  .main-content.full-width:has(.wz-review-card--main) { padding-top: 24px !important; }
+  .workspace-panel:has(> .wz-review-card--main) > * { grid-column: 2; margin: 0 0 16px !important; max-width: none !important; width: auto !important; }
+  .workspace-panel:has(> .wz-review-card--main) > .page-title-group { grid-column: 1 / -1; margin-bottom: 20px !important; }
+  .workspace-panel:has(> .wz-review-card--main) > div:not([class]) { display: none; }
+  .workspace-panel:has(> .wz-review-card--main) > .wz-review-card--main { grid-column: 1; grid-row: 2 / -1; }
+}
+@media (max-width: 640px) {
+  .wz-review-card.content-card { padding: 14px !important; }
+  .wz-review-card .garment-card { padding: 12px; }
+  .wz-review-card .garment-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+}
+.wz-measure-notes .at-field-control > .voice-textarea { flex: 1 1 100%; }
+.wz-measure-notes .at-field-control > .voice-textarea > textarea { min-height: 64px; height: 64px; padding: 10px 12px; font-size: 14px; }
+.wz-measure-notes .at-field-control > .voice-recorder {
+  flex: 1 1 100%; margin-top: 0 !important; padding: 8px 10px;
+  border-top: 1px solid var(--border-color); background: var(--surface-2);
+}
+@media (max-width: 900px) {
+  .wz-measure-card.content-card, .wz-measure-notes.content-card { padding: 20px; gap: 16px; }
+}
+@media (max-width: 640px) {
+  .wz-measure-card.content-card, .wz-measure-notes.content-card { padding: 16px; gap: 14px; }
+  .wz-measure-head { gap: 10px; margin-bottom: 12px; padding-bottom: 12px; }
+  .wz-measure-head .wz-measure-loaded { order: 3; flex-basis: 100%; white-space: normal; border-radius: var(--radius-md); }
+  .wz-measure-card .tf-measure-grid .form-control:not(textarea) { font-size: 16px; } /* 16px stops iOS zooming into the box */
+  .wz-measure-card textarea.form-control,
+  .wz-measure-notes .at-field-control > .voice-textarea > textarea { font-size: 16px; }
 }
 
 /* Customers page: chips, sort and filters on one row (MOM, 2026-10-24). */
