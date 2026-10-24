@@ -5907,7 +5907,7 @@ function App() {
                       )}
                       {/* Leads come in through the lead API, not the counter: no Add here. */}
                       {customerView !== 'leads' && (
-                        <GuidedHighlight show={guideCustomers} text={bookTotal ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
+                        <GuidedHighlight show={guideCustomers}>
                           <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
                             <Plus size={16} /> Add Customer
                           </button>
