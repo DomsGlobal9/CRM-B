@@ -8449,8 +8449,26 @@ function App() {
                           <div className="wz-garment-section">
                             <TemplateForm template={job.template} section="materials" values={job.values}
                                           errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'fabric_source'}
-                                          onChange={(values) => updateGarmentValues(job.key, values)} />
+                                          onChange={(values) => {
+                                            updateGarmentValues(job.key, values);
+                                            // "Need to buy": open a row below to say what and how much,
+                                            // unless one is open already. Left blank, it is not recorded.
+                                            if (values.fabric_source === 'buy' && (job.values?.fabric_source || 'inventory') !== 'buy'
+                                                && !(job.purchases || []).some(r => !r.field_key)) {
+                                              setGarmentJobs(prev => prev.map(j => (j.key === job.key
+                                                ? { ...j, purchases: [...(j.purchases || []), { name: '', quantity: '', unit: 'METER', estimated_cost: '', required_by: '', notes: '' }] }
+                                                : j)));
+                                            }
+                                          }} />
                           </div>
+                        )}
+
+                        {/* From our inventory, where this boutique has no fabric stock to
+                            pick from (its plan has no Inventory): say so, not a blank space. */}
+                        {!canSeeTab(currentUser, 'inventory') && (job.values?.fabric_source || 'inventory') === 'inventory' && (
+                          <p className="od-hint" style={{ margin: '4px 0 10px' }}>
+                            {t('wizard.noInventoryModule', 'Fabric stock is not part of this boutique’s plan, so there is no shelf to pick from here. The workroom will choose the fabric — or choose “Need to buy” to note what to buy.')}
+                          </p>
                         )}
 
                         {canSeeTab(currentUser, 'inventory') && (job.values?.fabric_source || 'inventory') === 'inventory' && (
@@ -8487,17 +8505,21 @@ function App() {
                           <GarmentPurchases rows={job.purchases || []}
                                             onChange={(rows) => setGarmentJobs(prev => prev.map(j => (j.key === job.key ? { ...j, purchases: rows } : j)))} />
                         </div>
-                        <details className="wz-more" open={(job.values?.fabric_source || 'inventory') === 'customer'}>
-                          <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer fabrics (they bring it)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker ownOnly isFabric
-                                               garmentKey={job.template?.key || job.key}
-                                               garmentName={job.template?.name || job.key}
-                                               taxonomy={fabricTaxonomy}
-                                               references={partReferences[job.key] || {}}
-                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
-                          </Suspense>
-                        </details>
+                        {/* The customer's own cloth, part by part: only once the
+                            Fabric question says the customer provides it. */}
+                        {(job.values?.fabric_source || 'inventory') === 'customer' && (
+                          <details className="wz-more" open>
+                            <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer fabrics (they bring it)')}</summary>
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentPartPicker ownOnly isFabric
+                                                 garmentKey={job.template?.key || job.key}
+                                                 garmentName={job.template?.name || job.key}
+                                                 taxonomy={fabricTaxonomy}
+                                                 references={partReferences[job.key] || {}}
+                                                 onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                            </Suspense>
+                          </details>
+                        )}
 
                         <details className="wz-more">
                           <summary><Package size={14} /> {t('wizard.sheetTrims', 'Trims & accessories')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
