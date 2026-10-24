@@ -145,6 +145,7 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           }
           .at-part-tabs .tab-next {
             flex-basis: 100%;
+            justify-content: flex-end; /* buttons are flex boxes app-wide */
             text-align: right;
           }
         }

@@ -8767,7 +8767,7 @@ function App() {
                     hear it back, Send keeps it under the sender's name, Delete
                     throws it away. Sent here means uploaded and held on the
                     draft; it lands on the order at confirm. */}
-                <div className="content-card wz-card">
+                <div className="content-card wz-card wz-measure-notes">
                   <Field label={t('wizard.notesForTailor', 'Notes for the tailor')}>
                     {/* The same note the "What" screen asks for; one field, two doors. */}
                     <VoiceTextarea className="form-control" rows={3} value={specialInstructions} maxLength={LIMITS.note}
@@ -8799,8 +8799,8 @@ function App() {
               };
               const rollName = (id) => fabrics.find(f => String(f.id) === String(id))?.name || 'Stock item';
               
-              const card = (title, step, body) => (
-                <div className="content-card wz-card" style={{ padding: '16px 20px', gap: 0, marginTop: '-16px' }}>
+              const card = (title, step, body, extraClass = '') => (
+                <div className={`content-card wz-card wz-review-card${extraClass ? ` ${extraClass}` : ''}`} style={{ padding: '16px 20px', gap: 0, marginTop: '-16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                     <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{title}</h2>
                     <button type="button" className="btn-secondary at-btn-sm" onClick={() => {
@@ -8899,7 +8899,7 @@ function App() {
                       </div>
                       <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: { ...job.template, name: garmentLabel(job) }, values: job.values || {} }))} />
                     </>
-                  ))}
+                  ), 'wz-review-card--main')}
 
                   {groups.length > 0 && card(t('wizard.reviewPhotos', 'Photos & references'), 'design', (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -9030,7 +9030,7 @@ function App() {
                   </div>
                 )}
 
-                <div className="content-card wz-card">
+                <div className="content-card wz-card wz-money-card">
                   <div className="form-group" style={{ maxWidth: '260px' }}>
                     <label className="form-label" htmlFor="wz-ready">{t('wizard.readyBy', 'Ready by')} <span className="required">*</span></label>
                     <input id="wz-ready" type="date" className="form-control" value={readyBy} min={todayIso()}
