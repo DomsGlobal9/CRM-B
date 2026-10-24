@@ -88,6 +88,22 @@ export function getGarmentPairConfig(garmentKey = '', garmentName = '') {
 }
 
 /**
+ * The garment template a pair key stands for: the exact key, else the closest
+ * by key or name. Shared with the order wizard's multi-garment picker, which
+ * attaches a partner picked together with its garment.
+ */
+export function findMatchingTemplate(pairKey, templates) {
+  const exact = templates.find(t => t.key === pairKey);
+  if (exact) return exact;
+  const target = pairKey.toLowerCase().replace(/[^a-z]/g, '');
+  return templates.find(t => {
+    const k = (t.key || '').toLowerCase().replace(/[^a-z]/g, '');
+    const n = (t.name || '').toLowerCase().replace(/[^a-z]/g, '');
+    return k.includes(target) || target.includes(k) || n.includes(target) || target.includes(n);
+  });
+}
+
+/**
  * GarmentPairingModal component - Displays cross-sell pairing prompt when a primary garment is selected.
  */
 export default function GarmentPairingModal({
@@ -122,18 +138,6 @@ export default function GarmentPairingModal({
   }, [isOpen, primaryGarmentKey, primaryGarmentName, primaryJobKey, garmentTemplates, garmentJobs]);
 
   if (!isOpen || !pairConfig) return null;
-
-  function findMatchingTemplate(pairKey, templates) {
-    
-    const exact = templates.find(t => t.key === pairKey);
-    if (exact) return exact;
-    const target = pairKey.toLowerCase().replace(/[^a-z]/g, '');
-    return templates.find(t => {
-      const k = (t.key || '').toLowerCase().replace(/[^a-z]/g, '');
-      const n = (t.name || '').toLowerCase().replace(/[^a-z]/g, '');
-      return k.includes(target) || target.includes(k) || n.includes(target) || target.includes(n);
-    });
-  }
 
   const handleTogglePairKey = (pairKey) => {
     if (selectedPairKeys.includes(pairKey)) {

@@ -1,9 +1,35 @@
-import { Check, X, Shirt } from 'lucide-react';
+import { useState } from 'react';
+import { Check, X, Shirt, Plus } from 'lucide-react';
+
+/** The tick grid's groups, by garment key, each in the order a counter thinks
+ *  of them -- a saree beside its blouse and petticoat. A garment in none of
+ *  them (one added to the catalogue later) goes under "Other". */
+const GARMENT_GROUPS = [
+  { label: 'Sarees & Lehengas', keys: ['saree', 'blouse', 'petticoat', 'lehenga', 'lehenga_blouse', 'dupatta'] },
+  { label: 'Suits, Kurtis & Gowns', keys: ['kurti', 'anarkali', 'suit', 'bottom_wear', 'gown'] },
+  { label: "Men's ethnic", keys: ['sherwani', 'kurta', 'indo_western', 'mens_bottom_wear'] },
+  { label: "Men's western", keys: ['shirt', 't_shirt', 'mens_suit', 'trouser', 'jeans', 'shorts', 'casual_wear'] },
+  { label: 'Jackets & coats', keys: ['jacket', 'coat'] },
+];
+
+/** `templates` in the groups above, empty groups left out. */
+function groupGarments(templates) {
+  const byKey = new Map(templates.map((t) => [t.key, t]));
+  const grouped = GARMENT_GROUPS
+    .map((group) => ({ label: group.label, items: group.keys.map((key) => byKey.get(key)).filter(Boolean) }))
+    .filter((group) => group.items.length);
+  const known = new Set(GARMENT_GROUPS.flatMap((group) => group.keys));
+  const other = templates.filter((t) => !known.has(t.key));
+  return other.length ? [...grouped, { label: 'Other', items: other }] : grouped;
+}
 
 /**
  * DressesDropdown - a native select for adding garments to the order, with the
  * chosen ones shown as removable pills above it. An order holds several
  * dresses, so picking one adds it and the select resets to ask for the next.
+ *
+ * With `onAddMany`, the select is a grid of garments to tick instead: several
+ * are chosen together and added with one button, `onAddMany(keys)`.
  */
 export default function DressesDropdown({
   title = "Dresses in this Order",
@@ -16,9 +42,21 @@ export default function DressesDropdown({
   loadGarmentTemplates = null,
   addGarment,
   removeGarment,
+  onAddMany = null,
 }) {
   const chosenKeys = new Set(garmentJobs.map((job) => job.key));
   const available = garmentTemplates.filter((t) => !chosenKeys.has(t.key));
+  // The garments ticked in the grid, in the order they appear in it.
+  const [ticked, setTicked] = useState([]);
+  const toggle = (key) => setTicked((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  const addTicked = () => {
+    // In the order the grid shows them, group by group.
+    const keys = groupGarments(available).flatMap((group) => group.items.map((t) => t.key))
+      .filter((key) => ticked.includes(key));
+    if (!keys.length || addingGarmentKey) return;
+    onAddMany(keys);
+    setTicked([]);
+  };
 
   return (
     <div
@@ -105,7 +143,39 @@ export default function DressesDropdown({
         </div>
       )}
 
-      {/* Garment picker. Value is pinned to '' so every pick re-arms it. */}
+      {onAddMany ? (
+        /* Garment grid: tick everything being made, then add them together. */
+        <>
+          {/* One grid, in the groups' order -- garments that go together side
+              by side -- without a heading over each group. */}
+          <div className="dd-grid" role="group" aria-label={title}>
+            {groupGarments(available).flatMap((group) => group.items).map((template) => {
+              const on = ticked.includes(template.key);
+              return (
+                <button key={template.key} type="button" aria-pressed={on} disabled={!!addingGarmentKey}
+                        className={`dd-tile${on ? ' dd-tile--on' : ''}`} onClick={() => toggle(template.key)}>
+                  <span className="dd-tile-box" aria-hidden="true">{on && <Check size={13} strokeWidth={3} />}</span>
+                  <span className="dd-tile-name">{template.name}</span>
+                </button>
+              );
+            })}
+          </div>
+          {available.length > 0 && (
+            <div className="dd-foot">
+              <span className="dd-foot-hint">
+                {ticked.length
+                  ? `${ticked.length} selected${ticked.length > 1 ? ' — they are filled in one after another' : ''}`
+                  : 'Tick every garment being made.'}
+              </span>
+              <button type="button" className="btn-primary" disabled={!ticked.length || !!addingGarmentKey} onClick={addTicked}>
+                <Plus size={16} />
+                {addingGarmentKey ? 'Adding…' : ticked.length > 1 ? `Add ${ticked.length} garments` : 'Add garment'}
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+      /* Garment picker. Value is pinned to '' so every pick re-arms it. */
       <select
         className="form-control"
         value=""
@@ -123,6 +193,7 @@ export default function DressesDropdown({
           <option key={template.key} value={template.key}>{template.name}</option>
         ))}
       </select>
+      )}
 
       {/* Error state if templates fail to load */}
       {garmentTemplates.length === 0 && garmentTemplatesError && (

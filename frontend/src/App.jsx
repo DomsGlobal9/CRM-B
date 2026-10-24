@@ -65,7 +65,7 @@ import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
 import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
-import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
+import GarmentPairingModal, { getGarmentPairConfig, findMatchingTemplate } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
 import Loader, { LoaderRows } from './components/ui/Loader';
 function getCustomerMeasurement(m, key) {
@@ -1829,6 +1829,8 @@ function App() {
     return syncFollowers(next) || next;
   }), []);
   const [activePairingGarment, setActivePairingGarment] = useState(null);
+  // Garments picked together whose pairing suggestion is still to come, one after another.
+  const [pairingQueue, setPairingQueue] = useState([]);
   const [draftId, setDraftId] = useState(null);
   const [draftVersion, setDraftVersion] = useState(null);
   const [draftSaveState, setDraftSaveState] = useState('idle');
@@ -1928,6 +1930,38 @@ function App() {
   const handleAddPairedGarments = async (pairKeys) => {
     for (const pairKey of pairKeys) {
       await addGarment(pairKey, true, true, activePairingGarment?.jobKey || null);
+    }
+  };
+
+  /** Several garments ticked at once. A garment picked together with one it
+   *  pairs with (Saree and Blouse) is added as that garment's partner, as if
+   *  chosen in its pairing suggestion; then each garment with partners still
+   *  left to suggest gets its pairing suggestion, one after another. */
+  const addGarments = async (keys) => {
+    const nameOf = (key) => garmentTemplates.find(tpl => tpl.key === key)?.name || '';
+    const configOf = (key) => getGarmentPairConfig(key, nameOf(key));
+    const primaries = keys.filter(key => configOf(key));
+    const partnerOf = {};
+    primaries.forEach(primary => configOf(primary).pairKeys.forEach(pairKey => {
+      const tpl = findMatchingTemplate(pairKey, garmentTemplates);
+      if (tpl && keys.includes(tpl.key) && !primaries.includes(tpl.key) && !partnerOf[tpl.key]) partnerOf[tpl.key] = primary;
+    }));
+    // Each garment followed by the partners picked with it.
+    const ordered = keys.filter(key => !partnerOf[key])
+      .flatMap(key => [key, ...keys.filter(other => partnerOf[other] === key)]);
+    const jobKeys = {};
+    for (const key of ordered) {
+      jobKeys[key] = await addGarment(key, true, false, partnerOf[key] ? jobKeys[partnerOf[key]] || null : null);
+    }
+    const suggest = primaries
+      .filter(primary => jobKeys[primary] && configOf(primary).pairKeys.some(pairKey => {
+        const tpl = findMatchingTemplate(pairKey, garmentTemplates);
+        return tpl && partnerOf[tpl.key] !== primary;
+      }))
+      .map(primary => ({ key: primary, name: nameOf(primary), jobKey: jobKeys[primary] }));
+    if (suggest.length) {
+      setActivePairingGarment(suggest[0]);
+      setPairingQueue(suggest.slice(1));
     }
   };
 
@@ -3194,9 +3228,8 @@ function App() {
   /** The garment being filled in on the Garments step. */
   const openGarment = garmentJobs.find(job => job.key === activeGarmentKey) || garmentJobs[0] || null;
   /** Whether the wizard's right-hand column has anything to show: the open
-   *  garment's picture, or the order so far. Without, the form is full width. */
-  const wizardHasSidebar = (wizardStepKey === 'type' && Boolean(openGarment))
-    || (serviceType !== 'alter' && garmentJobs.length > 0);
+   *  garment's picture. Without, the form is full width. */
+  const wizardHasSidebar = wizardStepKey === 'type' && Boolean(openGarment);
   /** Open a garment's form from its top. */
   const openGarmentAt = (key) => {
     setActiveGarmentKey(key);
@@ -7967,6 +8000,7 @@ function App() {
                     loadGarmentTemplates={loadGarmentTemplates}
                     addGarment={addGarment}
                     removeGarment={removeGarment}
+                    onAddMany={addGarments}
                   />}
 
                   {garmentJobs.length > 1 && (() => {
@@ -9089,16 +9123,6 @@ function App() {
                     />
                 </Suspense>
               )}
-              {serviceType !== 'alter' && garmentJobs.length > 0 && (
-                <div className="sidebar-card">
-                  <div className="sidebar-card-title"><Shirt size={16} /> {t('wizard.thisOrder', 'This order')}</div>
-                  <div className="od-hint" style={{ lineHeight: 1.6 }}>
-                    {customerForm.first_name ? <div><strong>{customerForm.first_name} {customerForm.last_name}</strong></div> : null}
-                    <div>{garmentJobs.map((j) => j.template?.name || j.key).join(', ')}</div>
-                    {wizardStepKey === 'money' && <div>{t('wizard.total', 'Total')}: <strong>{inr(getTotalPrice())}</strong></div>}
-                  </div>
-                </div>
-              )}
             </div>
             )}
           </div>
@@ -10030,7 +10054,8 @@ Complete the Payment stage with this partial payment?`)) return;
       )}
       <GarmentPairingModal
         isOpen={!!activePairingGarment}
-        onClose={() => setActivePairingGarment(null)}
+        // The next garment picked together with this one, if any, has its suggestion next.
+        onClose={() => { setActivePairingGarment(pairingQueue[0] || null); setPairingQueue(pairingQueue.slice(1)); }}
         primaryGarmentKey={activePairingGarment?.key}
         primaryGarmentName={activePairingGarment?.name}
         primaryJobKey={activePairingGarment?.jobKey}

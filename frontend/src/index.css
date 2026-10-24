@@ -6320,3 +6320,35 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 @media (max-width: 480px) {
   .wz-type-wrap--empty { padding: 0 8px; }
 }
+
+/* ---- New order > Garments: tick several garments at once ----------------
+   The garment list as tiles to tick, then one button adds them together. */
+.dd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 4px; }
+.dd-tile {
+  display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 12px; text-align: left;
+  border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-color);
+  color: var(--text-primary); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+  transition: border-color .15s ease, background .15s ease;
+}
+.dd-tile:hover:not(:disabled) { border-color: var(--border-strong); background: var(--surface-2); }
+.dd-tile:disabled { opacity: .6; cursor: default; }
+.dd-tile--on, .dd-tile--on:hover:not(:disabled) { border-color: var(--primary-color); background: var(--accent-color); font-weight: 600; }
+.dd-tile-box {
+  width: 20px; height: 20px; flex-shrink: 0; border-radius: 6px; border: 1.5px solid var(--border-strong);
+  display: inline-flex; align-items: center; justify-content: center; background: var(--surface-color);
+}
+.dd-tile--on .dd-tile-box { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); }
+.dd-tile-name { min-width: 0; overflow-wrap: anywhere; }
+.dd-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+.dd-foot-hint { font-size: 13px; color: var(--text-secondary); }
+@media (max-width: 480px) {
+  .dd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dd-foot { flex-direction: column; align-items: stretch; }
+  .dd-foot .btn-primary { width: 100%; justify-content: center; min-height: 44px; }
+}
+
+/* The order wizard's right column holds only the garment's picture now. Where
+   that picture has nothing to draw, the column is empty: the form takes the
+   full width instead of leaving a blank strip. */
+.wizard-outer-wrapper .sidebar-panel:empty { display: none; }
+.wizard-outer-wrapper .main-content:has(> .sidebar-panel:empty) { grid-template-columns: minmax(0, 1fr); }
