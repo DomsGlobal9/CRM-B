@@ -6587,6 +6587,21 @@ button, input, select, textarea { font-family: inherit; }
 /* Three doors: Stitching, Alteration, In-house. */
 .wz-services--three { max-width: 980px; margin-inline: auto; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .wz-services--three .wz-service { min-height: 190px; }
+/* In the page's flex column the auto side margins shrink-wrap the grid to one
+   row of cards; a full width (still capped at 980px) lets them wrap. Three
+   across, or one under the other -- never two and a lone third. */
+.wz-services--three { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 720px) {
+  .wz-services--three { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 16px; }
+  .wz-services--three .wz-service { min-height: 0; }
+}
+/* A phone: each door is a row -- the icon beside its title and description. */
+@media (max-width: 560px) {
+  .wz-services--three .wz-service { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 4px; align-items: start; padding: 16px; }
+  .wz-services--three .wz-service > :first-child { grid-row: span 2; }
+  .wz-services--three .wz-service-title { font-size: 18px; }
+  .wz-services--three .wz-service-desc { font-size: 13px; }
+}
 
 /* Steps with no right column read better at a comfortable line length. */
 .wizard-outer-wrapper .main-content.wz-main--narrow { max-width: 980px !important; }

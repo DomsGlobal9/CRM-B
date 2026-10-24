@@ -8641,7 +8641,7 @@ function App() {
                             Fabric question says the customer provides it. */}
                         {(job.values?.fabric_source || 'inventory') === 'customer' && (
                           <details className="wz-more" open>
-                            <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer fabrics (they bring it)')}</summary>
+                            <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Fabric the customer is bringing')}</summary>
                             <Suspense fallback={<ScreenLoading />}>
                               <GarmentPartPicker ownOnly isFabric
                                                  garmentKey={job.template?.key || job.key}

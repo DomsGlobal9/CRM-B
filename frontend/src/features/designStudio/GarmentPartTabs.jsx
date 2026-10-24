@@ -65,89 +65,88 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
 
   return (
     <>
-      {/* One row, never wrapped: an eleven-part anarkali would otherwise stack
-          three rows of tabs above the grid they filter. Only the inner
-          .at-part-tabs-scroll scrolls sideways -- overscroll-behavior stops the
-          gesture chaining out to the page once it reaches an end -- so the
-          "Next" button beside it stays in view on a phone where the strip shows
-          one tab at a time. Scoped to this component's own class, so the
-          shared .tabs-header rules are untouched. */}
+      {/* Every part in view at once: the tabs wrap onto a second line inside
+          their grey track rather than one row scrolled sideways, so no part
+          hides off the edge of a phone -- the app's .tabs-header wraps the same
+          way. The open part is the raised pill the theme gives an active tab
+          (index.css, .at-part-tabs .tab-btn.active). "Next" sits beside the
+          track on a wide screen and on its own line, right-aligned, on a
+          phone. Scoped to this component's own class, so the shared
+          .tabs-header rules are untouched. */}
       <style>{`
         .at-part-tabs {
           display: flex;
-          flex-wrap: nowrap;
+          flex-wrap: wrap;
           align-items: center;
-          width: 0;
-          min-width: 100%;
-          background: var(--surface-inset, #f4f4f5);
-          border: 1px solid var(--border-color, #e4e4e7);
-          padding: 5px;
-          border-radius: 10px;
-          gap: 5px;
+          width: 100%;
+          gap: 10px 12px;
           margin-bottom: 16px;
         }
         .at-part-tabs-scroll {
           display: flex;
-          flex: 1 1 0;
+          flex: 0 1 auto;
           min-width: 0;
-          flex-wrap: nowrap;
+          max-width: 100%;
+          flex-wrap: wrap;
           align-items: center;
-          gap: 5px;
-          overflow-x: auto;
-          overflow-y: hidden;
-          overscroll-behavior-x: contain;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          -ms-overflow-style: none;
-        }
-        .at-part-tabs-scroll::-webkit-scrollbar {
-          display: none !important;
-          height: 0 !important;
-          width: 0 !important;
-        }
-        /* On a phone the strip shows about one tab: the fade at its right edge
-           is the cue that more are behind it. Desktop shows enough tabs to
-           make the cue noise. */
-        @media (max-width: 720px) {
-          .at-part-tabs-scroll {
-            -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-            mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-            padding-right: 28px; /* the last tab scrolls clear of the fade */
-          }
-          .at-part-tabs .tab-next {
-            max-width: 46%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
+          gap: 4px;
+          padding: 4px;
+          background: var(--tab-track, var(--surface-inset, #f4f4f5));
+          border: 1px solid var(--border-color, #e4e4e7);
+          border-radius: 10px;
         }
         .at-part-tabs .tab-btn {
           flex: 0 0 auto;
+          max-width: 100%;
+          min-height: 34px;
           white-space: nowrap;
           padding: 7px 14px;
-          font-size: 12.5px;
+          font-size: 13px;
           font-weight: 500;
+          line-height: 1.3;
           border-radius: 7px;
-          border: none;
+          border: 1px solid transparent;
           background: transparent;
           color: var(--text-secondary, #64748b);
-          transition: all 0.15s ease;
+          transition: background-color 0.15s ease, color 0.15s ease;
           cursor: pointer;
         }
         .at-part-tabs .tab-btn.active {
-          background: #18181b;
-          color: #ffffff;
+          background: var(--surface-color, #ffffff);
+          color: var(--text-primary, #0f172a);
           font-weight: 600;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+          box-shadow: 0 1px 3px rgba(0,0,0,0.12);
         }
         .at-part-tabs .tab-btn:hover:not(.active) {
           background: rgba(0, 0, 0, 0.05);
           color: var(--text-primary, #0f172a);
         }
+        .at-part-tabs .tab-btn:focus-visible {
+          outline: 2px solid var(--primary-color, #18181b);
+          outline-offset: 2px;
+        }
         .at-part-tabs .tab-next {
           margin-left: auto;
-          padding-left: 14px;
+          padding: 7px 4px 7px 12px;
           font-weight: 600;
           color: var(--text-primary, #0f172a);
+        }
+        .at-part-tabs .tab-next:hover:not(.active) {
+          background: transparent;
+          text-decoration: underline;
+        }
+        @media (max-width: 560px) {
+          .at-part-tabs-scroll { flex-basis: 100%; }
+          .at-part-tabs .tab-btn {
+            padding: 6px 12px;
+            font-size: 12.5px;
+            white-space: normal; /* a long part name wraps inside its tab */
+            text-align: left;
+          }
+          .at-part-tabs .tab-next {
+            flex-basis: 100%;
+            text-align: right;
+          }
         }
       `}</style>
       <div className="at-part-tabs" role="tablist">
