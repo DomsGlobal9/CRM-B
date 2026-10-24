@@ -3132,12 +3132,32 @@ function App() {
   };
   const handleSelectExistingCustomer = (cust) => startService('stitch', cust);
 
-  /** Customers whose number contains what has been typed so far: the five
-   *  newest, as full rows, because picking one fills the order form. */
+  /** Customers matching what has been typed so far -- by number once three
+   *  digits are in, else by name once two letters are: the five newest, as
+   *  full rows, because picking one fills the order form. (An alteration has
+   *  no name box, so it is found by number only.) */
   const matchDigits = customerId ? '' : (customerForm.mobile_number || '').replace(/\D/g, '');
+  const matchName = customerId || serviceType === 'alter' ? '' : customerName.trim();
+  const matchBy = matchDigits.length >= 3 ? 'mobile' : matchName.length >= 2 ? 'name' : null;
   const { results: customerMatches, loading: customerMatchesLoading } = useCustomerLookup({
-    mobile: matchDigits.length >= 3 ? matchDigits : '', limit: 5, full: true,
+    mobile: matchBy === 'mobile' ? matchDigits : '', q: matchBy === 'name' ? matchName : '', limit: 5, full: true,
   });
+  /** The matches, shown under the box being searched by; one picks the customer. */
+  const customerMatchList = customerMatches.length > 0 && (
+    <div className="wz-matches" role="listbox"
+         aria-label={matchBy === 'name' ? t('wizard.matchesByName', 'Customers matching this name') : t('wizard.matches', 'Customers matching this number')}>
+      {customerMatches.map((cust) => (
+        <button type="button" key={cust.id} className="wz-match" role="option" aria-selected="false" onClick={() => pickCustomer(cust)}>
+          <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={32} />
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <span className="wz-match-name">{cust.first_name} {cust.last_name}</span>
+            <span className="od-hint" style={{ display: 'block' }}>{formatMobile(cust.mobile_number)}{cust.city_region ? ` · ${cust.city_region}` : ''}</span>
+          </span>
+          <TierBadge tier={customerTier(cust)} />
+        </button>
+      ))}
+    </div>
+  );
   /** Garments we delivered to the chosen customer: the only ones an alteration can name. */
   const alterCandidates = React.useMemo(() => {
     if (!customerId) return [];
@@ -7787,40 +7807,15 @@ function App() {
                   <p className="page-subtitle">
                     {serviceType === 'alter'
                       ? t('wizard.whoAlterSubtitle', 'Type the mobile number to find the customer. Alterations are for garments we made.')
-                      : t('wizard.whoSubtitle', 'Type the mobile number. A customer we know comes up as you type; a new one just needs a name.')}
+                      : t('wizard.whoSubtitle', 'Type the customer’s name, then their mobile number. A customer we know comes up as you type either one.')}
                   </p>
                 </div>
 
                 <div className="content-card wz-card">
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="wz-mobile">{t('wizard.mobileNumber', 'Mobile Number')} <span className="required">*</span></label>
-                    <div className="input-wrapper">
-                      <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
-                      <input id="wz-mobile" type="tel" inputMode="numeric" autoFocus
-                             value={customerForm.mobile_number}
-                             onChange={(e) => { const digits = cleanMobile(e.target.value); setCustomerForm({ ...customerForm, mobile_number: digits }); if (customerId) clearPickedCustomer(digits); }}
-                             style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
-                    </div>
-                  </div>
-
-                  {/* Gender is kept on the customer's record; the garments were
-                      chosen before we got here, so it filters nothing now.
-                      Alterations skip it -- their garments come from past orders. */}
-                  {serviceType !== 'alter' && (
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
-                      <select id="wz-gender" className="form-control" value={customerForm.gender || ''}
-                              onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
-                        <option value="">{t('wizard.selectGender', 'Select Gender')}</option>
-                        <option value="Female">{t('wizard.female', 'Female')}</option>
-                        <option value="Male">{t('wizard.male', 'Male')}</option>
-                        <option value="Other">{t('wizard.other', 'Other')}</option>
-                      </select>
-                    </div>
-                  )}
-
+                  {/* The customer's name first, then their mobile number. A
+                      customer picked from the matches shows here in its place. */}
                   {customerId ? (
-                    <div className="wz-known">
+                    <div className="wz-known" style={{ marginTop: 0, marginBottom: '14px' }}>
                       <AvatarInitials name={`${customerForm.first_name} ${customerForm.last_name}`} size={40} />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div className="wz-known-name">{customerForm.first_name} {customerForm.last_name} <TierBadge tier={customerTier(customerForm)} /></div>
@@ -7830,38 +7825,54 @@ function App() {
                         {t('wizard.notThem', 'Not them')}
                       </button>
                     </div>
-                  ) : (
+                  ) : serviceType !== 'alter' && (
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-name">{t('wizard.customerName', 'Customer Name')} <span className="required">*</span></label>
+                      <input id="wz-name" type="text" className="form-control" value={customerName} autoFocus
+                             maxLength={LIMITS.name}
+                             onChange={(e) => setCustomerNameSplit(cleanName(e.target.value))}
+                             placeholder={t('wizard.namePlaceholder', 'e.g. Amara Singh')} />
+                      {matchBy === 'name' && customerMatchList}
+                    </div>
+                  )}
+
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="wz-mobile">{t('wizard.mobileNumber', 'Mobile Number')} <span className="required">*</span></label>
+                    <div className="input-wrapper">
+                      <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
+                      <input id="wz-mobile" type="tel" inputMode="numeric" autoFocus={serviceType === 'alter'}
+                             value={customerForm.mobile_number}
+                             onChange={(e) => { const digits = cleanMobile(e.target.value); setCustomerForm({ ...customerForm, mobile_number: digits }); if (customerId) clearPickedCustomer(digits); }}
+                             style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
+                    </div>
+                  </div>
+
+                  {!customerId && (
                     <>
-                      {customerMatches.length > 0 && (
-                        <div className="wz-matches" role="listbox" aria-label={t('wizard.matches', 'Customers matching this number')}>
-                          {customerMatches.map((cust) => (
-                            <button type="button" key={cust.id} className="wz-match" role="option" aria-selected="false" onClick={() => pickCustomer(cust)}>
-                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={32} />
-                              <span style={{ minWidth: 0, flex: 1 }}>
-                                <span className="wz-match-name">{cust.first_name} {cust.last_name}</span>
-                                <span className="od-hint" style={{ display: 'block' }}>{formatMobile(cust.mobile_number)}{cust.city_region ? ` · ${cust.city_region}` : ''}</span>
-                              </span>
-                              <TierBadge tier={customerTier(cust)} />
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {serviceType === 'alter' ? (
-                        customerForm.mobile_number.replace(/\D/g, '').length >= 4 && customerMatches.length === 0 && !customerMatchesLoading && (
+                      {matchBy === 'mobile' && customerMatchList}
+                      {serviceType === 'alter'
+                        && customerForm.mobile_number.replace(/\D/g, '').length >= 4 && customerMatches.length === 0 && !customerMatchesLoading && (
                           <p className="od-hint" style={{ marginTop: '8px' }}>
                             {t('wizard.noCustomerForAlter', 'No customer with this number. Alterations can only be raised on a garment we made, so the customer must already be in your book.')}
                           </p>
-                        )
-                      ) : (
-                        <div className="form-group" style={{ marginTop: '14px' }}>
-                          <label className="form-label" htmlFor="wz-name">{t('wizard.customerName', 'Customer Name')} <span className="required">*</span></label>
-                          <input id="wz-name" type="text" className="form-control" value={customerName}
-                                 maxLength={LIMITS.name}
-                                 onChange={(e) => setCustomerNameSplit(cleanName(e.target.value))}
-                                 placeholder={t('wizard.namePlaceholder', 'e.g. Amara Singh')} />
-                        </div>
-                      )}
+                        )}
                     </>
+                  )}
+
+                  {/* Gender is kept on the customer's record; the garments were
+                      chosen before we got here, so it filters nothing now.
+                      Alterations skip it -- their garments come from past orders. */}
+                  {serviceType !== 'alter' && (
+                    <div className="form-group" style={{ marginTop: '14px' }}>
+                      <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <select id="wz-gender" className="form-control" value={customerForm.gender || ''}
+                              onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
+                        <option value="">{t('wizard.selectGender', 'Select Gender')}</option>
+                        <option value="Female">{t('wizard.female', 'Female')}</option>
+                        <option value="Male">{t('wizard.male', 'Male')}</option>
+                        <option value="Other">{t('wizard.other', 'Other')}</option>
+                      </select>
+                    </div>
                   )}
 
                   {serviceType !== 'alter' && (
