@@ -128,7 +128,7 @@ class Command(BaseCommand):
         r = APIClient().post('/api/auth/signup/', {
             'first_name': 'Smoke', 'last_name': 'Test',
             'email_address': owner_email, 'mobile_number': '9600000000',
-            'password': password}, format='json')
+            'password': password, 'accepted_terms': True}, format='json')
         if not j.check('signup succeeds', r.status_code in (200, 201),
                        f'{r.status_code} {getattr(r, "data", None)}'):
             return
@@ -395,7 +395,7 @@ class Command(BaseCommand):
         second = APIClient().post('/api/auth/signup/', {
             'first_name': 'Second', 'last_name': 'House',
             'email_address': f'second-{tag}@smoke.test', 'mobile_number': '9600000001',
-            'password': password}, format='json')
+            'password': password, 'accepted_terms': True}, format='json')
         if j.check('a second boutique provisions', second.status_code in (200, 201)):
             other = BoutiqueTenant.objects.filter(
                 owner_email=f'second-{tag}@smoke.test').first()

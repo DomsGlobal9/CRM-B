@@ -6,6 +6,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import send_mail
+from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.text import slugify
@@ -243,6 +244,12 @@ class LoginThrottle(AnonRateThrottle):
         throttle.cache.set(key, history, throttle.duration)
 
 
+#: The Terms & Conditions and Privacy Policy a new boutique accepts at sign-up
+#: (the sign-up form's terms popup, frontend/src/constants/legal.js). Raise it
+#: whenever that text changes, so each boutique's record says which one it saw.
+TERMS_VERSION = '2026-10'
+
+
 class SignupView(views.APIView):
     permission_classes = [AllowAny]
 
@@ -261,6 +268,13 @@ class SignupView(views.APIView):
                 {"error": "Please provide first_name, last_name, email_address and password"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # The terms are agreed to on the form; the server checks it as well,
+        # so no boutique is created without the agreement on record.
+        if str(request.data.get('accepted_terms', '')).lower() not in ('true', '1', 'on', 'yes'):
+            return Response(
+                {"error": "Please accept the Terms & Conditions and Privacy Policy to create your boutique."},
+                status=status.HTTP_400_BAD_REQUEST)
 
         # One rule set with the customer book and the staff roster: the name
         # becomes the tenant's, the mobile the boutique's WhatsApp identity.
@@ -320,6 +334,8 @@ class SignupView(views.APIView):
                     # default: a boutique that signs up starts on the smallest
                     # plan and is moved up from the console.
                     plan=DEFAULT_PLAN,
+                    terms_accepted_at=timezone.now(),
+                    terms_version=TERMS_VERSION,
                 )
             
                 Domain.objects.create(

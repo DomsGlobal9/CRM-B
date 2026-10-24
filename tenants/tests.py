@@ -287,7 +287,7 @@ class SignupIdentityTests(TransactionTestCase):
         payload = {
             'first_name': 'Qa', 'last_name': 'Probe',
             'email_address': email, 'mobile_number': '9600000000',
-            'password': 'SignupProbe2026!',
+            'password': 'SignupProbe2026!', 'accepted_terms': True,
         }
         payload.update(extra)
         return APIClient().post('/api/auth/signup/', payload, format='json')
@@ -304,6 +304,26 @@ class SignupIdentityTests(TransactionTestCase):
             self.assertEqual(response.data['user']['role'], 'Owner')
         finally:
             self._drop('role.probe@ownerflow.test')
+
+    def test_no_boutique_without_accepting_the_terms(self):
+        from crm_api.auth_views import TERMS_VERSION
+        try:
+            for refused in ({'accepted_terms': False}, {'accepted_terms': ''}):
+                response = self._signup('terms.probe@ownerflow.test', **refused)
+                self.assertEqual(response.status_code, 400, response.data)
+                self.assertIn('Terms', response.data['error'])
+            connection.set_schema_to_public()
+            self.assertFalse(BoutiqueTenant.objects.filter(owner_email='terms.probe@ownerflow.test').exists())
+
+            # Accepted: the boutique carries when, and which version.
+            response = self._signup('terms.probe@ownerflow.test')
+            self.assertEqual(response.status_code, 201, response.data)
+            connection.set_schema_to_public()
+            tenant = BoutiqueTenant.objects.get(owner_email='terms.probe@ownerflow.test')
+            self.assertIsNotNone(tenant.terms_accepted_at)
+            self.assertEqual(tenant.terms_version, TERMS_VERSION)
+        finally:
+            self._drop('terms.probe@ownerflow.test')
 
     def test_the_email_is_stored_lowercase_so_case_cannot_fork_a_boutique(self):
         try:
@@ -356,7 +376,7 @@ class SignupBoutiqueIdentityTests(TransactionTestCase):
             response = APIClient().post('/api/auth/signup/', {
                 'first_name': 'Aditi', 'last_name': 'Rao',
                 'email_address': email, 'mobile_number': '9600004444',
-                'password': 'SignupProbe2026!',
+                'password': 'SignupProbe2026!', 'accepted_terms': True,
                 'business_name': "Aditi's Atelier",
                 'business_address': '4 Nungambakkam High Road, Chennai 600034',
             }, format='json')
@@ -377,7 +397,7 @@ class SignupBoutiqueIdentityTests(TransactionTestCase):
         try:
             response = APIClient().post('/api/auth/signup/', {
                 'first_name': 'Qa', 'last_name': 'Probe',
-                'email_address': email, 'password': 'SignupProbe2026!',
+                'email_address': email, 'password': 'SignupProbe2026!', 'accepted_terms': True,
             }, format='json')
             self.assertEqual(response.status_code, 201, response.data)
 
@@ -529,7 +549,7 @@ class SignupSeedsNothingInventedTests(TransactionTestCase):
     def _signup(self, email):
         return APIClient().post('/api/auth/signup/', {
             'first_name': 'Nita', 'last_name': 'Rao',
-            'email_address': email, 'password': 'a-real-password-42',
+            'email_address': email, 'password': 'a-real-password-42', 'accepted_terms': True,
             'business_name': "Nita's Atelier",
         }, format='json')
 
@@ -570,7 +590,7 @@ class MultiBoutiqueLoginTests(TransactionTestCase):
     def _signup(self, email, name):
         return APIClient().post('/api/auth/signup/', {
             'first_name': name, 'last_name': 'Owner',
-            'email_address': email, 'password': 'owner-password-77',
+            'email_address': email, 'password': 'owner-password-77', 'accepted_terms': True,
             'business_name': f"{name}'s Atelier",
         }, format='json')
 

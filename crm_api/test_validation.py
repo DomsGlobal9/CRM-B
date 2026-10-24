@@ -454,7 +454,7 @@ class DesignLibraryTests(ValidationTestBase):
 class SignupTests(ValidationTestBase):
     def signup(self, **overrides):
         body = {'first_name': 'Rohan', 'last_name': 'Verma', 'email_address': 'rohan@signup.test',
-                'mobile_number': '9876500000', 'password': 'rohanpassword123'}
+                'mobile_number': '9876500000', 'password': 'rohanpassword123', 'accepted_terms': True}
         body.update(overrides)
         client = APIClient()  # public schema: no tenant header
         return client.post(reverse('auth-signup'), body, format='json')

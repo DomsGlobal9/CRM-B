@@ -58,6 +58,7 @@ import { useLanguage } from './i18n/LanguageContext.jsx';
 import LanguageSelector from './components/LanguageSelector.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import { InvoiceRenderer, normalizeInvoiceData } from './components/invoice/InvoiceTemplates';
+import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from './constants/legal';
 import { BottomNavigation } from './components/ui/BottomNavigation';
 
 import { BottomSheet } from './components/ui/BottomSheet';
@@ -1659,6 +1660,12 @@ function PortalMenu({ sections, activeTab, onPick, collapsed = false, hints = {}
 }
 
 
+/** A document name in running text that opens it (the sign-up terms). */
+const legalLink = {
+  background: 'none', border: 'none', padding: 0, minHeight: 0, font: 'inherit',
+  color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer',
+};
+
 function portalSlugFromPath() {
   const segments = window.location.pathname.split('/').filter(Boolean);
   if (segments.length !== 1) return '';
@@ -1772,6 +1779,8 @@ function App() {
     confirm_password: '',
     terms: false
   });
+  // The sign-up form's terms popup: 'terms', 'privacy', or closed.
+  const [legalDoc, setLegalDoc] = useState(null);
   const [signupBusy, setSignupBusy] = useState(false);
 
   const [signupError, setSignupError] = useState(null);
@@ -2960,7 +2969,10 @@ function App() {
         mobile_number: signupForm.mobile_number,
         password: signupForm.password,
         business_name: boutiqueName,
-        business_address: boutiqueAddress
+        business_address: boutiqueAddress,
+        // The server records when the terms were accepted, and refuses a
+        // sign-up without them.
+        accepted_terms: signupForm.terms,
       });
       setJustRegistered(true);
       if (!res.token) { setView('login'); return; }
@@ -4371,8 +4383,46 @@ function App() {
                 <div className="mobile-stack-grid signup-footer">
                   <label className="remember-me-checkbox" style={{ fontSize: '12.5px' }}>
                     <input type="checkbox" checked={signupForm.terms} onChange={(e) => setSignupForm({...signupForm, terms: e.target.checked})} />
-                    I agree to the Terms & Conditions and Privacy Policy
+                    {/* Each document opens to be read; clicking its name does not tick the box. */}
+                    <span>
+                      I agree to the{' '}
+                      <button type="button" onClick={(e) => { e.preventDefault(); setLegalDoc('terms'); }} style={legalLink}>Terms & Conditions</button>
+                      {' '}and{' '}
+                      <button type="button" onClick={(e) => { e.preventDefault(); setLegalDoc('privacy'); }} style={legalLink}>Privacy Policy</button>
+                    </span>
                   </label>
+                  {legalDoc && (
+                    <FormModal icon={ShieldCheck} tone="green" width="720px"
+                               title={legalDoc === 'terms' ? 'Terms & Conditions' : 'Privacy Policy'}
+                               onClose={() => setLegalDoc(null)}
+                               footer={(
+                                 <>
+                                   <button type="button" className="btn-secondary" onClick={() => setLegalDoc(null)}>Close</button>
+                                   <button type="button" className="btn-primary"
+                                           onClick={() => { setSignupForm((prev) => ({ ...prev, terms: true })); setLegalDoc(null); }}>
+                                     <Check size={16} /> I agree
+                                   </button>
+                                 </>
+                               )}>
+                      {(() => {
+                        const text = (legalDoc === 'terms' ? TERMS_AND_CONDITIONS : PRIVACY_POLICY).trim();
+                        return text ? (
+                          <div style={{ fontSize: '13.5px', lineHeight: 1.6, color: 'var(--text-secondary)', maxHeight: '60vh', overflowY: 'auto' }}>
+                            {text.split(/\n\s*\n/).map((para, i) => (
+                              // "3. Your data belongs to you" on a line of its own is a section heading.
+                              /^\d+\.\s/.test(para) && !para.includes('\n')
+                                ? <h4 key={i} style={{ margin: '18px 0 6px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{para}</h4>
+                                : <p key={i} style={{ margin: '0 0 12px', whiteSpace: 'pre-line' }}>{para}</p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: 0 }}>
+                            The full text will appear here.
+                          </p>
+                        );
+                      })()}
+                    </FormModal>
+                  )}
                   <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }}
                           onClick={() => setView('login')}>
                     Log in instead
@@ -4650,7 +4700,7 @@ function App() {
                           }}>
                             {step.done ? <Check size={12} /> : i + 1}
                           </span>
-                          <span style={{ fontSize: '13px', textDecoration: step.done ? 'line-through' : 'none' }}>
+                          <span style={{ fontSize: '13px' }}>
                             {step.label}
                           </span>
                           {!step.done && step.go && <ArrowRight size={13} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
