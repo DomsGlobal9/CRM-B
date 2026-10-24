@@ -3140,10 +3140,9 @@ function App() {
     reachStep(1);
     setView('wizard');
   };
-  /** A new customer is only ever created inside a new order, so the
-   *  Customers page's "Add Customer" opens the same three cards as New order
-   *  (Stitching / Alteration / In-house) and the wizard's customer step. */
-  const handleStartNewCustomer = () => setView('order-selector');
+  /** The Customers page's "Add Customer": the New customer form, on its own,
+   *  with no order. A customer can still be added inside a new order too. */
+  const handleStartNewCustomer = () => setCustomerAddMode('manual');
 
   const [customerAddMode, setCustomerAddMode] = useState(null);
   
@@ -5954,6 +5953,10 @@ function App() {
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'import' && (
               <AddCustomerChooser onBack={() => setCustomerAddMode(null)}
                                   onImported={() => fetchDashboardAndConfig()} />
+            )}
+            {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
+              <CustomerForm onBack={() => setCustomerAddMode(null)}
+                            onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
             )}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (
               <>
