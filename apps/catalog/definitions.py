@@ -81,7 +81,7 @@ COMMON_MEASUREMENTS = [
 FABRIC_SOURCE = [
     field('fabric_source', 'Fabric', 'select', options=[
         ('inventory', 'From our inventory'),
-        ('customer', 'Customer will provide'),
+        ('customer', 'Provided by Customer'),
         ('buy', 'Need to buy'),
     ], default='inventory'),
 ]
@@ -1837,7 +1837,7 @@ def hand_work_fields(definition):
                        ('tone_on_tone', 'Tone-on-Tone (matching fabric)')],
               when=has_work),
         field('hand_work_material_source', 'Work Materials From', 'select', default='boutique',
-              options=[('boutique', 'Boutique'), ('customer', 'Customer will provide')],
+              options=[('boutique', 'Boutique'), ('customer', 'Provided by Customer')],
               when=has_work),
         field('hand_work_notes', 'Notes for the Maggam Master', 'textarea',
               help_text='Thread colour, motif size, what to match.',

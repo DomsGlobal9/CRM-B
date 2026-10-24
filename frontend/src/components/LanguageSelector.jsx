@@ -20,7 +20,7 @@ export const LanguageSelector = () => {
         boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
       }}
     >
-      <Globe size={16} style={{ color: '#6366f1', flexShrink: 0 }} />
+      <Globe size={16} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
       <select
         value={language}
         onChange={(e) => setLanguage(e.target.value)}

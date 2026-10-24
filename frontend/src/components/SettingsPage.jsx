@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
+import { PageHeader } from './ui/Atelier.jsx';
 import { InvoiceTemplateSelector } from './invoice/InvoiceTemplateSelector.jsx';
 import DailySummarySettings from './DailySummarySettings.jsx';
 import { Globe, ShieldCheck, CheckCircle2, Building, Link2, User, Clock, MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor } from 'lucide-react';
@@ -73,18 +74,7 @@ export const SettingsPage = ({
 
   return (
     <div className="settings-page-wrapper" style={{ maxWidth: '1100px', margin: '0 auto' }}>
-      <header className="portal-header">
-        <div className="portal-header-left">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-3xl)', fontWeight: 400, lineHeight: 'var(--leading-tight)', color: 'var(--text-primary)' }}>
-              {t('settingsPage.title')}
-            </h1>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-              {t('settingsPage.subtitle')}
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader title={t('settingsPage.title')} subtitle={t('settingsPage.subtitle')} />
 
       <div
         className="settings-grid"
@@ -158,10 +148,11 @@ export const SettingsPage = ({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             <div className="ui-row" style={infoRow}>
               <span style={infoRowLabel}><User size={16} /> {t('settingsPage.activeUser')}</span>
-              {/* .ui-badge for size/shape; the soft lime fill with the theme's dark
-                  olive text (--accent-text). --primary-color is now the bright lime
-                  itself, which on this fill could hardly be read. */}
-              <span className="ui-badge" style={{ background: 'var(--accent-color)', color: 'var(--accent-text, #5C6C13)', border: '1px solid var(--accent-border)', fontWeight: 600 }}>
+              {/* .ui-badge for size/shape on the accent fill. The text is ink:
+                  --primary-color is lime in the Scaleezy pack (1.4:1 here), and
+                  --accent-text is only 4.16:1 on this fill. A thin lime border
+                  marks it as a tag. */}
+              <span className="ui-badge" style={{ background: 'var(--accent-color)', color: 'var(--text-primary)', border: '1px solid var(--accent-border)', fontWeight: 600 }}>
                 {currentUser?.role || 'Owner'} ({currentUser?.first_name || currentUser?.email || 'User'})
               </span>
             </div>
@@ -268,7 +259,7 @@ export const SettingsPage = ({
               </div>
             ) : whatsappStatus.qrCode ? (
               <div style={{ padding: '16px', border: '1px solid #25D366', borderRadius: '12px', background: 'var(--success-bg)', marginTop: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#25D366', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success-color)', fontWeight: 700, fontSize: '12px', marginBottom: '6px' }}>
                   <MessageSquare size={14} /> {t('settingsPage.linkDevice', 'Link Device')}
                 </div>
                 <p style={{ margin: '0 0 12px 0', fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
@@ -296,7 +287,7 @@ export const SettingsPage = ({
                 <button
                   type="button"
                   className="btn-primary"
-                  style={{ fontSize: '13px', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px', width: '100%', justifyContent: 'center', background: '#25D366', border: 'none', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+                  style={{ width: '100%', justifyContent: 'center', gap: '6px' }}
                   onClick={handleReset}
                   disabled={resetting}
                 >

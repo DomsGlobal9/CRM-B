@@ -1360,7 +1360,7 @@ export default function Attendance({ isOwner, canSeeTeam }) {
     <>
       <MyDay onChanged={refresh} />
 
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', margin: '20px 0 18px', gap: '8px' }}>
+      <div className="at-scroll-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', margin: '20px 0 18px', gap: '8px' }}>
         {canSeeTeam && (
         <button
           type="button"

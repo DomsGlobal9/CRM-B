@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, ListTodo, Send } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { notificationKind } from './services/notificationKind';
@@ -23,11 +23,12 @@ const DesignLibrary = lazy(() => import('./features/designStudio/DesignLibrary')
 const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
 const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboard'));
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
-const CustomerDesigns = lazy(() => import('./features/designStudio/CustomerDesigns'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
-const TodoPanel = lazy(() => import('./features/todo/TodoPanel'));
+// The To-do section is switched off for every role (MOM, 2026-10-24). The
+// todos app, its API and its data are kept, so it can come back; its screen is
+// features/todo/TodoPanel.jsx.
 const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
@@ -186,9 +187,10 @@ const UserAvatar = ({ user, size }) => {
     return <img src={url} alt="" style={{ ...box, borderRadius: '50%', objectFit: 'cover' }} />;
   }
   return (
-    <div style={{ ...box, borderRadius: '50%', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', background: 'var(--selected-bg)', color: 'var(--selected-fg)',
-                  fontWeight: 600, fontSize: size ? size * 0.42 : '1em' }}>
+    <div className="user-avatar-initial"
+         style={{ ...box, borderRadius: '50%', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', background: 'color-mix(in srgb, var(--primary-color) 24%, var(--surface-color))',
+                  color: 'var(--accent-text)', fontWeight: 700, fontSize: size ? size * 0.42 : '1em' }}>
       {initial}
     </div>
   );
@@ -391,6 +393,12 @@ const formatMobile = (raw) => {
 
 
 const waLink = (raw) => `https://wa.me/${String(raw || '').replace(/\D/g, '')}`;
+// Numbers are stored as digits, with the country code when there is one
+// (formatMobile): a dialler needs the + in front of the code.
+const telLink = (raw) => {
+  const digits = String(raw || '').replace(/\D/g, '');
+  return `tel:${digits.length > 10 ? '+' : ''}${digits}`;
+};
 
 
 
@@ -1530,7 +1538,6 @@ const navSectionsFor = (user, t) => {
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
         { tab: 'leads', icon: Target, label: t('nav.leads', 'Leads') },
-        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
@@ -1555,7 +1562,6 @@ const navSectionsFor = (user, t) => {
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
-        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
@@ -1564,14 +1570,12 @@ const navSectionsFor = (user, t) => {
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
-        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ] : [
       { key: 'production', items: [
         { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
-        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ];
 
@@ -1735,6 +1739,15 @@ function App() {
   const navSections = visibleNav(currentUser, t);
 
   const navTabs = navSections.flatMap((s) => s.items.map((i) => i.tab));
+  // The phone header's avatar menu: the Account entries this user's sidebar
+  // shows, then Sign out. `go` is how that screen switches tab.
+  const headerAccountItems = (go) => [
+    ...['account', 'settings'].filter((tab) => navTabs.includes(tab)).map((tab) => ({
+      key: tab, label: tab === 'account' ? t('nav.account') : t('nav.settings'),
+      icon: tab === 'account' ? User : Settings, onClick: () => go(tab),
+    })),
+    { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => handleLogout() },
+  ];
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
 
@@ -2196,6 +2209,7 @@ function App() {
   /** Put a saved draft back on screen, exactly where it was left. */
   const hydrateWizard = async (draft) => {
     const payload = draft.payload || {};
+    setCustomerLocked(false);
     setDraftId(draft.id);
     setDraftVersion(draft.version);
     setCustomerId(draft.customer || null);
@@ -3005,9 +3019,7 @@ function App() {
         password: signupForm.password,
         business_name: boutiqueName,
         business_address: boutiqueAddress,
-        // The server records when the terms were accepted, and refuses a
-        // sign-up without them.
-        accepted_terms: signupForm.terms,
+        terms_accepted: signupForm.terms === true,
       });
       setJustRegistered(true);
       if (!res.token) { setView('login'); return; }
@@ -3089,8 +3101,9 @@ function App() {
   };
   /** Begin an order for one service, from a clean slate. `cust` is a customer
    *  the caller already picked (the customer book's "Create New Order"). */
-  const startService = (kind, cust = null) => {
+  const startService = (kind, cust = null, { locked = false } = {}) => {
     setServiceType(kind);
+    setCustomerLocked(Boolean(cust && locked));
     setCustomerId(null);
     setCustomerForm(DEFAULT_CUSTOMER_DATA);
     setCustomerName('');
@@ -3117,8 +3130,10 @@ function App() {
     reachStep(1);
     setView('wizard');
   };
-  /** "Take a new order": ask which service first. */
-  const handleStartNewCustomer = () => setCustomerAddMode('choose');
+  /** A new customer is only ever created inside a new order, so the
+   *  Customers page's "Add Customer" opens the same three cards as New order
+   *  (Stitching / Alteration / In-house) and the wizard's customer step. */
+  const handleStartNewCustomer = () => setView('order-selector');
 
   const [customerAddMode, setCustomerAddMode] = useState(null);
   
@@ -3164,15 +3179,28 @@ function App() {
       setCustomerActionId(null);
     }
   };
-  const handleSelectExistingCustomer = (cust) => startService('stitch', cust);
+  /** An order started from a customer's own page: ask what kind first, then
+   *  open the wizard on that customer with their name and number fixed. `after`
+   *  carries what the button adds on top (the last design, an old order's
+   *  prices). */
+  const [orderTypeFor, setOrderTypeFor] = useState(null); // { cust, after }
+  const [customerLocked, setCustomerLocked] = useState(false);
+  const handleSelectExistingCustomer = (cust, after = null) => setOrderTypeFor({ cust, after });
+  const beginOrderForCustomer = (kind) => {
+    const { cust, after } = orderTypeFor;
+    setOrderTypeFor(null);
+    startService(kind, cust, { locked: true });
+    after?.();
+  };
 
   /** Customers matching what has been typed so far -- by number once three
-   *  digits are in, else by name once two letters are: the five newest, as
-   *  full rows, because picking one fills the order form. (An alteration has
-   *  no name box, so it is found by number only.) */
+   *  digits are in, else by name once two letters are (the counter may know
+   *  either first): the five newest, as full rows, because picking one fills
+   *  the order form. */
   const matchDigits = customerId ? '' : (customerForm.mobile_number || '').replace(/\D/g, '');
-  const matchName = customerId || serviceType === 'alter' ? '' : customerName.trim();
+  const matchName = customerId ? '' : customerName.trim();
   const matchBy = matchDigits.length >= 3 ? 'mobile' : matchName.length >= 2 ? 'name' : null;
+  const customerLookupTyped = matchDigits.length >= 4 || matchName.length >= 2;
   const { results: customerMatches, loading: customerMatchesLoading } = useCustomerLookup({
     mobile: matchBy === 'mobile' ? matchDigits : '', q: matchBy === 'name' ? matchName : '', limit: 5, full: true,
   });
@@ -3428,7 +3456,7 @@ function App() {
     const mobileBad = mobileError(customerForm.mobile_number);
     if (mobileBad) return mobileBad;
     if (serviceType === 'alter') {
-      if (!customerId) return 'Pick the customer from the list: alterations are for garments we made.';
+      if (!customerId) return 'Pick the customer from the list. For a garment stitched elsewhere, choose \u201cStitched elsewhere\u201d.';
     } else {
       
       const nameBad = customerId ? '' : nameError(customerForm.first_name, { label: 'Customer name' });
@@ -4441,7 +4469,7 @@ function App() {
 
                 <div className="mobile-stack-grid signup-footer">
                   <label className="remember-me-checkbox" style={{ fontSize: '12.5px' }}>
-                    <input type="checkbox" checked={signupForm.terms} onChange={(e) => setSignupForm({...signupForm, terms: e.target.checked})} />
+                    <input type="checkbox" checked={signupForm.terms} required onChange={(e) => setSignupForm({...signupForm, terms: e.target.checked})} />
                     {/* Each document opens to be read; clicking its name does not tick the box. */}
                     <span>
                       I agree to the{' '}
@@ -4490,7 +4518,7 @@ function App() {
                     type="submit"
                     className="btn-primary"
                     disabled={!signupReady || signupBusy}
-                    title={signupReady ? undefined : 'Fill every box above to continue'}
+                    title={signupReady ? undefined : (signupForm.terms ? 'Fill every box above to continue' : 'Fill every box above and accept the Terms & Conditions to continue')}
                     style={{ justifyContent: 'center', opacity: signupReady ? 1 : 0.5, cursor: signupReady ? 'pointer' : 'not-allowed' }}
                   >
                     {signupBusy ? 'Creating your boutique…' : 'Create Account'}
@@ -4524,7 +4552,10 @@ function App() {
       {view === 'dashboard' && currentUser && (
         <div className={`portal-layout${navCollapsed ? ' nav-collapsed' : ''}`}>
           <MobileHeader
-            title={t(
+            // The sidebar's own label first, so the two never disagree
+            // ("To-do" in the menu, "Todo" in the header); the key lookup
+            // covers tabs the sidebar does not list.
+            title={navSections.flatMap((s) => s.items).find((i) => i.tab === dashboardTab)?.label || t(
               dashboardTab === 'overview' ? 'nav.dashboard' :
               dashboardTab === 'orders' ? 'nav.manageOrders' :
               dashboardTab === 'workshop' ? 'nav.workshop' :
@@ -4541,6 +4572,7 @@ function App() {
             currentUser={currentUser}
             notificationsCount={notifications.filter(n => !n.is_read).length}
             onOpenMenu={() => setMobileNavOpen(!mobileNavOpen)}
+            accountItems={headerAccountItems((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}
             onOpenNotifications={() => {
               setShowNotificationsDrawer(true);
               if (markingNotificationsRead) return;
@@ -4854,7 +4886,7 @@ function App() {
                     the right add up to the attention list beside them. */}
                 <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)', alignItems: 'stretch' }}>
                   <SectionCard icon={AlertCircle} tone="rose" title={t('dashboard.needsAttention', 'Needs attention')}
-                               action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View All')}>
+                               action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'See all')}>
                     {(() => {
                       const att = dashboardData?.attention || {};
                       const due = att.due || [];
@@ -5057,11 +5089,6 @@ function App() {
               </Suspense>
             )}
 
-            {dashboardTab === 'todo' && (
-              <Suspense fallback={<ScreenLoading />}>
-                <TodoPanel currentUser={currentUser} />
-              </Suspense>
-            )}
 
 
             {/* 3. MANAGE TAILORS TAB */}
@@ -5628,29 +5655,12 @@ function App() {
                     onCreated={(created) => { setOrdersAlterationOrder(null); rememberAlteration(created); openAlteration(created.id); }}
                   />
                 )}
-                {/* A garment we did not make, brought in for work: the same
-                    intake the Alterations tab offers, reachable from where
-                    the counter is standing. Opens on the new alteration. */}
-                {takingInOutside && (
-                  <Suspense fallback={<ScreenLoading />}>
-                    <OutsideGarmentIntake
-                      onClose={() => setTakingInOutside(false)}
-                      onCreated={(created) => { setTakingInOutside(false); rememberAlteration(created); openAlteration(created.id); }}
-                    />
-                  </Suspense>
-                )}
                 <PageHeader
                   title={dashboardTab === 'workshop' ? t('ordersPage.workshopTitle', 'Workshop') : t('ordersPage.title')}
                   subtitle={dashboardTab === 'workshop' ? t('ordersPage.workshopSubtitle', 'Every order being made, who has it, and what comes next.') : t('ordersPage.subtitle')}
                   aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
                   actions={dashboardTab === 'workshop' ? null : (
                     <>
-                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role) || adminCan('workshop.alterations')) && (
-                        <button className="btn-secondary" style={{ padding: '10px 18px' }} onClick={() => setTakingInOutside(true)}>
-                          <Scissors size={16} /> Outside garment alteration
-                        </button>
-                      )}
-                      {/* New order: highlighted, without the callout. */}
                       {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
                         <GuidedHighlight show={guideOrders}>
                           <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
@@ -5819,7 +5829,7 @@ function App() {
                             {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
                               <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
                             )}
-                            <span className="at-phone-only" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>· {order.customer_name}</span></td>
+                            <span className="at-phone-only at-phone-line" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}><User size={12} aria-hidden="true" /> {order.customer_name}</span></td>
                           <td className="at-desk-only">{job ? (jobMaggam ? 'Maggam' : 'Stitching') : order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td className="at-desk-only">
                             {order.customer_name}
@@ -5931,13 +5941,9 @@ function App() {
                                         onClose={() => setDeletingAllCustomers(false)}
                                         onDeleted={() => fetchDashboardAndConfig()} />
             )}
-            {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'choose' && (
-              <AddCustomerChooser onBack={() => setCustomerAddMode(null)} onManual={() => setCustomerAddMode('manual')}
+            {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'import' && (
+              <AddCustomerChooser onBack={() => setCustomerAddMode(null)}
                                   onImported={() => fetchDashboardAndConfig()} />
-            )}
-            {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
-              <CustomerForm onBack={() => setCustomerAddMode('choose')}
-                            onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
             )}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (
               <>
@@ -5963,13 +5969,19 @@ function App() {
                           <Trash2 size={16} /> Delete all
                         </button>
                       )}
-                      {/* Leads come in through the lead API, not the counter: no Add here. */}
+                      {/* Leads come in through the lead API, not the counter: no Add or import here. */}
                       {customerView !== 'leads' && (
-                        <GuidedHighlight show={guideCustomers}>
-                          <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                            <Plus size={16} /> Add Customer
+                        <>
+                          <button type="button" className="btn-secondary" style={{ padding: '10px 18px' }}
+                                  onClick={() => setCustomerAddMode('import')}>
+                            <Upload size={16} /> {t('customersPage.importExcel', 'Import from Excel')}
                           </button>
-                        </GuidedHighlight>
+                          <GuidedHighlight show={guideCustomers}>
+                            <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                              <Plus size={16} /> Add Customer
+                            </button>
+                          </GuidedHighlight>
+                        </>
                       )}
                     </>
                   )}
@@ -5989,21 +6001,30 @@ function App() {
                         <StatCard icon={CalendarDays} tone="violet" label="New This Month" value={thisMonth} sub="registered" />
                         <StatCard icon={ShoppingBag} tone="blue" label="With Orders" value={withOrders} sub="at least one order" />
                       </section>
-                      <div className="at-toolbar">
-                        <Chips value={customerTypeFilter} onChange={setCustomerTypeFilter} options={[
-                          { key: 'All', label: t('customersPage.filterAll'), count: bookSummary.total },
-                          ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
-                        ]} />
-                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                          {directoryCount
-                            ? `Showing ${customerPageFrom + 1}–${customerPageFrom + pagedCustomers.length} of ${directoryCount}`
-                            : 'Showing 0'}
-                          {directoryCount !== bookSummary.total ? ` (${bookSummary.total} in total)` : ''}
-                        </span>
-                      </div>
-                      {bookSummary.total > 0 && (
-                        <CustomerFilters facets={directoryData.facets} filters={customerFilters} onChange={setCustomerFilters} />
-                      )}
+                      {(() => {
+                        const tierChips = (
+                          <Chips value={customerTypeFilter} onChange={setCustomerTypeFilter} options={[
+                            { key: 'All', label: t('customersPage.filterAll'), count: bookSummary.total },
+                            ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
+                          ]} />
+                        );
+                        const showing = (
+                          <span className="cf-showing">
+                            {directoryCount
+                              ? `Showing ${customerPageFrom + 1}–${customerPageFrom + pagedCustomers.length} of ${directoryCount}`
+                              : 'Showing 0'}
+                            {directoryCount !== bookSummary.total ? ` (${bookSummary.total} in total)` : ''}
+                          </span>
+                        );
+                        return bookSummary.total > 0 ? (
+                          <div style={{ marginTop: 'var(--space-5)' }}>
+                            <CustomerFilters facets={directoryData.facets} filters={customerFilters} onChange={setCustomerFilters}
+                                             leading={tierChips} trailing={showing} />
+                          </div>
+                        ) : (
+                          <div className="at-toolbar">{tierChips}{showing}</div>
+                        );
+                      })()}
                     </>
                   );
                 })()}
@@ -6046,16 +6067,18 @@ function App() {
                   ) : (
                     
                     <>
+                    {/* cust-list: below 1024px each row becomes its own card
+                        (index.css), with call/WhatsApp buttons for the phone. */}
                     <div className="at-table-wrap cust-list" aria-busy={directoryLoading}
                          style={{ opacity: directoryLoading ? 0.6 : 1, transition: 'opacity .15s' }}>
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: canAddCustomer ? '27%' : '30%' }}>Customer</th>
+                            <th style={{ width: canAddCustomer ? '26%' : '29%' }}>Customer</th>
                             <th style={{ width: canAddCustomer ? '24%' : '26%' }}>Body measurements</th>
-                            <th style={{ width: canAddCustomer ? '13%' : '14%' }}>Style notes</th>
-                            <th style={{ width: canAddCustomer ? '13%' : '15%' }}>Orders</th>
-                            <th style={{ width: canAddCustomer ? '23%' : '15%' }}></th>
+                            <th style={{ width: canAddCustomer ? '12%' : '13%' }}>Style notes</th>
+                            <th style={{ width: canAddCustomer ? '18%' : '18%' }}>Orders</th>
+                            <th style={{ width: canAddCustomer ? '20%' : '14%' }}></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -6091,7 +6114,7 @@ function App() {
                           onClick={open}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
                         >
-                          <td data-label="Customer" className="cust-c-person" style={{ overflow: 'hidden' }}>
+                          <td data-label="Customer" style={{ overflow: 'hidden' }}>
                             <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
                               <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36}
                                               src={cust.profile_photo ? resolveMediaUrl(cust.profile_photo) : ''} />
@@ -6104,19 +6127,23 @@ function App() {
                                   <span style={{ flexShrink: 0 }}><TierBadge tier={customerTier(cust)} /></span>
                                 </div>
                                 <div style={sub} title={contact.join(' · ')}>
-                                  <Phone size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />{contact.join(' · ')}
+                                  {cust.mobile_number
+                                    ? <Phone size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />
+                                    : cust.email_address && <Mail size={11} style={{ verticalAlign: '-1px', marginRight: '4px' }} />}
+                                  {contact.join(' · ')}
                                 </div>
                               </div>
+                              <ChevronRight size={18} className="cust-phone" aria-hidden="true" style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                             </div>
                           </td>
 
-                          <td data-label="Body measurements" className="cust-c-measure" style={{ overflow: 'hidden' }}>
+                          <td data-label="Body measurements" className="cust-measure" style={{ overflow: 'hidden' }}>
                             {m && shown.length > 0 ? (
                               <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
                                    title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
                                 {shown.map(([k, label], i) => (
-                                  <span key={k}>
-                                    {i > 0 && <span style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
+                                  <span key={k} className="cust-chip">
+                                    {i > 0 && <span className="cust-sep" style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
                                     <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{label} </span>
                                     <strong>{measure(m[k])}</strong>
                                   </span>
@@ -6127,7 +6154,7 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Style notes" className="cust-c-style" style={{ overflow: 'hidden' }}>
+                          <td data-label="Style notes" className={tags.length || cust.custom_requirements ? undefined : 'cust-empty'} style={{ overflow: 'hidden' }}>
                             <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
                               {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
@@ -6136,14 +6163,31 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Orders" className="cust-c-orders" style={{ overflow: 'hidden' }}>
-                            <div style={{ fontWeight: 700 }}>{orders}</div>
-                            <div style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
+                          <td data-label="Orders" className="cust-orders" style={{ overflow: 'hidden' }}>
+                            <div className="cust-desk" style={{ fontWeight: 700 }}>{orders}</div>
+                            <div className="cust-desk" style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
                               {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
                             </div>
+                            <dl className="cust-stats">
+                              <div><dt>{orders === 1 ? 'Order' : 'Orders'}</dt><dd>{orders}</dd></div>
+                              <div><dt>Spent</dt><dd>{inr(cust.total_spend)}</dd></div>
+                              <div><dt>Since</dt><dd>{fmtDate(cust.created_at)}</dd></div>
+                            </dl>
                           </td>
 
-                          <td className="cust-c-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td className="cust-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {cust.mobile_number && (
+                              <span className="cust-contact" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                <a className="btn-secondary at-btn-sm" href={telLink(cust.mobile_number)}
+                                   aria-label={`Call ${cust.first_name} ${cust.last_name}`}>
+                                  <Phone size={14} /> Call
+                                </a>
+                                <a className="btn-secondary at-btn-sm" href={waLink(cust.mobile_number)} target="_blank" rel="noreferrer"
+                                   aria-label={`WhatsApp ${cust.first_name} ${cust.last_name}`}>
+                                  <MessageSquare size={14} /> WhatsApp
+                                </a>
+                              </span>
+                            )}
                             <button
                               type="button"
                               className="at-link"
@@ -6172,7 +6216,7 @@ function App() {
                                 </button>
                               </span>
                             )}
-                            <ChevronRight size={16} style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
+                            <ChevronRight size={16} className="cust-desk" style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
                           </td>
                         </tr>
                       );
@@ -6256,20 +6300,40 @@ function App() {
               const orders = c.orders || [];
               const orderCount = c.order_count ?? orders.length;
               
-              const goExisting = () => {
-                startService('stitch', c);
+              const goExisting = () => handleSelectExistingCustomer(c, () => {
                 if (c.design_preferences?.length > 0) {
                   setDesignNotes(c.design_preferences[0].notes || '');
                 }
-              };
-              const reorder = (order) => {
-                startService('stitch', c);
+              });
+              const reorder = (order) => handleSelectExistingCustomer(c, () => {
                 setQuotePrices({ packaging: order.packaging_handling, discount: order.discount || 0 });
-              };
+              });
               const statusTone = (st) => st === 'Delivered' ? 'success' : st === 'Cancelled' ? 'neutral' : 'warning';
 
               return (
               <div className="customer-detail-view-container at-stack">
+                {orderTypeFor && (
+                  <FormModal icon={ShoppingBag} tone="green" width="640px"
+                             title={t('customersPage.orderTypeTitle', 'What kind of order?')}
+                             subtitle={t('customersPage.orderTypeSub', 'For {name}. Their name, number and measurements come with it.',
+                               { name: `${orderTypeFor.cust.first_name || ''} ${orderTypeFor.cust.last_name || ''}`.trim() })}
+                             onClose={() => setOrderTypeFor(null)}>
+                    <div className="wz-services" style={{ marginTop: 0 }}>
+                      <button type="button" className="wz-service" onClick={() => beginOrderForCustomer('stitch')}>
+                        <IconTile icon={Scissors} tone="green" size={44} iconSize={20} />
+                        <span className="wz-service-title">{t('entry.serviceStitching', 'Stitching')}</span>
+                        <span className="wz-service-desc">{t('entry.serviceStitchingDescShort', 'Something new to stitch: from our catalogue, their photos, or a new design.')}</span>
+                      </button>
+                      <button type="button" className="wz-service" onClick={() => beginOrderForCustomer('alter')}
+                              disabled={currentUser?.role === 'Designer'}
+                              title={currentUser?.role === 'Designer' ? t('entry.serviceAlterNotYou', 'Alterations are raised at the counter.') : undefined}>
+                        <IconTile icon={Ruler} tone="amber" size={44} iconSize={20} />
+                        <span className="wz-service-title">{t('entry.serviceAlteration', 'Alteration')}</span>
+                        <span className="wz-service-desc">{t('entry.serviceAlterationDesc', 'Fix or adjust a garment \u2014 one we made, or one stitched elsewhere.')}</span>
+                      </button>
+                    </div>
+                  </FormModal>
+                )}
                 <div className="at-toolbar" style={{ margin: 0 }}>
                   <button type="button" className="at-link" onClick={() => setSelectedDirectoryCustomer(null)}>
                     <ArrowLeft size={16} /> {t('customersPage.backToCustomers', 'Back to Customers')}
@@ -6358,7 +6422,7 @@ function App() {
                     <SectionCard icon={Ruler} tone="amber" title={t('customersPage.measurementsTitle', 'Measurements')}
                                  subtitle={parts.length > 0 ? t('customersPage.stitchingParts', 'Stitching: {parts}', { parts: parts.join(', ') }) : undefined}
                                  action={allCustomerMeasurements.length > 0 ? () => setViewAllCustomerMeasurements(!viewAllCustomerMeasurements) : undefined}
-                                 actionLabel={viewAllCustomerMeasurements ? 'View Less' : 'View All'}>
+                                 actionLabel={viewAllCustomerMeasurements ? 'View less' : 'View all'}>
                       {c.measurements && allCustomerMeasurements.length > 0 ? (
                         <>
                           <div className="at-measure-cols">
@@ -6415,8 +6479,12 @@ function App() {
                                       <span style={{ color: 'var(--text-secondary)' }}>{fmtDateTime(hist.changed_at)}</span>
                                     </div>
                                     <div className="at-version-grid">
-                                      {Object.entries(hist)
-                                        .filter(([k, v]) => k !== 'id' && k !== 'changed_at' && k !== 'customer_id' && v !== null && v !== undefined && String(v).trim() !== '' && String(v).trim() !== '—')
+                                      {/* The extra measurements ride in a nested object; spread
+                                          them into the row instead of printing "[object Object]". */}
+                                      {Object.entries({ ...hist, ...(hist.additional_measurements || {}) })
+                                        .filter(([k, v]) => !['id', 'changed_at', 'customer_id', 'additional_measurements', 'stitch_parts'].includes(k)
+                                          && v !== null && v !== undefined && typeof v !== 'object'
+                                          && String(v).trim() !== '' && String(v).trim() !== '—')
                                         .map(([k, v]) => (
                                           <span key={k}>{formatMeasurementLabel(k).replace(' Length', '')} <strong>{formatMeasurementValue(v)}</strong></span>
                                         ))}
@@ -6677,7 +6745,7 @@ function App() {
                     same height and the money columns line up down the page;
                     below 1024px the rows stack into labelled cards. */}
                 <div className="invoices-content at-table-wrap">
-                  <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
+                  <table className="at-table at-table--fit at-table--pairs" style={{ tableLayout: 'fixed' }}>
                     <thead>
                       <tr>
                         <th style={{ width: '7%' }}>{t('invoicesPage.invoiceId', 'Invoice ID')}</th>
@@ -7005,7 +7073,11 @@ function App() {
             {/* 8. MY ACCOUNT SETTINGS TAB */}
             {dashboardTab === 'account' && (() => {
               const isOwner = !currentUser?.role || currentUser.role === 'Owner';
-              const tenant = localStorage.getItem('tenant_id') || '--';
+              // The address a customer or staff member opens: the shop's own
+              // page, not the schema name (which is internal).
+              const tenant = currentUser?.shop_slug
+                ? `${window.location.origin}/${currentUser.shop_slug}`
+                : (localStorage.getItem('tenant_id') || '--');
               const copyText = (text) => navigator.clipboard?.writeText(text);
               return (
               <>
@@ -7060,7 +7132,7 @@ function App() {
                           <div className="at-measure-value" style={{ overflowWrap: 'anywhere' }}>{tenant}</div>
                         </div>
                         {tenant !== '--' && (
-                          <button type="button" className="at-modal-close" style={{ width: 30, height: 30 }} onClick={() => copyText(tenant)} aria-label="Copy tenant domain">
+                          <button type="button" className="at-modal-close" style={{ width: 30, height: 30 }} onClick={() => copyText(tenant)} aria-label="Copy boutique web address">
                             <Copy size={13} />
                           </button>
                         )}
@@ -7588,6 +7660,7 @@ function App() {
             currentUser={currentUser}
             notificationsCount={notifications.filter(n => !n.is_read).length}
             onOpenMenu={() => setMobileNavOpen(!mobileNavOpen)}
+            accountItems={headerAccountItems((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })}
             onOpenNotifications={() => {
               setShowNotificationsDrawer(true);
               if (markingNotificationsRead) return;
@@ -7636,25 +7709,28 @@ function App() {
                 <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>{t('entry.serviceQuestion', 'What are we doing for this customer today?')}</p>
               </div>
 
-              {/* The first question. Three doors, one wizard behind them. */}
-              <div className="wz-services">
+              {/* The first question: three doors. A new design by our designer
+                  is not a door of its own any more -- it is one of the ways to
+                  choose the look inside Stitching. A garment stitched elsewhere
+                  comes in through Alteration, beside ours. */}
+              <div className="wz-services wz-services--three">
                 <button type="button" className="wz-service" onClick={() => startService('stitch')}>
                   <IconTile icon={Scissors} tone="green" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceStitch', 'Stitching')}</span>
-                  <span className="wz-service-desc">{t('entry.serviceStitchDesc', 'A blouse, saree work, a lehenga. The look comes from our catalogue or the customer\u2019s own photos.')}</span>
+                  <span className="wz-service-title">{t('entry.serviceStitching', 'Stitching')}</span>
+                  <span className="wz-service-desc">{t('entry.serviceStitchingDesc', 'A blouse, saree work, a lehenga. The look comes from our catalogue, the customer\u2019s photos, or a new design by our designer.')}</span>
                 </button>
                 <button type="button" className="wz-service" onClick={() => startService('alter')}
                         disabled={currentUser?.role === 'Designer'}
                         title={currentUser?.role === 'Designer' ? t('entry.serviceAlterNotYou', 'Alterations are raised at the counter.') : undefined}>
                   <IconTile icon={Ruler} tone="amber" size={48} iconSize={22} />
-                  <span className="wz-service-title">{t('entry.serviceAlter', 'Alteration')}</span>
-                  <span className="wz-service-desc">{t('entry.serviceAlterDesc', 'Fix or adjust a garment we made and delivered.')}</span>
+                  <span className="wz-service-title">{t('entry.serviceAlteration', 'Alteration')}</span>
+                  <span className="wz-service-desc">{t('entry.serviceAlterationDesc', 'Fix or adjust a garment \u2014 one we made, or one stitched elsewhere.')}</span>
                 </button>
                 {(!currentUser?.role || currentUser.role === 'Owner') && (
                   <button type="button" className="wz-service" onClick={() => setStartingBoutiqueRun(true)}>
                     <IconTile icon={Factory} tone="violet" size={48} iconSize={22} />
-                    <span className="wz-service-title">{t('entry.serviceBoutique', 'In house')}</span>
-                    <span className="wz-service-desc">{t('entry.serviceBoutiqueDesc', 'Garments for our own stock or the showroom. No customer — they go into inventory when they are done.')}</span>
+                    <span className="wz-service-title">{t('entry.serviceInHouse', 'In-house')}</span>
+                    <span className="wz-service-desc">{t('entry.serviceInHouseDesc', 'Garments for our own stock or the showroom. No customer \u2014 they go into inventory when they are done.')}</span>
                   </button>
                 )}
               </div>
@@ -7754,6 +7830,17 @@ function App() {
       {/* 6. THE ORDER WIZARD: who, what, (designer), measurements, money.
           Every screen is one question a counter can answer with the customer
           standing there; everything the workroom decides later stays out. */}
+      {/* A garment we did not make, brought in for work. Reached from the
+          Alteration wizard's "Stitched elsewhere"; opens on the new alteration. */}
+      {view === 'wizard' && takingInOutside && (
+        <Suspense fallback={<ScreenLoading />}>
+          <OutsideGarmentIntake
+            onClose={() => setTakingInOutside(false)}
+            onCreated={(created) => { setTakingInOutside(false); setView('dashboard'); rememberAlteration(created); openAlteration(created.id); }}
+          />
+        </Suspense>
+      )}
+
       {view === 'wizard' && (
         <div className="wizard-outer-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', backgroundColor: 'var(--bg-color)' }}>
           {/* Brand header & stepper */}
@@ -7841,12 +7928,28 @@ function App() {
                   <h1 className="page-title">{t('wizard.whoTitle', 'Who is this for?')}</h1>
                   <p className="page-subtitle">
                     {serviceType === 'alter'
-                      ? t('wizard.whoAlterSubtitle', 'Type the mobile number to find the customer. Alterations are for garments we made.')
+                      ? t('wizard.whoAlterSubtitleBoth', 'Find the customer by name or mobile number. A garment stitched elsewhere is taken in under “Stitched elsewhere”.')
                       : t('wizard.whoSubtitle', 'Type the customer’s name, then their mobile number. A customer we know comes up as you type either one.')}
                   </p>
                 </div>
 
                 <div className="content-card wz-card wz-who">
+                  {/* One Alteration door for both kinds of garment. Ours is
+                      found on the customer's delivered orders; one stitched
+                      elsewhere has no order to hang off, so it is taken in
+                      with its own short form. */}
+                  {serviceType === 'alter' && (
+                    <div className="wz-seg" role="radiogroup" aria-label={t('wizard.alterWhose', 'Whose garment is it?')}>
+                      <button type="button" role="radio" aria-checked="true" className="wz-seg-btn wz-seg-btn--on">
+                        <Shirt size={15} /> {t('wizard.alterOurs', 'Stitched by us')}
+                      </button>
+                      <button type="button" role="radio" aria-checked="false" className="wz-seg-btn"
+                              onClick={() => setTakingInOutside(true)}>
+                        <Scissors size={15} /> {t('wizard.alterOutside', 'Stitched elsewhere')}
+                      </button>
+                    </div>
+                  )}
+
                   {/* The customer's name first, then their mobile number. A
                       customer picked from the matches shows here in its place. */}
                   {customerId ? (
@@ -7854,10 +7957,16 @@ function App() {
                       <AvatarInitials name={`${customerForm.first_name} ${customerForm.last_name}`} size={40} />
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div className="wz-known-name">{customerForm.first_name} {customerForm.last_name} <TierBadge tier={customerTier(customerForm)} /></div>
-                        <div className="od-hint">{formatMobile(customerForm.mobile_number)}{customerForm.city_region ? ` · ${customerForm.city_region}` : ''} · {t('wizard.knownCustomer', 'a customer we know')}</div>
+                        <div className="od-hint">
+                          {formatMobile(customerForm.mobile_number)}{customerForm.city_region ? ` · ${customerForm.city_region}` : ''} · {customerLocked
+                            ? t('wizard.fixedFromProfile', 'from their profile; edit it there to change it')
+                            : t('wizard.knownCustomer', 'a customer we know')}
+                        </div>
                       </div>
-                      {/* Takes the customer off this order -- the card, the name and the
+                      {/* From a customer's own profile the customer is fixed. Otherwise
+                          Delete takes them off this order -- the card, the name and the
                           number -- to start again. The customer stays in the book. */}
+                      {customerLocked ? <Lock size={16} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" /> : (
                       <button type="button" className="btn-secondary at-btn-sm"
                               title={t('wizard.removeCustomer', 'Remove this customer from the order')}
                               aria-label={t('wizard.removeCustomer', 'Remove this customer from the order')}
@@ -7865,11 +7974,12 @@ function App() {
                               onClick={() => { clearPickedCustomer(''); requestAnimationFrame(() => document.getElementById('wz-name')?.focus()); }}>
                         <Trash2 size={14} /> {t('common.delete', 'Delete')}
                       </button>
+                      )}
                     </div>
-                  ) : serviceType !== 'alter' && (
+                  ) : (
                     <div className="form-group">
                       <label className="form-label" htmlFor="wz-name">{t('wizard.customerName', 'Customer Name')} <span className="required">*</span></label>
-                      <input id="wz-name" type="text" className="form-control" value={customerName} autoFocus
+                      <input id="wz-name" type="text" className="form-control" value={customerName} autoFocus={!customerLocked} autoComplete="off"
                              maxLength={LIMITS.name}
                              onChange={(e) => setCustomerNameSplit(cleanName(e.target.value))}
                              placeholder={t('wizard.namePlaceholder', 'e.g. Amara Singh')} />
@@ -7883,9 +7993,14 @@ function App() {
                     <label className="form-label" htmlFor="wz-mobile">{t('wizard.mobileNumber', 'Mobile Number')} <span className="required">*</span></label>
                     <div className="input-wrapper">
                       <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
-                      <input id="wz-mobile" type="tel" inputMode="numeric" autoFocus={serviceType === 'alter'}
+                      <input id="wz-mobile" type="tel" inputMode="numeric" autoComplete="off"
                              value={customerForm.mobile_number}
-                             onChange={(e) => { const digits = cleanMobile(e.target.value); setCustomerForm({ ...customerForm, mobile_number: digits }); if (customerId) clearPickedCustomer(digits); }}
+                             readOnly={customerLocked && !!customerId} aria-readonly={customerLocked && !!customerId}
+                             onChange={(e) => {
+                               const digits = cleanMobile(e.target.value);
+                               if (customerId) { clearPickedCustomer(digits); return; }
+                               setCustomerForm({ ...customerForm, mobile_number: digits });
+                             }}
                              style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
                     </div>
                   </div>
@@ -7893,12 +8008,14 @@ function App() {
                   {!customerId && (
                     <>
                       {matchBy === 'mobile' && customerMatchList}
-                      {serviceType === 'alter'
-                        && customerForm.mobile_number.replace(/\D/g, '').length >= 4 && customerMatches.length === 0 && !customerMatchesLoading && (
-                          <p className="od-hint" style={{ marginTop: '8px' }}>
-                            {t('wizard.noCustomerForAlter', 'No customer with this number. Alterations can only be raised on a garment we made, so the customer must already be in your book.')}
-                          </p>
-                        )}
+                      {serviceType === 'alter' && customerLookupTyped && customerMatches.length === 0 && !customerMatchesLoading && (
+                        <p className="od-hint" style={{ marginTop: '8px' }}>
+                          {t('wizard.noCustomerForAlterOutside', 'No customer with this name or number in your book. If the garment was stitched elsewhere, take it in under')}{' '}
+                          <button type="button" className="at-link" onClick={() => setTakingInOutside(true)}>
+                            {t('wizard.alterOutside', 'Stitched elsewhere')}
+                          </button>.
+                        </p>
+                      )}
                     </>
                   )}
                   </div>
@@ -7906,7 +8023,7 @@ function App() {
                   {/* Gender is kept on the customer's record; the garments were
                       chosen before we got here, so it filters nothing now.
                       Alterations skip it -- their garments come from past orders. */}
-                  {serviceType !== 'alter' && (
+                  {serviceType !== 'alter' && !customerId && (
                     <div className="form-group">
                       <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
                       <select id="wz-gender" className="form-control" value={customerForm.gender || ''}
@@ -7988,16 +8105,14 @@ function App() {
                       next is added from the prompt under the last section, so
                       garments are filled in one after another, not all at once. */}
                   {garmentJobs.length === 0 && <DressesDropdown
-                    title={t('wizard.dressesInOrder', 'Dresses in this Order')}
-                    subtitle={t('wizard.dressesSubtitle', 'Pick every garment being made.')}
+                    title={t('wizard.garmentsInOrder', 'Garments in this order')}
+                    subtitle={t('wizard.garmentsPickSeveral', 'Tick every garment being made, then add them.')}
                     garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
                     garmentJobs={garmentJobs}
                     addingGarmentKey={addingGarmentKey}
                     garmentTemplatesError={garmentTemplatesError}
                     loadGarmentTemplates={loadGarmentTemplates}
-                    addGarment={addGarment}
-                    removeGarment={removeGarment}
-                    onAddMany={addGarments}
+                    addGarments={addGarments}
                   />}
 
                   {garmentJobs.length > 1 && (() => {
@@ -8251,22 +8366,30 @@ function App() {
                             )}
                           </button>
 
+                          {/* A new design by our designer: what used to be its own
+                              door on the New order screen. It is the whole order's
+                              choice (a designer is assigned once, for the order). */}
                           <button
                             type="button"
-                            className="wz-service"
-                            onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'customer_designs' }))}
+                            className={`wz-service ${serviceType === 'design' ? 'wz-choice--on' : ''}`}
+                            aria-pressed={serviceType === 'design'}
+                            onClick={() => setServiceType(prev => (prev === 'design' ? 'stitch' : 'design'))}
                             style={{
                               display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
                               borderRadius: 'var(--radius-lg, 12px)',
-                              border: '1px solid var(--border-color)',
+                              border: serviceType === 'design' ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
                               background: 'var(--surface-color, #ffffff)',
                               boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
                             }}
                           >
-                            <IconTile icon={PenTool} tone="blue" size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetCustomerDesigns', 'Customized Designs')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Capture paper sketches, custom drawn notes, or customer descriptions.</span>
-                            <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to add sketch / notes →</span>
+                            <IconTile icon={PenTool} tone={serviceType === 'design' ? 'green' : 'neutral'} size={44} iconSize={20} />
+                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('entry.serviceDesign', 'Design something new')}</span>
+                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
+                            {serviceType === 'design' ? (
+                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>✓ {t('wizard.designerChosenBelow', 'Pick the designer below (click to undo)')}</span>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>{t('wizard.askDesigner', 'Click to ask our designer →')}</span>
+                            )}
                           </button>
                         </div>
 
@@ -8374,41 +8497,6 @@ function App() {
                           </FormModal>
                         )}
 
-                        {activeDesignTab[job.key] === 'customer_designs' && (
-                          <FormModal
-                            icon={PenTool}
-                            tone="blue"
-                            title={`Customized Designs — ${job.template?.name || job.key}`}
-                            subtitle="Capture paper sketches, custom drawn notes, or customer descriptions."
-                            width="920px"
-                            onClose={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
-                            footer={
-                              <button
-                                type="button"
-                                className="btn-primary"
-                                style={{ padding: '8px 24px', fontSize: '13px' }}
-                                onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: null }))}
-                              >
-                                Done
-                              </button>
-                            }
-                          >
-                            <Suspense fallback={<ScreenLoading />}>
-                              <CustomerDesigns
-                                customerId={customerId}
-                                orders={ordersList}
-                                garmentTemplates={garmentTemplates}
-                                templateId={job.template?.id}
-                                garmentName={job.template?.name}
-                                newCustomer={customerForm}
-                                onCustomerCreated={(row) => {
-                                  setCustomerId(row.id);
-                                  refreshCustomerBook();
-                                }}
-                              />
-                            </Suspense>
-                          </FormModal>
-                        )}
 
 
                   {serviceType === 'design' && (
@@ -8437,6 +8525,37 @@ function App() {
                     </div>
                   )}
 
+
+                        {/* Trims and accessories belong to the look, so they sit
+                            under Design rather than Fabric (MOM, 2026-10-24). */}
+                        <details className="wz-more">
+                          <summary><Package size={14} /> {t('wizard.sheetTrims', 'Trims & accessories')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                          {canSeeTab(currentUser, 'inventory') && (
+                            <details className="wz-more" open>
+                              <summary><Package size={14} /> {t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                              <Suspense fallback={<ScreenLoading />}>
+                                <GarmentFabricPicker
+                                  garmentJobs={[job]}
+                                  fabrics={fabrics}
+                                  taxonomy={fabricTaxonomy}
+                                  selection={fabricSelection}
+                                  onChange={handleFabricSelection}
+                                  accessoriesOnly />
+                              </Suspense>
+                            </details>
+                          )}
+                          <details className="wz-more" open>
+                            <summary><Package size={14} /> {t('wizard.sheetCustomerAccessories', 'Customer Accessories (My Accessories)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentPartPicker ownOnly isFabric accessoriesOnly
+                                                 garmentKey={job.template?.key || job.key}
+                                                 garmentName={job.template?.name || job.key}
+                                                 taxonomy={fabricTaxonomy}
+                                                 references={partReferences[job.key] || {}}
+                                                 onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                            </Suspense>
+                          </details>
+                        </details>
                         </details>
 
                         {/* FABRIC: part of this garment's own card, under its details. */}
@@ -8521,34 +8640,6 @@ function App() {
                           </details>
                         )}
 
-                        <details className="wz-more">
-                          <summary><Package size={14} /> {t('wizard.sheetTrims', 'Trims & accessories')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          {canSeeTab(currentUser, 'inventory') && (
-                            <details className="wz-more" open>
-                              <summary><Package size={14} /> {t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                              <Suspense fallback={<ScreenLoading />}>
-                                <GarmentFabricPicker
-                                  garmentJobs={[job]}
-                                  fabrics={fabrics}
-                                  taxonomy={fabricTaxonomy}
-                                  selection={fabricSelection}
-                                  onChange={handleFabricSelection}
-                                  accessoriesOnly />
-                              </Suspense>
-                            </details>
-                          )}
-                          <details className="wz-more" open>
-                            <summary><Package size={14} /> {t('wizard.sheetCustomerAccessories', 'Customer Accessories (My Accessories)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                            <Suspense fallback={<ScreenLoading />}>
-                              <GarmentPartPicker ownOnly isFabric accessoriesOnly
-                                                 garmentKey={job.template?.key || job.key}
-                                                 garmentName={job.template?.name || job.key}
-                                                 taxonomy={fabricTaxonomy}
-                                                 references={partReferences[job.key] || {}}
-                                                 onReferencesChange={(next) => handlePartReferences(job.key, next)} />
-                            </Suspense>
-                          </details>
-                        </details>
                         </details>
 
                         {/* Move between garments from where the form ends, not
@@ -8583,18 +8674,18 @@ function App() {
                   {/* Another garment, once this one is filled in. */}
                   {garmentJobs.length > 0 && (
                     <details className="wz-more">
-                      <summary><Plus size={14} /> {t('wizard.addAnotherGarment', 'Do you need to add another garment?')}</summary>
-                      <select className="form-control" value="" disabled={!!addingGarmentKey} style={{ marginTop: '8px' }}
-                              onChange={(e) => {
-                                if (!e.target.value) return;
-                                e.target.closest('details').open = false;
-                                addGarment(e.target.value);
-                              }}>
-                        <option value="">{addingGarmentKey ? t('common.loading', 'Loading…') : t('wizard.selectGarment', 'Select Garment')}</option>
-                        {garmentsForGender(garmentTemplates, customerForm.gender)
-                          .filter((tpl) => !garmentJobs.some((j) => j.key === tpl.key || j.template?.key === tpl.key))
-                          .map((tpl) => <option key={tpl.key} value={tpl.key}>{tpl.name}</option>)}
-                      </select>
+                      <summary><Plus size={14} /> {t('wizard.addMoreGarments', 'Add more garments to this order')}</summary>
+                      <div style={{ marginTop: '10px' }}>
+                        <DressesDropdown compact
+                          title={t('wizard.addMoreGarments', 'Add more garments to this order')}
+                          garmentTemplates={garmentsForGender(garmentTemplates, customerForm.gender)}
+                          garmentJobs={garmentJobs}
+                          addingGarmentKey={addingGarmentKey}
+                          garmentTemplatesError={garmentTemplatesError}
+                          loadGarmentTemplates={loadGarmentTemplates}
+                          addGarments={async (keys) => { await addGarments(keys); }}
+                        />
+                      </div>
                     </details>
                   )}
 
@@ -8627,16 +8718,22 @@ function App() {
                     }
                   });
 
+                  const numeric = (section.fields || []).filter((f) => f.field_type === 'number' && !f.validation?.group);
+                  const filledCount = numeric.filter((f) => mergedValues[f.key] !== undefined && mergedValues[f.key] !== null && mergedValues[f.key] !== '').length;
                   return (
-                    <div className="content-card wz-card" key={job.key} id={`wz-garment-${job.key}`}>
-                      <div className="card-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Scissors size={20} /> {garmentLabel(job)}
+                    <div className="content-card wz-card wz-measure-card" key={job.key} id={`wz-garment-${job.key}`}>
+                      <div className="wz-measure-head">
+                        <IconTile icon={Ruler} tone="green" size={36} iconSize={18} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div className="wz-measure-title">{garmentLabel(job)}</div>
+                          {numeric.length > 0 && (
+                            <div className="od-hint">
+                              {t('wizard.measuredOf', '{done} of {total} measured, in inches', { done: filledCount, total: numeric.length })}
+                            </div>
+                          )}
                         </div>
                         {autoPrefilled && (
-                          <span style={{ fontSize: '12px', color: '#047857', background: '#ecfdf5', padding: '2px 8px', borderRadius: '12px', border: '1px solid #a7f3d0', fontWeight: 500 }}>
-                            ✓ Customer measurements loaded
-                          </span>
+                          <span className="wz-measure-loaded">✓ {t('wizard.measurementsLoaded', 'Last measurements loaded')}</span>
                         )}
                       </div>
                       <TemplateForm
@@ -9061,7 +9158,10 @@ function App() {
                 <div className="content-card wz-card">
                   {alterCandidates.length === 0 ? (
                     <div className="od-empty" style={{ textAlign: 'left' }}>
-                      {t('wizard.noDeliveredGarments', 'Nothing delivered to this customer yet. Alterations can only be raised on a garment we made.')}
+                      {t('wizard.noDeliveredGarmentsOutside', 'Nothing we made has been delivered to this customer yet. If the garment was stitched elsewhere, take it in under')}{' '}
+                      <button type="button" className="at-link" onClick={() => setTakingInOutside(true)}>
+                        {t('wizard.alterOutside', 'Stitched elsewhere')}
+                      </button>.
                     </div>
                   ) : (
                     <div className="wz-choices" role="radiogroup" aria-label={t('wizard.alterGarmentTitle', 'Which garment?')}>

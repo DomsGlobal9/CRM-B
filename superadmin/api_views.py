@@ -1,6 +1,7 @@
 
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -14,7 +15,7 @@ from tenants.models import BoutiqueTenant
 from . import (audit, health, onboarding, portal_access, search as search_module,
                signins, users as users_module)
 from .metrics import operational_metrics, tenant_metrics
-from .models import AuditLog, ErrorEvent, FeatureFlag, PlatformSetting
+from .models import AuditLog, ErrorEvent, FeatureFlag, PlatformNotification, PlatformSetting
 from .permissions import IsPlatformAdmin
 from .schemas import public_scope
 from .views import _boutiques
@@ -644,6 +645,38 @@ class SigninsView(ConsoleView):
     def get(self, request):
         with public_scope():
             return Response(signins.summary())
+
+
+class NotificationsView(ConsoleView):
+    """The console's bell: what is unread, and the latest few either way.
+
+    GET lists; POST {"ids": [...]} marks those read, and POST {} marks all.
+    """
+
+    LIMIT = 30
+
+    def get(self, request):
+        with public_scope():
+            unread = PlatformNotification.objects.filter(read_at__isnull=True).count()
+            rows = [{
+                'id': n.id, 'kind': n.kind, 'title': n.title, 'body': n.body,
+                'boutique': n.boutique, 'created_at': n.created_at,
+                'read_at': n.read_at,
+            } for n in PlatformNotification.objects.all()[:self.LIMIT]]
+        return Response({'unread': unread, 'notifications': rows})
+
+    def post(self, request):
+        ids = request.data.get('ids')
+        if ids is not None and (not isinstance(ids, list)
+                                or not all(isinstance(i, int) for i in ids)):
+            raise ValidationError({'ids': 'A list of notification ids.'})
+        with public_scope():
+            queryset = PlatformNotification.objects.filter(read_at__isnull=True)
+            if ids is not None:
+                queryset = queryset.filter(id__in=ids)
+            marked = queryset.update(read_at=timezone.now(),
+                                     read_by=request.user.get_username())
+        return Response({'marked': marked})
 
 
 class AuditView(ConsoleView):
