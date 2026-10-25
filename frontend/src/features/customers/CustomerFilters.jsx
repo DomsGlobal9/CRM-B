@@ -1,12 +1,12 @@
 /* The filter bar over the customer list: sort always in view, the rest
-   (orders, measurements, source, gender, city) behind "More filters". Country
+   (orders, source, gender, city) behind "More filters". Country
    code, the A–Z strip and the date-added and birthday filters were removed
    (MOM, 2026-10-24); the server still accepts them. The server applies the filters and counts
    the options (`facets`, from the directory response); this only draws them. */
 import { useMemo, useState } from 'react';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import {
-  EMPTY_CUSTOMER_FILTERS, MEASUREMENT_OPTIONS, ORDER_OPTIONS, SORT_OPTIONS, activeFilterCount,
+  EMPTY_CUSTOMER_FILTERS, ORDER_OPTIONS, SORT_OPTIONS, activeFilterCount,
 } from './filterRules';
 
 const ROW = { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12 };
@@ -39,7 +39,7 @@ export default function CustomerFilters({ facets, filters, onChange, leading = n
   }), [facets]);
 
   const active = activeFilterCount(filters);
-  const hiddenActive = ['orders', 'measurements', 'source', 'gender', 'city'].filter((k) => filters[k] !== '').length;
+  const hiddenActive = ['orders', 'source', 'gender', 'city'].filter((k) => filters[k] !== '').length;
   const showMore = more || hiddenActive > 0;
 
   return (
@@ -74,7 +74,6 @@ export default function CustomerFilters({ facets, filters, onChange, leading = n
       {showMore && (
         <div style={ROW}>
           <Select label="Orders" value={filters.orders} onChange={set('orders')} options={ORDER_OPTIONS} />
-          <Select label="Measurements" value={filters.measurements} onChange={set('measurements')} options={MEASUREMENT_OPTIONS} />
           <Select label="Source" value={filters.source} onChange={set('source')} allLabel="Any source" options={lists.sources} />
           <Select label="Gender" value={filters.gender} onChange={set('gender')} allLabel="Any" options={lists.genders} />
           <Select label="City / region" value={filters.city} onChange={set('city')} allLabel="Any city" options={lists.cities} />

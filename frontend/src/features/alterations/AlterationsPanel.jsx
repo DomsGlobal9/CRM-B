@@ -6,7 +6,6 @@ import {
 import { api } from '../../services/api';
 import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMoney } from '../../services/format';
 import { formatAdjustments, parseAdjustments } from './adjustments';
-import OutsideGarmentIntake from './OutsideGarmentIntake';
 import AdjustmentsTable from './AdjustmentsTable';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
@@ -780,7 +779,7 @@ function ActionDialog({ dialog, alteration, tailors, items, busy, onClose, onSub
 // ---------------------------------------------------------------------------
 
 export default function AlterationsPanel({ currentUser, initialAlterationId = null,
-                                          onBackToList }) {
+                                          onBackToList, onTakeInOutside }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -789,7 +788,6 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState(initialAlterationId);
   const [tailors, setTailors] = useState([]);
-  const [takingIn, setTakingIn] = useState(false);
   const isCounter = !currentUser?.role || ['Owner', 'Master'].includes(currentUser.role);
 
   const load = useCallback(async () => {
@@ -855,9 +853,10 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
         </div>
         <div className="portal-header-right" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {/* A garment we did not make. Our own orders are taken in from
-              the order itself; this is the door for everything else. */}
-          {isCounter && (
-            <button type="button" className="btn-primary" onClick={() => setTakingIn(true)}
+              the order itself; this is the door for everything else: the
+              alteration wizard, opened on "Stitched elsewhere". */}
+          {isCounter && onTakeInOutside && (
+            <button type="button" className="btn-primary" onClick={onTakeInOutside}
                     style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', padding: '8px 14px' }}>
               <Scissors size={15} /> Outside garment
             </button>
@@ -869,13 +868,6 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
       </header>
 
       <ErrorNote error={error} onDismiss={() => setError(null)} />
-
-      {takingIn && (
-        <OutsideGarmentIntake
-          onClose={() => setTakingIn(false)}
-          onCreated={(created) => { setTakingIn(false); load(); setSelectedId(created.id); }}
-        />
-      )}
 
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <Stat label="In progress" value={totals.open} />

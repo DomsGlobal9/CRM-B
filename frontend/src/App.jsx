@@ -24,7 +24,6 @@ const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
 const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboard'));
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
-const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 // The To-do section is switched off for every role (MOM, 2026-10-24). The
 // todos app, its API and its data are kept, so it can come back; its screen is
@@ -155,8 +154,16 @@ const WIZARD_STEPS = {
     { key: 'garment', label: 'Garment', sub: 'Which one we made' },
     { key: 'issue', label: 'Details', sub: 'What needs changing' },
   ],
+  // An alteration on a garment stitched elsewhere: no order of ours to pick
+  // it from, so the garment is described and photographed instead.
+  alterOutside: [
+    { key: 'who', label: 'Customer', sub: 'Who it is for' },
+    { key: 'outGarment', label: 'Garment', sub: 'What was brought in' },
+    { key: 'outIssue', label: 'Details', sub: 'What needs changing' },
+  ],
 };
 const EMPTY_ALTERATION = { orderId: '', garmentJobId: '', issue: '', type: 'PAID_CLIENT_REQUEST', charge: '', paidNow: '' };
+const EMPTY_OUTSIDE = { templateId: '', note: '', scale: '', request: '', adjustments: '', charge: '', paidNow: '', notes: '' };
 
 const MEASURE_KEYS = {
   chest: 'bust', bust: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck',
@@ -2150,7 +2157,8 @@ function App() {
     setCustomerName(`${customer.first_name || ''} ${customer.last_name || ''}`.trim());
     const kind = service === 'design' ? 'design' : 'stitch';
     setServiceType(kind);
-    
+    setAlterOutside(false);
+
     setReadyBy(ready_by || garments.find(g => g.values?.delivery_date)?.values.delivery_date || plusDaysIso(15));
     setDesignRequest(design_request || { designer: '', brief: '' });
 
@@ -2274,7 +2282,11 @@ function App() {
   
   const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
   
-  const [takingInOutside, setTakingInOutside] = useState(false);
+  // Alteration on a garment stitched elsewhere: the wizard's own three steps.
+  const [alterOutside, setAlterOutside] = useState(false);
+  const [outsideForm, setOutsideForm] = useState(EMPTY_OUTSIDE);
+  const [outsidePhoto, setOutsidePhoto] = useState(null); // { file, url }
+  useEffect(() => () => { if (outsidePhoto?.url) URL.revokeObjectURL(outsidePhoto.url); }, [outsidePhoto]);
   
   const openAlteration = (id) => {
     setSelectedDirectoryCustomer(null);
@@ -3038,8 +3050,11 @@ function App() {
   };
   /** Begin an order for one service, from a clean slate. `cust` is a customer
    *  the caller already picked (the customer book's "Create New Order"). */
-  const startService = (kind, cust = null, { locked = false } = {}) => {
+  const startService = (kind, cust = null, { locked = false, outside = false } = {}) => {
     setServiceType(kind);
+    setAlterOutside(kind === 'alter' && outside);
+    setOutsideForm(EMPTY_OUTSIDE);
+    setOutsidePhoto(null);
     setCustomerLocked(Boolean(cust && locked));
     setCustomerId(null);
     setCustomerForm(DEFAULT_CUSTOMER_DATA);
@@ -3183,7 +3198,8 @@ function App() {
     if (wizardSteps[n - 1]?.key === 'measure') prefillMeasurements();
     reachStep(n);
   };
-  const wizardSteps = WIZARD_STEPS[serviceType] || WIZARD_STEPS.stitch;
+  const wizardSteps = (serviceType === 'alter' && alterOutside ? WIZARD_STEPS.alterOutside : WIZARD_STEPS[serviceType])
+    || WIZARD_STEPS.stitch;
   useEffect(() => {
     document.querySelector('.wizard-header-container [aria-current="step"]')
       ?.scrollIntoView({ inline: 'center', block: 'nearest' });
@@ -3214,17 +3230,13 @@ function App() {
   /** One more of this garment, same design: a follower placed after the
    *  garment and its other followers. Whatever is filled on the garment is
    *  copied to it as the staff go (the effect below); changing the follower
-   *  itself makes it its own design. A paired blouse comes along if wanted. */
+   *  itself makes it its own design. Only this garment: the + on a saree adds
+   *  a saree, never its paired blouse or petticoat -- each has its own +. */
   const copyGarment = (key) => {
     const source = garmentJobs.find(job => job.key === key);
     if (!source) return;
-    const paired = garmentJobs.filter(job => job.pairedWith === key);
-    const withPaired = paired.length > 0
-      && window.confirm(`Copy the ${paired.map(job => job.template?.name).join(' and ')} with it too?`);
     const stamp = Date.now().toString(36);
-    const follow = (job, n, pairedWith) => followerOf(job, `${job.template?.key || job.key}#${stamp}${n}`, pairedWith);
-    const copy = follow(source, 0, source.pairedWith || null);
-    const copies = [copy, ...(withPaired ? paired.map((job, i) => follow(job, i + 1, copy.key)) : [])];
+    const copies = [followerOf(source, `${source.template?.key || source.key}#${stamp}0`, source.pairedWith || null)];
     setGarmentJobs(prev => {
       // After the garment, its followers, and anything paired to any of them.
       const group = new Set([key, ...prev.filter(job => job.sameAs === key).map(job => job.key)]);
@@ -3255,7 +3267,10 @@ function App() {
       const at = garmentJobs.findIndex(job => job.key === openGarment.key);
       if (at > 0) { openGarmentAt(garmentJobs[at - 1].key); return; }
     }
-    if (currentStep <= 1) { setView('order-selector'); return; }
+    // Back out of the first step returns to where the order began: the
+    // customer's own page (the only start that locks the customer), else
+    // the New order chooser.
+    if (currentStep <= 1) { setView(customerLocked ? 'dashboard' : 'order-selector'); return; }
     const previous = wizardSteps[currentStep - 2];
     const backTo = previous?.key === 'measure' && !needsMeasurements() && currentStep >= 3 ? wizardSteps[currentStep - 3] : previous;
     // Back into the garments lands on the last one, where Next left it.
@@ -3387,11 +3402,60 @@ function App() {
     }
   };
 
+  /** Take in a garment stitched elsewhere: a walk-in customer is added first,
+   *  then the alteration order, then its photo as it arrived. */
+  const createOutsideAlterationFromWizard = async () => {
+    setWizardError(null);
+    const f = outsideForm;
+    const scale = { SMALL: 'Small job: a quick fix', BIG: 'Big job: more work, more time' }[f.scale];
+    const template = garmentTemplates.find((tpl) => String(tpl.id) === String(f.templateId));
+    // The order keeps one line for what is wrong; the rest of the form rides
+    // along in it rather than being dropped (there is no field for the size).
+    const issue = [
+      f.request.trim(), f.adjustments.trim(),
+      template && f.note.trim() ? `Garment: ${f.note.trim()}` : '',
+      scale, f.notes.trim(),
+    ].filter(Boolean).join('\n');
+    if (!f.request.trim() && !f.adjustments.trim()) { alert('Say what needs changing.'); return; }
+    const charge = parseFloat(f.charge || 0);
+    const bad = amountError(f.charge, { label: 'Charge' })
+      || amountError(f.paidNow, { label: 'Paid now', max: charge });
+    if (bad) { alert(charge ? bad : 'Enter the charge before recording a payment.'); return; }
+    try {
+      let customer = customerId;
+      if (!customer) {
+        const row = await api.createCustomer({
+          first_name: customerForm.first_name.trim(), last_name: (customerForm.last_name || '').trim(),
+          mobile_number: customerForm.mobile_number, source: 'Walk In',
+        });
+        customer = row.id;
+        // A retry after a failure below must not add the customer twice.
+        setCustomerId(row.id);
+      }
+      const created = await api.createOutsideAlterationOrder({
+        customer,
+        garment_name: (template?.name || f.note.trim()).slice(0, 100),
+        issue,
+        charge: f.charge || '0',
+        paid_now: f.paidNow || '0',
+      });
+      if (outsidePhoto?.file) {
+        try { await api.uploadGarmentImage(created.id, 'FRONT', outsidePhoto.file); }
+        catch (err) { alert(`Taken in, but the photo could not be saved: ${err.message}`); }
+      }
+      setView('dashboard');
+      rememberAlteration(created);
+      openAlteration(created.id);
+    } catch (err) {
+      setWizardError(err.message || 'Could not take the garment in.');
+    }
+  };
+
   /** What is wrong with the customer details, or '' when they will do. */
   const customerProblem = () => {
     const mobileBad = mobileError(customerForm.mobile_number);
     if (mobileBad) return mobileBad;
-    if (serviceType === 'alter') {
+    if (serviceType === 'alter' && !alterOutside) {
       if (!customerId) return 'Pick the customer from the list. For a garment stitched elsewhere, choose \u201cStitched elsewhere\u201d.';
     } else {
       
@@ -3500,6 +3564,13 @@ function App() {
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'issue') {
         await createAlterationFromWizard();
+      } else if (wizardStepKey === 'outGarment') {
+        if (!outsideForm.templateId && !outsideForm.note.trim()) {
+          alert('Say what the garment is: pick a garment type or describe it.'); return;
+        }
+        reachStep(currentStep + 1);
+      } else if (wizardStepKey === 'outIssue') {
+        await createOutsideAlterationFromWizard();
       }
     } catch (err) {
       console.error("Step execution failed", err);
@@ -7793,19 +7864,10 @@ function App() {
       {/* 6. THE ORDER WIZARD: who, what, (designer), measurements, money.
           Every screen is one question a counter can answer with the customer
           standing there; everything the workroom decides later stays out. */}
-      {/* A garment we did not make, brought in for work. Reached from the
-          Alteration wizard's "Stitched elsewhere"; opens on the new alteration. */}
-      {view === 'wizard' && takingInOutside && (
-        <Suspense fallback={<ScreenLoading />}>
-          <OutsideGarmentIntake
-            onClose={() => setTakingInOutside(false)}
-            onCreated={(created) => { setTakingInOutside(false); setView('dashboard'); rememberAlteration(created); openAlteration(created.id); }}
-          />
-        </Suspense>
-      )}
-
       {view === 'wizard' && (
-        <div className="wizard-outer-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', backgroundColor: 'var(--bg-color)' }}>
+        // flex, not 100vh: the Back/Next bar follows in the same column, so the
+        // wizard takes what is left above it and a short step does not scroll.
+        <div className="wizard-outer-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', flex: '1 0 auto', backgroundColor: 'var(--bg-color)' }}>
           {/* Brand header & stepper */}
           <div className="wizard-header-container" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--surface-color)', padding: '16px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', maxWidth: '1280px', margin: '0 auto 16px' }}>
@@ -7878,7 +7940,7 @@ function App() {
             <div className="stepper-count">{t('entry.stepXofY', 'Step {step} of {total}', { step: currentStep, total: wizardSteps.length })}</div>
           </div>
 
-          <div className="main-content full-width" style={{ padding: '40px 24px 100px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+          <div className="main-content full-width" style={{ padding: '40px 24px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
             <div className="workspace-panel">
 
             {/* WHO: the mobile number finds a customer the boutique already
@@ -7890,7 +7952,9 @@ function App() {
                 <div className="page-title-group">
                   <h1 className="page-title">{t('wizard.whoTitle', 'Who is this for?')}</h1>
                   <p className="page-subtitle">
-                    {serviceType === 'alter'
+                    {serviceType === 'alter' && alterOutside
+                      ? t('wizard.whoAlterOutsideSubtitle', 'Find the customer by name or mobile number, or type a new walk-in’s name and number.')
+                      : serviceType === 'alter'
                       ? t('wizard.whoAlterSubtitleBoth', 'Find the customer by name or mobile number. A garment stitched elsewhere is taken in under “Stitched elsewhere”.')
                       : t('wizard.whoSubtitle', 'Type the customer’s name, then their mobile number. A customer we know comes up as you type either one.')}
                   </p>
@@ -7902,14 +7966,30 @@ function App() {
                       elsewhere has no order to hang off, so it is taken in
                       with its own short form. */}
                   {serviceType === 'alter' && (
-                    <div className="wz-seg" role="radiogroup" aria-label={t('wizard.alterWhose', 'Whose garment is it?')}>
-                      <button type="button" role="radio" aria-checked="true" className="wz-seg-btn wz-seg-btn--on">
-                        <Shirt size={15} /> {t('wizard.alterOurs', 'Stitched by us')}
-                      </button>
-                      <button type="button" role="radio" aria-checked="false" className="wz-seg-btn"
-                              onClick={() => setTakingInOutside(true)}>
-                        <Scissors size={15} /> {t('wizard.alterOutside', 'Stitched elsewhere')}
-                      </button>
+                    <div className="wz-whose-field">
+                      <span className="form-label" id="wz-whose-label">{t('wizard.alterWhose', 'Whose garment is it?')}</span>
+                      <div className="wz-whose" role="radiogroup" aria-labelledby="wz-whose-label">
+                        <button type="button" role="radio" aria-checked={!alterOutside}
+                                className={`wz-whose-opt${alterOutside ? '' : ' wz-whose-opt--on'}`}
+                                onClick={() => setAlterOutside(false)}>
+                          <span className="wz-whose-icon"><Shirt size={20} /></span>
+                          <span className="wz-whose-text">
+                            <span className="wz-whose-title">{t('wizard.alterOurs', 'Stitched by us')}</span>
+                            <span className="wz-whose-sub">{t('wizard.alterOursSub', 'A garment we made and delivered')}</span>
+                          </span>
+                          <span className="wz-whose-mark" aria-hidden="true">{!alterOutside && <Check size={14} />}</span>
+                        </button>
+                        <button type="button" role="radio" aria-checked={alterOutside}
+                                className={`wz-whose-opt${alterOutside ? ' wz-whose-opt--on' : ''}`}
+                                onClick={() => setAlterOutside(true)}>
+                          <span className="wz-whose-icon"><Scissors size={20} /></span>
+                          <span className="wz-whose-text">
+                            <span className="wz-whose-title">{t('wizard.alterOutside', 'Stitched elsewhere')}</span>
+                            <span className="wz-whose-sub">{t('wizard.alterOutsideSub', 'Made by another tailor, brought in for changes')}</span>
+                          </span>
+                          <span className="wz-whose-mark" aria-hidden="true">{alterOutside && <Check size={14} />}</span>
+                        </button>
+                      </div>
                     </div>
                   )}
 
@@ -7972,12 +8052,18 @@ function App() {
                     <>
                       {matchBy === 'mobile' && customerMatchList}
                       {serviceType === 'alter' && customerLookupTyped && customerMatches.length === 0 && !customerMatchesLoading && (
-                        <p className="od-hint" style={{ marginTop: '8px' }}>
-                          {t('wizard.noCustomerForAlterOutside', 'No customer with this name or number in your book. If the garment was stitched elsewhere, take it in under')}{' '}
-                          <button type="button" className="at-link" onClick={() => setTakingInOutside(true)}>
-                            {t('wizard.alterOutside', 'Stitched elsewhere')}
-                          </button>.
-                        </p>
+                        alterOutside ? (
+                          <p className="od-hint" style={{ marginTop: '8px' }}>
+                            {t('wizard.newWalkIn', 'Not in your book yet: they are added as a new walk-in customer when you take the garment in.')}
+                          </p>
+                        ) : (
+                          <p className="od-hint" style={{ marginTop: '8px' }}>
+                            {t('wizard.noCustomerForAlterOutside', 'No customer with this name or number in your book. If the garment was stitched elsewhere, take it in under')}{' '}
+                            <button type="button" className="at-link" onClick={() => setAlterOutside(true)}>
+                              {t('wizard.alterOutside', 'Stitched elsewhere')}
+                            </button>.
+                          </p>
+                        )
                       )}
                     </>
                   )}
@@ -9122,7 +9208,7 @@ function App() {
                   {alterCandidates.length === 0 ? (
                     <div className="od-empty" style={{ textAlign: 'left' }}>
                       {t('wizard.noDeliveredGarmentsOutside', 'Nothing we made has been delivered to this customer yet. If the garment was stitched elsewhere, take it in under')}{' '}
-                      <button type="button" className="at-link" onClick={() => setTakingInOutside(true)}>
+                      <button type="button" className="at-link" onClick={() => setAlterOutside(true)}>
                         {t('wizard.alterOutside', 'Stitched elsewhere')}
                       </button>.
                     </div>
@@ -9200,6 +9286,125 @@ function App() {
                   )}
                 </div>
               </>
+            )}
+            {/* OUTSIDE GARMENT, screen 2: what was brought in. No order of
+                ours names it, so it is described, and photographed as it
+                arrived -- the record of what was already wrong. */}
+            {wizardStepKey === 'outGarment' && (
+              <div className="wz-who-wrap">
+                <div className="page-title-group">
+                  <h1 className="page-title">{t('wizard.outGarmentTitle', 'What garment is it?')}</h1>
+                  <p className="page-subtitle">{t('wizard.outGarmentSubtitle', 'Stitched elsewhere. Say what it is, and take a photo of it as it came in.')}</p>
+                </div>
+                <div className="content-card wz-card wz-who">
+                  <div className="wz-who-row">
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-type">{t('wizard.outGarmentType', 'Garment type')}</label>
+                      <select id="wz-out-type" className="form-control" value={outsideForm.templateId}
+                              onChange={(e) => setOutsideForm({ ...outsideForm, templateId: e.target.value })}>
+                        <option value="">{t('wizard.outGarmentOther', 'Other (describe it)')}</option>
+                        {garmentTemplates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-note">
+                        {t('wizard.outGarmentNote', 'About the garment')}{' '}
+                        {outsideForm.templateId
+                          ? <span className="od-hint">({t('common.optional', 'optional')})</span>
+                          : <span className="required">*</span>}
+                      </label>
+                      <input id="wz-out-note" className="form-control" maxLength={200} value={outsideForm.note}
+                             onChange={(e) => setOutsideForm({ ...outsideForm, note: e.target.value })}
+                             placeholder={t('wizard.outGarmentNotePlaceholder', 'e.g. Green silk blouse, bought in Chennai')} />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <span className="form-label">{t('wizard.outPhoto', 'Photo as it came in')} <span className="od-hint">({t('common.optional', 'optional')})</span></span>
+                    {outsidePhoto ? (
+                      <div className="wz-out-photo">
+                        <img src={outsidePhoto.url} alt={t('wizard.outPhotoAlt', 'The garment as it came in')} />
+                        <div className="wz-out-photo-meta">
+                          <span className="wz-out-photo-name">{outsidePhoto.file.name}</span>
+                          <button type="button" className="btn-secondary at-btn-sm" onClick={() => setOutsidePhoto(null)}>
+                            <X size={13} /> {t('common.remove', 'Remove')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Dropzone compact camera
+                                onFiles={([file]) => {
+                                  if (!file) return;
+                                  setOutsidePhoto({ file, url: URL.createObjectURL(file) });
+                                }}
+                                title={t('wizard.outPhotoDrop', 'Drop a photo here')}
+                                subtitle={t('wizard.outPhotoOr', 'or choose a photo')}
+                                chooseLabel={t('wizard.outPhotoChoose', 'Choose photo')} />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* OUTSIDE GARMENT, screen 3: what needs changing, and the charge. */}
+            {wizardStepKey === 'outIssue' && (
+              <div className="wz-who-wrap">
+                <div className="page-title-group">
+                  <h1 className="page-title">{t('wizard.alterIssueTitle', 'What needs changing?')}</h1>
+                  <p className="page-subtitle">{t('wizard.outIssueSubtitle', 'Always a paid job: the garment is not one of ours. The charge can be set after inspection.')}</p>
+                </div>
+                {wizardError && (
+                  <div role="alert" className="wz-error">
+                    <span>{wizardError}</span>
+                    <button type="button" className="btn-ghost at-btn-sm" onClick={() => setWizardError(null)} aria-label={t('common.dismiss', 'Dismiss')}><X size={14} /></button>
+                  </div>
+                )}
+                <div className="content-card wz-card wz-who">
+                  <div className="wz-who-row wz-who-row--even">
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-request">{t('wizard.outRequest', 'Customer’s request')} <span className="required">*</span></label>
+                      <VoiceTextarea id="wz-out-request" className="form-control" rows={2} maxLength={LIMITS.note} value={outsideForm.request}
+                                     onChange={(e) => setOutsideForm({ ...outsideForm, request: e.target.value })}
+                                     placeholder={t('wizard.outRequestPlaceholder', 'The sleeves are too tight…')} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-adjust">{t('wizard.outAdjustments', 'Adjustments')} <span className="od-hint">({t('wizard.onePerLine', 'one per line')})</span></label>
+                      <VoiceTextarea id="wz-out-adjust" className="form-control" rows={2} maxLength={LIMITS.note} value={outsideForm.adjustments}
+                                     onChange={(e) => setOutsideForm({ ...outsideForm, adjustments: e.target.value })}
+                                     placeholder={t('wizard.outAdjustmentsPlaceholder', 'e.g. sleeve: let out 1 inch')} />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <span className="form-label">{t('wizard.outScale', 'How big is the job?')} <span className="od-hint">({t('common.optional', 'optional')})</span></span>
+                    <div className="at-seg" role="group">
+                      <button type="button" aria-pressed={outsideForm.scale === 'SMALL'}
+                              onClick={() => setOutsideForm({ ...outsideForm, scale: outsideForm.scale === 'SMALL' ? '' : 'SMALL' })}>
+                        {t('wizard.outScaleSmall', 'Small · a quick fix')}
+                      </button>
+                      <button type="button" aria-pressed={outsideForm.scale === 'BIG'}
+                              onClick={() => setOutsideForm({ ...outsideForm, scale: outsideForm.scale === 'BIG' ? '' : 'BIG' })}>
+                        {t('wizard.outScaleBig', 'Big · more work, more time')}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="wz-who-row wz-who-row--three">
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-charge">{t('wizard.alterCharge', 'Charge')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <input id="wz-out-charge" type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control" value={outsideForm.charge}
+                             onChange={(e) => setOutsideForm({ ...outsideForm, charge: cleanAmount(e.target.value) })} placeholder="0" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-paid">{t('wizard.alterPaidNow', 'Paid now')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <input id="wz-out-paid" type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control" value={outsideForm.paidNow}
+                             onChange={(e) => setOutsideForm({ ...outsideForm, paidNow: cleanAmount(e.target.value) })} placeholder="0" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-notes">{t('wizard.outNotes', 'Notes')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <input id="wz-out-notes" className="form-control" maxLength={LIMITS.note} value={outsideForm.notes}
+                             onChange={(e) => setOutsideForm({ ...outsideForm, notes: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
             </div>
 
@@ -9347,6 +9552,7 @@ function App() {
               {ctaBusy ? t('wizard.working', 'Working\u2026')
                 : wizardStepKey === 'money' ? <>{t('wizard.completeOrder', 'Complete the order')} <Check size={16} /></>
                 : wizardStepKey === 'issue' ? <>{t('wizard.createAlteration', 'Create alteration')} <Check size={16} /></>
+                : wizardStepKey === 'outIssue' ? <>{t('wizard.takeItIn', 'Take it in')} <Check size={16} /></>
                 : <>{t('common.next', 'Next')} <ArrowRight size={16} /></>}
             </button>
           </div>

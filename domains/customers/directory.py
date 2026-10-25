@@ -9,9 +9,8 @@ The rules are a port of frontend/src/features/customers/filterRules.js and the
 directory code in App.jsx, so the same filters pick the same customers. They
 run in Python over one slim read of the boutique's customers rather than in
 SQL, because several of them -- a birthday in the next 30 days that wraps the
-year, the country of a stored mobile, "any measurement actually taken" across
-the columns and a JSON field -- are far clearer, and easier to keep identical
-to the browser's version, as Python than as SQL. The customer rows themselves
+year, the country of a stored mobile -- are far clearer, and easier to keep
+identical to the browser's version, as Python than as SQL. The customer rows themselves
 are fetched only for the page being shown.
 """
 
@@ -28,13 +27,10 @@ LETTERS = tuple('ABCDEFGHIJKLMNOPQRSTUVWXYZ') + ('#',)
 PAGE_SIZE_DEFAULT = 20
 PAGE_SIZE_MAX = 100
 
-MEASUREMENT_FIELDS = ('bust', 'waist', 'hips', 'shoulder', 'arm_length', 'neck', 'length')
-
 #: Query parameters, each with the values filterRules.js offers. Anything else
 #: is ignored rather than refused, as the browser's version ignored it.
 CHOICES = {
     'orders': ('with', 'repeat', 'none'),
-    'measurements': ('recorded', 'missing'),
     'added': ('month', '30', '90', 'year'),
     'birthday': ('month', 'next30', 'missing'),
     'sort': ('newest', 'oldest', 'name_asc', 'name_desc', 'orders', 'spend'),
@@ -42,9 +38,7 @@ CHOICES = {
 
 _SLIM = ('id', 'first_name', 'last_name', 'mobile_number', 'email_address', 'created_at',
          'date_of_birth', 'source', 'gender', 'city_region', 'customer_type', 'is_lead',
-         'orders_count', 'orders_total_spend', 'measurements__id',
-         'measurements__additional_measurements',
-         *(f'measurements__{f}' for f in MEASUREMENT_FIELDS))
+         'orders_count', 'orders_total_spend')
 
 
 # ---- one customer's facts, as filterRules.js reads them ---------------------
@@ -95,26 +89,6 @@ def _clean(value):
 
 def city_of(row):
     return re.sub(r'\s+', ' ', _clean(row['city_region']))
-
-
-def _positive(value):
-    # JS: typeof v !== 'object' && typeof v !== 'boolean' && Number(v) > 0
-    if value is None or isinstance(value, (bool, dict, list)):
-        return False
-    try:
-        return float(str(value).strip() or 0) > 0
-    except ValueError:
-        return False
-
-
-def has_measurements(row):
-    """Any body measurement actually taken; the empty record made on creation does not count."""
-    if row['measurements__id'] is None:
-        return False
-    if any(_positive(row[f'measurements__{f}']) for f in MEASUREMENT_FIELDS):
-        return True
-    extra = row['measurements__additional_measurements'] or {}
-    return isinstance(extra, dict) and any(_positive(v) for v in extra.values())
 
 
 def _added_matches(row, when, now, today):
@@ -227,10 +201,6 @@ def _matches(row, params, now, today):
         return False
     if params['orders'] == 'none' and orders > 0:
         return False
-    if params['measurements'] == 'recorded' and not has_measurements(row):
-        return False
-    if params['measurements'] == 'missing' and has_measurements(row):
-        return False
     if params['added'] and not _added_matches(row, params['added'], now, today):
         return False
     if params['birthday'] and not _birthday_matches(row, params['birthday'], today):
@@ -272,7 +242,7 @@ def _int(raw, default, lo, hi):
 def read_params(query):
     """The directory's query string, cleaned. Unknown values are dropped."""
     params = {key: (query.get(key) or '').strip() for key in (
-        'search', 'view', 'tier', 'country', 'letter', 'orders', 'measurements',
+        'search', 'view', 'tier', 'country', 'letter', 'orders',
         'added', 'birthday', 'source', 'gender', 'city', 'sort')}
     for key, allowed in CHOICES.items():
         if params[key] not in allowed:

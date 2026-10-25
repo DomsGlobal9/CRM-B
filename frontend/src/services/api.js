@@ -1152,8 +1152,8 @@ export const api = {
   // One page of the Customers page, filtered, sorted and counted by the
   // server: { count, page, page_size, page_count, results, summary, facets }.
   // `params` are the page's own: page, page_size, view, search, tier and the
-  // filter bar's keys (country, letter, orders, measurements, added,
-  // birthday, source, gender, city, sort).
+  // filter bar's keys (country, letter, orders, added, birthday, source,
+  // gender, city, sort).
   async getCustomerDirectory(params = {}) {
     const url = new URL(`${BASE_URL}/customers/`);
     Object.entries({ page: 1, ...params }).forEach(([k, v]) => {

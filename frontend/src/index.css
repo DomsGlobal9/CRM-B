@@ -6629,7 +6629,59 @@ button, input, select, textarea { font-family: inherit; }
 .wz-who-grid { gap: 16px; }
 .wz-who-grid .form-group { margin-bottom: 0; }
 
-/* Alteration: whose garment is it. */
+/* Alteration: whose garment is it -- two cards side by side, the chosen one
+   lime with a tick, the other plainly a second option to click. */
+.wz-whose-field { display: flex; flex-direction: column; gap: 8px; }
+.wz-whose-field .form-label { margin: 0; }
+.wz-whose { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.wz-whose-opt { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 14px 16px; border: 1.5px solid var(--border-color); border-radius: var(--radius-md, 12px); background: var(--surface-color); font: inherit; text-align: left; color: var(--text-primary); cursor: pointer; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+.wz-whose-opt:hover:not(.wz-whose-opt--on), .wz-whose-opt:focus-visible { border-color: var(--primary-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 22%, transparent); outline: none; }
+.wz-whose-opt--on { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 14%, var(--surface-color)); cursor: default; }
+.wz-whose-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-2, #f1efe9); color: var(--text-secondary); }
+.wz-whose-opt--on .wz-whose-icon { background: var(--primary-color); color: var(--primary-foreground, #1a1a1a); }
+.wz-whose-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.wz-whose-title { font-size: 15px; font-weight: 600; }
+.wz-whose-sub { font-size: 12.5px; line-height: 1.35; color: var(--text-secondary); }
+.wz-whose-mark { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--border-strong, var(--border-color)); }
+.wz-whose-opt--on .wz-whose-mark { border-color: var(--primary-color); background: var(--primary-color); color: var(--primary-foreground, #1a1a1a); }
+/* Phones: still side by side, the titles and icons alone, so the choice costs
+   one short row rather than two tall cards. */
+@media (max-width: 640px) {
+  .wz-whose { gap: 8px; }
+  .wz-whose-opt { gap: 8px; padding: 10px; }
+  .wz-whose-icon { width: 32px; height: 32px; border-radius: 8px; }
+  .wz-whose-icon svg { width: 17px; height: 17px; }
+  .wz-whose-title { font-size: 13.5px; line-height: 1.25; }
+  .wz-whose-sub, .wz-whose-mark { display: none; }
+}
+/* Outside garment steps: the request and adjustments side by side, the
+   charge, paid-now and notes in a row of three, and the photo once chosen. */
+.wz-who-row--even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wz-who-row--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.wz-out-photo { display: flex; align-items: center; gap: 14px; }
+.wz-out-photo img { width: 84px; height: 104px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-color); flex-shrink: 0; }
+.wz-out-photo-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.wz-out-photo-name { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .wz-who-row--even, .wz-who-row--three { grid-template-columns: minmax(0, 1fr); }
+}
+.wizard-outer-wrapper .main-content.full-width:has(.wz-who-wrap) .at-drop--compact { min-height: 0; }
+/* The customer step keeps no room at the bottom for a bottom nav: in the
+   wizard the Back/Next bar follows in the flow, so that room only scrolled. */
+.wizard-outer-wrapper .main-content.full-width:has(.wz-who-wrap) { padding-bottom: 16px !important; }
+/* Short laptop screens: less air around the customer step so it fits. */
+@media (min-width: 641px) and (max-height: 820px) {
+  .wizard-header-container { padding-top: 10px !important; padding-bottom: 10px !important; }
+  .wizard-header-container > div:first-child { margin-bottom: 6px !important; }
+  .wizard-outer-wrapper ~ .footer-actions-bar { padding-top: 14px; padding-bottom: 14px; }
+  .wizard-outer-wrapper .main-content.full-width { padding-top: 20px !important; padding-bottom: 20px !important; }
+  .wz-who-wrap { gap: 12px; }
+  .wz-who-wrap h1.page-title { font-size: 30px; }
+  .wz-card.wz-who { gap: 14px; padding: 20px 24px; }
+  .wz-whose-opt { padding: 10px 14px; }
+}
+
+/* Alteration: whose garment is it (older segmented style, kept for any other use). */
 .wz-seg { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 18px; border-radius: 999px; background: var(--surface-inset, #f1efe9); border: 1px solid var(--border-color); }
 .wz-seg-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 8px 16px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
 .wz-seg-btn:hover { color: var(--text-primary); }
