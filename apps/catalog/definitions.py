@@ -81,7 +81,7 @@ COMMON_MEASUREMENTS = [
 FABRIC_SOURCE = [
     field('fabric_source', 'Fabric', 'select', options=[
         ('inventory', 'From our inventory'),
-        ('customer', 'Provided by Customer'),
+        ('customer', 'Provided by customer'),
         ('buy', 'Need to buy'),
     ], default='inventory'),
 ]

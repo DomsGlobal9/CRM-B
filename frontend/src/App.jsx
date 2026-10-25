@@ -2327,9 +2327,6 @@ function App() {
   const [ordersList, setOrdersList] = useState([]);
   const [queuedMessages, setQueuedMessages] = useState([]);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
-  const [sendingOrder, setSendingOrder] = useState(null);
-  const [sendForm, setSendForm] = useState({ master: '', tailor: '' });
-  const [sendError, setSendError] = useState('');
   const [sendBusy, setSendBusy] = useState(false);
 
 
@@ -2739,42 +2736,29 @@ function App() {
     }
   };
 
-  const workshopMasters = () => tailors.filter((tl) => tl.role === 'Master');
-  const workshopCrew = () => tailors.filter((tl) => tl.role !== 'Master');
-  const defaultWorkshopPicks = (order) => {
-    const open = {};
-    ordersList.forEach((o) => { if (o.tailor && !ORDER_CLOSED.includes(o.order_status)) open[o.tailor] = (open[o.tailor] || 0) + 1; });
-    const freest = [...workshopCrew()].sort((a, b) =>
-      ((b.status === 'Available') - (a.status === 'Available')) || ((open[a.id] || 0) - (open[b.id] || 0)))[0];
-    return { master: order.master || workshopMasters()[0]?.id || '', tailor: order.tailor || freest?.id || '' };
-  };
-  const sendToWorkshop = async (order, picks, inModal) => {
+  /** Send to workshop: straight in, one tap. Nobody is named here -- anyone
+   *  already on the order stays on it, and the Workshop hands out the rest as
+   *  it always has. The first step is started, as before. */
+  const openSendToWorkshop = async (order) => {
     if (sendBusy) return;
-    setSendBusy(true); setSendError('');
+    setSendBusy(true);
     try {
-      const updated = await api.sendToWorkshop(order.id, picks);
-      setSendingOrder(null);
+      const updated = await api.sendToWorkshop(order.id);
       setConfirmedOrder((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
       fetchDashboardAndConfig();
-      if (!inModal) {
-        const row = (updated.stages || []).find((st) => st.stage_key === updated.started_stage);
-        const stage = row?.stage_name || '';
-        const who = row?.assigned_to_name || updated.master_name || updated.tailor_name || 'the workshop';
-        alert(stage
-          ? t('ordersPage.sentToWorkshop', 'Sent to the workshop — {tailor} starts with {stage}', { tailor: who, stage })
+      const row = (updated.stages || []).find((st) => st.stage_key === updated.started_stage);
+      const stage = row?.stage_name || '';
+      const who = row?.assigned_to_name || updated.master_name || updated.tailor_name || '';
+      alert(stage && who
+        ? t('ordersPage.sentToWorkshop', 'Sent to the workshop — {tailor} starts with {stage}', { tailor: who, stage })
+        : stage
+          ? t('ordersPage.sentToWorkshopStage', 'Sent to the workshop — it starts with {stage}', { stage })
           : t('ordersPage.sentToWorkshopPlain', 'Sent to the workshop'));
-      }
     } catch (err) {
-      if (inModal) setSendError(err.message); else alert(err.message);
+      alert(err.message);
     } finally {
       setSendBusy(false);
     }
-  };
-  // One Master and one tailor: nothing to choose, so send in one tap.
-  const openSendToWorkshop = (order) => {
-    const picks = defaultWorkshopPicks(order);
-    if (workshopMasters().length === 1 && workshopCrew().length === 1) { sendToWorkshop(order, picks, false); return; }
-    setSendForm(picks); setSendError(''); setSendingOrder(order);
   };
 
   const handleAssignWorkflow = async (orderId, updates) => {
@@ -3034,6 +3018,7 @@ function App() {
     return cust.id;
   };
   const clearPickedCustomer = (mobile) => {
+    setNumberMatched(null);
     setCustomerId(null);
     setCustomerForm({ ...DEFAULT_CUSTOMER_DATA, mobile_number: mobile || '' });
     setCustomerName('');
@@ -3056,6 +3041,7 @@ function App() {
     setOutsideForm(EMPTY_OUTSIDE);
     setOutsidePhoto(null);
     setCustomerLocked(Boolean(cust && locked));
+    setNumberMatched(null);
     setCustomerId(null);
     setCustomerForm(DEFAULT_CUSTOMER_DATA);
     setCustomerName('');
@@ -3145,16 +3131,36 @@ function App() {
   };
 
   /** Customers matching what has been typed so far -- by number once three
-   *  digits are in, else by name once two letters are (the counter may know
+   *  digits are in, else by name once three letters are (the counter may know
    *  either first): the five newest, as full rows, because picking one fills
    *  the order form. */
   const matchDigits = customerId ? '' : (customerForm.mobile_number || '').replace(/\D/g, '');
   const matchName = customerId ? '' : customerName.trim();
-  const matchBy = matchDigits.length >= 3 ? 'mobile' : matchName.length >= 2 ? 'name' : null;
-  const customerLookupTyped = matchDigits.length >= 4 || matchName.length >= 2;
+  const matchBy = matchDigits.length >= 3 ? 'mobile' : matchName.length >= 3 ? 'name' : null;
+  const customerLookupTyped = matchDigits.length >= 4 || matchName.length >= 3;
   const { results: customerMatches, loading: customerMatchesLoading } = useCustomerLookup({
     mobile: matchBy === 'mobile' ? matchDigits : '', q: matchBy === 'name' ? matchName : '', limit: 5, full: true,
   });
+  // A complete mobile number already in the book is that customer -- a number
+  // belongs to one customer only -- so they are picked at once, and their
+  // saved name replaces whatever name was typed. A name is never picked this
+  // way: two customers can share one. `numberMatched` keeps the typed name to
+  // say why it changed.
+  const [numberMatched, setNumberMatched] = useState(null); // { id, typedName }
+  useEffect(() => {
+    if (customerId || matchBy !== 'mobile' || customerMatchesLoading) return;
+    const last10 = (value) => String(value || '').replace(/\D/g, '').slice(-10);
+    const typed = last10(matchDigits);
+    if (typed.length < 10) return;
+    const found = customerMatches.find((cust) => last10(cust.mobile_number) === typed);
+    if (!found) return;
+    setNumberMatched({ id: found.id, typedName: customerName.trim() });
+    // Reacting to the server's answer arriving, which is what an effect is for.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    pickCustomer(found);
+  // pickCustomer and customerName are read at the moment of the match only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId, matchBy, matchDigits, customerMatches, customerMatchesLoading]);
   /** The matches, shown under the box being searched by; one picks the customer. */
   const customerMatchList = customerMatches.length > 0 && (
     <div className="wz-matches" role="listbox"
@@ -8005,6 +8011,12 @@ function App() {
                             ? t('wizard.fixedFromProfile', 'from their profile; edit it there to change it')
                             : t('wizard.knownCustomer', 'a customer we know')}
                         </div>
+                        {numberMatched?.id === customerId && numberMatched.typedName
+                          && numberMatched.typedName.toLowerCase() !== `${customerForm.first_name} ${customerForm.last_name}`.trim().toLowerCase() && (
+                          <div className="wz-known-note">
+                            {t('wizard.numberMatchedNote', 'This number is already saved for this customer, so the name “{typed}” was replaced. For a different customer, change the number.', { typed: numberMatched.typedName })}
+                          </div>
+                        )}
                       </div>
                       {/* From a customer's own profile the customer is fixed. Otherwise
                           Delete takes them off this order -- the card, the name and the
@@ -9560,45 +9572,6 @@ function App() {
       )}
 
       {/* INVOICE MODAL */}
-      {/* Send to the workshop: who leads it, who stitches it, when it is due. */}
-      {sendingOrder && (
-        <FormModal icon={Scissors} tone="amber" width="460px"
-                   title={t('ordersPage.sendModalTitle', 'Send to the workshop')}
-                   subtitle={`${orderRef(sendingOrder)} · ${sendingOrder.customer_name || ''}`}
-                   onClose={() => !sendBusy && setSendingOrder(null)}
-                   footer={(
-                     <button type="button" className="btn-primary" style={{ width: '100%', justifyContent: 'center', minHeight: '48px' }}
-                             disabled={sendBusy} onClick={() => sendToWorkshop(sendingOrder, sendForm, true)}>
-                       <Scissors size={16} /> {sendBusy ? t('ordersPage.sending', 'Sending…') : t('ordersPage.send', 'Send')}
-                     </button>
-                   )}>
-          <Field label={t('ordersPage.supervisingMaster', 'Master in charge')} htmlFor="send-master">
-            <select id="send-master" className="form-control" value={sendForm.master} onChange={(e) => setSendForm({ ...sendForm, master: e.target.value })}>
-              <option value="">{t('ordersPage.unassigned', 'Not yet assigned')}</option>
-              {workshopMasters().map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
-            </select>
-          </Field>
-          <Field label={t('ordersPage.stitchingTailor', 'Stitching tailor')} htmlFor="send-tailor">
-            <select id="send-tailor" className="form-control" value={sendForm.tailor} onChange={(e) => setSendForm({ ...sendForm, tailor: e.target.value })}>
-              <option value="">{t('ordersPage.unassigned', 'Not yet assigned')}</option>
-              {workshopCrew().map(tl => (
-                <option key={tl.id} value={tl.id}>{tl.name}{tl.status && tl.status !== 'Available' ? ` (${tl.status})` : ''}</option>
-              ))}
-            </select>
-          </Field>
-          <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-            <Calendar size={14} style={{ verticalAlign: '-2px' }} /> {t('ordersPage.estDelivery', 'Promised by')}: <strong style={{ color: 'var(--text-primary)' }}>
-              {sendingOrder.estimated_delivery ? fmtDate(sendingOrder.estimated_delivery) : t('ordersPage.tbd', 'Not set')}
-            </strong>
-          </div>
-          {sendError && (
-            <div className="ui-badge ui-badge--danger" role="alert" style={{ whiteSpace: 'normal', display: 'block', marginTop: '12px', padding: '10px 12px', fontSize: '14px' }}>
-              {sendError}
-            </div>
-          )}
-        </FormModal>
-      )}
-
       {showInvoiceModal && confirmedOrder && (
         <div style={{
           position: 'fixed',

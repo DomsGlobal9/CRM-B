@@ -5367,6 +5367,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 /* Wizard screens */
 .wz-card { display: flex; flex-direction: column; gap: 4px; }
 .wz-known { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--primary-color); background: var(--accent-color); border-radius: var(--radius-md); margin-top: 6px; }
+.wz-known-note { margin-top: 6px; font-size: 12.5px; line-height: 1.45; color: var(--text-primary); }
 .wz-known-name { font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .wz-matches { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .wz-match, .wz-choice { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; text-align: left; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; font-family: inherit; color: var(--text-primary); }
