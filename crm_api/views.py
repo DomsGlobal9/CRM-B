@@ -1115,7 +1115,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     def customer_messages(self, request):
         # What staff must send themselves: FAILED after its automatic tries,
         # or queued with no automatic sender to try it (next_attempt_at null).
-        # A message still being tried is not listed.
+        # A message still being tried is not listed -- unless its retry is long
+        # overdue (no cron running), which makes it FAILED first.
+        from domains.orders.messaging import give_up_stale
+        give_up_stale()
         messages = (
             CustomerMessage.objects
             .filter(Q(status='FAILED') | Q(status='QUEUED', next_attempt_at__isnull=True),
@@ -2209,6 +2212,11 @@ def _iso_date(value):
         return None
 
 
+#: The wizard's "Me" in Who will design it: the person taking the order designs
+#: it themselves, so no Designer is assigned.
+SELF_DESIGNER = 'self'
+
+
 def _assign_designer_from_draft(request, job, design_request, due_date):
     """Hand the garment to the designer the wizard picked, if any."""
     from apps.design_studio.models import DesignAssignment, Designer
@@ -2216,7 +2224,7 @@ def _assign_designer_from_draft(request, job, design_request, due_date):
 
     design_request = design_request or {}
     designer_id = design_request.get('designer') or design_request.get('designer_id')
-    if not designer_id:
+    if not designer_id or designer_id == SELF_DESIGNER:
         return None
     designer = Designer.objects.filter(pk=designer_id, is_active=True).first()
     if designer is None:
@@ -2598,6 +2606,16 @@ class OrderDraftViewSet(viewsets.ViewSet):
             special_instructions = validate_text(
                 payload.get('special_instructions') or payload.get('custom_requirements'),
                 label='Notes for the tailor', max_length=MAX_NOTE)
+            # "Me" as the designer -- a boutique with no designers, where the
+            # person taking the order designs it. There is no Designer to hand
+            # an assignment to, so the brief leads the order's instructions.
+            design_request = payload.get('design_request') or {}
+            own_brief = (str(design_request.get('brief') or '').strip()
+                         if design_request.get('designer') == SELF_DESIGNER else '')
+            if own_brief:
+                special_instructions = validate_text(
+                    '\n\n'.join(filter(None, [f'Design brief: {own_brief}', special_instructions])),
+                    label='Design brief and notes for the tailor', max_length=MAX_NOTE)
             due = sorted(
                 d for d in ((g.get('values') or {}).get('delivery_date')
                             for g in (payload.get('garments') or []))

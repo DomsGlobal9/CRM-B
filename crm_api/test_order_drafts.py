@@ -507,6 +507,23 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         self.assertEqual(assignment.due_date, date(2026, 10, 10))
         self.assertEqual(assignment.status, DesignAssignment.Status.ASSIGNED)
 
+    def test_me_as_the_designer_assigns_nobody_and_keeps_the_brief(self):
+        """No designer on the team: the person taking the order designs it.
+        Nothing is assigned, and the brief leads the order's instructions."""
+        from apps.design_studio.models import DesignAssignment
+        me = {'designer': 'self', 'brief': 'Peplum with a scalloped hem'}
+        draft_id = self.a_draft(
+            design_request=me, special_instructions='Deliver before Diwali',
+            garments=[{'template': str(self.template.id), 'spec': {'blouse_type': 'princess'},
+                       'measurements': {'chest': '36'}, 'design': {'request': me}}])
+
+        response = self.api.post(reverse('order-draft-confirm', args=[draft_id]))
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertFalse(DesignAssignment.objects.exists())
+        self.assertEqual(Order.objects.get().special_instructions,
+                         'Design brief: Peplum with a scalloped hem\n\nDeliver before Diwali')
+
     def test_a_designer_who_left_blocks_the_confirm(self):
         from apps.design_studio.models import Designer
         gone = Designer.objects.create(name='Gone', is_active=False)

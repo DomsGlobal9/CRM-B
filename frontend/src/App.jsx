@@ -163,6 +163,9 @@ const WIZARD_STEPS = {
   ],
 };
 const EMPTY_ALTERATION = { orderId: '', garmentJobId: '', issue: '', type: 'PAID_CLIENT_REQUEST', charge: '', paidNow: '' };
+/** "Me" in Who will design it: the person taking the order designs it
+ *  (crm_api/views.py SELF_DESIGNER). */
+const SELF_DESIGNER = 'self';
 const EMPTY_OUTSIDE = { templateId: '', note: '', scale: '', request: '', adjustments: '', charge: '', paidNow: '', notes: '' };
 
 const MEASURE_KEYS = {
@@ -1767,6 +1770,14 @@ function App() {
   const [readyBy, setReadyBy] = useState(() => plusDaysIso(15));
   const [designRequest, setDesignRequest] = useState({ designer: '', brief: '' });
   const [designers, setDesigners] = useState([]);
+  // The designer list has answered at least once (it may be empty, or refused).
+  const [designersLoaded, setDesignersLoaded] = useState(false);
+  const selfDesignerLabel = currentUser?.role && currentUser.role !== 'Owner' ? 'Me' : 'Me (owner)';
+  // Who will design it, as the order reads it: the pick, or -- with no
+  // designer to pick (none on the team, or the module off) -- "Me", the
+  // dropdown's only option, whether or not it was ever "chosen".
+  const designerChoice = designRequest.designer
+    || (designersLoaded && designers.length === 0 ? SELF_DESIGNER : '');
   const [alterationForm, setAlterationForm] = useState(EMPTY_ALTERATION);
   
   const [garmentTemplates, setGarmentTemplates] = useState([]);
@@ -2094,12 +2105,13 @@ function App() {
       measurements: customerForm.measurements || {},
       service: serviceType,
       ready_by: readyBy || null,
-      design_request: designRequest,
+      design_request: { ...designRequest, designer: designerChoice },
       garments: garmentJobs.map(job => {
         const values = withDate(job.values || {});
         const design = { ...(job.design || {}) };
         delete design.request;
-        const wantsDesigner = serviceType === 'design' && designRequest.designer;
+        const wantsDesigner = serviceType === 'design' && designerChoice
+          && designerChoice !== SELF_DESIGNER;
         return {
           key: job.key,
           label: job.label || '',
@@ -2112,7 +2124,7 @@ function App() {
           quantities: job.quantities || {},
           pricing: { ...(job.pricing || {}), fabric: jobMaterialsTotal(job) },
           design: wantsDesigner
-            ? { ...design, request: { designer: designRequest.designer, brief: designRequest.brief || '' } }
+            ? { ...design, request: { designer: designerChoice, brief: designRequest.brief || '' } }
             : design,
           fabrics: job.fabrics || {},
           fabric_qty: job.fabric_qty || {},
@@ -3506,7 +3518,7 @@ function App() {
           alert('Say what each garment needs \u2014 see the highlighted fields.');
           return;
         }
-        if (serviceType === 'design' && !designRequest.designer) {
+        if (serviceType === 'design' && !designerChoice) {
           alert('Pick the designer.');
           document.getElementById('wz-designer')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return;
@@ -3604,10 +3616,22 @@ function App() {
         if (cancelled) return;
         const list = Array.isArray(rows) ? rows : (rows?.results || []);
         setDesigners(list);
-        // One designer on the team is not a choice to make.
-        if (list.length === 1) setDesignRequest(prev => (prev.designer ? prev : { ...prev, designer: list[0].id }));
+        setDesignersLoaded(true);
+        // One designer on the team is not a choice to make; none, and the
+        // person taking the order designs it.
+        if (list.length <= 1) {
+          const only = list[0]?.id || SELF_DESIGNER;
+          setDesignRequest(prev => (prev.designer ? prev : { ...prev, designer: only }));
+        }
       })
-      .catch(() => { if (!cancelled) setDesigners([]); });
+      // No designer list at all (the Designers module switched off for this
+      // boutique): the person taking the order designs it.
+      .catch(() => {
+        if (cancelled) return;
+        setDesigners([]);
+        setDesignersLoaded(true);
+        setDesignRequest(prev => (prev.designer ? prev : { ...prev, designer: SELF_DESIGNER }));
+      });
     return () => { cancelled = true; };
   }, [view, serviceType]);
 
@@ -8562,21 +8586,26 @@ function App() {
 
                   {serviceType === 'design' && (
                     <div className="wz-garment" style={{ marginTop: '18px' }}>
-                      <div className="wz-garment-head"><div className="wz-garment-name">{t('wizard.designerTitle', 'Who designs it?')}</div></div>
-                      {designers.length === 0 ? (
-                        <div className="od-empty" style={{ textAlign: 'left' }}>
-                          {t('wizard.noDesigners', 'No designer on the team yet. Add one under Team, or go back and pick a look from the catalogue instead.')}
-                        </div>
-                      ) : (
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="wz-designer">{t('wizard.designer', 'Designer')} <span className="required">*</span></label>
-                          <select id="wz-designer" className="form-control" value={designRequest.designer}
-                                  onChange={(e) => setDesignRequest({ ...designRequest, designer: e.target.value })}>
-                            <option value="">{t('wizard.pickDesigner', 'Pick a designer')}</option>
-                            {designers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.specialisation ? ` · ${d.specialisation}` : ''}</option>)}
-                          </select>
-                        </div>
-                      )}
+                      <div className="wz-garment-head"><div className="wz-garment-name">{t('wizard.designerTitle', 'Who will design it?')}</div></div>
+                      {/* No designer on the team: the person taking the order
+                          designs it ("Me"), the only choice. */}
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="wz-designer">{t('wizard.designer', 'Designer')} <span className="required">*</span></label>
+                        <select id="wz-designer" className="form-control" value={designerChoice}
+                                style={{ maxWidth: '320px' }}
+                                onChange={(e) => setDesignRequest({ ...designRequest, designer: e.target.value })}>
+                          {designers.length === 0 ? (
+                            <option value={SELF_DESIGNER}>{selfDesignerLabel}</option>
+                          ) : (
+                            <>
+                              <option value="">{t('wizard.pickDesigner', 'Pick a designer')}</option>
+                              {designers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.specialisation ? ` · ${d.specialisation}` : ''}</option>)}
+                              {/* A draft saved as "Me" before the team had a designer. */}
+                              {designerChoice === SELF_DESIGNER && <option value={SELF_DESIGNER}>{selfDesignerLabel}</option>}
+                            </>
+                          )}
+                        </select>
+                      </div>
                       <div className="form-group">
                         <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
                         <textarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
@@ -9053,9 +9082,10 @@ function App() {
                     </table>
                   ))}
 
-                  {serviceType === 'design' && card(t('wizard.designerTitle', 'Who designs it?'), 'design', (
+                  {serviceType === 'design' && card(t('wizard.designerTitle', 'Who will design it?'), 'design', (
                     <div style={{ fontSize: '14px' }}>
-                      {designers.find(d => String(d.id) === String(designRequest.designer))?.name || designRequest.designer || <span className="od-hint">Not picked</span>}
+                      {designerChoice === SELF_DESIGNER ? selfDesignerLabel
+                        : designers.find(d => String(d.id) === String(designerChoice))?.name || designerChoice || <span className="od-hint">Not picked</span>}
                       {designRequest.brief && <div className="od-hint" style={{ marginTop: '4px' }}>{designRequest.brief}</div>}
                     </div>
                   ))}

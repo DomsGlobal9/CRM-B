@@ -24,6 +24,11 @@ RETRY_AFTER = (datetime.timedelta(minutes=1), datetime.timedelta(minutes=5))
 # A try claims the message until then. One that never reports back (its
 # worker restarted mid-send) is due again afterwards, and counts as a try.
 CLAIM_LEASE = datetime.timedelta(minutes=5)
+# A failed message whose next try is this overdue has nobody retrying it -- the
+# cron is not set up, or has stopped -- so it is FAILED and goes to staff
+# rather than waiting as QUEUED forever. With the cron running every minute
+# a retry is never this late.
+STALE_AFTER = datetime.timedelta(minutes=10)
 
 
 def log_backend(message):
@@ -143,6 +148,14 @@ def retry(message):
     attempt(message.pk)
     message.refresh_from_db()
     return message
+
+
+def give_up_stale():
+    """FAILED for every message that failed a try and whose retry never came."""
+    return CustomerMessage.objects.filter(
+        status='QUEUED', attempts__gte=1,
+        next_attempt_at__lt=timezone.now() - STALE_AFTER,
+    ).update(status='FAILED', next_attempt_at=None)
 
 
 def send_due(limit=100):

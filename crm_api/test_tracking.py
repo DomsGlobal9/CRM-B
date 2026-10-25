@@ -379,6 +379,20 @@ class MessageRetryTests(TrackingTestBase):
         self.assertIsNone(message.next_attempt_at)
         self.assertEqual(messaging.send_due(), {})
 
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.exploding_backend')
+    def test_a_retry_nobody_runs_is_given_up_on(self):
+        """No cron: one failed try, then nothing -- FAILED once long overdue."""
+        with self.captureOnCommitCallbacks(execute=True):
+            message = send_customer_message(self.order, 'manual', 'hello')
+        self.assertEqual(messaging.give_up_stale(), 0, 'gave up while the retry was still due')
+        CustomerMessage.objects.filter(pk=message.pk).update(
+            next_attempt_at=timezone.now() - messaging.STALE_AFTER - datetime.timedelta(seconds=1))
+
+        self.assertEqual(messaging.give_up_stale(), 1)
+        message.refresh_from_db()
+        self.assertEqual((message.status, message.attempts), ('FAILED', 1))
+        self.assertIn('provider unreachable', message.error)
+
 
 class FailedMessageStaffTests(TrackingTestBase):
     """The order page's list, Retry and Mark sent, for the owner and a Master."""
@@ -417,6 +431,13 @@ class FailedMessageStaffTests(TrackingTestBase):
             send_customer_message(self.order, 'manual', 'hello')
         rows = self.client_for(self._owner()).get(reverse('order-customer-messages')).data
         self.assertEqual([r['id'] for r in rows], [self.message.id])
+
+    def test_a_retry_long_overdue_is_listed_as_failed(self):
+        CustomerMessage.objects.filter(pk=self.message.pk).update(
+            status='QUEUED', attempts=1, error='connection refused',
+            next_attempt_at=timezone.now() - datetime.timedelta(hours=1))
+        rows = self.client_for(self._owner()).get(reverse('order-customer-messages')).data
+        self.assertEqual([(r['id'], r['status']) for r in rows], [(self.message.id, 'FAILED')])
 
     def test_a_master_sees_the_list_and_a_tailor_does_not(self):
         self.assertEqual(self.client_for(self.master_user).get(reverse('order-customer-messages')).status_code, 200)
