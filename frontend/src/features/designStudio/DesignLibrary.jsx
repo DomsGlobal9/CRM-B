@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, SlidersHorizontal, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Award, Check, ChevronRight, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
@@ -398,14 +398,17 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
   }
 
   if (openCategory === null) {
-    const named = categories.filter((c) => c.key);
     const uncategorised = categories.find((c) => !c.key);
     return (
       <div className="at-stack dl-page">
         <div className="at-stat-grid dl-stats">
           <StatCard icon={ImageIcon} tone="green" label="Total Designs" value={total}
                     sub={`${total === 1 ? 'design' : 'designs'} in the library`} />
-          <StatCard icon={LayoutGrid} tone="amber" label="Categories" value={named.length} sub="garment types" />
+          {/* From the Overview tab, merged in here: the active designers and
+              collections (the category count is the list of categories below). */}
+          <StatCard icon={Users} tone="amber" label="Designers" value={(Array.isArray(designers) ? designers : designers?.results || []).length} sub="Active" />
+          <StatCard icon={Award} tone="violet" label="Collections" value={(Array.isArray(collections) ? collections : collections?.results || []).length}
+                    sub={(Array.isArray(collections) ? collections : collections?.results || []).length ? 'Curated sets' : 'Create your first'} />
           <StatCard icon={ImageIcon} tone="violet" label="Uncategorised" value={uncategorised?.count ?? 0}
                     sub={uncategorised?.count ? 'not yet filed under a garment' : 'everything is filed'}
                     onClick={uncategorised ? () => { setFilters({}); setOpenCategory(uncategorised); } : undefined} />

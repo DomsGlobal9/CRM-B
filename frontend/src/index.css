@@ -7413,3 +7413,18 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .orders-book > tbody > tr > td.at-assignee-cell::before { margin: 0 !important; font-weight: 500; }
   .orders-book > tbody > tr > td.at-assignee-cell:has(> .at-assignee-none) { display: none !important; }
 }
+
+/* Design library > Boutique designs: every number card in one row on a laptop
+   or larger -- as many equal columns as there are cards, a little tighter so
+   five fit. A tablet and a phone keep their own layouts. */
+@media (min-width: 1025px) {
+  .dl-page .dl-stats { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-3); }
+  .dl-page .dl-stats .at-stat { padding: 16px; gap: 12px; min-width: 0; }
+  .dl-page .dl-stats .at-tile { width: 40px !important; height: 40px !important; flex-shrink: 0; }
+  .dl-page .dl-stats .at-stat-body { min-width: 0; }
+  .dl-page .dl-stats .at-stat-label { overflow-wrap: anywhere; }
+}
+@media (min-width: 1025px) and (max-width: 1279.98px) {
+  /* A small laptop: the icon above the words, so a card's words have its whole width. */
+  .dl-page .dl-stats .at-stat { flex-direction: column; gap: 8px; }
+}

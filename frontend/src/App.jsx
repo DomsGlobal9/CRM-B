@@ -22,6 +22,10 @@ const InventoryPanel = lazy(() => import('./features/inventory/InventoryPanel'))
 const DesignLibrary = lazy(() => import('./features/designStudio/DesignLibrary'));
 const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
 const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboard'));
+// The Design library's Overview tab is merged into "Boutique designs" (its
+// counts sit with the library's own); hidden, not removed -- set to true to
+// bring the tab back.
+const SHOW_DESIGN_OVERVIEW_TAB = false;
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
@@ -5211,11 +5215,13 @@ function App() {
                       answers "how is the library doing" rather than dropping
                       straight into a grid. */}
                   <div className="tabs-header dl-tabs" style={{ marginBottom: '16px' }}>
+                    {SHOW_DESIGN_OVERVIEW_TAB && (
                     <button className={`tab-btn ${designsView === 'dashboard' ? 'active' : ''}`}
                             onClick={() => setDesignsView('dashboard')}>
                       {t('designsPage.overviewTab', 'Overview')}
                     </button>
-                    <button className={`tab-btn ${designsView === 'library' ? 'active' : ''}`}
+                    )}
+                    <button className={`tab-btn ${designsView === 'library' || (!SHOW_DESIGN_OVERVIEW_TAB && designsView === 'dashboard') ? 'active' : ''}`}
                             onClick={() => setDesignsView('library')}>
                       {t('designsPage.boutiqueDesignsTab', 'Boutique designs')}
                     </button>
@@ -5228,7 +5234,7 @@ function App() {
                   <Suspense fallback={<div className="content-card"><Loader page /></div>}>
                     {designsView === 'requests' ? (
                       <DesignWork currentUser={currentUser} />
-                    ) : designsView === 'dashboard' ? (
+                    ) : designsView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB ? (
                       <DesignDashboard
                         onOpenLibrary={() => setDesignsView('library')}
                         canManageDesigners={!currentUser?.role || currentUser.role === 'Owner'}
