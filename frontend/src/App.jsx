@@ -5517,10 +5517,10 @@ function App() {
                             <span className="od-section-sub">{t('ordersPage.orderJourneySub', 'Track and manage tasks for this order')}</span>
                           </div>
                           {stages.length > 0 && (
-                            <div className="od-head-actions od-progress">
-                              <span className="od-progress-text">{stepChip}</span>
+                            /* The bar alone; "1 of 11 tasks completed" stays as its
+                               tooltip and its accessible name. */
+                            <div className="od-head-actions od-progress" title={stepChip} role="img" aria-label={stepChip}>
                               <span className="od-progress-bar"><ProgressBar pct={Math.round((tasksDone / journey.length) * 100)} tone="green" /></span>
-                              <span className="od-progress-pct">{Math.round((tasksDone / journey.length) * 100)}%</span>
                             </div>
                           )}
                         </div>
