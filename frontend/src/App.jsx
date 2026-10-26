@@ -2124,7 +2124,8 @@ function App() {
           quantities: job.quantities || {},
           pricing: { ...(job.pricing || {}), fabric: jobMaterialsTotal(job) },
           design: wantsDesigner
-            ? { ...design, request: { designer: designerChoice, brief: designRequest.brief || '' } }
+            ? { ...design, request: { designer: designerChoice, brief: designRequest.brief || '',
+                                      voice_note: designRequest.voice_note?.url || '' } }
             : design,
           fabrics: job.fabrics || {},
           fabric_qty: job.fabric_qty || {},
@@ -8611,6 +8612,18 @@ function App() {
                         <textarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
                                   onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
                                   placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
+                        {/* Or say it: the same recorder the tailor's notes use. Text,
+                            a voice note or both; the clip is held on the draft and
+                            reaches the designer with the brief at confirm. */}
+                        <VoiceRecorder
+                          sent={designRequest.voice_note || null}
+                          onSend={async (blob) => {
+                            const url = await api.uploadVoiceNote(blob);
+                            const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
+                            setDesignRequest(prev => ({ ...prev, voice_note: { url, by, at: new Date().toISOString() } }));
+                          }}
+                          onDelete={() => setDesignRequest(prev => ({ ...prev, voice_note: null }))}
+                        />
                       </div>
                     </div>
                   )}
@@ -9087,6 +9100,7 @@ function App() {
                       {designerChoice === SELF_DESIGNER ? selfDesignerLabel
                         : designers.find(d => String(d.id) === String(designerChoice))?.name || designerChoice || <span className="od-hint">Not picked</span>}
                       {designRequest.brief && <div className="od-hint" style={{ marginTop: '4px' }}>{designRequest.brief}</div>}
+                      {designRequest.voice_note?.url && <VoiceNotePlayer src={designRequest.voice_note.url} />}
                     </div>
                   ))}
                 </>

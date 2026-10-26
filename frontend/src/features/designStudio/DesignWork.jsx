@@ -9,6 +9,7 @@ import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../../components/ui/Atelier';
 import { LIMITS, todayIso } from '../../services/validate';
+import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import Loader from '../../components/ui/Loader';
 
 const STATUS_STYLE = {
@@ -287,6 +288,8 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
       {assignment.brief && (
         <p style={{ fontSize: '13px', marginTop: '10px' }}>{assignment.brief}</p>
       )}
+      {/* The brief as the counter spoke it, recorded with the order. */}
+      {assignment.brief_voice_note && <VoiceNotePlayer src={assignment.brief_voice_note} style={{ marginTop: '10px' }} />}
 
       {!isSupervisor && (Object.keys(spec).length > 0 || Object.keys(measurements).length > 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
@@ -503,7 +506,7 @@ export default function DesignWork({ currentUser }) {
                           <td><StatusPill status={assignment.status} /></td>
                           <td style={{ color: 'var(--text-secondary)', maxWidth: '260px' }}>
                             <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {assignment.brief || assignment.submission_note || '—'}
+                              {assignment.brief || assignment.submission_note || (assignment.brief_voice_note ? 'Voice note' : '—')}
                             </span>
                           </td>
                           <td style={{ textAlign: 'right' }}>

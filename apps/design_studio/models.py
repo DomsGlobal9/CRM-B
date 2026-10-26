@@ -346,6 +346,12 @@ class DesignAssignment(models.Model):
     brief = models.TextField(
         blank=True, default='',
         help_text='What the owner is asking for, beyond what the spec already says.')
+    # The brief may be spoken instead of (or as well as) typed: the clip the
+    # order wizard recorded under "What does the customer want?", played to
+    # the designer beside the brief. Stored like Order.instructions_voice_note.
+    brief_voice_note = models.URLField(
+        max_length=500, blank=True, default='',
+        help_text='A voice note recorded with the brief, played to the designer.')
     due_date = models.DateField(null=True, blank=True)
 
     design = models.ForeignKey(

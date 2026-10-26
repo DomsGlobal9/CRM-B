@@ -2233,6 +2233,9 @@ def _assign_designer_from_draft(request, job, design_request, due_date):
     assignment = DesignAssignment.objects.create(
         garment_job=job, designer=designer,
         brief=design_request.get('brief') or '',
+        # The brief spoken rather than (or as well as) typed: the clip's URL,
+        # kept like the order's instructions_voice_note.
+        brief_voice_note=str(design_request.get('voice_note') or '')[:500],
         due_date=due_date, assigned_by=user)
     _log(request, assignment, "DESIGN_ASSIGNED",
          f"Design work assigned: {job.template.name}",
