@@ -1890,7 +1890,11 @@ function App() {
   const [garmentErrors, setGarmentErrors] = useState({});
   const [garmentTemplatesError, setGarmentTemplatesError] = useState(null);
   const [designLibraryToken, setDesignLibraryToken] = useState(0);
-  const [designsView, setDesignsView] = useState('dashboard'); 
+  const [designsView, setDesignsView] = useState('dashboard');
+  // The Design library's Designers card opens Staff showing designers only.
+  // Held as the section visit it was opened on: any other move through the
+  // sidebar starts a new visit, and the team shows in full again.
+  const [staffDesignersVisit, setStaffDesignersVisit] = useState(null);
   const openDesignRequests = () => { setDesignsView('requests'); setDashboardTab('designs'); };
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [sectionVisit, setSectionVisit] = useState(0);
@@ -5162,7 +5166,9 @@ function App() {
 
             {dashboardTab === 'staff' && (
               <Suspense fallback={<ScreenLoading />}>
-                <StaffPanel currentUser={currentUser} />
+                <StaffPanel currentUser={currentUser}
+                            onlyDesigners={staffDesignersVisit !== null && staffDesignersVisit === sectionVisit}
+                            onShowAllStaff={() => setStaffDesignersVisit(null)} />
               </Suspense>
             )}
 
@@ -5245,6 +5251,13 @@ function App() {
                         refreshToken={designLibraryToken}
                         canReview={!currentUser?.role || currentUser.role === 'Owner'}
                         canStock={!currentUser?.role || currentUser.role === 'Owner'}
+                        onOpenRequests={() => setDesignsView('requests')}
+                        onOpenDesigners={navTabs.includes('staff') ? () => {
+                          setStaffDesignersVisit(sectionVisit + 1);
+                          setSectionVisit(n => n + 1);
+                          setDashboardTab('staff');
+                          window.scrollTo(0, 0);
+                        } : null}
                         onUploaded={() => setDesignsView('library')}
                         onEditDesign={(design) => {
                           setEditingDesign({ id: design.id });

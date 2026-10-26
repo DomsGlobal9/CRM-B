@@ -287,7 +287,7 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
   );
 }
 
-export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false, canStock = false }) {
+export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false, canStock = false, onOpenRequests = null, onOpenDesigners = null }) {
   const [stocking, setStocking] = useState(null);   
   const [categories, setCategories] = useState([]);
   const [total, setTotal] = useState(0);
@@ -401,27 +401,35 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
 
   if (openCategory === null) {
     const uncategorised = categories.find((c) => !c.key);
+    // Every card opens something: the garments the designs are filed under,
+    // the designers' requests, a new design (where a collection is made), the
+    // unfiled designs, the review queue.
+    const toCategories = () => document.querySelector('.dl-cats-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return (
       <div className="at-stack dl-page">
         <div className="at-stat-grid dl-stats">
           <StatCard icon={ImageIcon} tone="green" label="Total Designs" value={total}
-                    sub={`${total === 1 ? 'design' : 'designs'} in the library`} />
+                    sub={`${total === 1 ? 'design' : 'designs'} in the library`}
+                    onClick={toCategories} />
           {/* From the Overview tab, merged in here: the active designers and
               collections (the category count is the list of categories below). */}
-          <StatCard icon={Users} tone="amber" label="Designers" value={(Array.isArray(designers) ? designers : designers?.results || []).length} sub="Active" />
+          <StatCard icon={Users} tone="amber" label="Designers" value={(Array.isArray(designers) ? designers : designers?.results || []).length} sub="Active"
+                    onClick={onOpenDesigners || onOpenRequests || toCategories} />
           <StatCard icon={Award} tone="violet" label="Collections" value={(Array.isArray(collections) ? collections : collections?.results || []).length}
-                    sub={(Array.isArray(collections) ? collections : collections?.results || []).length ? 'Curated sets' : 'Create your first'} />
+                    sub={(Array.isArray(collections) ? collections : collections?.results || []).length ? 'Curated sets' : 'Create your first'}
+                    onClick={() => setUploading(true)} />
           <StatCard icon={ImageIcon} tone="violet" label="Uncategorised" value={uncategorised?.count ?? 0}
                     sub={uncategorised?.count ? 'not yet filed under a garment' : 'everything is filed'}
-                    onClick={uncategorised ? () => { setFilters({}); setOpenCategory(uncategorised); } : undefined} />
+                    onClick={uncategorised ? () => { setFilters({}); setOpenCategory(uncategorised); } : toCategories} />
           {canReview && (
             <StatCard icon={Clock} tone={pendingCount > 0 ? 'rose' : 'blue'} label="Awaiting review" value={pendingCount}
                       sub={pendingCount > 0 ? 'designs waiting on you' : 'all reviewed'}
-                      onClick={pendingCount > 0 ? () => { setFilters({}); setOpenCategory(PENDING_QUEUE); } : undefined} />
+                      onClick={() => { setFilters({}); setOpenCategory(PENDING_QUEUE); }} />
           )}
         </div>
 
         <SectionCard
+          className="dl-cats-card"
           icon={LayoutGrid} tone="green" title="Design Categories"
           subtitle="Organise the library by garment"
           action={() => setUploading(true)} actionLabel="Upload design"

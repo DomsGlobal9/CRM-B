@@ -2,7 +2,7 @@
 import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import { Check,
   Plus, Clock, TrendingUp, Users, FileText, ClipboardList, Trash2, Phone, Calendar, Briefcase, UserCheck,
-  User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil, ChevronDown, ChevronUp, KeyRound,
+  User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil, ChevronDown, ChevronUp, KeyRound, X,
 } from 'lucide-react';
 
 import { boutiqueLoginUrl } from '../../services/format';
@@ -841,7 +841,9 @@ function DeleteMemberDialog({ state, onCancel, onConfirm }) {
   );
 }
 
-function Roster({ isOwner, canSeeTeam, portalUrl }) {
+// `onlyDesigners`: opened from the Design library's Designers card -- the
+// team list shows the designers alone until `onShowAll` clears it.
+function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowAll = null }) {
   const [roster, setRoster] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [terms, setTerms] = useState([]);
@@ -934,10 +936,12 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
           terms: t,
         }));
     const needle = search.trim().toLowerCase();
-    if (!needle) return source;
-    return source.filter(({ member }) =>
+    const scoped = onlyDesigners
+      ? source.filter(({ member }) => member.isDesigner || member.role === 'Designer') : source;
+    if (!needle) return scoped;
+    return scoped.filter(({ member }) =>
       `${member.name} ${member.role}`.toLowerCase().includes(needle));
-  }, [canSeeTeam, roster, designers, terms, termsFor, search]);
+  }, [canSeeTeam, roster, designers, terms, termsFor, search, onlyDesigners]);
 
   const withTerms = rows.filter((r) => r.terms).length;
 
@@ -1036,6 +1040,16 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
           flexWrap: 'wrap', marginBottom: 'var(--space-4)',
         }}>
           <SearchBox value={search} onChange={setSearch} placeholder="Search team by name, role or phone…" />
+          {onlyDesigners && (
+            <span className="staff-only-chip">
+              Showing designers only
+              {onShowAll && (
+                <button type="button" onClick={onShowAll} aria-label="Show the whole team">
+                  Show everyone <X size={13} />
+                </button>
+              )}
+            </span>
+          )}
           {isOwner && (
             <button type="button" className="btn-primary" style={{ marginLeft: 'auto', padding: '10px 18px' }} onClick={() => setAdding(true)}>
               <Plus size={16} /> Add a team member
@@ -1415,7 +1429,7 @@ const TABS = [
   { key: 'permissions', label: 'Roles & Permissions', icon: Shield },
 ];
 
-export default function StaffPanel({ currentUser }) {
+export default function StaffPanel({ currentUser, onlyDesigners = false, onShowAllStaff = null }) {
   const isOwner = !currentUser?.role || currentUser.role === 'Owner';
   const isSupervisor = currentUser?.role === 'Master';
   const canSeeTeam = isOwner || isSupervisor;
@@ -1424,7 +1438,7 @@ export default function StaffPanel({ currentUser }) {
   const payrollOn = isOwner
     && (!Array.isArray(currentUser?.modules) || currentUser.modules.includes('payroll'));
 
-  const [tab, setTab] = useState(isOwner ? 'roster' : 'attendance');
+  const [tab, setTab] = useState(isOwner || (onlyDesigners && canSeeTeam) ? 'roster' : 'attendance');
 
   return (
     <>
@@ -1470,7 +1484,8 @@ export default function StaffPanel({ currentUser }) {
         })}
       </div>
 
-      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)} />}
+      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)}
+                                   onlyDesigners={onlyDesigners} onShowAll={onShowAllStaff} />}
       {tab === 'tasks' && <TeamTasks currentUser={currentUser} canSeeTeam={canSeeTeam} />}
       {/* The team's attendance is the owner's alone; everyone else sees their own.
           Payroll lives inside it as an owner-only view, since every pay run is
