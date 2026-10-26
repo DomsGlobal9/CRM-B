@@ -4140,28 +4140,12 @@ function App() {
             Back to Home
           </button>
 
-          {/* The boutique this address belongs to, above the platform's own
-              mark: the person signing in came here for their boutique, and
-              Scaleezy is what it runs on. One line, ellipsised, so a long name
-              never pushes the card down the page. */}
-          {portalBoutique?.name && (
-            <div style={{ maxWidth: '520px', width: '100%', textAlign: 'center', marginBottom: '16px' }}>
-              {/* --shell-accent is each theme's own highlight on --shell-bg,
-                  so the name stays legible in every design system and in light
-                  mode. inline-block so the rule underneath is as wide as the
-                  name rather than the column. */}
-              <span className="auth-boutique-name" title={portalBoutique.name}
-                    style={{ display: 'inline-block', maxWidth: '100%', fontSize: '34px', fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.3px', color: 'var(--shell-accent, #B9D53C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom', paddingBottom: '8px', borderBottom: '2px solid color-mix(in srgb, var(--shell-accent, #B9D53C) 55%, transparent)' }}>
-                {portalBoutique.name}
-              </span>
-            </div>
-          )}
           <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '18px' }}>YOUR VISION. OUR CRAFT.</div>
 
           <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 5vw, 32px)', gap: '16px', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>{justRegistered ? 'Your boutique is ready 🎉' : portalBoutique?.owner_first_name ? `Welcome back, ${portalBoutique.owner_first_name} 👋` : 'Welcome back 👋'}</h2>
-            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '-8px 0 8px 0' }}>{justRegistered ? 'Sign in with the email and password you just created.' : 'Login to continue your custom creation journey.'}</p>
+            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>{justRegistered ? 'Your boutique is ready 🎉' : 'Welcome back 👋'}</h2>
+            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '-8px 0 8px 0' }}>{justRegistered ? 'Sign in with the email and password you just created.' : 'Log in to your workspace.'}</p>
             
             <form onSubmit={handleLoginSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
