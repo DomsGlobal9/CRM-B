@@ -1043,48 +1043,68 @@ function OrderTaskTable({ stages, jobs = [], focus = null, onSelectStage }) {
   );
 }
 
-/** Each garment on the order with its own steps as chips, so a two-garment
- *  order shows which blouse is on which step. A chip opens that row. */
-function OrderGarmentsCard({ order, focus = null, onSelectStage }) {
+/** The designs the customer wants, garment by garment: the looks picked from
+ *  our catalogue and the customer's own design photos and links, as the order
+ *  kept them (GarmentJob.selections.design). The customer's fabric and
+ *  accessory photos share part_refs; their keys say so (an accessory key, or an
+ *  upper-case fabric slot) and they are left out here. No design photo on any
+ *  garment, no card. */
+const ORDER_ACCESSORY_KEYS = new Set(ALL_ACCESSORY_OPTIONS.map((o) => o.key));
+const designPhotosOf = (job) => {
+  const design = job.selections?.design || {};
+  const label = (part, pic) => pic?.part_label || String(part).replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+  const photos = [];
+  Object.entries(design.parts || {}).forEach(([part, pic]) => {
+    if (pic?.image_url) photos.push({ key: `p:${part}:${pic.id || ''}`, src: pic.image_url, part: label(part, pic), from: 'catalogue' });
+  });
+  Object.entries(design.part_refs || {}).forEach(([part, list]) => {
+    if (ORDER_ACCESSORY_KEYS.has(part) || /^[A-Z0-9_]+$/.test(part)) return;
+    (list || []).forEach((ref, i) => {
+      if (ref?.image_url) photos.push({ key: `r:${part}:${ref.id || i}`, src: ref.image_url, part: label(part, ref),
+                                        from: ref.source === 'customer_link' ? 'link' : 'customer' });
+    });
+  });
+  return photos;
+};
+
+function OrderGarmentsCard({ order, focus = null }) {
   const { t } = useLanguage();
   const jobs = order.garment_jobs || [];
-  if (!jobs.length) return null;
- 
-  const shown = jobs.some((j) => j.id === focus) ? jobs.filter((j) => j.id === focus) : jobs;
+  const shown = (jobs.some((j) => j.id === focus) ? jobs.filter((j) => j.id === focus) : jobs)
+    .map((job) => ({ job, photos: designPhotosOf(job) }))
+    .filter(({ photos }) => photos.length > 0);
+  if (!shown.length) return null;
+
+  const fromLabel = {
+    catalogue: t('ordersPage.designFromCatalogue', 'Catalogue'),
+    customer: t('ordersPage.designCustomerPhoto', 'Customer photo'),
+    link: t('ordersPage.designCustomerLink', 'Customer link'),
+  };
   return (
     <section className="at-section od-garments">
       <div className="od-section-head">
         <IconTile icon={Shirt} tone="green" size={40} iconSize={18} />
         <div className="od-section-title od-section-title--stack">
           <h3>{t('ordersPage.garmentsInOrder', 'Garments in this order')}</h3>
-          <span className="od-section-sub">{t('ordersPage.garmentsInOrderSub', 'Items to be prepared')}</span>
+          <span className="od-section-sub">{t('ordersPage.garmentDesignsSub', 'The designs the customer wants')}</span>
         </div>
       </div>
       <div className="od-garment-list">
-        {shown.map((job) => {
-          const rows = (order.stages || []).filter((s) => s.garment_job === job.id).sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
-          return (
-            <div key={job.id} className="od-garment">
-              <div className="od-garment-tile" aria-hidden="true"><Shirt size={20} /></div>
-              <div className="od-garment-body">
-                <div className="od-garment-name">{jobs.length > 1 ? `${jobs.indexOf(job) + 1}. ` : ''}{job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}</div>
-                {rows.length > 0 && (
-                  <div className="od-garment-steps">
-                    {rows.map((s) => {
-                      const state = STEP_STATE(s.status);
-                      return (
-                        <button key={s.id} type="button" className={`od-garment-step od-garment-step--${state}`}
-                                onClick={() => onSelectStage(s)} title={`${s.stage_name} — ${stageWords(t, s.status)[0]}`}>
-                          {s.stage_name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+        {shown.map(({ job, photos }) => (
+          <div key={job.id} className="od-garment-designs">
+            <div className="od-garment-name">{jobs.length > 1 ? `${jobs.indexOf(job) + 1}. ` : ''}{job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}</div>
+            <div className="od-design-grid">
+              {photos.map((photo) => (
+                <a key={photo.key} className="od-design-photo" href={resolveMediaUrl(photo.src)} target="_blank" rel="noopener noreferrer"
+                   title={`${photo.part} · ${fromLabel[photo.from]}`}>
+                  <img src={resolveMediaUrl(photo.src)} alt={photo.part} loading="lazy" />
+                  <span className="od-design-photo-part">{photo.part}</span>
+                  <span className="od-design-photo-from">{fromLabel[photo.from]}</span>
+                </a>
+              ))}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -1472,7 +1492,9 @@ const navSectionsFor = (user, t) => {
         { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
-        { tab: 'leads', icon: Target, label: t('nav.leads', 'Leads') },
+        // Hidden for now, not removed: `hidden` keeps it out of the sidebar and
+        // makes the page unreachable. Delete `hidden: true` to bring it back.
+        { tab: 'leads', icon: Target, label: t('nav.leads', 'Leads'), hidden: true },
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
@@ -1535,7 +1557,7 @@ const navSectionsFor = (user, t) => {
 /* Drop what this user cannot reach, then drop any group left with nothing
    under it -- otherwise the sidebar grows headings over empty space. */
 const visibleNav = (user, t) => navSectionsFor(user, t)
-  .map((section) => ({ ...section, items: section.items.filter((i) => canSeeTab(user, i.tab)) }))
+  .map((section) => ({ ...section, items: section.items.filter((i) => !i.hidden && canSeeTab(user, i.tab)) }))
   .filter((section) => section.items.length);
 
 
@@ -5262,10 +5284,7 @@ function App() {
               const focusNo = focusJob ? order.garment_jobs.indexOf(focusJob) + 1 : 0;
               const masterWho = focusJob ? garmentHolder(order, focusJob.id, false) : { id: order.master, name: order.master_name };
               const tailorWho = focusJob ? garmentHolder(order, focusJob.id, true) : { id: order.tailor, name: order.tailor_name };
-              const journey = focusJob ? stages.filter(st => !st.garment_job || st.garment_job === focusJob.id) : stages;
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
-              const tasksDone = journey.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
-              const stepChip = `${tasksDone} of ${journey.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
               const verification = order.master_verification || {};
               const verifyTotal = 6 + (orderGarmentNames(order).includes('Saree') ? 1 : 0);
               const verified = Object.values(verification).filter(Boolean).length;
@@ -5479,13 +5498,6 @@ function App() {
                             <h3>{t('ordersPage.orderJourney', 'Order journey & tasks')}</h3>
                             <span className="od-section-sub">{t('ordersPage.orderJourneySub', 'Track and manage tasks for this order')}</span>
                           </div>
-                          {stages.length > 0 && (
-                            /* The bar alone; "1 of 11 tasks completed" stays as its
-                               tooltip and its accessible name. */
-                            <div className="od-head-actions od-progress" title={stepChip} role="img" aria-label={stepChip}>
-                              <span className="od-progress-bar"><ProgressBar pct={Math.round((tasksDone / journey.length) * 100)} tone="green" /></span>
-                            </div>
-                          )}
                         </div>
                         <OrderTaskTable key={`${order.id}-${focusJob?.id || ''}`} focus={focusJob?.id} stages={stages} jobs={order.garment_jobs || []} onSelectStage={(stage) => openStageReview(order, stage)} />
                       </section>
@@ -5672,14 +5684,20 @@ function App() {
                     <aside className="od-side">
                       <OrderGarmentsCard order={order} focus={focusJob?.id} onSelectStage={(stage) => openStageReview(order, stage)} />
                       <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} role={currentUser?.role} />
+                      {/* Who the order is for, centred and stacked: "Customer
+                          details" as a small label, their initials, the name
+                          and mobile under them, and the way to their page last. */}
                       <section className="at-section od-customer">
-                        <div className="od-section-head" style={{ marginBottom: 0 }}>
-                          <IconTile icon={User} tone="neutral" size={40} iconSize={18} />
-                          <div className="od-section-title od-section-title--stack">
-                            <h3>{t('ordersPage.customerDetails', 'Customer details')}</h3>
-                            <span className="od-section-sub">{order.customer_name}</span>
+                        <div className="od-customer-row">
+                          <span className="od-customer-eyebrow">{t('ordersPage.customerDetails', 'Customer details')}</span>
+                          <AvatarInitials name={order.customer_name} size={56} />
+                          <div className="od-customer-info">
+                            <span className="od-customer-name" title={order.customer_name}>{order.customer_name}</span>
+                            {order.customer_mobile && (
+                              <span className="od-customer-meta"><Phone size={12} aria-hidden="true" /> {displayMobile(order.customer_mobile)}</span>
+                            )}
                           </div>
-                          <button type="button" className="btn-secondary at-btn-sm"
+                          <button type="button" className="btn-secondary at-btn-sm od-customer-btn"
                                   onClick={() => {
                                     // The name to show while openDirectoryCustomer fetches the full record.
                                     setDashboardTab('customers');
@@ -5733,22 +5751,18 @@ function App() {
                     <>
                       {dashboardTab === 'orders' && (
                         <section className="at-stat-grid">
+                          {/* The three cards are the New / In progress / Closed switch
+                              (the chips that repeated them under the cards are gone):
+                              the open one is drawn as selected. */}
                           <StatCard icon={ShoppingCart} tone="amber" label={t('ordersPage.tabNew', 'New')} value={fresh} sub={t('ordersPage.tabNewSub', 'waiting to be sent')}
-                                    onClick={() => setOrdersFilterTab('new')} />
+                                    onClick={() => setOrdersFilterTab('new')} active={ordersFilterTab === 'new'} />
                           <StatCard icon={Scissors} tone="blue" label={t('ordersPage.tabInProgress', 'In progress')} value={making} sub={t('ordersPage.tabWorkshopSub', 'being made')}
-                                    onClick={() => setOrdersFilterTab('workshop')} />
+                                    onClick={() => setOrdersFilterTab('workshop')} active={ordersFilterTab === 'workshop'} />
                           <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Closed')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
-                                    onClick={() => setOrdersFilterTab('done')} />
+                                    onClick={() => setOrdersFilterTab('done')} active={ordersFilterTab === 'done'} />
                         </section>
                       )}
                       <div className="at-toolbar">
-                        {dashboardTab === 'orders' && (
-                          <Chips value={ordersFilterTab} onChange={setOrdersFilterTab} options={[
-                            { key: 'new', label: t('ordersPage.tabNew', 'New'), count: fresh },
-                            { key: 'workshop', label: t('ordersPage.tabInProgress', 'In progress'), count: making },
-                            { key: 'done', label: t('ordersPage.tabDone', 'Closed'), count: done },
-                          ]} />
-                        )}
                         {/* Narrow by who it is for, what it is, and where it stands;
                             the list and the board read the same filter. */}
                         <details className="at-toolbar-filters at-filters-fold">

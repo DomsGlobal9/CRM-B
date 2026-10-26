@@ -15,13 +15,16 @@ export function IconTile({ icon: Icon, tone = 'neutral', size = 44, iconSize = 2
   );
 }
 
-export function StatCard({ icon, label, value, sub, tone = 'neutral', onClick, trailing }) {
+// `active`: a tappable card that is also the current filter (Orders' New /
+// In progress / Closed) is drawn as selected. Left out, nothing changes.
+export function StatCard({ icon, label, value, sub, tone = 'neutral', onClick, trailing, active }) {
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={`at-stat at-stat--${tone}${onClick ? ' at-stat--tap' : ''}`}
+      aria-pressed={onClick && active !== undefined ? Boolean(active) : undefined}
+      className={`at-stat at-stat--${tone}${onClick ? ' at-stat--tap' : ''}${active ? ' at-stat--active' : ''}`}
     >
       {icon && <IconTile icon={icon} tone={tone} />}
       <span className="at-stat-body">
