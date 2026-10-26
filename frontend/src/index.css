@@ -7428,3 +7428,110 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   /* A small laptop: the icon above the words, so a card's words have its whole width. */
   .dl-page .dl-stats .at-stat { flex-direction: column; gap: 8px; }
 }
+
+/* ---- Design library > one garment's designs (DesignLibrary category view) --
+   A clear header (back, the garment's name with its count, Upload), the
+   garment's parts as a row of wrapping pill chips instead of a grey track,
+   and design cards with a picture of a steady shape. Scoped to .dl-page, so
+   the same part tabs elsewhere (order wizard, review) are untouched; the
+   phone rules above (max-width 600px) still apply on a phone. */
+.dl-page > .dl-head {
+  gap: 10px 14px !important; margin-bottom: 20px !important; padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+.dl-page > .dl-head .dl-back {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 36px;
+  padding: 0 14px !important; font-size: 13px !important; border-radius: 999px;
+}
+.dl-page > .dl-head .dl-title {
+  font-size: 24px !important; font-weight: 600 !important; line-height: 1.2; letter-spacing: -0.01em;
+}
+.dl-page > .dl-head .dl-count {
+  display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px;
+  font-size: 12px !important; font-weight: 600; color: var(--text-secondary) !important; background: var(--surface-inset);
+}
+.dl-page > .dl-head .dl-upload {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 38px;
+  padding: 0 16px !important; font-size: 13px !important;
+}
+
+/* The garment's parts: pill chips that wrap onto more lines (never sideways);
+   the open one filled; "Next" a small pill after them. */
+.dl-page > .at-part-tabs { gap: 10px 12px; margin-bottom: 20px; }
+.dl-page > .at-part-tabs .at-part-tabs-scroll {
+  flex: 1 1 auto; gap: 8px; padding: 0; background: transparent; border: 0; border-radius: 0;
+}
+.dl-page > .at-part-tabs .tab-btn {
+  min-height: 36px; padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500;
+  color: var(--text-primary); background: var(--surface-color); border: 1px solid var(--border-color);
+}
+.dl-page > .at-part-tabs .tab-btn:hover:not(.active) { background: var(--surface-2); border-color: var(--border-strong); }
+.dl-page > .at-part-tabs .tab-btn.active {
+  color: var(--selected-fg); background: var(--selected-bg); border-color: var(--selected-bg); box-shadow: none; font-weight: 600;
+}
+.dl-page > .at-part-tabs .tab-next {
+  margin-left: auto; padding: 6px 14px; border: 1px solid var(--border-color); border-radius: 999px;
+  background: var(--surface-2); font-size: 13px; font-weight: 600;
+}
+.dl-page > .at-part-tabs .tab-next:hover:not(.active) { text-decoration: none; background: var(--accent-color); border-color: var(--primary-color); }
+
+/* Design cards: a steady 4:5 picture, a lift on hover. */
+.dl-page .dl-grid { gap: 18px !important; }
+.dl-page .dl-card { border-radius: 14px !important; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.dl-page .dl-card:hover { border-color: var(--border-strong) !important; box-shadow: var(--shadow-card); transform: translateY(-2px); }
+.dl-page .dl-card:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 2px; }
+.dl-page .dl-card-img { height: auto !important; aspect-ratio: 4 / 5; overflow: hidden; }
+.dl-page .dl-card-img img { display: block; transition: transform .25s ease; }
+.dl-page .dl-card:hover .dl-card-img img { transform: scale(1.03); }
+.dl-page .dl-card-body { padding: 12px 14px 14px !important; }
+.dl-page .dl-card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Tablet: a little tighter. */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .dl-page > .dl-head .dl-title { font-size: 22px !important; }
+  .dl-page .dl-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important; gap: 14px !important; }
+}
+
+/* Phone: the chips smaller, Next on its own line across the width. */
+@media (max-width: 600px) {
+  .dl-page > .dl-head { padding-bottom: 12px; margin-bottom: 14px !important; }
+  .dl-page > .at-part-tabs { gap: 8px; margin-bottom: 14px; }
+  .dl-page > .at-part-tabs .at-part-tabs-scroll { gap: 6px; }
+  .dl-page > .at-part-tabs .tab-btn { min-height: 32px; padding: 5px 12px; font-size: 12.5px; }
+  .dl-page > .at-part-tabs .tab-next { flex-basis: 100%; justify-content: center; margin-left: 0; }
+  .dl-page .dl-grid { gap: 10px !important; }
+  .dl-page .dl-card:hover { transform: none; }
+}
+
+/* ---- Design library > one garment: a calmer, tighter page -----------------
+   The parts sit in one soft panel with a small "Browse by part" feel (smaller
+   pills, the open one in the brand lime), the part's name reads as a heading
+   with its count in a pill, and the cards keep an even size. */
+.dl-page > .at-part-tabs {
+  padding: 12px; margin-bottom: 18px; background: var(--surface-2);
+  border: 1px solid var(--border-color); border-radius: 14px;
+}
+.dl-page > .at-part-tabs .at-part-tabs-scroll { gap: 6px; }
+.dl-page > .at-part-tabs .tab-btn { min-height: 34px; padding: 6px 14px; font-size: 13px; }
+.dl-page > .at-part-tabs .tab-btn.active {
+  color: var(--primary-foreground); background: var(--primary-color); border-color: var(--primary-color);
+}
+.dl-page .gpt-part-head { align-items: center !important; gap: 10px !important; margin: 4px 0 14px !important; }
+.dl-page .gpt-part-title { font-size: 20px !important; font-weight: 600 !important; letter-spacing: -0.01em; }
+.dl-page .gpt-part-count {
+  padding: 3px 10px; border-radius: 999px; background: var(--surface-inset);
+  font-size: 12px !important; font-weight: 600; color: var(--text-secondary) !important;
+}
+.dl-page .dl-grid { grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr)) !important; }
+@media (min-width: 1400px) {
+  .dl-page .dl-grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)) !important; }
+}
+@media (min-width: 601px) and (max-width: 1024px) {
+  .dl-page .dl-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)) !important; }
+}
+@media (max-width: 600px) {
+  .dl-page > .at-part-tabs { padding: 10px; border-radius: 12px; margin-bottom: 14px; }
+  .dl-page > .at-part-tabs .tab-btn { min-height: 32px; padding: 5px 11px; font-size: 12.5px; }
+  .dl-page .gpt-part-title { font-size: 17px !important; }
+  .dl-page .dl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}

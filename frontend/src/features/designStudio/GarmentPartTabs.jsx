@@ -38,7 +38,7 @@ const FALLBACK =
  *  wizard shows the same parts over photographs a customer can pick. The strip
  *  is the shared half; what sits under it is not.
  */
-export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Designs', showNext = true, nextAsDone = false }) {
+export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Designs', showNext = true, nextAsDone = false, allFirst = false }) {
   const strip = useRef(null);
 
   if (parts.length === 0) return null;
@@ -57,7 +57,9 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
     e.preventDefault();
   };
 
-  const tabs = [...parts, ...(allLabel ? [{ key: null, label: allLabel }] : [])];
+  // `allFirst`: the whole-design tab leads the strip instead of closing it.
+  const all = allLabel ? [{ key: null, label: allLabel }] : [];
+  const tabs = allFirst ? [...all, ...parts] : [...parts, ...all];
   // The tab after the open one; nothing after the last, so the strip has an end.
   const activeIndex = tabs.findIndex((p) => p.key === active);
   // showNext false: a screen that wants the plain tabs, no "Next" button or arrow.
@@ -209,7 +211,8 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
 
 
 export default function GarmentPartTabs({
-  garmentKey, parts = [], active, onChange, onOpenDesign, allLabel = 'All Designs',
+  garmentKey, parts = [], active, onChange, onOpenDesign, allLabel = 'All Designs', showNext = true,
+  wholeDesignCount = 0, onShowAll = null, allFirst = false,
 }) {
   // Stamped with the tab it answers, so "still loading" is derived from the
   // stamp not matching rather than from a flag an effect has to clear first.
@@ -232,16 +235,16 @@ export default function GarmentPartTabs({
 
   return (
     <>
-      <PartTabStrip parts={parts} active={active} onChange={onChange} allLabel={allLabel} />
+      <PartTabStrip parts={parts} active={active} onChange={onChange} allLabel={allLabel} showNext={showNext} allFirst={allFirst} />
 
       {active && (
         <>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '12px' }}>
-            <span style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-lg)',
+          <div className="gpt-part-head" style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '12px' }}>
+            <span className="gpt-part-title" style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-lg)',
                            fontWeight: 500, color: 'var(--text-primary)' }}>
               {activeLabel}
             </span>
-            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            <span className="gpt-part-count" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
               {current?.images
                 ? `${current.images.length} design${current.images.length === 1 ? '' : 's'}`
                 : 'loading…'}
@@ -265,6 +268,13 @@ export default function GarmentPartTabs({
                           padding: '30px 0', color: 'var(--text-secondary)' }}>
               <ImageOff size={22} />
               <div style={{ fontSize: '13px' }}>No designs available for this part yet.</div>
+              {/* The garment's designs saved as a whole picture, without part
+                  photos, live under the last tab: say so, and open it. */}
+              {wholeDesignCount > 0 && onShowAll && (
+                <button type="button" className="btn-secondary at-btn-sm" style={{ marginTop: '6px' }} onClick={onShowAll}>
+                  See {wholeDesignCount} design{wholeDesignCount === 1 ? '' : 's'} in {allLabel || 'All Designs'}
+                </button>
+              )}
             </div>
           )}
 

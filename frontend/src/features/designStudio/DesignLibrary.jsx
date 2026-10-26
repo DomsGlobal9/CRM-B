@@ -353,7 +353,9 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
   const partLabels = useMemo(
     () => Object.fromEntries(parts.map(p => [p.key, p.label])), [parts]);
 
-  const openPart = (partTab && openKey && partTab.garment === openKey) ? partTab.part : (parts[0]?.key ?? null);
+  // A garment opens on All Designs (every design filed under it); a part tab
+  // narrows it to that part's photos.
+  const openPart = (partTab && openKey && partTab.garment === openKey) ? partTab.part : null;
   const cataloguePath = (catalogueTab && catalogueTab.garment === openKey) ? catalogueTab.value : {};
 
   const openDesign = (id, fallback = null) =>
@@ -462,9 +464,13 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
           <ArrowLeft size={13} /> All categories
         </button>
         <h3 className="dl-title" style={{ margin: 0, fontFamily: 'var(--font-serif)', fontSize: 'var(--text-lg)', fontWeight: 500, color: 'var(--text-primary)' }}>{openCategory.name}</h3>
-        <span className="dl-count" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-          {loading ? 'loading…' : `${designs.length} shown`}
-        </span>
+        {/* "N shown" counts the whole designs in the All Designs grid, so it
+            shows only there; a part has its own count under the tabs. */}
+        {!openPart && (
+          <span className="dl-count" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+            {loading ? 'loading…' : `${designs.length} shown`}
+          </span>
+        )}
         <button className="btn-primary dl-upload" style={{ padding: '6px 12px', fontSize: '12px', marginLeft: 'auto' }}
                 onClick={() => setUploading(true)}>
           <Plus size={13} /> Upload design
@@ -473,7 +479,10 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
 
       {/* The garment's own parts, gathered across every design filed under it.
           The last tab is the whole-design grid this screen has always shown. */}
-      <GarmentPartTabs garmentKey={openCategory.key} parts={parts} active={openPart}
+      {/* No "Next" here: in the library the parts are browsed, not filled in order. */}
+      <GarmentPartTabs garmentKey={openCategory.key} parts={parts} active={openPart} showNext={false} allFirst
+                       wholeDesignCount={loading ? 0 : designs.length}
+                       onShowAll={() => setPartTab({ garment: openKey, part: null })}
                        onChange={(part) => setPartTab({ garment: openKey, part })}
                        onOpenDesign={(id) => openDesign(id)} />
 
