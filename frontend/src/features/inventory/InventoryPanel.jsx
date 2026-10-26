@@ -157,7 +157,9 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
         )}
       />
 
-      {summary && (
+      {/* The four stock cards belong to the stock list: not shown on the
+          Materials library, Shelves & racks or Inventory history tabs. */}
+      {summary && !['catalog', 'locations', 'purchases'].includes(tab) && (
         <div className="at-stat-grid inv-stats">
           <StatCard icon={Package} tone="green" label={t('inventoryPage.stockValue')} value={money(summary.inventory_value)}
                     sub={`${summary.item_count} ${summary.item_count === 1 ? t('inventoryPage.itemsTrackedOne', 'item in stock') : t('inventoryPage.itemsTracked', 'items in stock')}`}
