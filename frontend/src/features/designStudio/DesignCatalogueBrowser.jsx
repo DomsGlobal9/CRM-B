@@ -70,7 +70,7 @@ export default function DesignCatalogueBrowser({ garmentKey, value = {}, onChang
     : [];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '14px 16px',
+    <div className="dcb-panel" style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '14px 16px',
                   marginBottom: '16px', borderRadius: '12px', border: '1px solid var(--border-color)',
                   background: 'var(--surface-color, #fff)' }}>
       <Level label="Category">
