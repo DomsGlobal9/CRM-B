@@ -6695,11 +6695,11 @@ button, input, select, textarea { font-family: inherit; }
   .app-container .at-stat { flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
   .app-container .at-stat-label { font-size: 11px; letter-spacing: .06em; }
   .app-container .at-stat-value { font-size: 22px; }
-  /* The Staff page's figures (Team and Tasks tabs): icon, label, number and
-     line under it all on the card's centre line, as the Inventory and Design
-     Studio figures are. */
-  .app-container .staff-stats .at-stat { align-items: center; text-align: center; }
-  .app-container .staff-stats .at-stat-body { width: 100%; align-items: center; }
+  /* The Staff page's figures (Team and Tasks tabs) and Finance's: icon,
+     label, number and line under it all on the card's centre line, as the
+     Inventory and Design Studio figures are. */
+  .app-container .staff-stats .at-stat, .app-container .fin-stats .at-stat { align-items: center; text-align: center; }
+  .app-container .staff-stats .at-stat-body, .app-container .fin-stats .at-stat-body { width: 100%; align-items: center; }
 
   /* Attendance history: five columns scrolled sideways on a phone, so only
      the date, status and entry time showed. Each day is now a compact row --
