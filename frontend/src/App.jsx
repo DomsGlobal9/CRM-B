@@ -8319,8 +8319,7 @@ function App() {
                           const source = job.sameAs && garmentJobs.find(j => j.key === job.sameAs);
                           if (source) {
                             return (
-                              <div className="od-hint" style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: '10px',
-                                                                 background: 'var(--surface-inset)', border: '1px dashed var(--border-color)' }}>
+                              <div className="od-hint wz-same-hint">
                                 <Copy size={13} style={{ verticalAlign: '-2px' }} />{' '}
                                 {t('wizard.sameDesignAs', 'Same design as {name}: filled in from it as you go. Change anything here and this one becomes its own design.', { name: garmentLabel(source) })}
                               </div>
@@ -8329,26 +8328,24 @@ function App() {
                           if (job.pairedWith) return null;
                           const total = garmentJobs.filter(j => j.template?.key === job.template?.key).length;
                           const followers = garmentJobs.filter(j => j.sameAs === job.key).length;
-                          const stepBtn = { width: '32px', height: '32px', padding: 0, justifyContent: 'center', fontSize: '18px', lineHeight: 1 };
                           return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', margin: '0 0 12px',
-                                          padding: '10px 12px', borderRadius: '10px', background: 'var(--surface-inset)' }}>
-                              <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                            <div className="wz-qty">
+                              <span className="wz-qty-label">
                                 {t('wizard.howMany', 'How many {name}?', { name: job.template.name })}
                               </span>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                <button type="button" className="btn-secondary" style={stepBtn} disabled={!followers}
+                              <span className="wz-qty-stepper">
+                                <button type="button" className="wz-qty-btn" disabled={!followers}
                                         aria-label={t('wizard.oneFewer', 'One fewer of the same design')} onClick={() => dropFollower(job.key)}>−</button>
-                                <span aria-live="polite" style={{ minWidth: '22px', textAlign: 'center', fontWeight: 700 }}>{total}</span>
-                                <button type="button" className="btn-secondary" style={stepBtn}
+                                <span aria-live="polite" className="wz-qty-num">{total}</span>
+                                <button type="button" className="wz-qty-btn"
                                         aria-label={t('wizard.oneMoreSame', 'One more, same design')} onClick={() => copyGarment(job.key)}>+</button>
                               </span>
-                              <button type="button" className="btn-secondary at-btn-sm" style={{ marginLeft: 'auto' }}
+                              <button type="button" className="btn-secondary at-btn-sm wz-qty-other"
                                       disabled={!!addingGarmentKey} onClick={() => addAnotherOf(job)}>
                                 <Plus size={12} /> {t('wizard.anotherDifferent', 'One with a different design')}
                               </button>
                               {followers > 0 && (
-                                <div className="od-hint" style={{ flexBasis: '100%' }}>
+                                <div className="od-hint wz-qty-hint">
                                   {t('wizard.followersHint', '{n} more with the same design: whatever you fill here is copied to them. Change one and it becomes its own design.', { n: followers })}
                                 </div>
                               )}
@@ -8357,7 +8354,14 @@ function App() {
                         })()}
 
                         <details open className="wz-sec wz-sec--first">
-                          <summary className="wz-sec-head"><span>{t('wizard.detailsTitle', 'Details')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
+                          <summary className="wz-sec-head">
+                            <span className="wz-sec-icon" aria-hidden><ClipboardList size={17} /></span>
+                            <span className="wz-sec-titles">
+                              <span className="wz-sec-title">{t('wizard.detailsTitle', 'Details')}</span>
+                              <span className="wz-sec-sub">{t('wizard.detailsSub', 'The style, and anything special')}</span>
+                            </span>
+                            <ChevronDown size={18} className="wz-sec-chev" aria-hidden />
+                          </summary>
                         {sections.map((sectionKey) => (
                           <div key={sectionKey} className="wz-garment-section">
                             <TemplateForm template={job.template} section={sectionKey} values={job.values}
@@ -8405,8 +8409,15 @@ function App() {
                         </details>
 
                         {/* THE LOOK: part of this garment's own card, under its details. */}
-                        <details open id={`wz-design-${job.key}`} className="wz-sec">
-                          <summary className="wz-sec-head"><span>{t('wizard.designTitle', 'Choose design')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
+                        <details id={`wz-design-${job.key}`} className="wz-sec">
+                          <summary className="wz-sec-head">
+                            <span className="wz-sec-icon" aria-hidden><Palette size={17} /></span>
+                            <span className="wz-sec-titles">
+                              <span className="wz-sec-title">{t('wizard.designTitle', 'Choose design')}</span>
+                              <span className="wz-sec-sub">{t('wizard.designSub', 'How the look is decided, plus trims')}</span>
+                            </span>
+                            <ChevronDown size={18} className="wz-sec-chev" aria-hidden />
+                          </summary>
 
                         {/* A petticoat is not designed: its styles as pictures, in
                             place of the three cards. The choice is the template's
@@ -8415,51 +8426,38 @@ function App() {
                           <PetticoatStylePicker value={job.values?.petticoat_style || ''}
                                                 onChange={(style) => updateGarmentValues(job.key, { ...(job.values || {}), petticoat_style: style })} />
                         ) : (
-                        /* The three ways to choose a design, side by side; a phone stacks them. */
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
+                        /* The three ways to choose a design, side by side; a narrow screen stacks them as rows. */
+                        <div className="wz-dchoices">
+                          <div className="od-hint wz-dchoices-hint">{t('wizard.designChoiceHint', 'Use one or more: a look from our catalogue, the customer’s own photos, or a new design by our designer.')}</div>
                           <button
                             type="button"
-                            className={`wz-service ${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'wz-choice--on' : '' }`}
+                            className={`wz-dchoice${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? ' wz-dchoice--on' : '' }`}
                             onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'catalogue' }))}
-                            style={{
-                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                              background: 'var(--surface-color, #ffffff)',
-                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
-                            }}
                           >
-                            <IconTile icon={Sparkles} tone={partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'green' : 'neutral'} size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetCatalogue', 'Pick a look from our catalogue')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Browse and choose design looks directly from your boutique catalogue.</span>
+                            <IconTile icon={Sparkles} tone={partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'green' : 'neutral'} size={40} iconSize={19} className="wz-dchoice-icon" />
+                            <span className="wz-dchoice-title">{t('wizard.sheetCatalogue', 'Pick a look from our catalogue')}</span>
+                            <span className="wz-dchoice-desc">Browse and choose design looks directly from your boutique catalogue.</span>
                             {partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? (
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>✓ Design selected (Click to view/change)</span>
+                              <span className="wz-dchoice-status wz-dchoice-status--on">✓ Design selected (Click to view/change)</span>
                             ) : (
-                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to open catalogue →</span>
+                              <span className="wz-dchoice-status">Click to open catalogue →</span>
                             )}
                           </button>
 
                           <button
                             type="button"
-                            className={`wz-service ${ partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'wz-choice--on' : '' }`}
+                            className={`wz-dchoice${ partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? ' wz-dchoice--on' : '' }`}
                             onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'references' }))}
-                            style={{
-                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                              background: 'var(--surface-color, #ffffff)',
-                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
-                            }}
                           >
-                            <IconTile icon={Camera} tone={partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'amber' : 'neutral'} size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetPhotos', 'Photos & references from customer')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Upload customer photos or add web links as reference for this garment.</span>
+                            <IconTile icon={Camera} tone={partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'amber' : 'neutral'} size={40} iconSize={19} className="wz-dchoice-icon" />
+                            <span className="wz-dchoice-title">{t('wizard.sheetPhotos', 'Photos & references from customer')}</span>
+                            <span className="wz-dchoice-desc">Upload customer photos or add web links as reference for this garment.</span>
                             {partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? (
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>
+                              <span className="wz-dchoice-status wz-dchoice-status--on">
                                 ✓ {Object.values(partReferences[job.key]).flat().length} reference(s) added
                               </span>
                             ) : (
-                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to add photos or links →</span>
+                              <span className="wz-dchoice-status">Click to add photos or links →</span>
                             )}
                           </button>
 
@@ -8468,24 +8466,17 @@ function App() {
                               choice (a designer is assigned once, for the order). */}
                           <button
                             type="button"
-                            className={`wz-service ${serviceType === 'design' ? 'wz-choice--on' : ''}`}
+                            className={`wz-dchoice${serviceType === 'design' ? ' wz-dchoice--on' : ''}`}
                             aria-pressed={serviceType === 'design'}
                             onClick={() => setServiceType(prev => (prev === 'design' ? 'stitch' : 'design'))}
-                            style={{
-                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: serviceType === 'design' ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                              background: 'var(--surface-color, #ffffff)',
-                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
-                            }}
                           >
-                            <IconTile icon={PenTool} tone={serviceType === 'design' ? 'green' : 'neutral'} size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('entry.serviceDesign', 'Design something new')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
+                            <IconTile icon={PenTool} tone={serviceType === 'design' ? 'green' : 'neutral'} size={40} iconSize={19} className="wz-dchoice-icon" />
+                            <span className="wz-dchoice-title">{t('entry.serviceDesign', 'Design something new')}</span>
+                            <span className="wz-dchoice-desc">{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
                             {serviceType === 'design' ? (
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>✓ {t('wizard.designerChosenBelow', 'Pick the designer below (click to undo)')}</span>
+                              <span className="wz-dchoice-status wz-dchoice-status--on">✓ {t('wizard.designerChosenBelow', 'Pick the designer below (click to undo)')}</span>
                             ) : (
-                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>{t('wizard.askDesigner', 'Click to ask our designer →')}</span>
+                              <span className="wz-dchoice-status">{t('wizard.askDesigner', 'Click to ask our designer →')}</span>
                             )}
                           </button>
                         </div>
@@ -8598,7 +8589,7 @@ function App() {
 
 
                   {serviceType === 'design' && (
-                    <div className="wz-garment" style={{ marginTop: '18px' }}>
+                    <div className="wz-designer">
                       <div className="wz-garment-head"><div className="wz-garment-name">{t('wizard.designerTitle', 'Who will design it?')}</div></div>
                       {/* No designer on the team: the person taking the order
                           designs it ("Me"), the only choice. */}
@@ -8643,10 +8634,10 @@ function App() {
 
                         {/* Trims and accessories belong to the look, so they sit
                             under Design rather than Fabric (MOM, 2026-10-24). */}
-                        <details className="wz-more">
+                        <details className="wz-more wz-trims">
                           <summary><Package size={14} /> {t('wizard.sheetTrims', 'Trims & accessories')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                           {canSeeTab(currentUser, 'inventory') && (
-                            <details className="wz-more" open>
+                            <details className="wz-more wz-trims-group" open>
                               <summary><Package size={14} /> {t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                               <Suspense fallback={<ScreenLoading />}>
                                 <GarmentFabricPicker
@@ -8661,7 +8652,7 @@ function App() {
                               </Suspense>
                             </details>
                           )}
-                          <details className="wz-more" open>
+                          <details className="wz-more wz-trims-group" open>
                             <summary><Package size={14} /> {t('wizard.sheetCustomerAccessories', 'Customer Accessories (My Accessories)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                             <Suspense fallback={<ScreenLoading />}>
                               <GarmentPartPicker ownOnly isFabric accessoriesOnly
@@ -8676,8 +8667,15 @@ function App() {
                         </details>
 
                         {/* FABRIC: part of this garment's own card, under its details. */}
-                        <details open id={`wz-fabric-${job.key}`} className="wz-sec">
-                          <summary className="wz-sec-head"><span>{t('wizard.fabricTitle', 'Choose fabric')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
+                        <details id={`wz-fabric-${job.key}`} className="wz-sec">
+                          <summary className="wz-sec-head">
+                            <span className="wz-sec-icon" aria-hidden><Layers size={17} /></span>
+                            <span className="wz-sec-titles">
+                              <span className="wz-sec-title">{t('wizard.fabricTitle', 'Choose fabric')}</span>
+                              <span className="wz-sec-sub">{t('wizard.fabricSub', 'Where the cloth comes from')}</span>
+                            </span>
+                            <ChevronDown size={18} className="wz-sec-chev" aria-hidden />
+                          </summary>
 
                         {/* Where the cloth comes from -- the template's own
                             fabric_source field, so it travels with the garment. */}
@@ -8768,8 +8766,7 @@ function App() {
                           const prevJob = garmentJobs[idx - 1];
                           if (!nextJob && !prevJob) return null;
                           return (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
-                                          flexWrap: 'wrap', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                            <div className="wz-gnav">
                               {prevJob ? (
                                 <button type="button" className="btn-secondary" onClick={() => openGarmentAt(prevJob.key)}>
                                   <ArrowLeft size={16} /> {garmentLabel(prevJob)}
@@ -8790,7 +8787,7 @@ function App() {
 
                   {/* Another garment, once this one is filled in. */}
                   {garmentJobs.length > 0 && (
-                    <details className="wz-more">
+                    <details className="wz-more wz-addmore">
                       <summary><Plus size={14} /> {t('wizard.addMoreGarments', 'Add more garments to this order')}</summary>
                       <div style={{ marginTop: '10px' }}>
                         <DressesDropdown compact

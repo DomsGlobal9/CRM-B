@@ -7071,3 +7071,171 @@ button, input, select, textarea { font-family: inherit; }
 @container (max-width: 340px) {
   .ptc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* ---- New order > "What are we making?" (Garments step) -------------------
+   One clear path per garment: the garment's card -- its name and how
+   many, then three panels in the order they are filled: Details, Design,
+   Fabric. Each panel has an icon, a title and one line saying what it is
+   for, and folds away. The garments stepper above the card is unchanged. Everything is scoped to .wz-type-wrap so the Production screen's
+   own garment card is untouched. */
+
+/* The garment card: its name on a header band, then the panels. */
+.wz-type-wrap:not(.wz-type-wrap--empty) .wz-garment { padding: 0 20px 20px; }
+.wz-type-wrap .wz-garment > .wz-garment-head {
+  margin: 0 -20px 16px; padding: 14px 20px; gap: 12px; border-radius: 13px 13px 0 0;
+  background: var(--surface-2); border-bottom: 1px solid var(--border-color);
+}
+.wz-type-wrap .wz-garment > .wz-garment-head > div { min-width: 0; }
+.wz-type-wrap .wz-garment > .wz-garment-head .wz-garment-num { width: 32px; height: 32px; font-size: 14px; }
+.wz-type-wrap .wz-garment > .wz-garment-head .wz-garment-name { font-size: 17px; font-weight: 700; line-height: 1.25; }
+.wz-type-wrap .wz-garment > .wz-garment-head .wz-garment-sub { margin-top: 2px; }
+.wz-type-wrap .wz-garment > .wz-garment-head > .btn-secondary { flex-shrink: 0; }
+.wz-type-wrap .wz-garment > .wz-garment-head > .btn-secondary:hover { color: var(--danger-color); border-color: var(--danger-color); }
+
+/* How many: a quiet bar with a proper - 1 + control. */
+.wz-type-wrap .wz-qty {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin: 0 0 16px;
+  padding: 10px 12px 10px 14px; border-radius: 12px; background: var(--surface-inset);
+}
+.wz-type-wrap .wz-qty-label { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.wz-type-wrap .wz-qty-stepper {
+  display: inline-flex; align-items: center; height: 36px; overflow: hidden;
+  background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 10px;
+}
+.wz-type-wrap .wz-qty-btn {
+  width: 36px; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer;
+  font: inherit; font-size: 18px; line-height: 1; color: var(--text-primary);
+}
+.wz-type-wrap .wz-qty-btn:hover:not(:disabled) { background: var(--surface-2); }
+.wz-type-wrap .wz-qty-btn:disabled { color: var(--text-secondary); opacity: .45; cursor: not-allowed; }
+.wz-type-wrap .wz-qty-btn:focus-visible { outline: 2px solid var(--accent-border); outline-offset: -2px; }
+.wz-type-wrap .wz-qty-num {
+  min-width: 34px; height: 100%; display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; border-inline: 1px solid var(--border-color);
+}
+.wz-type-wrap .wz-qty-other { margin-left: auto; }
+.wz-type-wrap .wz-qty-hint { flex-basis: 100%; }
+.wz-type-wrap .wz-same-hint {
+  margin: 0 0 16px; padding: 10px 12px; border-radius: 12px;
+  background: var(--surface-inset); border: 1px dashed var(--border-strong);
+}
+
+/* The three panels: Details, Design, Fabric. */
+.wz-type-wrap .wz-garment .wz-sec,
+.wz-type-wrap .wz-garment .wz-sec.wz-sec--first {
+  margin: 14px 0 0; padding: 0 16px; border: 1px solid var(--border-color); border-radius: 12px;
+  background: var(--surface-color);
+}
+.wz-type-wrap .wz-garment .wz-sec.wz-sec--first { margin-top: 0; }
+.wz-type-wrap .wz-garment .wz-sec[open] { padding-bottom: 16px; }
+.wz-type-wrap .wz-garment .wz-sec > summary.wz-sec-head {
+  justify-content: flex-start; gap: 12px; margin: 0 -16px; padding: 12px 16px;
+  border-radius: 12px; font-size: 15px;
+}
+.wz-type-wrap .wz-garment .wz-sec[open] > summary.wz-sec-head {
+  margin-bottom: 14px; border-bottom: 1px solid var(--border-color); border-radius: 12px 12px 0 0;
+}
+.wz-type-wrap .wz-garment .wz-sec > summary.wz-sec-head:hover { background: var(--surface-2); }
+.wz-type-wrap .wz-garment .wz-sec > summary.wz-sec-head:focus-visible { outline: 3px solid var(--accent-border); outline-offset: -3px; }
+.wz-type-wrap .wz-sec-icon {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-color); color: var(--accent-text);
+}
+.wz-type-wrap .wz-sec-titles { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
+.wz-type-wrap .wz-sec-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.wz-type-wrap .wz-sec-sub { font-size: 12.5px; font-weight: 400; color: var(--text-secondary); }
+.wz-type-wrap .wz-garment .wz-sec .wz-sec-chev { margin-left: auto; }
+
+/* Choose design: three option cards, then what was chosen. */
+.wz-type-wrap .wz-dchoices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+.wz-type-wrap .wz-dchoices-hint { grid-column: 1 / -1; margin: 0; }
+.wz-type-wrap .wz-dchoice {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  width: 100%; min-width: 0; padding: 16px; text-align: left; cursor: pointer; font: inherit;
+  color: var(--text-primary); background: var(--surface-color);
+  border: 1px solid var(--border-color); border-radius: 12px;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.wz-type-wrap .wz-dchoice:hover { border-color: var(--primary-color); box-shadow: var(--shadow-card); transform: translateY(-1px); }
+.wz-type-wrap .wz-dchoice:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 2px; }
+.wz-type-wrap .wz-dchoice-icon { margin-bottom: 4px; }
+.wz-type-wrap .wz-dchoice-title { font-size: 14.5px; font-weight: 600; line-height: 1.3; }
+.wz-type-wrap .wz-dchoice-desc { font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; }
+.wz-type-wrap .wz-dchoice-status { margin-top: auto; padding-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--brand-link); }
+.wz-type-wrap .wz-dchoice--on { border: 2px solid var(--primary-color); padding: 15px; background: var(--accent-color); }
+.wz-type-wrap .wz-dchoice-status--on { color: var(--success-color); }
+
+/* "Who will design it?" -- a box inside the Design panel, not a card in a card. */
+.wz-type-wrap .wz-designer {
+  margin: 0 0 16px; padding: 14px 16px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--accent-border);
+}
+.wz-type-wrap .wz-designer .wz-garment-head { margin-bottom: 10px; }
+.wz-type-wrap .wz-designer .wz-garment-name { font-size: 14.5px; }
+.wz-type-wrap .wz-designer .form-group:last-child { margin-bottom: 0; }
+.wz-type-wrap .wz-designer .form-group + .form-group { margin-top: 12px; }
+.wz-type-wrap .wz-designer select.form-control { max-width: 100% !important; }
+
+/* Trims & accessories: an optional extra, folded, its two lists inside. */
+.wz-type-wrap .wz-garment .wz-trims { margin-top: 4px; background: var(--surface-2); border-radius: 12px; }
+.wz-type-wrap .wz-garment .wz-trims > summary { font-size: 14px; }
+.wz-type-wrap .wz-garment .wz-trims-group { margin-top: 0; background: var(--surface-color); }
+.wz-type-wrap .wz-garment .wz-trims-group + .wz-trims-group { margin-top: 10px; }
+.wz-type-wrap .wz-garment .wz-trims-group > summary { font-size: 13.5px; }
+
+/* Previous / next garment, at the foot of the card. */
+.wz-type-wrap .wz-gnav {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-color);
+}
+
+/* Add more garments: a dashed "+" row until it is opened. */
+.wz-type-wrap .wz-addmore:not([open]) { border-style: dashed; border-width: 1.5px; background: transparent; }
+.wz-type-wrap .wz-addmore:not([open]):hover { border-color: var(--primary-color); background: var(--surface-color); }
+.wz-type-wrap .wz-addmore > summary { justify-content: center; color: var(--text-primary); }
+.wz-type-wrap .wz-addmore:not([open]) > summary::before { display: none; }
+.wz-type-wrap .wz-addmore[open] > summary { justify-content: flex-start; }
+
+/* Tablet and small laptop: the design options become rows (icon beside text). */
+@media (max-width: 900px) {
+  .wz-type-wrap .wz-dchoices { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .wz-type-wrap .wz-dchoice {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 2px;
+    align-items: start; padding: 14px 16px;
+  }
+  .wz-type-wrap .wz-dchoice--on { padding: 13px 15px; }
+  .wz-type-wrap .wz-dchoice-icon { grid-row: 1 / span 3; margin: 0; }
+  .wz-type-wrap .wz-dchoice-status { padding-top: 4px; }
+}
+
+/* Phone. */
+@media (max-width: 640px) {
+
+  .wz-type-wrap:not(.wz-type-wrap--empty) .wz-garment { padding: 0 12px 14px; }
+  .wz-type-wrap .wz-garment > .wz-garment-head { margin: 0 -12px 12px; padding: 12px; flex-wrap: nowrap; border-radius: 11px 11px 0 0; }
+  .wz-type-wrap .wz-garment > .wz-garment-head .wz-garment-name { font-size: 16px; }
+  .wz-type-wrap .wz-garment > .wz-garment-head > .btn-secondary { padding: 0 10px; }
+
+  .wz-type-wrap .wz-qty { padding: 10px 12px; }
+  .wz-type-wrap .wz-qty-label { flex: 1; }
+  .wz-type-wrap .wz-qty-stepper { height: 40px; }
+  .wz-type-wrap .wz-qty-btn { width: 42px; }
+  .wz-type-wrap .wz-qty-other { margin-left: 0; width: 100%; justify-content: center; min-height: 40px; }
+
+  .wz-type-wrap .wz-garment .wz-sec,
+  .wz-type-wrap .wz-garment .wz-sec.wz-sec--first { margin-top: 12px; padding: 0 12px; }
+  .wz-type-wrap .wz-garment .wz-sec.wz-sec--first { margin-top: 0; }
+  .wz-type-wrap .wz-garment .wz-sec[open] { padding-bottom: 14px; }
+  .wz-type-wrap .wz-garment .wz-sec > summary.wz-sec-head { margin: 0 -12px; padding: 12px; gap: 10px; }
+  .wz-type-wrap .wz-garment .wz-sec[open] > summary.wz-sec-head { margin-bottom: 12px; }
+  .wz-type-wrap .wz-sec-icon { width: 32px; height: 32px; }
+
+  .wz-type-wrap .wz-dchoice { padding: 12px 14px; column-gap: 12px; }
+  .wz-type-wrap .wz-dchoice--on { padding: 11px 13px; }
+  .wz-type-wrap .wz-designer { padding: 12px; }
+
+  .wz-type-wrap .wz-gnav { flex-direction: column-reverse; align-items: stretch; }
+  .wz-type-wrap .wz-gnav > span:empty { display: none; }
+  .wz-type-wrap .wz-gnav > button { width: 100%; justify-content: center; }
+}
