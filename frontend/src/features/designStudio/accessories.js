@@ -216,11 +216,15 @@ export const accessoryOptionsFor = (garmentKey) => (
     : FOR_BOTH.has(garmentKey) ? ALL_ACCESSORY_OPTIONS
       : ACCESSORY_OPTIONS);
 
-// Fabric-catalogue slots that are accessories on that garment. The order's
-// fabric pickers leave them out; the Accessories step offers them instead
-// (Tassel/Latkan, and Lace/Trim with its Gota / Kiran type).
+// Fabric-catalogue slots the order's fabric pickers leave out for a garment.
+// The dupatta's are accessories, offered by the Accessories step instead
+// (Tassel/Latkan, and Lace/Trim with its Gota / Kiran type); a blouse's
+// Backing (the blouse and the lehenga blouse) is not chosen when taking an
+// order.
 const ACCESSORY_SLOTS = {
   dupatta: ['TASSEL_LATKAN', 'LACE_GOTA_KIRAN'],
+  blouse: ['BACKING_FABRIC'],
+  lehenga_blouse: ['BACKING_FABRIC'],
 };
 export const isAccessorySlot = (garmentKey, slotKey) => (
   (ACCESSORY_SLOTS[garmentKey] || []).includes(slotKey));
