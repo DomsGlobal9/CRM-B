@@ -24,7 +24,6 @@ const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
 const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboard'));
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
-const OutsideGarmentIntake = lazy(() => import('./features/alterations/OutsideGarmentIntake'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 // The To-do section is switched off for every role (MOM, 2026-10-24). The
 // todos app, its API and its data are kept, so it can come back; its screen is
@@ -54,18 +53,20 @@ import useAutosave from './hooks/useAutosave';
 import { followerOf, syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
+import CustomerMessageQueue from './features/orders/CustomerMessageQueue';
 import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
 import LanguageSelector from './components/LanguageSelector.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
 import { InvoiceRenderer, normalizeInvoiceData } from './components/invoice/InvoiceTemplates';
+import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from './constants/legal';
 import { BottomNavigation } from './components/ui/BottomNavigation';
 
 import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
 import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
-import GarmentPairingModal, { getGarmentPairConfig } from './components/ui/GarmentPairingModal';
+import GarmentPairingModal, { getGarmentPairConfig, findMatchingTemplate } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
 import Loader, { LoaderRows } from './components/ui/Loader';
 function getCustomerMeasurement(m, key) {
@@ -153,8 +154,19 @@ const WIZARD_STEPS = {
     { key: 'garment', label: 'Garment', sub: 'Which one we made' },
     { key: 'issue', label: 'Details', sub: 'What needs changing' },
   ],
+  // An alteration on a garment stitched elsewhere: no order of ours to pick
+  // it from, so the garment is described and photographed instead.
+  alterOutside: [
+    { key: 'who', label: 'Customer', sub: 'Who it is for' },
+    { key: 'outGarment', label: 'Garment', sub: 'What was brought in' },
+    { key: 'outIssue', label: 'Details', sub: 'What needs changing' },
+  ],
 };
 const EMPTY_ALTERATION = { orderId: '', garmentJobId: '', issue: '', type: 'PAID_CLIENT_REQUEST', charge: '', paidNow: '' };
+/** "Me" in Who will design it: the person taking the order designs it
+ *  (crm_api/views.py SELF_DESIGNER). */
+const SELF_DESIGNER = 'self';
+const EMPTY_OUTSIDE = { templateId: '', note: '', scale: '', request: '', adjustments: '', charge: '', paidNow: '', notes: '' };
 
 const MEASURE_KEYS = {
   chest: 'bust', bust: 'bust', waist: 'waist', hip: 'hips', shoulder: 'shoulder', neck: 'neck',
@@ -599,89 +611,6 @@ function ShopPin({ settings, onSaved }) {
           Clear
         </button>
       )}
-    </div>
-  );
-}
-
-function CustomerMessageQueue({ orderId, messages, onMarkSent }) {
-  const [busyId, setBusyId] = useState(null);
-  const [error, setError] = useState(null);
-
-  const markSent = async (messageId) => {
-    setBusyId(messageId);
-    setError(null);
-    try {
-      await onMarkSent(orderId, messageId);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  if (!messages.length && !error) return null;
-
-  const queued = messages.filter((m) => m.status === 'QUEUED');
-  const when = (iso) => {
-    if (!iso) return ['', ''];
-    const d = new Date(iso);
-    return [
-      d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }),
-      d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
-    ];
-  };
-
-  return (
-    <div className="at-section od-updates">
-      <div className="od-section-head">
-        <IconTile icon={MessageSquare} tone="neutral" size={36} iconSize={16} />
-        <div className="od-section-title">
-          <h3>Customer updates</h3>
-          {queued.length > 0
-            ? <span className="ui-badge ui-badge--warning">{queued.length} waiting to send</span>
-            : <span className="od-section-sub">Everything sent</span>}
-        </div>
-      </div>
-
-      {error && <div className="od-error">{error}</div>}
-
-      <ol className="od-feed">
-        {messages.map((message) => {
-          const isQueued = message.status === 'QUEUED';
-          const [day, time] = when(message.created_at);
-          return (
-            <li key={message.id} className={`od-feed-item${isQueued ? '' : ' od-feed-item--sent'}`}>
-              <span className={`od-feed-dot od-feed-dot--${isQueued ? 'queued' : 'sent'}`} aria-hidden="true" />
-              <div className="od-feed-when">{day}<br />{time}</div>
-              <div className="od-feed-body">
-                <div className="od-feed-meta">
-                  <span className="ui-badge ui-badge--neutral">{message.template_key.replace(/_/g, ' ')}</span>
-                  <span>{message.to_number}</span>
-                  {!isQueued && (
-                    <span>· {message.status.toLowerCase()}{message.sent_by_name ? ` by ${message.sent_by_name}` : ''}</span>
-                  )}
-                </div>
-                <p className="od-feed-text">{message.body}</p>
-              </div>
-              {isQueued && (
-                <div className="od-feed-actions">
-                  {message.whatsapp_url ? (
-                    <a href={message.whatsapp_url} target="_blank" rel="noopener noreferrer" className="btn-secondary at-btn-sm">
-                      <MessageSquare size={14} /> Open WhatsApp
-                    </a>
-                  ) : (
-                    <span className="od-hint">No mobile number</span>
-                  )}
-                  <button type="button" className="btn-secondary at-btn-sm" disabled={busyId === message.id}
-                          onClick={() => markSent(message.id)}>
-                    <Check size={14} /> {busyId === message.id ? 'Saving…' : 'Mark sent'}
-                  </button>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ol>
     </div>
   );
 }
@@ -1610,7 +1539,8 @@ function GuidedHighlight({ show, text, children }) {
   if (!show) return children;
   return (
     <span className="gh">
-      <span className="gh-callout" role="note">{text}</span>
+      {/* No text: the ring alone, without the callout above it. */}
+      {text && <span className="gh-callout" role="note">{text}</span>}
       <span className="gh-ring">{children}</span>
     </span>
   );
@@ -1663,6 +1593,12 @@ function PortalMenu({ sections, activeTab, onPick, collapsed = false, hints = {}
 }
 
 
+/** A document name in running text that opens it (the sign-up terms). */
+const legalLink = {
+  background: 'none', border: 'none', padding: 0, minHeight: 0, font: 'inherit',
+  color: 'var(--accent-text)', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer',
+};
+
 function portalSlugFromPath() {
   const segments = window.location.pathname.split('/').filter(Boolean);
   if (segments.length !== 1) return '';
@@ -1694,9 +1630,19 @@ function App() {
 
   useEffect(() => { applyTenantTheme(currentUser); }, [currentUser]);
 
-  const [portalSlug] = useState(portalSlugFromPath);
+  const [portalSlug, setPortalSlug] = useState(portalSlugFromPath);
   const [portalBoutique, setPortalBoutique] = useState(null);
   const [portalLookupDone, setPortalLookupDone] = useState(() => !portalSlugFromPath());
+
+  // Signing in moves the address bar to the boutique's own path (below). The
+  // sign-in screen follows it, so signing out names this boutique -- not the
+  // one the page was first opened on -- and signs in against it.
+  const signedInSlug = currentUser?.shop_slug;
+  if (signedInSlug && signedInSlug !== portalSlug) {
+    setPortalSlug(signedInSlug);
+    setPortalBoutique(null);
+    setPortalLookupDone(false);
+  }
 
   useEffect(() => {
     if (!portalSlug) return;
@@ -1785,6 +1731,8 @@ function App() {
     confirm_password: '',
     terms: false
   });
+  // The sign-up form's terms popup: 'terms', 'privacy', or closed.
+  const [legalDoc, setLegalDoc] = useState(null);
   const [signupBusy, setSignupBusy] = useState(false);
 
   const [signupError, setSignupError] = useState(null);
@@ -1828,6 +1776,14 @@ function App() {
   const [readyBy, setReadyBy] = useState(() => plusDaysIso(15));
   const [designRequest, setDesignRequest] = useState({ designer: '', brief: '' });
   const [designers, setDesigners] = useState([]);
+  // The designer list has answered at least once (it may be empty, or refused).
+  const [designersLoaded, setDesignersLoaded] = useState(false);
+  const selfDesignerLabel = currentUser?.role && currentUser.role !== 'Owner' ? 'Me' : 'Me (owner)';
+  // Who will design it, as the order reads it: the pick, or -- with no
+  // designer to pick (none on the team, or the module off) -- "Me", the
+  // dropdown's only option, whether or not it was ever "chosen".
+  const designerChoice = designRequest.designer
+    || (designersLoaded && designers.length === 0 ? SELF_DESIGNER : '');
   const [alterationForm, setAlterationForm] = useState(EMPTY_ALTERATION);
   
   const [garmentTemplates, setGarmentTemplates] = useState([]);
@@ -1838,6 +1794,8 @@ function App() {
     return syncFollowers(next) || next;
   }), []);
   const [activePairingGarment, setActivePairingGarment] = useState(null);
+  // Garments picked together whose pairing suggestion is still to come, one after another.
+  const [pairingQueue, setPairingQueue] = useState([]);
   const [draftId, setDraftId] = useState(null);
   const [draftVersion, setDraftVersion] = useState(null);
   const [draftSaveState, setDraftSaveState] = useState('idle');
@@ -1943,6 +1901,38 @@ function App() {
     }
   };
 
+  /** Several garments ticked at once. A garment picked together with one it
+   *  pairs with (Saree and Blouse) is added as that garment's partner, as if
+   *  chosen in its pairing suggestion; then each garment with partners still
+   *  left to suggest gets its pairing suggestion, one after another. */
+  const addGarments = async (keys) => {
+    const nameOf = (key) => garmentTemplates.find(tpl => tpl.key === key)?.name || '';
+    const configOf = (key) => getGarmentPairConfig(key, nameOf(key));
+    const primaries = keys.filter(key => configOf(key));
+    const partnerOf = {};
+    primaries.forEach(primary => configOf(primary).pairKeys.forEach(pairKey => {
+      const tpl = findMatchingTemplate(pairKey, garmentTemplates);
+      if (tpl && keys.includes(tpl.key) && !primaries.includes(tpl.key) && !partnerOf[tpl.key]) partnerOf[tpl.key] = primary;
+    }));
+    // Each garment followed by the partners picked with it.
+    const ordered = keys.filter(key => !partnerOf[key])
+      .flatMap(key => [key, ...keys.filter(other => partnerOf[other] === key)]);
+    const jobKeys = {};
+    for (const key of ordered) {
+      jobKeys[key] = await addGarment(key, true, false, partnerOf[key] ? jobKeys[partnerOf[key]] || null : null);
+    }
+    const suggest = primaries
+      .filter(primary => jobKeys[primary] && configOf(primary).pairKeys.some(pairKey => {
+        const tpl = findMatchingTemplate(pairKey, garmentTemplates);
+        return tpl && partnerOf[tpl.key] !== primary;
+      }))
+      .map(primary => ({ key: primary, name: nameOf(primary), jobKey: jobKeys[primary] }));
+    if (suggest.length) {
+      setActivePairingGarment(suggest[0]);
+      setPairingQueue(suggest.slice(1));
+    }
+  };
+
 
   useEffect(() => {
     const first = garmentJobs[0]?.template?.name;
@@ -1950,15 +1940,6 @@ function App() {
       setCustomerForm(prev => (prev.garment_type === first ? prev : { ...prev, garment_type: first }));
     }
   }, [garmentJobs]);
-
-  /** Several garments ticked at once: added one after another, without the
-   *  "add the matching blouse?" prompt when more than one was picked. */
-  const addGarments = async (keys) => {
-    for (const key of keys) {
-      // eslint-disable-next-line no-await-in-loop -- each load is one template; order matters for the cards
-      await addGarment(key, keys.length > 1);
-    }
-  };
 
   const removeGarment = (key) => {
     const gone = new Set([key, ...garmentJobs.filter(job => job.pairedWith === key).map(job => job.key)]);
@@ -2133,12 +2114,13 @@ function App() {
       measurements: customerForm.measurements || {},
       service: serviceType,
       ready_by: readyBy || null,
-      design_request: designRequest,
+      design_request: { ...designRequest, designer: designerChoice },
       garments: garmentJobs.map(job => {
         const values = withDate(job.values || {});
         const design = { ...(job.design || {}) };
         delete design.request;
-        const wantsDesigner = serviceType === 'design' && designRequest.designer;
+        const wantsDesigner = serviceType === 'design' && designerChoice
+          && designerChoice !== SELF_DESIGNER;
         return {
           key: job.key,
           label: job.label || '',
@@ -2151,7 +2133,7 @@ function App() {
           quantities: job.quantities || {},
           pricing: { ...(job.pricing || {}), fabric: jobMaterialsTotal(job) },
           design: wantsDesigner
-            ? { ...design, request: { designer: designRequest.designer, brief: designRequest.brief || '' } }
+            ? { ...design, request: { designer: designerChoice, brief: designRequest.brief || '' } }
             : design,
           fabrics: job.fabrics || {},
           fabric_qty: job.fabric_qty || {},
@@ -2196,7 +2178,8 @@ function App() {
     setCustomerName(`${customer.first_name || ''} ${customer.last_name || ''}`.trim());
     const kind = service === 'design' ? 'design' : 'stitch';
     setServiceType(kind);
-    
+    setAlterOutside(false);
+
     setReadyBy(ready_by || garments.find(g => g.values?.delivery_date)?.values.delivery_date || plusDaysIso(15));
     setDesignRequest(design_request || { designer: '', brief: '' });
 
@@ -2320,7 +2303,11 @@ function App() {
   
   const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
   
-  const [takingInOutside, setTakingInOutside] = useState(false);
+  // Alteration on a garment stitched elsewhere: the wizard's own three steps.
+  const [alterOutside, setAlterOutside] = useState(false);
+  const [outsideForm, setOutsideForm] = useState(EMPTY_OUTSIDE);
+  const [outsidePhoto, setOutsidePhoto] = useState(null); // { file, url }
+  useEffect(() => () => { if (outsidePhoto?.url) URL.revokeObjectURL(outsidePhoto.url); }, [outsidePhoto]);
   
   const openAlteration = (id) => {
     setSelectedDirectoryCustomer(null);
@@ -2361,9 +2348,6 @@ function App() {
   const [ordersList, setOrdersList] = useState([]);
   const [queuedMessages, setQueuedMessages] = useState([]);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
-  const [sendingOrder, setSendingOrder] = useState(null);
-  const [sendForm, setSendForm] = useState({ master: '', tailor: '' });
-  const [sendError, setSendError] = useState('');
   const [sendBusy, setSendBusy] = useState(false);
 
 
@@ -2628,7 +2612,7 @@ function App() {
 
       hasModule(user, 'notifications') && load('notifications', () => fetchNotifications(user), () => {}),
 
-      (!user?.role || user.role === 'Owner' || (user.admin_tasks || []).includes('orders.notify'))
+      (!user?.role || ['Owner', 'Master'].includes(user.role) || (user.admin_tasks || []).includes('orders.notify'))
         && load('customer messages', api.getQueuedCustomerMessages, setQueuedMessages),
     ]);
 
@@ -2693,6 +2677,15 @@ function App() {
   const handleMarkMessageSent = async (orderId, messageId) => {
     await api.markMessageSent(orderId, messageId);
     setQueuedMessages((prev) => prev.filter((m) => m.id !== messageId));
+  };
+
+  // Sent this time: off the list. Failed again: stays, with the new error.
+  const handleRetryMessage = async (orderId, messageId) => {
+    const message = await api.retryCustomerMessage(orderId, messageId);
+    setQueuedMessages((prev) => (message.status === 'SENT'
+      ? prev.filter((m) => m.id !== messageId)
+      : prev.map((m) => (m.id === messageId ? message : m))));
+    if (message.status !== 'SENT') throw new Error(`Still not sent: ${message.error || 'WhatsApp did not accept it.'}`);
   };
 
   const blankAppointmentForm = {
@@ -2800,42 +2793,29 @@ function App() {
     }
   };
 
-  const workshopMasters = () => tailors.filter((tl) => tl.role === 'Master');
-  const workshopCrew = () => tailors.filter((tl) => tl.role !== 'Master');
-  const defaultWorkshopPicks = (order) => {
-    const open = {};
-    ordersList.forEach((o) => { if (o.tailor && !ORDER_CLOSED.includes(o.order_status)) open[o.tailor] = (open[o.tailor] || 0) + 1; });
-    const freest = [...workshopCrew()].sort((a, b) =>
-      ((b.status === 'Available') - (a.status === 'Available')) || ((open[a.id] || 0) - (open[b.id] || 0)))[0];
-    return { master: order.master || workshopMasters()[0]?.id || '', tailor: order.tailor || freest?.id || '' };
-  };
-  const sendToWorkshop = async (order, picks, inModal) => {
+  /** Send to workshop: straight in, one tap. Nobody is named here -- anyone
+   *  already on the order stays on it, and the Workshop hands out the rest as
+   *  it always has. The first step is started, as before. */
+  const openSendToWorkshop = async (order) => {
     if (sendBusy) return;
-    setSendBusy(true); setSendError('');
+    setSendBusy(true);
     try {
-      const updated = await api.sendToWorkshop(order.id, picks);
-      setSendingOrder(null);
+      const updated = await api.sendToWorkshop(order.id);
       setConfirmedOrder((prev) => (prev && prev.id === updated.id ? { ...prev, ...updated } : prev));
       fetchDashboardAndConfig();
-      if (!inModal) {
-        const row = (updated.stages || []).find((st) => st.stage_key === updated.started_stage);
-        const stage = row?.stage_name || '';
-        const who = row?.assigned_to_name || updated.master_name || updated.tailor_name || 'the workshop';
-        alert(stage
-          ? t('ordersPage.sentToWorkshop', 'Sent to the workshop — {tailor} starts with {stage}', { tailor: who, stage })
+      const row = (updated.stages || []).find((st) => st.stage_key === updated.started_stage);
+      const stage = row?.stage_name || '';
+      const who = row?.assigned_to_name || updated.master_name || updated.tailor_name || '';
+      alert(stage && who
+        ? t('ordersPage.sentToWorkshop', 'Sent to the workshop — {tailor} starts with {stage}', { tailor: who, stage })
+        : stage
+          ? t('ordersPage.sentToWorkshopStage', 'Sent to the workshop — it starts with {stage}', { stage })
           : t('ordersPage.sentToWorkshopPlain', 'Sent to the workshop'));
-      }
     } catch (err) {
-      if (inModal) setSendError(err.message); else alert(err.message);
+      alert(err.message);
     } finally {
       setSendBusy(false);
     }
-  };
-  // One Master and one tailor: nothing to choose, so send in one tap.
-  const openSendToWorkshop = (order) => {
-    const picks = defaultWorkshopPicks(order);
-    if (workshopMasters().length === 1 && workshopCrew().length === 1) { sendToWorkshop(order, picks, false); return; }
-    setSendForm(picks); setSendError(''); setSendingOrder(order);
   };
 
   const handleAssignWorkflow = async (orderId, updates) => {
@@ -3079,6 +3059,7 @@ function App() {
     return cust.id;
   };
   const clearPickedCustomer = (mobile) => {
+    setNumberMatched(null);
     setCustomerId(null);
     setCustomerForm({ ...DEFAULT_CUSTOMER_DATA, mobile_number: mobile || '' });
     setCustomerName('');
@@ -3095,9 +3076,13 @@ function App() {
   };
   /** Begin an order for one service, from a clean slate. `cust` is a customer
    *  the caller already picked (the customer book's "Create New Order"). */
-  const startService = (kind, cust = null, { locked = false } = {}) => {
+  const startService = (kind, cust = null, { locked = false, outside = false } = {}) => {
     setServiceType(kind);
+    setAlterOutside(kind === 'alter' && outside);
+    setOutsideForm(EMPTY_OUTSIDE);
+    setOutsidePhoto(null);
     setCustomerLocked(Boolean(cust && locked));
+    setNumberMatched(null);
     setCustomerId(null);
     setCustomerForm(DEFAULT_CUSTOMER_DATA);
     setCustomerName('');
@@ -3124,10 +3109,9 @@ function App() {
     reachStep(1);
     setView('wizard');
   };
-  /** A new customer is only ever created inside a new order, so the
-   *  Customers page's "Add Customer" opens the same three cards as New order
-   *  (Stitching / Alteration / In-house) and the wizard's customer step. */
-  const handleStartNewCustomer = () => setView('order-selector');
+  /** The Customers page's "Add Customer": the New customer form, on its own,
+   *  with no order. A customer can still be added inside a new order too. */
+  const handleStartNewCustomer = () => setCustomerAddMode('manual');
 
   const [customerAddMode, setCustomerAddMode] = useState(null);
   
@@ -3187,18 +3171,53 @@ function App() {
     after?.();
   };
 
-  /** Customers whose number contains what has been typed so far: the five
-   *  newest, as full rows, because picking one fills the order form. */
-  // By number once three digits are in, else by name once two letters are:
-  // the counter may know either first (MOM, 2026-10-24).
+  /** Customers matching what has been typed so far -- by number once three
+   *  digits are in, else by name once three letters are (the counter may know
+   *  either first): the five newest, as full rows, because picking one fills
+   *  the order form. */
   const matchDigits = customerId ? '' : (customerForm.mobile_number || '').replace(/\D/g, '');
-  const matchName = customerId || matchDigits.length >= 3 ? '' : customerName.trim();
-  const customerLookupTyped = matchDigits.length >= 4 || matchName.length >= 2;
+  const matchName = customerId ? '' : customerName.trim();
+  const matchBy = matchDigits.length >= 3 ? 'mobile' : matchName.length >= 3 ? 'name' : null;
+  const customerLookupTyped = matchDigits.length >= 4 || matchName.length >= 3;
   const { results: customerMatches, loading: customerMatchesLoading } = useCustomerLookup({
-    mobile: matchDigits.length >= 3 ? matchDigits : '',
-    q: matchName.length >= 2 ? matchName : '',
-    limit: 5, full: true,
+    mobile: matchBy === 'mobile' ? matchDigits : '', q: matchBy === 'name' ? matchName : '', limit: 5, full: true,
   });
+  // A complete mobile number already in the book is that customer -- a number
+  // belongs to one customer only -- so they are picked at once, and their
+  // saved name replaces whatever name was typed. A name is never picked this
+  // way: two customers can share one. `numberMatched` keeps the typed name to
+  // say why it changed.
+  const [numberMatched, setNumberMatched] = useState(null); // { id, typedName }
+  useEffect(() => {
+    if (customerId || matchBy !== 'mobile' || customerMatchesLoading) return;
+    const last10 = (value) => String(value || '').replace(/\D/g, '').slice(-10);
+    const typed = last10(matchDigits);
+    if (typed.length < 10) return;
+    const found = customerMatches.find((cust) => last10(cust.mobile_number) === typed);
+    if (!found) return;
+    setNumberMatched({ id: found.id, typedName: customerName.trim() });
+    // Reacting to the server's answer arriving, which is what an effect is for.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    pickCustomer(found);
+  // pickCustomer and customerName are read at the moment of the match only.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId, matchBy, matchDigits, customerMatches, customerMatchesLoading]);
+  /** The matches, shown under the box being searched by; one picks the customer. */
+  const customerMatchList = customerMatches.length > 0 && (
+    <div className="wz-matches" role="listbox"
+         aria-label={matchBy === 'name' ? t('wizard.matchesByName', 'Customers matching this name') : t('wizard.matches', 'Customers matching this number')}>
+      {customerMatches.map((cust) => (
+        <button type="button" key={cust.id} className="wz-match" role="option" aria-selected="false" onClick={() => pickCustomer(cust)}>
+          <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={32} />
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <span className="wz-match-name">{cust.first_name} {cust.last_name}</span>
+            <span className="od-hint" style={{ display: 'block' }}>{formatMobile(cust.mobile_number)}{cust.city_region ? ` · ${cust.city_region}` : ''}</span>
+          </span>
+          <TierBadge tier={customerTier(cust)} />
+        </button>
+      ))}
+    </div>
+  );
   /** Garments we delivered to the chosen customer: the only ones an alteration can name. */
   const alterCandidates = React.useMemo(() => {
     if (!customerId) return [];
@@ -3226,7 +3245,8 @@ function App() {
     if (wizardSteps[n - 1]?.key === 'measure') prefillMeasurements();
     reachStep(n);
   };
-  const wizardSteps = WIZARD_STEPS[serviceType] || WIZARD_STEPS.stitch;
+  const wizardSteps = (serviceType === 'alter' && alterOutside ? WIZARD_STEPS.alterOutside : WIZARD_STEPS[serviceType])
+    || WIZARD_STEPS.stitch;
   useEffect(() => {
     document.querySelector('.wizard-header-container [aria-current="step"]')
       ?.scrollIntoView({ inline: 'center', block: 'nearest' });
@@ -3257,17 +3277,13 @@ function App() {
   /** One more of this garment, same design: a follower placed after the
    *  garment and its other followers. Whatever is filled on the garment is
    *  copied to it as the staff go (the effect below); changing the follower
-   *  itself makes it its own design. A paired blouse comes along if wanted. */
+   *  itself makes it its own design. Only this garment: the + on a saree adds
+   *  a saree, never its paired blouse or petticoat -- each has its own +. */
   const copyGarment = (key) => {
     const source = garmentJobs.find(job => job.key === key);
     if (!source) return;
-    const paired = garmentJobs.filter(job => job.pairedWith === key);
-    const withPaired = paired.length > 0
-      && window.confirm(`Copy the ${paired.map(job => job.template?.name).join(' and ')} with it too?`);
     const stamp = Date.now().toString(36);
-    const follow = (job, n, pairedWith) => followerOf(job, `${job.template?.key || job.key}#${stamp}${n}`, pairedWith);
-    const copy = follow(source, 0, source.pairedWith || null);
-    const copies = [copy, ...(withPaired ? paired.map((job, i) => follow(job, i + 1, copy.key)) : [])];
+    const copies = [followerOf(source, `${source.template?.key || source.key}#${stamp}0`, source.pairedWith || null)];
     setGarmentJobs(prev => {
       // After the garment, its followers, and anything paired to any of them.
       const group = new Set([key, ...prev.filter(job => job.sameAs === key).map(job => job.key)]);
@@ -3298,7 +3314,10 @@ function App() {
       const at = garmentJobs.findIndex(job => job.key === openGarment.key);
       if (at > 0) { openGarmentAt(garmentJobs[at - 1].key); return; }
     }
-    if (currentStep <= 1) { setView('order-selector'); return; }
+    // Back out of the first step returns to where the order began: the
+    // customer's own page (the only start that locks the customer), else
+    // the New order chooser.
+    if (currentStep <= 1) { setView(customerLocked ? 'dashboard' : 'order-selector'); return; }
     const previous = wizardSteps[currentStep - 2];
     const backTo = previous?.key === 'measure' && !needsMeasurements() && currentStep >= 3 ? wizardSteps[currentStep - 3] : previous;
     // Back into the garments lands on the last one, where Next left it.
@@ -3430,11 +3449,60 @@ function App() {
     }
   };
 
+  /** Take in a garment stitched elsewhere: a walk-in customer is added first,
+   *  then the alteration order, then its photo as it arrived. */
+  const createOutsideAlterationFromWizard = async () => {
+    setWizardError(null);
+    const f = outsideForm;
+    const scale = { SMALL: 'Small job: a quick fix', BIG: 'Big job: more work, more time' }[f.scale];
+    const template = garmentTemplates.find((tpl) => String(tpl.id) === String(f.templateId));
+    // The order keeps one line for what is wrong; the rest of the form rides
+    // along in it rather than being dropped (there is no field for the size).
+    const issue = [
+      f.request.trim(), f.adjustments.trim(),
+      template && f.note.trim() ? `Garment: ${f.note.trim()}` : '',
+      scale, f.notes.trim(),
+    ].filter(Boolean).join('\n');
+    if (!f.request.trim() && !f.adjustments.trim()) { alert('Say what needs changing.'); return; }
+    const charge = parseFloat(f.charge || 0);
+    const bad = amountError(f.charge, { label: 'Charge' })
+      || amountError(f.paidNow, { label: 'Paid now', max: charge });
+    if (bad) { alert(charge ? bad : 'Enter the charge before recording a payment.'); return; }
+    try {
+      let customer = customerId;
+      if (!customer) {
+        const row = await api.createCustomer({
+          first_name: customerForm.first_name.trim(), last_name: (customerForm.last_name || '').trim(),
+          mobile_number: customerForm.mobile_number, source: 'Walk In',
+        });
+        customer = row.id;
+        // A retry after a failure below must not add the customer twice.
+        setCustomerId(row.id);
+      }
+      const created = await api.createOutsideAlterationOrder({
+        customer,
+        garment_name: (template?.name || f.note.trim()).slice(0, 100),
+        issue,
+        charge: f.charge || '0',
+        paid_now: f.paidNow || '0',
+      });
+      if (outsidePhoto?.file) {
+        try { await api.uploadGarmentImage(created.id, 'FRONT', outsidePhoto.file); }
+        catch (err) { alert(`Taken in, but the photo could not be saved: ${err.message}`); }
+      }
+      setView('dashboard');
+      rememberAlteration(created);
+      openAlteration(created.id);
+    } catch (err) {
+      setWizardError(err.message || 'Could not take the garment in.');
+    }
+  };
+
   /** What is wrong with the customer details, or '' when they will do. */
   const customerProblem = () => {
     const mobileBad = mobileError(customerForm.mobile_number);
     if (mobileBad) return mobileBad;
-    if (serviceType === 'alter') {
+    if (serviceType === 'alter' && !alterOutside) {
       if (!customerId) return 'Pick the customer from the list. For a garment stitched elsewhere, choose \u201cStitched elsewhere\u201d.';
     } else {
       
@@ -3479,7 +3547,7 @@ function App() {
           alert('Say what each garment needs \u2014 see the highlighted fields.');
           return;
         }
-        if (serviceType === 'design' && !designRequest.designer) {
+        if (serviceType === 'design' && !designerChoice) {
           alert('Pick the designer.');
           document.getElementById('wz-designer')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return;
@@ -3543,6 +3611,13 @@ function App() {
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'issue') {
         await createAlterationFromWizard();
+      } else if (wizardStepKey === 'outGarment') {
+        if (!outsideForm.templateId && !outsideForm.note.trim()) {
+          alert('Say what the garment is: pick a garment type or describe it.'); return;
+        }
+        reachStep(currentStep + 1);
+      } else if (wizardStepKey === 'outIssue') {
+        await createOutsideAlterationFromWizard();
       }
     } catch (err) {
       console.error("Step execution failed", err);
@@ -3570,10 +3645,22 @@ function App() {
         if (cancelled) return;
         const list = Array.isArray(rows) ? rows : (rows?.results || []);
         setDesigners(list);
-        // One designer on the team is not a choice to make.
-        if (list.length === 1) setDesignRequest(prev => (prev.designer ? prev : { ...prev, designer: list[0].id }));
+        setDesignersLoaded(true);
+        // One designer on the team is not a choice to make; none, and the
+        // person taking the order designs it.
+        if (list.length <= 1) {
+          const only = list[0]?.id || SELF_DESIGNER;
+          setDesignRequest(prev => (prev.designer ? prev : { ...prev, designer: only }));
+        }
       })
-      .catch(() => { if (!cancelled) setDesigners([]); });
+      // No designer list at all (the Designers module switched off for this
+      // boutique): the person taking the order designs it.
+      .catch(() => {
+        if (cancelled) return;
+        setDesigners([]);
+        setDesignersLoaded(true);
+        setDesignRequest(prev => (prev.designer ? prev : { ...prev, designer: SELF_DESIGNER }));
+      });
     return () => { cancelled = true; };
   }, [view, serviceType]);
 
@@ -3924,7 +4011,11 @@ function App() {
 
   const onboardingSteps = [
     { key: 'boutique', label: 'Create your boutique', done: true },
-    { key: 'customer', label: 'Add your first customer', done: bookTotal > 0, go: () => setView('order-selector') },
+    // The same New customer form the Customers page's Add Customer leads to.
+    { key: 'customer', label: 'Add your first customer', done: bookTotal > 0, go: () => {
+      setSelectedDirectoryCustomer(null); setEditingCustomer(null);
+      setDashboardTab('customers'); setCustomerAddMode('manual');
+    } },
     { key: 'order', label: 'Take your first order', done: ordersList.length > 0, go: () => setView('order-selector') },
     { key: 'staff', label: 'Add your tailors, masters and designers', done: tailors.length > 0, tab: 'staff', go: () => setDashboardTab('staff') },
     { key: 'fabrics', label: 'Put your first fabric on the shelf', done: fabrics.length > 0, tab: 'inventory', go: () => setDashboardTab('inventory') },
@@ -4446,14 +4537,46 @@ function App() {
                 <div className="mobile-stack-grid signup-footer">
                   <label className="remember-me-checkbox" style={{ fontSize: '12.5px' }}>
                     <input type="checkbox" checked={signupForm.terms} required onChange={(e) => setSignupForm({...signupForm, terms: e.target.checked})} />
+                    {/* Each document opens to be read; clicking its name does not tick the box. */}
                     <span>
                       I agree to the{' '}
-                      <a href="/terms" target="_blank" rel="noopener noreferrer"
-                         style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600 }}>
-                        Terms & Conditions
-                      </a>
+                      <button type="button" onClick={(e) => { e.preventDefault(); setLegalDoc('terms'); }} style={legalLink}>Terms & Conditions</button>
+                      {' '}and{' '}
+                      <button type="button" onClick={(e) => { e.preventDefault(); setLegalDoc('privacy'); }} style={legalLink}>Privacy Policy</button>
                     </span>
                   </label>
+                  {legalDoc && (
+                    <FormModal icon={ShieldCheck} tone="green" width="720px"
+                               title={legalDoc === 'terms' ? 'Terms & Conditions' : 'Privacy Policy'}
+                               onClose={() => setLegalDoc(null)}
+                               footer={(
+                                 <>
+                                   <button type="button" className="btn-secondary" onClick={() => setLegalDoc(null)}>Close</button>
+                                   <button type="button" className="btn-primary"
+                                           onClick={() => { setSignupForm((prev) => ({ ...prev, terms: true })); setLegalDoc(null); }}>
+                                     <Check size={16} /> I agree
+                                   </button>
+                                 </>
+                               )}>
+                      {(() => {
+                        const text = (legalDoc === 'terms' ? TERMS_AND_CONDITIONS : PRIVACY_POLICY).trim();
+                        return text ? (
+                          <div style={{ fontSize: '13.5px', lineHeight: 1.6, color: 'var(--text-secondary)', maxHeight: '60vh', overflowY: 'auto' }}>
+                            {text.split(/\n\s*\n/).map((para, i) => (
+                              // "3. Your data belongs to you" on a line of its own is a section heading.
+                              /^\d+\.\s/.test(para) && !para.includes('\n')
+                                ? <h4 key={i} style={{ margin: '18px 0 6px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{para}</h4>
+                                : <p key={i} style={{ margin: '0 0 12px', whiteSpace: 'pre-line' }}>{para}</p>
+                            ))}
+                          </div>
+                        ) : (
+                          <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: 0 }}>
+                            The full text will appear here.
+                          </p>
+                        );
+                      })()}
+                    </FormModal>
+                  )}
                   <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }}
                           onClick={() => setView('login')}>
                     Log in instead
@@ -4629,7 +4752,8 @@ function App() {
                   subtitle={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
                 />
                 <Suspense fallback={<ScreenLoading />}>
-                  <WorkPanel view={dashboardTab === 'work' ? 'open' : dashboardTab} orders={ordersList} currentUser={currentUser} workflowConfig={boutiqueSettings?.workflow_config || []} tailors={tailors} fabricTaxonomy={fabricTaxonomy} onChanged={fetchDashboardAndConfig} />
+                  <WorkPanel view={dashboardTab === 'work' ? 'open' : dashboardTab} orders={ordersList} currentUser={currentUser} workflowConfig={boutiqueSettings?.workflow_config || []} tailors={tailors} fabricTaxonomy={fabricTaxonomy} onChanged={fetchDashboardAndConfig}
+                              customerMessages={queuedMessages} onMarkMessageSent={handleMarkMessageSent} onRetryMessage={handleRetryMessage} />
                 </Suspense>
               </>
             )}
@@ -4690,7 +4814,8 @@ function App() {
                         {!loading && <RotateCw size={15} />}
                         <span>{loading ? t('common.loading', 'Loading...') : t('common.refresh', 'Refresh')}</span>
                       </button>
-                      <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
+                      {/* The dashboard's New order: highlighted, without the callout. */}
+                      <GuidedHighlight show={guideOrders}>
                         <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                           <Plus size={16} />
                           {t('dashboard.newOrder')}
@@ -5390,9 +5515,9 @@ function App() {
                       </section>
 
                       <CustomerMessageQueue
-                        orderId={order.id}
                         messages={queuedMessages.filter(m => m.order === order.id)}
                         onMarkSent={handleMarkMessageSent}
+                        onRetry={handleRetryMessage}
                       />
 
                       {/* Raw materials checklist; nothing to gather, no section. */}
@@ -5613,7 +5738,7 @@ function App() {
                   actions={dashboardTab === 'workshop' ? null : (
                     <>
                       {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
-                        <GuidedHighlight show={guideOrders} text={ordersList.length ? t('onboard.newOrder', 'Create an order') : t('onboard.firstOrder', 'Create your first order')}>
+                        <GuidedHighlight show={guideOrders}>
                           <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                             <Plus size={16} /> {t('ordersPage.newOrder')}
                           </button>
@@ -5692,6 +5817,28 @@ function App() {
                         )}
                       </div>
                     </>
+                  );
+                })()}
+
+                {/* Customer messages WhatsApp gave up on: each order is a link to
+                    its page, where Retry and Open WhatsApp are. On Workshop,
+                    only the orders being made. */}
+                {(() => {
+                  const failedOrders = [...new Set(queuedMessages.filter(m => m.status === 'FAILED').map(m => m.order))]
+                    .map(id => ordersList.find(o => o.id === id))
+                    .filter(o => o && (dashboardTab !== 'workshop' || orderBucket(o) === 'workshop'));
+                  if (!failedOrders.length) return null;
+                  return (
+                    <div className="msg-failed-banner" role="status">
+                      <AlertTriangle size={16} aria-hidden="true" />
+                      <strong>{failedOrders.length === 1 ? 'A customer message' : 'Customer messages'} could not be sent on WhatsApp.</strong>
+                      <span>Open the order to retry or send it yourself:</span>
+                      {failedOrders.map(o => (
+                        <button key={o.id} type="button" className="at-link" onClick={() => setOpenOrdersRowId(o.id)}>
+                          {orderRef(o)}
+                        </button>
+                      ))}
+                    </div>
                   );
                 })()}
 
@@ -5896,6 +6043,10 @@ function App() {
               <AddCustomerChooser onBack={() => setCustomerAddMode(null)}
                                   onImported={() => fetchDashboardAndConfig()} />
             )}
+            {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
+              <CustomerForm onBack={() => setCustomerAddMode(null)}
+                            onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
+            )}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (
               <>
                 <PageHeader
@@ -5920,14 +6071,14 @@ function App() {
                           <Trash2 size={16} /> Delete all
                         </button>
                       )}
-                      {/* Leads come in through the lead API, not the counter: no Add or Import here. */}
+                      {/* Leads come in through the lead API, not the counter: no Add or import here. */}
                       {customerView !== 'leads' && (
                         <>
                           <button type="button" className="btn-secondary" style={{ padding: '10px 18px' }}
                                   onClick={() => setCustomerAddMode('import')}>
                             <Upload size={16} /> {t('customersPage.importExcel', 'Import from Excel')}
                           </button>
-                          <GuidedHighlight show={guideCustomers} text={bookTotal ? t('onboard.addCustomer', 'Start here') : t('onboard.addFirstCustomer', 'Add your first customer')}>
+                          <GuidedHighlight show={guideCustomers}>
                             <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
                               <Plus size={16} /> Add Customer
                             </button>
@@ -6065,7 +6216,7 @@ function App() {
                           onClick={open}
                           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } }}
                         >
-                          <td data-label="Customer" className="cust-c-person" style={{ overflow: 'hidden' }}>
+                          <td data-label="Customer" style={{ overflow: 'hidden' }}>
                             <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center', minWidth: 0 }}>
                               <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={36}
                                               src={cust.profile_photo ? resolveMediaUrl(cust.profile_photo) : ''} />
@@ -6088,7 +6239,7 @@ function App() {
                             </div>
                           </td>
 
-                          <td data-label="Body measurements" className="cust-c-measure" style={{ overflow: 'hidden' }}>
+                          <td data-label="Body measurements" className="cust-measure" style={{ overflow: 'hidden' }}>
                             {m && shown.length > 0 ? (
                               <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
                                    title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
@@ -6105,7 +6256,7 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Style notes" className={`cust-c-style${tags.length || cust.custom_requirements ? '' : ' cust-empty'}`} style={{ overflow: 'hidden' }}>
+                          <td data-label="Style notes" className={tags.length || cust.custom_requirements ? undefined : 'cust-empty'} style={{ overflow: 'hidden' }}>
                             <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
                               {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
@@ -6114,7 +6265,7 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Orders" className="cust-c-orders" style={{ overflow: 'hidden' }}>
+                          <td data-label="Orders" className="cust-orders" style={{ overflow: 'hidden' }}>
                             <div className="cust-desk" style={{ fontWeight: 700 }}>{orders}</div>
                             <div className="cust-desk" style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
                               {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
@@ -6126,7 +6277,7 @@ function App() {
                             </dl>
                           </td>
 
-                          <td className="cust-c-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td className="cust-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                             {cust.mobile_number && (
                               <span className="cust-contact" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                 <a className="btn-secondary at-btn-sm" href={telLink(cust.mobile_number)}
@@ -7781,19 +7932,10 @@ function App() {
       {/* 6. THE ORDER WIZARD: who, what, (designer), measurements, money.
           Every screen is one question a counter can answer with the customer
           standing there; everything the workroom decides later stays out. */}
-      {/* A garment we did not make, brought in for work. Reached from the
-          Alteration wizard's "Stitched elsewhere"; opens on the new alteration. */}
-      {view === 'wizard' && takingInOutside && (
-        <Suspense fallback={<ScreenLoading />}>
-          <OutsideGarmentIntake
-            onClose={() => setTakingInOutside(false)}
-            onCreated={(created) => { setTakingInOutside(false); setView('dashboard'); rememberAlteration(created); openAlteration(created.id); }}
-          />
-        </Suspense>
-      )}
-
       {view === 'wizard' && (
-        <div className="wizard-outer-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', minHeight: '100vh', backgroundColor: 'var(--bg-color)' }}>
+        // flex, not 100vh: the Back/Next bar follows in the same column, so the
+        // wizard takes what is left above it and a short step does not scroll.
+        <div className="wizard-outer-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', flex: '1 0 auto', backgroundColor: 'var(--bg-color)' }}>
           {/* Brand header & stepper */}
           <div className="wizard-header-container" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--surface-color)', padding: '16px 24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', maxWidth: '1280px', margin: '0 auto 16px' }}>
@@ -7866,7 +8008,7 @@ function App() {
             <div className="stepper-count">{t('entry.stepXofY', 'Step {step} of {total}', { step: currentStep, total: wizardSteps.length })}</div>
           </div>
 
-          <div className={`main-content${wizardStepKey === 'type' && openGarment ? '' : ' full-width wz-main--narrow'}`} style={{ padding: '40px 24px 100px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+          <div className="main-content full-width" style={{ padding: '40px 24px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
             <div className="workspace-panel">
 
             {/* WHO: the mobile number finds a customer the boutique already
@@ -7874,65 +8016,53 @@ function App() {
                 optional and folded away. */}
             {wizardStepKey === 'who' && (
               <>
+                <div className="wz-who-wrap">
                 <div className="page-title-group">
                   <h1 className="page-title">{t('wizard.whoTitle', 'Who is this for?')}</h1>
                   <p className="page-subtitle">
-                    {serviceType === 'alter'
+                    {serviceType === 'alter' && alterOutside
+                      ? t('wizard.whoAlterOutsideSubtitle', 'Find the customer by name or mobile number, or type a new walk-in’s name and number.')
+                      : serviceType === 'alter'
                       ? t('wizard.whoAlterSubtitleBoth', 'Find the customer by name or mobile number. A garment stitched elsewhere is taken in under “Stitched elsewhere”.')
-                      : t('wizard.whoSubtitleNameFirst', 'Type the name or mobile number. A customer we know comes up as you type; a new one needs both.')}
+                      : t('wizard.whoSubtitle', 'Type the customer’s name, then their mobile number. A customer we know comes up as you type either one.')}
                   </p>
                 </div>
 
-                <div className="content-card wz-card">
+                <div className="content-card wz-card wz-who">
                   {/* One Alteration door for both kinds of garment. Ours is
                       found on the customer's delivered orders; one stitched
                       elsewhere has no order to hang off, so it is taken in
                       with its own short form. */}
                   {serviceType === 'alter' && (
-                    <div className="wz-seg" role="radiogroup" aria-label={t('wizard.alterWhose', 'Whose garment is it?')}>
-                      <button type="button" role="radio" aria-checked="true" className="wz-seg-btn wz-seg-btn--on">
-                        <Shirt size={15} /> {t('wizard.alterOurs', 'Stitched by us')}
-                      </button>
-                      <button type="button" role="radio" aria-checked="false" className="wz-seg-btn"
-                              onClick={() => setTakingInOutside(true)}>
-                        <Scissors size={15} /> {t('wizard.alterOutside', 'Stitched elsewhere')}
-                      </button>
+                    <div className="wz-whose-field">
+                      <span className="form-label" id="wz-whose-label">{t('wizard.alterWhose', 'Whose garment is it?')}</span>
+                      <div className="wz-whose" role="radiogroup" aria-labelledby="wz-whose-label">
+                        <button type="button" role="radio" aria-checked={!alterOutside}
+                                className={`wz-whose-opt${alterOutside ? '' : ' wz-whose-opt--on'}`}
+                                onClick={() => setAlterOutside(false)}>
+                          <span className="wz-whose-icon"><Shirt size={20} /></span>
+                          <span className="wz-whose-text">
+                            <span className="wz-whose-title">{t('wizard.alterOurs', 'Stitched by us')}</span>
+                            <span className="wz-whose-sub">{t('wizard.alterOursSub', 'A garment we made and delivered')}</span>
+                          </span>
+                          <span className="wz-whose-mark" aria-hidden="true">{!alterOutside && <Check size={14} />}</span>
+                        </button>
+                        <button type="button" role="radio" aria-checked={alterOutside}
+                                className={`wz-whose-opt${alterOutside ? ' wz-whose-opt--on' : ''}`}
+                                onClick={() => setAlterOutside(true)}>
+                          <span className="wz-whose-icon"><Scissors size={20} /></span>
+                          <span className="wz-whose-text">
+                            <span className="wz-whose-title">{t('wizard.alterOutside', 'Stitched elsewhere')}</span>
+                            <span className="wz-whose-sub">{t('wizard.alterOutsideSub', 'Made by another tailor, brought in for changes')}</span>
+                          </span>
+                          <span className="wz-whose-mark" aria-hidden="true">{alterOutside && <Check size={14} />}</span>
+                        </button>
+                      </div>
                     </div>
                   )}
 
-                  {/* Name first, then the number. Either one finds a customer
-                      the boutique already knows; picking one fills both, and
-                      changing either afterwards starts a new customer. */}
-                  <div className="form-grid-2 wz-who-grid">
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="wz-name">{t('wizard.customerName', 'Customer Name')} <span className="required">*</span></label>
-                      <input id="wz-name" type="text" className="form-control" autoFocus={!customerLocked} autoComplete="off"
-                             value={customerName} maxLength={LIMITS.name}
-                             readOnly={customerLocked && !!customerId} aria-readonly={customerLocked && !!customerId}
-                             onChange={(e) => {
-                               const name = cleanName(e.target.value);
-                               if (customerId) clearPickedCustomer('');
-                               setCustomerNameSplit(name);
-                             }}
-                             placeholder={t('wizard.nameSearchPlaceholder', 'Type a name, e.g. Amara Singh')} />
-                    </div>
-                    <div className="form-group">
-                      <label className="form-label" htmlFor="wz-mobile">{t('wizard.mobileNumber', 'Mobile Number')} <span className="required">*</span></label>
-                      <div className="input-wrapper">
-                        <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
-                        <input id="wz-mobile" type="tel" inputMode="numeric" autoComplete="off"
-                               value={customerForm.mobile_number}
-                               readOnly={customerLocked && !!customerId} aria-readonly={customerLocked && !!customerId}
-                               onChange={(e) => {
-                                 const digits = cleanMobile(e.target.value);
-                                 if (customerId) { clearPickedCustomer(digits); return; }
-                                 setCustomerForm({ ...customerForm, mobile_number: digits });
-                               }}
-                               style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
-                      </div>
-                    </div>
-                  </div>
-
+                  {/* The customer's name first, then their mobile number. A
+                      customer picked from the matches shows here in its place. */}
                   {customerId ? (
                     <div className="wz-known">
                       <AvatarInitials name={`${customerForm.first_name} ${customerForm.last_name}`} size={40} />
@@ -7943,42 +8073,81 @@ function App() {
                             ? t('wizard.fixedFromProfile', 'from their profile; edit it there to change it')
                             : t('wizard.knownCustomer', 'a customer we know')}
                         </div>
+                        {numberMatched?.id === customerId && numberMatched.typedName
+                          && numberMatched.typedName.toLowerCase() !== `${customerForm.first_name} ${customerForm.last_name}`.trim().toLowerCase() && (
+                          <div className="wz-known-note">
+                            {t('wizard.numberMatchedNote', 'This number is already saved for this customer, so the name “{typed}” was replaced. For a different customer, change the number.', { typed: numberMatched.typedName })}
+                          </div>
+                        )}
                       </div>
-                      {customerLocked ? <Lock size={16} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
-                        : <Check size={18} style={{ color: 'var(--success-color)' }} aria-hidden="true" />}
+                      {/* From a customer's own profile the customer is fixed. Otherwise
+                          Delete takes them off this order -- the card, the name and the
+                          number -- to start again. The customer stays in the book. */}
+                      {customerLocked ? <Lock size={16} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" /> : (
+                      <button type="button" className="btn-secondary at-btn-sm"
+                              title={t('wizard.removeCustomer', 'Remove this customer from the order')}
+                              aria-label={t('wizard.removeCustomer', 'Remove this customer from the order')}
+                              style={{ color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
+                              onClick={() => { clearPickedCustomer(''); requestAnimationFrame(() => document.getElementById('wz-name')?.focus()); }}>
+                        <Trash2 size={14} /> {t('common.delete', 'Delete')}
+                      </button>
+                      )}
                     </div>
                   ) : (
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-name">{t('wizard.customerName', 'Customer Name')} <span className="required">*</span></label>
+                      <input id="wz-name" type="text" className="form-control" value={customerName} autoFocus={!customerLocked} autoComplete="off"
+                             maxLength={LIMITS.name}
+                             onChange={(e) => setCustomerNameSplit(cleanName(e.target.value))}
+                             placeholder={t('wizard.namePlaceholder', 'e.g. Amara Singh')} />
+                      {matchBy === 'name' && customerMatchList}
+                    </div>
+                  )}
+
+                  <div className="wz-who-row">
+                  <div className="wz-who-col">
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="wz-mobile">{t('wizard.mobileNumber', 'Mobile Number')} <span className="required">*</span></label>
+                    <div className="input-wrapper">
+                      <span className="input-icon-left" style={{ fontSize: '14px', left: '12px' }}>🇮🇳 +91</span>
+                      <input id="wz-mobile" type="tel" inputMode="numeric" autoComplete="off"
+                             value={customerForm.mobile_number}
+                             readOnly={customerLocked && !!customerId} aria-readonly={customerLocked && !!customerId}
+                             onChange={(e) => {
+                               const digits = cleanMobile(e.target.value);
+                               if (customerId) { clearPickedCustomer(digits); return; }
+                               setCustomerForm({ ...customerForm, mobile_number: digits });
+                             }}
+                             style={{ paddingLeft: '65px' }} placeholder="98765 43210" />
+                    </div>
+                  </div>
+
+                  {!customerId && (
                     <>
-                      {customerMatches.length > 0 && (
-                        <div className="wz-matches" role="listbox" aria-label={t('wizard.matchesNameOrNumber', 'Customers matching this name or number')}>
-                          {customerMatches.map((cust) => (
-                            <button type="button" key={cust.id} className="wz-match" role="option" aria-selected="false" onClick={() => pickCustomer(cust)}>
-                              <AvatarInitials name={`${cust.first_name} ${cust.last_name}`} size={32} />
-                              <span style={{ minWidth: 0, flex: 1 }}>
-                                <span className="wz-match-name">{cust.first_name} {cust.last_name}</span>
-                                <span className="od-hint" style={{ display: 'block' }}>{formatMobile(cust.mobile_number)}{cust.city_region ? ` · ${cust.city_region}` : ''}</span>
-                              </span>
-                              <TierBadge tier={customerTier(cust)} />
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {matchBy === 'mobile' && customerMatchList}
                       {serviceType === 'alter' && customerLookupTyped && customerMatches.length === 0 && !customerMatchesLoading && (
-                        <p className="od-hint" style={{ marginTop: '8px' }}>
-                          {t('wizard.noCustomerForAlterOutside', 'No customer with this name or number in your book. If the garment was stitched elsewhere, take it in under')}{' '}
-                          <button type="button" className="at-link" onClick={() => setTakingInOutside(true)}>
-                            {t('wizard.alterOutside', 'Stitched elsewhere')}
-                          </button>.
-                        </p>
+                        alterOutside ? (
+                          <p className="od-hint" style={{ marginTop: '8px' }}>
+                            {t('wizard.newWalkIn', 'Not in your book yet: they are added as a new walk-in customer when you take the garment in.')}
+                          </p>
+                        ) : (
+                          <p className="od-hint" style={{ marginTop: '8px' }}>
+                            {t('wizard.noCustomerForAlterOutside', 'No customer with this name or number in your book. If the garment was stitched elsewhere, take it in under')}{' '}
+                            <button type="button" className="at-link" onClick={() => setAlterOutside(true)}>
+                              {t('wizard.alterOutside', 'Stitched elsewhere')}
+                            </button>.
+                          </p>
+                        )
                       )}
                     </>
                   )}
+                  </div>
 
                   {/* Gender is kept on the customer's record; the garments were
                       chosen before we got here, so it filters nothing now.
                       Alterations skip it -- their garments come from past orders. */}
                   {serviceType !== 'alter' && !customerId && (
-                    <div className="form-group" style={{ marginTop: '14px' }}>
+                    <div className="form-group">
                       <label className="form-label" htmlFor="wz-gender">{t('wizard.gender', 'Gender')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
                       <select id="wz-gender" className="form-control" value={customerForm.gender || ''}
                               onChange={(e) => setCustomerForm({ ...customerForm, gender: e.target.value })}>
@@ -7989,6 +8158,7 @@ function App() {
                       </select>
                     </div>
                   )}
+                  </div>
 
                   {serviceType !== 'alter' && (
                     <details className="wz-more">
@@ -8038,12 +8208,16 @@ function App() {
                   )}
 
                 </div>
+                </div>
               </>
             )}
 
             {/* TYPE: the garments, and for each one only what its cut needs. */}
             {wizardStepKey === 'type' && (
               <>
+                {/* Before the first garment is picked: one centred column, like
+                    the Customer step. With garments, the full-width layout. */}
+                <div className={`wz-type-wrap${garmentJobs.length === 0 ? ' wz-type-wrap--empty' : ''}`}>
                 <div className="page-title-group">
                   <h1 className="page-title">{t('wizard.typeTitle', 'What are we making?')}</h1>
                   <p className="page-subtitle">{t('wizard.garmentFlowSubtitle', 'Each garment in turn: what it needs, then its design and fabric below.')}</p>
@@ -8450,21 +8624,26 @@ function App() {
 
                   {serviceType === 'design' && (
                     <div className="wz-garment" style={{ marginTop: '18px' }}>
-                      <div className="wz-garment-head"><div className="wz-garment-name">{t('wizard.designerTitle', 'Who designs it?')}</div></div>
-                      {designers.length === 0 ? (
-                        <div className="od-empty" style={{ textAlign: 'left' }}>
-                          {t('wizard.noDesigners', 'No designer on the team yet. Add one under Team, or go back and pick a look from the catalogue instead.')}
-                        </div>
-                      ) : (
-                        <div className="form-group">
-                          <label className="form-label" htmlFor="wz-designer">{t('wizard.designer', 'Designer')} <span className="required">*</span></label>
-                          <select id="wz-designer" className="form-control" value={designRequest.designer}
-                                  onChange={(e) => setDesignRequest({ ...designRequest, designer: e.target.value })}>
-                            <option value="">{t('wizard.pickDesigner', 'Pick a designer')}</option>
-                            {designers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.specialisation ? ` · ${d.specialisation}` : ''}</option>)}
-                          </select>
-                        </div>
-                      )}
+                      <div className="wz-garment-head"><div className="wz-garment-name">{t('wizard.designerTitle', 'Who will design it?')}</div></div>
+                      {/* No designer on the team: the person taking the order
+                          designs it ("Me"), the only choice. */}
+                      <div className="form-group">
+                        <label className="form-label" htmlFor="wz-designer">{t('wizard.designer', 'Designer')} <span className="required">*</span></label>
+                        <select id="wz-designer" className="form-control" value={designerChoice}
+                                style={{ maxWidth: '320px' }}
+                                onChange={(e) => setDesignRequest({ ...designRequest, designer: e.target.value })}>
+                          {designers.length === 0 ? (
+                            <option value={SELF_DESIGNER}>{selfDesignerLabel}</option>
+                          ) : (
+                            <>
+                              <option value="">{t('wizard.pickDesigner', 'Pick a designer')}</option>
+                              {designers.map((d) => <option key={d.id} value={d.id}>{d.name}{d.specialisation ? ` · ${d.specialisation}` : ''}</option>)}
+                              {/* A draft saved as "Me" before the team had a designer. */}
+                              {designerChoice === SELF_DESIGNER && <option value={SELF_DESIGNER}>{selfDesignerLabel}</option>}
+                            </>
+                          )}
+                        </select>
+                      </div>
                       <div className="form-group">
                         <label className="form-label" htmlFor="wz-brief">{t('wizard.brief', 'What does the customer want?')}</label>
                         <textarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
@@ -8517,8 +8696,26 @@ function App() {
                           <div className="wz-garment-section">
                             <TemplateForm template={job.template} section="materials" values={job.values}
                                           errors={garmentErrors[job.key] || {}} only={(f) => f.key === 'fabric_source'}
-                                          onChange={(values) => updateGarmentValues(job.key, values)} />
+                                          onChange={(values) => {
+                                            updateGarmentValues(job.key, values);
+                                            // "Need to buy": open a row below to say what and how much,
+                                            // unless one is open already. Left blank, it is not recorded.
+                                            if (values.fabric_source === 'buy' && (job.values?.fabric_source || 'inventory') !== 'buy'
+                                                && !(job.purchases || []).some(r => !r.field_key)) {
+                                              setGarmentJobs(prev => prev.map(j => (j.key === job.key
+                                                ? { ...j, purchases: [...(j.purchases || []), { name: '', quantity: '', unit: 'METER', estimated_cost: '', required_by: '', notes: '' }] }
+                                                : j)));
+                                            }
+                                          }} />
                           </div>
+                        )}
+
+                        {/* From our inventory, where this boutique has no fabric stock to
+                            pick from (its plan has no Inventory): say so, not a blank space. */}
+                        {!canSeeTab(currentUser, 'inventory') && (job.values?.fabric_source || 'inventory') === 'inventory' && (
+                          <p className="od-hint" style={{ margin: '4px 0 10px' }}>
+                            {t('wizard.noInventoryModule', 'Fabric stock is not part of this boutique’s plan, so there is no shelf to pick from here. The workroom will choose the fabric — or choose “Need to buy” to note what to buy.')}
+                          </p>
                         )}
 
                         {canSeeTab(currentUser, 'inventory') && (job.values?.fabric_source || 'inventory') === 'inventory' && (
@@ -8555,17 +8752,21 @@ function App() {
                           <GarmentPurchases rows={job.purchases || []}
                                             onChange={(rows) => setGarmentJobs(prev => prev.map(j => (j.key === job.key ? { ...j, purchases: rows } : j)))} />
                         </div>
-                        <details className="wz-more" open={(job.values?.fabric_source || 'inventory') === 'customer'}>
-                          <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Customer fabrics (they bring it)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
-                          <Suspense fallback={<ScreenLoading />}>
-                            <GarmentPartPicker ownOnly isFabric
-                                               garmentKey={job.template?.key || job.key}
-                                               garmentName={job.template?.name || job.key}
-                                               taxonomy={fabricTaxonomy}
-                                               references={partReferences[job.key] || {}}
-                                               onReferencesChange={(next) => handlePartReferences(job.key, next)} />
-                          </Suspense>
-                        </details>
+                        {/* The customer's own cloth, part by part: only once the
+                            Fabric question says the customer provides it. */}
+                        {(job.values?.fabric_source || 'inventory') === 'customer' && (
+                          <details className="wz-more" open>
+                            <summary><Layers size={14} /> {t('wizard.sheetCustomerFabric', 'Fabric the customer is bringing')}</summary>
+                            <Suspense fallback={<ScreenLoading />}>
+                              <GarmentPartPicker ownOnly isFabric
+                                                 garmentKey={job.template?.key || job.key}
+                                                 garmentName={job.template?.name || job.key}
+                                                 taxonomy={fabricTaxonomy}
+                                                 references={partReferences[job.key] || {}}
+                                                 onReferencesChange={(next) => handlePartReferences(job.key, next)} />
+                            </Suspense>
+                          </details>
+                        )}
 
                         </details>
 
@@ -8616,6 +8817,7 @@ function App() {
                     </details>
                   )}
 
+                </div>
                 </div>
               </>
             )}
@@ -8680,7 +8882,7 @@ function App() {
                     hear it back, Send keeps it under the sender's name, Delete
                     throws it away. Sent here means uploaded and held on the
                     draft; it lands on the order at confirm. */}
-                <div className="content-card wz-card">
+                <div className="content-card wz-card wz-measure-notes">
                   <Field label={t('wizard.notesForTailor', 'Notes for the tailor')}>
                     {/* The same note the "What" screen asks for; one field, two doors. */}
                     <VoiceTextarea className="form-control" rows={3} value={specialInstructions} maxLength={LIMITS.note}
@@ -8712,8 +8914,8 @@ function App() {
               };
               const rollName = (id) => fabrics.find(f => String(f.id) === String(id))?.name || 'Stock item';
               
-              const card = (title, step, body) => (
-                <div className="content-card wz-card" style={{ padding: '16px 20px', gap: 0, marginTop: '-16px' }}>
+              const card = (title, step, body, extraClass = '') => (
+                <div className={`content-card wz-card wz-review-card${extraClass ? ` ${extraClass}` : ''}`} style={{ padding: '16px 20px', gap: 0, marginTop: '-16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                     <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 500, margin: 0 }}>{title}</h2>
                     <button type="button" className="btn-secondary at-btn-sm" onClick={() => {
@@ -8812,7 +9014,7 @@ function App() {
                       </div>
                       <GarmentSummary jobs={garmentJobs.map(job => ({ key: job.key, template: { ...job.template, name: garmentLabel(job) }, values: job.values || {} }))} />
                     </>
-                  ))}
+                  ), 'wz-review-card--main')}
 
                   {groups.length > 0 && card(t('wizard.reviewPhotos', 'Photos & references'), 'design', (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -8835,6 +9037,50 @@ function App() {
                                       onClose={() => setReviewView(null)} />
                     </Suspense>
                   )}
+
+                  {/* "See it on a model": every garment drawn on a model, from its
+                      designs and rolls -- here on the Review step, once the order's
+                      garments are all chosen. Renders nothing where the vendor is
+                      not set up and there is no base picture. The photograph lands
+                      on job.design.preview and confirms with the rest. */}
+                  <div className="wz-review-preview">
+                    <Suspense fallback={null}>
+                      <GarmentPreviews jobs={garmentJobs} title={t('wizard.reviewPreview', 'See it on a model')}
+                      // Picked from the book, or typed in validly on the Customer step.
+                      customer={{ id: customerId, name: customerName, mobile: customerForm.mobile_number,
+                                  given: !!customerId || (!customerBlank() && !customerProblem()) }}
+                      ensureCustomerId={ensureCustomerId}
+                      // No customer yet: back to the Customer step, as the stepper does.
+                      onCustomer={() => { jumpToStep(wizardSteps.findIndex(s => s.key === 'who') + 1); window.scrollTo(0, 0); }}
+                      onPreview={(jobKey, url, backUrl, { presentation, annotations } = {}) => {
+                        // Each kind of picture has its own place: a mannequin, the sketch (with
+                        // its labels), the customer's own photo (shared with the Review step),
+                        // or the standard model.
+                        const ai = customerForm.ai_model || {};
+                        const update = presentation === 'sketch'
+                          ? { sketch_preview: url, sketch_labels: annotations || [] }
+                          : presentation === 'mannequin'
+                            ? { mannequin_preview: url, mannequin_preview_back: backUrl || null }
+                            : ai.mode === 'customer' && ai.consent && ai.photo
+                              ? { customer_preview: url, customer_preview_back: backUrl || null }
+                              : { preview: url, preview_back: backUrl || null };
+                        setGarmentJobs(prev => prev.map(j => j.key === jobKey
+                          ? { ...j, design: { ...(j.design || {}), ...update } } : j));
+                      }}
+                      // Rides customerForm, so it is saved with the draft; a different customer picked resets it.
+                      aiModel={customerForm.ai_model}
+                      onAiModel={(ai_model) => {
+                        // A new (or removed) customer photo: the customer's pictures show the
+                        // old person, so they go; the standard model's stay.
+                        if ((ai_model.photo || '') !== (customerForm.ai_model?.photo || '')) {
+                          setGarmentJobs(prev => prev.map(j => (j.design ? { ...j, design: { ...j.design,
+                            customer_preview: '', customer_preview_back: null } } : j)));
+                        }
+                        setCustomerForm(prev => ({ ...prev, ai_model }));
+                      }}
+                      />
+                    </Suspense>
+                  </div>
 
                   {/* Only with the customer's consent and photo, chosen on the Garments step. */}
                   {customerForm.ai_model?.mode === 'customer' && customerForm.ai_model.consent && customerForm.ai_model.photo
@@ -8874,9 +9120,10 @@ function App() {
                     </table>
                   ))}
 
-                  {serviceType === 'design' && card(t('wizard.designerTitle', 'Who designs it?'), 'design', (
+                  {serviceType === 'design' && card(t('wizard.designerTitle', 'Who will design it?'), 'design', (
                     <div style={{ fontSize: '14px' }}>
-                      {designers.find(d => String(d.id) === String(designRequest.designer))?.name || designRequest.designer || <span className="od-hint">Not picked</span>}
+                      {designerChoice === SELF_DESIGNER ? selfDesignerLabel
+                        : designers.find(d => String(d.id) === String(designerChoice))?.name || designerChoice || <span className="od-hint">Not picked</span>}
                       {designRequest.brief && <div className="od-hint" style={{ marginTop: '4px' }}>{designRequest.brief}</div>}
                     </div>
                   ))}
@@ -8899,7 +9146,7 @@ function App() {
                   </div>
                 )}
 
-                <div className="content-card wz-card">
+                <div className="content-card wz-card wz-money-card">
                   <div className="form-group" style={{ maxWidth: '260px' }}>
                     <label className="form-label" htmlFor="wz-ready">{t('wizard.readyBy', 'Ready by')} <span className="required">*</span></label>
                     <input id="wz-ready" type="date" className="form-control" value={readyBy} min={todayIso()}
@@ -9041,7 +9288,7 @@ function App() {
                   {alterCandidates.length === 0 ? (
                     <div className="od-empty" style={{ textAlign: 'left' }}>
                       {t('wizard.noDeliveredGarmentsOutside', 'Nothing we made has been delivered to this customer yet. If the garment was stitched elsewhere, take it in under')}{' '}
-                      <button type="button" className="at-link" onClick={() => setTakingInOutside(true)}>
+                      <button type="button" className="at-link" onClick={() => setAlterOutside(true)}>
                         {t('wizard.alterOutside', 'Stitched elsewhere')}
                       </button>.
                     </div>
@@ -9120,57 +9367,127 @@ function App() {
                 </div>
               </>
             )}
+            {/* OUTSIDE GARMENT, screen 2: what was brought in. No order of
+                ours names it, so it is described, and photographed as it
+                arrived -- the record of what was already wrong. */}
+            {wizardStepKey === 'outGarment' && (
+              <div className="wz-who-wrap">
+                <div className="page-title-group">
+                  <h1 className="page-title">{t('wizard.outGarmentTitle', 'What garment is it?')}</h1>
+                  <p className="page-subtitle">{t('wizard.outGarmentSubtitle', 'Stitched elsewhere. Say what it is, and take a photo of it as it came in.')}</p>
+                </div>
+                <div className="content-card wz-card wz-who">
+                  <div className="wz-who-row">
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-type">{t('wizard.outGarmentType', 'Garment type')}</label>
+                      <select id="wz-out-type" className="form-control" value={outsideForm.templateId}
+                              onChange={(e) => setOutsideForm({ ...outsideForm, templateId: e.target.value })}>
+                        <option value="">{t('wizard.outGarmentOther', 'Other (describe it)')}</option>
+                        {garmentTemplates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-note">
+                        {t('wizard.outGarmentNote', 'About the garment')}{' '}
+                        {outsideForm.templateId
+                          ? <span className="od-hint">({t('common.optional', 'optional')})</span>
+                          : <span className="required">*</span>}
+                      </label>
+                      <input id="wz-out-note" className="form-control" maxLength={200} value={outsideForm.note}
+                             onChange={(e) => setOutsideForm({ ...outsideForm, note: e.target.value })}
+                             placeholder={t('wizard.outGarmentNotePlaceholder', 'e.g. Green silk blouse, bought in Chennai')} />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <span className="form-label">{t('wizard.outPhoto', 'Photo as it came in')} <span className="od-hint">({t('common.optional', 'optional')})</span></span>
+                    {outsidePhoto ? (
+                      <div className="wz-out-photo">
+                        <img src={outsidePhoto.url} alt={t('wizard.outPhotoAlt', 'The garment as it came in')} />
+                        <div className="wz-out-photo-meta">
+                          <span className="wz-out-photo-name">{outsidePhoto.file.name}</span>
+                          <button type="button" className="btn-secondary at-btn-sm" onClick={() => setOutsidePhoto(null)}>
+                            <X size={13} /> {t('common.remove', 'Remove')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Dropzone compact camera
+                                onFiles={([file]) => {
+                                  if (!file) return;
+                                  setOutsidePhoto({ file, url: URL.createObjectURL(file) });
+                                }}
+                                title={t('wizard.outPhotoDrop', 'Drop a photo here')}
+                                subtitle={t('wizard.outPhotoOr', 'or choose a photo')}
+                                chooseLabel={t('wizard.outPhotoChoose', 'Choose photo')} />
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* OUTSIDE GARMENT, screen 3: what needs changing, and the charge. */}
+            {wizardStepKey === 'outIssue' && (
+              <div className="wz-who-wrap">
+                <div className="page-title-group">
+                  <h1 className="page-title">{t('wizard.alterIssueTitle', 'What needs changing?')}</h1>
+                  <p className="page-subtitle">{t('wizard.outIssueSubtitle', 'Always a paid job: the garment is not one of ours. The charge can be set after inspection.')}</p>
+                </div>
+                {wizardError && (
+                  <div role="alert" className="wz-error">
+                    <span>{wizardError}</span>
+                    <button type="button" className="btn-ghost at-btn-sm" onClick={() => setWizardError(null)} aria-label={t('common.dismiss', 'Dismiss')}><X size={14} /></button>
+                  </div>
+                )}
+                <div className="content-card wz-card wz-who">
+                  <div className="wz-who-row wz-who-row--even">
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-request">{t('wizard.outRequest', 'Customer’s request')} <span className="required">*</span></label>
+                      <VoiceTextarea id="wz-out-request" className="form-control" rows={2} maxLength={LIMITS.note} value={outsideForm.request}
+                                     onChange={(e) => setOutsideForm({ ...outsideForm, request: e.target.value })}
+                                     placeholder={t('wizard.outRequestPlaceholder', 'The sleeves are too tight…')} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-adjust">{t('wizard.outAdjustments', 'Adjustments')} <span className="od-hint">({t('wizard.onePerLine', 'one per line')})</span></label>
+                      <VoiceTextarea id="wz-out-adjust" className="form-control" rows={2} maxLength={LIMITS.note} value={outsideForm.adjustments}
+                                     onChange={(e) => setOutsideForm({ ...outsideForm, adjustments: e.target.value })}
+                                     placeholder={t('wizard.outAdjustmentsPlaceholder', 'e.g. sleeve: let out 1 inch')} />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <span className="form-label">{t('wizard.outScale', 'How big is the job?')} <span className="od-hint">({t('common.optional', 'optional')})</span></span>
+                    <div className="at-seg" role="group">
+                      <button type="button" aria-pressed={outsideForm.scale === 'SMALL'}
+                              onClick={() => setOutsideForm({ ...outsideForm, scale: outsideForm.scale === 'SMALL' ? '' : 'SMALL' })}>
+                        {t('wizard.outScaleSmall', 'Small · a quick fix')}
+                      </button>
+                      <button type="button" aria-pressed={outsideForm.scale === 'BIG'}
+                              onClick={() => setOutsideForm({ ...outsideForm, scale: outsideForm.scale === 'BIG' ? '' : 'BIG' })}>
+                        {t('wizard.outScaleBig', 'Big · more work, more time')}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="wz-who-row wz-who-row--three">
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-charge">{t('wizard.alterCharge', 'Charge')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <input id="wz-out-charge" type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control" value={outsideForm.charge}
+                             onChange={(e) => setOutsideForm({ ...outsideForm, charge: cleanAmount(e.target.value) })} placeholder="0" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-paid">{t('wizard.alterPaidNow', 'Paid now')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <input id="wz-out-paid" type="number" min="0" max={LIMITS.amount} step="1" inputMode="decimal" className="form-control" value={outsideForm.paidNow}
+                             onChange={(e) => setOutsideForm({ ...outsideForm, paidNow: cleanAmount(e.target.value) })} placeholder="0" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="wz-out-notes">{t('wizard.outNotes', 'Notes')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <input id="wz-out-notes" className="form-control" maxLength={LIMITS.note} value={outsideForm.notes}
+                             onChange={(e) => setOutsideForm({ ...outsideForm, notes: e.target.value })} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             </div>
 
-            {/* Right column: only the garment drawn on a model, while a garment
-                is open. The "How it works", "This order" and privacy cards
-                were removed (MOM, 2026-10-24); every other step is full width. */}
-            {wizardStepKey === 'type' && openGarment && (
-            <div className="sidebar-panel">
-              {/* The open garment drawn on a model, from its designs and rolls.
-                  Renders nothing where the vendor is not set up and there is no
-                  base picture. The photograph lands on job.design.preview and
-                  confirms with the rest. */}
-              {wizardStepKey === 'type' && openGarment && (
-                <Suspense fallback={null}>
-                  <GarmentPreviews jobs={[openGarment]} title={t('wizard.reviewPreview', 'See it on a model')}
-                    // Picked from the book, or typed in validly on the Customer step.
-                    customer={{ id: customerId, name: customerName, mobile: customerForm.mobile_number,
-                                given: !!customerId || (!customerBlank() && !customerProblem()) }}
-                    ensureCustomerId={ensureCustomerId}
-                    // No customer yet: back to the Customer step, as the stepper does.
-                    onCustomer={() => { jumpToStep(wizardSteps.findIndex(s => s.key === 'who') + 1); window.scrollTo(0, 0); }}
-                    onPreview={(jobKey, url, backUrl, { presentation, annotations } = {}) => {
-                      // Each kind of picture has its own place: a mannequin, the sketch (with
-                      // its labels), the customer's own photo (shared with the Review step),
-                      // or the standard model.
-                      const ai = customerForm.ai_model || {};
-                      const update = presentation === 'sketch'
-                        ? { sketch_preview: url, sketch_labels: annotations || [] }
-                        : presentation === 'mannequin'
-                          ? { mannequin_preview: url, mannequin_preview_back: backUrl || null }
-                          : ai.mode === 'customer' && ai.consent && ai.photo
-                            ? { customer_preview: url, customer_preview_back: backUrl || null }
-                            : { preview: url, preview_back: backUrl || null };
-                      setGarmentJobs(prev => prev.map(j => j.key === jobKey
-                        ? { ...j, design: { ...(j.design || {}), ...update } } : j));
-                    }}
-                    // Rides customerForm, so it is saved with the draft; a different customer picked resets it.
-                    aiModel={customerForm.ai_model}
-                    onAiModel={(ai_model) => {
-                      // A new (or removed) customer photo: the customer's pictures show the
-                      // old person, so they go; the standard model's stay.
-                      if ((ai_model.photo || '') !== (customerForm.ai_model?.photo || '')) {
-                        setGarmentJobs(prev => prev.map(j => (j.design ? { ...j, design: { ...j.design,
-                          customer_preview: '', customer_preview_back: null } } : j)));
-                      }
-                      setCustomerForm(prev => ({ ...prev, ai_model }));
-                    }}
-                    />
-                </Suspense>
-              )}
-            </div>
-            )}
           </div>
         </div>
       )}
@@ -9315,6 +9632,7 @@ function App() {
               {ctaBusy ? t('wizard.working', 'Working\u2026')
                 : wizardStepKey === 'money' ? <>{t('wizard.completeOrder', 'Complete the order')} <Check size={16} /></>
                 : wizardStepKey === 'issue' ? <>{t('wizard.createAlteration', 'Create alteration')} <Check size={16} /></>
+                : wizardStepKey === 'outIssue' ? <>{t('wizard.takeItIn', 'Take it in')} <Check size={16} /></>
                 : <>{t('common.next', 'Next')} <ArrowRight size={16} /></>}
             </button>
           </div>
@@ -9322,45 +9640,6 @@ function App() {
       )}
 
       {/* INVOICE MODAL */}
-      {/* Send to the workshop: who leads it, who stitches it, when it is due. */}
-      {sendingOrder && (
-        <FormModal icon={Scissors} tone="amber" width="460px"
-                   title={t('ordersPage.sendModalTitle', 'Send to the workshop')}
-                   subtitle={`${orderRef(sendingOrder)} · ${sendingOrder.customer_name || ''}`}
-                   onClose={() => !sendBusy && setSendingOrder(null)}
-                   footer={(
-                     <button type="button" className="btn-primary" style={{ width: '100%', justifyContent: 'center', minHeight: '48px' }}
-                             disabled={sendBusy} onClick={() => sendToWorkshop(sendingOrder, sendForm, true)}>
-                       <Scissors size={16} /> {sendBusy ? t('ordersPage.sending', 'Sending…') : t('ordersPage.send', 'Send')}
-                     </button>
-                   )}>
-          <Field label={t('ordersPage.supervisingMaster', 'Master in charge')} htmlFor="send-master">
-            <select id="send-master" className="form-control" value={sendForm.master} onChange={(e) => setSendForm({ ...sendForm, master: e.target.value })}>
-              <option value="">{t('ordersPage.unassigned', 'Not yet assigned')}</option>
-              {workshopMasters().map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
-            </select>
-          </Field>
-          <Field label={t('ordersPage.stitchingTailor', 'Stitching tailor')} htmlFor="send-tailor">
-            <select id="send-tailor" className="form-control" value={sendForm.tailor} onChange={(e) => setSendForm({ ...sendForm, tailor: e.target.value })}>
-              <option value="">{t('ordersPage.unassigned', 'Not yet assigned')}</option>
-              {workshopCrew().map(tl => (
-                <option key={tl.id} value={tl.id}>{tl.name}{tl.status && tl.status !== 'Available' ? ` (${tl.status})` : ''}</option>
-              ))}
-            </select>
-          </Field>
-          <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-            <Calendar size={14} style={{ verticalAlign: '-2px' }} /> {t('ordersPage.estDelivery', 'Promised by')}: <strong style={{ color: 'var(--text-primary)' }}>
-              {sendingOrder.estimated_delivery ? fmtDate(sendingOrder.estimated_delivery) : t('ordersPage.tbd', 'Not set')}
-            </strong>
-          </div>
-          {sendError && (
-            <div className="ui-badge ui-badge--danger" role="alert" style={{ whiteSpace: 'normal', display: 'block', marginTop: '12px', padding: '10px 12px', fontSize: '14px' }}>
-              {sendError}
-            </div>
-          )}
-        </FormModal>
-      )}
-
       {showInvoiceModal && confirmedOrder && (
         <div style={{
           position: 'fixed',
@@ -10100,7 +10379,8 @@ Complete the Payment stage with this partial payment?`)) return;
       )}
       <GarmentPairingModal
         isOpen={!!activePairingGarment}
-        onClose={() => setActivePairingGarment(null)}
+        // The next garment picked together with this one, if any, has its suggestion next.
+        onClose={() => { setActivePairingGarment(pairingQueue[0] || null); setPairingQueue(pairingQueue.slice(1)); }}
         primaryGarmentKey={activePairingGarment?.key}
         primaryGarmentName={activePairingGarment?.name}
         primaryJobKey={activePairingGarment?.jobKey}

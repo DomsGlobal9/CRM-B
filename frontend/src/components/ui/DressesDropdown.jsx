@@ -1,6 +1,21 @@
 import { useMemo, useState } from 'react';
 import { Check, Plus, Search, Shirt } from 'lucide-react';
 
+/** The order the garments are listed in, by key -- the way a counter thinks of
+ *  them, a saree beside its blouse and petticoat. A garment in none of these
+ *  (one added to the catalogue later) follows at the end. */
+const GARMENT_ORDER = [
+  'saree', 'blouse', 'petticoat', 'lehenga', 'lehenga_blouse', 'dupatta',
+  'kurti', 'anarkali', 'suit', 'bottom_wear', 'gown',
+  'sherwani', 'kurta', 'indo_western', 'mens_bottom_wear',
+  'shirt', 't_shirt', 'mens_suit', 'trouser', 'jeans', 'shorts', 'casual_wear',
+  'jacket', 'coat',
+];
+const orderGarments = (templates) => {
+  const rank = (tpl) => { const at = GARMENT_ORDER.indexOf(tpl.key); return at === -1 ? GARMENT_ORDER.length : at; };
+  return [...templates].sort((a, b) => rank(a) - rank(b));
+};
+
 /**
  * DressesDropdown - picks the garments on an order, several at a time.
  *
@@ -27,12 +42,14 @@ export default function DressesDropdown({
     () => new Set(garmentJobs.map((job) => job.template?.key || job.key)),
     [garmentJobs]);
   const term = query.trim().toLowerCase();
-  const shown = garmentTemplates.filter((tpl) => !term || tpl.name.toLowerCase().includes(term));
+  const shown = orderGarments(garmentTemplates).filter((tpl) => !term || tpl.name.toLowerCase().includes(term));
   const busy = !!addingGarmentKey;
 
   const toggle = (key) => setPicked((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   const add = async () => {
-    const keys = picked.filter((k) => !onOrder.has(k));
+    // Added in the order the list shows them.
+    const keys = orderGarments(garmentTemplates).map((tpl) => tpl.key)
+      .filter((k) => picked.includes(k) && !onOrder.has(k));
     if (!keys.length || busy) return;
     await addGarments?.(keys);
     setPicked([]);

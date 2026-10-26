@@ -44,8 +44,8 @@ KINDS = {
 ACCESSORY_KINDS = [key for key, spec in KINDS.items() if spec['accessory']]
 
 SLOTS = {
-    'MAIN_FABRIC': 'Main Fabric / Body',
-    'SAREE_BODY': 'Main Fabric / Saree Body',
+    'MAIN_FABRIC': 'Body',
+    'SAREE_BODY': 'Saree Body',
     'PALLU': 'Pallu',
     'PLEAT': 'Pleat / Pleats',
     'FALL': 'Fall',

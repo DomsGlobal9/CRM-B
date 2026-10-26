@@ -715,6 +715,7 @@ class LeadApproveView(ConsoleView):
                     phone=phone, address=address, plan=plan,
                     temporary_password=True, customer_messaging_enabled=False,
                     terms_accepted_at=lead.terms_accepted_at,
+                    terms_version=lead.terms_version,
                 )
 
                 lead.status = 'CONVERTED'

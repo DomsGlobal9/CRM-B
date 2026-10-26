@@ -900,9 +900,9 @@ export const api = {
     return data;
   },
 
-  // Customer messages. There is no WhatsApp Business integration: these are
-  // queued for the owner, who sends each one from their own WhatsApp by
-  // following whatsapp_url, then marks it sent.
+  // Customer messages that need staff: ones WhatsApp could not send after its
+  // automatic tries (FAILED), and ones with no automatic sender (QUEUED).
+  // Staff retry, or send from their own WhatsApp via whatsapp_url and mark it sent.
   async getQueuedCustomerMessages() {
     const res = await guardedFetch(`${BASE_URL}/orders/customer-messages/`, {
       headers: getHeaders(),
@@ -920,6 +920,20 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(describeApiError(res, err) || 'Failed to mark the message sent');
+    }
+    return res.json();
+  },
+
+  // One more automatic try at a FAILED message; resolves to the message after it.
+  async retryCustomerMessage(orderId, messageId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/retry-message/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ message_id: messageId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(describeApiError(res, err) || 'Failed to retry the message');
     }
     return res.json();
   },
@@ -1155,8 +1169,8 @@ export const api = {
   // One page of the Customers page, filtered, sorted and counted by the
   // server: { count, page, page_size, page_count, results, summary, facets }.
   // `params` are the page's own: page, page_size, view, search, tier and the
-  // filter bar's keys (country, letter, orders, measurements, added,
-  // birthday, source, gender, city, sort).
+  // filter bar's keys (country, letter, orders, added, birthday, source,
+  // gender, city, sort).
   async getCustomerDirectory(params = {}) {
     const url = new URL(`${BASE_URL}/customers/`);
     Object.entries({ page: 1, ...params }).forEach(([k, v]) => {

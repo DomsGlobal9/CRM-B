@@ -69,7 +69,8 @@ class BoutiqueCRMTests(TenantTestCase):
             "last_name": "Verma",
             "email_address": "rohan@test.com",
             "mobile_number": "9876500000",
-            "password": "rohanpassword123"
+            "password": "rohanpassword123",
+            "accepted_terms": True
         }
         self.client.credentials()  # clear default tenant header to hit public schema
         response = self.client.post(url, data, format='json')
@@ -84,7 +85,8 @@ class BoutiqueCRMTests(TenantTestCase):
             "last_name": "User",
             "email_address": "amara@test.com",
             "mobile_number": "9876500001",
-            "password": "anotherpassword123"
+            "password": "anotherpassword123",
+            "accepted_terms": True
         }
         self.client.credentials()
         response = self.client.post(url, data, format='json')

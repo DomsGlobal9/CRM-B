@@ -596,6 +596,15 @@ class CustomerMessage(models.Model):
     error = models.TextField(blank=True, null=True)
     sent_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    #: Automatic sends tried so far (domains.orders.messaging.attempt).
+    attempts = models.PositiveSmallIntegerField(default=0)
+    #: When the sender next takes it up. Null on a message nobody will send
+    #: automatically -- no sender configured, or written before there was a
+    #: retry -- which leaves it to staff, as does FAILED.
+    next_attempt_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    #: GarmentImage ids a 'garment_photos' message carries, kept so a retry
+    #: sends the same photos.
+    image_ids = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ['-created_at']

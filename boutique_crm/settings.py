@@ -298,6 +298,14 @@ def _portal_origin(reset_url):
 
 PORTAL_BASE_URL = os.environ.get('PORTAL_BASE_URL') or _portal_origin(PASSWORD_RESET_BASE_URL)
 
+# More addresses for the new-request alert (tenants/emails.py:send_team_alert),
+# comma-separated. Kept from feat/latency's sign-up alert; PLATFORM_ALERT_EMAIL
+# above is the main setting and both lists are emailed.
+SIGNUP_ALERT_EMAILS = [
+    address.strip() for address in os.environ.get('SIGNUP_ALERT_EMAILS', '').split(',')
+    if address.strip()
+]
+
 PASSWORD_RESET_TIMEOUT = int(os.environ.get('PASSWORD_RESET_TIMEOUT', '3600'))
 
 
@@ -428,6 +436,11 @@ CUSTOMER_MESSAGE_BACKEND = os.environ.get(
     'CUSTOMER_MESSAGE_BACKEND',
     'domains.orders.messaging.whatsapp_backend',
 )
+# A customer message's first try runs on its own thread after the commit, so
+# the request does not wait on WhatsApp; `manage.py send_queued_messages`
+# (a cron, every minute) retries. Tests send inline: a thread's connection
+# cannot see a TestCase's uncommitted rows.
+CUSTOMER_MESSAGES_IN_BACKGROUND = not _running_tests
 
 WHATSAPP_COUNTRY_CODE = os.environ.get('WHATSAPP_COUNTRY_CODE', '91')
 

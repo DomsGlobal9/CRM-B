@@ -376,7 +376,7 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         self.assertEqual(kept['fabrics'], {'MAIN_FABRIC': [str(silk.id)], 'BORDER': [str(silk.id)]})
         self.assertEqual([f['name'] for f in kept['fabric_items']], ['Kanchipuram Silk'])
         self.assertEqual(kept['fabric_qty'][f'MAIN_FABRIC:{silk.id}'], 6)
-        self.assertEqual(kept['slot_labels']['MAIN_FABRIC'], 'Main Fabric / Body')
+        self.assertEqual(kept['slot_labels']['MAIN_FABRIC'], 'Body')
         # The stage panel reads the order, not the draft, and never /api/fabrics/.
         panel = response.data['garment_jobs'][0]['selections']
         self.assertEqual(panel['fabric_items'][0]['color'], 'Maroon')
@@ -506,6 +506,23 @@ class AtomicConfirmOverHttpTests(DraftTestBase):
         self.assertEqual(assignment.brief, 'Peplum with a scalloped hem')
         self.assertEqual(assignment.due_date, date(2026, 10, 10))
         self.assertEqual(assignment.status, DesignAssignment.Status.ASSIGNED)
+
+    def test_me_as_the_designer_assigns_nobody_and_keeps_the_brief(self):
+        """No designer on the team: the person taking the order designs it.
+        Nothing is assigned, and the brief leads the order's instructions."""
+        from apps.design_studio.models import DesignAssignment
+        me = {'designer': 'self', 'brief': 'Peplum with a scalloped hem'}
+        draft_id = self.a_draft(
+            design_request=me, special_instructions='Deliver before Diwali',
+            garments=[{'template': str(self.template.id), 'spec': {'blouse_type': 'princess'},
+                       'measurements': {'chest': '36'}, 'design': {'request': me}}])
+
+        response = self.api.post(reverse('order-draft-confirm', args=[draft_id]))
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertFalse(DesignAssignment.objects.exists())
+        self.assertEqual(Order.objects.get().special_instructions,
+                         'Design brief: Peplum with a scalloped hem\n\nDeliver before Diwali')
 
     def test_a_designer_who_left_blocks_the_confirm(self):
         from apps.design_studio.models import Designer

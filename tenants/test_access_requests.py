@@ -84,6 +84,17 @@ class RequestIntakeTests(TransactionTestCase):
         self.assertEqual(PlatformNotification.objects.get(lead_id=lead.pk).kind,
                          PlatformNotification.DEMO_REQUEST)
 
+    def test_the_terms_version_is_recorded_on_the_request(self):
+        from tenants.onboarding import TERMS_VERSION
+        self.assertEqual(Client().post('/demo-request/', APP_REQUEST).status_code, 201)
+        self.assertEqual(DemoRequest.objects.get(email=APP_REQUEST['email']).terms_version, TERMS_VERSION)
+
+    @override_settings(SIGNUP_ALERT_EMAILS=['ops@platform.test', TEAM.upper()])
+    def test_signup_alert_emails_are_alerted_too_without_repeating_an_address(self):
+        self.assertEqual(Client().post('/demo-request/', APP_REQUEST).status_code, 201)
+        alert = next(m for m in mail.outbox if 'access request' in m.subject)
+        self.assertEqual(alert.to, [TEAM, 'ops@platform.test'])
+
     @override_settings(PLATFORM_ALERT_EMAIL='')
     def test_no_alert_address_means_no_alert_but_the_request_is_kept(self):
         self.assertEqual(Client().post('/demo-request/', APP_REQUEST).status_code, 201)
@@ -135,6 +146,8 @@ class ApprovalTests(TransactionTestCase):
         tenant = BoutiqueTenant.objects.get(owner_email=APP_REQUEST['email'])
         self.assertTrue(tenant.owner_password_temporary)
         self.assertIsNotNone(tenant.terms_accepted_at)
+        from tenants.onboarding import TERMS_VERSION
+        self.assertEqual(tenant.terms_version, TERMS_VERSION)
         self.lead.refresh_from_db()
         self.assertEqual(self.lead.tenant_id, tenant.pk)
         self.assertEqual(self.lead.status, 'CONVERTED')

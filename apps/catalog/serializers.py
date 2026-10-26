@@ -104,6 +104,13 @@ class GarmentJobSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['template_version', 'selections', 'created_at', 'updated_at']
+        # validate() walks the template's sections, fields and choice options;
+        # loading them with the template turns a query per section and per
+        # choice field into three.
+        extra_kwargs = {
+            'template': {'queryset': GarmentTemplate.objects.prefetch_related(
+                'sections__fields__options')},
+        }
 
     def validate_label(self, value):
         from core.validators import validate_text

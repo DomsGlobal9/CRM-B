@@ -16,6 +16,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import connection, transaction
 from tenants.models import BoutiqueTenant
+from tenants.onboarding import TERMS_VERSION  # noqa: F401 -- kept importable from here
 from django_tenants.utils import schema_context
 from superadmin import signins
 from core.modules import MODULE_GROUP, effective_modules

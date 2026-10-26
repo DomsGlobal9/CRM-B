@@ -3,7 +3,7 @@ from rest_framework import permissions
 
 from .admin_access import admin_may, has_section, tasks_for
 from .modules import MODULES, module_for_path, role_allows
-from .roles import DESIGNER, OWNER, resolve_user_role
+from .roles import DESIGNER, MASTER, OWNER, resolve_user_role
 
 # A Designer ranks above the Master (core.roles.ASSIGNMENT_RANK) and runs the
 # floor with the same order access.
@@ -246,6 +246,15 @@ class OwnerOnly(ModuleAccess):
 
     def has_role_permission(self, request, view):
         return resolve_user_role(request.user) == OWNER or admin_may(request, view)
+
+
+class OwnerOrMaster(ModuleAccess):
+    """The owner, or a Master running the workshop floor."""
+
+    message = "Only the owner or a master can do this."
+
+    def has_role_permission(self, request, view):
+        return resolve_user_role(request.user) in (OWNER, MASTER) or admin_may(request, view)
 
 
 class StaffSelfOrOwner(ModuleAccess):

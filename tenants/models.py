@@ -50,10 +50,13 @@ class BoutiqueTenant(TenantMixin):
     design_system = models.CharField(max_length=32, choices=DESIGN_SYSTEMS, default='scaleezy')
     color_mode = models.CharField(max_length=16, choices=COLOR_MODES, default='light')
 
-    # When the owner ticked "I agree to the Terms & Conditions" -- on the
-    # Request access form, copied here when the console approves the request.
-    # Null for boutiques from before the box was enforced, or made by hand.
+    # When the owner ticked "I agree to the Terms & Conditions and Privacy
+    # Policy", and which version (tenants.onboarding.TERMS_VERSION) they saw --
+    # on the Request access form, copied here when the console approves the
+    # request. Null / empty for boutiques from before the box was enforced,
+    # or made by hand.
     terms_accepted_at = models.DateTimeField(null=True, blank=True)
+    terms_version = models.CharField(max_length=20, blank=True, default='')
 
     # True from the moment the console creates this boutique with a temporary
     # password until the owner chooses their own. While it is set the owner's
@@ -199,6 +202,7 @@ class DemoRequest(models.Model):
     address = models.CharField(max_length=500, blank=True)
     # The app's form requires the Terms & Conditions box; the website's does not ask.
     terms_accepted_at = models.DateTimeField(null=True, blank=True)
+    terms_version = models.CharField(max_length=20, blank=True, default='')
 
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='NEW', db_index=True)
     notes = models.TextField(blank=True)

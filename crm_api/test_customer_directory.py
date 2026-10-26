@@ -145,9 +145,9 @@ class FilterTests(DirectoryTestBase):
         self.assertEqual(self.names(orders='repeat'), ['Asha Rao'])
         self.assertEqual(self.names(orders='none'), ['Chen Li'])
 
-    def test_an_empty_measurement_sheet_is_not_measurements(self):
-        self.assertEqual(self.names(measurements='recorded'), ['Asha Rao'])
-        self.assertEqual(sorted(self.names(measurements='missing')), ['Bina Shah', 'Chen Li'])
+    def test_measurements_is_no_longer_a_filter(self):
+        # The filter was removed: the parameter is ignored like any unknown one.
+        self.assertEqual(sorted(self.names(measurements='recorded')), ['Asha Rao', 'Bina Shah', 'Chen Li'])
 
     def test_country_comes_from_the_stored_mobile(self):
         self.assertEqual(self.names(country='44'), ['Chen Li'])

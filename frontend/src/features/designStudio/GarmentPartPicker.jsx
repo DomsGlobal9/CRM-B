@@ -8,7 +8,7 @@ import { PartTabStrip } from './GarmentPartTabs';
 import DesignCatalogueFilter from './DesignCatalogueFilter';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
 import Loader from '../../components/ui/Loader';
-import { ACCESSORY_OPTIONS, accessoryOptionsFor } from './accessories';
+import { ACCESSORY_OPTIONS, accessoryOptionsFor, isAccessorySlot } from './accessories';
 
 
 const FALLBACK =
@@ -623,7 +623,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
       if (spec?.sections?.length) {
         let slotsFromTaxonomy = spec.sections.flatMap(section => {
           const sectionPrefix = (spec.sections.length > 1 && section.label) ? `${section.label} - ` : '';
-          return (section.slots || []).map(slot => ({
+          return (section.slots || []).filter(slot => !isAccessorySlot(garmentKey, slot.key)).map(slot => ({
             key: slot.key,
             label: `${sectionPrefix}${slot.label}`,
           }));
@@ -892,8 +892,12 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
         <span style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>
           {ownOnly
             ? (referenceCount > 0
-                ? `${referenceCount} reference${referenceCount === 1 ? '' : 's'} across ${referencedParts} part${referencedParts === 1 ? '' : 's'}`
-                : 'Upload a reference photo for each part (front, back, sleeves, neck)')
+                ? `${referenceCount} ${isFabric ? 'photo' : 'reference'}${referenceCount === 1 ? '' : 's'} across ${referencedParts} part${referencedParts === 1 ? '' : 's'}`
+                : accessoriesOnly
+                  ? 'Add a photo of each trim the customer is bringing, one part at a time.'
+                  : isFabric
+                    ? 'Choose a part, note how much fabric the customer brought for it, and add photos of it.'
+                    : 'Choose a part (front, back, sleeves, neck…) and add photos or links of how the customer wants it.')
             : chosenCount > 0
             ? `${chosenCount} part${chosenCount === 1 ? '' : 's'} chosen — parts may come from different designs`
             : (openPart ? 'Click a photograph to choose this part'
@@ -971,12 +975,12 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
             {isFabric && !accessoriesOnly && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', minWidth: '180px' }}>
-                  {partFabricLabel} Meter / Length / Size:
+                  {partFabricLabel} quantity:
                 </label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="e.g. 2.5 meters, 1 meter, 3 yards..."
+                  placeholder="e.g. 2.5 meters, 1 meter or 3 yards"
                   value={fabricMeasurements[openPart] || ''}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -1164,13 +1168,13 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
 
       {!loading && ownOnly && openPart && ownRefs.length === 0 && (
         <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', padding: '4px 0 18px' }}>
-          No {(() => {
+          {isFabric ? 'No photos of the ' : 'No '}{(() => {
             const isAlreadyFabric = /fabric/i.test(openPartLabel);
             const partFabricLabel = isFabric
               ? (isAlreadyFabric ? openPartLabel : `${openPartLabel} Fabric`)
               : openPartLabel;
             return partFabricLabel.toLowerCase();
-          })()} references yet — add as many photos{isFabric ? '' : ' and links'} as you like.
+          })()}{isFabric ? ' yet. Add as many as you like.' : ' references yet. Add as many photos and links as you like.'}
         </div>
       )}
 

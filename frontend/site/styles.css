@@ -291,6 +291,15 @@ footer{background:var(--forest-deep);color:rgba(245,242,236,.6);padding:70px 0 3
   .nav-links.open .nav-dd-menu li{padding:0}
   .nav-links.open .nav-dd-menu a{padding:10px 0}
 }
+/* With Sign up beside Sign in the full bar measures ~1184px: just over the
+   room left between 1101 and 1200px. Tighten its spacing there, so every
+   link still fits on one line. */
+@media(min-width:1101px) and (max-width:1200px){
+  .nav-in{gap:12px}
+  .nav-links{gap:16px}
+  .nav-cta{gap:8px}
+  .nav-cta .btn-sm{padding:10px 14px}
+}
 @media(max-width:920px){
   .nav-cta .btn-ghost{display:none}
   .nav-links.open .nav-only-mobile{display:block}

@@ -129,7 +129,9 @@ def demo_request(request):
     lead = form.save(commit=False)
     lead.ip = ip
     if lead.source == 'app':
+        from .onboarding import TERMS_VERSION
         lead.terms_accepted_at = timezone.now()
+        lead.terms_version = TERMS_VERSION
     lead.save()
 
     _announce(lead)

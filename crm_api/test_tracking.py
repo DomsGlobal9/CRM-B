@@ -1,4 +1,5 @@
 
+import datetime
 import importlib
 import io
 import os
@@ -10,10 +11,12 @@ from urllib.parse import quote
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core import signing
+from django.core.management import call_command
 from django.db import connection
 from django.test import Client, SimpleTestCase
 from django.test.utils import override_settings
 from django.urls import reverse
+from django.utils import timezone
 from django_tenants.test.cases import TenantTestCase
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -23,6 +26,7 @@ from crm_api.models import (
     BoutiqueSettings, Customer, CustomerMessage, GarmentImage, Order, Tailor,
     whatsapp_number, Measurement,
 )
+from domains.orders import messaging
 from domains.orders.messaging import send_customer_message
 from domains.orders.services import OrderService
 from domains.orders.tracking import SALT, build_token, read_token, tracking_url
@@ -202,8 +206,11 @@ class CustomerMessageTests(TrackingTestBase):
             message = send_customer_message(self.order, 'manual', 'hello')
 
         message.refresh_from_db()
-        self.assertEqual(message.status, 'FAILED')
+        # One failed try is not a failed message: it waits for the next.
+        self.assertEqual(message.status, 'QUEUED')
+        self.assertEqual(message.attempts, 1)
         self.assertIn('provider unreachable', message.error)
+        self.assertIsNotNone(message.next_attempt_at)
 
     @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend')
     def test_transport_runs_only_after_the_order_transaction_commits(self):
@@ -301,6 +308,180 @@ class CustomerMessageTests(TrackingTestBase):
 
 
 
+class MessageRetryTests(TrackingTestBase):
+    """Three automatic tries, then FAILED for staff; one try at a time."""
+
+    def due_now(self, message):
+        CustomerMessage.objects.filter(pk=message.pk).update(
+            next_attempt_at=timezone.now() - datetime.timedelta(seconds=1))
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.exploding_backend')
+    def test_three_failed_tries_make_it_failed_and_stop_trying(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            message = send_customer_message(self.order, 'manual', 'hello')
+        for _ in range(2):
+            self.due_now(message)
+            self.assertIsNotNone(messaging.attempt(message.pk))
+
+        message.refresh_from_db()
+        self.assertEqual((message.status, message.attempts), ('FAILED', 3))
+        self.assertIsNone(message.next_attempt_at)
+        self.assertIn('provider unreachable', message.error)
+        self.assertIsNone(messaging.attempt(message.pk), 'tried a fourth time')
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.exploding_backend')
+    def test_a_retry_waits_until_it_is_due(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            message = send_customer_message(self.order, 'manual', 'hello')
+        self.assertIsNone(messaging.attempt(message.pk))
+        message.refresh_from_db()
+        self.assertEqual(message.attempts, 1)
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend')
+    def test_a_claimed_message_is_not_sent_twice(self):
+        DELIVERED.clear()
+        with self.captureOnCommitCallbacks(execute=False) as callbacks:
+            message = send_customer_message(self.order, 'manual', 'hello')
+        # The cron gets there first; the request's own try then finds it taken.
+        self.assertEqual(messaging.send_due(), {'SENT': 1})
+        for callback in callbacks:
+            callback()
+        self.assertEqual(DELIVERED, [message.pk])
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend')
+    def test_the_cron_sends_what_is_due_in_every_boutique(self):
+        DELIVERED.clear()
+        with self.captureOnCommitCallbacks(execute=False):
+            message = send_customer_message(self.order, 'manual', 'hello')
+        out = io.StringIO()
+        call_command('send_queued_messages', schema=self.tenant.schema_name, stdout=out)
+        connection.set_tenant(self.tenant)
+
+        message.refresh_from_db()
+        self.assertEqual(message.status, 'SENT')
+        self.assertIn('sent 1', out.getvalue())
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend',
+                       CUSTOMER_MESSAGES_IN_BACKGROUND=True)
+    def test_the_first_try_runs_off_the_request(self):
+        with mock.patch('domains.orders.messaging.threading.Thread') as thread:
+            with self.captureOnCommitCallbacks(execute=True):
+                message = send_customer_message(self.order, 'manual', 'hello')
+        thread.assert_called_once()
+        self.assertEqual(thread.call_args.kwargs['args'], (connection.tenant, message.pk))
+        thread.return_value.start.assert_called_once()
+        message.refresh_from_db()
+        self.assertEqual((message.status, message.attempts), ('QUEUED', 0))
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='')
+    def test_with_no_sender_nothing_is_scheduled(self):
+        message = send_customer_message(self.order, 'manual', 'hello')
+        self.assertIsNone(message.next_attempt_at)
+        self.assertEqual(messaging.send_due(), {})
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.exploding_backend')
+    def test_a_retry_nobody_runs_is_given_up_on(self):
+        """No cron: one failed try, then nothing -- FAILED once long overdue."""
+        with self.captureOnCommitCallbacks(execute=True):
+            message = send_customer_message(self.order, 'manual', 'hello')
+        self.assertEqual(messaging.give_up_stale(), 0, 'gave up while the retry was still due')
+        CustomerMessage.objects.filter(pk=message.pk).update(
+            next_attempt_at=timezone.now() - messaging.STALE_AFTER - datetime.timedelta(seconds=1))
+
+        self.assertEqual(messaging.give_up_stale(), 1)
+        message.refresh_from_db()
+        self.assertEqual((message.status, message.attempts), ('FAILED', 1))
+        self.assertIn('provider unreachable', message.error)
+
+
+class FailedMessageStaffTests(TrackingTestBase):
+    """The order page's list, Retry and Mark sent, for the owner and a Master."""
+
+    def setUp(self):
+        super().setUp()
+        self.message = CustomerMessage.objects.get(order=self.order, template_key='order_confirmation')
+        CustomerMessage.objects.filter(pk=self.message.pk).update(
+            status='FAILED', attempts=3, next_attempt_at=None, error='session logged out')
+        self.master_user = User.objects.create_user(username='master@tracking.test', password='masterpass123')
+        Tailor.objects.create(name='Rohit', role='Master', user=self.master_user)
+        self.tailor_user = User.objects.create_user(username='tailor@tracking.test', password='tailorpass123')
+        Tailor.objects.create(name='Anya', role='Tailor', user=self.tailor_user)
+
+    def client_for(self, user):
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + Token.objects.create(user=user).key,
+                           HTTP_X_TENANT_ID=self.tenant.schema_name)
+        return client
+
+    def retry(self, user):
+        response = self.client_for(user).post(
+            reverse('order-retry-message', args=[self.order.id]),
+            {'message_id': self.message.id}, format='json')
+        connection.set_tenant(self.tenant)
+        return response
+
+    def test_a_failed_message_is_listed_with_why(self):
+        rows = self.client_for(self._owner()).get(reverse('order-customer-messages')).data
+        self.assertEqual([(r['id'], r['status'], r['attempts'], r['error']) for r in rows],
+                         [(self.message.id, 'FAILED', 3, 'session logged out')])
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend')
+    def test_a_message_still_being_tried_is_not_listed(self):
+        with self.captureOnCommitCallbacks(execute=False):
+            send_customer_message(self.order, 'manual', 'hello')
+        rows = self.client_for(self._owner()).get(reverse('order-customer-messages')).data
+        self.assertEqual([r['id'] for r in rows], [self.message.id])
+
+    def test_a_retry_long_overdue_is_listed_as_failed(self):
+        CustomerMessage.objects.filter(pk=self.message.pk).update(
+            status='QUEUED', attempts=1, error='connection refused',
+            next_attempt_at=timezone.now() - datetime.timedelta(hours=1))
+        rows = self.client_for(self._owner()).get(reverse('order-customer-messages')).data
+        self.assertEqual([(r['id'], r['status']) for r in rows], [(self.message.id, 'FAILED')])
+
+    def test_a_master_sees_the_list_and_a_tailor_does_not(self):
+        self.assertEqual(self.client_for(self.master_user).get(reverse('order-customer-messages')).status_code, 200)
+        self.assertEqual(self.client_for(self.tailor_user).get(reverse('order-customer-messages')).status_code, 403)
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend')
+    def test_retry_sends_it_now(self):
+        response = self.retry(self.master_user)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['status'], 'SENT')
+        self.message.refresh_from_db()
+        self.assertEqual((self.message.status, self.message.provider_message_id), ('SENT', 'provider-id-1'))
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.exploding_backend')
+    def test_a_retry_that_fails_leaves_it_failed_with_the_new_reason(self):
+        response = self.retry(self._owner())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['status'], 'FAILED')
+        self.assertIn('provider unreachable', response.data['error'])
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='crm_api.test_tracking.recording_backend')
+    def test_only_a_failed_message_can_be_retried(self):
+        CustomerMessage.objects.filter(pk=self.message.pk).update(status='SENT')
+        self.assertEqual(self.retry(self._owner()).status_code, 400)
+
+    @override_settings(CUSTOMER_MESSAGE_BACKEND='')
+    def test_retry_without_a_sender_points_to_whatsapp(self):
+        response = self.retry(self._owner())
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('Open WhatsApp', response.data['error'])
+
+    def test_a_tailor_cannot_retry(self):
+        self.assertEqual(self.retry(self.tailor_user).status_code, 403)
+
+    def test_a_master_marks_it_sent_by_hand(self):
+        response = self.client_for(self.master_user).post(
+            reverse('order-mark-message-sent', args=[self.order.id]),
+            {'message_id': self.message.id}, format='json')
+        connection.set_tenant(self.tenant)
+        self.assertEqual(response.status_code, 200)
+        self.message.refresh_from_db()
+        self.assertEqual((self.message.status, self.message.sent_by), ('SENT', self.master_user))
+
+
 class WhatsAppNumberTests(TenantTestCase):
 
     def test_bare_national_number_gains_the_country_code(self):
@@ -353,7 +534,8 @@ class ManualSendTests(TrackingTestBase):
 
     def setUp(self):
         super().setUp()
-        CustomerMessage.objects.filter(order=self.order).update(status='QUEUED')
+        # Waiting on staff: queued, and no automatic try scheduled.
+        CustomerMessage.objects.filter(order=self.order).update(status='QUEUED', next_attempt_at=None)
         self.owner = self._owner()
         self.tailor_user = User.objects.create_user(
             username='tailor@tracking.test', password='tailorpass123',

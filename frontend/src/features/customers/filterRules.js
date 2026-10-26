@@ -1,6 +1,6 @@
 /* The Customers page filters: by the mobile's country code, the first letter
-   of the name, orders, measurements, when they joined, birthdays, source,
-   gender and city -- and a sort.
+   of the name, orders, when they joined, birthdays, source, gender and city
+   -- and a sort.
 
    The page no longer runs these: the server does, one page at a time, in
    domains/customers/directory.py, which is a port of the rules below and is
@@ -11,7 +11,7 @@ import {
 } from '../../services/phone';
 
 export const EMPTY_CUSTOMER_FILTERS = {
-  country: '', letter: '', orders: '', measurements: '', added: '', birthday: '',
+  country: '', letter: '', orders: '', added: '', birthday: '',
   source: '', gender: '', city: '', sort: '',
 };
 
@@ -20,7 +20,6 @@ export const LETTERS = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#'];
 export const ORDER_OPTIONS = [
   ['', 'All customers'], ['with', 'With orders'], ['repeat', 'Repeat (2+ orders)'], ['none', 'No orders yet'],
 ];
-export const MEASUREMENT_OPTIONS = [['', 'Any'], ['recorded', 'Recorded'], ['missing', 'Not recorded']];
 export const ADDED_OPTIONS = [
   ['', 'Any time'], ['month', 'This month'], ['30', 'Last 30 days'], ['90', 'Last 90 days'], ['year', 'This year'],
 ];
@@ -47,17 +46,6 @@ export const letterOf = (c) => {
 
 const cityOf = (c) => String(c.city_region || '').trim().replace(/\s+/g, ' ');
 const cityKey = (c) => cityOf(c).toLowerCase();
-
-/** Any body measurement actually taken -- the empty record a customer gets
- *  on creation does not count. */
-export const hasMeasurements = (c) => {
-  const m = c.measurements;
-  if (!m) return false;
-  const positive = (v) => typeof v !== 'object' && typeof v !== 'boolean' && Number(v) > 0;
-  const own = Object.entries(m).some(([k, v]) => k !== 'id' && k !== 'customer' && positive(v));
-  const extra = Object.entries(m.additional_measurements || {}).some(([, v]) => positive(v));
-  return own || extra;
-};
 
 const DAY = 24 * 60 * 60 * 1000;
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
@@ -154,8 +142,6 @@ export function applyCustomerFilters(customers, f) {
     if (f.orders === 'with' && orders < 1) return false;
     if (f.orders === 'repeat' && orders < 2) return false;
     if (f.orders === 'none' && orders > 0) return false;
-    if (f.measurements === 'recorded' && !hasMeasurements(c)) return false;
-    if (f.measurements === 'missing' && hasMeasurements(c)) return false;
     if (f.added && !addedMatches(c, f.added)) return false;
     if (f.birthday && !birthdayMatches(c, f.birthday)) return false;
     if (f.source && String(c.source || '').trim() !== f.source) return false;

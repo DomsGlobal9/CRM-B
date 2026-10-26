@@ -126,7 +126,7 @@ class ItemPlacementTests(TenantTestCase):
     def test_one_placement(self):
         data = self.create(kind='FABRIC', placements=[
             {'garment': 'lehenga', 'section': 'SKIRT', 'slot': 'MAIN_FABRIC'}])
-        self.assertEqual(self.paths(data), ['Lehenga / Skirt / Main Fabric / Body'])
+        self.assertEqual(self.paths(data), ['Lehenga / Skirt / Body'])
 
     def test_the_same_material_serves_many_garments(self):
         data = self.create(
@@ -149,7 +149,7 @@ class ItemPlacementTests(TenantTestCase):
             {'garment': 'saree', 'section': '', 'slot': 'BACKING_FABRIC'}])
         self.assertEqual(InventoryItem.objects.count(), 1)
         self.assertEqual(self.paths(data),
-                         ['Lehenga / Skirt / Main Fabric / Body', 'Saree / Backing'])
+                         ['Lehenga / Skirt / Body', 'Saree / Backing'])
 
     def test_every_lehenga_section(self):
         data = self.create(kind='BORDER', placements=[
@@ -254,7 +254,7 @@ class ItemPlacementTests(TenantTestCase):
         """A boutique may use what it has; the taxonomy is not a rule engine."""
         data = self.create(kind='DORI', variant='LATKAN_DORI', placements=[
             {'garment': 'lehenga', 'section': 'SKIRT', 'slot': 'MAIN_FABRIC'}])
-        self.assertEqual(self.paths(data), ['Lehenga / Skirt / Main Fabric / Body'])
+        self.assertEqual(self.paths(data), ['Lehenga / Skirt / Body'])
 
     # filtering ------------------------------------------------------------
 

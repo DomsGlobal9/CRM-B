@@ -118,8 +118,13 @@ def send_request_received(lead):
 
 
 def team_recipients():
+    """PLATFORM_ALERT_EMAIL plus SIGNUP_ALERT_EMAILS (the name feat/latency
+    used for the same alert), so whichever one an environment sets is heard."""
     raw = getattr(settings, 'PLATFORM_ALERT_EMAIL', '') or ''
-    return [address.strip() for address in raw.split(',') if address.strip()]
+    addresses = [a.strip() for a in raw.split(',') if a.strip()]
+    addresses += list(getattr(settings, 'SIGNUP_ALERT_EMAILS', []) or [])
+    seen = set()
+    return [a for a in addresses if not (a.lower() in seen or seen.add(a.lower()))]
 
 
 def send_team_alert(lead):

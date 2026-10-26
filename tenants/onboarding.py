@@ -25,6 +25,12 @@ from .provision import provision_tenant
 from .slugs import make_shop_slug
 
 
+#: The Terms & Conditions and Privacy Policy a requester accepts on the Request
+#: access form (its terms popup, frontend/src/constants/legal.js). Raise it
+#: whenever that text changes, so each boutique's record says which one it saw.
+TERMS_VERSION = '2026-10'
+
+
 class BoutiqueExists(Exception):
     """The owner email already owns a boutique. owner_email is unique platform-wide."""
 
@@ -59,7 +65,8 @@ def schema_name_for(email):
 def create_boutique(*, email, first_name, last_name, password,
                     business_name='', phone='', address='',
                     plan=DEFAULT_PLAN, temporary_password=False,
-                    customer_messaging_enabled=True, terms_accepted_at=None):
+                    customer_messaging_enabled=True, terms_accepted_at=None,
+                    terms_version=''):
     """Provision a boutique, its settings row and its owner account.
 
     Inputs must already be validated (core.validators). Runs in one
@@ -95,6 +102,7 @@ def create_boutique(*, email, first_name, last_name, password,
                 plan=plan,
                 owner_password_temporary=temporary_password,
                 terms_accepted_at=terms_accepted_at,
+                terms_version=terms_version,
             )
             Domain.objects.create(domain=f"{schema_name}.localhost",
                                   tenant=tenant, is_primary=True)
