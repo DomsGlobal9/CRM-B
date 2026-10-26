@@ -5905,6 +5905,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .dl-page .dl-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dl-page .dl-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
   .dl-page .dl-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The icon is centred above the figures, so the label, number and line
+     under it are centred too -- each line on the icon's axis, not a
+     left-aligned block of uneven lines sitting off-centre. */
+  .dl-page .dl-stats .at-stat-body { width: 100%; align-items: center; text-align: center; }
+  .dl-page .dl-stats .at-stat-label, .dl-page .dl-stats .at-stat-sub { max-width: 100%; }
   .dl-page .dl-cats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
   .dl-page .dl-cats .at-cat { position: relative; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; min-height: 0; }
   .dl-page .dl-cats .at-tile { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
