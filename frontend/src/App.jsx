@@ -1492,7 +1492,9 @@ const navSectionsFor = (user, t) => {
         { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
-        { tab: 'leads', icon: Target, label: t('nav.leads', 'Leads') },
+        // Hidden for now, not removed: `hidden` keeps it out of the sidebar and
+        // makes the page unreachable. Delete `hidden: true` to bring it back.
+        { tab: 'leads', icon: Target, label: t('nav.leads', 'Leads'), hidden: true },
       ] },
       { key: 'design', label: t('nav.groups.design', 'Design'), items: [
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
@@ -1555,7 +1557,7 @@ const navSectionsFor = (user, t) => {
 /* Drop what this user cannot reach, then drop any group left with nothing
    under it -- otherwise the sidebar grows headings over empty space. */
 const visibleNav = (user, t) => navSectionsFor(user, t)
-  .map((section) => ({ ...section, items: section.items.filter((i) => canSeeTab(user, i.tab)) }))
+  .map((section) => ({ ...section, items: section.items.filter((i) => !i.hidden && canSeeTab(user, i.tab)) }))
   .filter((section) => section.items.length);
 
 

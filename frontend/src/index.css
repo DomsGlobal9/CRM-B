@@ -7341,3 +7341,18 @@ button, input, select, textarea { font-family: inherit; }
 @media (max-width: 480px) {
   .od-design-grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
 }
+
+/* Customers > Sort: a small box sized to its longest choice ("Highest
+   spend"), its words centred in it, with its own arrow a fixed 9px from the
+   right edge. */
+.cf-top-end .cf-inline select.cf-select {
+  width: 128px !important; min-width: 0 !important; max-width: 100%;
+  height: 32px !important; min-height: 32px !important; padding: 0 26px 0 10px !important; line-height: 30px;
+  font-size: 12.5px; border-radius: 8px; text-overflow: ellipsis; white-space: nowrap;
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23545e58' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 9px center; background-size: 12px 12px;
+}
+@media (max-width: 640px) {
+  .cf-top-end .cf-inline select.cf-select { width: auto !important; flex: 1; }
+}
