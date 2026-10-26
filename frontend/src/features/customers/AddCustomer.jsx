@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, CheckCircle2, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User, X } from 'lucide-react';
+import { ArrowLeft, Check, CheckCircle2, ChevronDown, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, imageFilesError, nameError } from '../../services/validate';
 import { resolveMediaUrl } from '../../services/media';
@@ -449,6 +449,19 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [activeZone, setActiveZone] = useState('core');
+  // On a phone the sections are an accordion: a section's measurements open
+  // under it, and tapping the open one folds it away. Wider screens keep the
+  // section cards above one shared panel.
+  const [isPhone, setIsPhone] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 640px)').matches);
+  const [zoneOpen, setZoneOpen] = useState(true);
+  const zoneButtons = useRef({});
+  useEffect(() => {
+    const phone = window.matchMedia?.('(max-width: 640px)');
+    if (!phone) return undefined;
+    const onChange = (e) => setIsPhone(e.matches);
+    phone.addEventListener('change', onChange);
+    return () => phone.removeEventListener('change', onChange);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   // Who referred them, for a new customer only. Edit Customer never shows
   // this: a referral already recorded is the Referrals card's to change.
@@ -617,6 +630,68 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
   }, [searchQuery]);
 
   const activeZoneObj = MEASUREMENT_ZONES.find((z) => z.id === activeZone) || MEASUREMENT_ZONES[0];
+
+  // The open section's measurements: under the section cards on a wider
+  // screen, under the tapped section itself on a phone.
+  const zonePanel = (
+    <>
+      {/* Active Zone Garment Target Banner */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', marginBottom: 16,
+        borderRadius: '8px', background: 'var(--surface-2, #f8fafc)', border: '1px solid var(--border-color, #e2e8f0)',
+        fontSize: '12.5px', color: 'var(--text-secondary, #475569)'
+      }}>
+        <span style={{ fontSize: '14px' }}>🎯</span>
+        <span><strong>Used for:</strong> {activeZoneObj.garments}</span>
+      </div>
+
+      {/* Active Zone Fields: in numbered steps where the zone has them. */}
+      {activeZoneObj.steps?.map(([title, keys], i) => (
+        <div key={title} style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
+                        color: 'var(--brand-primary, #047857)', marginBottom: 8 }}>
+            Step {i + 1} · {title}
+          </div>
+          <div style={INCH_GRID}>
+            {keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
+          </div>
+        </div>
+      ))}
+      <div style={INCH_GRID}>
+        {!activeZoneObj.steps && activeZoneObj.keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
+        {activeZoneObj.other && customKeys.map((key) => (
+          <div key={key} style={{ position: 'relative' }}>
+            {inchInput(key, label(key))}
+            <button type="button" onClick={() => removeOther(key)} aria-label={`Remove ${label(key)}`} title="Remove"
+                    style={{ position: 'absolute', top: 6, right: 6, border: 'none', background: 'transparent',
+                             cursor: 'pointer', color: 'var(--text-tertiary, #9ca3af)', padding: 2 }}>
+              <X size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+      {activeZoneObj.other && (
+        <div style={{ marginTop: 12 }}>
+          <label className="form-label" htmlFor="cf-other-part" style={{ fontSize: '12px', fontWeight: 600 }}>
+            Other — add another body part
+          </label>
+          {customKeys.length > 0 && (
+            <div style={{ fontSize: '11px', color: 'var(--text-tertiary, #9ca3af)', marginBottom: 6 }}>
+              Other parts are kept for this customer and show in every section.
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input id="cf-other-part" type="text" className="form-control" maxLength={40} value={otherName}
+                   placeholder="e.g. Thigh, Calf, Armhole" style={{ maxWidth: 260, height: 36 }}
+                   onChange={(e) => setOtherName(e.target.value)}
+                   onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOther(); } }} />
+            <button type="button" className="btn-secondary" onClick={addOther}>+ Other</button>
+          </div>
+          {otherError && <div role="alert" style={{ fontSize: '12px', color: 'var(--danger, #b42318)', marginTop: 4 }}>{otherError}</div>}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <form className="selector-container" onSubmit={submit} noValidate>
@@ -808,11 +883,21 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
               {MEASUREMENT_ZONES.map((zone) => {
                 const isActive = activeZone === zone.id;
                 const count = zoneCounts[zone.id] || 0;
+                const openHere = isPhone && isActive && zoneOpen;
                 return (
+                  <React.Fragment key={zone.id}>
                   <button
-                    key={zone.id}
+                    ref={(el) => { zoneButtons.current[zone.id] = el; }}
                     type="button"
-                    onClick={() => setActiveZone(zone.id)}
+                    aria-expanded={isPhone ? openHere : undefined}
+                    onClick={() => {
+                      if (!isPhone) { setActiveZone(zone.id); return; }
+                      // A phone: tap the open section to fold it, any other to open it here.
+                      if (isActive) { setZoneOpen((open) => !open); return; }
+                      setActiveZone(zone.id);
+                      setZoneOpen(true);
+                      requestAnimationFrame(() => zoneButtons.current[zone.id]?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+                    }}
                     style={{
                       display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, padding: '10px 14px',
                       borderRadius: '10px', fontSize: '13px', fontWeight: isActive ? 700 : 600,
@@ -822,6 +907,8 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
                       color: isActive ? 'var(--brand-primary, #047857)' : '#0f172a',
                       boxShadow: isActive ? '0 2px 6px rgba(4, 120, 87, 0.15)' : '0 1px 2px rgba(0,0,0,0.03)',
                       transition: 'all 0.15s ease',
+                      // A tapped section scrolls to the top: clear of the phone's 66px header bar.
+                      scrollMarginTop: 80,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, width: '100%' }}>
@@ -834,9 +921,15 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
                           background: isActive ? 'var(--brand-primary, #047857)' : '#e2e8f0',
                           color: isActive ? '#ffffff' : '#334155',
                           flexShrink: 0,
+                          marginLeft: isPhone ? 'auto' : undefined,
                         }}>
                           {count}
                         </span>
+                      )}
+                      {isPhone && (
+                        <ChevronDown size={16} aria-hidden="true"
+                                     style={{ flexShrink: 0, marginLeft: count > 0 ? 0 : 'auto', transition: 'transform .15s ease',
+                                              transform: openHere ? 'rotate(180deg)' : 'none' }} />
                       )}
                     </div>
                     <span style={{
@@ -848,66 +941,17 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
                       {zone.garments}
                     </span>
                   </button>
+                  {openHere && (
+                    <div style={{ gridColumn: '1 / -1', padding: '4px 2px 8px' }}>
+                      {zonePanel}
+                    </div>
+                  )}
+                  </React.Fragment>
                 );
               })}
             </div>
 
-            {/* Active Zone Garment Target Banner */}
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', marginBottom: 16,
-              borderRadius: '8px', background: 'var(--surface-2, #f8fafc)', border: '1px solid var(--border-color, #e2e8f0)',
-              fontSize: '12.5px', color: 'var(--text-secondary, #475569)'
-            }}>
-              <span style={{ fontSize: '14px' }}>🎯</span>
-              <span><strong>Used for:</strong> {activeZoneObj.garments}</span>
-            </div>
-
-            {/* Active Zone Fields: in numbered steps where the zone has them. */}
-            {activeZoneObj.steps?.map(([title, keys], i) => (
-              <div key={title} style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
-                              color: 'var(--brand-primary, #047857)', marginBottom: 8 }}>
-                  Step {i + 1} · {title}
-                </div>
-                <div style={INCH_GRID}>
-                  {keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
-                </div>
-              </div>
-            ))}
-            <div style={INCH_GRID}>
-              {!activeZoneObj.steps && activeZoneObj.keys.map((key) => inchInput(key, activeZoneObj.labels?.[key] || label(key)))}
-              {activeZoneObj.other && customKeys.map((key) => (
-                <div key={key} style={{ position: 'relative' }}>
-                  {inchInput(key, label(key))}
-                  <button type="button" onClick={() => removeOther(key)} aria-label={`Remove ${label(key)}`} title="Remove"
-                          style={{ position: 'absolute', top: 6, right: 6, border: 'none', background: 'transparent',
-                                   cursor: 'pointer', color: 'var(--text-tertiary, #9ca3af)', padding: 2 }}>
-                    <X size={13} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            {activeZoneObj.other && (
-              <div style={{ marginTop: 12 }}>
-                <label className="form-label" htmlFor="cf-other-part" style={{ fontSize: '12px', fontWeight: 600 }}>
-                  Other — add another body part
-                </label>
-                {customKeys.length > 0 && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-tertiary, #9ca3af)', marginBottom: 6 }}>
-                    Other parts are kept for this customer and show in every section.
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input id="cf-other-part" type="text" className="form-control" maxLength={40} value={otherName}
-                         placeholder="e.g. Thigh, Calf, Armhole" style={{ maxWidth: 260, height: 36 }}
-                         onChange={(e) => setOtherName(e.target.value)}
-                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addOther(); } }} />
-                  <button type="button" className="btn-secondary" onClick={addOther}>+ Other</button>
-                </div>
-                {otherError && <div role="alert" style={{ fontSize: '12px', color: 'var(--danger, #b42318)', marginTop: 4 }}>{otherError}</div>}
-              </div>
-            )}
-
+            {!isPhone && zonePanel}
           </>
         )}
       </div>

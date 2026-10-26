@@ -4776,6 +4776,33 @@ table.data-table tbody tr:hover {
 .at-profile-id { display: flex; align-items: center; gap: var(--space-5); min-width: 0; flex: 1 1 360px; }
 .at-profile-stats { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 .at-profile-stat { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--surface-2); border: 1px solid var(--border-color); min-width: 150px; }
+/* A customer's page on a phone: the desktop row squeezed into two cramped
+   columns and the three facts stacked at uneven widths. Here the actions are
+   a tidy grid (New order first, full width; Go with Existing Design; then
+   Edit and Delete side by side), the profile is centred -- photo, its two
+   buttons side by side, name and badge, source, then phone, email and
+   address a line each -- and the facts are three equal tiles in one row. */
+@media (max-width: 640px) {
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right > button { justify-content: center; width: 100%; min-width: 0; }
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right > .btn-primary { grid-column: 1 / -1; order: -2; }
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right > .btn-secondary:has(+ .btn-primary) { grid-column: 1 / -1; order: -1; }
+
+  .customer-detail-view-container .at-profile-head { flex-direction: column; align-items: stretch; gap: 16px; padding: 18px 16px; }
+  .customer-detail-view-container .at-profile-id { flex-direction: column; align-items: center; text-align: center; gap: 14px; flex: 0 0 auto; }
+  .customer-detail-view-container .at-profile-id > div:first-child > div { flex-direction: row !important; flex-wrap: wrap; justify-content: center; }
+  .customer-detail-view-container .at-profile-id > div:last-child { width: 100%; }
+  .customer-detail-view-container .at-profile-id > div:last-child > div:first-child { justify-content: center; }
+  .customer-detail-view-container .at-profile-id .at-contact { flex-direction: column; align-items: center; gap: 6px; }
+  .customer-detail-view-container .at-profile-id .at-contact span { justify-content: center; max-width: 100%; overflow-wrap: anywhere; }
+
+  .customer-detail-view-container .at-profile-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .customer-detail-view-container .at-profile-stat {
+    min-width: 0; flex-direction: column; align-items: center; justify-content: flex-start;
+    text-align: center; gap: 6px; padding: 10px 6px;
+  }
+  .customer-detail-view-container .at-profile-stat .at-measure-value { overflow-wrap: anywhere; }
+}
 .at-measure-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-6); }
 .at-measure-row { display: flex; justify-content: space-between; gap: var(--space-3); padding: 9px 0; border-bottom: 1px solid var(--border-color); font-size: var(--text-sm); color: var(--text-secondary); }
 .at-measure-row strong { color: var(--text-primary); }
