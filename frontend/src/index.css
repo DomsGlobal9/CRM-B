@@ -6305,6 +6305,50 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .orders-book > tbody > tr > td:last-child > div { justify-content: center !important; }
 }
 
+/* ---- Orders / Workshop list on a tablet and a phone: a card per order ----
+   The stacked rows ran together in one tinted box, the Express edge only
+   ran down the first line, and "View" floated alone. Each order is now its
+   own card: number and customer, "Promised by" on one line, the steps in a
+   soft panel, the buttons across the card. Express edges the whole card.
+   Two cards to a row on a tablet. */
+@media (max-width: 1024px) {
+  .at-table-wrap:has(> .orders-book) { border: none; border-radius: 0; background: transparent; overflow: visible; }
+  .orders-book > tbody { display: flex !important; flex-direction: column; gap: 10px; }
+  .orders-book > tbody > tr {
+    display: flex !important; flex-direction: column; gap: 10px;
+    padding: 14px 16px !important; background: var(--surface-color);
+    border: 1px solid var(--border-color) !important; border-radius: 12px; box-shadow: var(--shadow-card);
+  }
+  .orders-book > tbody > tr:last-child { border-bottom: 1px solid var(--border-color) !important; }
+  .orders-book > tbody > tr > td { padding: 0 !important; }
+  .orders-book > tbody > tr > td:first-child { font-size: 15px; line-height: 1.5; }
+  .orders-book > tbody > tr.gh-express {
+    background: color-mix(in srgb, var(--danger-bg) 45%, var(--surface-color));
+    border-color: color-mix(in srgb, var(--danger-color) 30%, var(--border-color)) !important;
+    box-shadow: inset 4px 0 0 var(--danger-color), var(--shadow-card);
+  }
+  .orders-book > tbody > tr.gh-express > td:first-child { box-shadow: none; }
+  /* "Promised by" and its date on one line, under a hairline. */
+  .orders-book > tbody > tr > td:nth-child(4) {
+    display: flex !important; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding-top: 10px !important; border-top: 1px solid var(--border-color); font-weight: 600;
+  }
+  .orders-book > tbody > tr > td:nth-child(4)::before { margin: 0 !important; font-weight: 500; }
+  /* Where it stands: the steps together in a soft panel. */
+  .orders-book > tbody > tr > td:nth-child(5) .at-stage-strip {
+    margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2);
+  }
+  .orders-book > tbody > tr.gh-express > td:nth-child(5) .at-stage-strip { background: color-mix(in srgb, var(--surface-color) 70%, transparent); }
+  /* The buttons across the card: each as wide as its label, both growing to
+     fill the row; a label never wraps -- if two do not fit side by side, each
+     takes its own line. */
+  .orders-book > tbody > tr > td:last-child > div { justify-content: stretch !important; flex-wrap: wrap; }
+  .orders-book > tbody > tr > td:last-child > div > button { flex: 1 1 auto; justify-content: center; min-height: 40px; white-space: nowrap !important; }
+}
+@media (min-width: 601px) and (max-width: 1024px) {
+  .orders-book > tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+}
+
 /* ---- Order journey & tasks on a tablet and a phone ---------------------
    Below 1024px each step was a tall labelled card (TASK / STATUS /
    COMPLETED ON / button). Here the steps read as a timeline instead:
