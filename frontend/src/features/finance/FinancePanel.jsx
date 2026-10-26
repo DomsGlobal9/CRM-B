@@ -271,7 +271,7 @@ export default function FinancePanel() {
         <Loader page />
       ) : (
         <div className="at-stack">
-          <div className="at-stat-grid">
+          <div className="at-stat-grid fin-stats">
             <StatCard icon={TrendingUp} tone="green" label="Revenue" value={money(pnl.revenue.total)}
                       sub={Number(pnl.revenue.estimated) > 0
                         ? `includes ${money(pnl.revenue.estimated)} dated from the order`

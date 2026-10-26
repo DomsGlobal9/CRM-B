@@ -31,6 +31,7 @@ const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
+import PetticoatStylePicker from './features/catalog/PetticoatStylePicker';
 import GarmentPurchases from './features/catalog/GarmentPurchases';
 import { purchaseError } from './features/catalog/materials';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
@@ -53,6 +54,7 @@ import useAutosave from './hooks/useAutosave';
 import { followerOf, syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
+import { AccountMenu } from './components/ui/AccountMenu';
 import CustomerMessageQueue from './features/orders/CustomerMessageQueue';
 import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
@@ -68,6 +70,7 @@ import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig, findMatchingTemplate } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
+import { voiceNoteList } from './components/ui/voiceNotes';
 import Loader, { LoaderRows } from './components/ui/Loader';
 function getCustomerMeasurement(m, key) {
   if (!m) return undefined;
@@ -1177,20 +1180,22 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
   const [text, setText] = useState(order.special_instructions || '');
   const [state, setState] = useState('idle');
   const savedRef = useRef(order.special_instructions || '');
-  const [voiceNote, setVoiceNote] = useState({
-    url: order.instructions_voice_note || '', by: order.instructions_voice_note_by || '', at: order.instructions_voice_note_at || null,
-  });
+  // Up to ten voice notes: each Send adds one, each Delete takes that one
+  // away; the server stamps who sent a new one and when.
+  const [voiceNotes, setVoiceNotes] = useState(() => voiceNoteList(order.instructions_voice_notes,
+    order.instructions_voice_note
+      ? { url: order.instructions_voice_note, by: order.instructions_voice_note_by || '', at: order.instructions_voice_note_at || null }
+      : null));
+  const saveVoiceNotes = async (next) => {
+    const updated = await api.updateOrder(order.id, { instructions_voice_notes: next.map(n => ({ url: n.url })) });
+    setVoiceNotes(voiceNoteList(updated?.instructions_voice_notes));
+    if (onSaved) onSaved();
+  };
   const sendVoice = async (blob) => {
     const url = await api.uploadVoiceNote(blob);
-    const updated = await api.updateOrder(order.id, { instructions_voice_note: url });
-    setVoiceNote({ url, by: updated?.instructions_voice_note_by || '', at: updated?.instructions_voice_note_at || null });
-    if (onSaved) onSaved();
+    await saveVoiceNotes([...voiceNotes, { url }]);
   };
-  const deleteVoice = async () => {
-    await api.updateOrder(order.id, { instructions_voice_note: '' });
-    setVoiceNote({ url: '', by: '', at: null });
-    if (onSaved) onSaved();
-  };
+  const deleteVoice = (index) => saveVoiceNotes(voiceNotes.filter((_, i) => i !== index));
 
   const save = async () => {
     const value = text.trim();
@@ -1225,7 +1230,7 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
                     placeholder="Anything the workroom should know about this order…"
                     onChange={(e) => { setText(e.target.value); setState('idle'); }}
                     onBlur={() => save().catch(() => {})} />
-          <VoiceRecorder sent={voiceNote.url ? voiceNote : null} onSend={sendVoice} onDelete={deleteVoice} />
+          <VoiceRecorder notes={voiceNotes} onSend={sendVoice} onDelete={deleteVoice} />
           <div className="od-notes-foot">
             <span className={state === 'error' ? 'od-error' : 'od-hint'}>
               {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : state === 'error' ? 'Could not save, will retry' : 'Saves on its own'}
@@ -1236,13 +1241,15 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
       ) : (
         <>
           <p className="od-notes-text">{text}</p>
-          <VoiceNotePlayer src={voiceNote.url} />
-          {voiceNote.url && (
-            <div className="od-hint" style={{ marginTop: '4px' }}>
-              Voice note from <strong>{voiceNote.by || 'someone'}</strong>
-              {voiceNote.at ? ` · ${new Date(voiceNote.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
-            </div>
-          )}
+          {voiceNotes.map((note, index) => (
+            <React.Fragment key={`${note.url}:${index}`}>
+              <VoiceNotePlayer src={note.url} />
+              <div className="od-hint" style={{ marginTop: '4px' }}>
+                Voice note from <strong>{note.by || 'someone'}</strong>
+                {note.at ? ` · ${new Date(note.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
+              </div>
+            </React.Fragment>
+          ))}
         </>
       )}
     </section>
@@ -1584,8 +1591,10 @@ function PortalMenu({ sections, activeTab, onPick, collapsed = false, hints = {}
     <React.Fragment key={section.key}>
       {section.divider && <div className="portal-menu-divider" />}
       {section.label && <div className="portal-menu-group">{section.label}</div>}
-      {section.items.map(({ tab, icon, label }) => (
-        <NavItem key={tab} icon={icon} label={label} active={activeTab === tab}
+      {/* `match`: an item that stands for several tabs (Reports) is lit on any of them. */}
+      {section.items.map(({ tab, icon, label, match }) => (
+        <NavItem key={match ? match.join('+') : tab} icon={icon} label={label}
+                 active={match ? match.includes(activeTab) : activeTab === tab}
                  collapsed={collapsed} onClick={() => onPick(tab)} hint={hints[tab]} />
       ))}
     </React.Fragment>
@@ -1686,8 +1695,56 @@ function App() {
     })),
     { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => handleLogout() },
   ];
+  // The same account entries on a computer or tablet: the "Hi, <name>" chip at
+  // the top of every page opens them (the sidebar no longer lists them). A
+  // phone has MobileHeader's avatar menu instead, so the bar is hidden there.
+  const accountBar = (go) => (
+    <div className="portal-account-bar">
+      <AccountMenu avatar={<UserAvatar user={currentUser} />}
+                   label={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
+                   currentUser={currentUser} items={headerAccountItems(go)} />
+    </div>
+  );
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
+
+  // Reports: Profit & Costs and Insights under one sidebar item. Each is still
+  // its own tab and page; the switch at the top of both moves between them,
+  // and the sidebar item opens the one used last on this device. A plan
+  // without Profit & Costs gets Insights alone, with no switch.
+  const REPORT_TABS = ['finance', 'analytics'];
+  const reportTabs = REPORT_TABS.filter((tab) => navTabs.includes(tab));
+  useEffect(() => {
+    if (dashboardTab !== 'finance' && dashboardTab !== 'analytics') return;
+    try { localStorage.setItem('reports_tab', dashboardTab); } catch { /* per-device convenience only */ }
+  }, [dashboardTab]);
+  const reportsTab = REPORT_TABS.includes(dashboardTab) ? dashboardTab : (() => {
+    try { return localStorage.getItem('reports_tab') || 'finance'; } catch { return 'finance'; }
+  })();
+  // The sidebar: no Account group (it is the menu at the top of the page), and
+  // Reports in the place of Profit & Costs and Insights.
+  const sidebarSections = navSections
+    .filter((section) => section.key !== 'session')
+    .map((section) => {
+      const at = section.items.findIndex((item) => REPORT_TABS.includes(item.tab));
+      if (at === -1 || !reportTabs.length) return section;
+      const items = section.items.filter((item) => !REPORT_TABS.includes(item.tab));
+      items.splice(at, 0, {
+        tab: reportTabs.includes(reportsTab) ? reportsTab : reportTabs[0],
+        icon: BarChart2, label: t('nav.reports', 'Reports'), match: reportTabs,
+      });
+      return { ...section, items };
+    });
+  const reportsSwitch = reportTabs.length > 1 && (
+    <div className="reports-switch">
+      <span className="reports-switch-label">{t('nav.reports', 'Reports')}</span>
+      <Segmented ariaLabel={t('nav.reports', 'Reports')} value={dashboardTab}
+                 onChange={(tab) => { setDashboardTab(tab); window.scrollTo(0, 0); }}
+                 options={reportTabs.map((tab) => (tab === 'finance'
+                   ? { key: tab, label: t('nav.finance', 'Profit & Costs'), icon: Wallet }
+                   : { key: tab, label: t('nav.analytics', 'Insights'), icon: BarChart2 }))} />
+    </div>
+  );
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -1762,6 +1819,9 @@ function App() {
   }, []);
   
   const [addingGarmentKey, setAddingGarmentKey] = useState(null);
+  // "Add more garments to this order": folded shut again once the picked
+  // garments are on the order, so the list does not stay open under them.
+  const addMoreGarmentsRef = useRef(null);
   const [activeGarmentKey, setActiveGarmentKey] = useState(null);
   const [garmentsDone, setGarmentsDone] = useState([]);
 
@@ -1818,7 +1878,8 @@ function App() {
   const [designLinks, setDesignLinks] = useState('');
   const [advancePaymentAmount, setAdvancePaymentAmount] = useState(0);
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [measureVoiceNote, setMeasureVoiceNote] = useState(null);
+  // The wizard's voice notes for the tailor: up to ten, [{ url, by, at }].
+  const [measureVoiceNotes, setMeasureVoiceNotes] = useState([]);
 
   const [quotePrices, setQuotePrices] = useState({ packaging: 500, discount: 0 });
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -2133,10 +2194,14 @@ function App() {
           quantities: job.quantities || {},
           pricing: { ...(job.pricing || {}), fabric: jobMaterialsTotal(job) },
           design: wantsDesigner
-            ? { ...design, request: { designer: designerChoice, brief: designRequest.brief || '' } }
+            ? { ...design, request: { designer: designerChoice, brief: designRequest.brief || '',
+                                      voice_note: voiceNoteList(designRequest.voice_notes, designRequest.voice_note)[0]?.url || '',
+                                      voice_notes: voiceNoteList(designRequest.voice_notes, designRequest.voice_note) } }
             : design,
           fabrics: job.fabrics || {},
           fabric_qty: job.fabric_qty || {},
+          // The ticked accessories with their type, "Other" text and measurement.
+          accessories: job.accessories || {},
           sources: job.sources || {},
           brought: job.brought || {},
           materials: garmentMaterialLines(job),
@@ -2156,9 +2221,10 @@ function App() {
       delivery: { method: 'Direct Pickup' },
       payment: { option: total > 0 && advance >= total ? 'full' : 'partial', advance },
       special_instructions: specialInstructions,
-      instructions_voice_note: measureVoiceNote?.url || '',
-      instructions_voice_note_by: measureVoiceNote?.by || '',
-      instructions_voice_note_at: measureVoiceNote?.at || null,
+      instructions_voice_note: measureVoiceNotes[0]?.url || '',
+      instructions_voice_note_by: measureVoiceNotes[0]?.by || '',
+      instructions_voice_note_at: measureVoiceNotes[0]?.at || null,
+      instructions_voice_notes: measureVoiceNotes,
     };
   };
 
@@ -2200,6 +2266,7 @@ function App() {
           design: garment.design || {},
           fabrics: garment.fabrics || {},
           fabric_qty: garment.fabric_qty || {},
+          accessories: garment.accessories || {},
           purchases: garment.purchases || [],
         });
       } catch (err) {
@@ -2227,9 +2294,10 @@ function App() {
                                  discount: prices.discount ?? 0 });
     if (payment.advance !== undefined) setAdvancePaymentAmount(payment.advance);
     setSpecialInstructions(payload.special_instructions || '');
-    setMeasureVoiceNote(payload.instructions_voice_note
+    // A draft saved before there could be several keeps its one note.
+    setMeasureVoiceNotes(voiceNoteList(payload.instructions_voice_notes, payload.instructions_voice_note
       ? { url: payload.instructions_voice_note, by: payload.instructions_voice_note_by || '', at: payload.instructions_voice_note_at || null }
-      : null);
+      : null));
     setWizardError(null);
     setDraftSaveState('idle');
     setGarmentErrors({});
@@ -3096,7 +3164,7 @@ function App() {
     setQuotePrices({ packaging: 500, discount: 0 });
     setAdvancePaymentAmount(0);
     setSpecialInstructions('');
-    setMeasureVoiceNote(null);
+    setMeasureVoiceNotes([]);
     setReadyBy(plusDaysIso(15));
     setDesignRequest({ designer: '', brief: '' });
     setAlterationForm(EMPTY_ALTERATION);
@@ -3254,6 +3322,17 @@ function App() {
   const wizardStepKey = wizardSteps[currentStep - 1]?.key;
   /** The garment being filled in on the Garments step. */
   const openGarment = garmentJobs.find(job => job.key === activeGarmentKey) || garmentJobs[0] || null;
+  // An order of many garments makes their stepper wider than the card, so it
+  // scrolls sideways: keep the open garment's circle in view. Sideways only --
+  // the page itself is not moved.
+  useEffect(() => {
+    const bar = document.querySelector('.wz-type-wrap .stepper-progress-bar');
+    const step = bar?.querySelector('[aria-current="step"]');
+    if (!bar || !step || bar.scrollWidth <= bar.clientWidth) return;
+    const b = bar.getBoundingClientRect();
+    const s = step.getBoundingClientRect();
+    bar.scrollTo({ left: bar.scrollLeft + (s.left + s.width / 2) - (b.left + b.width / 2), behavior: 'instant' });
+  }, [openGarment?.key, garmentJobs.length, wizardStepKey]);
   /** Open a garment's form from its top. */
   const openGarmentAt = (key) => {
     setActiveGarmentKey(key);
@@ -4143,28 +4222,12 @@ function App() {
             Back to Home
           </button>
 
-          {/* The boutique this address belongs to, above the platform's own
-              mark: the person signing in came here for their boutique, and
-              Scaleezy is what it runs on. One line, ellipsised, so a long name
-              never pushes the card down the page. */}
-          {portalBoutique?.name && (
-            <div style={{ maxWidth: '520px', width: '100%', textAlign: 'center', marginBottom: '16px' }}>
-              {/* --shell-accent is each theme's own highlight on --shell-bg,
-                  so the name stays legible in every design system and in light
-                  mode. inline-block so the rule underneath is as wide as the
-                  name rather than the column. */}
-              <span className="auth-boutique-name" title={portalBoutique.name}
-                    style={{ display: 'inline-block', maxWidth: '100%', fontSize: '34px', fontWeight: 700, lineHeight: 1.15, letterSpacing: '-0.3px', color: 'var(--shell-accent, #B9D53C)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'bottom', paddingBottom: '8px', borderBottom: '2px solid color-mix(in srgb, var(--shell-accent, #B9D53C) 55%, transparent)' }}>
-                {portalBoutique.name}
-              </span>
-            </div>
-          )}
           <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '18px' }}>YOUR VISION. OUR CRAFT.</div>
 
           <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 5vw, 32px)', gap: '16px', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>{justRegistered ? 'Your boutique is ready 🎉' : portalBoutique?.owner_first_name ? `Welcome back, ${portalBoutique.owner_first_name} 👋` : 'Welcome back 👋'}</h2>
-            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '-8px 0 8px 0' }}>{justRegistered ? 'Sign in with the email and password you just created.' : 'Login to continue your custom creation journey.'}</p>
+            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>{justRegistered ? 'Your boutique is ready 🎉' : 'Welcome back 👋'}</h2>
+            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '-8px 0 8px 0' }}>{justRegistered ? 'Sign in with the email and password you just created.' : 'Log in to your workspace.'}</p>
             
             <form onSubmit={handleLoginSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -4722,7 +4785,7 @@ function App() {
 
             <nav className="portal-menu">
               <PortalMenu
-                sections={navSections}
+                sections={sidebarSections}
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
                 hints={sidebarHint}
@@ -4736,8 +4799,6 @@ function App() {
                   setMobileNavOpen(false);
                 }}
               />
-              <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
-                       onClick={() => { setMobileNavOpen(false); handleLogout(); }} />
             </nav>
 
 
@@ -4745,6 +4806,7 @@ function App() {
 
           {/* Main Content Area */}
           <main className="portal-main" key={`${dashboardTab}:${sectionVisit}`}>
+            {accountBar((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}
             {(dashboardTab === 'work' || dashboardTab === 'done' || dashboardTab === 'check') && (
               <>
                 <PageHeader
@@ -4793,12 +4855,6 @@ function App() {
                           </span>
                         )}
                       </button>
-                      <div className="user-profile-widget">
-                        <div className="user-avatar-circle">
-                          <UserAvatar user={currentUser} />
-                        </div>
-                        <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                      </div>
                     </>
                   )}
                   actions={(
@@ -4885,7 +4941,7 @@ function App() {
                   const outstanding = Number(s.outstanding) || 0;
                   const overdue = Number(s.overdue) || 0;
                   return (
-                    <section className="at-stat-grid" style={{ marginBottom: 'var(--space-5)' }}>
+                    <section className="at-stat-grid dash-stats" style={{ marginBottom: 'var(--space-5)' }}>
                       <StatCard icon={TrendingUp} tone="green" label={t('dashboard.revenueThisMonth', 'Revenue this month')}
                                 value={inr(s.revenue_month)} sub={t('dashboard.allTime', '{amount} all time', { amount: inr(s.revenue_total) })}
                                 onClick={() => { setInvoiceFilter('All'); setDashboardTab('invoices'); }} />
@@ -5033,7 +5089,7 @@ function App() {
                       was made the button vanished and there was no way to make a
                       second. It belongs in the header, where it is there whether
                       the list is empty or not. */}
-                  <SectionCard icon={Calendar} tone="green" style={{ flex: 1 }}
+                  <SectionCard icon={Calendar} tone="green" style={{ flex: 1 }} className="dash-appointments"
                                title={t('dashboard.appointments', 'Appointments')}
                                subtitle={t('dashboard.appointmentsSub', 'Consultations, trials and deliveries still to come')}
                                action={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}
@@ -5160,9 +5216,12 @@ function App() {
             )}
 
             {dashboardTab === 'finance' && (
-              <Suspense fallback={<ScreenLoading />}>
-                <FinancePanel />
-              </Suspense>
+              <>
+                {reportsSwitch}
+                <Suspense fallback={<ScreenLoading />}>
+                  <FinancePanel />
+                </Suspense>
+              </>
             )}
 
 
@@ -5177,14 +5236,6 @@ function App() {
                 <PageHeader
                   title={t('designsPage.title')}
                   subtitle={t('designsPage.subtitle')}
-                  aside={(
-                    <div className="user-profile-widget">
-                      <div className="user-avatar-circle">
-                        <UserAvatar user={currentUser} />
-                      </div>
-                      <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                    </div>
-                  )}
                   actions={(!currentUser?.role || currentUser.role === 'Owner') && (
                       <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setShowDesignUpload(true)}>
                         <Plus size={16} />
@@ -5504,10 +5555,10 @@ function App() {
                             <span className="od-section-sub">{t('ordersPage.orderJourneySub', 'Track and manage tasks for this order')}</span>
                           </div>
                           {stages.length > 0 && (
-                            <div className="od-head-actions od-progress">
-                              <span className="od-progress-text">{stepChip}</span>
+                            /* The bar alone; "1 of 11 tasks completed" stays as its
+                               tooltip and its accessible name. */
+                            <div className="od-head-actions od-progress" title={stepChip} role="img" aria-label={stepChip}>
                               <span className="od-progress-bar"><ProgressBar pct={Math.round((tasksDone / journey.length) * 100)} tone="green" /></span>
-                              <span className="od-progress-pct">{Math.round((tasksDone / journey.length) * 100)}%</span>
                             </div>
                           )}
                         </div>
@@ -6055,12 +6106,6 @@ function App() {
                   aside={(
                     <>
                       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder={t('customersPage.searchPlaceholder')} />
-                      <div className="user-profile-widget">
-                        <div className="user-avatar-circle">
-                          <UserAvatar user={currentUser} />
-                        </div>
-                        <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                      </div>
                     </>
                   )}
                   actions={canAddCustomer && (
@@ -6180,7 +6225,7 @@ function App() {
                             <th style={{ width: canAddCustomer ? '24%' : '26%' }}>Body measurements</th>
                             <th style={{ width: canAddCustomer ? '12%' : '13%' }}>Style notes</th>
                             <th style={{ width: canAddCustomer ? '18%' : '18%' }}>Orders</th>
-                            <th style={{ width: canAddCustomer ? '20%' : '14%' }}></th>
+                            <th style={{ width: canAddCustomer ? '20%' : '14%' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -6805,14 +6850,6 @@ function App() {
                 <PageHeader
                   title={t('invoicesPage.title', 'Invoices & Billing')}
                   subtitle={t('invoicesPage.subtitle', 'Manage invoices, verify billing payments, and print receipts.')}
-                  aside={(
-                    <div className="user-profile-widget">
-                      <div className="user-avatar-circle">
-                        <UserAvatar user={currentUser} />
-                      </div>
-                      <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                    </div>
-                  )}
                 />
 
                 <section className="at-stat-grid bill-stats">
@@ -6942,36 +6979,16 @@ function App() {
                               {formatMoney(balance)}
                             </td>
                             <td data-label={t('common.status', 'Payment Status')} style={{ overflow: 'hidden' }}>
-                              {/* The select is the status: its value is the badge the
-                                  ledger used to draw beside it, in the badge's colour. */}
-                              <span className={`ui-badge ui-badge--${statusTone(order.payment_status)}`} style={{ display: 'inline-flex', padding: 0, maxWidth: '100%' }}>
-                                <select
-                                  value={order.payment_status}
-                                  disabled={savingPaymentId === order.id}
-                                  aria-label={`Payment status for invoice ${orderRef(order)}`}
-                                  onChange={async (e) => {
-                                    setSavingPaymentId(order.id);
-                                    try {
-                                      await api.updateOrder(order.id, { payment_status: e.target.value });
-                                      fetchDashboardAndConfig();
-                                    } catch (err) {
-                                      e.target.value = order.payment_status;
-                                      setPaymentError(`Could not update ${orderRef(order)} — ${err.message}`);
-                                    } finally {
-                                      setSavingPaymentId(null);
-                                    }
-                                  }}
-                                  className="form-control"
-                                  style={{ padding: '0 26px 0 10px', fontSize: '12px', fontWeight: 600, width: '100%', maxWidth: '150px', minWidth: '96px', margin: 0, minHeight: 0, height: '30px', color: 'inherit', border: 'none', borderRadius: '999px', background: 'transparent', cursor: 'pointer' }}
-                                >
-                                  {/* "Partially Paid" is a *derived* label, not a thing to
-                                      choose; it appears only as the current value. */}
-                                  <option value="Pending">{t('invoicesPage.pending', 'Pending')}</option>
-                                  {order.payment_status === 'Partially Paid' && (
-                                    <option value="Partially Paid">{t('invoicesPage.partiallyPaid', 'Partially Paid')}</option>
-                                  )}
-                                  <option value="Paid">{t('invoicesPage.paid', 'Paid')}</option>
-                                </select>
+                              {/* Read-only: the status follows the amount in Paid so far (the
+                                  backend derives it), so it is shown as a badge, not a choice --
+                                  a bill paid in full cannot be set back to Unpaid by hand. */}
+                              <span className={`ui-badge ui-badge--${statusTone(order.payment_status)}`}
+                                    title={t('invoicesPage.statusFromPayment', 'Set by the amount paid')}
+                                    style={{ display: 'inline-flex', alignItems: 'center', height: '30px', padding: '0 14px', fontSize: '12px', fontWeight: 600, maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {order.payment_status === 'Paid' ? t('invoicesPage.paid', 'Paid')
+                                  : order.payment_status === 'Partially Paid' ? t('invoicesPage.partiallyPaid', 'Partially Paid')
+                                  : order.payment_status === 'Pending' ? t('invoicesPage.pending', 'Pending')
+                                  : order.payment_status}
                               </span>
                             </td>
                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -7053,20 +7070,13 @@ function App() {
 
               return (
                 <>
+                  {reportsSwitch}
                   <PageHeader
                     title={t('analyticsPage.title', 'Business Analytics & Trends')}
                     subtitle={t('analyticsPage.subtitle', 'Summary of revenues, style preferences, and operations workload.')}
-                    aside={(
-                      <div className="user-profile-widget">
-                        <div className="user-avatar-circle">
-                          <UserAvatar user={currentUser} />
-                        </div>
-                        <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                      </div>
-                    )}
                   />
 
-                  <section className="at-stat-grid" style={{ marginBottom: 'var(--space-5)' }}>
+                  <section className="at-stat-grid insights-stats" style={{ marginBottom: 'var(--space-5)' }}>
                     <StatCard icon={Coins} tone="green" label={t('analyticsPage.collectedRevenue', 'Collected Revenue')}
                               value={inr(paidRevenue)} sub={t('analyticsPage.fromPaidOrders', 'From paid customer orders')} />
                     <StatCard icon={Receipt} tone="amber" label={t('analyticsPage.pendingInvoices', 'Pending Invoices')}
@@ -7186,14 +7196,6 @@ function App() {
                 <PageHeader
                   title={t('accountPage.title')}
                   subtitle={t('accountPage.subtitle')}
-                  aside={(
-                    <div className="user-profile-widget">
-                      <div className="user-avatar-circle">
-                        <UserAvatar user={currentUser} />
-                      </div>
-                      <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                    </div>
-                  )}
                 />
 
                 <div className="account-settings-container at-account">
@@ -7794,17 +7796,16 @@ function App() {
             
             <nav className="portal-menu">
               <PortalMenu
-                sections={navSections}
+                sections={sidebarSections}
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
                 onPick={(tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); }}
               />
-              <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
-                       onClick={() => { setMobileNavOpen(false); handleLogout(); }} />
             </nav>
           </aside>
 
           <main className="portal-main">
+            {accountBar((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })}
             <div className="selector-container">
               <div className="selector-header">
                 <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{t('entry.newOrderTitle', 'New order')}</h1>
@@ -8352,8 +8353,7 @@ function App() {
                           const source = job.sameAs && garmentJobs.find(j => j.key === job.sameAs);
                           if (source) {
                             return (
-                              <div className="od-hint" style={{ margin: '0 0 12px', padding: '10px 12px', borderRadius: '10px',
-                                                                 background: 'var(--surface-inset)', border: '1px dashed var(--border-color)' }}>
+                              <div className="od-hint wz-same-hint">
                                 <Copy size={13} style={{ verticalAlign: '-2px' }} />{' '}
                                 {t('wizard.sameDesignAs', 'Same design as {name}: filled in from it as you go. Change anything here and this one becomes its own design.', { name: garmentLabel(source) })}
                               </div>
@@ -8362,26 +8362,24 @@ function App() {
                           if (job.pairedWith) return null;
                           const total = garmentJobs.filter(j => j.template?.key === job.template?.key).length;
                           const followers = garmentJobs.filter(j => j.sameAs === job.key).length;
-                          const stepBtn = { width: '32px', height: '32px', padding: 0, justifyContent: 'center', fontSize: '18px', lineHeight: 1 };
                           return (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', margin: '0 0 12px',
-                                          padding: '10px 12px', borderRadius: '10px', background: 'var(--surface-inset)' }}>
-                              <span style={{ fontSize: '13px', fontWeight: 600 }}>
+                            <div className="wz-qty">
+                              <span className="wz-qty-label">
                                 {t('wizard.howMany', 'How many {name}?', { name: job.template.name })}
                               </span>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                                <button type="button" className="btn-secondary" style={stepBtn} disabled={!followers}
+                              <span className="wz-qty-stepper">
+                                <button type="button" className="wz-qty-btn" disabled={!followers}
                                         aria-label={t('wizard.oneFewer', 'One fewer of the same design')} onClick={() => dropFollower(job.key)}>−</button>
-                                <span aria-live="polite" style={{ minWidth: '22px', textAlign: 'center', fontWeight: 700 }}>{total}</span>
-                                <button type="button" className="btn-secondary" style={stepBtn}
+                                <span aria-live="polite" className="wz-qty-num">{total}</span>
+                                <button type="button" className="wz-qty-btn"
                                         aria-label={t('wizard.oneMoreSame', 'One more, same design')} onClick={() => copyGarment(job.key)}>+</button>
                               </span>
-                              <button type="button" className="btn-secondary at-btn-sm" style={{ marginLeft: 'auto' }}
+                              <button type="button" className="btn-secondary at-btn-sm wz-qty-other"
                                       disabled={!!addingGarmentKey} onClick={() => addAnotherOf(job)}>
                                 <Plus size={12} /> {t('wizard.anotherDifferent', 'One with a different design')}
                               </button>
                               {followers > 0 && (
-                                <div className="od-hint" style={{ flexBasis: '100%' }}>
+                                <div className="od-hint wz-qty-hint">
                                   {t('wizard.followersHint', '{n} more with the same design: whatever you fill here is copied to them. Change one and it becomes its own design.', { n: followers })}
                                 </div>
                               )}
@@ -8390,7 +8388,14 @@ function App() {
                         })()}
 
                         <details open className="wz-sec wz-sec--first">
-                          <summary className="wz-sec-head"><span>{t('wizard.detailsTitle', 'Details')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
+                          <summary className="wz-sec-head">
+                            <span className="wz-sec-icon" aria-hidden><ClipboardList size={17} /></span>
+                            <span className="wz-sec-titles">
+                              <span className="wz-sec-title">{t('wizard.detailsTitle', 'Details')}</span>
+                              <span className="wz-sec-sub">{t('wizard.detailsSub', 'The style, and anything special')}</span>
+                            </span>
+                            <ChevronDown size={18} className="wz-sec-chev" aria-hidden />
+                          </summary>
                         {sections.map((sectionKey) => (
                           <div key={sectionKey} className="wz-garment-section">
                             <TemplateForm template={job.template} section={sectionKey} values={job.values}
@@ -8419,17 +8424,21 @@ function App() {
                               Kept in the template's `audio_note` field, so it is
                               stored with the garment and played on its summary. */}
                           {job.template.sections.some(sec => sec.fields.some(f => f.key === 'audio_note')) && (
+                            /* Up to ten, kept as a list ([{ url, by, at }]); a garment
+                               saved before keeps its one clip (a URL) as the first. */
                             <VoiceRecorder
-                              sent={job.values?.audio_note ? { url: job.values.audio_note, by: 'you' } : null}
+                              notes={voiceNoteList(job.values?.audio_note)}
                               onSend={async (blob) => {
                                 const url = await api.uploadVoiceNote(blob);
+                                const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
                                 setGarmentJobs(prev => prev.map(j => (j.key === job.key
-                                  ? { ...j, values: { ...j.values, audio_note: url } } : j)));
+                                  ? { ...j, values: { ...j.values, audio_note: [...voiceNoteList(j.values?.audio_note), { url, by, at: new Date().toISOString() }] } } : j)));
                               }}
-                              onDelete={() => setGarmentJobs(prev => prev.map(j => {
+                              onDelete={(index) => setGarmentJobs(prev => prev.map(j => {
                                 if (j.key !== job.key) return j;
                                 const rest = { ...j.values };
-                                delete rest.audio_note;
+                                const left = voiceNoteList(j.values?.audio_note).filter((_, i) => i !== index);
+                                if (left.length) rest.audio_note = left; else delete rest.audio_note;
                                 return { ...j, values: rest };
                               }))}
                             />
@@ -8438,54 +8447,55 @@ function App() {
                         </details>
 
                         {/* THE LOOK: part of this garment's own card, under its details. */}
-                        <details open id={`wz-design-${job.key}`} className="wz-sec">
-                          <summary className="wz-sec-head"><span>{t('wizard.designTitle', 'Choose design')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
+                        <details id={`wz-design-${job.key}`} className="wz-sec">
+                          <summary className="wz-sec-head">
+                            <span className="wz-sec-icon" aria-hidden><Palette size={17} /></span>
+                            <span className="wz-sec-titles">
+                              <span className="wz-sec-title">{t('wizard.designTitle', 'Choose design')}</span>
+                              <span className="wz-sec-sub">{t('wizard.designSub', 'How the look is decided, plus trims')}</span>
+                            </span>
+                            <ChevronDown size={18} className="wz-sec-chev" aria-hidden />
+                          </summary>
 
-                        {/* The three ways to choose a design, side by side; a phone stacks them. */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
+                        {/* A petticoat is not designed: its styles as pictures, in
+                            place of the three cards. The choice is the template's
+                            petticoat_style, saved with the garment's other details. */}
+                        {job.template?.key === 'petticoat' ? (
+                          <PetticoatStylePicker value={job.values?.petticoat_style || ''}
+                                                onChange={(style) => updateGarmentValues(job.key, { ...(job.values || {}), petticoat_style: style })} />
+                        ) : (
+                        /* The three ways to choose a design, side by side; a narrow screen stacks them as rows. */
+                        <div className="wz-dchoices">
+                          <div className="od-hint wz-dchoices-hint">{t('wizard.designChoiceHint', 'Use one or more: a look from our catalogue, the customer’s own photos, or a new design by our designer.')}</div>
                           <button
                             type="button"
-                            className={`wz-service ${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'wz-choice--on' : '' }`}
+                            className={`wz-dchoice${ partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? ' wz-dchoice--on' : '' }`}
                             onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'catalogue' }))}
-                            style={{
-                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                              background: 'var(--surface-color, #ffffff)',
-                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
-                            }}
                           >
-                            <IconTile icon={Sparkles} tone={partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'green' : 'neutral'} size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetCatalogue', 'Pick a look from our catalogue')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Browse and choose design looks directly from your boutique catalogue.</span>
+                            <IconTile icon={Sparkles} tone={partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? 'green' : 'neutral'} size={40} iconSize={19} className="wz-dchoice-icon" />
+                            <span className="wz-dchoice-title">{t('wizard.sheetCatalogue', 'Pick a look from our catalogue')}</span>
+                            <span className="wz-dchoice-desc">Browse and choose design looks directly from your boutique catalogue.</span>
                             {partSelection[job.key] && Object.keys(partSelection[job.key]).length > 0 ? (
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>✓ Design selected (Click to view/change)</span>
+                              <span className="wz-dchoice-status wz-dchoice-status--on">✓ Design selected (Click to view/change)</span>
                             ) : (
-                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to open catalogue →</span>
+                              <span className="wz-dchoice-status">Click to open catalogue →</span>
                             )}
                           </button>
 
                           <button
                             type="button"
-                            className={`wz-service ${ partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'wz-choice--on' : '' }`}
+                            className={`wz-dchoice${ partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? ' wz-dchoice--on' : '' }`}
                             onClick={() => setActiveDesignTab(prev => ({ ...prev, [job.key]: 'references' }))}
-                            style={{
-                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                              background: 'var(--surface-color, #ffffff)',
-                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
-                            }}
                           >
-                            <IconTile icon={Camera} tone={partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'amber' : 'neutral'} size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('wizard.sheetPhotos', 'Photos & references from customer')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Upload customer photos or add web links as reference for this garment.</span>
+                            <IconTile icon={Camera} tone={partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? 'amber' : 'neutral'} size={40} iconSize={19} className="wz-dchoice-icon" />
+                            <span className="wz-dchoice-title">{t('wizard.sheetPhotos', 'Photos & references from customer')}</span>
+                            <span className="wz-dchoice-desc">Upload customer photos or add web links as reference for this garment.</span>
                             {partReferences[job.key] && Object.values(partReferences[job.key]).flat().length > 0 ? (
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>
+                              <span className="wz-dchoice-status wz-dchoice-status--on">
                                 ✓ {Object.values(partReferences[job.key]).flat().length} reference(s) added
                               </span>
                             ) : (
-                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>Click to add photos or links →</span>
+                              <span className="wz-dchoice-status">Click to add photos or links →</span>
                             )}
                           </button>
 
@@ -8494,27 +8504,21 @@ function App() {
                               choice (a designer is assigned once, for the order). */}
                           <button
                             type="button"
-                            className={`wz-service ${serviceType === 'design' ? 'wz-choice--on' : ''}`}
+                            className={`wz-dchoice${serviceType === 'design' ? ' wz-dchoice--on' : ''}`}
                             aria-pressed={serviceType === 'design'}
                             onClick={() => setServiceType(prev => (prev === 'design' ? 'stitch' : 'design'))}
-                            style={{
-                              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px', padding: '18px', textAlign: 'left', height: '100%', width: '100%',
-                              borderRadius: 'var(--radius-lg, 12px)',
-                              border: serviceType === 'design' ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                              background: 'var(--surface-color, #ffffff)',
-                              boxShadow: 'var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04))',
-                            }}
                           >
-                            <IconTile icon={PenTool} tone={serviceType === 'design' ? 'green' : 'neutral'} size={44} iconSize={20} />
-                            <span className="wz-service-title" style={{ fontSize: '16.5px', fontWeight: 600, marginTop: '2px' }}>{t('entry.serviceDesign', 'Design something new')}</span>
-                            <span className="wz-service-desc" style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
+                            <IconTile icon={PenTool} tone={serviceType === 'design' ? 'green' : 'neutral'} size={40} iconSize={19} className="wz-dchoice-icon" />
+                            <span className="wz-dchoice-title">{t('entry.serviceDesign', 'Design something new')}</span>
+                            <span className="wz-dchoice-desc">{t('entry.serviceDesignDesc', 'Our designer draws it for the customer, then we stitch it.')}</span>
                             {serviceType === 'design' ? (
-                              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--primary-color)', marginTop: 'auto', paddingTop: '6px' }}>✓ {t('wizard.designerChosenBelow', 'Pick the designer below (click to undo)')}</span>
+                              <span className="wz-dchoice-status wz-dchoice-status--on">✓ {t('wizard.designerChosenBelow', 'Pick the designer below (click to undo)')}</span>
                             ) : (
-                              <span style={{ fontSize: '12px', color: 'var(--brand-link, #2563eb)', fontWeight: 500, marginTop: 'auto', paddingTop: '6px' }}>{t('wizard.askDesigner', 'Click to ask our designer →')}</span>
+                              <span className="wz-dchoice-status">{t('wizard.askDesigner', 'Click to ask our designer →')}</span>
                             )}
                           </button>
                         </div>
+                        )}
 
                         {/* Everything picked for this garment, split by where it
                             came from -- our catalogue, or the customer -- each
@@ -8623,7 +8627,7 @@ function App() {
 
 
                   {serviceType === 'design' && (
-                    <div className="wz-garment" style={{ marginTop: '18px' }}>
+                    <div className="wz-designer">
                       <div className="wz-garment-head"><div className="wz-garment-name">{t('wizard.designerTitle', 'Who will design it?')}</div></div>
                       {/* No designer on the team: the person taking the order
                           designs it ("Me"), the only choice. */}
@@ -8649,6 +8653,22 @@ function App() {
                         <textarea id="wz-brief" className="form-control" rows={4} value={designRequest.brief} maxLength={LIMITS.note}
                                   onChange={(e) => setDesignRequest({ ...designRequest, brief: e.target.value })}
                                   placeholder={t('wizard.briefPlaceholder', 'e.g. A peplum blouse with a scalloped hem, in the green of the saree border.')} />
+                        {/* Or say it: the same recorder the tailor's notes use. Text,
+                            a voice note or both; the clip is held on the draft and
+                            reaches the designer with the brief at confirm. */}
+                        {/* Up to ten: each Send adds one (voice_notes); a draft
+                            from before keeps its one voice_note as the first. */}
+                        <VoiceRecorder
+                          notes={voiceNoteList(designRequest.voice_notes, designRequest.voice_note)}
+                          onSend={async (blob) => {
+                            const url = await api.uploadVoiceNote(blob);
+                            const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
+                            setDesignRequest(prev => ({ ...prev, voice_note: null,
+                              voice_notes: [...voiceNoteList(prev.voice_notes, prev.voice_note), { url, by, at: new Date().toISOString() }] }));
+                          }}
+                          onDelete={(index) => setDesignRequest(prev => ({ ...prev, voice_note: null,
+                            voice_notes: voiceNoteList(prev.voice_notes, prev.voice_note).filter((_, i) => i !== index) }))}
+                        />
                       </div>
                     </div>
                   )}
@@ -8656,10 +8676,10 @@ function App() {
 
                         {/* Trims and accessories belong to the look, so they sit
                             under Design rather than Fabric (MOM, 2026-10-24). */}
-                        <details className="wz-more">
+                        <details className="wz-more wz-trims">
                           <summary><Package size={14} /> {t('wizard.sheetTrims', 'Trims & accessories')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                           {canSeeTab(currentUser, 'inventory') && (
-                            <details className="wz-more" open>
+                            <details className="wz-more wz-trims-group" open>
                               <summary><Package size={14} /> {t('wizard.sheetBoutiqueAccessories', 'Boutique Accessories & Trims')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                               <Suspense fallback={<ScreenLoading />}>
                                 <GarmentFabricPicker
@@ -8668,11 +8688,13 @@ function App() {
                                   taxonomy={fabricTaxonomy}
                                   selection={fabricSelection}
                                   onChange={handleFabricSelection}
+                                  accessoryDetails={{ [job.key]: job.accessories || {} }}
+                                  onAccessoryDetailsChange={(jobKey, next) => setGarmentJobs(prev => prev.map(j => (j.key === jobKey ? { ...j, accessories: next } : j)))}
                                   accessoriesOnly />
                               </Suspense>
                             </details>
                           )}
-                          <details className="wz-more" open>
+                          <details className="wz-more wz-trims-group" open>
                             <summary><Package size={14} /> {t('wizard.sheetCustomerAccessories', 'Customer Accessories (My Accessories)')} <span className="od-hint">({t('common.optional', 'optional')})</span></summary>
                             <Suspense fallback={<ScreenLoading />}>
                               <GarmentPartPicker ownOnly isFabric accessoriesOnly
@@ -8687,8 +8709,15 @@ function App() {
                         </details>
 
                         {/* FABRIC: part of this garment's own card, under its details. */}
-                        <details open id={`wz-fabric-${job.key}`} className="wz-sec">
-                          <summary className="wz-sec-head"><span>{t('wizard.fabricTitle', 'Choose fabric')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
+                        <details id={`wz-fabric-${job.key}`} className="wz-sec">
+                          <summary className="wz-sec-head">
+                            <span className="wz-sec-icon" aria-hidden><Layers size={17} /></span>
+                            <span className="wz-sec-titles">
+                              <span className="wz-sec-title">{t('wizard.fabricTitle', 'Choose fabric')}</span>
+                              <span className="wz-sec-sub">{t('wizard.fabricSub', 'Where the cloth comes from')}</span>
+                            </span>
+                            <ChevronDown size={18} className="wz-sec-chev" aria-hidden />
+                          </summary>
 
                         {/* Where the cloth comes from -- the template's own
                             fabric_source field, so it travels with the garment. */}
@@ -8779,8 +8808,7 @@ function App() {
                           const prevJob = garmentJobs[idx - 1];
                           if (!nextJob && !prevJob) return null;
                           return (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px',
-                                          flexWrap: 'wrap', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                            <div className="wz-gnav">
                               {prevJob ? (
                                 <button type="button" className="btn-secondary" onClick={() => openGarmentAt(prevJob.key)}>
                                   <ArrowLeft size={16} /> {garmentLabel(prevJob)}
@@ -8801,7 +8829,7 @@ function App() {
 
                   {/* Another garment, once this one is filled in. */}
                   {garmentJobs.length > 0 && (
-                    <details className="wz-more">
+                    <details ref={addMoreGarmentsRef} className="wz-more wz-addmore">
                       <summary><Plus size={14} /> {t('wizard.addMoreGarments', 'Add more garments to this order')}</summary>
                       <div style={{ marginTop: '10px' }}>
                         <DressesDropdown compact
@@ -8811,7 +8839,10 @@ function App() {
                           addingGarmentKey={addingGarmentKey}
                           garmentTemplatesError={garmentTemplatesError}
                           loadGarmentTemplates={loadGarmentTemplates}
-                          addGarments={async (keys) => { await addGarments(keys); }}
+                          addGarments={async (keys) => {
+                            await addGarments(keys);
+                            if (addMoreGarmentsRef.current) addMoreGarmentsRef.current.open = false;
+                          }}
                         />
                       </div>
                     </details>
@@ -8889,13 +8920,13 @@ function App() {
                                    onChange={(e) => setSpecialInstructions(e.target.value)}
                                    placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
                     <VoiceRecorder
-                      sent={measureVoiceNote}
+                      notes={measureVoiceNotes}
                       onSend={async (blob) => {
                         const url = await api.uploadVoiceNote(blob);
                         const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
-                        setMeasureVoiceNote({ url, by, at: new Date().toISOString() });
+                        setMeasureVoiceNotes(prev => [...prev, { url, by, at: new Date().toISOString() }]);
                       }}
-                      onDelete={() => setMeasureVoiceNote(null)}
+                      onDelete={(index) => setMeasureVoiceNotes(prev => prev.filter((_, i) => i !== index))}
                     />
                   </Field>
                 </div>
@@ -9119,12 +9150,34 @@ function App() {
                       </tbody>
                     </table>
                   ))}
+                  {/* The ticked accessories, each with its type ("Self", "Other: ...")
+                      and measurement, as saved on the garment. */}
+                  {garmentJobs.some(job => Object.keys(job.accessories || {}).length) && card(t('wizard.sheetAccessories', 'Accessories'), 'design', (
+                    <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        {garmentJobs.flatMap(job => Object.entries(job.accessories || {}).map(([key, d]) => (
+                          <tr key={`${job.key}:${key}`} style={{ borderTop: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>
+                              {garmentLabel(job)} · {ALL_ACCESSORY_OPTIONS.find(o => o.key === key)?.label || key}
+                            </td>
+                            <td style={{ padding: '8px 0', fontWeight: 600 }}>
+                              {d?.style === 'Other' ? (d.other ? `Other: ${d.other}` : 'Other') : (d?.style || '—')}
+                            </td>
+                            <td style={{ padding: '8px 0', textAlign: 'right' }}>{d?.measure || <span className="od-hint">no measurement</span>}</td>
+                          </tr>
+                        )))}
+                      </tbody>
+                    </table>
+                  ))}
 
                   {serviceType === 'design' && card(t('wizard.designerTitle', 'Who will design it?'), 'design', (
                     <div style={{ fontSize: '14px' }}>
                       {designerChoice === SELF_DESIGNER ? selfDesignerLabel
                         : designers.find(d => String(d.id) === String(designerChoice))?.name || designerChoice || <span className="od-hint">Not picked</span>}
                       {designRequest.brief && <div className="od-hint" style={{ marginTop: '4px' }}>{designRequest.brief}</div>}
+                      {voiceNoteList(designRequest.voice_notes, designRequest.voice_note).map((note, i) => (
+                        <VoiceNotePlayer key={`${note.url}:${i}`} src={note.url} />
+                      ))}
                     </div>
                   ))}
                 </>
@@ -9741,7 +9794,7 @@ function App() {
 
       {/* Notifications Drawer */}
       {showNotificationsDrawer && (
-        <div style={{
+        <div className="notif-drawer" style={{
           position: 'fixed',
           top: 0,
           right: 0,
@@ -9755,7 +9808,7 @@ function App() {
           flexDirection: 'column'
         }}>
           {/* Header */}
-          <div style={{
+          <div className="notif-drawer-head" style={{
             padding: '20px',
             borderBottom: '1px solid var(--border-color)',
             display: 'flex',
@@ -9776,7 +9829,7 @@ function App() {
           </div>
 
           {/* List */}
-          <div style={{
+          <div className="notif-drawer-list" style={{
             flex: 1,
             overflowY: 'auto',
             padding: '20px',
@@ -9793,7 +9846,7 @@ function App() {
                 // Coloured by what it is about: new work, to check, sent back, ready...
                 const kind = notificationKind(n.title);
                 return (
-                <div key={n.id} style={{
+                <div key={n.id} className="notif-card" style={{
                   padding: '16px',
                   backgroundColor: n.is_read ? 'rgba(0,0,0,0.01)' : 'rgba(212,175,55,0.04)',
                   border: `1px solid ${n.is_read ? 'var(--border-color)' : 'rgba(212,175,55,0.2)'}`,
@@ -9808,7 +9861,7 @@ function App() {
                                  color: kind.color, background: `${kind.color}1a` }}>
                     {kind.label}
                   </span>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="notif-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>{n.title}</span>
                     <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{fmtDateTime(n.created_at)}</span>
                   </div>
@@ -10017,6 +10070,7 @@ Complete the Payment stage with this partial payment?`)) return;
                   voiceNote={activeReviewOrder.instructions_voice_note}
                   voiceNoteBy={activeReviewOrder.instructions_voice_note_by}
                   voiceNoteAt={activeReviewOrder.instructions_voice_note_at}
+                  voiceNotes={activeReviewOrder.instructions_voice_notes}
                 />
               </div>
             )}
@@ -10034,6 +10088,15 @@ Complete the Payment stage with this partial payment?`)) return;
                     Voice note from <strong>{activeReviewOrder.instructions_voice_note_by || t('ordersPage.someone', 'Someone')}</strong>
                   </div>
                 )}
+                {/* The rest of its voice notes (the first is the one above). */}
+                {voiceNoteList(activeReviewOrder.instructions_voice_notes).slice(1).map((note, i) => (
+                  <React.Fragment key={`${note.url}:${i}`}>
+                    <VoiceNotePlayer src={note.url} />
+                    <div className="od-hint" style={{ marginTop: '4px' }}>
+                      Voice note from <strong>{note.by || t('ordersPage.someone', 'Someone')}</strong>
+                    </div>
+                  </React.Fragment>
+                ))}
               </InfoNote>
             )}
 
@@ -10053,6 +10116,7 @@ Complete the Payment stage with this partial payment?`)) return;
                     fabrics: j.selections?.fabrics,
                     slot_labels: j.selections?.slot_labels,
                     fabric_qty: j.selections?.fabric_qty,
+                    accessories: j.selections?.accessories,
                   }))}
                   fabrics={jobs.flatMap((j) => j.selections?.fabric_items || [])}
                   taxonomy={fabricTaxonomy}

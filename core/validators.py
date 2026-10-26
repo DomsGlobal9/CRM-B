@@ -148,6 +148,40 @@ def validate_http_url(value, *, label='Link', max_length=MAX_URL):
     return value
 
 
+#: How many voice notes one note keeps: the order's notes for the tailor, a
+#: designer's brief.
+MAX_VOICE_NOTES = 10
+
+
+def validate_voice_notes(value, *, label='Voice note', sender='', previous=()):
+    """Recorded clips as a list, oldest first: [{url, by, at}].
+
+    At most MAX_VOICE_NOTES, each url an http(s) link (the same check as a
+    single clip's), a repeat dropped. A clip already in `previous` keeps who
+    sent it and when; any other is stamped with `sender` and now -- never
+    taken from the body, as the single voice-note fields are not.
+    """
+    if value in (None, '', []):
+        return []
+    if not isinstance(value, list):
+        raise serializers.ValidationError(f'{label}s must be a list.')
+    if len(value) > MAX_VOICE_NOTES:
+        raise serializers.ValidationError(f'At most {MAX_VOICE_NOTES} voice notes can be kept.')
+    from django.utils import timezone
+    known = {n.get('url'): n for n in (previous or []) if isinstance(n, dict) and n.get('url')}
+    now = timezone.now().isoformat()
+    cleaned, seen = [], set()
+    for item in value:
+        url = validate_http_url(item.get('url') if isinstance(item, dict) else item, label=label)
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        old = known.get(url)
+        cleaned.append({'url': url, 'by': (old.get('by') or '') if old else (sender or ''),
+                        'at': (old.get('at') or None) if old else now})
+    return cleaned
+
+
 def validate_amount(value, *, label='Amount', minimum=Decimal('0'), maximum=MAX_AMOUNT, allow_zero=True):
     """A money figure: a number, not negative, and not more than the boutique could ever bill."""
     if value in (None, ''):

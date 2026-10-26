@@ -4401,6 +4401,17 @@ table.data-table tbody tr:hover {
 .at-section-heading { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .at-section-title { font-family: var(--font-serif); font-size: var(--text-lg); font-weight: 600; color: var(--text-primary); line-height: 1.2; }
 .at-section-sub { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 2px; }
+/* The dashboard's Appointments card: below about 345px wide (a 360-375px
+   phone) "Book appointment" no longer fits beside the one-word title and
+   slid over it. When the card is that narrow the link takes its own line,
+   lined up under the title text (past the 38px icon and its gap). A
+   container query, so it follows the card's width, not the screen's; it
+   measures the card inside its 20px padding, so 312px is a ~352px card. */
+.dash-appointments { container-type: inline-size; }
+@container (max-width: 312px) {
+  .dash-appointments .at-section-head { flex-wrap: wrap !important; row-gap: var(--space-2); }
+  .dash-appointments .at-section-head > .at-link { margin-left: calc(38px + var(--space-3)); }
+}
 .at-link { font-size: var(--text-sm); font-weight: 600; color: var(--primary-color); display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; padding: 0; white-space: nowrap; }
 .at-link:hover { text-decoration: underline; }
 /* "See style notes" on the customer card: readable, and a thumb's height on a phone. */
@@ -4765,6 +4776,33 @@ table.data-table tbody tr:hover {
 .at-profile-id { display: flex; align-items: center; gap: var(--space-5); min-width: 0; flex: 1 1 360px; }
 .at-profile-stats { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 .at-profile-stat { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--surface-2); border: 1px solid var(--border-color); min-width: 150px; }
+/* A customer's page on a phone: the desktop row squeezed into two cramped
+   columns and the three facts stacked at uneven widths. Here the actions are
+   a tidy grid (New order first, full width; Go with Existing Design; then
+   Edit and Delete side by side), the profile is centred -- photo, its two
+   buttons side by side, name and badge, source, then phone, email and
+   address a line each -- and the facts are three equal tiles in one row. */
+@media (max-width: 640px) {
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; }
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right > button { justify-content: center; width: 100%; min-width: 0; }
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right > .btn-primary { grid-column: 1 / -1; order: -2; }
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right > .btn-secondary:has(+ .btn-primary) { grid-column: 1 / -1; order: -1; }
+
+  .customer-detail-view-container .at-profile-head { flex-direction: column; align-items: stretch; gap: 16px; padding: 18px 16px; }
+  .customer-detail-view-container .at-profile-id { flex-direction: column; align-items: center; text-align: center; gap: 14px; flex: 0 0 auto; }
+  .customer-detail-view-container .at-profile-id > div:first-child > div { flex-direction: row !important; flex-wrap: wrap; justify-content: center; }
+  .customer-detail-view-container .at-profile-id > div:last-child { width: 100%; }
+  .customer-detail-view-container .at-profile-id > div:last-child > div:first-child { justify-content: center; }
+  .customer-detail-view-container .at-profile-id .at-contact { flex-direction: column; align-items: center; gap: 6px; }
+  .customer-detail-view-container .at-profile-id .at-contact span { justify-content: center; max-width: 100%; overflow-wrap: anywhere; }
+
+  .customer-detail-view-container .at-profile-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .customer-detail-view-container .at-profile-stat {
+    min-width: 0; flex-direction: column; align-items: center; justify-content: flex-start;
+    text-align: center; gap: 6px; padding: 10px 6px;
+  }
+  .customer-detail-view-container .at-profile-stat .at-measure-value { overflow-wrap: anywhere; }
+}
 .at-measure-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--space-6); }
 .at-measure-row { display: flex; justify-content: space-between; gap: var(--space-3); padding: 9px 0; border-bottom: 1px solid var(--border-color); font-size: var(--text-sm); color: var(--text-secondary); }
 .at-measure-row strong { color: var(--text-primary); }
@@ -5846,6 +5884,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .inv-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .inv-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
   .inv-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The icon is centred above the figures, so the label, value and line
+     under it are centred too -- on the icon's axis, not a left-aligned
+     block of uneven lines sitting off-centre. */
+  .inv-stats .at-stat-body { width: 100%; align-items: center; text-align: center; }
+  .inv-stats .at-stat-label, .inv-stats .at-stat-sub { max-width: 100%; }
 }
 /* The narrowest phones: two to a row, so the button still reads. */
 @media (max-width: 359px) {
@@ -5867,6 +5910,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .dl-page .dl-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dl-page .dl-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
   .dl-page .dl-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The icon is centred above the figures, so the label, number and line
+     under it are centred too -- each line on the icon's axis, not a
+     left-aligned block of uneven lines sitting off-centre. */
+  .dl-page .dl-stats .at-stat-body { width: 100%; align-items: center; text-align: center; }
+  .dl-page .dl-stats .at-stat-label, .dl-page .dl-stats .at-stat-sub { max-width: 100%; }
   .dl-page .dl-cats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
   .dl-page .dl-cats .at-cat { position: relative; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; min-height: 0; }
   .dl-page .dl-cats .at-tile { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
@@ -6028,9 +6076,52 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .bill-toolbar .at-toolbar-right { flex: 1 1 100%; }
   .bill-toolbar .at-toolbar-right > * { flex: 1 1 100%; width: 100%; max-width: none; }
 }
+/* The bills table on a laptop (1280px and up; below that it is cards): the
+   button and the status get the width they need -- at 11% and 12% "Open
+   bill" and "Part paid" were cut off on a smaller screen -- taken from the
+   customer, date and paid columns, with tighter cell padding. The widths are
+   inline, so the overrides need !important. */
+@media (min-width: 1280px) {
+  .invoices-content .at-table th, .invoices-content .at-table td { padding-left: 10px; padding-right: 10px; }
+  .invoices-content .at-table th:nth-child(2) { width: 16% !important; }
+  .invoices-content .at-table th:nth-child(3) { width: 10% !important; }
+  .invoices-content .at-table th:nth-child(5) { width: 18% !important; }
+  .invoices-content .at-table th:nth-child(7) { width: 14% !important; }
+  .invoices-content .at-table th:nth-child(8) { width: 15% !important; }
+  .invoices-content tr.bill-row > td:nth-child(8) .at-btn-sm { padding: 6px 10px !important; }
+  /* Each heading sits where its column's content does: text on the left,
+     money on the right (as it was), and the status pill and the button
+     centred under centred headings -- no gap between the two. The status
+     select sizes to its longest option, so "Part paid" is never cut off. The
+     Actions alignment is inline, hence !important. */
+  .invoices-content .at-table th:nth-child(7), .invoices-content .at-table th:nth-child(8),
+  .invoices-content tr.bill-row > td:nth-child(7), .invoices-content tr.bill-row > td:nth-child(8) { text-align: center !important; }
+  .invoices-content tr.bill-row > td:nth-child(7) select { width: auto !important; max-width: none !important; }
+  /* The Customer, Date and Paid so far headings sit in the middle of their
+     columns (headings only; the cells keep their alignment). */
+  .invoices-content .at-table th:nth-child(2),
+  .invoices-content .at-table th:nth-child(3),
+  .invoices-content .at-table th:nth-child(5) { text-align: center; }
+}
+/* A small laptop (1025-1279px) with the sidebar open leaves the bills table
+   too narrow for eight columns: the date, status and paid columns spilled
+   out of their cells. It stacks into the same cards a tablet gets. The
+   shared table-stacking rules stop at 1024px, so the bills table carries
+   its own copy of them (identical to theirs below 1024px); no other table
+   changes. 1279.98, not 1279: a laptop at 125% or 150% display scaling has
+   a fractional width, which would fall between 1279px and 1280px. */
+@media (max-width: 1279.98px) {
+  .invoices-content .at-table--fit thead { display: none; }
+  .invoices-content .at-table--fit, .invoices-content .at-table--fit tbody, .invoices-content .at-table--fit tr, .invoices-content .at-table--fit td { display: block; width: 100%; box-sizing: border-box; }
+  .invoices-content .at-table--fit td { border-bottom: none; text-align: left !important; white-space: normal !important; }
+  .invoices-content .at-table--fit td * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+  .invoices-content .at-table--fit td[data-label]::before { content: attr(data-label); display: block; font-size: var(--text-2xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+  .invoices-content .at-table--fit tbody tr:hover td { background: transparent; }
+}
 /* The bill cards themselves: on a tablet too (below 1024px), where the
-   stacked rows were eight lines one under another down the whole width. */
-@media (max-width: 1024px) {
+   stacked rows were eight lines one under another down the whole width --
+   and on a small laptop up to 1280px (see above). */
+@media (max-width: 1279.98px) {
   .invoices-content.at-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
   .invoices-content tbody { display: flex !important; flex-direction: column; gap: 10px; }
   .invoices-content tr.bill-row {
@@ -6065,8 +6156,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   /* 16px stops the phone zooming in when the paid amount is tapped. */
   .invoices-content tr.bill-row input { font-size: 16px !important; }
 }
-/* A tablet: the bill cards two to a row, a little roomier. */
-@media (min-width: 601px) and (max-width: 1024px) {
+/* A tablet or a small laptop: the bill cards two to a row, a little roomier. */
+@media (min-width: 601px) and (max-width: 1279.98px) {
   .invoices-content tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
   .invoices-content tr.bill-row { padding: 14px !important; gap: 12px 10px; }
   .invoices-content tbody > tr:not(.bill-row) { grid-column: 1 / -1; }
@@ -6249,6 +6340,50 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .orders-book > tbody > tr > td:not(:first-child) { text-align: center !important; }
   .orders-book > tbody > tr > td:not(:first-child) .at-stage-strip { justify-content: center; }
   .orders-book > tbody > tr > td:last-child > div { justify-content: center !important; }
+}
+
+/* ---- Orders / Workshop list on a tablet and a phone: a card per order ----
+   The stacked rows ran together in one tinted box, the Express edge only
+   ran down the first line, and "View" floated alone. Each order is now its
+   own card: number and customer, "Promised by" on one line, the steps in a
+   soft panel, the buttons across the card. Express edges the whole card.
+   Two cards to a row on a tablet. */
+@media (max-width: 1024px) {
+  .at-table-wrap:has(> .orders-book) { border: none; border-radius: 0; background: transparent; overflow: visible; }
+  .orders-book > tbody { display: flex !important; flex-direction: column; gap: 10px; }
+  .orders-book > tbody > tr {
+    display: flex !important; flex-direction: column; gap: 10px;
+    padding: 14px 16px !important; background: var(--surface-color);
+    border: 1px solid var(--border-color) !important; border-radius: 12px; box-shadow: var(--shadow-card);
+  }
+  .orders-book > tbody > tr:last-child { border-bottom: 1px solid var(--border-color) !important; }
+  .orders-book > tbody > tr > td { padding: 0 !important; }
+  .orders-book > tbody > tr > td:first-child { font-size: 15px; line-height: 1.5; }
+  .orders-book > tbody > tr.gh-express {
+    background: color-mix(in srgb, var(--danger-bg) 45%, var(--surface-color));
+    border-color: color-mix(in srgb, var(--danger-color) 30%, var(--border-color)) !important;
+    box-shadow: inset 4px 0 0 var(--danger-color), var(--shadow-card);
+  }
+  .orders-book > tbody > tr.gh-express > td:first-child { box-shadow: none; }
+  /* "Promised by" and its date on one line, under a hairline. */
+  .orders-book > tbody > tr > td:nth-child(4) {
+    display: flex !important; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding-top: 10px !important; border-top: 1px solid var(--border-color); font-weight: 600;
+  }
+  .orders-book > tbody > tr > td:nth-child(4)::before { margin: 0 !important; font-weight: 500; }
+  /* Where it stands: the steps together in a soft panel. */
+  .orders-book > tbody > tr > td:nth-child(5) .at-stage-strip {
+    margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2);
+  }
+  .orders-book > tbody > tr.gh-express > td:nth-child(5) .at-stage-strip { background: color-mix(in srgb, var(--surface-color) 70%, transparent); }
+  /* The buttons across the card: each as wide as its label, both growing to
+     fill the row; a label never wraps -- if two do not fit side by side, each
+     takes its own line. */
+  .orders-book > tbody > tr > td:last-child > div { justify-content: stretch !important; flex-wrap: wrap; }
+  .orders-book > tbody > tr > td:last-child > div > button { flex: 1 1 auto; justify-content: center; min-height: 40px; white-space: nowrap !important; }
+}
+@media (min-width: 601px) and (max-width: 1024px) {
+  .orders-book > tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
 }
 
 /* ---- Order journey & tasks on a tablet and a phone ---------------------
@@ -6560,6 +6695,43 @@ button, input, select, textarea { font-family: inherit; }
   .app-container .at-stat { flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
   .app-container .at-stat-label { font-size: 11px; letter-spacing: .06em; }
   .app-container .at-stat-value { font-size: 22px; }
+  /* The Staff page's figures (Team and Tasks tabs), Finance's, Insights' and
+     the Dashboard's: icon, label, number and line under it all on the card's
+     centre line, as the Inventory and Design Studio figures are. */
+  .app-container .staff-stats .at-stat, .app-container .fin-stats .at-stat,
+  .app-container .insights-stats .at-stat, .app-container .dash-stats .at-stat { align-items: center; text-align: center; }
+  .app-container .staff-stats .at-stat-body, .app-container .fin-stats .at-stat-body,
+  .app-container .insights-stats .at-stat-body, .app-container .dash-stats .at-stat-body { width: 100%; align-items: center; }
+
+  /* Attendance history: five columns scrolled sideways on a phone, so only
+     the date, status and entry time showed. Each day is now a compact row --
+     date and status on top, entry and exit labelled under them, remarks
+     below only when there are any. The cells' padding is inline, hence
+     !important. The loading and empty rows keep their own layout. */
+  .att-log thead { display: none; }
+  .att-log, .att-log > tbody { display: block; width: 100%; }
+  .att-log tr.att-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "date status" "in out" "remarks remarks";
+    align-items: center; gap: 8px 12px; padding: 12px 16px;
+  }
+  .att-log tr.att-row > td { padding: 0 !important; min-width: 0; }
+  .att-log tr.att-row > .att-date { grid-area: date; }
+  .att-log tr.att-row > .att-status { grid-area: status; justify-self: end; }
+  .att-log tr.att-row > .att-in { grid-area: in; }
+  .att-log tr.att-row > .att-out { grid-area: out; justify-self: end; text-align: right; }
+  .att-log tr.att-row > .att-in::before,
+  .att-log tr.att-row > .att-out::before { color: var(--text-muted); font-weight: 500; margin-right: 6px; }
+  .att-log tr.att-row > .att-in::before { content: 'Entry'; }
+  .att-log tr.att-row > .att-out::before { content: 'Exit'; }
+  /* Remarks wrap inside the row: an auto check-in note ("started
+     pattern_cutting on T2B-260911-7082") has long unbroken words that
+     stretched the row past the screen and set the list scrolling sideways. */
+  .att-log tr.att-row > .att-remarks { grid-area: remarks; white-space: normal; overflow-wrap: anywhere; word-break: break-word; line-height: 1.45; }
+  .att-log tr.att-row { width: 100%; box-sizing: border-box; }
+  .att-log tr.att-row > .att-remarks:empty { display: none; }
+  .att-log > tbody > tr:not(.att-row) { display: block; }
+  .att-log > tbody > tr:not(.att-row) > td { display: block; }
 
   /* Page actions share one row at equal widths; a lone action fills it. */
   .app-container .at-page-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-2); width: 100%; }
@@ -6846,3 +7018,306 @@ button, input, select, textarea { font-family: inherit; }
 
 /* An order begun from the customer's own page keeps their name and number. */
 #wz-name[readonly], #wz-mobile[readonly] { background: var(--surface-inset, #f3f1ec); color: var(--text-secondary); cursor: not-allowed; }
+
+/* ---- Boutique alerts drawer ---------------------------------------------
+   A fixed 400px drawer is wider than a phone, so its left edge -- and every
+   alert's -- was cut off. It is never wider than the screen; on a phone it
+   fills it, a little tighter, and each alert's time takes its own line under
+   the title so a long title keeps the full width. The drawer's styles are
+   inline, hence !important on a phone. */
+.notif-drawer { max-width: 100vw; box-sizing: border-box; }
+@media (max-width: 640px) {
+  .notif-drawer { width: 100% !important; border-left: none !important; }
+  .notif-drawer .notif-drawer-head { padding: 14px 16px !important; }
+  .notif-drawer .notif-drawer-list { padding: 14px 16px 24px !important; gap: 12px !important; }
+  .notif-drawer .notif-card { padding: 14px !important; min-width: 0; }
+  .notif-drawer .notif-card-top { flex-direction: column; align-items: flex-start !important; gap: 2px; }
+  .notif-drawer .notif-card-top > span:first-child { overflow-wrap: anywhere; line-height: 1.35; }
+  .notif-drawer .notif-card p { overflow-wrap: anywhere; }
+}
+
+/* ---- Petticoat style picker (order wizard, "Choose design") ---------------
+   Replaces the three design cards for a petticoat: outline pictures of each
+   style, all in one row on a wide panel; three to a row (two rows) on a
+   narrow one, two on a very narrow one -- sized by the panel, not the window. */
+.ptc-picker { margin: 14px 0 16px; container-type: inline-size; }
+.ptc-picker-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
+.ptc-picker-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.ptc-picker-sub { font-size: 12.5px; color: var(--text-secondary); }
+.ptc-grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
+.ptc-tile {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  min-width: 0; padding: 12px 8px 10px; text-align: center; cursor: pointer; font: inherit;
+  color: var(--text-secondary); background: var(--surface-color);
+  border: 1px solid var(--border-color); border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04));
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.ptc-tile:hover { border-color: var(--primary-color); transform: translateY(-1px); }
+.ptc-tile:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 2px; }
+.ptc-tile--on { border: 2px solid var(--primary-color); padding: 11px 7px 9px; color: var(--text-primary); background: var(--accent-color); }
+.ptc-art { display: block; width: 100%; max-width: 76px; aspect-ratio: 100 / 120; margin-bottom: 4px; color: var(--text-primary); }
+.ptc-label { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.25; text-wrap: balance; overflow-wrap: anywhere; }
+.ptc-hint { font-size: 11.5px; color: var(--text-secondary); line-height: 1.3; text-wrap: balance; }
+.ptc-tick {
+  position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--primary-color); color: var(--primary-foreground, #141214);
+}
+@container (max-width: 620px) {
+  .ptc-grid { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ptc-art { max-width: 68px; }
+}
+@container (max-width: 340px) {
+  .ptc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ---- New order > "What are we making?" (Garments step) -------------------
+   One clear path per garment: the garment's card -- its name and how
+   many, then three panels in the order they are filled: Details, Design,
+   Fabric. Each panel has an icon, a title and one line saying what it is
+   for, and folds away. The garments stepper above the card is unchanged. Everything is scoped to .wz-type-wrap so the Production screen's
+   own garment card is untouched. */
+
+/* The garment card: its name on a header band, then the panels. */
+.wz-type-wrap:not(.wz-type-wrap--empty) .wz-garment { padding: 0 20px 20px; }
+.wz-type-wrap .wz-garment > .wz-garment-head {
+  margin: 0 -20px 16px; padding: 14px 20px; gap: 12px; border-radius: 13px 13px 0 0;
+  background: var(--surface-2); border-bottom: 1px solid var(--border-color);
+}
+.wz-type-wrap .wz-garment > .wz-garment-head > div { min-width: 0; }
+.wz-type-wrap .wz-garment > .wz-garment-head .wz-garment-num { width: 32px; height: 32px; font-size: 14px; }
+.wz-type-wrap .wz-garment > .wz-garment-head .wz-garment-name { font-size: 17px; font-weight: 700; line-height: 1.25; }
+.wz-type-wrap .wz-garment > .wz-garment-head .wz-garment-sub { margin-top: 2px; }
+.wz-type-wrap .wz-garment > .wz-garment-head > .btn-secondary { flex-shrink: 0; }
+.wz-type-wrap .wz-garment > .wz-garment-head > .btn-secondary:hover { color: var(--danger-color); border-color: var(--danger-color); }
+
+/* How many: a quiet bar with a proper - 1 + control. */
+.wz-type-wrap .wz-qty {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; margin: 0 0 16px;
+  padding: 10px 12px 10px 14px; border-radius: 12px; background: var(--surface-inset);
+}
+.wz-type-wrap .wz-qty-label { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.wz-type-wrap .wz-qty-stepper {
+  display: inline-flex; align-items: center; height: 36px; overflow: hidden;
+  background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 10px;
+}
+.wz-type-wrap .wz-qty-btn {
+  width: 36px; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer;
+  font: inherit; font-size: 18px; line-height: 1; color: var(--text-primary);
+}
+.wz-type-wrap .wz-qty-btn:hover:not(:disabled) { background: var(--surface-2); }
+.wz-type-wrap .wz-qty-btn:disabled { color: var(--text-secondary); opacity: .45; cursor: not-allowed; }
+.wz-type-wrap .wz-qty-btn:focus-visible { outline: 2px solid var(--accent-border); outline-offset: -2px; }
+.wz-type-wrap .wz-qty-num {
+  min-width: 34px; height: 100%; display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; border-inline: 1px solid var(--border-color);
+}
+.wz-type-wrap .wz-qty-other { margin-left: auto; }
+.wz-type-wrap .wz-qty-hint { flex-basis: 100%; }
+.wz-type-wrap .wz-same-hint {
+  margin: 0 0 16px; padding: 10px 12px; border-radius: 12px;
+  background: var(--surface-inset); border: 1px dashed var(--border-strong);
+}
+
+/* The three panels: Details, Design, Fabric. */
+.wz-type-wrap .wz-garment .wz-sec,
+.wz-type-wrap .wz-garment .wz-sec.wz-sec--first {
+  margin: 14px 0 0; padding: 0 16px; border: 1px solid var(--border-color); border-radius: 12px;
+  background: var(--surface-color);
+}
+.wz-type-wrap .wz-garment .wz-sec.wz-sec--first { margin-top: 0; }
+.wz-type-wrap .wz-garment .wz-sec[open] { padding-bottom: 16px; }
+.wz-type-wrap .wz-garment .wz-sec > summary.wz-sec-head {
+  justify-content: flex-start; gap: 12px; margin: 0 -16px; padding: 12px 16px;
+  border-radius: 12px; font-size: 15px;
+}
+.wz-type-wrap .wz-garment .wz-sec[open] > summary.wz-sec-head {
+  margin-bottom: 14px; border-bottom: 1px solid var(--border-color); border-radius: 12px 12px 0 0;
+}
+.wz-type-wrap .wz-garment .wz-sec > summary.wz-sec-head:hover { background: var(--surface-2); }
+.wz-type-wrap .wz-garment .wz-sec > summary.wz-sec-head:focus-visible { outline: 3px solid var(--accent-border); outline-offset: -3px; }
+.wz-type-wrap .wz-sec-icon {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-color); color: var(--accent-text);
+}
+.wz-type-wrap .wz-sec-titles { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
+.wz-type-wrap .wz-sec-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.wz-type-wrap .wz-sec-sub { font-size: 12.5px; font-weight: 400; color: var(--text-secondary); }
+.wz-type-wrap .wz-garment .wz-sec .wz-sec-chev { margin-left: auto; }
+
+/* Choose design: three option cards, then what was chosen. */
+.wz-type-wrap .wz-dchoices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 16px; }
+.wz-type-wrap .wz-dchoices-hint { grid-column: 1 / -1; margin: 0; }
+.wz-type-wrap .wz-dchoice {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  width: 100%; min-width: 0; padding: 16px; text-align: left; cursor: pointer; font: inherit;
+  color: var(--text-primary); background: var(--surface-color);
+  border: 1px solid var(--border-color); border-radius: 12px;
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.wz-type-wrap .wz-dchoice:hover { border-color: var(--primary-color); box-shadow: var(--shadow-card); transform: translateY(-1px); }
+.wz-type-wrap .wz-dchoice:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 2px; }
+.wz-type-wrap .wz-dchoice-icon { margin-bottom: 4px; }
+.wz-type-wrap .wz-dchoice-title { font-size: 14.5px; font-weight: 600; line-height: 1.3; }
+.wz-type-wrap .wz-dchoice-desc { font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; }
+.wz-type-wrap .wz-dchoice-status { margin-top: auto; padding-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--brand-link); }
+.wz-type-wrap .wz-dchoice--on { border: 2px solid var(--primary-color); padding: 15px; background: var(--accent-color); }
+.wz-type-wrap .wz-dchoice-status--on { color: var(--success-color); }
+
+/* "Who will design it?" -- a box inside the Design panel, not a card in a card. */
+.wz-type-wrap .wz-designer {
+  margin: 0 0 16px; padding: 14px 16px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--accent-border);
+}
+.wz-type-wrap .wz-designer .wz-garment-head { margin-bottom: 10px; }
+.wz-type-wrap .wz-designer .wz-garment-name { font-size: 14.5px; }
+.wz-type-wrap .wz-designer .form-group:last-child { margin-bottom: 0; }
+.wz-type-wrap .wz-designer .form-group + .form-group { margin-top: 12px; }
+.wz-type-wrap .wz-designer select.form-control { max-width: 100% !important; }
+
+/* Trims & accessories: an optional extra, folded, its two lists inside. */
+.wz-type-wrap .wz-garment .wz-trims { margin-top: 4px; background: var(--surface-2); border-radius: 12px; }
+.wz-type-wrap .wz-garment .wz-trims > summary { font-size: 14px; }
+.wz-type-wrap .wz-garment .wz-trims-group { margin-top: 0; background: var(--surface-color); }
+.wz-type-wrap .wz-garment .wz-trims-group + .wz-trims-group { margin-top: 10px; }
+.wz-type-wrap .wz-garment .wz-trims-group > summary { font-size: 13.5px; }
+
+/* Previous / next garment, at the foot of the card. */
+.wz-type-wrap .wz-gnav {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-color);
+}
+
+/* Add more garments: a clear lime "+" button until it is opened -- soft lime
+   fill, a dashed lime edge and a filled "+" badge, so it reads as an action
+   against the page's beige background. */
+.wz-type-wrap .wz-addmore:not([open]) {
+  border: 2px dashed var(--primary-color); border-radius: 14px; background: var(--accent-color);
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.wz-type-wrap .wz-addmore:not([open]):hover {
+  border-style: solid; background: var(--surface-color); box-shadow: var(--shadow-card); transform: translateY(-1px);
+}
+.wz-type-wrap .wz-addmore > summary { justify-content: center; color: var(--text-primary); }
+.wz-type-wrap .wz-addmore:not([open]) > summary { min-height: 56px; padding: 12px 0; gap: 10px; font-size: 15px; font-weight: 700; }
+.wz-type-wrap .wz-addmore:not([open]) > summary:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 4px; border-radius: 10px; }
+.wz-type-wrap .wz-addmore:not([open]) > summary > svg {
+  flex-shrink: 0; width: 26px; height: 26px; padding: 5px; border-radius: 50%;
+  background: var(--primary-color); color: var(--primary-foreground); stroke-width: 3;
+}
+.wz-type-wrap .wz-addmore:not([open]) > summary::before { display: none; }
+.wz-type-wrap .wz-addmore[open] > summary { justify-content: flex-start; }
+@media (max-width: 640px) {
+  .wz-type-wrap .wz-addmore:not([open]) > summary { min-height: 52px; font-size: 14px; }
+}
+
+/* Tablet and small laptop: the design options become rows (icon beside text). */
+@media (max-width: 900px) {
+  .wz-type-wrap .wz-dchoices { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .wz-type-wrap .wz-dchoice {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 2px;
+    align-items: start; padding: 14px 16px;
+  }
+  .wz-type-wrap .wz-dchoice--on { padding: 13px 15px; }
+  .wz-type-wrap .wz-dchoice-icon { grid-row: 1 / span 3; margin: 0; }
+  .wz-type-wrap .wz-dchoice-status { padding-top: 4px; }
+}
+
+/* Phone. */
+@media (max-width: 640px) {
+
+  .wz-type-wrap:not(.wz-type-wrap--empty) .wz-garment { padding: 0 12px 14px; }
+  .wz-type-wrap .wz-garment > .wz-garment-head { margin: 0 -12px 12px; padding: 12px; flex-wrap: nowrap; border-radius: 11px 11px 0 0; }
+  .wz-type-wrap .wz-garment > .wz-garment-head .wz-garment-name { font-size: 16px; }
+  .wz-type-wrap .wz-garment > .wz-garment-head > .btn-secondary { padding: 0 10px; }
+
+  .wz-type-wrap .wz-qty { padding: 10px 12px; }
+  .wz-type-wrap .wz-qty-label { flex: 1; }
+  .wz-type-wrap .wz-qty-stepper { height: 40px; }
+  .wz-type-wrap .wz-qty-btn { width: 42px; }
+  .wz-type-wrap .wz-qty-other { margin-left: 0; width: 100%; justify-content: center; min-height: 40px; }
+
+  .wz-type-wrap .wz-garment .wz-sec,
+  .wz-type-wrap .wz-garment .wz-sec.wz-sec--first { margin-top: 12px; padding: 0 12px; }
+  .wz-type-wrap .wz-garment .wz-sec.wz-sec--first { margin-top: 0; }
+  .wz-type-wrap .wz-garment .wz-sec[open] { padding-bottom: 14px; }
+  .wz-type-wrap .wz-garment .wz-sec > summary.wz-sec-head { margin: 0 -12px; padding: 12px; gap: 10px; }
+  .wz-type-wrap .wz-garment .wz-sec[open] > summary.wz-sec-head { margin-bottom: 12px; }
+  .wz-type-wrap .wz-sec-icon { width: 32px; height: 32px; }
+
+  .wz-type-wrap .wz-dchoice { padding: 12px 14px; column-gap: 12px; }
+  .wz-type-wrap .wz-dchoice--on { padding: 11px 13px; }
+  .wz-type-wrap .wz-designer { padding: 12px; }
+
+  .wz-type-wrap .wz-gnav { flex-direction: column-reverse; align-items: stretch; }
+  .wz-type-wrap .wz-gnav > span:empty { display: none; }
+  .wz-type-wrap .wz-gnav > button { width: 100%; justify-content: center; }
+}
+
+/* ---- New order > Garments: the garments stepper with many garments -------
+   Each garment keeps a slot of its own (its circle, name and status on one
+   line each, the name cut with "..." when long -- the full name is on hover),
+   so they never pile on top of each other. When the slots no longer fit the
+   card the row scrolls sideways, with a thin visible scrollbar, and the open
+   garment is kept in view (App.jsx). A few garments still spread across the
+   card exactly as before. */
+.wz-type-wrap .wz-card .stepper-progress-bar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  padding-bottom: 10px !important;
+}
+.wz-type-wrap .wz-card .stepper-progress-bar::-webkit-scrollbar { display: block; height: 6px; }
+.wz-type-wrap .wz-card .stepper-progress-bar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+.wz-type-wrap .wz-card .stepper-progress-bar::-webkit-scrollbar-track { background: transparent; }
+.wz-type-wrap .wz-card .stepper-progress-bar > .stepper-step { flex: 1 0 92px !important; min-width: 92px; }
+/* A connector tucks 20px under each circle's slot (its own margin), so 56px
+   leaves 16px clear between two garments' names. */
+.wz-type-wrap .wz-card .stepper-progress-bar > :not(.stepper-step) { flex: 1 0 56px !important; }
+.wz-type-wrap .wz-card .stepper-progress-bar > .stepper-step > span {
+  display: block; max-width: 100%; padding: 0 4px; box-sizing: border-box;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ---- Account menu at the top of every page (AccountMenu.jsx) -------------
+   The "Hi, <name>" chip sits at the top right of the page and opens My
+   Profile, Settings and Sign out -- the entries the sidebar's Account group
+   used to hold. A phone (768px and below) has the header avatar's menu for
+   the same entries, so the bar is hidden there. */
+.portal-account-bar { display: flex; justify-content: flex-end; margin: -16px 0 12px; position: relative; z-index: 20; }
+.acct-menu { position: relative; }
+.acct-menu-btn {
+  display: inline-flex; align-items: center; gap: 10px; padding: 4px 12px 4px 4px; min-height: 0;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--text-primary);
+  background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 999px;
+  box-shadow: var(--shadow-card); cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.acct-menu-btn:hover:not(:disabled), .acct-menu-btn[aria-expanded="true"] { border-color: var(--border-strong); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08); }
+.acct-menu-btn:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 2px; }
+.acct-menu-btn:disabled { cursor: default; }
+.acct-menu-btn .user-avatar-circle { display: inline-flex; flex-shrink: 0; }
+.acct-menu-chev { color: var(--text-secondary); transition: transform .15s ease; }
+.acct-menu-btn[aria-expanded="true"] .acct-menu-chev { transform: rotate(180deg); }
+.acct-menu-list { min-width: 240px; }
+@media (max-width: 768px) {
+  .portal-account-bar { display: none; }
+}
+
+/* ---- Reports: the Profit & Costs | Insights switch ------------------------
+   Sits at the top of both pages (App.jsx, reportsSwitch): the section's name
+   on the left, the two tabs on the right. A phone puts the tabs on their own
+   full-width row, each tab half of it. */
+.reports-switch { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 20px; }
+.reports-switch-label { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.reports-switch .at-seg button { padding: 6px 16px; white-space: nowrap; }
+@media (max-width: 640px) {
+  .reports-switch { margin-bottom: 16px; }
+  .reports-switch .at-seg { width: 100%; }
+  .reports-switch .at-seg button { flex: 1 1 0; justify-content: center; min-width: 0; padding: 6px 10px; }
+}
+
+/* Order page > Order journey & tasks: the progress bar alone on the right, so
+   the title and its line keep their room and read on one line each. */
+.od-journey .od-section-head > .od-section-title--stack { flex: 1 1 240px; min-width: 0; }

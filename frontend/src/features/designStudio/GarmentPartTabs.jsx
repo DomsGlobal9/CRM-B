@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ImageOff } from 'lucide-react';
+import { Check, ImageOff } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
@@ -38,7 +38,7 @@ const FALLBACK =
  *  wizard shows the same parts over photographs a customer can pick. The strip
  *  is the shared half; what sits under it is not.
  */
-export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Designs', showNext = true }) {
+export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Designs', showNext = true, nextAsDone = false }) {
   const strip = useRef(null);
 
   if (parts.length === 0) return null;
@@ -135,6 +135,22 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           background: transparent;
           text-decoration: underline;
         }
+        /* nextAsDone: the same button as a filled "Done" that moves on. */
+        .at-part-tabs .tab-next.tab-done {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 7px 18px;
+          border-radius: 8px;
+          background: var(--primary-color, #18181b);
+          color: var(--primary-foreground, #ffffff);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+        }
+        .at-part-tabs .tab-next.tab-done:hover:not(.active) {
+          background: var(--primary-color, #18181b);
+          text-decoration: none;
+          filter: brightness(0.95);
+        }
         @media (max-width: 560px) {
           .at-part-tabs-scroll { flex-basis: 100%; }
           .at-part-tabs .tab-btn {
@@ -148,6 +164,7 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
             justify-content: flex-end; /* buttons are flex boxes app-wide */
             text-align: right;
           }
+          .at-part-tabs .tab-next.tab-done { justify-content: center; min-height: 40px; }
         }
       `}</style>
       <div className="at-part-tabs" role="tablist">
@@ -174,15 +191,15 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
         {next && (
           <button
             type="button"
-            className="tab-btn tab-next"
-            aria-label={`Next: ${next.label}`}
+            className={`tab-btn tab-next${nextAsDone ? ' tab-done' : ''}`}
+            aria-label={nextAsDone ? `Done, go to ${next.label}` : `Next: ${next.label}`}
             onClick={() => {
               onChange(next.key);
               // The new tab may sit behind the fade: bring it into view.
               requestAnimationFrame(() => strip.current?.querySelector('[aria-current="true"], .active')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }));
             }}
           >
-            Next: {next.label} →
+            {nextAsDone ? <><Check size={15} strokeWidth={2.5} /> Done</> : <>Next: {next.label} →</>}
           </button>
         )}
       </div>

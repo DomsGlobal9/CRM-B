@@ -4,6 +4,7 @@ import { api } from '../../services/api';
 import GarmentSummary from './GarmentSummary';
 import { isExpressJob } from '../orders/express';
 import { SpeakButton, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
+import { voiceNoteList } from '../../components/ui/voiceNotes';
 import Loader from '../../components/ui/Loader';
 
 /**
@@ -33,7 +34,7 @@ const fallbackTemplate = (job) => ({
   ],
 });
 
-export default function OrderGarmentBrief({ jobs, specialInstructions, voiceNote, voiceNoteBy, voiceNoteAt }) {
+export default function OrderGarmentBrief({ jobs, specialInstructions, voiceNote, voiceNoteBy, voiceNoteAt, voiceNotes = null }) {
   const [templates, setTemplates] = useState({});
 
   const keys = [...new Set((jobs || []).map((j) => j.template_key).filter(Boolean))];
@@ -74,6 +75,9 @@ export default function OrderGarmentBrief({ jobs, specialInstructions, voiceNote
   });
 
   const loading = keys.some((key) => templates[key] === undefined);
+  // Every voice note on the instructions (up to ten); an order from before
+  // there could be several has its one.
+  const notes = voiceNoteList(voiceNotes, voiceNote ? { url: voiceNote, by: voiceNoteBy, at: voiceNoteAt } : null);
 
   return (
     <div className="garment-brief">
@@ -82,7 +86,7 @@ export default function OrderGarmentBrief({ jobs, specialInstructions, voiceNote
         {loading && <Loader inline label="Loading details…" />}
       </div>
       <GarmentSummary jobs={shaped} inventoryNames={inventoryNames} measurementsAsTable />
-      {(specialInstructions || voiceNote) && (
+      {(specialInstructions || notes.length > 0) && (
         <div className="garment-instructions">
           <div className="ui-eyebrow garment-section-title">Special instructions</div>
           {/* The words, read aloud on request, and the recording behind them
@@ -93,13 +97,15 @@ export default function OrderGarmentBrief({ jobs, specialInstructions, voiceNote
               {specialInstructions}<SpeakButton text={specialInstructions} />
             </div>
           )}
-          <VoiceNotePlayer src={voiceNote} />
-          {voiceNote && (
-            <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-              Voice note from <strong>{voiceNoteBy || 'someone'}</strong>
-              {voiceNoteAt ? ` · ${new Date(voiceNoteAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
+          {notes.map((note, i) => (
+            <div key={`${note.url}:${i}`}>
+              <VoiceNotePlayer src={note.url} />
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Voice note from <strong>{note.by || 'someone'}</strong>
+                {note.at ? ` · ${new Date(note.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
+              </div>
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>

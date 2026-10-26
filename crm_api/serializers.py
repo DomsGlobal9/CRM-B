@@ -444,7 +444,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'delivery_method', 'delivery_method_display', 'courier_service', 'tracking_number', 'delivery_address',
             'advance_paid', 'amount_paid', 'tailor_comments', 'completed_garment_image',
             'special_instructions', 'instructions_voice_note',
-            'instructions_voice_note_by', 'instructions_voice_note_at',
+            'instructions_voice_note_by', 'instructions_voice_note_at', 'instructions_voice_notes',
             'master_verification', 'stage_histories', 'current_stage_key', 'production_status',
             'stages', 'activities', 'garment_images', 'garment_images_published', 'photo_reviews', 'garment_tryons',
             'garment_jobs', 'purchases', 'invoice_template', 'flow',

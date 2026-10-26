@@ -8,8 +8,9 @@ import { orderRef } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../../components/ui/Atelier';
-import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, todayIso } from '../../services/validate';
+import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
+import { voiceNoteList } from '../../components/ui/voiceNotes';
 import Loader from '../../components/ui/Loader';
 
 const STATUS_STYLE = {
@@ -110,7 +111,10 @@ function AssignPanel({ orders, designers, onAssigned, onError }) {
           </Field>
         </div>
         <Field label={t('designWorkPage.briefOptional', 'Brief / Notes (optional)')} icon={FileText}>
-          <VoiceTextarea className="form-input" rows={3} value={brief} maxLength={LIMITS.note}
+          {/* A plain text box: the brief has no dictation mic. Kept at the
+              height the voice box had (the field's 88px, not the 96px every
+              bare textarea gets). */}
+          <textarea className="form-input" rows={3} value={brief} maxLength={LIMITS.note} style={{ minHeight: '88px' }}
                     placeholder={t('designWorkPage.briefPlaceholder', 'What are you asking for, beyond the spec?')}
                     onChange={(e) => setBrief(e.target.value)} />
         </Field>
@@ -285,6 +289,11 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
       {assignment.brief && (
         <p style={{ fontSize: '13px', marginTop: '10px' }}>{assignment.brief}</p>
       )}
+      {/* The brief as the counter spoke it, recorded with the order. */}
+      {/* Up to ten of them (brief_voice_notes); an older brief has its one. */}
+      {voiceNoteList(assignment.brief_voice_notes, assignment.brief_voice_note).map((note, i) => (
+        <VoiceNotePlayer key={`${note.url}:${i}`} src={note.url} style={{ marginTop: '10px' }} />
+      ))}
 
       {!isSupervisor && (Object.keys(spec).length > 0 || Object.keys(measurements).length > 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
@@ -295,7 +304,8 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
               fontSize: '11px', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
               background: 'var(--surface-inset)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
             }}>
-              {key.replace(/_/g, ' ')}: {String(value)}
+              {key.replace(/_/g, ' ')}: {Array.isArray(value) && value.some((v) => v && v.url)
+                ? `${value.length} voice note${value.length === 1 ? '' : 's'}` : String(value)}
             </span>
           ))}
         </div>
@@ -501,7 +511,7 @@ export default function DesignWork({ currentUser }) {
                           <td><StatusPill status={assignment.status} /></td>
                           <td style={{ color: 'var(--text-secondary)', maxWidth: '260px' }}>
                             <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {assignment.brief || assignment.submission_note || '—'}
+                              {assignment.brief || assignment.submission_note || (assignment.brief_voice_note ? 'Voice note' : '—')}
                             </span>
                           </td>
                           <td style={{ textAlign: 'right' }}>
