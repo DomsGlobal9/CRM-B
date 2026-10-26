@@ -5299,10 +5299,7 @@ function App() {
               const focusNo = focusJob ? order.garment_jobs.indexOf(focusJob) + 1 : 0;
               const masterWho = focusJob ? garmentHolder(order, focusJob.id, false) : { id: order.master, name: order.master_name };
               const tailorWho = focusJob ? garmentHolder(order, focusJob.id, true) : { id: order.tailor, name: order.tailor_name };
-              const journey = focusJob ? stages.filter(st => !st.garment_job || st.garment_job === focusJob.id) : stages;
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
-              const tasksDone = journey.filter(st => st.status === 'COMPLETED' || st.status === 'SKIPPED').length;
-              const stepChip = `${tasksDone} of ${journey.length} ${t('ordersPage.tasksCompleted', 'tasks completed')}`;
               const verification = order.master_verification || {};
               const verifyTotal = 6 + (orderGarmentNames(order).includes('Saree') ? 1 : 0);
               const verified = Object.values(verification).filter(Boolean).length;
@@ -5516,13 +5513,6 @@ function App() {
                             <h3>{t('ordersPage.orderJourney', 'Order journey & tasks')}</h3>
                             <span className="od-section-sub">{t('ordersPage.orderJourneySub', 'Track and manage tasks for this order')}</span>
                           </div>
-                          {stages.length > 0 && (
-                            /* The bar alone; "1 of 11 tasks completed" stays as its
-                               tooltip and its accessible name. */
-                            <div className="od-head-actions od-progress" title={stepChip} role="img" aria-label={stepChip}>
-                              <span className="od-progress-bar"><ProgressBar pct={Math.round((tasksDone / journey.length) * 100)} tone="green" /></span>
-                            </div>
-                          )}
                         </div>
                         <OrderTaskTable key={`${order.id}-${focusJob?.id || ''}`} focus={focusJob?.id} stages={stages} jobs={order.garment_jobs || []} onSelectStage={(stage) => openStageReview(order, stage)} />
                       </section>

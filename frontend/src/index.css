@@ -7318,6 +7318,6 @@ button, input, select, textarea { font-family: inherit; }
   .reports-switch .at-seg button { flex: 1 1 0; justify-content: center; min-width: 0; padding: 6px 10px; }
 }
 
-/* Order page > Order journey & tasks: the progress bar alone on the right, so
-   the title and its line keep their room and read on one line each. */
+/* Order page > Order journey & tasks: no progress on the right any more, so
+   the title and its line take the row and read on one line each. */
 .od-journey .od-section-head > .od-section-title--stack { flex: 1 1 240px; min-width: 0; }
