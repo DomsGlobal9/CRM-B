@@ -7379,3 +7379,37 @@ button, input, select, textarea { font-family: inherit; }
 @media (max-width: 420px) {
   .od-customer-btn { width: 100%; }
 }
+
+/* Orders / Workshop list: how long the row has been on its current step,
+   under the order number; past ten days the chip turns amber and the row is
+   marked with an amber edge and a soft amber fill. */
+.at-step-days { display: flex; width: fit-content; align-items: center; gap: 4px; margin-top: 4px; padding: 2px 8px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 600; white-space: nowrap; color: var(--text-secondary); background: var(--surface-inset); }
+.at-step-days--stuck { color: #8a5a00; background: color-mix(in srgb, var(--warning-color, #d97706) 18%, transparent); }
+tr.at-row-stuck { background: color-mix(in srgb, var(--warning-color, #d97706) 14%, transparent); }
+tr.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--warning-color, #d97706); }
+/* An express row keeps its red; its day chip still turns amber. */
+tr.gh-express.at-row-stuck { background: color-mix(in srgb, var(--danger-bg) 45%, transparent); }
+tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--danger-color); }
+
+/* Orders / Workshop list: an order past its delivery date and still being made
+   ("Late") is highlighted across the whole row in red, stronger than an
+   express row's tint and taking over from the 10-day amber. */
+.orders-book > tbody > tr.at-row-late,
+.orders-book > tbody > tr.at-row-late.gh-express,
+.orders-book > tbody > tr.at-row-late.at-row-stuck { background: color-mix(in srgb, var(--danger-color) 13%, var(--surface-color)); }
+.orders-book > tbody > tr.at-row-late > td:first-child { box-shadow: inset 4px 0 0 var(--danger-color); }
+.orders-book > tbody > tr.at-row-late:hover { background: color-mix(in srgb, var(--danger-color) 18%, var(--surface-color)); }
+/* The table's own hover tint on the cells would cover the red. */
+.orders-book > tbody > tr.at-row-late > td { background: transparent !important; }
+
+/* Orders / Workshop list: "Assigned to", the person who has the current step. */
+.at-assignee { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
+.at-assignee svg { color: var(--text-secondary); flex-shrink: 0; }
+.at-assignee-none { color: var(--text-muted); }
+@media (max-width: 1024px) {
+  /* On the cards: a row like "Promised by", hidden when nobody has it yet. */
+  .orders-book > tbody > tr > td.at-assignee-cell { display: flex !important; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .orders-book > tbody > tr > td.at-assignee-cell::before { margin: 0 !important; font-weight: 500; }
+  .orders-book > tbody > tr > td.at-assignee-cell:has(> .at-assignee-none) { display: none !important; }
+}

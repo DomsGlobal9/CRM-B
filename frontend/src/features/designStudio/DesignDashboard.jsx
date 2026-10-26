@@ -8,6 +8,12 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
 import Loader from '../../components/ui/Loader';
 
+// The overview's Recently added, Most viewed, Most ordered and Trending strips
+// and its Designers card are hidden for now, not removed: set these to true to
+// bring them back.
+const SHOW_DESIGN_STRIPS = false;
+const SHOW_DESIGNER_ROSTER = false;
+
 const CARD_IMAGE_FALLBACK =
   'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
@@ -279,11 +285,18 @@ export default function DesignDashboard({ onOpenLibrary, canManageDesigners = fa
                   onClick={data.pending_approval > 0 ? () => onOpenLibrary?.('pending') : undefined} />
       </div>
 
+      {SHOW_DESIGN_STRIPS ? (
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(260px, 1fr)', gap: 'var(--space-4)' }} className="design-dashboard-grid">
         <DesignStrip icon={Upload} tone="green" title={t('designsPage.recentUploads', 'Recently added')} subtitle={t('designsPage.recentUploadsSub', 'Your newest designs')}
                      designs={data.recent_uploads} emptyText="Nothing uploaded yet." action={onOpenLibrary} />
         <CategoriesPanel onOpenLibrary={onOpenLibrary} />
       </div>
+      ) : (
+        // Categories alone, across the page.
+        <CategoriesPanel onOpenLibrary={onOpenLibrary} />
+      )}
+      {SHOW_DESIGN_STRIPS && (
+      <>
       <div className="at-grid-2 dd-pair">
         <DesignStrip icon={Eye} tone="amber" title={t('designsPage.mostViewed', 'Most viewed')} subtitle={t('designsPage.mostViewedSub', 'Designs customers view most')}
                      designs={data.most_viewed} metric="views" emptyText="No views recorded yet." action={onOpenLibrary} />
@@ -292,8 +305,10 @@ export default function DesignDashboard({ onOpenLibrary, canManageDesigners = fa
       </div>
       <DesignStrip icon={Clock} tone="violet" title={t('designsPage.trendingThisWeek', 'Trending This Week')} subtitle="Most viewed in the last 7 days"
                    designs={data.trending} metric="views" emptyText="Nothing trending in the last 7 days." />
+      </>
+      )}
 
-      {canManageDesigners && <DesignerRoster portalUrl={boutiqueLoginUrl(shopSlug)} />}
+      {SHOW_DESIGNER_ROSTER && canManageDesigners && <DesignerRoster portalUrl={boutiqueLoginUrl(shopSlug)} />}
     </div>
   );
 }

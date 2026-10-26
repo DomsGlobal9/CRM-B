@@ -5881,6 +5881,7 @@ function App() {
                             <th>Customer Name</th>
                             <th>Est. Delivery Date</th>
                             <th>Status</th>
+                            <th>{t('ordersPage.assignedTo', 'Assigned to')}</th>
                             <th style={{ textAlign: 'right' }}>Action</th>
                           </tr>
                         </thead>
@@ -5904,14 +5905,32 @@ function App() {
                         const deliveredOn = isDelivered
                           ? ((order.stages || []).filter(st => st.completed_at).map(st => st.completed_at).sort().pop() || order.estimated_delivery)
                           : null;
+                        // How many days it has been on the step it is on, shown
+                        // under the order number; more than ten marks the row.
+                        const stepDays = stage?.current?.started_at
+                          ? Math.max(0, Math.floor((Date.now() - new Date(stage.current.started_at).getTime()) / 864e5)) : null;
+                        const stuck = stepDays !== null && stepDays > 10;
+                        const rowClass = [
+                          (job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled ? 'gh-express' : '',
+                          stuck ? 'at-row-stuck' : '',
+                          // Past its delivery date and still in work: the whole row.
+                          late ? 'at-row-late' : '',
+                        ].filter(Boolean).join(' ') || undefined;
                         return (
                         <React.Fragment key={job ? `${order.id}-${job.id}` : order.id}>
-                        <tr className={(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled ? 'gh-express' : undefined}
+                        <tr className={rowClass}
                             style={isCancelled ? { opacity: 0.55 } : undefined}>
                           <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}{job ? `-${n}` : ''}
                             {job && (
                               <span style={{ display: 'block', fontWeight: 'var(--weight-regular)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
                                 {job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}
+                              </span>
+                            )}
+                            {stepDays !== null && (
+                              <span className={`at-step-days${stuck ? ' at-step-days--stuck' : ''}`}
+                                    title={`${stage.current.stage_name} · ${sinceLabel(stage.current.started_at)} (${t('ordersPage.since', 'since')} ${fmtDate(stage.current.started_at)})`}>
+                                <Clock size={12} aria-hidden="true" />
+                                {stepDays === 0 ? t('ordersPage.today', 'Today') : `${stepDays} ${stepDays === 1 ? t('ordersPage.day', 'day') : t('ordersPage.days', 'days')}`}
                               </span>
                             )}
                             {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
@@ -5941,33 +5960,22 @@ function App() {
                             {bucket === 'workshop' && job && !stage && (
                               <span className="ui-badge ui-badge--success">{t('ordersPage.garmentDelivered', 'Delivered')}</span>
                             )}
-                            {/* Where it stands: the step before (done), the step
-                                it is on with who has it and for how long, the
-                                step after. */}
+                            {/* Where it stands: the step it is on (who has it is
+                                the next column; how long, under the order number). */}
                             {stage && (
                               <div className="at-stage-strip">
-                                {stage.prev && (
-                                  <span className="at-stage-strip-muted"><Check size={13} /> {stage.prev.stage_name}</span>
-                                )}
                                 <span className="at-stage-strip-now">
-                                  {stage.prev && <span className="at-stage-strip-arrow" aria-hidden="true">→ </span>}
                                   <strong>{stage.current.stage_name}</strong>
-                                  {(() => {
-                                    const who = stageWho(stage.current);
-                                    const since = sinceLabel(stage.current.started_at);
-                                    return (who || since) ? (
-                                      <span className="at-stage-strip-muted">
-                                        {who && ` · ${who}`}{since && ` · ${t('ordersPage.since', 'since')} ${since}`}
-                                      </span>
-                                    ) : null;
-                                  })()}
                                 </span>
-                                {stage.next && (
-                                  <span className="at-stage-strip-muted"><span className="at-stage-strip-arrow" aria-hidden="true">→ </span>{stage.next.stage_name}</span>
-                                )}
                                 {late && <span className="ui-badge ui-badge--danger">{t('ordersPage.late', 'Late')}</span>}
                               </div>
                             )}
+                          </td>
+                          {/* Who has the step it is on. */}
+                          <td data-label={t('ordersPage.assignedTo', 'Assigned to')} className="at-assignee-cell">
+                            {stage && stageWho(stage.current)
+                              ? <span className="at-assignee"><User size={13} aria-hidden="true" /> {stageWho(stage.current)}</span>
+                              : <span className="at-assignee-none">—</span>}
                           </td>
                           <td style={{ whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>

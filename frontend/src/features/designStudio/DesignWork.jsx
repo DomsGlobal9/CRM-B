@@ -13,6 +13,12 @@ import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import Loader from '../../components/ui/Loader';
 
+// The owner's / master's "Assigned Design Work" list (and its "Only work still
+// open" switch) is hidden for now, not removed: set this to true to bring it
+// back. While hidden, a designer's submitted work cannot be reviewed here.
+// A designer's own "My design work" is not affected.
+const SHOW_ASSIGNED_WORK = false;
+
 const STATUS_STYLE = {
   ASSIGNED: { label: 'Assigned', tone: 'neutral', icon: ClipboardList },
   SUBMITTED: { label: 'Awaiting review', tone: 'info', icon: Clock },
@@ -424,6 +430,7 @@ export default function DesignWork({ currentUser }) {
     <div className="at-stack">
       {/* The page title + role-specific subtitle live in the page head (App
           renders them for this tab), so this row carries only the filter. */}
+      {(!isSupervisor || SHOW_ASSIGNED_WORK) && (
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: 'calc(-1 * var(--space-4))' }}>
         <label className="at-check-pill">
           <Clock size={14} style={{ color: 'var(--text-secondary)' }} />
@@ -431,6 +438,7 @@ export default function DesignWork({ currentUser }) {
           {t('designWorkPage.onlyOpen', 'Only work still open')}
         </label>
       </div>
+      )}
 
       {error && (
         <div className="ui-card" style={{ color: 'var(--danger-color)', padding: 'var(--space-3) var(--space-4)' }}>
@@ -445,7 +453,7 @@ export default function DesignWork({ currentUser }) {
 
       {loading ? (
         <Loader page label={t('common.loading', 'Loading…')} />
-      ) : isSupervisor ? (
+      ) : isSupervisor ? (SHOW_ASSIGNED_WORK && (
         <SectionCard icon={ClipboardList} tone="green" title="Assigned Design Work"
                      subtitle="Track all design assignments and their status.">
           <div className="at-toolbar" style={{ margin: '0 0 var(--space-3)' }}>
@@ -534,7 +542,7 @@ export default function DesignWork({ currentUser }) {
             </div>
           )}
         </SectionCard>
-      ) : assignments.length === 0 ? (
+      )) : assignments.length === 0 ? (
         <div className="ui-card" style={{ textAlign: 'center', padding: '32px' }}>
           <ClipboardList size={28} style={{ color: 'var(--text-secondary)' }} />
           <p style={{ marginTop: '10px', color: 'var(--text-secondary)' }}>
