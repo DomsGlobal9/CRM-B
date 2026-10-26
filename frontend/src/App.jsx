@@ -1757,6 +1757,9 @@ function App() {
   }, []);
   
   const [addingGarmentKey, setAddingGarmentKey] = useState(null);
+  // "Add more garments to this order": folded shut again once the picked
+  // garments are on the order, so the list does not stay open under them.
+  const addMoreGarmentsRef = useRef(null);
   const [activeGarmentKey, setActiveGarmentKey] = useState(null);
   const [garmentsDone, setGarmentsDone] = useState([]);
 
@@ -3230,6 +3233,17 @@ function App() {
   const wizardStepKey = wizardSteps[currentStep - 1]?.key;
   /** The garment being filled in on the Garments step. */
   const openGarment = garmentJobs.find(job => job.key === activeGarmentKey) || garmentJobs[0] || null;
+  // An order of many garments makes their stepper wider than the card, so it
+  // scrolls sideways: keep the open garment's circle in view. Sideways only --
+  // the page itself is not moved.
+  useEffect(() => {
+    const bar = document.querySelector('.wz-type-wrap .stepper-progress-bar');
+    const step = bar?.querySelector('[aria-current="step"]');
+    if (!bar || !step || bar.scrollWidth <= bar.clientWidth) return;
+    const b = bar.getBoundingClientRect();
+    const s = step.getBoundingClientRect();
+    bar.scrollTo({ left: bar.scrollLeft + (s.left + s.width / 2) - (b.left + b.width / 2), behavior: 'instant' });
+  }, [openGarment?.key, garmentJobs.length, wizardStepKey]);
   /** Open a garment's form from its top. */
   const openGarmentAt = (key) => {
     setActiveGarmentKey(key);
@@ -8787,7 +8801,7 @@ function App() {
 
                   {/* Another garment, once this one is filled in. */}
                   {garmentJobs.length > 0 && (
-                    <details className="wz-more wz-addmore">
+                    <details ref={addMoreGarmentsRef} className="wz-more wz-addmore">
                       <summary><Plus size={14} /> {t('wizard.addMoreGarments', 'Add more garments to this order')}</summary>
                       <div style={{ marginTop: '10px' }}>
                         <DressesDropdown compact
@@ -8797,7 +8811,10 @@ function App() {
                           addingGarmentKey={addingGarmentKey}
                           garmentTemplatesError={garmentTemplatesError}
                           loadGarmentTemplates={loadGarmentTemplates}
-                          addGarments={async (keys) => { await addGarments(keys); }}
+                          addGarments={async (keys) => {
+                            await addGarments(keys);
+                            if (addMoreGarmentsRef.current) addMoreGarmentsRef.current.open = false;
+                          }}
                         />
                       </div>
                     </details>

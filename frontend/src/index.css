@@ -7255,3 +7255,27 @@ button, input, select, textarea { font-family: inherit; }
   .wz-type-wrap .wz-gnav > span:empty { display: none; }
   .wz-type-wrap .wz-gnav > button { width: 100%; justify-content: center; }
 }
+
+/* ---- New order > Garments: the garments stepper with many garments -------
+   Each garment keeps a slot of its own (its circle, name and status on one
+   line each, the name cut with "..." when long -- the full name is on hover),
+   so they never pile on top of each other. When the slots no longer fit the
+   card the row scrolls sideways, with a thin visible scrollbar, and the open
+   garment is kept in view (App.jsx). A few garments still spread across the
+   card exactly as before. */
+.wz-type-wrap .wz-card .stepper-progress-bar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  padding-bottom: 10px !important;
+}
+.wz-type-wrap .wz-card .stepper-progress-bar::-webkit-scrollbar { display: block; height: 6px; }
+.wz-type-wrap .wz-card .stepper-progress-bar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+.wz-type-wrap .wz-card .stepper-progress-bar::-webkit-scrollbar-track { background: transparent; }
+.wz-type-wrap .wz-card .stepper-progress-bar > .stepper-step { flex: 1 0 92px !important; min-width: 92px; }
+/* A connector tucks 20px under each circle's slot (its own margin), so 56px
+   leaves 16px clear between two garments' names. */
+.wz-type-wrap .wz-card .stepper-progress-bar > :not(.stepper-step) { flex: 1 0 56px !important; }
+.wz-type-wrap .wz-card .stepper-progress-bar > .stepper-step > span {
+  display: block; max-width: 100%; padding: 0 4px; box-sizing: border-box;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
