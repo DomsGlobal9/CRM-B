@@ -242,6 +242,15 @@ export default function GarmentSelectionsReview({
           });
         });
 
+        // ---- the accessories ticked at the counter, with their type ("Self",
+        //      "Other: ...") and measurement (GarmentJob.selections.accessories)
+        accessoryRows.unshift(...Object.entries(job.accessories || {}).map(([key, d]) => ({
+          key: `detail:${key}`,
+          label: ACCESSORY_LABELS[key] || formatKey(key),
+          value: (d?.style === 'Other' ? (d.other ? `Other: ${d.other}` : 'Other') : d?.style) || 'Type not chosen',
+          sub: d?.measure || null,
+        })));
+
         const total = designRows.length + fabricRows.length + accessoryRows.length
           + fabricPhotoRows.length + accessoryPhotoRows.length;
 

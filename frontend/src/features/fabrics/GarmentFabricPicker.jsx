@@ -4,7 +4,7 @@ import { Check, ChevronDown, Inbox, X } from 'lucide-react';
 import { inventoryImage, inventoryTile } from '../../services/inventoryImages';
 import { LIMITS, cleanAmount } from '../../services/validate';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
-import { ACCESSORY_OPTIONS, accessoryOptionsFor, isAccessorySlot } from '../designStudio/accessories';
+import { ACCESSORY_OPTIONS, OTHER_SUBTYPE, SELF_SUBTYPE, accessoryOptionsFor, isAccessorySlot } from '../designStudio/accessories';
 import Loader from '../../components/ui/Loader';
 
 const unitShort = (f) => (
@@ -341,8 +341,14 @@ function ChosenSummary({ groups, accessoriesOnly = false, quantities = {}, onQua
 export default function GarmentFabricPicker({
   garmentJobs = [], fabrics = [], taxonomy = null, selection = {}, onChange, loading = false, accessoriesOnly = false,
   quantities = {}, onQuantityChange,
-  
+
   onPickOutOfStock,
+  // Accessories only: the ticked accessories with their type, "Other" text and
+  // measurement, per garment ({ jobKey: { dori: { style, other, measure } } }),
+  // kept by the caller so they are saved with the order. Without a handler
+  // they stay on this screen only, as before.
+  accessoryDetails = null,
+  onAccessoryDetailsChange,
 }) {
   const [activeSlotMap, setActiveSlotMap] = useState({});
 
@@ -403,23 +409,40 @@ export default function GarmentFabricPicker({
           );
         }
 
-        const initialAccessoryKeys = Object.keys(chosenForJob || {});
+        // Saved accessory details for this garment, when the caller keeps them.
+        const keepsDetails = accessoriesOnly && typeof onAccessoryDetailsChange === 'function';
+        const savedDetails = (keepsDetails && accessoryDetails?.[job.key]) || {};
+        const setDetails = (next) => onAccessoryDetailsChange(job.key, next);
+
+        const initialAccessoryKeys = [...new Set([...Object.keys(chosenForJob || {}), ...Object.keys(savedDetails)])];
         const selectedKeys = selectedAccessoryMap[job.key] !== undefined
           ? selectedAccessoryMap[job.key]
           : initialAccessoryKeys;
 
         const toggleAccessoryKey = (key) => {
+          const current = selectedAccessoryMap[job.key] !== undefined ? selectedAccessoryMap[job.key] : initialAccessoryKeys;
+          const isAdding = !current.includes(key);
           setSelectedAccessoryMap((prev) => {
-            const current = prev[job.key] !== undefined ? prev[job.key] : initialAccessoryKeys;
-            const isAdding = !current.includes(key);
+            const now = prev[job.key] !== undefined ? prev[job.key] : initialAccessoryKeys;
             const next = isAdding
-              ? [...current, key]
-              : current.filter(k => k !== key);
-            if (isAdding) {
-              setActiveSlotMap(sPrev => ({ ...sPrev, [job.key]: key }));
-            }
+              ? (now.includes(key) ? now : [...now, key])
+              : now.filter(k => k !== key);
             return { ...prev, [job.key]: next };
           });
+          if (isAdding) {
+            setActiveSlotMap(sPrev => ({ ...sPrev, [job.key]: key }));
+          }
+          if (keepsDetails) {
+            // Ticked: saved with the type shown highlighted (the first); unticked: dropped.
+            const next = { ...savedDetails };
+            if (isAdding) {
+              const first = accessoryOptionsFor(garmentKey).find(o => o.key === key)?.subtypes?.[0];
+              next[key] = { ...(next[key] || {}), ...(first && !next[key]?.style ? { style: first } : {}) };
+            } else {
+              delete next[key];
+            }
+            setDetails(next);
+          }
         };
 
        
@@ -477,13 +500,17 @@ export default function GarmentFabricPicker({
                             </span>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                               {currentAccOption.subtypes.map(sub => {
-                                const activeSub = accessorySubtypes[`${job.key}:${activeSlotKey}`] || currentAccOption.subtypes[0];
+                                const activeSub = (keepsDetails ? savedDetails[activeSlotKey]?.style : accessorySubtypes[`${job.key}:${activeSlotKey}`])
+                                  || currentAccOption.subtypes[0];
                                 const isSelected = activeSub === sub;
                                 return (
                                   <button
                                     key={sub}
                                     type="button"
-                                    onClick={() => setAccessorySubtypes(prev => ({ ...prev, [`${job.key}:${activeSlotKey}`]: sub }))}
+                                    title={sub === SELF_SUBTYPE ? `Made from the ${garmentName.toLowerCase()}'s own fabric` : undefined}
+                                    onClick={() => (keepsDetails
+                                      ? setDetails({ ...savedDetails, [activeSlotKey]: { ...(savedDetails[activeSlotKey] || {}), style: sub } })
+                                      : setAccessorySubtypes(prev => ({ ...prev, [`${job.key}:${activeSlotKey}`]: sub })))}
                                     style={{
                                       padding: '7px 14px',
                                       fontSize: '12.5px',
@@ -503,6 +530,39 @@ export default function GarmentFabricPicker({
                                 );
                               })}
                             </div>
+                            {(() => {
+                              const chosen = (keepsDetails ? savedDetails[activeSlotKey]?.style : accessorySubtypes[`${job.key}:${activeSlotKey}`])
+                                || currentAccOption.subtypes[0];
+                              if (chosen === SELF_SUBTYPE) {
+                                return (
+                                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    Made from the {garmentName.toLowerCase()}&apos;s own fabric.
+                                  </span>
+                                );
+                              }
+                              if (chosen !== OTHER_SUBTYPE) return null;
+                              const otherKey = `${job.key}:${activeSlotKey}:other`;
+                              return (
+                                <input
+                                  type="text"
+                                  className="form-control"
+                                  autoFocus
+                                  maxLength={80}
+                                  aria-label={`Which ${currentAccOption.label}?`}
+                                  placeholder={`Which ${currentAccOption.label.toLowerCase()}? e.g. pom-pom, shell, mirror work`}
+                                  value={(keepsDetails ? savedDetails[activeSlotKey]?.other : accessorySubtypes[otherKey]) || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (keepsDetails) {
+                                      setDetails({ ...savedDetails, [activeSlotKey]: { ...(savedDetails[activeSlotKey] || {}), other: val } });
+                                    } else {
+                                      setAccessorySubtypes(prev => ({ ...prev, [otherKey]: val }));
+                                    }
+                                  }}
+                                  style={{ maxWidth: '360px', padding: '9px 12px', fontSize: '13px', borderRadius: '10px' }}
+                                />
+                              );
+                            })()}
                           </div>
                         )}
 
@@ -517,10 +577,14 @@ export default function GarmentFabricPicker({
                               className="form-control"
                               placeholder={currentAccOption.placeholder || 'Enter measurement or size...'}
                               maxLength={100}
-                              value={accessoryMeasurements[`${job.key}:${activeSlotKey}`] || ''}
+                              value={(keepsDetails ? savedDetails[activeSlotKey]?.measure : accessoryMeasurements[`${job.key}:${activeSlotKey}`]) || ''}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                setAccessoryMeasurements(prev => ({ ...prev, [`${job.key}:${activeSlotKey}`]: val }));
+                                if (keepsDetails) {
+                                  setDetails({ ...savedDetails, [activeSlotKey]: { ...(savedDetails[activeSlotKey] || {}), measure: val } });
+                                } else {
+                                  setAccessoryMeasurements(prev => ({ ...prev, [`${job.key}:${activeSlotKey}`]: val }));
+                                }
                               }}
                               style={{ maxWidth: '300px', padding: '9px 12px', fontSize: '13px', borderRadius: '10px' }}
                             />

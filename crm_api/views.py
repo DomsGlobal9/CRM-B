@@ -2485,7 +2485,26 @@ def _selections_from_draft(garment, template):
         'fabric_qty': quantities if isinstance(quantities, dict) else {},
         'fabric_items': items,
         'slot_labels': labels,
+        'accessories': _accessories_from_draft(garment.get('accessories')),
     }
+
+
+def _accessories_from_draft(raw):
+    """The accessories ticked for a garment, each with its type ("Self", "Other"
+    or one of the listed kinds), the typed-in "Other" and its measurement.
+    Plain text only, a few short fields each; anything else is left behind."""
+    if not isinstance(raw, dict):
+        return {}
+    kept = {}
+    for key, detail in list(raw.items())[:30]:
+        if not isinstance(detail, dict):
+            continue
+        kept[str(key)[:40]] = {
+            field: str(detail.get(field)).strip()[:120].strip()
+            for field in ('style', 'other', 'measure')
+            if detail.get(field) not in (None, '') and str(detail.get(field)).strip()
+        }
+    return kept
 
 
 class OrderDraftViewSet(viewsets.ViewSet):

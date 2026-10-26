@@ -211,10 +211,25 @@ const MENS_ONLY_GARMENTS = new Set([
   'shorts', 'mens_bottom_wear', 'coat', 'casual_wear', 'sherwani',
 ]);
 const FOR_BOTH = new Set(['jacket']);
-export const accessoryOptionsFor = (garmentKey) => (
-  MENS_ONLY_GARMENTS.has(garmentKey) ? MENS_ACCESSORY_OPTIONS
+
+// Two more choices on some of a garment's accessories: "Self" -- made from the
+// garment's own fabric (a self dori, a self border) -- and "Other", which the
+// counter types in. They follow the accessory's own choices.
+export const SELF_SUBTYPE = 'Self';
+export const OTHER_SUBTYPE = 'Other';
+const SELF_AND_OTHER = {
+  lehenga: ['dori', 'tassel_latkan', 'border', 'lace_trim', 'buttons', 'decorative_motifs'],
+};
+
+export const accessoryOptionsFor = (garmentKey) => {
+  const options = MENS_ONLY_GARMENTS.has(garmentKey) ? MENS_ACCESSORY_OPTIONS
     : FOR_BOTH.has(garmentKey) ? ALL_ACCESSORY_OPTIONS
-      : ACCESSORY_OPTIONS);
+      : ACCESSORY_OPTIONS;
+  const withMore = SELF_AND_OTHER[garmentKey];
+  if (!withMore) return options;
+  return options.map((o) => (withMore.includes(o.key)
+    ? { ...o, subtypes: [...(o.subtypes || []), SELF_SUBTYPE, OTHER_SUBTYPE] } : o));
+};
 
 // Fabric-catalogue slots the order's fabric pickers leave out for a garment.
 // The dupatta's are accessories, offered by the Accessories step instead

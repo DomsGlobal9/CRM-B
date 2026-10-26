@@ -2130,6 +2130,8 @@ function App() {
             : design,
           fabrics: job.fabrics || {},
           fabric_qty: job.fabric_qty || {},
+          // The ticked accessories with their type, "Other" text and measurement.
+          accessories: job.accessories || {},
           sources: job.sources || {},
           brought: job.brought || {},
           materials: garmentMaterialLines(job),
@@ -2193,6 +2195,7 @@ function App() {
           design: garment.design || {},
           fabrics: garment.fabrics || {},
           fabric_qty: garment.fabric_qty || {},
+          accessories: garment.accessories || {},
           purchases: garment.purchases || [],
         });
       } catch (err) {
@@ -8652,6 +8655,8 @@ function App() {
                                   taxonomy={fabricTaxonomy}
                                   selection={fabricSelection}
                                   onChange={handleFabricSelection}
+                                  accessoryDetails={{ [job.key]: job.accessories || {} }}
+                                  onAccessoryDetailsChange={(jobKey, next) => setGarmentJobs(prev => prev.map(j => (j.key === jobKey ? { ...j, accessories: next } : j)))}
                                   accessoriesOnly />
                               </Suspense>
                             </details>
@@ -9100,6 +9105,25 @@ function App() {
                             <td style={{ padding: '8px 0', textAlign: 'right' }}>{line.qty ? `${line.qty} m` : <span className="od-hint">no quantity</span>}</td>
                           </tr>
                         ))}
+                      </tbody>
+                    </table>
+                  ))}
+                  {/* The ticked accessories, each with its type ("Self", "Other: ...")
+                      and measurement, as saved on the garment. */}
+                  {garmentJobs.some(job => Object.keys(job.accessories || {}).length) && card(t('wizard.sheetAccessories', 'Accessories'), 'design', (
+                    <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+                      <tbody>
+                        {garmentJobs.flatMap(job => Object.entries(job.accessories || {}).map(([key, d]) => (
+                          <tr key={`${job.key}:${key}`} style={{ borderTop: '1px solid var(--border-color)' }}>
+                            <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>
+                              {garmentLabel(job)} · {ALL_ACCESSORY_OPTIONS.find(o => o.key === key)?.label || key}
+                            </td>
+                            <td style={{ padding: '8px 0', fontWeight: 600 }}>
+                              {d?.style === 'Other' ? (d.other ? `Other: ${d.other}` : 'Other') : (d?.style || '—')}
+                            </td>
+                            <td style={{ padding: '8px 0', textAlign: 'right' }}>{d?.measure || <span className="od-hint">no measurement</span>}</td>
+                          </tr>
+                        )))}
                       </tbody>
                     </table>
                   ))}
@@ -10038,6 +10062,7 @@ Complete the Payment stage with this partial payment?`)) return;
                     fabrics: j.selections?.fabrics,
                     slot_labels: j.selections?.slot_labels,
                     fabric_qty: j.selections?.fabric_qty,
+                    accessories: j.selections?.accessories,
                   }))}
                   fabrics={jobs.flatMap((j) => j.selections?.fabric_items || [])}
                   taxonomy={fabricTaxonomy}

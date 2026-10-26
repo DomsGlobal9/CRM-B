@@ -637,7 +637,8 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
           <div className="wk-gap">
             <GarmentSelectionsReview
               jobs={jobs.map((j) => ({ key: j.id, template: { key: j.template_key, name: j.display_name || j.template_name },
-                design: j.selections?.design, fabrics: j.selections?.fabrics, slot_labels: j.selections?.slot_labels, fabric_qty: j.selections?.fabric_qty }))}
+                design: j.selections?.design, fabrics: j.selections?.fabrics, slot_labels: j.selections?.slot_labels, fabric_qty: j.selections?.fabric_qty,
+                accessories: j.selections?.accessories }))}
               fabrics={jobs.flatMap((j) => j.selections?.fabric_items || [])}
               taxonomy={fabricTaxonomy} />
           </div>
