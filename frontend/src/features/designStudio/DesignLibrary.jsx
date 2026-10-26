@@ -407,23 +407,20 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
     const toCategories = () => document.querySelector('.dl-cats-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return (
       <div className="at-stack dl-page">
-        <div className="at-stat-grid dl-stats">
+        {/* Just the label and the number on each card (no line under it). */}
+        <div className="at-stat-grid dl-stats dl-stats--plain">
           <StatCard icon={ImageIcon} tone="green" label="Total Designs" value={total}
-                    sub={`${total === 1 ? 'design' : 'designs'} in the library`}
                     onClick={toCategories} />
           {/* From the Overview tab, merged in here: the active designers and
               collections (the category count is the list of categories below). */}
-          <StatCard icon={Users} tone="amber" label="Designers" value={(Array.isArray(designers) ? designers : designers?.results || []).length} sub="Active"
+          <StatCard icon={Users} tone="amber" label="Designers" value={(Array.isArray(designers) ? designers : designers?.results || []).length}
                     onClick={onOpenDesigners || onOpenRequests || toCategories} />
           <StatCard icon={Award} tone="violet" label="Collections" value={(Array.isArray(collections) ? collections : collections?.results || []).length}
-                    sub={(Array.isArray(collections) ? collections : collections?.results || []).length ? 'Curated sets' : 'Create your first'}
                     onClick={() => setUploading(true)} />
           <StatCard icon={ImageIcon} tone="violet" label="Uncategorised" value={uncategorised?.count ?? 0}
-                    sub={uncategorised?.count ? 'not yet filed under a garment' : 'everything is filed'}
                     onClick={uncategorised ? () => { setFilters({}); setOpenCategory(uncategorised); } : toCategories} />
           {canReview && (
             <StatCard icon={Clock} tone={pendingCount > 0 ? 'rose' : 'blue'} label="Awaiting review" value={pendingCount}
-                      sub={pendingCount > 0 ? 'designs waiting on you' : 'all reviewed'}
                       onClick={() => { setFilters({}); setOpenCategory(PENDING_QUEUE); }} />
           )}
         </div>

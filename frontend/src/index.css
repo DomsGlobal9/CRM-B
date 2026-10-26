@@ -7553,3 +7553,30 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   border: 0; background: var(--surface-color); color: var(--text-primary); font: inherit; font-size: 12px; cursor: pointer;
 }
 .staff-only-chip button:hover { background: var(--surface-2); }
+
+/* Design library > Boutique designs: the number cards carry a label and a
+   number only, so the icon sits centred beside them and every card is the
+   same height. */
+.dl-page .dl-stats--plain .at-stat { align-items: center !important; }
+.dl-page .dl-stats--plain .at-stat-body { justify-content: center; }
+.dl-page .dl-stats--plain .at-stat-label { line-height: 1.3; }
+.dl-page .dl-stats--plain .at-stat-value { margin-top: 2px; line-height: 1.1; }
+@media (min-width: 1025px) and (max-width: 1279.98px) {
+  /* Icon above the words here: centre the words under it as well. */
+  .dl-page .dl-stats--plain .at-stat-body { align-items: center; text-align: center; width: 100%; }
+}
+
+/* Design library > Design Categories: the heading lines up with the cards
+   under it -- its icon over the cards' icons (same size), its title over the
+   garment names, "Upload design" over the arrows -- and inside each card the
+   icon, the name with its count and the arrow share one centre line. */
+@media (min-width: 601px) {
+  .dl-cats-card > .at-section-head { padding: 0 16px; align-items: center; }
+  .dl-cats-card > .at-section-head .at-section-heading { align-items: center; gap: 12px; }
+  .dl-cats-card > .at-section-head .at-section-heading > .at-tile { width: 44px !important; height: 44px !important; border-radius: 12px; }
+}
+.dl-cats-card .at-cat { align-items: center; gap: 12px; }
+.dl-cats-card .at-cat > span:not(.at-tile) { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; flex: 1; }
+.dl-cats-card .at-cat-name { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-cats-card .at-cat-count { margin: 0 !important; font-size: 12.5px; line-height: 1.3; color: var(--text-secondary); }
+.dl-cats-card .at-cat-chevron { flex-shrink: 0; margin-left: auto; align-self: center; }
