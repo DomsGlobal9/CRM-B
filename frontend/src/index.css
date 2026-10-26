@@ -7038,15 +7038,16 @@ button, input, select, textarea { font-family: inherit; }
 
 /* ---- Petticoat style picker (order wizard, "Choose design") ---------------
    Replaces the three design cards for a petticoat: outline pictures of each
-   style, three or more to a row on a wide screen, two on a phone. */
-.ptc-picker { margin: 14px 0 16px; }
+   style, all in one row on a wide panel; three to a row (two rows) on a
+   narrow one, two on a very narrow one -- sized by the panel, not the window. */
+.ptc-picker { margin: 14px 0 16px; container-type: inline-size; }
 .ptc-picker-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; }
 .ptc-picker-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
 .ptc-picker-sub { font-size: 12.5px; color: var(--text-secondary); }
-.ptc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.ptc-grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; }
 .ptc-tile {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
-  padding: 14px 10px 12px; text-align: center; cursor: pointer; font: inherit;
+  min-width: 0; padding: 12px 8px 10px; text-align: center; cursor: pointer; font: inherit;
   color: var(--text-secondary); background: var(--surface-color);
   border: 1px solid var(--border-color); border-radius: var(--radius-lg, 12px);
   box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,0.04));
@@ -7054,16 +7055,19 @@ button, input, select, textarea { font-family: inherit; }
 }
 .ptc-tile:hover { border-color: var(--primary-color); transform: translateY(-1px); }
 .ptc-tile:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 2px; }
-.ptc-tile--on { border: 2px solid var(--primary-color); padding: 13px 9px 11px; color: var(--text-primary); background: var(--accent-color); }
-.ptc-art { display: block; width: 88px; height: 104px; color: var(--text-primary); }
-.ptc-label { font-size: 13.5px; font-weight: 600; color: var(--text-primary); line-height: 1.25; }
-.ptc-hint { font-size: 11.5px; color: var(--text-secondary); line-height: 1.3; }
+.ptc-tile--on { border: 2px solid var(--primary-color); padding: 11px 7px 9px; color: var(--text-primary); background: var(--accent-color); }
+.ptc-art { display: block; width: 100%; max-width: 76px; aspect-ratio: 100 / 120; margin-bottom: 4px; color: var(--text-primary); }
+.ptc-label { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.25; text-wrap: balance; overflow-wrap: anywhere; }
+.ptc-hint { font-size: 11.5px; color: var(--text-secondary); line-height: 1.3; text-wrap: balance; }
 .ptc-tick {
-  position: absolute; top: 8px; right: 8px; width: 20px; height: 20px; border-radius: 50%;
+  position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--primary-color); color: var(--primary-foreground, #141214);
 }
-@media (max-width: 640px) {
-  .ptc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .ptc-art { width: 72px; height: 86px; }
+@container (max-width: 620px) {
+  .ptc-grid { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ptc-art { max-width: 68px; }
+}
+@container (max-width: 340px) {
+  .ptc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
