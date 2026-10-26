@@ -7190,12 +7190,28 @@ button, input, select, textarea { font-family: inherit; }
   margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-color);
 }
 
-/* Add more garments: a dashed "+" row until it is opened. */
-.wz-type-wrap .wz-addmore:not([open]) { border-style: dashed; border-width: 1.5px; background: transparent; }
-.wz-type-wrap .wz-addmore:not([open]):hover { border-color: var(--primary-color); background: var(--surface-color); }
+/* Add more garments: a clear lime "+" button until it is opened -- soft lime
+   fill, a dashed lime edge and a filled "+" badge, so it reads as an action
+   against the page's beige background. */
+.wz-type-wrap .wz-addmore:not([open]) {
+  border: 2px dashed var(--primary-color); border-radius: 14px; background: var(--accent-color);
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+.wz-type-wrap .wz-addmore:not([open]):hover {
+  border-style: solid; background: var(--surface-color); box-shadow: var(--shadow-card); transform: translateY(-1px);
+}
 .wz-type-wrap .wz-addmore > summary { justify-content: center; color: var(--text-primary); }
+.wz-type-wrap .wz-addmore:not([open]) > summary { min-height: 56px; padding: 12px 0; gap: 10px; font-size: 15px; font-weight: 700; }
+.wz-type-wrap .wz-addmore:not([open]) > summary:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 4px; border-radius: 10px; }
+.wz-type-wrap .wz-addmore:not([open]) > summary > svg {
+  flex-shrink: 0; width: 26px; height: 26px; padding: 5px; border-radius: 50%;
+  background: var(--primary-color); color: var(--primary-foreground); stroke-width: 3;
+}
 .wz-type-wrap .wz-addmore:not([open]) > summary::before { display: none; }
 .wz-type-wrap .wz-addmore[open] > summary { justify-content: flex-start; }
+@media (max-width: 640px) {
+  .wz-type-wrap .wz-addmore:not([open]) > summary { min-height: 52px; font-size: 14px; }
+}
 
 /* Tablet and small laptop: the design options become rows (icon beside text). */
 @media (max-width: 900px) {

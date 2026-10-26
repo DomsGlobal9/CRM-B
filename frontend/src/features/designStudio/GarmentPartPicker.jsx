@@ -947,6 +947,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
           <PartTabStrip parts={tabParts} active={openPart}
                         allLabel={null}
                         showNext={!(ownOnly && !isFabric && !accessoriesOnly)}
+                        nextAsDone={isFabric && !accessoriesOnly}
                         onChange={(part) => { setPartTab(part); setViewIndex(null); }} />
         ) : null
       )}
