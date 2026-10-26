@@ -1093,8 +1093,8 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
           const sub = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' };
           const muted = <span style={{ color: 'var(--text-muted)' }}>—</span>;
           return (
-        <div className="at-table-wrap">
-          <table className="at-table at-table--phone-stack">
+        <div className="at-table-wrap staff-table-wrap">
+          <table className="at-table staff-table">
             <thead>
               <tr>
                 <th>Team member</th>
@@ -1115,8 +1115,8 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
             const outstanding = advances.reduce((n, a) => n + Number(a.outstanding || 0), 0);
             return (
             <Fragment key={member.id}>
-              <tr style={open ? { background: 'var(--surface-2)' } : undefined}>
-                <td>
+              <tr className={`staff-row${open ? ' staff-row--open' : ''}`} style={open ? { background: 'var(--surface-2)' } : undefined}>
+                <td className="staff-cell-member">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
                     <AvatarInitials name={member.name} size={36} />
                     <div style={{ minWidth: 0 }}>
@@ -1143,7 +1143,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
                   </div>
                 </td>
 
-                <td data-label="Today">
+                <td data-label="Status">
                   {member.status && isOwner && !member.isDesigner
                    && !attendanceToday.some((s) => String(s.staff) === String(member.id)) ? (
                     // Not marked in today: the stored Available/Busy is stale until they arrive.
@@ -1162,13 +1162,13 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
                   ) : null}
                 </td>
 
-                <td data-label="Contact" style={cell}>
+                <td style={cell} data-label="Contact">
                   {member.phone
                     ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Phone size={12} /> {member.phone}</span>
                     : muted}
                 </td>
 
-                <td data-label="Work type" style={cell}>
+                <td style={cell} data-label="Work type">
                   {t ? (
                     <>
                       <div>{employmentLabel(t.employment_type)}</div>
@@ -1188,7 +1188,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
                 </td>
 
                 {showPay && (
-                  <td data-label="Pay" style={cell}>
+                  <td style={cell} data-label="Pay">
                     {t && showsPay(t) ? (
                       <>
                         <div>{money(t.hourly_rate)}<span style={{ color: 'var(--text-muted)' }}>/hr</span></div>
@@ -1203,7 +1203,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
                 )}
 
                 {showPay && (
-                  <td data-label="Advances" style={cell}>
+                  <td style={cell} data-label="Advances">
                     {t && showsPay(t) && !member.isDesigner ? (
                       <>
                         <div>{outstanding > 0 ? money(outstanding) : <span style={{ color: 'var(--text-muted)' }}>None</span>}</div>
@@ -1214,7 +1214,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
                 )}
 
                 {isOwner && (
-                  <td className="at-cell-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td className="staff-cell-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
                       {t && showsPay(t) && !member.isDesigner && (
                         <button type="button" className="btn-secondary at-btn-sm"
@@ -1248,7 +1248,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
               </tr>
 
               {hasDetail && open && (
-              <tr>
+              <tr className="staff-detail">
               <td colSpan={cols} style={{ paddingTop: 0, background: 'var(--surface-2)' }}>
               {t && showsPay(t) && (
                 <div

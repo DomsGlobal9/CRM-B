@@ -185,6 +185,8 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
             order,
             stage_name=display_stage,
             custom_message=cust_msg,
+            # The trial-booking email says the invoice is attached: attach it.
+            attach_invoice=(msg_template == 'trial_scheduled'),
         )
 
         if status == 'Design & Creation' and order.tailor:

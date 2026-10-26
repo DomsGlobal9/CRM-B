@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, SlidersHorizontal, Trash2, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
@@ -41,9 +41,13 @@ const formatDate = (iso) =>
 
 function Filters({ value, onChange, designers, collections, parts = [] }) {
   const set = (key) => (e) => onChange({ ...value, [key]: e.target.value });
+  // On a phone everything but the search folds behind one button (index.css);
+  // a larger screen never shows the button and always shows every filter.
+  const [open, setOpen] = useState(false);
+  const applied = Object.entries(value).filter(([k, v]) => k !== 'search' && v).length;
 
   const select = (key, label, options) => (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+    <label className="dl-filter-more" style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
       {label}
       <select className="form-control" style={{ padding: '6px 8px', fontSize: '12px' }}
               value={value[key] || ''} onChange={set(key)}>
@@ -54,12 +58,12 @@ function Filters({ value, onChange, designers, collections, parts = [] }) {
   );
 
   return (
-    <div style={{
+    <div className={`dl-filters${open ? ' dl-filters--open' : ''}`} style={{
       display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(140px, 100%), 1fr))',
       gap: '12px', padding: '16px', border: '1px solid var(--border-color)',
       borderRadius: '8px', marginBottom: '20px', alignItems: 'end',
     }}>
-      <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+      <label className="dl-filter-search" style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
         Search
         <span style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
           <Search size={13} style={{ position: 'absolute', left: '8px', color: 'var(--text-muted)' }} />
@@ -67,6 +71,10 @@ function Filters({ value, onChange, designers, collections, parts = [] }) {
                  value={value.search || ''} onChange={set('search')} placeholder="Design name" />
         </span>
       </label>
+      <button type="button" className="btn-secondary dl-filter-toggle" aria-expanded={open}
+              onClick={() => setOpen((o) => !o)}>
+        <SlidersHorizontal size={14} /> {open ? 'Hide filters' : 'Filters'}{applied ? ` (${applied})` : ''}
+      </button>
 
       {select('designer', 'Designer', designers.map(d => [d.id, `${d.name} (${d.design_count})`]))}
       {select('collection', 'Collection', collections.map(c => [c.id, `${c.name} (${c.design_count})`]))}
@@ -88,7 +96,7 @@ function Filters({ value, onChange, designers, collections, parts = [] }) {
         ['most_ordered', 'Most ordered'], ['name', 'Name'],
       ])}
 
-      <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+      <label className="dl-filter-more dl-filter-price" style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
         Price
         <span style={{ display: 'flex', gap: '4px' }}>
           <input className="form-control" style={{ padding: '6px', fontSize: '12px', width: '50%' }}
@@ -156,8 +164,8 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000,
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px',
-    }} onClick={onClose}>
-      <div className="content-card" style={{ maxWidth: '860px', width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 0 }}
+    }} className="dl-detail" onClick={onClose}>
+      <div className="content-card dl-detail-card" style={{ maxWidth: '860px', width: '100%', maxHeight: '90vh', overflowY: 'auto', margin: 0 }}
            onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
           <div>
@@ -170,7 +178,7 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: '20px' }}>
-          <img src={resolveMediaUrl(design.image_url, CARD_IMAGE_FALLBACK)} alt={design.title}
+          <img className="dl-detail-img" src={resolveMediaUrl(design.image_url, CARD_IMAGE_FALLBACK)} alt={design.title}
                style={{ width: '100%', borderRadius: '8px', objectFit: 'cover' }} />
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(130px, 100%), 1fr))', gap: '12px', alignContent: 'start' }}>
@@ -233,7 +241,7 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
             <VoiceTextarea className="form-control" rows={2} maxLength={LIMITS.note} placeholder="Note for the designer (needed when requesting changes)"
                       value={note} onChange={(e) => setNote(e.target.value)}
                       style={{ fontSize: '12.5px', marginBottom: '10px' }} />
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="dl-detail-actions" style={{ display: 'flex', gap: '8px' }}>
               <button className="btn-primary" style={{ padding: '6px 14px', fontSize: '12px', opacity: reviewing ? 0.6 : 1 }}
                       disabled={reviewing} onClick={() => decide('APPROVED')}>
                 <Check size={12} /> Approve
@@ -267,7 +275,7 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
         )}
 
         {editable && !isPending && (
-          <div style={{ display: 'flex', gap: '8px', marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+          <div className="dl-detail-actions" style={{ display: 'flex', gap: '8px', marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
             <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}
                     onClick={() => onEdit(design)}><Edit2 size={12} /> Edit</button>
             <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px', color: 'var(--danger-color)', borderColor: 'var(--danger-color)' }}
@@ -393,8 +401,8 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
     const named = categories.filter((c) => c.key);
     const uncategorised = categories.find((c) => !c.key);
     return (
-      <div className="at-stack">
-        <div className="at-stat-grid">
+      <div className="at-stack dl-page">
+        <div className="at-stat-grid dl-stats">
           <StatCard icon={ImageIcon} tone="green" label="Total Designs" value={total}
                     sub={`${total === 1 ? 'design' : 'designs'} in the library`} />
           <StatCard icon={LayoutGrid} tone="amber" label="Categories" value={named.length} sub="garment types" />
@@ -413,7 +421,7 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
           subtitle="Organise the library by garment"
           action={() => setUploading(true)} actionLabel="Upload design"
         >
-          <div className="at-cat-grid">
+          <div className="at-cat-grid dl-cats">
             {categories.map((category) => (
               <button
                 key={category.key || 'uncategorised'}
@@ -444,17 +452,17 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
   }
 
   return (
-    <div className="content-card">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <button className="btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}
+    <div className="content-card dl-page">
+      <div className="dl-head" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <button className="btn-secondary dl-back" style={{ padding: '6px 12px', fontSize: '12px' }}
                 onClick={() => { setOpenCategory(null); setDesigns([]); }}>
           <ArrowLeft size={13} /> All categories
         </button>
-        <h3 style={{ margin: 0, fontFamily: 'var(--font-serif)', fontSize: 'var(--text-lg)', fontWeight: 500, color: 'var(--text-primary)' }}>{openCategory.name}</h3>
-        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+        <h3 className="dl-title" style={{ margin: 0, fontFamily: 'var(--font-serif)', fontSize: 'var(--text-lg)', fontWeight: 500, color: 'var(--text-primary)' }}>{openCategory.name}</h3>
+        <span className="dl-count" style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
           {loading ? 'loading…' : `${designs.length} shown`}
         </span>
-        <button className="btn-primary" style={{ padding: '6px 12px', fontSize: '12px', marginLeft: 'auto' }}
+        <button className="btn-primary dl-upload" style={{ padding: '6px 12px', fontSize: '12px', marginLeft: 'auto' }}
                 onClick={() => setUploading(true)}>
           <Plus size={13} /> Upload design
         </button>
@@ -488,11 +496,12 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
         </div>
       )}
 
-      <div style={{ display: openPart ? 'none' : 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: '16px' }}>
+      <div className="dl-grid" style={{ display: openPart ? 'none' : 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: '16px' }}>
         {designs.map((design) => {
           const status = STATUS_COLOURS[design.status] || STATUS_COLOURS.DRAFT;
           return (
             <div key={design.id}
+                 className="dl-card"
                  role="button"
                  tabIndex={0}
                  onClick={() => openDesign(design.id, design)}
@@ -501,21 +510,21 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
                    border: '1px solid var(--border-color)', borderRadius: '10px',
                    overflow: 'hidden', cursor: 'pointer', background: 'var(--surface-color)',
                  }}>
-              <div style={{ height: '170px', background: 'var(--brand-dark)', position: 'relative' }}>
+              <div className="dl-card-img" style={{ height: '170px', background: 'var(--brand-dark)', position: 'relative' }}>
                 <img src={resolveMediaUrl(design.image_url, CARD_IMAGE_FALLBACK)} alt={design.title}
                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <span style={{
+                <span className="dl-card-status" style={{
                   position: 'absolute', top: '10px', right: '10px', padding: '2px 8px',
                   borderRadius: '4px', fontSize: '9px', fontWeight: 700, textTransform: 'uppercase',
                   background: status.bg, color: status.fg,
                 }}>{design.status}</span>
               </div>
-              <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ fontSize: '14px', fontWeight: 600 }}>{design.title}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              <div className="dl-card-body" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div className="dl-card-title" style={{ fontSize: '14px', fontWeight: 600 }}>{design.title}</div>
+                <div className="dl-card-meta" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                   {design.designer_name || 'Unattributed'} · {formatDate(design.created_at)}
                 </div>
-                <div style={{ display: 'flex', gap: '10px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                <div className="dl-card-stats" style={{ display: 'flex', gap: '10px', fontSize: '11px', color: 'var(--text-muted)' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                     <Eye size={11} /> {design.view_count}
                   </span>
@@ -529,11 +538,11 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
                   )}
                 </div>
                 {design.inventory_item_id ? (
-                  <span style={{ fontSize: '11.5px', color: 'var(--success-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="dl-card-meta" style={{ fontSize: '11.5px', color: 'var(--success-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <Check size={13} /> In your inventory
                   </span>
                 ) : canStock ? (
-                  <button type="button" className="btn-secondary"
+                  <button type="button" className="btn-secondary dl-card-stock"
                           style={{ fontSize: '11.5px', padding: '5px 11px', alignSelf: 'flex-start' }}
                           onClick={(e) => { e.stopPropagation(); setStocking(design); }}>
                     <Package size={12} style={{ marginRight: '4px', verticalAlign: 'middle' }} />

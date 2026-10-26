@@ -5812,7 +5812,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .app-container .mobile-account-menu .mobile-account-item { justify-content: flex-start; }
 .mobile-header-bar .mobile-account-menu svg { color: currentColor; }
 
-/* =====================================================================
+/* ==============================================================
    Phone polish. One place for the fixes a page-by-page pass at 320-414px
    turned up, so each is written once rather than per screen.
    ===================================================================== */
@@ -5984,3 +5984,540 @@ button, input, select, textarea { font-family: inherit; }
 
 /* An order begun from the customer's own page keeps their name and number. */
 #wz-name[readonly], #wz-mobile[readonly] { background: var(--surface-inset, #f3f1ec); color: var(--text-secondary); cursor: not-allowed; }
+
+/* Fabrics & Materials on a phone: small cards, three to a row, like a shop's
+   product grid. The cards are styled inline for larger screens, so these
+   win with !important; nothing here applies above 600px. */
+@media (max-width: 600px) {
+  .inv-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important; margin-top: 14px !important; }
+  .inv-card { border-radius: 10px !important; }
+  .inv-card-pill { top: 5px !important; padding: 2px 5px !important; font-size: 8px !important; letter-spacing: 0.03em !important; border-radius: 4px !important; max-width: 46% !important; }
+  .inv-card-pill--left { left: 5px !important; }
+  .inv-card-pill--right { right: 5px !important; }
+  .inv-card-actions { right: 4px !important; bottom: 4px !important; gap: 3px !important; }
+  /* The phone-wide 40px button minimum would make these three swallow the photo. */
+  .inv-card-actions button { width: 22px !important; height: 22px !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; flex: none !important; }
+  .inv-card-actions svg { width: 11px; height: 11px; }
+  .inv-card-body { padding: 7px 7px 8px !important; gap: 1px !important; }
+  .inv-card-name { font-size: 12.5px !important; gap: 3px !important; }
+  .inv-card-meta { font-size: 10px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .inv-card-btn { margin-top: 6px !important; padding: 7px 4px !important; font-size: 9px !important; letter-spacing: 0.03em !important; gap: 3px !important; border-radius: 6px !important; white-space: nowrap; }
+  .inv-card-btn svg { width: 11px; height: 11px; flex-shrink: 0; }
+}
+/* Its four summary cards (stock value, out of stock, low, idle) on a phone:
+   two to a row and compact, instead of four full-width cards. */
+@media (max-width: 600px) {
+  .inv-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .inv-stats .at-stat { padding: 10px !important; gap: 8px !important; align-items: center !important; min-height: 0 !important; }
+  .inv-stats .at-tile { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
+  .inv-stats .at-tile svg { width: 15px; height: 15px; }
+  .inv-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .inv-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
+  .inv-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+/* The narrowest phones: two to a row, so the button still reads. */
+@media (max-width: 359px) {
+  .inv-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+/* ---- Design Library on a phone ----------------------------------------
+   Everything below 600px only (bar the Filters button, which exists only
+   for the phone). The library's cards are styled inline for larger screens,
+   so these win with !important. */
+.dl-filter-toggle { display: none; }
+@media (max-width: 600px) {
+  /* Overview: four summary cards two to a row; the garment categories as
+     tiles two to a row, the way a shop shows its departments. */
+  .dl-page .dl-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .dl-page .dl-stats .at-stat { padding: 10px !important; gap: 8px !important; align-items: center !important; }
+  .dl-page .dl-stats .at-tile { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
+  .dl-page .dl-stats .at-tile svg { width: 15px; height: 15px; }
+  .dl-page .dl-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dl-page .dl-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
+  .dl-page .dl-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dl-page .dl-cats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .dl-page .dl-cats .at-cat { position: relative; flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; min-height: 0; }
+  .dl-page .dl-cats .at-tile { width: 36px !important; height: 36px !important; border-radius: 10px !important; }
+  .dl-page .dl-cats .at-tile svg { width: 17px; height: 17px; }
+  .dl-page .dl-cats .at-cat > span { width: 100%; }
+  .dl-page .dl-cats .at-cat-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dl-cats .at-cat-count { font-size: 11px; }
+  .dl-page .dl-cats .at-cat-chevron { position: absolute; top: 12px; right: 10px; width: 16px; height: 16px; }
+
+  /* One garment's designs: back and upload on one line, the name under them. */
+  .dl-page.content-card { padding: 14px !important; }
+  .dl-page .dl-head { gap: 6px 8px !important; margin-bottom: 12px !important; }
+  .dl-page .dl-back { order: 1; }
+  .dl-page .dl-upload { order: 2; margin-left: auto !important; }
+  .dl-page .dl-title { order: 3; flex: 1 1 100%; font-size: 22px !important; line-height: 1.2; margin-top: 4px !important; }
+  .dl-page .dl-count { order: 4; margin-top: -4px; }
+
+  /* Filters: the search and one Filters button; the rest opens under them. */
+  .dl-page .dl-filters { display: flex !important; flex-wrap: wrap; gap: 8px !important; padding: 10px !important; margin-bottom: 14px !important; border-radius: 12px !important; }
+  .dl-page .dl-filter-search { flex: 1 1 0; min-width: 0; }
+  .dl-page .dl-filter-toggle { display: inline-flex; align-items: center; gap: 6px; align-self: flex-end; flex: none; white-space: nowrap; min-height: 40px; padding: 0 12px; font-size: 13px; }
+  .dl-page .dl-filters:not(.dl-filters--open) .dl-filter-more { display: none !important; }
+  .dl-page .dl-filter-more { flex: 1 1 calc(50% - 4px); min-width: 0; }
+  .dl-page .dl-filter-price { flex-basis: 100%; }
+  /* 16px stops a phone zooming the page when a box is tapped. */
+  .dl-page .dl-filters .form-control { font-size: 16px !important; min-height: 40px; }
+  .dl-page .dl-filter-search .form-control { padding-left: 28px !important; }
+
+  /* The designs, two to a row like a shop's product grid. */
+  .dl-page .dl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .dl-page .dl-card { border-radius: 12px !important; min-width: 0; }
+  .dl-page .dl-card-img { height: auto !important; aspect-ratio: 4 / 5; }
+  .dl-page .dl-card-img img { display: block; }
+  .dl-page .dl-card-status { top: 6px !important; right: 6px !important; padding: 2px 6px !important; font-size: 8px !important; }
+  .dl-page .dl-card-body { padding: 8px 9px 10px !important; gap: 3px !important; }
+  .dl-page .dl-card-title { font-size: 13px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dl-card-meta { font-size: 10.5px !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dl-card-stats { font-size: 10.5px !important; gap: 8px !important; }
+  .dl-page .dl-card-stock { align-self: stretch !important; justify-content: center; margin-top: 4px; padding: 0 8px !important; min-height: 32px !important; font-size: 11px !important; white-space: nowrap; }
+
+  /* A design opened: a sheet up from the bottom, thumb-high actions. */
+  .dl-page .dl-detail { align-items: flex-end !important; padding: 0 !important; }
+  .dl-page .dl-detail-card { max-height: 92vh !important; border-radius: 18px 18px 0 0 !important; padding: 16px 14px calc(16px + env(safe-area-inset-bottom)) !important; }
+  .dl-page .dl-detail-img { max-height: 55vh; }
+  .dl-page .dl-detail-actions { flex-wrap: wrap; }
+  .dl-page .dl-detail-actions > button { flex: 1 1 auto; justify-content: center; min-height: 40px; }
+}
+
+/* ---- Designs page tabs and its Overview on a phone -------------------- */
+@media (max-width: 600px) {
+  /* Overview / Boutique designs / Design requests on one line, not wrapped. */
+  .dl-tabs { display: flex !important; flex-wrap: nowrap !important; width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .dl-tabs::-webkit-scrollbar { display: none; }
+  .dl-tabs .tab-btn { flex: 1 0 auto; white-space: nowrap; font-size: 13px; padding: 6px 10px; }
+
+  /* Recently added, two to a row; categories, two to a row; the paired
+     panels (most viewed / most ordered) one under the other. */
+  .dl-page .dd-recent { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .dl-page .dd-recent .at-row-title { font-size: 13px; }
+  .dl-page .dd-recent .at-row-sub { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dd-cats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .dl-page .dd-cats .at-cat { padding: 10px 12px; min-width: 0; }
+  .dl-page .dd-cats .at-cat-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dl-page .dd-pair { grid-template-columns: minmax(0, 1fr) !important; }
+
+  /* Designers: each box a full row, buttons full width, 16px so the phone
+     does not zoom in on a tap. */
+  .dl-page .dd-add-designer .form-control,
+  .dl-page .dd-grant .form-control { font-size: 16px !important; min-height: 40px; flex: 1 1 100% !important; }
+  .dl-page .dd-add-designer button { flex: 1 1 100%; justify-content: center; min-height: 40px; font-size: 13px !important; }
+  .dl-page .dd-designer > span:first-child { flex: 1 1 auto !important; }
+  .dl-page .dd-grant { flex: 1 1 100% !important; max-width: none !important; margin-left: 0 !important; flex-wrap: wrap; }
+  .dl-page .dd-grant button { flex: 1 1 100%; justify-content: center; min-height: 40px; font-size: 13px !important; }
+}
+
+/* ---- Staff list on a tablet and a phone: each person a box ------------
+   The table is unchanged above 1024px (below it, its seven columns no
+   longer fit and it scrolled sideways). Below it, a row is a card: the
+   person and their buttons on top, then Status / Contact / Work type / Pay /
+   Advances as labelled pairs (the labels are the cells' data-label) -- all
+   five on one line on a tablet, three to a line on a phone. An opened row's
+   pay details hang under its card. */
+@media (max-width: 1024px) {
+  .staff-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
+  .staff-table { min-width: 0 !important; display: block; }
+  .staff-table thead { display: none; }
+  .staff-table tbody { display: flex; flex-direction: column; gap: 10px; }
+  /* A compact card: the person and their buttons on the first line, a thin
+     rule, then the details three to a line. */
+  .staff-table tr.staff-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+    padding: 10px 12px; background: var(--surface-color); border: 1px solid var(--border-color);
+    border-radius: 12px; box-shadow: var(--shadow-card);
+  }
+  .staff-table tr.staff-row::after { content: ''; order: 1; flex: 1 1 100%; height: 1px; background: var(--border-color); }
+  .staff-table tbody tr.staff-row:hover td { background: transparent; }
+  .staff-table tr.staff-row > td { display: block; padding: 0 !important; border: none !important; min-width: 0; background: transparent; }
+  .staff-table td.staff-cell-member { order: 0; flex: 1 1 0; }
+  .staff-table td.staff-cell-member .ui-avatar,
+  .staff-table td.staff-cell-member > div > :first-child { flex-shrink: 0; }
+  .staff-table td.staff-cell-member button { min-height: 0 !important; }
+  .staff-table td.staff-cell-actions { order: 0; flex: none; white-space: nowrap !important; }
+  .staff-table td.staff-cell-actions > div { display: flex !important; gap: 4px !important; }
+  /* Compact buttons, so the person's name keeps the room it needs. */
+  .staff-table td.staff-cell-actions button {
+    height: 30px; min-height: 30px !important; min-width: 30px !important;
+    padding: 0 8px !important; font-size: 12px !important; gap: 4px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .staff-table td.staff-cell-actions button svg { width: 13px; height: 13px; }
+  /* Name and role one line each; a long one ends in "…" rather than wrapping. */
+  .staff-table td.staff-cell-member > div > div:last-child { flex: 1 1 0; min-width: 0; }
+  .staff-table td.staff-cell-member > div > div:last-child > * {
+    display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Exactly a third each (two 10px gaps between three), so a second line of
+     details sits under the first in the same columns instead of stretching. */
+  .staff-table td[data-label] { order: 2; flex: 0 0 calc((100% - 20px) / 3); font-size: 12.5px !important; overflow-wrap: anywhere; align-self: flex-start; }
+  .staff-table td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 2px;
+    font-size: 9.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted);
+  }
+  .staff-table td[data-label] .ui-badge { font-size: 11px; padding: 1px 7px; }
+  .staff-table tr.staff-row--open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .staff-table tr.staff-detail {
+    display: block; margin-top: -10px; padding: 0 14px 14px;
+    background: var(--surface-2); border: 1px solid var(--border-color); border-top: none;
+    border-radius: 0 0 14px 14px;
+  }
+  .staff-table tr.staff-detail > td { display: block; padding: 0 !important; border: none !important; background: transparent !important; }
+}
+/* A tablet has the width for all five details on one line (four 12px gaps),
+   and a little more room in the card. */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .staff-table tr.staff-row { padding: 12px 16px; gap: 10px 12px; }
+  .staff-table td[data-label] { flex: 0 0 calc((100% - 48px) / 5); font-size: 13px !important; }
+  .staff-table tr.staff-detail { padding: 0 16px 16px; }
+}
+
+/* ---- Bills & payments on a phone ---------------------------------------
+   Below 1024px the bill rows already stack (.at-table--fit); on a phone each
+   is a compact card instead of eight lines one under another:
+     customer ............ status
+     bill no.   date       total
+     paid (bar) ......... balance
+     [ view bill ]
+   Cells keep their order in the markup; the grid only places them. */
+@media (max-width: 600px) {
+  .bill-stats { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .bill-stats > :last-child { grid-column: 1 / -1; }
+  .bill-stats .at-stat { padding: 10px !important; gap: 8px !important; align-items: center !important; }
+  .bill-stats .at-tile { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
+  .bill-stats .at-tile svg { width: 15px; height: 15px; }
+  .bill-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bill-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
+  .bill-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .bill-toolbar { margin: 14px 0 12px !important; gap: 10px !important; }
+  .bill-toolbar .at-toolbar-right { flex: 1 1 100%; }
+  .bill-toolbar .at-toolbar-right > * { flex: 1 1 100%; width: 100%; max-width: none; }
+}
+/* The bill cards themselves: on a tablet too (below 1024px), where the
+   stacked rows were eight lines one under another down the whole width. */
+@media (max-width: 1024px) {
+  .invoices-content.at-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
+  .invoices-content tbody { display: flex !important; flex-direction: column; gap: 10px; }
+  .invoices-content tr.bill-row {
+    display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas: "client client status" "id date total" "paid paid balance" "action action action";
+    gap: 10px 10px; padding: 12px !important; background: var(--surface-color);
+    border: 1px solid var(--border-color) !important; border-radius: 12px; box-shadow: var(--shadow-card);
+  }
+  .invoices-content tr.bill-row > td { width: auto !important; padding: 0 !important; min-width: 0; font-size: 13px; }
+  .invoices-content tr.bill-row > td[data-label]::before { font-size: 9.5px; letter-spacing: .05em; margin-bottom: 3px; }
+  .invoices-content tr.bill-row > td:nth-child(1) { grid-area: id; }
+  .invoices-content tr.bill-row > td:nth-child(2) { grid-area: client; align-self: center; padding-bottom: 10px !important; border-bottom: 1px solid var(--border-color) !important; }
+  .invoices-content tr.bill-row > td:nth-child(2)::before { display: none !important; }
+  .invoices-content tr.bill-row > td:nth-child(2) .at-cell-person > span:last-child { font-weight: 600 !important; overflow: hidden !important; text-overflow: ellipsis !important; white-space: nowrap !important; }
+  .invoices-content tr.bill-row > td:nth-child(3) { grid-area: date; }
+  .invoices-content tr.bill-row > td:nth-child(4) { grid-area: total; }
+  .invoices-content tr.bill-row > td:nth-child(5) { grid-area: paid; }
+  .invoices-content tr.bill-row > td:nth-child(6) { grid-area: balance; }
+  .invoices-content tr.bill-row > td:nth-child(7) { grid-area: status; text-align: right !important; padding-bottom: 10px !important; border-bottom: 1px solid var(--border-color) !important; }
+  .invoices-content tr.bill-row > td:nth-child(7)::before { display: none !important; }
+  /* The status pill: small text on one line, so "Unpaid" / "Part paid" fit
+     their corner instead of being cut off by the phone's larger form text. */
+  .invoices-content tr.bill-row > td:nth-child(7) .ui-badge { max-width: 100%; }
+  .invoices-content tr.bill-row > td:nth-child(7) select {
+    min-width: 0 !important; max-width: 100% !important; width: auto !important;
+    height: 30px !important; min-height: 0 !important; padding: 0 22px 0 10px !important;
+    font-size: 12px !important; line-height: 30px !important; white-space: nowrap !important;
+    overflow: hidden !important; text-overflow: ellipsis !important; background-position: right 6px center !important;
+  }
+  .invoices-content tr.bill-row > td:nth-child(8) { grid-area: action; }
+  .invoices-content tr.bill-row > td:nth-child(8) button { width: 100%; justify-content: center; min-height: 38px; }
+  /* 16px stops the phone zooming in when the paid amount is tapped. */
+  .invoices-content tr.bill-row input { font-size: 16px !important; }
+}
+/* A tablet: the bill cards two to a row, a little roomier. */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .invoices-content tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .invoices-content tr.bill-row { padding: 14px !important; gap: 12px 10px; }
+  .invoices-content tbody > tr:not(.bill-row) { grid-column: 1 / -1; }
+}
+
+/* ---- My Profile on a phone ---------------------------------------------
+   The page already stacks to one column below 900px; on a phone it is made
+   compact and thumb-friendly: a smaller cover and photo, tighter cards,
+   status rows whose buttons sit under their text, and Cancel / Save as two
+   equal full-width buttons. Nothing here applies above 600px. */
+@media (max-width: 600px) {
+  .at-account { gap: 14px !important; }
+
+  /* The profile card. */
+  .at-account .at-cover { height: 84px; }
+  .at-account .at-account-avatar { width: 88px; height: 88px; margin-top: -44px; }
+  .at-account .at-account-avatar-ring { border-width: 3px; }
+  .at-account .at-account-camera { width: 30px; height: 30px; right: 0; bottom: 2px; }
+  .at-account .at-account-camera svg { width: 14px; height: 14px; }
+  .at-account .at-account-name { font-size: 20px; margin: 10px 0 6px; padding: 0 14px; overflow-wrap: anywhere; }
+  .at-account .at-account-rows { padding: 12px 14px 14px; margin-top: 12px; gap: 10px; }
+
+  /* The cards on the right: My details and the boutique profile. */
+  .at-account .at-section { padding: 14px !important; }
+  .at-account .at-section-head { margin-bottom: 12px; gap: 10px; }
+  .at-account .at-section-heading { align-items: flex-start; gap: 10px; }
+  .at-account .at-section-heading .at-tile { width: 34px !important; height: 34px !important; border-radius: 9px !important; }
+  .at-account .at-section-heading .at-tile svg { width: 16px; height: 16px; }
+  .at-account .at-section-title { font-size: 16px; }
+  .at-account .at-section-sub { font-size: 11.5px; line-height: 1.4; }
+
+  /* Shop location and current logo: the text on its own line, the buttons
+     under it sharing the width. */
+  .at-account .at-form-section { padding: 12px !important; gap: 10px !important; }
+  .at-account .at-form-section > .at-row-main { flex: 1 1 100%; min-width: 0; }
+  /* The logo row keeps its text beside the thumbnail. */
+  .at-account .at-form-section:has(> img) > .at-row-main { flex: 1 1 0; }
+  .at-account .at-form-section > button { flex: 1 1 auto; justify-content: center; min-height: 38px; }
+
+  /* Logo guidelines note. */
+  .at-account .at-note { padding: 12px 14px; gap: 10px; }
+  .at-account .at-note-title { font-size: 14px; }
+  .at-account .at-note-list { font-size: 12.5px; gap: 4px; }
+
+  /* The design-approval switch. */
+  .at-account .at-switch-row { align-items: flex-start; gap: 10px; }
+  .at-account .at-switch-row .at-row-sub { font-size: 12px; line-height: 1.4; }
+  .at-account .at-switch-row .at-switch { margin-top: 4px; flex-shrink: 0; }
+
+  /* Cancel and Save side by side, full width; the autosave note under them. */
+  .at-account .at-form-foot { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .at-account .at-form-foot > button { width: 100%; justify-content: center; min-height: 44px; }
+  .at-account .at-form-foot > span { grid-column: 1 / -1; text-align: center; }
+}
+
+/* ---- Settings > Invoice style on a phone -------------------------------
+   Card padding tightened; the template's name, line and badge read on their
+   own lines; the arrows sit in a margin beside the preview instead of on top
+   of it; the two buttons stack full width so their labels fit; the wide
+   preview popup fills the phone. Nothing here applies above 600px. */
+@media (max-width: 600px) {
+  .its-card { padding: 14px !important; border-radius: 14px !important; }
+  .its-card .its-tpl { padding: 12px !important; border-radius: 12px !important; }
+  .its-card .its-head { padding-right: 0 !important; flex-wrap: wrap; gap: 6px 10px; }
+  .its-card .its-head > div { flex: 1 1 0; min-width: 0; }
+  .its-card .its-head h3 { font-size: 15px !important; line-height: 1.25; }
+  .its-card .its-head > div > span { display: block; line-height: 1.35; }
+  .its-card .its-badge { flex: none; white-space: nowrap; font-size: 10.5px !important; padding: 3px 8px !important; }
+  /* Room either side of the preview for the arrows. */
+  .its-card .its-frame { margin: 0 24px; height: 220px !important; }
+  .its-card .its-arrow { width: 30px !important; height: 30px !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; }
+  .its-card .its-arrow svg { width: 18px; height: 18px; }
+  .its-card .its-arrow--prev { left: 6px !important; }
+  .its-card .its-arrow--next { right: 6px !important; }
+  .its-card .its-actions { flex-direction: column; gap: 8px !important; margin-top: 12px !important; }
+  .its-card .its-actions > button { width: 100%; flex: none !important; justify-content: center !important; min-height: 42px; white-space: nowrap; }
+
+  /* The wide preview: the whole screen, the invoice scrolls inside it. */
+  .its-modal { padding: 0 !important; align-items: flex-end !important; }
+  .its-modal-box { max-height: 94vh !important; border-radius: 16px 16px 0 0 !important; }
+  .its-modal-head { padding: 12px 14px !important; }
+  .its-modal-head h3 { font-size: 16px !important; flex-wrap: wrap; }
+  .its-modal-body { padding: 12px !important; overflow-x: auto; }
+  .its-modal-foot { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px 14px calc(12px + env(safe-area-inset-bottom)) !important; }
+  .its-modal-foot > button { width: 100%; justify-content: center; min-height: 42px; font-size: 12.5px !important; padding: 0 8px !important; }
+}
+
+/* ---- Settings > Daily summary on a phone --------------------------------
+   Each person a compact card instead of a four-column table that scrolls
+   sideways:  name / role ........ [x] On
+              [ language            v ]
+              SENT BY  WhatsApp ...                                      */
+@media (max-width: 600px) {
+  .dss-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
+  .dss-table { min-width: 0 !important; display: block; }
+  .dss-table thead { display: none; }
+  .dss-table tbody { display: flex; flex-direction: column; gap: 8px; }
+  .dss-table tr.dss-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "person receive" "lang lang" "chan chan";
+    gap: 8px 12px; align-items: center; padding: 12px;
+    background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px;
+  }
+  .dss-table tbody tr.dss-row:hover td { background: transparent; }
+  .dss-table tr.dss-row > td { display: block; padding: 0 !important; border: none !important; min-width: 0; }
+  .dss-table td.dss-person { grid-area: person; overflow-wrap: anywhere; }
+  .dss-table td.dss-receive { grid-area: receive; justify-self: end; white-space: nowrap; }
+  .dss-table td.dss-lang { grid-area: lang; }
+  .dss-table td.dss-lang select { width: 100%; font-size: 16px; min-height: 42px; }
+  .dss-table td.dss-chan { grid-area: chan; font-size: 12px !important; line-height: 1.4; }
+  .dss-table td.dss-chan::before {
+    content: attr(data-label); display: block; margin-bottom: 1px;
+    font-size: 9.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted);
+  }
+}
+
+/* ---- Customers list on a tablet and a phone ----------------------------
+   Below 1024px the table already stacks (.at-table--fit), one long labelled
+   column per customer. Here each customer is a tidy card instead -- two to a
+   row on a tablet, one on a phone:
+     [photo] name  tier / phone
+     BODY MEASUREMENTS  Bust 30 · Waist 30 ...
+     STYLE NOTES            ORDERS
+     ----------------------------------
+     Style notes          edit  delete  >                                  */
+@media (max-width: 1024px) {
+  .cust-list.at-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
+  .cust-list .at-table--fit tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .cust-list .at-table--fit tr.cust-row {
+    display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas: "person person" "style orders" "actions actions";
+    gap: 10px 12px; align-content: start; padding: 14px !important;
+    background: var(--surface-color); border: 1px solid var(--border-color) !important;
+    border-radius: 12px; box-shadow: var(--shadow-card);
+  }
+  .cust-list .at-table--fit tr.cust-row:last-child { border-bottom: 1px solid var(--border-color) !important; }
+  .cust-list .at-table--fit tr.cust-row > td { padding: 0 !important; width: auto !important; min-width: 0; font-size: 13px; }
+  .cust-list .at-table--fit tr.cust-row > td[data-label]::before { font-size: 9.5px; letter-spacing: .05em; margin-bottom: 3px; }
+  .cust-list td.cust-c-person { grid-area: person; padding-bottom: 10px !important; border-bottom: 1px solid var(--border-color) !important; }
+  .cust-list td.cust-c-person::before { display: none !important; }
+  /* Measurements are read on the customer's own page (tap the card), not here. */
+  .cust-list td.cust-c-measure { display: none !important; }
+  .cust-list td.cust-c-style { grid-area: style; }
+  .cust-list td.cust-c-style .at-tags { flex-wrap: wrap !important; gap: 4px; }
+  .cust-list td.cust-c-orders { grid-area: orders; }
+  .cust-list td.cust-c-actions {
+    grid-area: actions; align-self: end; display: flex !important; align-items: center; gap: 4px;
+    padding-top: 8px !important; border-top: 1px solid var(--border-color) !important;
+  }
+  .cust-list td.cust-c-actions > .at-link { margin-right: auto; }
+  .cust-list td.cust-c-actions .at-row-actions { display: inline-flex; gap: 2px; }
+}
+@media (max-width: 600px) {
+  .cust-list .at-table--fit tbody { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .cust-list .at-table--fit tr.cust-row { padding: 12px !important; gap: 8px 12px; }
+}
+
+/* ---- My Profile: alignment at every size --------------------------------
+   Computer: the profile card stays in view beside the long column of forms.
+   Every form's buttons line up on the right, as the boutique form's do, and
+   its autosave note reads on the left of them instead of trailing after.
+   Tablet (one column): the profile card turns sideways -- photo beside the
+   name, the three details in a row -- instead of a tall centred block. */
+/* Computer, owner (two cards on the right): the profile card and My details
+   share the left column and the boutique form fills the right, so neither
+   side runs on alone past a long empty space. The right column's wrapper
+   steps aside (display: contents) for the grid to place its two cards; the
+   second row takes any spare height, so nothing gaps under the profile card.
+   With one card on the right (any other role) the layout is as before. */
+@media (min-width: 901px) {
+  .at-account:has(> .at-stack > :nth-child(2)) {
+    grid-template-columns: minmax(320px, 1fr) minmax(0, 1.5fr);
+    grid-template-rows: auto 1fr;
+  }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack { display: contents; }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-account-card { grid-column: 1; grid-row: 1; }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack > :nth-child(1) { grid-column: 1; grid-row: 2; align-self: start; }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack > :nth-child(2) { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+}
+.at-account form.at-stack > div:last-child:not([class]) { display: flex; justify-content: flex-end; }
+.at-account .at-form-foot { align-items: center; }
+.at-account .at-form-foot > span { order: -1; margin-right: auto; }
+
+@media (min-width: 601px) and (max-width: 900px) {
+  .at-account .at-account-card {
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "cover cover" "avatar name" "avatar badge" "rows rows";
+    column-gap: 18px; text-align: left;
+  }
+  .at-account .at-cover { grid-area: cover; height: 96px; }
+  .at-account .at-account-avatar { grid-area: avatar; width: 100px; height: 100px; margin: -50px 0 0 24px; }
+  .at-account .at-account-name { grid-area: name; align-self: end; margin: 12px 24px 4px 0; }
+  .at-account .at-account-card > .ui-badge { grid-area: badge; justify-self: start; align-self: start; }
+  .at-account .at-account-rows {
+    grid-area: rows; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px; padding: 16px 24px 20px;
+  }
+}
+
+/* Phone: the forms' buttons full width; the autosave note back under them. */
+@media (max-width: 600px) {
+  .at-account form.at-stack > div:last-child:not([class]) > button { width: 100%; justify-content: center; min-height: 44px; }
+  .at-account .at-form-foot > span { order: 0; margin-right: 0; }
+}
+
+/* ---- Orders / Workshop list on a computer: columns centred -------------
+   Every column but Order ID has its heading in the middle, over contents
+   centred under it -- the status badge or stage strip and the Action
+   buttons included. Below 1025px the rows stack into cards (.at-table--fit)
+   and nothing here applies. */
+@media (min-width: 1025px) {
+  .orders-book > thead > tr > th:not(:first-child),
+  .orders-book > tbody > tr > td:not(:first-child) { text-align: center !important; }
+  .orders-book > tbody > tr > td:not(:first-child) .at-stage-strip { justify-content: center; }
+  .orders-book > tbody > tr > td:last-child > div { justify-content: center !important; }
+}
+
+/* ---- Order journey & tasks on a tablet and a phone ---------------------
+   Below 1024px each step was a tall labelled card (TASK / STATUS /
+   COMPLETED ON / button). Here the steps read as a timeline instead:
+     (✓)  Paper cutting                       ( View )
+      |   ● Completed · 15 Oct 2026
+     (3)  Stitching                         ( Update )
+   A circle per step -- a green tick once done, the step's number while
+   still to come, a lime ring on the one being worked on -- joined by a line
+   to the next. The current step keeps its tint as a rounded band. */
+@media (max-width: 1024px) {
+  .od-tasks-wrap.at-table-wrap { border: none !important; background: transparent !important; margin: 0; }
+  .od-tasks.at-table--fit tbody tr {
+    position: relative;
+    display: grid !important; grid-template-columns: 28px auto minmax(0, 1fr) auto;
+    grid-template-areas: "num task task action" "num status when action";
+    align-items: center; column-gap: 12px; row-gap: 5px;
+    padding: 10px 8px !important; border-bottom: none !important;
+  }
+  .od-tasks.at-table--fit tbody tr > td { padding: 0 !important; width: auto !important; min-width: 0; background: transparent !important; }
+  .od-tasks.at-table--fit tbody tr > td[data-label]::before { display: none !important; }
+
+  /* The step circle (the # cell, hidden in the stacked layout, back as a marker). */
+  .od-tasks tbody tr > td.od-tasks-num {
+    display: flex !important; grid-area: num; align-self: start; z-index: 1;
+    width: 28px !important; height: 28px; border-radius: 50%;
+    align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--text-secondary);
+    background: var(--surface-color) !important; border: 2px solid var(--border-strong);
+  }
+  .od-tasks tbody tr.od-tasks-row--done > td.od-tasks-num {
+    font-size: 0; background: var(--success-color) !important; border-color: var(--success-color);
+  }
+  .od-tasks tbody tr.od-tasks-row--done > td.od-tasks-num::after { content: '\2713'; font-size: 14px; color: #fff; }
+  .od-tasks tbody tr.od-tasks-row--current > td.od-tasks-num {
+    color: var(--text-primary); border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 30%, transparent);
+  }
+  /* The line down to the next step: green below a finished one. */
+  .od-tasks tbody tr:not(:last-child)::before {
+    content: ''; position: absolute; left: 21px; top: 40px; bottom: -10px; width: 2px;
+    background: var(--border-color); border-radius: 2px;
+  }
+  .od-tasks tbody tr.od-tasks-row--done:not(:last-child)::before { background: var(--success-color); opacity: .55; }
+
+  .od-tasks tbody tr > td:nth-child(2) { grid-area: task; }
+  .od-tasks tbody tr > td:nth-child(2) .od-tasks-name { font-size: 14.5px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+  .od-tasks tbody tr > td:nth-child(3) { grid-area: status; }
+  .od-tasks tbody tr > td:nth-child(3) .ui-badge { font-size: 11px; padding: 1px 8px; white-space: nowrap !important; }
+  .od-tasks tbody tr > td:nth-child(4) { grid-area: when; font-size: 12px; color: var(--text-muted); white-space: nowrap !important; }
+  .od-tasks tbody tr > td:nth-child(5) { grid-area: action; align-self: center; }
+  .od-tasks tbody tr > td:nth-child(5) .at-btn-sm {
+    min-height: 32px !important; height: 32px; padding: 0 14px !important;
+    border-radius: 999px; font-size: 12.5px !important; font-weight: 600;
+  }
+
+  /* The step being worked on: its tint as a rounded band. */
+  .od-tasks tbody tr.od-tasks-row--current { background: var(--accent-color); border-radius: 12px; }
+}
+
+/* Customer cards after merging main (2026-10-26): main's card grid holds the
+   phone-only stats strip and Call/WhatsApp buttons from MSK-NEW, so give
+   each its own full-width row instead of squeezing the three stats into
+   half a card and pushing the row actions off the edge. */
+@media (max-width: 1024px) {
+  .cust-list .at-table--fit tr.cust-row { grid-template-areas: "person person" "orders orders" "style style" "actions actions"; }
+  .cust-list td.cust-c-orders .cust-stats dd { overflow-wrap: normal; white-space: nowrap; }
+  .cust-list td.cust-c-actions { flex-wrap: wrap; row-gap: 8px; }
+  .cust-list td.cust-c-actions .cust-contact { order: -1; flex: 1 1 100%; }
+}
