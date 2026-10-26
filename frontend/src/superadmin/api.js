@@ -120,13 +120,18 @@ export const consoleApi = {
   deleteBoutique: (schema, confirmName, reason = '') =>
     request(`/boutiques/${schema}/`, { method: 'DELETE', body: { confirm_name: confirmName, reason } }),
 
-  // The bell: new-boutique sign-ups. markRead() with no ids marks them all.
+  // The bell: new access and demo requests. markRead() with no ids marks them all.
   notifications: () => request('/notifications/'),
   markNotificationsRead: (ids) =>
     request('/notifications/', { method: 'POST', body: ids ? { ids } : {} }),
 
   leads: () => request('/leads/'),
   updateLead: (id, fields) => request(`/leads/${id}/`, { method: 'PATCH', body: fields }),
+  // Creates the boutique, emails the owner a temporary password, and returns
+  // it once ({login: {email, temporary_password, login_url}, emailed}).
+  approveLead: (id, fields) => request(`/leads/${id}/approve/`, { method: 'POST', body: fields }),
+  resendLeadCredentials: (id, reason = '') =>
+    request(`/leads/${id}/credentials/`, { method: 'POST', body: { reason } }),
 
   // Everything inside one boutique. `datasets` is the sidebar (every table with
   // its row count); `dataset` is a page of one of them.

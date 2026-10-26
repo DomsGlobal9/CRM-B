@@ -281,73 +281,53 @@ class DemoRequestIntakeTests(TransactionTestCase):
         self.assertEqual(DemoRequest.objects.count(), 0)
 
 
-class SignupIdentityTests(TransactionTestCase):
+def make_boutique(email, first_name='Qa', last_name='Probe', password='SignupProbe2026!', **extra):
+    """A boutique made the way the console's Approve makes one (tenants.onboarding)."""
+    from tenants.onboarding import create_boutique
+    tenant, _owner = create_boutique(email=email, first_name=first_name, last_name=last_name,
+                                     password=password, **extra)
+    return tenant
 
-    def _signup(self, email, **extra):
-        payload = {
-            'first_name': 'Qa', 'last_name': 'Probe',
-            'email_address': email, 'mobile_number': '9600000000',
+
+class SignupIsClosedTests(TransactionTestCase):
+
+    def test_the_old_signup_endpoint_answers_gone_and_creates_nothing(self):
+        email = 'closed.probe@ownerflow.test'
+        response = APIClient().post('/api/auth/signup/', {
+            'first_name': 'Qa', 'last_name': 'Probe', 'email_address': email,
             'password': 'SignupProbe2026!', 'terms_accepted': True,
-        }
-        payload.update(extra)
-        return APIClient().post('/api/auth/signup/', payload, format='json')
+        }, format='json')
+        self.assertEqual(response.status_code, 410)
+        self.assertIn('Request access', response.data['error'])
+        connection.set_schema_to_public()
+        self.assertFalse(BoutiqueTenant.objects.filter(owner_email=email).exists())
+
+
+class BoutiqueIdentityTests(TransactionTestCase):
 
     def _drop(self, email):
         connection.set_schema_to_public()
         for tenant in BoutiqueTenant.objects.filter(owner_email=email.lower()):
             tenant.delete(force_drop=True)
 
-    def test_signup_reports_the_owner_role(self):
+    def test_the_owner_signs_in_as_owner(self):
+        email = 'role.probe@ownerflow.test'
         try:
-            response = self._signup('role.probe@ownerflow.test')
-            self.assertEqual(response.status_code, 201, response.data)
+            make_boutique(email)
+            response = APIClient().post('/api/auth/login/', {
+                'username': email, 'password': 'SignupProbe2026!'}, format='json')
+            self.assertEqual(response.status_code, 200, response.data)
             self.assertEqual(response.data['user']['role'], 'Owner')
+            self.assertFalse(response.data['user']['must_change_password'])
         finally:
-            self._drop('role.probe@ownerflow.test')
-
-    def test_signup_without_accepting_the_terms_creates_nothing(self):
-        email = 'terms.refused@ownerflow.test'
-        try:
-            for refused in ({'terms_accepted': False}, {'terms_accepted': 'yes'}):
-                response = self._signup(email, **refused)
-                self.assertEqual(response.status_code, 400, response.data)
-                self.assertIn('Terms', response.data['error'])
-            payload = {'first_name': 'Qa', 'last_name': 'Probe', 'email_address': email,
-                       'password': 'SignupProbe2026!'}
-            self.assertEqual(APIClient().post('/api/auth/signup/', payload,
-                                              format='json').status_code, 400)
-            connection.set_schema_to_public()
-            self.assertFalse(BoutiqueTenant.objects.filter(owner_email=email).exists())
-        finally:
-            self._drop(email)
-
-    def test_signup_records_the_terms_and_tells_the_platform_console(self):
-        from superadmin.models import PlatformNotification
-        email = 'terms.accepted@ownerflow.test'
-        try:
-            response = self._signup(email, business_name='Terms Atelier')
-            self.assertEqual(response.status_code, 201, response.data)
-            connection.set_schema_to_public()
-            tenant = BoutiqueTenant.objects.get(owner_email=email)
-            self.assertIsNotNone(tenant.terms_accepted_at)
-            notice = PlatformNotification.objects.get(boutique=tenant.schema_name)
-            self.assertEqual(notice.kind, PlatformNotification.BOUTIQUE_SIGNUP)
-            self.assertIn('Terms Atelier', notice.title)
-            self.assertIn(email, notice.body)
-            self.assertIsNone(notice.read_at)
-        finally:
-            connection.set_schema_to_public()
-            PlatformNotification.objects.filter(body__contains=email).delete()
             self._drop(email)
 
     def test_the_email_is_stored_lowercase_so_case_cannot_fork_a_boutique(self):
+        from tenants.onboarding import BoutiqueExists
         try:
-            first = self._signup('Case.Probe@Ownerflow.test')
-            self.assertEqual(first.status_code, 201, first.data)
-
-            second = self._signup('case.probe@ownerflow.test')
-            self.assertEqual(second.status_code, 400)
-
+            make_boutique('Case.Probe@Ownerflow.test')
+            with self.assertRaises(BoutiqueExists):
+                make_boutique('case.probe@ownerflow.test')
             connection.set_schema_to_public()
             self.assertEqual(
                 BoutiqueTenant.objects.filter(
@@ -357,48 +337,28 @@ class SignupIdentityTests(TransactionTestCase):
 
     def test_punctuation_in_an_address_cannot_collide_two_boutiques(self):
         try:
-            first = self._signup('a.b@collide.test')
-            second = self._signup('a-b@collide.test')
-
-            self.assertEqual(first.status_code, 201, first.data)
-            self.assertEqual(second.status_code, 201, second.data)
-            self.assertNotEqual(first.data['tenant_id'], second.data['tenant_id'])
+            first = make_boutique('a.b@collide.test')
+            second = make_boutique('a-b@collide.test')
+            self.assertNotEqual(first.schema_name, second.schema_name)
         finally:
             self._drop('a.b@collide.test')
             self._drop('a-b@collide.test')
 
     def test_a_long_address_still_fits_a_postgres_identifier(self):
-
         long_email = ('x' * 60) + '@averylongdomainname.example.test'
         try:
-            response = self._signup(long_email)
-            self.assertEqual(response.status_code, 201, response.data)
-            self.assertLessEqual(len(response.data['tenant_id']), 63)
+            self.assertLessEqual(len(make_boutique(long_email).schema_name), 63)
         finally:
             self._drop(long_email)
-
-
-class SignupBoutiqueIdentityTests(TransactionTestCase):
-
-    def _drop(self, email):
-        connection.set_schema_to_public()
-        for tenant in BoutiqueTenant.objects.filter(owner_email=email.lower()):
-            tenant.delete(force_drop=True)
 
     def test_the_boutiques_own_details_land_on_its_settings(self):
         email = 'identity.probe@ownerflow.test'
         try:
-            response = APIClient().post('/api/auth/signup/', {
-                'first_name': 'Aditi', 'last_name': 'Rao',
-                'email_address': email, 'mobile_number': '9600004444',
-                'password': 'SignupProbe2026!', 'terms_accepted': True,
-                'business_name': "Aditi's Atelier",
-                'business_address': '4 Nungambakkam High Road, Chennai 600034',
-            }, format='json')
-            self.assertEqual(response.status_code, 201, response.data)
-
+            tenant = make_boutique(email, first_name='Aditi', last_name='Rao',
+                                   business_name="Aditi's Atelier", phone='9600004444',
+                                   address='4 Nungambakkam High Road, Chennai 600034')
             from crm_api.models import BoutiqueSettings
-            with schema_context(response.data['tenant_id']):
+            with schema_context(tenant.schema_name):
                 settings_row = BoutiqueSettings.objects.get(id=1)
                 self.assertEqual(settings_row.name, "Aditi's Atelier")
                 self.assertEqual(settings_row.email, email)
@@ -410,15 +370,9 @@ class SignupBoutiqueIdentityTests(TransactionTestCase):
     def test_a_boutique_that_names_nothing_still_gets_sensible_defaults(self):
         email = 'default.probe@ownerflow.test'
         try:
-            response = APIClient().post('/api/auth/signup/', {
-                'first_name': 'Qa', 'last_name': 'Probe',
-                'email_address': email, 'password': 'SignupProbe2026!',
-                'terms_accepted': True,
-            }, format='json')
-            self.assertEqual(response.status_code, 201, response.data)
-
+            tenant = make_boutique(email)
             from crm_api.models import BoutiqueSettings
-            with schema_context(response.data['tenant_id']):
+            with schema_context(tenant.schema_name):
                 self.assertEqual(BoutiqueSettings.objects.get(id=1).name, "Qa's Boutique")
         finally:
             self._drop(email)
@@ -562,21 +516,16 @@ class MaintenanceModeTests(TransactionTestCase):
 
 class SignupSeedsNothingInventedTests(TransactionTestCase):
 
-    def _signup(self, email):
-        return APIClient().post('/api/auth/signup/', {
-            'first_name': 'Nita', 'last_name': 'Rao',
-            'email_address': email, 'password': 'a-real-password-42', 'terms_accepted': True,
-            'business_name': "Nita's Atelier",
-        }, format='json')
+    def _boutique(self, email):
+        return make_boutique(email, first_name='Nita', last_name='Rao',
+                             password='a-real-password-42', business_name="Nita's Atelier")
 
     def test_a_new_boutique_has_no_invented_staff_fabrics_or_designs(self):
         from crm_api.models import Tailor
         from apps.inventory.models import InventoryItem
         from apps.design_studio.models import DesignAsset
 
-        response = self._signup('nita.seed@ownerflow.test')
-        self.assertEqual(response.status_code, 201, response.data)
-        schema = response.data['tenant_id']
+        schema = self._boutique('nita.seed@ownerflow.test').schema_name
 
         with schema_context(schema):
             self.assertEqual(Tailor.objects.count(), 0,
@@ -593,8 +542,7 @@ class SignupSeedsNothingInventedTests(TransactionTestCase):
         from apps.inventory.models import InventoryItem
         from crm_api.utils import seed_tenant_defaults
 
-        response = self._signup('nita.demo@ownerflow.test')
-        schema = response.data['tenant_id']
+        schema = self._boutique('nita.demo@ownerflow.test').schema_name
         with schema_context(schema):
             seed_tenant_defaults()
             self.assertGreater(Tailor.objects.count(), 0)
@@ -603,20 +551,17 @@ class SignupSeedsNothingInventedTests(TransactionTestCase):
 
 class MultiBoutiqueLoginTests(TransactionTestCase):
 
-    def _signup(self, email, name):
-        return APIClient().post('/api/auth/signup/', {
-            'first_name': name, 'last_name': 'Owner',
-            'email_address': email, 'password': 'owner-password-77', 'terms_accepted': True,
-            'business_name': f"{name}'s Atelier",
-        }, format='json')
+    def _boutique(self, email, name):
+        return make_boutique(email, first_name=name, last_name='Owner',
+                             password='owner-password-77', business_name=f"{name}'s Atelier")
 
     def setUp(self):
         super().setUp()
         from crm_api.models import Tailor
         from django.contrib.auth.models import User
 
-        self.schema_a = self._signup('a.owner@twoshops.test', 'Asha').data['tenant_id']
-        self.schema_b = self._signup('b.owner@twoshops.test', 'Bina').data['tenant_id']
+        self.schema_a = self._boutique('a.owner@twoshops.test', 'Asha').schema_name
+        self.schema_b = self._boutique('b.owner@twoshops.test', 'Bina').schema_name
 
         self.shared_email = 'freelance.tailor@twoshops.test'
         for schema, password in ((self.schema_a, 'password-at-asha-1'),

@@ -234,6 +234,23 @@ export const api = {
     return data;
   },
 
+  // Request access: the app's replacement for sign-up. Posts to the same
+  // public intake as the website's demo form (outside /api/, form-encoded),
+  // which emails the requester and alerts the platform team.
+  async requestAccess({ name, email, phone, boutique, address, terms_accepted }) {
+    const body = new URLSearchParams({
+      name, email, phone, boutique, address, source: 'app',
+      terms_accepted: terms_accepted ? 'true' : 'false',
+    });
+    const res = await guardedFetch(new URL('/demo-request/', BASE_URL).href, { method: 'POST', body });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const fieldErrors = data.errors ? Object.values(data.errors).flat().join(' ') : '';
+      throw new Error(data.error || fieldErrors || describeApiError(res, data));
+    }
+    return data;
+  },
+
   async signup(signupData) {
     const res = await guardedFetch(`${BASE_URL}/auth/signup/`, {
       method: 'POST',

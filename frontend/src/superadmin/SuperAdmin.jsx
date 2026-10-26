@@ -222,12 +222,12 @@ function GlobalSearch({ onOpen }) {
 const BELL_POLL_MS = 60_000;
 
 /**
- * New boutiques, as they sign up. Polled rather than pushed: the console has
+ * New access and demo requests, as they arrive. Polled rather than pushed: the console has
  * no socket, and a minute's delay on "someone registered" costs nothing. A
  * notice that arrives while the console is open also raises a toast, so it is
  * seen without anyone opening the panel.
  */
-function NotificationBell({ onOpenBoutique }) {
+function NotificationBell({ onOpenBoutique, onOpenRequests }) {
   const [data, setData] = useState({ unread: 0, notifications: [] });
   const [open, setOpen] = useState(false);
   const seen = useRef(null);
@@ -271,7 +271,8 @@ function NotificationBell({ onOpenBoutique }) {
   const pick = (n) => {
     if (!n.read_at) markRead([n.id]);
     setOpen(false);
-    if (n.boutique) onOpenBoutique(n.boutique);
+    if (n.lead_id) onOpenRequests();
+    else if (n.boutique) onOpenBoutique(n.boutique);
   };
 
   return (
@@ -285,13 +286,13 @@ function NotificationBell({ onOpenBoutique }) {
       {open && (
         <div className="sa-bell-panel" role="dialog" aria-label="Notifications">
           <div className="sa-bell-head">
-            <strong>New boutiques</strong>
+            <strong>New requests</strong>
             {data.unread > 0 && (
               <button type="button" className="at-link" onClick={() => markRead()}>Mark all read</button>
             )}
           </div>
           {data.notifications.length === 0
-            ? <div className="sa-results-empty">No sign-ups yet.</div>
+            ? <div className="sa-results-empty">No requests yet.</div>
             : data.notifications.map((n) => (
               <button key={n.id} type="button" className={`sa-bell-item${n.read_at ? '' : ' sa-bell-item--unread'}`}
                 onClick={() => pick(n)}>
@@ -525,7 +526,8 @@ export default function SuperAdmin() {
           <header className="sa-topbar">
             <GlobalSearch onOpen={openResult} />
             <div className="sa-topbar-right">
-              <NotificationBell onOpenBoutique={(schema) => route.go(`boutiques/${schema}`)} />
+              <NotificationBell onOpenBoutique={(schema) => route.go(`boutiques/${schema}`)}
+                onOpenRequests={() => route.go('leads')} />
               <div className="user-profile-widget sa-who">
                 <AvatarInitials name={user.username} size={32} />
                 <span className="sa-who-text">Signed in as <strong>{user.username}</strong></span>

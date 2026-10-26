@@ -107,7 +107,7 @@ export default function Dashboard({ route }) {
                 <Stat icon={Wallet} label="Money collected" value={money(t.collected)}
                   note="Recorded by staff by hand"
                   onClick={() => route.go('orders')} />
-                <Stat icon={Mail} label="Demo requests" value={count(data.leads.total)}
+                <Stat icon={Mail} label="Requests" value={count(data.leads.total)}
                   note={`${count(data.leads.new)} new · ${count(data.leads.last_30_days)} in 30 days`}
                   tone={data.leads.new ? 'warn' : undefined}
                   onClick={() => route.go('leads')} />

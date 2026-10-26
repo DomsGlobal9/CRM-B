@@ -38,14 +38,23 @@ class TenantSerializer(serializers.Serializer):
 
 class LeadSerializer(serializers.ModelSerializer):
 
+    #: The boutique the approve action created, or null while it is pending.
+    boutique_schema = serializers.CharField(source='tenant.schema_name', read_only=True,
+                                            default=None)
+
     class Meta:
         model = DemoRequest
         fields = ['id', 'created_at', 'name', 'boutique', 'email', 'phone',
                   'makes', 'orders_per_month', 'people', 'problem',
+                  'source', 'address', 'terms_accepted_at',
+                  'welcome_emailed_at', 'team_alerted_at',
+                  'boutique_schema', 'approved_at', 'approved_by', 'credentials_emailed_at',
                   'status', 'notes']
         read_only_fields = ['id', 'created_at', 'name', 'boutique', 'email',
                             'phone', 'makes', 'orders_per_month', 'people',
-                            'problem']
+                            'problem', 'source', 'address', 'terms_accepted_at',
+                            'welcome_emailed_at', 'team_alerted_at',
+                            'approved_at', 'approved_by', 'credentials_emailed_at']
 
     def validate_notes(self, value):
         return validate_text(value, label='Note', max_length=MAX_NOTE)

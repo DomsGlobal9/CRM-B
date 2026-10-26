@@ -377,9 +377,11 @@ class SlugIsNotTenantResolutionTests(TransactionTestCase):
 
 
 class SignupSlugTests(TransactionTestCase):
-    """A new boutique receives a valid unique slug without being asked for one."""
+    """A new boutique receives a valid unique slug without being asked for one.
 
-    URL = '/api/auth/signup/'
+    Boutiques are made by the console's Approve (tenants.onboarding); the
+    owner's first sign-in is where the workspace learns its slug.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -405,21 +407,20 @@ class SignupSlugTests(TransactionTestCase):
         clear_tenant_cache()
 
     def _signup(self, email, business_name):
-        res = APIClient().post(self.URL, {
-            'first_name': 'Sarala', 'last_name': 'Devi',
-            'email_address': email, 'mobile_number': '9876543210',
-            'password': 'a-long-enough-pass-123', 'terms_accepted': True,
-            'business_name': business_name,
-        }, format='json')
+        from tenants.onboarding import create_boutique
+        tenant, _owner = create_boutique(
+            email=email, first_name='Sarala', last_name='Devi',
+            password='a-long-enough-pass-123', business_name=business_name,
+            phone='9876543210')
+        self.created.append(tenant)
+        res = APIClient().post('/api/auth/login/', {
+            'username': email, 'password': 'a-long-enough-pass-123'}, format='json')
         connection.set_schema_to_public()
-        tenant = BoutiqueTenant.objects.filter(owner_email=email).first()
-        if tenant is not None:
-            self.created.append(tenant)
         return res, tenant
 
     def test_signup_assigns_a_slug(self):
         res, tenant = self._signup('sarala@example.test', 'Sarala Boutique')
-        self.assertEqual(res.status_code, 201, res.content)
+        self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual(tenant.shop_slug, 'saralaboutique')
 
     def test_the_slug_is_returned_to_the_workspace(self):
@@ -432,7 +433,7 @@ class SignupSlugTests(TransactionTestCase):
         first, first_tenant = self._signup('one@example.test', 'Sarala Boutique')
         second, second_tenant = self._signup('two@example.test', 'Sarala Boutique')
 
-        self.assertEqual(first.status_code, 201, first.content)
-        self.assertEqual(second.status_code, 201, second.content)
+        self.assertEqual(first.status_code, 200, first.content)
+        self.assertEqual(second.status_code, 200, second.content)
         self.assertEqual(first_tenant.shop_slug, 'saralaboutique')
         self.assertEqual(second_tenant.shop_slug, 'saralaboutique2')

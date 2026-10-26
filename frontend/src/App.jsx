@@ -1792,12 +1792,18 @@ function App() {
   const [boutiqueName, setBoutiqueName] = useState('');
   const [boutiqueAddress, setBoutiqueAddress] = useState('');
   
-  const passwordMismatch = !!signupForm.confirm_password && signupForm.confirm_password !== signupForm.password;
+  // "Request access": nobody creates their own boutique. The request is
+  // emailed a welcome ("under review"), the platform team is alerted, and the
+  // team emails the login details once the boutique is set up.
   const signupReady = !!(boutiqueName.trim() && boutiqueAddress.trim()
     && signupForm.first_name.trim() && signupForm.last_name.trim()
     && signupForm.email_address.trim() && signupForm.mobile_number
-    && signupForm.password.length >= 8 && signupForm.confirm_password === signupForm.password
     && signupForm.terms);
+
+  // First sign-in with the temporary password the platform team sent.
+  const [changeCurrent, setChangeCurrent] = useState('');
+  const [changeNew, setChangeNew] = useState('');
+  const [changeConfirm, setChangeConfirm] = useState('');
 
   const [currentStep, setCurrentStep] = useState(1);
   
@@ -1897,6 +1903,9 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Not while a temporary password is being replaced: the server refuses
+    // everything but the change-password screen until then.
+    if (currentUser?.must_change_password) return;
     loadGarmentTemplates();
   }, [currentUser, loadGarmentTemplates]);
 
@@ -2510,19 +2519,55 @@ function App() {
     }
   };
 
+  /** Where a signed-in user goes: the change-password screen while the
+   *  account still has the temporary password the platform team emailed,
+   *  otherwise their workspace. False when there is nothing to load. */
+  const enterWorkspace = (user) => {
+    setCurrentUser(user);
+    if (user.must_change_password) {
+      setChangeNew('');
+      setChangeConfirm('');
+      setAuthError(null);
+      setView('change-password');
+      return false;
+    }
+    setView('dashboard');
+    if (user.role === 'Designer') {
+      openDesignRequests();
+    } else if (isProductionStaff(user.role)) {
+      setDashboardTab('work');
+    } else {
+      setDashboardTab('overview');
+    }
+    return true;
+  };
+
+  const handleChangePasswordSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (authBusy) return;
+    if (changeNew.length < 8) { setAuthError('The new password needs at least 8 characters.'); return; }
+    if (changeNew !== changeConfirm) { setAuthError('Those two passwords do not match.'); return; }
+    if (changeNew === changeCurrent) { setAuthError('Choose a password different from the temporary one.'); return; }
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      const res = await api.changeMyPassword(changeCurrent, changeNew);
+      setChangeCurrent('');
+      setChangeNew('');
+      setChangeConfirm('');
+      setJustRegistered(true);
+      if (res.user && enterWorkspace(res.user)) fetchDashboardAndConfig(res.user);
+    } catch (err) {
+      setAuthError(err.message || 'Could not change your password.');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
   const checkAuthSession = async () => {
     try {
       const user = await api.getMe();
-      if (user) {
-        setCurrentUser(user);
-        setView('dashboard');
-        if (user.role === 'Designer') {
-          openDesignRequests();
-        } else if (isProductionStaff(user.role)) {
-          setDashboardTab('work');
-        } else {
-          setDashboardTab('overview');
-        }
+      if (user && enterWorkspace(user)) {
         await fetchDashboardAndConfig(user);
       }
     } catch (e) {
@@ -2618,7 +2663,7 @@ function App() {
 
   useEffect(() => {
     if (view === 'login' || view === 'signup' || view === 'forgot'
-        || view === 'reset' || view === 'find') return;
+        || view === 'reset' || view === 'find' || view === 'change-password') return;
     const here = { atelier: true, view, tab: dashboardTab };
     const current = window.history.state;
     if (current?.atelier && current.view === view && current.tab === dashboardTab) return;
@@ -2918,18 +2963,11 @@ function App() {
     setAuthBusy(true);
     try {
       const res = await api.login(loginEmail, loginPassword, portalSlug);
+      // The temporary password is the "current" one the change screen asks for.
+      setChangeCurrent(res.user.must_change_password ? loginPassword : '');
       setLoginPassword('');  // signed in: the password is not kept in the form
       setJustRegistered(false);
-      setCurrentUser(res.user);
-      setView('dashboard');
-      if (res.user.role === 'Designer') {
-        openDesignRequests();
-      } else if (isProductionStaff(res.user.role)) {
-        setDashboardTab('work');
-      } else {
-        setDashboardTab('overview');
-      }
-      fetchDashboardAndConfig(res.user);
+      if (enterWorkspace(res.user)) fetchDashboardAndConfig(res.user);
     } catch (err) {
       setAuthError(err.message || 'Invalid credentials.');
     } finally {
@@ -2976,26 +3014,17 @@ function App() {
     setSignupBusy(true);
     setSignupError(null);
     try {
-      const res = await api.signup({
-        first_name: signupForm.first_name,
-        last_name: signupForm.last_name,
-        email_address: signupForm.email_address,
-        mobile_number: signupForm.mobile_number,
-        password: signupForm.password,
-        business_name: boutiqueName,
-        business_address: boutiqueAddress,
+      await api.requestAccess({
+        name: `${signupForm.first_name.trim()} ${signupForm.last_name.trim()}`,
+        email: signupForm.email_address.trim(),
+        phone: signupForm.mobile_number,
+        boutique: boutiqueName.trim(),
+        address: boutiqueAddress.trim(),
         terms_accepted: signupForm.terms === true,
       });
-      setJustRegistered(true);
-      if (!res.token) { setView('login'); return; }
-      setCurrentUser(res.user);
       setSignupStep(2);
-      setTimeout(() => {
-        setView('dashboard');
-        fetchDashboardAndConfig(res.user);
-      }, 1500);
     } catch (err) {
-      setSignupError(err.message || 'Registration failed.');
+      setSignupError(err.message || 'Your request could not be sent. Please try again.');
     } finally {
       setSignupBusy(false);
     }
@@ -3654,13 +3683,6 @@ function App() {
     return getSubtotal() + getTaxes();
   };
 
-  const getPasswordStrength = () => {
-    const len = signupForm.password.length;
-    if (len === 0) return '';
-    if (len < 8) return 'weak';
-    if (len < 12) return 'medium';
-    return 'strong';
-  };
 
   
   const partSelection = React.useMemo(
@@ -3969,7 +3991,7 @@ function App() {
               Don't have a boutique yet?{' '}
               <a href="#" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}
                  onClick={(e) => { e.preventDefault(); setFindError(null); setView('signup'); }}>
-                Register one
+                Request access
               </a>
             </div>
           </div>
@@ -3991,7 +4013,7 @@ function App() {
               Try another address
             </button>
             <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '28px', paddingTop: '20px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-              <a href="/app?register" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Register a boutique</a>
+              <a href="/app?register" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Request access</a>
               {' · '}
               <a href="/" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Back to Home</a>
             </div>
@@ -4123,7 +4145,7 @@ function App() {
             <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '4px', paddingTop: '16px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
               Don't have a boutique account?{' '}
               <a href="/app?register" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>
-                Register a boutique
+                Request access
               </a>
             </div>
           </div>
@@ -4234,6 +4256,56 @@ function App() {
         </div>
       )}
 
+      {/* First sign-in on a boutique the platform team created: the owner
+          replaces the temporary password before anything else. The server
+          refuses every other request from this account until they do. */}
+      {view === 'change-password' && currentUser && (
+        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+          <div className="auth-card" style={{ width: '100%', maxWidth: '440px', marginTop: '24px' }}>
+            <form onSubmit={handleChangePasswordSubmit} className="auth-form" style={{ gap: '12px' }}>
+              <div>
+                <h2 className="auth-title" style={{ fontSize: '22px' }}>Choose your password</h2>
+                <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>
+                  Welcome{currentUser.first_name ? `, ${currentUser.first_name}` : ''}. You signed in with a temporary
+                  password. Choose your own to continue; the temporary one stops working once you save.
+                </p>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="change-current">Temporary password</label>
+                <input id="change-current" type="password" className="form-control" autoComplete="current-password"
+                       value={changeCurrent} onChange={(e) => setChangeCurrent(e.target.value)}
+                       placeholder="From your login email" />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="change-new">New password</label>
+                <input id="change-new" type="password" className="form-control" autoComplete="new-password" autoFocus
+                       value={changeNew} minLength={8} onChange={(e) => setChangeNew(e.target.value)}
+                       placeholder="At least 8 characters, not all numbers" />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="change-confirm">Type it again</label>
+                <input id="change-confirm" type="password" className="form-control" autoComplete="new-password"
+                       value={changeConfirm} onChange={(e) => setChangeConfirm(e.target.value)} />
+              </div>
+              {authError && (
+                <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', whiteSpace: 'pre-wrap' }}>
+                  {authError}
+                </div>
+              )}
+              <button type="submit" className="btn-primary" disabled={authBusy || !changeCurrent || !changeNew || !changeConfirm}
+                      style={{ justifyContent: 'center' }}>
+                {authBusy ? 'Saving…' : 'Save and continue'}
+              </button>
+              <button type="button" className="btn-secondary" disabled={logoutBusy}
+                      onClick={() => { setAuthError(null); handleLogout(); }} style={{ justifyContent: 'center' }}>
+                Sign out
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {view === 'signup' && (
         <div className="auth-page auth-page--signup" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)' }}>
           
@@ -4276,8 +4348,8 @@ function App() {
             {signupStep === 1 && (
               <form onSubmit={handleSignupSubmit} className="auth-form" style={{ gap: '10px' }}>
                 <div>
-                  <h2 className="auth-title" style={{ fontSize: '24px' }}>Create your boutique account</h2>
-                  <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>Fill in the boxes below. The button lights up when everything is filled.</p>
+                  <h2 className="auth-title" style={{ fontSize: '24px' }}>Request access</h2>
+                  <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>Tell us about your boutique. Our team reviews every request and emails you your login details.</p>
                 </div>
 
                 <div className="signup-section-title"><span className="signup-section-num">1</span>Your boutique</div>
@@ -4363,48 +4435,6 @@ function App() {
                       />
                     </div>
                   </div>
-                  <div className="form-group">
-                    <div className="signup-label-row">
-                      <label className="form-label">Password</label>
-                      <span className="password-strength-text">
-                        {signupForm.password ? <>Strength: <span>{getPasswordStrength()}</span></> : '8 or more characters'}
-                      </span>
-                    </div>
-                    <input
-                      type="password"
-                      placeholder="At least 8 characters"
-                      value={signupForm.password}
-                      minLength={8}
-                      onChange={(e) => setSignupForm({...signupForm, password: e.target.value})}
-                      required
-                      className="form-control"
-                    />
-                    {/* Always rendered, so typing the first character does
-                        not push the row below it down. */}
-                    <div className="password-strength-bar">
-                      <div className={`password-strength-fill ${getPasswordStrength()}`}></div>
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <div className="signup-label-row">
-                      <label className="form-label">Type the password again</label>
-                      <span className="password-strength-text" style={passwordMismatch ? { color: '#ba1a1a' } : undefined}>
-                        {passwordMismatch ? 'Not the same' : signupForm.confirm_password ? 'Matches' : 'Same as the first'}
-                      </span>
-                    </div>
-                    <input
-                      type="password"
-                      placeholder="Same password once more"
-                      value={signupForm.confirm_password}
-                      onChange={(e) => setSignupForm({...signupForm, confirm_password: e.target.value})}
-                      required
-                      className="form-control"
-                      style={passwordMismatch ? { borderColor: '#ba1a1a' } : undefined}
-                    />
-                    <div className="password-strength-bar">
-                      <div className={`password-strength-fill ${signupForm.confirm_password ? (passwordMismatch ? 'weak' : 'strong') : ''}`}></div>
-                    </div>
-                  </div>
                 </div>
 
                 {signupError && (
@@ -4435,7 +4465,7 @@ function App() {
                     title={signupReady ? undefined : (signupForm.terms ? 'Fill every box above to continue' : 'Fill every box above and accept the Terms & Conditions to continue')}
                     style={{ justifyContent: 'center', opacity: signupReady ? 1 : 0.5, cursor: signupReady ? 'pointer' : 'not-allowed' }}
                   >
-                    {signupBusy ? 'Creating your boutique…' : 'Create Account'}
+                    {signupBusy ? 'Sending your request…' : 'Request access'}
                   </button>
                 </div>
               </form>
@@ -4444,8 +4474,16 @@ function App() {
             {signupStep === 2 && (
               <div style={{ textAlign: 'center', padding: '32px' }}>
                 <div className="success-circle" style={{ margin: '0 auto 20px' }}><Check size={36} /></div>
-                <h2 className="auth-title">Registration Complete!</h2>
-                <p style={{ color: 'var(--text-secondary)' }}>Welcome to Scaleezy. Redirecting you to the portal workspace...</p>
+                <h2 className="auth-title">Request received</h2>
+                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  Thank you{signupForm.first_name ? `, ${signupForm.first_name.trim()}` : ''}. Your request is under review.
+                  We&apos;ve sent a welcome email to <strong>{signupForm.email_address.trim()}</strong>, and we&apos;ll
+                  share your login credentials there very soon.
+                </p>
+                <button type="button" className="btn-secondary" style={{ marginTop: '12px', justifyContent: 'center' }}
+                        onClick={() => { window.location.href = '/'; }}>
+                  Back to home
+                </button>
               </div>
             )}
 

@@ -269,6 +269,11 @@ EMAIL_BACKEND = (
 )
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@scaleezy.com')
 
+# Who hears about every new access request and demo request, with the
+# requester's details (tenants/emails.py:send_team_alert). Comma-separated
+# for more than one address; empty switches the alert off.
+PLATFORM_ALERT_EMAIL = os.environ.get('PLATFORM_ALERT_EMAIL', 'boutique.scaleezy@gmail.com')
+
 PASSWORD_RESET_BASE_URL = os.environ.get(
     'PASSWORD_RESET_BASE_URL', 'http://localhost:5173/app.html'
 )
@@ -326,8 +331,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        # DRF's own, plus the temporary-password gate (core/authentication.py).
+        'core.authentication.TokenAuthentication',
+        'core.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'core.permissions.RolePermission',

@@ -65,12 +65,15 @@ class Command(BaseCommand):
         pw = 'SessionJourney!2026'
 
         # ---- roles present ----------------------------------------------------
-        j.phase("[1] Owner signs up")
-        r = APIClient().post('/api/auth/signup/', {
-            'first_name': 'Kavya', 'last_name': 'Reddy',
-            'email_address': owner_email, 'mobile_number': '9600000000',
-            'password': pw, 'terms_accepted': True}, format='json')
-        if not j.check('signup', r.status_code in (200, 201), f'{r.status_code} {getattr(r,"data",None)}'):
+        j.phase("[1] Console approves the owner's boutique")
+        from tenants.onboarding import create_boutique
+        try:
+            create_boutique(email=owner_email, first_name='Kavya', last_name='Reddy',
+                            password=pw, phone='9600000000')
+            made = True
+        except Exception as exc:
+            made, r = False, exc
+        if not j.check('boutique created', made, '' if made else repr(r)):
             return
         tenant = BoutiqueTenant.objects.filter(owner_email=owner_email).first()
         schema = tenant.schema_name

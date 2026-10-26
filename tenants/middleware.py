@@ -52,7 +52,7 @@ def clear_tenant_cache():
     _tenant_cache.clear()
 
 
-_CONTROL_COLUMNS = ('is_active', 'plan', 'enabled_modules')
+_CONTROL_COLUMNS = ('is_active', 'plan', 'enabled_modules', 'owner_password_temporary')
 
 
 class TenantGone(Exception):
@@ -183,7 +183,8 @@ class TenantHeaderMiddleware(TenantMainMiddleware):
             except domain_model.DoesNotExist:
                 tenant = _get_tenant_by_schema(tenant_model, public_schema_name)
 
-        control = {'is_active': True, 'plan': 'atelier', 'enabled_modules': {}}
+        control = {'is_active': True, 'plan': 'atelier', 'enabled_modules': {},
+                   'owner_password_temporary': False}
         if tenant is not None and tenant.schema_name != public_schema_name:
             try:
                 control = _control_state(tenant_model, tenant)
@@ -223,6 +224,10 @@ class TenantHeaderMiddleware(TenantMainMiddleware):
                      "module": module},
                     403, reason=f'ModuleDisabled:{module}',
                     boutique=getattr(tenant, 'schema_name', ''))
+
+        # Read by core.authentication, which refuses the owner's token for
+        # anything but changing the password while this is set.
+        request.owner_password_temporary = bool(control.get('owner_password_temporary'))
 
         if tenant and tenant.schema_name != public_schema_name:
             tenant.domain_url = request.get_host()

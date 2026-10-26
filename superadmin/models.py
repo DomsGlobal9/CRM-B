@@ -15,6 +15,8 @@ class AuditLog(models.Model):
         ('user.password_reset', 'Password reset triggered'),
         ('user.access_link', 'Sign-in link issued'),
         ('lead.update', 'Lead updated'),
+        ('lead.approve', 'Access request approved, boutique created'),
+        ('lead.credentials', 'New sign-in details sent to an owner'),
         ('flag.change', 'Feature flag changed'),
         ('setting.change', 'Platform setting changed'),
         ('error.acknowledge', 'Error acknowledged'),
@@ -199,12 +201,20 @@ class PlatformNotification(models.Model):
     """
 
     BOUTIQUE_SIGNUP = 'boutique_signup'
-    KINDS = [(BOUTIQUE_SIGNUP, 'New boutique signed up')]
+    ACCESS_REQUEST = 'access_request'
+    DEMO_REQUEST = 'demo_request'
+    KINDS = [
+        (BOUTIQUE_SIGNUP, 'New boutique signed up'),
+        (ACCESS_REQUEST, 'New access request'),
+        (DEMO_REQUEST, 'New demo request'),
+    ]
 
     kind = models.CharField(max_length=40, choices=KINDS, db_index=True)
     title = models.CharField(max_length=200)
     body = models.TextField(blank=True)
     boutique = models.CharField(max_length=63, blank=True, db_index=True)
+    # The access request (tenants.DemoRequest) a request notice is about.
+    lead_id = models.PositiveIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     read_at = models.DateTimeField(null=True, blank=True, db_index=True)
     read_by = models.CharField(max_length=150, blank=True)

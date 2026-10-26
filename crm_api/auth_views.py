@@ -1,15 +1,11 @@
 import logging
-import uuid
 
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
-from django.utils import timezone
-from django.utils.text import slugify
 from rest_framework import status, views
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -19,15 +15,11 @@ from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db import connection, transaction
-from tenants.models import BoutiqueTenant, Domain
-from tenants.provision import provision_tenant
-from tenants.slugs import make_shop_slug
+from tenants.models import BoutiqueTenant
 from django_tenants.utils import schema_context
 from superadmin import signins
-from core.modules import DEFAULT_PLAN, MODULE_GROUP, effective_modules
-from core.validators import (
-    validate_email_address, validate_mobile, validate_name, validate_text,
-)
+from core.modules import MODULE_GROUP, effective_modules
+from core.validators import validate_name
 from core.roles import OWNER, resolve_user_role
 from apps.email_service.services import EmailService
 
@@ -75,6 +67,41 @@ def _role_modules():
     # same way here keeps the two agreeing on a corrupt column too. An absent
     # row lands here as None for the same reason.
     return stored if isinstance(stored, dict) else {}
+
+
+def _must_change_password(user, role):
+    """True while this is the owner of a boutique still on its temporary password.
+
+    Read from the registry row, not from connection.tenant: the middleware
+    caches tenant objects for five minutes, and a stale True would send an
+    owner back to the change-password screen on another server worker right
+    after they had changed it.
+    """
+    schema = connection.schema_name
+    if role != OWNER or schema == 'public':
+        return False
+    try:
+        # `schema` is captured above: inside schema_context('public') the
+        # connection reports 'public', not the boutique being asked about.
+        with schema_context('public'):
+            return bool(BoutiqueTenant.objects.filter(
+                schema_name=schema).values_list(
+                    'owner_password_temporary', flat=True).first())
+    except Exception:
+        logger.exception('owner_password_temporary unreadable for %s', schema)
+        return False
+
+
+def _clear_temporary_password(tenant, user):
+    """The owner has chosen their own password: lift the temporary-password gate."""
+    owner = (tenant.owner_email or '').lower()
+    if owner not in {(user.email or '').lower(), (user.username or '').lower()}:
+        return
+    with schema_context('public'):
+        BoutiqueTenant.objects.filter(pk=tenant.pk).update(
+            owner_password_temporary=False)
+    from tenants.middleware import clear_tenant_cache
+    clear_tenant_cache()
 
 
 def user_payload(user, role=None):
@@ -150,6 +177,10 @@ def user_payload(user, role=None):
 
     return {
         "id": user.id,
+        # The owner of a boutique the console just created, still on the
+        # temporary password it emailed them: the app shows only the
+        # change-password screen until this is False (core.authentication).
+        "must_change_password": _must_change_password(user, role),
         "first_name": user.first_name,
         "last_name": user.last_name,
         "email": user.email,
@@ -245,160 +276,20 @@ class LoginThrottle(AnonRateThrottle):
 
 
 class SignupView(views.APIView):
-    permission_classes = [AllowAny]
+    """Closed. Boutiques are created by the platform team on approval.
 
-    #: The floor the sign-up form promises; Django's validators re-check it.
-    PASSWORD_MIN_LENGTH = 8
+    Kept at its old URL so a stale app build gets a sentence rather than a
+    404: request access instead (POST /demo-request/, source=app), and the
+    console's approve action creates the boutique (tenants.onboarding).
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
-        first_name = request.data.get('first_name')
-        last_name = request.data.get('last_name')
-        email = (request.data.get('email_address') or '').strip().lower()
-        mobile = request.data.get('mobile_number')
-        password = request.data.get('password')
-
-        if not email or not password or not first_name or not last_name:
-            return Response(
-                {"error": "Please provide first_name, last_name, email_address and password"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # The form disables its button until the box is ticked; this is the
-        # rule itself, so a boutique cannot exist without having accepted.
-        if request.data.get('terms_accepted') is not True:
-            return Response(
-                {"error": "Please accept the Terms & Conditions to create your boutique."},
-                status=status.HTTP_400_BAD_REQUEST)
-
-        # One rule set with the customer book and the staff roster: the name
-        # becomes the tenant's, the mobile the boutique's WhatsApp identity.
-        try:
-            first_name = validate_name(first_name, label='First name', max_length=150)
-            last_name = validate_name(last_name, label='Last name', max_length=150)
-            email = validate_email_address(email)
-            mobile = validate_mobile(mobile)
-            business_name = validate_text(request.data.get('business_name'),
-                                          label='Boutique name', max_length=100)
-            business_address = validate_text(request.data.get('business_address'),
-                                             label='Boutique address', max_length=500)
-        except ValidationError as exc:
-            return Response({"error": str(exc.detail[0])}, status=status.HTTP_400_BAD_REQUEST)
-
-        if len(password) < self.PASSWORD_MIN_LENGTH:
-            return Response(
-                {"error": f"Password needs at least {self.PASSWORD_MIN_LENGTH} characters."},
-                status=status.HTTP_400_BAD_REQUEST)
-        try:
-            validate_password(password)
-        except DjangoValidationError as exc:
-            return Response({"error": " ".join(exc.messages)},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        if BoutiqueTenant.objects.filter(owner_email=email).exists():
-            return Response(
-                {"error": "A user with this email address already exists"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            with transaction.atomic():
-                base = slugify(email).replace('-', '_')[:50].strip('_') or 'boutique'
-                if not base[0].isalpha():
-                    base = f"b_{base}"[:50]
-                schema_name = f"{base}_{uuid.uuid4().hex[:8]}"
-            
-                boutique_name = business_name or f"{first_name}'s Boutique"
-
-                # Checked against what is already taken rather than trusting
-                # the name to be unique, because neither boutique name is
-                # unique -- two Sarala Boutiques are allowed, and the second
-                # one gets saralaboutique2 rather than an IntegrityError that
-                # would roll back the whole provisioning.
-                tenant = provision_tenant(
-                    schema_name=schema_name,
-                    owner_email=email,
-                    name=boutique_name,
-                    shop_slug=make_shop_slug(
-                        boutique_name,
-                        BoutiqueTenant.objects.exclude(shop_slug=None)
-                        .values_list('shop_slug', flat=True),
-                        fallback=schema_name,
-                    ),
-                    # The business decision lives here, not in the column
-                    # default: a boutique that signs up starts on the smallest
-                    # plan and is moved up from the console.
-                    plan=DEFAULT_PLAN,
-                )
-                BoutiqueTenant.objects.filter(pk=tenant.pk).update(terms_accepted_at=timezone.now())
-
-                Domain.objects.create(
-                    domain=f"{schema_name}.localhost",
-                    tenant=tenant,
-                    is_primary=True
-                )
-            
-                from tenants.middleware import clear_tenant_cache
-                clear_tenant_cache()
-
-                connection.set_tenant(tenant)
-
-                from crm_api.utils import seed_tenant_defaults
-                seed_tenant_defaults(demo=False)
-
-                from crm_api.models import BoutiqueSettings
-                BoutiqueSettings.objects.update_or_create(
-                    id=1,
-                    defaults={
-                        'name': boutique_name,
-                        'email': email,
-                        **({'phone': mobile} if mobile else {}),
-                        **({'address': business_address} if business_address else {}),
-                    },
-                )
-
-                user = User.objects.create_user(
-                    username=email,
-                    email=email,
-                    password=password,
-                    first_name=first_name,
-                    last_name=last_name
-                )
-            
-                token, created = Token.objects.get_or_create(user=user)
-
-                _notify_platform_of_signup(tenant, boutique_name, f'{first_name} {last_name}', email)
-
-                return Response({
-                    "token": token.key,
-                    "tenant_id": tenant.schema_name,
-                    # This account IS the owner -- it is what signup just made
-                    # -- so the role is asserted rather than looked up.
-                    "user": user_payload(user, role=OWNER),
-                }, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            logger.exception('%s failed', self.__class__.__name__)
-            connection.set_schema_to_public()
-            return Response({"error": "Something went wrong. Please try again."},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-def _notify_platform_of_signup(tenant, boutique_name, owner_name, email):
-    """Put the new boutique on the platform console's bell.
-
-    Never allowed to fail the sign-up: the boutique exists either way, and the
-    console still lists it under All boutiques. The savepoint keeps a failed
-    insert from poisoning the surrounding provisioning transaction.
-    """
-    from superadmin.models import PlatformNotification
-    try:
-        with schema_context('public'), transaction.atomic():
-            PlatformNotification.objects.create(
-                kind=PlatformNotification.BOUTIQUE_SIGNUP,
-                title=f'New boutique: {boutique_name}',
-                body=f'{owner_name} ({email}) signed up.',
-                boutique=tenant.schema_name,
-            )
-    except Exception:
-        logger.exception('Could not record the sign-up notification for %s', tenant.schema_name)
+        return Response(
+            {"error": "New boutiques are set up by our team. "
+                      "Please use Request access and we'll be in touch."},
+            status=status.HTTP_410_GONE)
 
 
 class _BoutiqueLookupThrottle(AnonRateThrottle):
@@ -602,7 +493,11 @@ class ChangePasswordView(views.APIView):
             user.save(update_fields=['password'])
             Token.objects.filter(user=user).delete()
             token = Token.objects.create(user=user)
-        return Response({'detail': 'Your password has been changed.', 'token': token.key},
+        tenant = getattr(connection, 'tenant', None)
+        if tenant is not None and connection.schema_name != 'public':
+            _clear_temporary_password(tenant, user)
+        return Response({'detail': 'Your password has been changed.', 'token': token.key,
+                         'tenant_id': connection.schema_name, 'user': user_payload(user)},
                         status=status.HTTP_200_OK)
 
 
@@ -711,6 +606,10 @@ class PasswordResetConfirmView(views.APIView):
             user.save(update_fields=['password'])
 
             Token.objects.filter(user=user).delete()
+
+        # A reset link is proof of the mailbox, so it also ends a temporary
+        # password: the owner has chosen their own.
+        _clear_temporary_password(tenant, user)
 
         return Response({"detail": "Your password has been changed. "
                                    "Please sign in."},

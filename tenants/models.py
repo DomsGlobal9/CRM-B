@@ -50,10 +50,18 @@ class BoutiqueTenant(TenantMixin):
     design_system = models.CharField(max_length=32, choices=DESIGN_SYSTEMS, default='scaleezy')
     color_mode = models.CharField(max_length=16, choices=COLOR_MODES, default='light')
 
-    # When the owner ticked "I agree to the Terms & Conditions" at sign-up.
-    # Null for boutiques registered before the box was enforced, or created
-    # from the console/admin rather than the sign-up form.
+    # When the owner ticked "I agree to the Terms & Conditions" -- on the
+    # Request access form, copied here when the console approves the request.
+    # Null for boutiques from before the box was enforced, or made by hand.
     terms_accepted_at = models.DateTimeField(null=True, blank=True)
+
+    # True from the moment the console creates this boutique with a temporary
+    # password until the owner chooses their own. While it is set the owner's
+    # token reaches only the change-password screen (core.authentication).
+    # Read fresh on every request by the tenant middleware, never from its
+    # five-minute tenant cache, so changing the password takes effect at once
+    # on every server worker.
+    owner_password_temporary = models.BooleanField(default=False)
 
     auto_create_schema = True
 
@@ -155,6 +163,19 @@ class PortalCredential(models.Model):
 
 
 class DemoRequest(models.Model):
+    """A request for access: the website's demo form or the app's Request access.
+
+    Nobody creates their own boutique. A request lands here, the requester is
+    sent a "your request is under review" email, the platform team is alerted
+    (PLATFORM_ALERT_EMAIL and the console bell), and an administrator approves
+    it from the console, which creates the boutique (tenants.onboarding) and
+    emails the owner their sign-in details.
+    """
+
+    SOURCE_CHOICES = [
+        ('website', 'Website demo form'),
+        ('app', 'App access request'),
+    ]
 
     STATUS_CHOICES = [
         ('NEW', 'New'),
@@ -174,8 +195,24 @@ class DemoRequest(models.Model):
     people = models.CharField(max_length=40, blank=True)
     problem = models.CharField(max_length=2000, blank=True)
 
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default='website')
+    address = models.CharField(max_length=500, blank=True)
+    # The app's form requires the Terms & Conditions box; the website's does not ask.
+    terms_accepted_at = models.DateTimeField(null=True, blank=True)
+
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='NEW', db_index=True)
     notes = models.TextField(blank=True)
+
+    welcome_emailed_at = models.DateTimeField(null=True, blank=True)
+    team_alerted_at = models.DateTimeField(null=True, blank=True)
+
+    # Set once, by the console's approve action, in the same transaction that
+    # creates the boutique. A request with a tenant cannot be approved again.
+    tenant = models.ForeignKey(BoutiqueTenant, null=True, blank=True,
+                               on_delete=models.SET_NULL, related_name='access_requests')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.CharField(max_length=150, blank=True)
+    credentials_emailed_at = models.DateTimeField(null=True, blank=True)
 
     ip = models.GenericIPAddressField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

@@ -10,8 +10,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from rest_framework.exceptions import ValidationError as DRFValidationError
 
-from core.validators import validate_email_address, validate_mobile, validate_name
+from core.validators import (
+    validate_email_address, validate_mobile, validate_name, validate_text,
+)
 
+from .emails import send_request_received, send_team_alert
 from .models import DemoRequest
 
 logger = logging.getLogger(__name__)
@@ -40,7 +43,8 @@ class DemoRequestForm(ModelForm):
     class Meta:
         model = DemoRequest
         fields = ['name', 'boutique', 'email', 'phone',
-                  'makes', 'orders_per_month', 'people', 'problem']
+                  'makes', 'orders_per_month', 'people', 'problem',
+                  'source', 'address']
 
     def __init__(self, data=None, **kwargs):
         if data is not None:
@@ -48,6 +52,7 @@ class DemoRequestForm(ModelForm):
             for key in data:
                 data[key] = data[key].replace('\r\n', '\n')
         super().__init__(data, **kwargs)
+        self.fields['source'].required = False
 
     def clean_name(self):
         return _rule(validate_name, self.cleaned_data.get('name'))
@@ -62,6 +67,26 @@ class DemoRequestForm(ModelForm):
 
     def clean_email(self):
         return _rule(validate_email_address, self.cleaned_data.get('email'))
+
+    def clean_boutique(self):
+        return _rule(validate_text, self.cleaned_data.get('boutique'),
+                     label='Boutique name', max_length=100, required=True)
+
+    def clean_address(self):
+        return _rule(validate_text, self.cleaned_data.get('address'),
+                     label='Boutique address', max_length=500)
+
+    def clean_source(self):
+        # The website's form predates this field and does not send it.
+        return self.cleaned_data.get('source') or 'website'
+
+    def clean(self):
+        cleaned = super().clean()
+        # The app's Request access stands in for sign-up, so it carries the
+        # Terms & Conditions box sign-up had; the website's demo form does not.
+        if cleaned.get('source') == 'app' and self.data.get('terms_accepted') not in ('true', 'True', '1', 'on'):
+            raise FormValidationError('Please accept the Terms & Conditions to request access.')
+        return cleaned
 
 
 def _client_ip(request):
@@ -103,5 +128,41 @@ def demo_request(request):
 
     lead = form.save(commit=False)
     lead.ip = ip
+    if lead.source == 'app':
+        lead.terms_accepted_at = timezone.now()
     lead.save()
+
+    _announce(lead)
     return JsonResponse({'ok': True}, status=201)
+
+
+def _announce(lead):
+    """Welcome the requester, alert the platform team, ring the console's bell.
+
+    The request is already saved: a mail outage must not lose a lead, so every
+    step here is on its own and failures are only logged. The console shows
+    which requests were never welcomed or never reached the team.
+    """
+    now = timezone.now()
+    stamps = {}
+    for field, send, what in (('welcome_emailed_at', send_request_received, 'welcome'),
+                              ('team_alerted_at', send_team_alert, 'team alert')):
+        try:
+            if send(lead):
+                stamps[field] = now
+        except Exception:
+            logger.exception('%s email failed for request %s', what, lead.pk)
+    if stamps:
+        DemoRequest.objects.filter(pk=lead.pk).update(**stamps)
+
+    try:
+        from superadmin.models import PlatformNotification
+        is_app = lead.source == 'app'
+        PlatformNotification.objects.create(
+            kind=PlatformNotification.ACCESS_REQUEST if is_app else PlatformNotification.DEMO_REQUEST,
+            title=f"{'Access request' if is_app else 'Demo request'}: {lead.boutique or lead.name}",
+            body=f'{lead.name} ({lead.email}, {lead.phone})',
+            lead_id=lead.pk,
+        )
+    except Exception:
+        logger.exception('could not ring the console bell for request %s', lead.pk)
