@@ -300,12 +300,12 @@ class DesignAssignmentSerializer(_AssignmentDesignMixin, serializers.ModelSerial
         model = DesignAssignment
         fields = [
             'id', 'garment_job', 'garment_name', 'order_id', 'order_reference', 'customer_name',
-            'designer', 'designer_name', 'status', 'brief', 'brief_voice_note', 'due_date',
+            'designer', 'designer_name', 'status', 'brief', 'brief_voice_note', 'brief_voice_notes', 'due_date',
             'design', 'design_detail', 'submission_note', 'review_note',
             'assigned_at', 'submitted_at', 'reviewed_at', 'updated_at',
         ]
         read_only_fields = [
-            'status', 'design', 'submission_note', 'review_note', 'brief_voice_note',
+            'status', 'design', 'submission_note', 'review_note', 'brief_voice_note', 'brief_voice_notes',
             'assigned_at', 'submitted_at', 'reviewed_at', 'updated_at',
         ]
         extra_kwargs = {
@@ -341,7 +341,7 @@ class DesignerAssignmentSerializer(_AssignmentDesignMixin, serializers.ModelSeri
         fields = [
             'id', 'garment_job', 'garment_name', 'order_ref', 'order_reference', 'order_pk',
             'spec', 'measurements',
-            'designer', 'designer_name', 'status', 'brief', 'brief_voice_note', 'due_date',
+            'designer', 'designer_name', 'status', 'brief', 'brief_voice_note', 'brief_voice_notes', 'due_date',
             'design', 'design_detail', 'submission_note', 'review_note',
             'assigned_at', 'submitted_at', 'reviewed_at',
         ]

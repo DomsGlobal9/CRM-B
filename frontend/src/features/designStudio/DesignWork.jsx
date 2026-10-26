@@ -10,6 +10,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../../components/ui/Atelier';
 import { LIMITS, todayIso } from '../../services/validate';
 import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
+import { voiceNoteList } from '../../components/ui/voiceNotes';
 import Loader from '../../components/ui/Loader';
 
 const STATUS_STYLE = {
@@ -289,7 +290,10 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
         <p style={{ fontSize: '13px', marginTop: '10px' }}>{assignment.brief}</p>
       )}
       {/* The brief as the counter spoke it, recorded with the order. */}
-      {assignment.brief_voice_note && <VoiceNotePlayer src={assignment.brief_voice_note} style={{ marginTop: '10px' }} />}
+      {/* Up to ten of them (brief_voice_notes); an older brief has its one. */}
+      {voiceNoteList(assignment.brief_voice_notes, assignment.brief_voice_note).map((note, i) => (
+        <VoiceNotePlayer key={`${note.url}:${i}`} src={note.url} style={{ marginTop: '10px' }} />
+      ))}
 
       {!isSupervisor && (Object.keys(spec).length > 0 || Object.keys(measurements).length > 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
@@ -300,7 +304,8 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
               fontSize: '11px', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
               background: 'var(--surface-inset)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
             }}>
-              {key.replace(/_/g, ' ')}: {String(value)}
+              {key.replace(/_/g, ' ')}: {Array.isArray(value) && value.some((v) => v && v.url)
+                ? `${value.length} voice note${value.length === 1 ? '' : 's'}` : String(value)}
             </span>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Volume2, Send, Trash2 } from 'lucide-react';
+import { MAX_VOICE_NOTES } from './voiceNotes';
 
 
 const recognitionClass = () => (typeof window !== 'undefined'
@@ -204,7 +205,13 @@ const RECORDER_KEYFRAMES = `
 @keyframes vn-bar { 0%,100% { transform: scaleY(.3) } 50% { transform: scaleY(1) } }
 `;
 
-export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label = 'Record voice note', onRecordingChange, startToken = 0 }) {
+// `notes`: several voice notes ([{ url, by, at }], up to `max`) instead of the
+// one `sent` -- each is listed with its own Delete (onDelete(index)), and Send
+// adds the new one (onSend(blob)) rather than replacing what is there.
+export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label = 'Record voice note', onRecordingChange, startToken = 0,
+  notes = null, max = MAX_VOICE_NOTES }) {
+  const list = Array.isArray(notes) ? notes : null;
+  const full = Boolean(list) && list.length >= max;
   const [phase, setPhase] = useState('idle');   
   const [blob, setBlob] = useState(null);
   const [elapsed, setElapsed] = useState(0);
@@ -264,28 +271,58 @@ export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label 
     catch (err) { setError(err?.message || 'Could not send the voice note.'); setPhase('preview'); }
   };
 
-  const remove = async () => {
+  const remove = async (index) => {
     if (!onDelete) return;
     setPhase('deleting'); setError('');
-    try { await onDelete(); setPhase('idle'); }
+    try { await onDelete(index); setPhase('idle'); }
     catch (err) { setError(err?.message || 'Could not delete the voice note.'); setPhase('idle'); }
   };
 
   
   useEffect(() => {
-    if (!startToken || phase !== 'idle' || disabled) return undefined;
+    if (!startToken || phase !== 'idle' || disabled || full) return undefined;
     const id = setTimeout(start, 0);
     return () => clearTimeout(id);
   }, [startToken]); 
 
-  const when = sent?.at ? new Date(sent.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '';
+  const stamp = (at) => (at ? new Date(at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '');
+  const when = stamp(sent?.at);
   const small = { padding: '4px 10px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', gap: '5px' };
 
   return (
     <div className="voice-recorder" style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
       <style>{RECORDER_KEYFRAMES}</style>
 
-      {phase === 'idle' && sent?.url && (
+      {/* Several notes: every one listed, oldest first, each with its own Delete. */}
+      {list && list.length > 0 && (
+        <div className="vn-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {list.map((note, index) => (
+            /* The player with its Delete beside it, who left it and when
+               underneath -- one compact row per note. */
+            <div key={`${note.url}:${index}`}
+                 style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 360px) auto', justifyContent: 'start',
+                          alignItems: 'center', columnGap: '8px', rowGap: '2px' }}>
+              <VoiceNotePlayer src={note.url} style={{ marginTop: 0, maxWidth: 'none' }} />
+              {onDelete && (
+                <button type="button" className="btn-secondary"
+                        style={{ width: '34px', height: '34px', minHeight: 0, padding: 0, display: 'inline-flex',
+                                 alignItems: 'center', justifyContent: 'center' }}
+                        disabled={disabled || phase !== 'idle'}
+                        onClick={() => remove(index)} title="Delete this voice note"
+                        aria-label={`Delete voice note ${index + 1}`}>
+                  <Trash2 size={15} />
+                </button>
+              )}
+              <span style={{ gridColumn: '1 / -1', fontSize: '12px', color: 'var(--text-secondary, #555)' }}>
+                {list.length > 1 && <strong>{index + 1}. </strong>}
+                {note.by ? <>Voice note from <strong>{note.by}</strong></> : 'Voice note'}{note.at ? ` · ${stamp(note.at)}` : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!list && phase === 'idle' && sent?.url && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <VoiceNotePlayer src={sent.url} style={{ flex: '1 1 200px', marginTop: 0 }} />
           <span style={{ fontSize: '12px', color: 'var(--text-secondary, #555)' }}>
@@ -300,12 +337,29 @@ export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label 
         </div>
       )}
 
-      {phase === 'idle' && (
+      {phase === 'idle' && !list && (
         <div>
           <button type="button" className="btn-secondary" style={small} disabled={disabled || !canRecord()} onClick={start}>
             <Mic size={13} /> {sent?.url ? 'Record a new voice note' : label}
           </button>
         </div>
+      )}
+
+      {phase === 'idle' && list && (
+        full ? (
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary, #555)' }}>
+            {max} of {max} voice notes recorded. Delete one to record another.
+          </span>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button type="button" className="btn-secondary" style={small} disabled={disabled || !canRecord()} onClick={start}>
+              <Mic size={13} /> {list.length ? 'Record another voice note' : label}
+            </button>
+            {list.length > 0 && (
+              <span style={{ fontSize: '12px', color: 'var(--text-secondary, #555)' }}>{list.length} of {max}</span>
+            )}
+          </div>
+        )
       )}
 
       {phase === 'recording' && (

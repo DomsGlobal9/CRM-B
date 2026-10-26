@@ -7,6 +7,7 @@ from decimal import Decimal
 from datetime import date, timedelta
 
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.contrib.auth.models import User
 from rest_framework import permissions, viewsets, status, views
 from rest_framework.exceptions import ValidationError
@@ -23,6 +24,7 @@ from core.roles import DESIGNER, MASTER, OWNER, assigns_work, can_assign, resolv
 from core.validators import (
     MAX_NOTE, MAX_REASON, validate_amount, validate_email_address, validate_image_upload,
     validate_http_url, validate_image_uploads, validate_mobile, validate_not_past, validate_phone, validate_text,
+    validate_voice_notes,
 )
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -753,16 +755,46 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # A recording on the instructions carries who left it. Stamped here,
         # not trusted from the body, and cleared when the recording is.
-        if 'instructions_voice_note' in serializer.validated_data:
+        # Several voice notes (instructions_voice_notes): the whole list, each
+        # clip already on the order keeping who left it and when, a new one
+        # stamped here. The single fields follow the list's first clip.
+        new_voice_note, new_voice_by = False, ''
+        if 'instructions_voice_notes' in serializer.validated_data:
+            from domains.orders.services import OrderService
+            instance = serializer.instance
+            before = list(instance.instructions_voice_notes or [])
+            if not before and instance.instructions_voice_note:
+                at = instance.instructions_voice_note_at
+                before = [{'url': instance.instructions_voice_note, 'by': instance.instructions_voice_note_by,
+                           'at': at.isoformat() if at else None}]
+            notes = validate_voice_notes(
+                serializer.validated_data['instructions_voice_notes'], label='Voice note',
+                sender=OrderService._voice_sender(self.request.user), previous=before)
+            serializer.validated_data['instructions_voice_notes'] = notes
+            first = notes[0] if notes else {}
+            serializer.validated_data['instructions_voice_note'] = first.get('url', '')
+            serializer.validated_data['instructions_voice_note_by'] = first.get('by', '')
+            serializer.validated_data['instructions_voice_note_at'] = (
+                parse_datetime(first['at']) if first.get('at') else None)
+            added = [n for n in notes if n['url'] not in {b.get('url') for b in before}]
+            new_voice_note, new_voice_by = bool(added), (added[-1]['by'] if added else '')
+        elif 'instructions_voice_note' in serializer.validated_data:
             from domains.orders.services import OrderService
             has_clip = bool(serializer.validated_data.get('instructions_voice_note'))
             serializer.validated_data['instructions_voice_note_by'] = (
                 OrderService._voice_sender(self.request.user) if has_clip else '')
             serializer.validated_data['instructions_voice_note_at'] = timezone.now() if has_clip else None
+            # The one clip is the whole list now.
+            serializer.validated_data['instructions_voice_notes'] = [{
+                'url': serializer.validated_data['instructions_voice_note'],
+                'by': serializer.validated_data['instructions_voice_note_by'],
+                'at': serializer.validated_data['instructions_voice_note_at'].isoformat(),
+            }] if has_clip else []
+            new_voice_note, new_voice_by = has_clip, serializer.validated_data['instructions_voice_note_by']
         order = serializer.save()
-        if serializer.validated_data.get('instructions_voice_note'):
+        if new_voice_note:
             from domains.orders.notifications import notify_voice_note
-            notify_voice_note(order, None, self.request.user, sender_name=order.instructions_voice_note_by)
+            notify_voice_note(order, None, self.request.user, sender_name=new_voice_by)
         self._reconcile_payment(order, serializer.validated_data)
 
         if old_status != order.order_status:
@@ -2230,12 +2262,20 @@ def _assign_designer_from_draft(request, job, design_request, due_date):
     if designer is None:
         raise ValueError('That designer is no longer on the team.')
     user = request.user if request.user.is_authenticated else None
+    # Every voice note recorded with the brief (up to ten), stamped with who
+    # took the order; brief_voice_note stays the first of them.
+    from domains.orders.services import OrderService
+    voice_notes = validate_voice_notes(
+        design_request.get('voice_notes'), label='Voice note',
+        sender=OrderService._voice_sender(user) if user else '')
     assignment = DesignAssignment.objects.create(
         garment_job=job, designer=designer,
         brief=design_request.get('brief') or '',
         # The brief spoken rather than (or as well as) typed: the clip's URL,
         # kept like the order's instructions_voice_note.
-        brief_voice_note=str(design_request.get('voice_note') or '')[:500],
+        brief_voice_note=(voice_notes[0]['url'] if voice_notes
+                          else str(design_request.get('voice_note') or '')[:500]),
+        brief_voice_notes=voice_notes,
         due_date=due_date, assigned_by=user)
     _log(request, assignment, "DESIGN_ASSIGNED",
          f"Design work assigned: {job.template.name}",
@@ -2628,6 +2668,11 @@ class OrderDraftViewSet(viewsets.ViewSet):
             special_instructions = validate_text(
                 payload.get('special_instructions') or payload.get('custom_requirements'),
                 label='Notes for the tailor', max_length=MAX_NOTE)
+            # The wizard's voice notes for the tailor, stamped with who took
+            # the order (as the one clip always was).
+            instructions_voice_notes = validate_voice_notes(
+                payload.get('instructions_voice_notes'), label='Voice note',
+                sender=OrderService._voice_sender(request.user))
             # "Me" as the designer -- a boutique with no designers, where the
             # person taking the order designs it. There is no Designer to hand
             # an assignment to, so the brief leads the order's instructions.
@@ -2658,7 +2703,9 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 # Neutral: apply_advance decides once the total is final.
                 'payment_status': 'Pending',
                 'custom_requirements': special_instructions,
-                'instructions_voice_note': str(payload.get('instructions_voice_note') or ''),
+                'instructions_voice_note': (instructions_voice_notes[0]['url'] if instructions_voice_notes
+                                            else str(payload.get('instructions_voice_note') or '')),
+                'instructions_voice_notes': instructions_voice_notes,
                 'estimated_delivery': ready_by or (due[0] if due else None),
                 'delivery_method': delivery.get('method') or 'Direct Pickup',
                 'courier_service': delivery.get('courier'),

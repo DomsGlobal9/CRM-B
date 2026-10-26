@@ -54,6 +54,7 @@ import useAutosave from './hooks/useAutosave';
 import { followerOf, syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
+import { AccountMenu } from './components/ui/AccountMenu';
 import CustomerMessageQueue from './features/orders/CustomerMessageQueue';
 import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
@@ -69,6 +70,7 @@ import { ProgressiveAccordion } from './components/ui/ProgressiveAccordion';
 import DressesDropdown from './components/ui/DressesDropdown';
 import GarmentPairingModal, { getGarmentPairConfig, findMatchingTemplate } from './components/ui/GarmentPairingModal';
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
+import { voiceNoteList } from './components/ui/voiceNotes';
 import Loader, { LoaderRows } from './components/ui/Loader';
 function getCustomerMeasurement(m, key) {
   if (!m) return undefined;
@@ -1178,20 +1180,22 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
   const [text, setText] = useState(order.special_instructions || '');
   const [state, setState] = useState('idle');
   const savedRef = useRef(order.special_instructions || '');
-  const [voiceNote, setVoiceNote] = useState({
-    url: order.instructions_voice_note || '', by: order.instructions_voice_note_by || '', at: order.instructions_voice_note_at || null,
-  });
+  // Up to ten voice notes: each Send adds one, each Delete takes that one
+  // away; the server stamps who sent a new one and when.
+  const [voiceNotes, setVoiceNotes] = useState(() => voiceNoteList(order.instructions_voice_notes,
+    order.instructions_voice_note
+      ? { url: order.instructions_voice_note, by: order.instructions_voice_note_by || '', at: order.instructions_voice_note_at || null }
+      : null));
+  const saveVoiceNotes = async (next) => {
+    const updated = await api.updateOrder(order.id, { instructions_voice_notes: next.map(n => ({ url: n.url })) });
+    setVoiceNotes(voiceNoteList(updated?.instructions_voice_notes));
+    if (onSaved) onSaved();
+  };
   const sendVoice = async (blob) => {
     const url = await api.uploadVoiceNote(blob);
-    const updated = await api.updateOrder(order.id, { instructions_voice_note: url });
-    setVoiceNote({ url, by: updated?.instructions_voice_note_by || '', at: updated?.instructions_voice_note_at || null });
-    if (onSaved) onSaved();
+    await saveVoiceNotes([...voiceNotes, { url }]);
   };
-  const deleteVoice = async () => {
-    await api.updateOrder(order.id, { instructions_voice_note: '' });
-    setVoiceNote({ url: '', by: '', at: null });
-    if (onSaved) onSaved();
-  };
+  const deleteVoice = (index) => saveVoiceNotes(voiceNotes.filter((_, i) => i !== index));
 
   const save = async () => {
     const value = text.trim();
@@ -1226,7 +1230,7 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
                     placeholder="Anything the workroom should know about this order…"
                     onChange={(e) => { setText(e.target.value); setState('idle'); }}
                     onBlur={() => save().catch(() => {})} />
-          <VoiceRecorder sent={voiceNote.url ? voiceNote : null} onSend={sendVoice} onDelete={deleteVoice} />
+          <VoiceRecorder notes={voiceNotes} onSend={sendVoice} onDelete={deleteVoice} />
           <div className="od-notes-foot">
             <span className={state === 'error' ? 'od-error' : 'od-hint'}>
               {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : state === 'error' ? 'Could not save, will retry' : 'Saves on its own'}
@@ -1237,13 +1241,15 @@ function OrderNotesCard({ order, canEdit, onSaved }) {
       ) : (
         <>
           <p className="od-notes-text">{text}</p>
-          <VoiceNotePlayer src={voiceNote.url} />
-          {voiceNote.url && (
-            <div className="od-hint" style={{ marginTop: '4px' }}>
-              Voice note from <strong>{voiceNote.by || 'someone'}</strong>
-              {voiceNote.at ? ` · ${new Date(voiceNote.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
-            </div>
-          )}
+          {voiceNotes.map((note, index) => (
+            <React.Fragment key={`${note.url}:${index}`}>
+              <VoiceNotePlayer src={note.url} />
+              <div className="od-hint" style={{ marginTop: '4px' }}>
+                Voice note from <strong>{note.by || 'someone'}</strong>
+                {note.at ? ` · ${new Date(note.at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ''}
+              </div>
+            </React.Fragment>
+          ))}
         </>
       )}
     </section>
@@ -1585,8 +1591,10 @@ function PortalMenu({ sections, activeTab, onPick, collapsed = false, hints = {}
     <React.Fragment key={section.key}>
       {section.divider && <div className="portal-menu-divider" />}
       {section.label && <div className="portal-menu-group">{section.label}</div>}
-      {section.items.map(({ tab, icon, label }) => (
-        <NavItem key={tab} icon={icon} label={label} active={activeTab === tab}
+      {/* `match`: an item that stands for several tabs (Reports) is lit on any of them. */}
+      {section.items.map(({ tab, icon, label, match }) => (
+        <NavItem key={match ? match.join('+') : tab} icon={icon} label={label}
+                 active={match ? match.includes(activeTab) : activeTab === tab}
                  collapsed={collapsed} onClick={() => onPick(tab)} hint={hints[tab]} />
       ))}
     </React.Fragment>
@@ -1687,8 +1695,56 @@ function App() {
     })),
     { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => handleLogout() },
   ];
+  // The same account entries on a computer or tablet: the "Hi, <name>" chip at
+  // the top of every page opens them (the sidebar no longer lists them). A
+  // phone has MobileHeader's avatar menu instead, so the bar is hidden there.
+  const accountBar = (go) => (
+    <div className="portal-account-bar">
+      <AccountMenu avatar={<UserAvatar user={currentUser} />}
+                   label={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
+                   currentUser={currentUser} items={headerAccountItems(go)} />
+    </div>
+  );
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
+
+  // Reports: Profit & Costs and Insights under one sidebar item. Each is still
+  // its own tab and page; the switch at the top of both moves between them,
+  // and the sidebar item opens the one used last on this device. A plan
+  // without Profit & Costs gets Insights alone, with no switch.
+  const REPORT_TABS = ['finance', 'analytics'];
+  const reportTabs = REPORT_TABS.filter((tab) => navTabs.includes(tab));
+  useEffect(() => {
+    if (dashboardTab !== 'finance' && dashboardTab !== 'analytics') return;
+    try { localStorage.setItem('reports_tab', dashboardTab); } catch { /* per-device convenience only */ }
+  }, [dashboardTab]);
+  const reportsTab = REPORT_TABS.includes(dashboardTab) ? dashboardTab : (() => {
+    try { return localStorage.getItem('reports_tab') || 'finance'; } catch { return 'finance'; }
+  })();
+  // The sidebar: no Account group (it is the menu at the top of the page), and
+  // Reports in the place of Profit & Costs and Insights.
+  const sidebarSections = navSections
+    .filter((section) => section.key !== 'session')
+    .map((section) => {
+      const at = section.items.findIndex((item) => REPORT_TABS.includes(item.tab));
+      if (at === -1 || !reportTabs.length) return section;
+      const items = section.items.filter((item) => !REPORT_TABS.includes(item.tab));
+      items.splice(at, 0, {
+        tab: reportTabs.includes(reportsTab) ? reportsTab : reportTabs[0],
+        icon: BarChart2, label: t('nav.reports', 'Reports'), match: reportTabs,
+      });
+      return { ...section, items };
+    });
+  const reportsSwitch = reportTabs.length > 1 && (
+    <div className="reports-switch">
+      <span className="reports-switch-label">{t('nav.reports', 'Reports')}</span>
+      <Segmented ariaLabel={t('nav.reports', 'Reports')} value={dashboardTab}
+                 onChange={(tab) => { setDashboardTab(tab); window.scrollTo(0, 0); }}
+                 options={reportTabs.map((tab) => (tab === 'finance'
+                   ? { key: tab, label: t('nav.finance', 'Profit & Costs'), icon: Wallet }
+                   : { key: tab, label: t('nav.analytics', 'Insights'), icon: BarChart2 }))} />
+    </div>
+  );
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -1816,7 +1872,8 @@ function App() {
   const [designLinks, setDesignLinks] = useState('');
   const [advancePaymentAmount, setAdvancePaymentAmount] = useState(0);
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [measureVoiceNote, setMeasureVoiceNote] = useState(null);
+  // The wizard's voice notes for the tailor: up to ten, [{ url, by, at }].
+  const [measureVoiceNotes, setMeasureVoiceNotes] = useState([]);
 
   const [quotePrices, setQuotePrices] = useState({ packaging: 500, discount: 0 });
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
@@ -2129,7 +2186,8 @@ function App() {
           pricing: { ...(job.pricing || {}), fabric: jobMaterialsTotal(job) },
           design: wantsDesigner
             ? { ...design, request: { designer: designerChoice, brief: designRequest.brief || '',
-                                      voice_note: designRequest.voice_note?.url || '' } }
+                                      voice_note: voiceNoteList(designRequest.voice_notes, designRequest.voice_note)[0]?.url || '',
+                                      voice_notes: voiceNoteList(designRequest.voice_notes, designRequest.voice_note) } }
             : design,
           fabrics: job.fabrics || {},
           fabric_qty: job.fabric_qty || {},
@@ -2154,9 +2212,10 @@ function App() {
       delivery: { method: 'Direct Pickup' },
       payment: { option: total > 0 && advance >= total ? 'full' : 'partial', advance },
       special_instructions: specialInstructions,
-      instructions_voice_note: measureVoiceNote?.url || '',
-      instructions_voice_note_by: measureVoiceNote?.by || '',
-      instructions_voice_note_at: measureVoiceNote?.at || null,
+      instructions_voice_note: measureVoiceNotes[0]?.url || '',
+      instructions_voice_note_by: measureVoiceNotes[0]?.by || '',
+      instructions_voice_note_at: measureVoiceNotes[0]?.at || null,
+      instructions_voice_notes: measureVoiceNotes,
     };
   };
 
@@ -2226,9 +2285,10 @@ function App() {
                                  discount: prices.discount ?? 0 });
     if (payment.advance !== undefined) setAdvancePaymentAmount(payment.advance);
     setSpecialInstructions(payload.special_instructions || '');
-    setMeasureVoiceNote(payload.instructions_voice_note
+    // A draft saved before there could be several keeps its one note.
+    setMeasureVoiceNotes(voiceNoteList(payload.instructions_voice_notes, payload.instructions_voice_note
       ? { url: payload.instructions_voice_note, by: payload.instructions_voice_note_by || '', at: payload.instructions_voice_note_at || null }
-      : null);
+      : null));
     setWizardError(null);
     setDraftSaveState('idle');
     setGarmentErrors({});
@@ -3075,7 +3135,7 @@ function App() {
     setQuotePrices({ packaging: 500, discount: 0 });
     setAdvancePaymentAmount(0);
     setSpecialInstructions('');
-    setMeasureVoiceNote(null);
+    setMeasureVoiceNotes([]);
     setReadyBy(plusDaysIso(15));
     setDesignRequest({ designer: '', brief: '' });
     setAlterationForm(EMPTY_ALTERATION);
@@ -4687,7 +4747,7 @@ function App() {
 
             <nav className="portal-menu">
               <PortalMenu
-                sections={navSections}
+                sections={sidebarSections}
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
                 hints={sidebarHint}
@@ -4701,8 +4761,6 @@ function App() {
                   setMobileNavOpen(false);
                 }}
               />
-              <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
-                       onClick={() => { setMobileNavOpen(false); handleLogout(); }} />
             </nav>
 
 
@@ -4710,6 +4768,7 @@ function App() {
 
           {/* Main Content Area */}
           <main className="portal-main" key={`${dashboardTab}:${sectionVisit}`}>
+            {accountBar((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}
             {(dashboardTab === 'work' || dashboardTab === 'done' || dashboardTab === 'check') && (
               <>
                 <PageHeader
@@ -4758,12 +4817,6 @@ function App() {
                           </span>
                         )}
                       </button>
-                      <div className="user-profile-widget">
-                        <div className="user-avatar-circle">
-                          <UserAvatar user={currentUser} />
-                        </div>
-                        <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                      </div>
                     </>
                   )}
                   actions={(
@@ -5125,9 +5178,12 @@ function App() {
             )}
 
             {dashboardTab === 'finance' && (
-              <Suspense fallback={<ScreenLoading />}>
-                <FinancePanel />
-              </Suspense>
+              <>
+                {reportsSwitch}
+                <Suspense fallback={<ScreenLoading />}>
+                  <FinancePanel />
+                </Suspense>
+              </>
             )}
 
 
@@ -5142,14 +5198,6 @@ function App() {
                 <PageHeader
                   title={t('designsPage.title')}
                   subtitle={t('designsPage.subtitle')}
-                  aside={(
-                    <div className="user-profile-widget">
-                      <div className="user-avatar-circle">
-                        <UserAvatar user={currentUser} />
-                      </div>
-                      <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                    </div>
-                  )}
                   actions={(!currentUser?.role || currentUser.role === 'Owner') && (
                       <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setShowDesignUpload(true)}>
                         <Plus size={16} />
@@ -6020,12 +6068,6 @@ function App() {
                   aside={(
                     <>
                       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder={t('customersPage.searchPlaceholder')} />
-                      <div className="user-profile-widget">
-                        <div className="user-avatar-circle">
-                          <UserAvatar user={currentUser} />
-                        </div>
-                        <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                      </div>
                     </>
                   )}
                   actions={canAddCustomer && (
@@ -6770,14 +6812,6 @@ function App() {
                 <PageHeader
                   title={t('invoicesPage.title', 'Invoices & Billing')}
                   subtitle={t('invoicesPage.subtitle', 'Manage invoices, verify billing payments, and print receipts.')}
-                  aside={(
-                    <div className="user-profile-widget">
-                      <div className="user-avatar-circle">
-                        <UserAvatar user={currentUser} />
-                      </div>
-                      <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                    </div>
-                  )}
                 />
 
                 <section className="at-stat-grid bill-stats">
@@ -6998,17 +7032,10 @@ function App() {
 
               return (
                 <>
+                  {reportsSwitch}
                   <PageHeader
                     title={t('analyticsPage.title', 'Business Analytics & Trends')}
                     subtitle={t('analyticsPage.subtitle', 'Summary of revenues, style preferences, and operations workload.')}
-                    aside={(
-                      <div className="user-profile-widget">
-                        <div className="user-avatar-circle">
-                          <UserAvatar user={currentUser} />
-                        </div>
-                        <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                      </div>
-                    )}
                   />
 
                   <section className="at-stat-grid insights-stats" style={{ marginBottom: 'var(--space-5)' }}>
@@ -7131,14 +7158,6 @@ function App() {
                 <PageHeader
                   title={t('accountPage.title')}
                   subtitle={t('accountPage.subtitle')}
-                  aside={(
-                    <div className="user-profile-widget">
-                      <div className="user-avatar-circle">
-                        <UserAvatar user={currentUser} />
-                      </div>
-                      <span>{t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}</span>
-                    </div>
-                  )}
                 />
 
                 <div className="account-settings-container at-account">
@@ -7739,17 +7758,16 @@ function App() {
             
             <nav className="portal-menu">
               <PortalMenu
-                sections={navSections}
+                sections={sidebarSections}
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
                 onPick={(tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); }}
               />
-              <NavItem icon={LogOut} label={t('nav.logout')} collapsed={navCollapsed && !mobileNavOpen}
-                       onClick={() => { setMobileNavOpen(false); handleLogout(); }} />
             </nav>
           </aside>
 
           <main className="portal-main">
+            {accountBar((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })}
             <div className="selector-container">
               <div className="selector-header">
                 <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{t('entry.newOrderTitle', 'New order')}</h1>
@@ -8368,17 +8386,21 @@ function App() {
                               Kept in the template's `audio_note` field, so it is
                               stored with the garment and played on its summary. */}
                           {job.template.sections.some(sec => sec.fields.some(f => f.key === 'audio_note')) && (
+                            /* Up to ten, kept as a list ([{ url, by, at }]); a garment
+                               saved before keeps its one clip (a URL) as the first. */
                             <VoiceRecorder
-                              sent={job.values?.audio_note ? { url: job.values.audio_note, by: 'you' } : null}
+                              notes={voiceNoteList(job.values?.audio_note)}
                               onSend={async (blob) => {
                                 const url = await api.uploadVoiceNote(blob);
+                                const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
                                 setGarmentJobs(prev => prev.map(j => (j.key === job.key
-                                  ? { ...j, values: { ...j.values, audio_note: url } } : j)));
+                                  ? { ...j, values: { ...j.values, audio_note: [...voiceNoteList(j.values?.audio_note), { url, by, at: new Date().toISOString() }] } } : j)));
                               }}
-                              onDelete={() => setGarmentJobs(prev => prev.map(j => {
+                              onDelete={(index) => setGarmentJobs(prev => prev.map(j => {
                                 if (j.key !== job.key) return j;
                                 const rest = { ...j.values };
-                                delete rest.audio_note;
+                                const left = voiceNoteList(j.values?.audio_note).filter((_, i) => i !== index);
+                                if (left.length) rest.audio_note = left; else delete rest.audio_note;
                                 return { ...j, values: rest };
                               }))}
                             />
@@ -8596,14 +8618,18 @@ function App() {
                         {/* Or say it: the same recorder the tailor's notes use. Text,
                             a voice note or both; the clip is held on the draft and
                             reaches the designer with the brief at confirm. */}
+                        {/* Up to ten: each Send adds one (voice_notes); a draft
+                            from before keeps its one voice_note as the first. */}
                         <VoiceRecorder
-                          sent={designRequest.voice_note || null}
+                          notes={voiceNoteList(designRequest.voice_notes, designRequest.voice_note)}
                           onSend={async (blob) => {
                             const url = await api.uploadVoiceNote(blob);
                             const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
-                            setDesignRequest(prev => ({ ...prev, voice_note: { url, by, at: new Date().toISOString() } }));
+                            setDesignRequest(prev => ({ ...prev, voice_note: null,
+                              voice_notes: [...voiceNoteList(prev.voice_notes, prev.voice_note), { url, by, at: new Date().toISOString() }] }));
                           }}
-                          onDelete={() => setDesignRequest(prev => ({ ...prev, voice_note: null }))}
+                          onDelete={(index) => setDesignRequest(prev => ({ ...prev, voice_note: null,
+                            voice_notes: voiceNoteList(prev.voice_notes, prev.voice_note).filter((_, i) => i !== index) }))}
                         />
                       </div>
                     </div>
@@ -8856,13 +8882,13 @@ function App() {
                                    onChange={(e) => setSpecialInstructions(e.target.value)}
                                    placeholder={t('wizard.notesPlaceholder', 'e.g. padding, side zip, extra margin at the waist')} />
                     <VoiceRecorder
-                      sent={measureVoiceNote}
+                      notes={measureVoiceNotes}
                       onSend={async (blob) => {
                         const url = await api.uploadVoiceNote(blob);
                         const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
-                        setMeasureVoiceNote({ url, by, at: new Date().toISOString() });
+                        setMeasureVoiceNotes(prev => [...prev, { url, by, at: new Date().toISOString() }]);
                       }}
-                      onDelete={() => setMeasureVoiceNote(null)}
+                      onDelete={(index) => setMeasureVoiceNotes(prev => prev.filter((_, i) => i !== index))}
                     />
                   </Field>
                 </div>
@@ -9111,7 +9137,9 @@ function App() {
                       {designerChoice === SELF_DESIGNER ? selfDesignerLabel
                         : designers.find(d => String(d.id) === String(designerChoice))?.name || designerChoice || <span className="od-hint">Not picked</span>}
                       {designRequest.brief && <div className="od-hint" style={{ marginTop: '4px' }}>{designRequest.brief}</div>}
-                      {designRequest.voice_note?.url && <VoiceNotePlayer src={designRequest.voice_note.url} />}
+                      {voiceNoteList(designRequest.voice_notes, designRequest.voice_note).map((note, i) => (
+                        <VoiceNotePlayer key={`${note.url}:${i}`} src={note.url} />
+                      ))}
                     </div>
                   ))}
                 </>
@@ -10004,6 +10032,7 @@ Complete the Payment stage with this partial payment?`)) return;
                   voiceNote={activeReviewOrder.instructions_voice_note}
                   voiceNoteBy={activeReviewOrder.instructions_voice_note_by}
                   voiceNoteAt={activeReviewOrder.instructions_voice_note_at}
+                  voiceNotes={activeReviewOrder.instructions_voice_notes}
                 />
               </div>
             )}
@@ -10021,6 +10050,15 @@ Complete the Payment stage with this partial payment?`)) return;
                     Voice note from <strong>{activeReviewOrder.instructions_voice_note_by || t('ordersPage.someone', 'Someone')}</strong>
                   </div>
                 )}
+                {/* The rest of its voice notes (the first is the one above). */}
+                {voiceNoteList(activeReviewOrder.instructions_voice_notes).slice(1).map((note, i) => (
+                  <React.Fragment key={`${note.url}:${i}`}>
+                    <VoiceNotePlayer src={note.url} />
+                    <div className="od-hint" style={{ marginTop: '4px' }}>
+                      Voice note from <strong>{note.by || t('ordersPage.someone', 'Someone')}</strong>
+                    </div>
+                  </React.Fragment>
+                ))}
               </InfoNote>
             )}
 

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import { isVisible, isTypedOther, typedOtherText } from '../../services/templates';
 import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
+import { voiceNoteList } from '../../components/ui/voiceNotes';
 
 const formatKey = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -57,6 +58,17 @@ function displayValue(field, value, inventoryNames) {
   // The garment's recorded voice notes: played, not counted as a photo.
   if ((field.key === 'audio_note' || field.key === 'hand_work_voice_note') && typeof value === 'string') {
     return <VoiceNotePlayer src={value} />;
+  }
+  // Several voice notes ([{ url, by, at }], up to ten): each one played.
+  if ((field.key === 'audio_note' || field.key === 'hand_work_voice_note') && Array.isArray(value)) {
+    const notes = voiceNoteList(value);
+    if (notes.length) {
+      return (
+        <span style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {notes.map((note, i) => <VoiceNotePlayer key={`${note.url}:${i}`} src={note.url} />)}
+        </span>
+      );
+    }
   }
 
   if (field.field_type === 'file') {

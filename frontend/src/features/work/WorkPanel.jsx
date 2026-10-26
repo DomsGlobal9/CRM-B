@@ -10,6 +10,7 @@ import { inventoryImage } from '../../services/inventoryImages';
 import { imageFilesError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
+import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
 import CustomerMessageQueue from '../orders/CustomerMessageQueue';
@@ -646,7 +647,10 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
         {(order.special_instructions || order.instructions_voice_note) && (
           <div className="wk-text wk-gap">
             {order.special_instructions && <>{order.special_instructions}<Listen text={order.special_instructions} /></>}
-            <VoiceNotePlayer src={resolveMediaUrl(order.instructions_voice_note)} />
+            {/* Every voice note left on the instructions (up to ten). */}
+            {voiceNoteList(order.instructions_voice_notes, order.instructions_voice_note).map((note, i) => (
+              <VoiceNotePlayer key={`${note.url}:${i}`} src={resolveMediaUrl(note.url)} />
+            ))}
           </div>
         )}
       </section>

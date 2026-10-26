@@ -7279,3 +7279,41 @@ button, input, select, textarea { font-family: inherit; }
   display: block; max-width: 100%; padding: 0 4px; box-sizing: border-box;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* ---- Account menu at the top of every page (AccountMenu.jsx) -------------
+   The "Hi, <name>" chip sits at the top right of the page and opens My
+   Profile, Settings and Sign out -- the entries the sidebar's Account group
+   used to hold. A phone (768px and below) has the header avatar's menu for
+   the same entries, so the bar is hidden there. */
+.portal-account-bar { display: flex; justify-content: flex-end; margin: -16px 0 12px; position: relative; z-index: 20; }
+.acct-menu { position: relative; }
+.acct-menu-btn {
+  display: inline-flex; align-items: center; gap: 10px; padding: 4px 12px 4px 4px; min-height: 0;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--text-primary);
+  background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 999px;
+  box-shadow: var(--shadow-card); cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.acct-menu-btn:hover:not(:disabled), .acct-menu-btn[aria-expanded="true"] { border-color: var(--border-strong); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08); }
+.acct-menu-btn:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 2px; }
+.acct-menu-btn:disabled { cursor: default; }
+.acct-menu-btn .user-avatar-circle { display: inline-flex; flex-shrink: 0; }
+.acct-menu-chev { color: var(--text-secondary); transition: transform .15s ease; }
+.acct-menu-btn[aria-expanded="true"] .acct-menu-chev { transform: rotate(180deg); }
+.acct-menu-list { min-width: 240px; }
+@media (max-width: 768px) {
+  .portal-account-bar { display: none; }
+}
+
+/* ---- Reports: the Profit & Costs | Insights switch ------------------------
+   Sits at the top of both pages (App.jsx, reportsSwitch): the section's name
+   on the left, the two tabs on the right. A phone puts the tabs on their own
+   full-width row, each tab half of it. */
+.reports-switch { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; margin: 0 0 20px; }
+.reports-switch-label { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.reports-switch .at-seg button { padding: 6px 16px; white-space: nowrap; }
+@media (max-width: 640px) {
+  .reports-switch { margin-bottom: 16px; }
+  .reports-switch .at-seg { width: 100%; }
+  .reports-switch .at-seg button { flex: 1 1 0; justify-content: center; min-width: 0; padding: 6px 10px; }
+}

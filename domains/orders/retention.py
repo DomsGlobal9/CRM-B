@@ -156,6 +156,14 @@ def purge_order_media(order):
                        'instructions_voice_note_at']
         else:
             clean = False
+    # The rest of the instructions' voice notes (the first is the one above).
+    if order.instructions_voice_notes:
+        kept_notes = [n for n in order.instructions_voice_notes
+                      if isinstance(n, dict) and n.get('url') and not _delete_url(n['url'])]
+        if kept_notes != list(order.instructions_voice_notes):
+            order.instructions_voice_notes = kept_notes
+            fields.append('instructions_voice_notes')
+        clean = clean and not kept_notes
     if clean:
         order.media_purged_at = now
         fields.append('media_purged_at')

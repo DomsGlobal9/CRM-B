@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../services/api';
 import { getSection, isVisible, pruneHidden } from '../../services/templates';
 import VoiceTextarea, { VoiceRecorder } from '../../components/ui/VoiceTextarea';
+import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { cleanAmount } from '../../services/validate';
 import { OTHER_PREFIX, OTHER_MAX_LENGTH, isTypedOther, typedOtherText } from '../../services/templates';
 
@@ -62,10 +63,18 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
         control = (
           <>
             <textarea {...common} rows={3} placeholder={field.help_text || ''} />
+            {/* Up to ten, kept as a list ([{ url, at }]); a clip saved
+                before as one URL reads as the first. */}
             <VoiceRecorder
-              sent={voiceValue ? { url: voiceValue, by: 'you' } : null}
-              onSend={async (blob) => onChange(voiceKey, await api.uploadVoiceNote(blob))}
-              onDelete={() => onChange(voiceKey, '')} />
+              notes={voiceNoteList(voiceValue)}
+              onSend={async (blob) => {
+                const url = await api.uploadVoiceNote(blob);
+                onChange(voiceKey, [...voiceNoteList(voiceValue), { url, at: new Date().toISOString() }]);
+              }}
+              onDelete={(index) => {
+                const left = voiceNoteList(voiceValue).filter((_, i) => i !== index);
+                onChange(voiceKey, left.length ? left : '');
+              }} />
           </>
         );
         break;

@@ -574,6 +574,9 @@ class OrderService:
             instructions_voice_note_at=(
                 datetime.datetime.now(datetime.timezone.utc)
                 if data.get('instructions_voice_note') else None),
+            # Every voice note recorded in the wizard ([{url, by, at}], already
+            # checked by the caller); the single fields above are its first.
+            instructions_voice_notes=list(data.get('instructions_voice_notes') or []),
             advance_paid=advance_paid,
             amount_paid=amount_paid,
             current_stage_key='created',

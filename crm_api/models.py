@@ -383,6 +383,10 @@ class Order(models.Model):
     
     instructions_voice_note_by = models.CharField(max_length=150, blank=True, default='')
     instructions_voice_note_at = models.DateTimeField(null=True, blank=True)
+    # Every voice note on the instructions, oldest first: [{url, by, at}], up
+    # to core.validators.MAX_VOICE_NOTES. The three fields above stay the
+    # first of them, so whatever reads a single note still finds one.
+    instructions_voice_notes = models.JSONField(default=list, blank=True)
     current_stage_key = models.CharField(max_length=100, default="created", db_index=True)
     production_status = models.CharField(max_length=50, default="NOT_STARTED", db_index=True) # NOT_STARTED, IN_PROGRESS, COMPLETED, PAUSED, SKIPPED
    
