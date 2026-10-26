@@ -7321,3 +7321,23 @@ button, input, select, textarea { font-family: inherit; }
 /* Order page > Order journey & tasks: no progress on the right any more, so
    the title and its line take the row and read on one line each. */
 .od-journey .od-section-head > .od-section-title--stack { flex: 1 1 240px; min-width: 0; }
+
+/* Order page > Garments in this order: each garment's design photos as a grid
+   of square tiles, the part and where it came from under each; a click opens
+   the picture full size. */
+.od-garment-designs + .od-garment-designs { padding-top: 12px; border-top: 1px solid var(--border-color); }
+.od-garment-designs .od-garment-name { margin-bottom: 8px; }
+.od-design-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+.od-design-photo {
+  display: flex; flex-direction: column; min-width: 0; text-decoration: none; color: inherit;
+  border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; background: var(--surface-color);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.od-design-photo:hover { border-color: var(--primary-color); box-shadow: var(--shadow-card); }
+.od-design-photo:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 2px; }
+.od-design-photo img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--surface-inset); }
+.od-design-photo-part { padding: 6px 8px 0; font-size: 12px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.od-design-photo-from { padding: 0 8px 7px; font-size: 11px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 480px) {
+  .od-design-grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; }
+}
