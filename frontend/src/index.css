@@ -7580,3 +7580,10 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .dl-cats-card .at-cat-name { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dl-cats-card .at-cat-count { margin: 0 !important; font-size: 12.5px; line-height: 1.3; color: var(--text-secondary); }
 .dl-cats-card .at-cat-chevron { flex-shrink: 0; margin-left: auto; align-self: center; }
+
+/* Inventory > the four stock cards: label and number only, the icon centred
+   beside them, every card the same height. */
+.inv-stats--plain .at-stat { align-items: center !important; }
+.inv-stats--plain .at-stat-body { justify-content: center; }
+.inv-stats--plain .at-stat-label { line-height: 1.3; }
+.inv-stats--plain .at-stat-value { margin-top: 2px; line-height: 1.1; }
