@@ -6907,36 +6907,16 @@ function App() {
                               {formatMoney(balance)}
                             </td>
                             <td data-label={t('common.status', 'Payment Status')} style={{ overflow: 'hidden' }}>
-                              {/* The select is the status: its value is the badge the
-                                  ledger used to draw beside it, in the badge's colour. */}
-                              <span className={`ui-badge ui-badge--${statusTone(order.payment_status)}`} style={{ display: 'inline-flex', padding: 0, maxWidth: '100%' }}>
-                                <select
-                                  value={order.payment_status}
-                                  disabled={savingPaymentId === order.id}
-                                  aria-label={`Payment status for invoice ${orderRef(order)}`}
-                                  onChange={async (e) => {
-                                    setSavingPaymentId(order.id);
-                                    try {
-                                      await api.updateOrder(order.id, { payment_status: e.target.value });
-                                      fetchDashboardAndConfig();
-                                    } catch (err) {
-                                      e.target.value = order.payment_status;
-                                      setPaymentError(`Could not update ${orderRef(order)} — ${err.message}`);
-                                    } finally {
-                                      setSavingPaymentId(null);
-                                    }
-                                  }}
-                                  className="form-control"
-                                  style={{ padding: '0 26px 0 10px', fontSize: '12px', fontWeight: 600, width: '100%', maxWidth: '150px', minWidth: '96px', margin: 0, minHeight: 0, height: '30px', color: 'inherit', border: 'none', borderRadius: '999px', background: 'transparent', cursor: 'pointer' }}
-                                >
-                                  {/* "Partially Paid" is a *derived* label, not a thing to
-                                      choose; it appears only as the current value. */}
-                                  <option value="Pending">{t('invoicesPage.pending', 'Pending')}</option>
-                                  {order.payment_status === 'Partially Paid' && (
-                                    <option value="Partially Paid">{t('invoicesPage.partiallyPaid', 'Partially Paid')}</option>
-                                  )}
-                                  <option value="Paid">{t('invoicesPage.paid', 'Paid')}</option>
-                                </select>
+                              {/* Read-only: the status follows the amount in Paid so far (the
+                                  backend derives it), so it is shown as a badge, not a choice --
+                                  a bill paid in full cannot be set back to Unpaid by hand. */}
+                              <span className={`ui-badge ui-badge--${statusTone(order.payment_status)}`}
+                                    title={t('invoicesPage.statusFromPayment', 'Set by the amount paid')}
+                                    style={{ display: 'inline-flex', alignItems: 'center', height: '30px', padding: '0 14px', fontSize: '12px', fontWeight: 600, maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {order.payment_status === 'Paid' ? t('invoicesPage.paid', 'Paid')
+                                  : order.payment_status === 'Partially Paid' ? t('invoicesPage.partiallyPaid', 'Partially Paid')
+                                  : order.payment_status === 'Pending' ? t('invoicesPage.pending', 'Pending')
+                                  : order.payment_status}
                               </span>
                             </td>
                             <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
