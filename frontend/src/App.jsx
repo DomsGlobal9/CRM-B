@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, AlertCircle, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send } from 'lucide-react';
+import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { notificationKind } from './services/notificationKind';
@@ -5011,71 +5011,26 @@ function App() {
                   );
                 })()}
 
-                {/* Needs attention | Today */}
-                {/* alignItems: the class sets `start`, which leaves the right
-                    column at its content height. Stretching makes both columns
-                    the height of the row, which is what lets the two cards on
-                    the right add up to the attention list beside them. */}
+                {/* Today's attendance | Appointments, side by side as two equal
+                    cards. The grid stretches both to one height. A list of
+                    appointments scrolls inside its card (contain: size keeps it
+                    from growing the row); an empty one sizes to its content, so
+                    the row stays as short as the attendance tiles. */}
                 <div className="at-grid-2" style={{ marginBottom: 'var(--space-5)', alignItems: 'stretch' }}>
-                  <SectionCard icon={AlertCircle} tone="rose" title={t('dashboard.needsAttention', 'Needs attention')}
-                               action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'See all')}>
-                    {(() => {
-                      const att = dashboardData?.attention || {};
-                      const due = att.due || [];
-                      const unpaid = att.unpaid || [];
-                      if (!due.length && !unpaid.length && !att.low_stock && !att.pending_designs) {
-                        return <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                          {t('dashboard.nothingNeedsYou', 'Nothing needs you right now — no overdue orders, balances or low stock.')}
-                        </div>;
-                      }
-                      const row = (key, onClick, ref, label, badge) => (
-                        <div key={key} className="at-row at-row--tap" onClick={onClick}>
-                          {ref && <span className="at-row-title" style={{ minWidth: '44px' }}>{ref}</span>}
-                          <span className="at-row-main" style={{ fontSize: 'var(--text-sm)', color: 'var(--text-primary)' }}>{label}</span>
-                          {badge}
-                          <ChevronRight size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                        </div>
-                      );
-                      // One row per order: an order both due and unpaid was
-                      // listed twice, once per list, so the two chips share a row.
-                      const byOrder = new Map(due.map((o) => [o.id, { ...o, isDue: true }]));
-                      unpaid.forEach((o) => byOrder.set(o.id, { ...(byOrder.get(o.id) || o), balance: o.balance, isUnpaid: true }));
-                      return (
-                        <div>
-                          {[...byOrder.values()].map((o) => row(`order-${o.id}`, () => setDashboardTab('orders'), orderRef(o), o.customer || t('dashboard.customer', 'Customer'),
-                            <span style={{ display: 'inline-flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                              {o.isDue && <span className={`ui-badge ui-badge--${o.overdue ? 'danger' : 'warning'}`}>
-                                {o.overdue ? t('dashboard.overdue', 'Overdue') : t('dashboard.due', 'Due')} {o.due ? new Date(o.due).toLocaleDateString([], { day: 'numeric', month: 'short' }) : ''}
-                              </span>}
-                              {o.isUnpaid && <span className="ui-badge ui-badge--warning">{t('dashboard.balanceDue', '{amount} due', { amount: inr(o.balance) })}</span>}
-                            </span>))}
-                          {att.low_stock > 0 && row('stock', () => setDashboardTab('inventory'), null, t('dashboard.lowStock', 'Low stock'),
-                            <span className="ui-badge ui-badge--warning">{att.low_stock === 1 ? t('dashboard.lowStockOne', '{n} item', { n: 1 }) : t('dashboard.lowStockMany', '{n} items', { n: att.low_stock })}</span>)}
-                          {att.pending_designs > 0 && row('designs', openDesignRequests, null, t('dashboard.designsAwaitingReview', 'Designs awaiting review'),
-                            <span className="ui-badge ui-badge--info">{att.pending_designs}</span>)}
-                        </div>
-                      );
-                    })()}
-                  </SectionCard>
-
-                  {/* The right column: two separate cards, one under the other
-                      with the stack's own gap between them. The column is
-                      stretched to the row, attendance keeps its natural height,
-                      and appointments below takes whatever is left -- so
-                      attendance + gap + appointments is exactly the height of
-                      the attention card on the left. */}
-                  <div className="at-stack" style={{ minHeight: 0 }}>
-                  <SectionCard icon={CalendarDays} tone="green" title={t('dashboard.today', 'Today')}>
+                  <SectionCard icon={CalendarDays} tone="green" title={t('dashboard.today', 'Today')}
+                               style={{ display: 'flex', flexDirection: 'column' }}>
                     {(() => {
                       const today = dashboardData?.today || {};
                       return (
-                        <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
-                          <button type="button" className="at-pipeline-tile at-stat--green" style={{ flex: 1 }}
+                        <div style={{ display: 'flex', gap: 'var(--space-3)', flex: 1, alignItems: 'center' }}>
+                          <button type="button" className="at-pipeline-tile at-stat--green"
+                                  style={{ flex: 1 }}
                                   onClick={() => setDashboardTab('staff')}>
                             <span className="at-pipeline-value" style={{ color: 'var(--tone-green-fg)' }}>{today.staff_working ?? 0}</span>
                             <span className="at-pipeline-label">{t('dashboard.onFloorNow', 'Working now')}</span>
                           </button>
-                          <div className="at-pipeline-tile at-stat--neutral" style={{ flex: 1, cursor: 'default' }}>
+                          <div className="at-pipeline-tile at-stat--neutral"
+                               style={{ flex: 1, cursor: 'default' }}>
                             <span className="at-pipeline-value">{today.staff_present ?? 0}</span>
                             <span className="at-pipeline-label">{t('dashboard.presentToday', 'Present today')}</span>
                           </div>
@@ -5083,31 +5038,35 @@ function App() {
                       );
                     })()}
                   </SectionCard>
-                  {/* Appointments, in their own card under attendance. They used
-                      to share the attendance card, where Book Appointment sat
-                      inside the empty state -- so the moment the first booking
-                      was made the button vanished and there was no way to make a
-                      second. It belongs in the header, where it is there whether
-                      the list is empty or not. */}
-                  <SectionCard icon={Calendar} tone="green" style={{ flex: 1 }} className="dash-appointments"
+                  {/* Book Appointment lives in the header, so it is there
+                      whether the list is empty or not. */}
+                  <SectionCard icon={Calendar} tone="green" className="dash-appointments"
+                               style={{ display: 'flex', flexDirection: 'column' }}
                                title={t('dashboard.appointments', 'Appointments')}
                                subtitle={t('dashboard.appointmentsSub', 'Consultations, trials and deliveries still to come')}
                                action={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}
                                actionLabel={t('dashboard.bookAppointment', 'Book Appointment')}>
+                    <div style={appointments.length
+                      ? { flex: 1, minHeight: '120px', contain: 'size', overflowY: 'auto' }
+                      : { flex: 1, display: 'flex', alignItems: 'center' }}>
                     {(() => {
-                      
                       if (appointments.length === 0) {
+                        // The whole empty state books one: a + reads as "add the
+                        // first", and the target is far bigger than the header link.
                         return (
-                          <div style={{ textAlign: 'center', padding: 'var(--space-2) 0' }}>
-                            <IconTile icon={Calendar} tone="neutral" size={40} iconSize={18} />
-                            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 'var(--space-2) 0 var(--space-3)' }}>
+                          <button type="button"
+                                  onClick={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}
+                                  style={{
+                                    width: '100%', display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
+                                    padding: 'var(--space-3) var(--space-4)', cursor: 'pointer', font: 'inherit',
+                                    background: 'transparent', border: '1px dashed var(--border-strong, var(--border-color))',
+                                    borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)', textAlign: 'left',
+                                  }}>
+                            <IconTile icon={Plus} tone="green" size={36} iconSize={18} />
+                            <span style={{ fontSize: 'var(--text-sm)' }}>
                               {t('dashboard.noAppointments', 'No appointments booked.')}
-                            </div>
-                            <button type="button" className="btn-primary at-btn-sm" style={{ margin: '0 auto' }}
-                                    onClick={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}>
-                              <Plus size={14} /> {t('dashboard.bookAppointment', 'Book Appointment')}
-                            </button>
-                          </div>
+                            </span>
+                          </button>
                         );
                       }
                       const today = todayIso();
@@ -5162,43 +5121,9 @@ function App() {
                         </div>
                       );
                     })()}
+                    </div>
                   </SectionCard>
-                  </div>
                 </div>
-
-                {/* Recent orders, full width: a ref / customer / amount list
-                    reads as a ledger, and a ledger wants the row. The header's
-                    New Order and the sidebar already carry every shortcut the
-                    Quick Actions card duplicated. */}
-                <SectionCard icon={ShoppingBag} tone="blue" title={t('dashboard.recentOrders', 'Latest orders')}
-                             subtitle={t('dashboard.latestOrdersSub', 'Recently placed orders')}
-                             action={() => setDashboardTab('orders')} actionLabel={t('dashboard.viewAll', 'View all')}>
-                  {!dashboardData?.recent_orders || dashboardData.recent_orders.length === 0 ? (
-                    <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                      {t('dashboard.noOrdersYet', 'No orders yet.')}
-                    </div>
-                  ) : (
-                    <div>
-                      {dashboardData.recent_orders.map((order) => (
-                        <div key={order.id || order.order_id} className="at-row at-row--tap"
-                             onClick={() => setDashboardTab('orders')}>
-                          <span className="at-row-title" style={{ minWidth: '44px' }}>{orderRef(order)}</span>
-                          {/* Stacked like the amount/status cell opposite: the
-                              name and the garment are two spans, and inline
-                              they ran together as "Asrita DasSaree". */}
-                          <span className="at-row-main" style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                            <span className="at-row-title" style={{ fontWeight: 500 }}>{order.customer_name || order.customer || t('dashboard.customer', 'Customer')}</span>
-                            <span className="at-row-sub">{order.garment_label || ''}</span>
-                          </span>
-                          <span style={{ textAlign: 'right' }}>
-                            <div className="at-row-title at-num">{order.total_amount != null ? inr(order.total_amount) : ''}</div>
-                            <div className="at-row-sub">{t(`status.${order.order_status}`, order.order_status || order.status || '')}</div>
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </SectionCard>
               </>
             )}
 

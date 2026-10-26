@@ -213,7 +213,7 @@ const en = {
     overdueCount: "{n} overdue",
     tierSummary: "{platinum} Platinum · {gold} Gold · {silver} Silver",
     inWorkroom: "In the workshop",
-    allOrders: "All orders",
+    allOrders: "All orders in progress",
     noOrdersFloor: "No orders yet. Create the first one to see it move through the floor.",
     needsAttention: "Needs attention",
     nothingNeedsYou: "Nothing needs you right now — no overdue orders, balances or low stock.",

@@ -960,13 +960,8 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
     const presentIds = new Set(attendanceToday.map((s) => String(s.staff)));
     const workingNow = new Set(
       attendanceToday.filter((s) => s.is_open).map((s) => String(s.staff))).size;
-    const emp = {};
-    terms.forEach((t) => {
-      const k = t.employment_type || 'UNSET';
-      emp[k] = (emp[k] || 0) + 1;
-    });
-    return { total, available, busy, presentToday: presentIds.size, workingNow, emp };
-  }, [roster, designers, attendanceToday, terms]);
+    return { total, available, busy, presentToday: presentIds.size, workingNow };
+  }, [roster, designers, attendanceToday]);
 
   
   const plural = (role, n) =>
@@ -1000,10 +995,10 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
         );
       })()}
 
-      {/* Role and employment mix: a chip is a count plus a label, so it reads
+      {/* Role mix: a chip is a count plus a label, so it reads
           as one figure. Grouped with an eyebrow, on a well, so the eye takes
           them as a breakdown rather than four more cards. */}
-      {canSeeTeam && (Object.keys(roleCounts).length > 0 || withTerms > 0) && (() => {
+      {canSeeTeam && Object.keys(roleCounts).length > 0 && (() => {
         const chip = (n, label) => (
           <div key={label} style={{
             background: 'var(--surface-color)', border: '1px solid var(--border-color)',
@@ -1028,15 +1023,6 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
                 <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                   {Object.entries(roleCounts).sort((a, b) => b[1] - a[1])
                     .map(([role, n]) => chip(n, plural(role, n)))}
-                </div>
-              </div>
-            )}
-            {withTerms > 0 && (
-              <div>
-                <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-2)' }}>By work type</div>
-                <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                  {EMPLOYMENT_TYPES.filter(([k]) => analytics.emp[k])
-                    .map(([k, label]) => chip(analytics.emp[k], label))}
                 </div>
               </div>
             )}
@@ -1157,11 +1143,6 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
                   {t ? (
                     <>
                       <div>{employmentLabel(t.employment_type)}</div>
-                      <div style={sub}>
-                        {t.joined_at
-                          ? `Joined ${new Date(t.joined_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`
-                          : 'Joining date not set'}
-                      </div>
                     </>
                   ) : member.isDesigner ? muted : (
                     
