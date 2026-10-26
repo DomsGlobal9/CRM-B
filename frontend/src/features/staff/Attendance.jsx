@@ -1229,7 +1229,8 @@ function MonthlyAttendanceLogs({ reloadKey }) {
         }}
       >
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          {/* att-log: on a phone each day stacks into a compact row (index.css). */}
+          <table className="att-log" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: 'var(--surface-2, #F8F7F4)', borderBottom: '1px solid var(--border-color)' }}>
                 <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>DATE</th>
@@ -1263,13 +1264,14 @@ function MonthlyAttendanceLogs({ reloadKey }) {
                   return (
                     <tr
                       key={row.id}
+                      className="att-row"
                       style={{
                         background: idx % 2 === 1 ? 'var(--surface-2, rgba(0,0,0,0.012))' : 'transparent',
                         borderBottom: '1px solid var(--border-color)',
                       }}
                     >
-                      <td style={{ padding: '14px 18px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{row.date}</td>
-                      <td style={{ padding: '14px 18px' }}>
+                      <td className="att-date" style={{ padding: '14px 18px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{row.date}</td>
+                      <td className="att-status" style={{ padding: '14px 18px' }}>
                         <span
                           style={{
                             padding: '4px 12px',
@@ -1295,13 +1297,13 @@ function MonthlyAttendanceLogs({ reloadKey }) {
                           {row.status}
                         </span>
                       </td>
-                      <td style={{ padding: '14px 18px', fontSize: '13px', fontWeight: row.entry ? 600 : 400, color: row.entry ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                      <td className="att-in" style={{ padding: '14px 18px', fontSize: '13px', fontWeight: row.entry ? 600 : 400, color: row.entry ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                         {row.entry || '—'}
                       </td>
-                      <td style={{ padding: '14px 18px', fontSize: '13px', fontWeight: row.exit ? 600 : 400, color: row.exit ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                      <td className="att-out" style={{ padding: '14px 18px', fontSize: '13px', fontWeight: row.exit ? 600 : 400, color: row.exit ? 'var(--text-primary)' : 'var(--text-muted)' }}>
                         {row.exit || '—'}
                       </td>
-                      <td style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      <td className="att-remarks" style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                         {row.remarks || ''}
                         {row.session && (row.remarks ? ' · ' : '')}
                         {row.session && <WhereTag session={row.session} />}

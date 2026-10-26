@@ -1000,7 +1000,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
 
       {canSeeTeam && (() => {
         return (
-          <div className="at-stat-grid" style={{ marginBottom: 'var(--space-5)' }}>
+          <div className="at-stat-grid staff-stats" style={{ marginBottom: 'var(--space-5)' }}>
             <StatCard icon={Users} tone="green" label="Team size" value={analytics.total}
                       sub={`${roster.length} people`} />
             <StatCard icon={UserCheck} tone="amber" label="Available now" value={analytics.available}

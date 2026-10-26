@@ -5884,6 +5884,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .inv-stats .at-stat-label { font-size: 9.5px !important; letter-spacing: 0.06em !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .inv-stats .at-stat-value { font-size: 17px !important; margin-top: 1px !important; }
   .inv-stats .at-stat-sub { font-size: 10px !important; margin-top: 1px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* The icon is centred above the figures, so the label, value and line
+     under it are centred too -- on the icon's axis, not a left-aligned
+     block of uneven lines sitting off-centre. */
+  .inv-stats .at-stat-body { width: 100%; align-items: center; text-align: center; }
+  .inv-stats .at-stat-label, .inv-stats .at-stat-sub { max-width: 100%; }
 }
 /* The narrowest phones: two to a row, so the button still reads. */
 @media (max-width: 359px) {
@@ -6690,6 +6695,41 @@ button, input, select, textarea { font-family: inherit; }
   .app-container .at-stat { flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
   .app-container .at-stat-label { font-size: 11px; letter-spacing: .06em; }
   .app-container .at-stat-value { font-size: 22px; }
+  /* The Staff page's figures (Team and Tasks tabs): icon, label, number and
+     line under it all on the card's centre line, as the Inventory and Design
+     Studio figures are. */
+  .app-container .staff-stats .at-stat { align-items: center; text-align: center; }
+  .app-container .staff-stats .at-stat-body { width: 100%; align-items: center; }
+
+  /* Attendance history: five columns scrolled sideways on a phone, so only
+     the date, status and entry time showed. Each day is now a compact row --
+     date and status on top, entry and exit labelled under them, remarks
+     below only when there are any. The cells' padding is inline, hence
+     !important. The loading and empty rows keep their own layout. */
+  .att-log thead { display: none; }
+  .att-log, .att-log > tbody { display: block; width: 100%; }
+  .att-log tr.att-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "date status" "in out" "remarks remarks";
+    align-items: center; gap: 8px 12px; padding: 12px 16px;
+  }
+  .att-log tr.att-row > td { padding: 0 !important; min-width: 0; }
+  .att-log tr.att-row > .att-date { grid-area: date; }
+  .att-log tr.att-row > .att-status { grid-area: status; justify-self: end; }
+  .att-log tr.att-row > .att-in { grid-area: in; }
+  .att-log tr.att-row > .att-out { grid-area: out; justify-self: end; text-align: right; }
+  .att-log tr.att-row > .att-in::before,
+  .att-log tr.att-row > .att-out::before { color: var(--text-muted); font-weight: 500; margin-right: 6px; }
+  .att-log tr.att-row > .att-in::before { content: 'Entry'; }
+  .att-log tr.att-row > .att-out::before { content: 'Exit'; }
+  /* Remarks wrap inside the row: an auto check-in note ("started
+     pattern_cutting on T2B-260911-7082") has long unbroken words that
+     stretched the row past the screen and set the list scrolling sideways. */
+  .att-log tr.att-row > .att-remarks { grid-area: remarks; white-space: normal; overflow-wrap: anywhere; word-break: break-word; line-height: 1.45; }
+  .att-log tr.att-row { width: 100%; box-sizing: border-box; }
+  .att-log tr.att-row > .att-remarks:empty { display: none; }
+  .att-log > tbody > tr:not(.att-row) { display: block; }
+  .att-log > tbody > tr:not(.att-row) > td { display: block; }
 
   /* Page actions share one row at equal widths; a lone action fills it. */
   .app-container .at-page-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-2); width: 100%; }

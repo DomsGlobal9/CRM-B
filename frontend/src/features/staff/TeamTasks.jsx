@@ -128,7 +128,7 @@ export default function TeamTasks({ currentUser, canSeeTeam }) {
 
   return (
     <div className="tt">
-      <section className="at-stat-grid">
+      <section className="at-stat-grid staff-stats">
         <StatCard icon={ClipboardList} tone="green" label="Steps" value={shown.length}
                   sub={day ? `on ${fmtDate(day)}` : 'all days'} />
         <StatCard icon={Clock} tone="amber" label="In progress" value={active} sub="steps under way" />
