@@ -287,6 +287,10 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
   );
 }
 
+const SHOW_DESIGN_FILTERS = false;
+// Part tabs left out of a garment's library page, by garment key.
+const HIDDEN_LIBRARY_PARTS = { blouse: ['Overall Blouse Design', 'Neck Design', 'Hand Design'] };
+
 export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false, canStock = false, onOpenRequests = null, onOpenDesigners = null }) {
   const [stocking, setStocking] = useState(null);   
   const [categories, setCategories] = useState([]);
@@ -349,7 +353,11 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
     return () => { cancelled = true; };
   }, [needsParts, openKey]);
 
-  const parts = partsByKey[openKey] || [];
+  // Part tabs left out of a garment's library page (the parts stay on the
+  // garment itself -- uploads and the order wizard still offer them).
+  const hiddenParts = HIDDEN_LIBRARY_PARTS[openKey];
+  const parts = useMemo(() => (partsByKey[openKey] || []).filter((p) => !(hiddenParts || []).includes(p.label)),
+    [partsByKey, openKey, hiddenParts]);
   const partLabels = useMemo(
     () => Object.fromEntries(parts.map(p => [p.key, p.label])), [parts]);
 
@@ -502,7 +510,9 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
         />
       )}
 
-      {!openPart && (
+      {/* The search-and-filter panel over a garment's designs is hidden, not
+          removed: set SHOW_DESIGN_FILTERS to true to bring it back. */}
+      {SHOW_DESIGN_FILTERS && !openPart && (
         <Filters value={filters} onChange={setFilters} designers={designers}
                  collections={collections} parts={parts} />
       )}

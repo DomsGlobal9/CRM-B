@@ -2,6 +2,9 @@ import { ChevronRight } from 'lucide-react';
 
 import { describePath, useDesignCatalogue } from './designCatalogue';
 
+// Blouse > Traditional Blouse Construction Cuts.
+const HIDDEN_CATEGORIES = ['traditional_blouse_construction_cuts'];
+
 /**
  * Walking a garment's design catalogue: category, then sub-category where the
  * category has them, then design option. Each level is a row of chips; the
@@ -55,7 +58,9 @@ function Level({ label, children }) {
 
 export default function DesignCatalogueBrowser({ garmentKey, value = {}, onChange, allLabel = 'All designs' }) {
   const tree = useDesignCatalogue(garmentKey);
-  const categories = tree?.categories || [];
+  // Catalogue categories not offered in the library's browser (still on the
+  // catalogue itself, so a design already filed under one keeps its place).
+  const categories = (tree?.categories || []).filter((c) => !HIDDEN_CATEGORIES.includes(c.key));
   if (categories.length === 0) return null;
 
   const category = categories.find((c) => c.key === value.category) || null;

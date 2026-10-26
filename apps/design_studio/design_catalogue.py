@@ -213,13 +213,11 @@ _SAREE_CATEGORIES = [
 
 _BLOUSE_CATEGORIES = [
     _category(
-        'Main Blouse Cutting / Pattern Types', short='Main Cutting / Pattern',
+        'Main Blouse Cutting / Pattern Types', short='Cutting Pattern',
+        # The five cuts the boutique works with (the longer list of darts and
+        # panels was trimmed at its request; no design was filed under them).
         options=[
-            'Katori Cutting', 'Princess Cutting', 'Princess Dart', 'Waist Dart', 'Side Dart',
-            'Shoulder Dart', 'Bust Dart', 'French Dart', 'Armhole Dart', 'Centre Front Dart',
-            'Centre Back Dart', 'Double Dart', 'Single Dart', 'Panel Cutting', '4-Panel Cutting',
-            '6-Panel Cutting', '8-Panel Cutting', 'Centre Panel Cutting', 'Side Panel Cutting',
-            'Vertical Panel Cutting', 'Horizontal Panel Cutting',
+            'Katori', 'Princess', '3 Dart', '4 Dart', 'Armhole Dart',
         ]),
     _category(
         'Traditional Blouse Construction Cuts', short='Traditional Construction',
@@ -239,12 +237,10 @@ _BLOUSE_CATEGORIES = [
         ]),
     _category(
         'Designer / Advanced Cuts', short='Designer / Advanced',
+        # The six the boutique works with (the longer list was trimmed at its
+        # request; no design was filed under any of them).
         options=[
-            'Princess Seam', 'Princess Panel', 'Empire Cut', 'Empire Waist Blouse', 'Yoke Cutting',
-            'Yoke + Panel Cutting', 'Yoke + Katori Cutting', 'Peplum Cut', 'Corset Panel Cutting',
-            'Corset Seam', 'Bustier Panel Cutting', 'Contour Cutting', 'Curved Panel Cutting',
-            'Asymmetric Panel Cutting', 'Diagonal Panel Cutting', 'Cross Panel Cutting',
-            'V-Panel Cutting', 'U-Panel Cutting', 'Geometric Panel Cutting', 'Cut-and-Join Blouse',
+            'Empire', 'Yoke', 'Peplum', 'Corset', 'Bustier', 'Asymmetric',
         ]),
     _category(
         'Katori Variations', short='Katori',
