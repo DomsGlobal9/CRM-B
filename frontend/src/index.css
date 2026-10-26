@@ -7356,3 +7356,9 @@ button, input, select, textarea { font-family: inherit; }
 @media (max-width: 640px) {
   .cf-top-end .cf-inline select.cf-select { width: auto !important; flex: 1; }
 }
+
+/* A tappable stat card that is the current filter (Orders: New / In progress
+   / Closed): a primary-coloured edge and a soft fill, so the open list is
+   plain without the chips that used to repeat the three cards. */
+.at-stat--tap.at-stat--active { border-color: var(--primary-color); box-shadow: 0 0 0 1px var(--primary-color); background: var(--accent-color); }
+.at-stat--tap.at-stat--active:hover { border-color: var(--primary-color); }

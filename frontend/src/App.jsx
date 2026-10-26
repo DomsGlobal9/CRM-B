@@ -5782,22 +5782,18 @@ function App() {
                     <>
                       {dashboardTab === 'orders' && (
                         <section className="at-stat-grid">
+                          {/* The three cards are the New / In progress / Closed switch
+                              (the chips that repeated them under the cards are gone):
+                              the open one is drawn as selected. */}
                           <StatCard icon={ShoppingCart} tone="amber" label={t('ordersPage.tabNew', 'New')} value={fresh} sub={t('ordersPage.tabNewSub', 'waiting to be sent')}
-                                    onClick={() => setOrdersFilterTab('new')} />
+                                    onClick={() => setOrdersFilterTab('new')} active={ordersFilterTab === 'new'} />
                           <StatCard icon={Scissors} tone="blue" label={t('ordersPage.tabInProgress', 'In progress')} value={making} sub={t('ordersPage.tabWorkshopSub', 'being made')}
-                                    onClick={() => setOrdersFilterTab('workshop')} />
+                                    onClick={() => setOrdersFilterTab('workshop')} active={ordersFilterTab === 'workshop'} />
                           <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Closed')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
-                                    onClick={() => setOrdersFilterTab('done')} />
+                                    onClick={() => setOrdersFilterTab('done')} active={ordersFilterTab === 'done'} />
                         </section>
                       )}
                       <div className="at-toolbar">
-                        {dashboardTab === 'orders' && (
-                          <Chips value={ordersFilterTab} onChange={setOrdersFilterTab} options={[
-                            { key: 'new', label: t('ordersPage.tabNew', 'New'), count: fresh },
-                            { key: 'workshop', label: t('ordersPage.tabInProgress', 'In progress'), count: making },
-                            { key: 'done', label: t('ordersPage.tabDone', 'Closed'), count: done },
-                          ]} />
-                        )}
                         {/* Narrow by who it is for, what it is, and where it stands;
                             the list and the board read the same filter. */}
                         <details className="at-toolbar-filters at-filters-fold">
