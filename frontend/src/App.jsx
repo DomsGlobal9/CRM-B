@@ -6142,7 +6142,7 @@ function App() {
                             <th style={{ width: canAddCustomer ? '24%' : '26%' }}>Body measurements</th>
                             <th style={{ width: canAddCustomer ? '12%' : '13%' }}>Style notes</th>
                             <th style={{ width: canAddCustomer ? '18%' : '18%' }}>Orders</th>
-                            <th style={{ width: canAddCustomer ? '20%' : '14%' }}></th>
+                            <th style={{ width: canAddCustomer ? '20%' : '14%' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
