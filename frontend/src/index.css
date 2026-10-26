@@ -6049,6 +6049,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .invoices-content .at-table th:nth-child(7), .invoices-content .at-table th:nth-child(8),
   .invoices-content tr.bill-row > td:nth-child(7), .invoices-content tr.bill-row > td:nth-child(8) { text-align: center !important; }
   .invoices-content tr.bill-row > td:nth-child(7) select { width: auto !important; max-width: none !important; }
+  /* The Customer, Date and Paid so far headings sit in the middle of their
+     columns (headings only; the cells keep their alignment). */
+  .invoices-content .at-table th:nth-child(2),
+  .invoices-content .at-table th:nth-child(3),
+  .invoices-content .at-table th:nth-child(5) { text-align: center; }
 }
 /* A small laptop (1025-1279px) with the sidebar open leaves the bills table
    too narrow for eight columns: the date, status and paid columns spilled
