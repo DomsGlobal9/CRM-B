@@ -6038,9 +6038,17 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .invoices-content .at-table th:nth-child(2) { width: 16% !important; }
   .invoices-content .at-table th:nth-child(3) { width: 10% !important; }
   .invoices-content .at-table th:nth-child(5) { width: 18% !important; }
-  .invoices-content .at-table th:nth-child(7) { width: 13% !important; }
-  .invoices-content .at-table th:nth-child(8) { width: 16% !important; }
+  .invoices-content .at-table th:nth-child(7) { width: 14% !important; }
+  .invoices-content .at-table th:nth-child(8) { width: 15% !important; }
   .invoices-content tr.bill-row > td:nth-child(8) .at-btn-sm { padding: 6px 10px !important; }
+  /* Each heading sits where its column's content does: text on the left,
+     money on the right (as it was), and the status pill and the button
+     centred under centred headings -- no gap between the two. The status
+     select sizes to its longest option, so "Part paid" is never cut off. The
+     Actions alignment is inline, hence !important. */
+  .invoices-content .at-table th:nth-child(7), .invoices-content .at-table th:nth-child(8),
+  .invoices-content tr.bill-row > td:nth-child(7), .invoices-content tr.bill-row > td:nth-child(8) { text-align: center !important; }
+  .invoices-content tr.bill-row > td:nth-child(7) select { width: auto !important; max-width: none !important; }
 }
 /* A small laptop (1025-1279px) with the sidebar open leaves the bills table
    too narrow for eight columns: the date, status and paid columns spilled
