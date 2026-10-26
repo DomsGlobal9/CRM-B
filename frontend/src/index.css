@@ -6028,9 +6028,39 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .bill-toolbar .at-toolbar-right { flex: 1 1 100%; }
   .bill-toolbar .at-toolbar-right > * { flex: 1 1 100%; width: 100%; max-width: none; }
 }
+/* The bills table on a laptop (1280px and up; below that it is cards): the
+   button and the status get the width they need -- at 11% and 12% "Open
+   bill" and "Part paid" were cut off on a smaller screen -- taken from the
+   customer, date and paid columns, with tighter cell padding. The widths are
+   inline, so the overrides need !important. */
+@media (min-width: 1280px) {
+  .invoices-content .at-table th, .invoices-content .at-table td { padding-left: 10px; padding-right: 10px; }
+  .invoices-content .at-table th:nth-child(2) { width: 16% !important; }
+  .invoices-content .at-table th:nth-child(3) { width: 10% !important; }
+  .invoices-content .at-table th:nth-child(5) { width: 18% !important; }
+  .invoices-content .at-table th:nth-child(7) { width: 13% !important; }
+  .invoices-content .at-table th:nth-child(8) { width: 16% !important; }
+  .invoices-content tr.bill-row > td:nth-child(8) .at-btn-sm { padding: 6px 10px !important; }
+}
+/* A small laptop (1025-1279px) with the sidebar open leaves the bills table
+   too narrow for eight columns: the date, status and paid columns spilled
+   out of their cells. It stacks into the same cards a tablet gets. The
+   shared table-stacking rules stop at 1024px, so the bills table carries
+   its own copy of them (identical to theirs below 1024px); no other table
+   changes. 1279.98, not 1279: a laptop at 125% or 150% display scaling has
+   a fractional width, which would fall between 1279px and 1280px. */
+@media (max-width: 1279.98px) {
+  .invoices-content .at-table--fit thead { display: none; }
+  .invoices-content .at-table--fit, .invoices-content .at-table--fit tbody, .invoices-content .at-table--fit tr, .invoices-content .at-table--fit td { display: block; width: 100%; box-sizing: border-box; }
+  .invoices-content .at-table--fit td { border-bottom: none; text-align: left !important; white-space: normal !important; }
+  .invoices-content .at-table--fit td * { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }
+  .invoices-content .at-table--fit td[data-label]::before { content: attr(data-label); display: block; font-size: var(--text-2xs); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 2px; }
+  .invoices-content .at-table--fit tbody tr:hover td { background: transparent; }
+}
 /* The bill cards themselves: on a tablet too (below 1024px), where the
-   stacked rows were eight lines one under another down the whole width. */
-@media (max-width: 1024px) {
+   stacked rows were eight lines one under another down the whole width --
+   and on a small laptop up to 1280px (see above). */
+@media (max-width: 1279.98px) {
   .invoices-content.at-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
   .invoices-content tbody { display: flex !important; flex-direction: column; gap: 10px; }
   .invoices-content tr.bill-row {
@@ -6065,8 +6095,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   /* 16px stops the phone zooming in when the paid amount is tapped. */
   .invoices-content tr.bill-row input { font-size: 16px !important; }
 }
-/* A tablet: the bill cards two to a row, a little roomier. */
-@media (min-width: 601px) and (max-width: 1024px) {
+/* A tablet or a small laptop: the bill cards two to a row, a little roomier. */
+@media (min-width: 601px) and (max-width: 1279.98px) {
   .invoices-content tbody { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
   .invoices-content tr.bill-row { padding: 14px !important; gap: 12px 10px; }
   .invoices-content tbody > tr:not(.bill-row) { grid-column: 1 / -1; }
