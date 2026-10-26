@@ -4471,6 +4471,10 @@ table.data-table tbody tr:hover {
 .at-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-color); font-size: var(--text-sm); vertical-align: middle; color: var(--text-primary); }
 /* The Customers list: its column headings sit centred over their columns. */
 .cust-list .at-table th { text-align: center; }
+/* Attendance's floor table: headings and figures centred in their columns,
+   except the first (avatar and name), which reads best from the left. */
+.at-table--center th, .at-table--center td { text-align: center; }
+.at-table--center th:first-child, .at-table--center td:first-child { text-align: left; }
 .at-table tr:last-child td { border-bottom: none; }
 .at-table tbody tr:hover td { background: var(--surface-2); }
 /* A roster that fits the page instead of scrolling sideways: no floor on its

@@ -1,7 +1,7 @@
 
 import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
 import { Check,
-  Plus, Clock, Wallet, TrendingUp, Users, FileText, ClipboardList, Trash2, Phone, Calendar, Briefcase, UserCheck,
+  Plus, Clock, TrendingUp, Users, FileText, ClipboardList, Trash2, Phone, Calendar, Briefcase, UserCheck,
   User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil, ChevronDown, ChevronUp, KeyRound,
 } from 'lucide-react';
 
@@ -12,7 +12,6 @@ import {
 } from '../../components/ui/Atelier';
 import { ASSIGNABLE_ROLES, DOCUMENT_KINDS } from '../../constants/roles';
 import Attendance from './Attendance';
-import Payroll from './Payroll';
 import Performance from './Performance';
 import RolePermissions from './RolePermissions';
 import TeamTasks from './TeamTasks';
@@ -62,20 +61,6 @@ function Modal({ title, subtitle, icon, tone = 'green', onClose, children, width
     <FormModal icon={icon} tone={tone} title={title} subtitle={subtitle} onClose={onClose} width={width} footer={footer}>
       {children}
     </FormModal>
-  );
-}
-
-/** A tab whose domain arrives in a later phase. Says so, rather than showing nothing. */
-function NotBuiltYet({ title, blurb }) {
-  return (
-    <div className="ui-card" style={{ padding: 'var(--space-10) var(--space-6)', textAlign: 'center' }}>
-      <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-lg)', fontWeight: 500,
-                   margin: '0 0 var(--space-2)', color: 'var(--text-primary)' }}>{title}</h3>
-      <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', margin: 0,
-                  lineHeight: 'var(--leading-normal)' }}>
-        {blurb}
-      </p>
-    </div>
   );
 }
 
@@ -1444,8 +1429,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl }) {
 const TABS = [
   { key: 'roster', label: 'Team', icon: Users },
   { key: 'tasks', label: 'Tasks', icon: ClipboardList },
-  { key: 'attendance', label: 'Attendance', icon: Clock },
-  { key: 'payroll', label: 'Payroll', icon: Wallet },
+  { key: 'attendance', label: 'Attendance & Payroll', icon: Clock },
   { key: 'performance', label: 'Performance', icon: TrendingUp },
   { key: 'permissions', label: 'Roles & Permissions', icon: Shield },
 ];
@@ -1454,6 +1438,10 @@ export default function StaffPanel({ currentUser }) {
   const isOwner = !currentUser?.role || currentUser.role === 'Owner';
   const isSupervisor = currentUser?.role === 'Master';
   const canSeeTeam = isOwner || isSupervisor;
+  // Payroll is its own module switch, independent of attendance; mirrors
+  // App.jsx's hasModule (no list at all means nothing is switched off).
+  const payrollOn = isOwner
+    && (!Array.isArray(currentUser?.modules) || currentUser.modules.includes('payroll'));
 
   const [tab, setTab] = useState(isOwner ? 'roster' : 'attendance');
 
@@ -1475,7 +1463,7 @@ export default function StaffPanel({ currentUser }) {
         {(isOwner
             ? TABS
             : canSeeTeam
-              ? TABS.filter((t) => !['payroll', 'permissions'].includes(t.key))
+              ? TABS.filter((t) => t.key !== 'permissions')
               : TABS.filter((t) => ['attendance', 'roster', 'tasks', 'performance'].includes(t.key)))
           .map(({ key, label, icon: Icon }) => {
           const active = tab === key;
@@ -1494,7 +1482,8 @@ export default function StaffPanel({ currentUser }) {
                 borderBottom: `2px solid ${active ? 'var(--primary-color)' : 'transparent'}`,
               }}
             >
-              <Icon size={15} /> {canSeeTeam || key !== 'roster' ? label : 'My details'}
+              <Icon size={15} /> {!canSeeTeam && key === 'roster' ? 'My details'
+                : key === 'attendance' && !payrollOn ? 'Attendance' : label}
             </button>
           );
         })}
@@ -1502,17 +1491,11 @@ export default function StaffPanel({ currentUser }) {
 
       {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)} />}
       {tab === 'tasks' && <TeamTasks currentUser={currentUser} canSeeTeam={canSeeTeam} />}
-      {/* The team's attendance is the owner's alone; everyone else sees their own. */}
+      {/* The team's attendance is the owner's alone; everyone else sees their own.
+          Payroll lives inside it as an owner-only view, since every pay run is
+          built from that attendance. */}
       {tab === 'attendance' && (
-        <Attendance isOwner={isOwner} canSeeTeam={isOwner} />
-      )}
-      {tab === 'payroll' && (
-        isOwner ? <Payroll /> : (
-          <NotBuiltYet
-            title="Payroll is not yours to see"
-            blurb="Weekly pay runs are visible to the boutique owner only."
-          />
-        )
+        <Attendance isOwner={isOwner} canSeeTeam={isOwner} showPayroll={payrollOn} />
       )}
       {tab === 'performance' && (
         <Performance isOwner={isOwner} canSeeTeam={canSeeTeam} />

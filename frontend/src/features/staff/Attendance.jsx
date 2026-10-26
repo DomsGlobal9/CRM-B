@@ -1,11 +1,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar } from 'lucide-react';
+import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar, CalendarDays, Wallet, ArrowRight } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { LIMITS } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
 import { currentLocation } from '../../services/location';
+import { CorrectionForm } from './CorrectionForm';
+import { nowForInput, timesError } from './attendanceTimes';
+import Payroll from './Payroll';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -299,89 +302,6 @@ function MyDay({ onChanged }) {
   );
 }
 
-const forInput = (iso) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-const nowForInput = () => forInput(new Date().toISOString());
-
-/** Times typed by hand: neither in the future, and out after in; '' when fine. */
-const timesError = (checkIn, checkOut) => {
-  const now = nowForInput();
-  if (checkIn && checkIn > now) return 'The check-in time cannot be in the future.';
-  if (checkOut && checkOut > now) return 'The check-out time cannot be in the future.';
-  if (checkIn && checkOut && checkOut < checkIn) return 'The check-out time must be after the check-in time.';
-  return '';
-};
-
-function CorrectionForm({ session, onCancel, onSaved }) {
-
-  const [checkIn, setCheckIn] = useState(() => forInput(session.check_in));
-  const [checkOut, setCheckOut] = useState(() => forInput(session.check_out));
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    const problem = timesError(checkIn, checkOut) || (!reason.trim() ? 'Give a reason for the change.' : '');
-    if (problem) { setError(problem); return; }
-    setBusy(true);
-    setError(null);
-    try {
-      await api.correctAttendance(session.id, {
-        check_in: checkIn || undefined,
-        check_out: checkOut || undefined,
-        reason,
-      });
-      onSaved();
-    } catch (err) {
-      setError(err.message || 'Could not save that correction.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const label = { fontSize: '12px', color: 'var(--text-secondary)' };
-
-  return (
-    <form onSubmit={submit}>
-      {error && <Banner text={error} />}
-      <div
-        className="mobile-stack-grid"
-        style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-          <label style={label} htmlFor="corr-in">Check in</label>
-          <input id="corr-in" type="datetime-local" value={checkIn} max={nowForInput()}
-                 onChange={(e) => setCheckIn(e.target.value)} required />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-          <label style={label} htmlFor="corr-out">Check out</label>
-          <input id="corr-out" type="datetime-local" value={checkOut} min={checkIn || undefined} max={nowForInput()}
-                 onChange={(e) => setCheckOut(e.target.value)} />
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '14px' }}>
-        <label style={label} htmlFor="corr-reason">Reason for the change</label>
-        <input id="corr-reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={LIMITS.reason}
-               placeholder="Forgot to check in" required />
-      </div>
-      <p style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '12px' }}>
-        The original times stay on the record, along with who changed them and why.
-      </p>
-      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '18px' }}>
-        <button type="button" className="btn-secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn-primary" disabled={busy}>
-          {busy ? 'Saving…' : 'Save correction'}
-        </button>
-      </div>
-    </form>
-  );
-}
-
 function RecordForm({ roster, onCancel, onSaved }) {
   const [staff, setStaff] = useState(roster[0]?.id || '');
   const [checkIn, setCheckIn] = useState('');
@@ -487,8 +407,9 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
     </div>
   );
 
-  const statusColour = (status) =>
-    status === 'Working' ? '#2ec4b6' : status === 'Checked out' ? 'var(--text-secondary)' : '#c0864b';
+  const badgeTone = (status) =>
+    status === 'Working' ? 'success' : status === 'Checked out' ? 'neutral' : 'warning';
+  const sub = { fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' };
 
   return (
     <>
@@ -525,186 +446,116 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
           No staff on the roster yet.
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-          {rows.map(({ person, open, minutes, days, own, status, latest }) => {
-            const isWorking = status === 'Working';
-            const isCheckedOut = status === 'Checked out';
-
-            const badgeBg = isWorking ? '#ecfdf5' : isCheckedOut ? '#f3f4f6' : '#fff7ed';
-            const badgeColor = isWorking ? '#047857' : isCheckedOut ? '#4b5563' : '#c2410c';
-            const badgeBorder = isWorking ? '#a7f3d0' : isCheckedOut ? '#e5e7eb' : '#fed7aa';
-            const dotColor = isWorking ? '#10b981' : isCheckedOut ? '#9ca3af' : '#f97316';
-
-            const initials = (person.name || 'U')
-              .split(' ')
-              .map((n) => n[0])
-              .join('')
-              .toUpperCase()
-              .slice(0, 2);
-
-            return (
-              <div
-                key={person.id}
-                style={{
-                  ...panel,
-                  padding: '18px 20px',
-                  borderRadius: '14px',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--surface-color)',
-                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justify: 'space-between',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div
-                        style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '50%',
+        // One row per person: a table reads down a column (who is late, who has
+        // the fewest hours) in a way a wall of cards does not.
+        <div className="at-table-wrap">
+          <table className="at-table at-table--fit at-table--center">
+            <thead>
+              <tr>
+                <th>Team member</th>
+                <th>Status</th>
+                {ranged ? (
+                  <>
+                    <th>Days</th>
+                    <th>Sessions</th>
+                  </>
+                ) : (
+                  <>
+                    <th>Check in</th>
+                    <th>Check out</th>
+                  </>
+                )}
+                <th>{ranged ? 'Total hours' : 'Hours'}</th>
+                {isOwner && <th>Action</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ person, open, minutes, days, own, status, latest }) => {
+                const initials = (person.name || 'U')
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')
+                  .toUpperCase()
+                  .slice(0, 2);
+                return (
+                  <tr key={person.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                        <div style={{
+                          width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
                           background: 'linear-gradient(135deg, var(--surface-2, #F4F2EC) 0%, var(--border-color, #E2DFD8) 100%)',
-                          color: 'var(--text-primary)',
-                          fontWeight: 700,
-                          fontSize: '14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          letterSpacing: '0.05em',
-                          boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.6), 0 2px 4px rgba(0,0,0,0.05)',
-                        }}
-                      >
-                        {initials}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)', lineHeight: 1.2 }}>
-                          {person.name}
+                          color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          {initials}
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: 500 }}>
-                          {person.role}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600 }}>{person.name}</div>
+                          <div style={sub}>{person.role}</div>
                         </div>
                       </div>
-                    </div>
-
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '5px 12px',
-                        borderRadius: '20px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        background: badgeBg,
-                        color: badgeColor,
-                        border: `1px solid ${badgeBorder}`,
-                      }}
-                    >
-                      <span
-                        style={{
-                          width: '6px',
-                          height: '6px',
-                          borderRadius: '50%',
-                          background: dotColor,
-                          boxShadow: isWorking ? `0 0 6px ${dotColor}` : 'none',
-                        }}
-                      />
-                      {ranged
-                        ? (status === 'Working' ? 'Working now' : own.length ? `${days} day${days === 1 ? '' : 's'}` : 'No hours')
-                        : status}
-                    </span>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(3, 1fr)',
-                      gap: '8px',
-                      background: 'var(--surface-2, #F8F7F4)',
-                      padding: '12px',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-color, rgba(0,0,0,0.04))',
-                    }}
-                  >
+                    </td>
+                    <td data-label="Status">
+                      <span className={`ui-badge ui-badge--${badgeTone(status)}`}>
+                        ● {ranged
+                          ? (status === 'Working' ? 'Working now' : own.length ? `${days} day${days === 1 ? '' : 's'}` : 'No hours')
+                          : status}
+                      </span>
+                    </td>
                     {ranged ? (
                       <>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Days</div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{days || '—'}</div>
-                        </div>
-                        <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)' }}>
-                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sessions</div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{own.length || '—'}</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Total hours</div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{minutes ? hoursText(minutes) : '—'}</div>
-                        </div>
+                        <td data-label="Days">{days || '—'}</td>
+                        <td data-label="Sessions">{own.length || '—'}</td>
                       </>
                     ) : (
                       <>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Check in</div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{clockText(latest?.check_in)}</div>
-                          {latest && <div style={{ fontSize: '11px', marginTop: '2px' }}><WhereTag session={latest} /></div>}
-                        </div>
-                        <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)' }}>
-                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Check out</div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>
-                            {open ? '—' : clockText(latest?.check_out)}
-                          </div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Hours</div>
-                          <div style={{ fontWeight: 700, fontSize: '14px', marginTop: '3px', color: 'var(--text-primary)' }}>{minutes ? hoursText(minutes) : '—'}</div>
-                        </div>
+                        <td data-label="Check in">
+                          <div>{clockText(latest?.check_in)}</div>
+                          {latest && <div style={sub}><WhereTag session={latest} /></div>}
+                        </td>
+                        <td data-label="Check out">{open ? '—' : clockText(latest?.check_out)}</td>
                       </>
                     )}
-                  </div>
-                </div>
-
-                {isOwner && latest && (
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => onCorrect(latest)}
-                    style={{
-                      marginTop: '12px',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      height: '34px',
-                      fontSize: '12.5px',
-                      borderRadius: '8px',
-                      width: '100%',
-                      fontWeight: 500,
-                    }}
-                  >
-                    <Pencil size={13} /> Correct entry
-                  </button>
-                )}
-              </div>
-            );
-          })}
+                    <td data-label={ranged ? 'Total hours' : 'Hours'} style={{ fontWeight: 600 }}>
+                      {minutes ? hoursText(minutes) : '—'}
+                    </td>
+                    {isOwner && (
+                      <td data-label="Action">
+                        {latest && (
+                          <button type="button" className="btn-secondary" onClick={() => onCorrect(latest)}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                           minHeight: '34px', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
+                            <Pencil size={13} /> Correct entry
+                          </button>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </>
   );
 }
 
-function Timesheet({ canSeeTeam, isOwner, roster, onCorrect }) {
+/** One person's week. The week is the parent's, shared with Payroll, so moving
+ *  between the two views stays on the same week. */
+function Timesheet({ canSeeTeam, isOwner, roster, onCorrect, week, onWeekChange, reloadKey, onOpenPayroll }) {
   const [staff, setStaff] = useState('');
-  const [week, setWeek] = useState(() => mondayOf(todayISO()));
   const [sheet, setSheet] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [payrollRun, setPayrollRun] = useState(undefined);
 
   const selected = staff || String(roster[0]?.id || '');
 
   const load = useCallback(async () => {
+    // The roster arrives after the first render; asking without a staff id
+    // would fetch the owner's own sheet, which they may not have.
+    if (canSeeTeam && !selected) return;
     setLoading(true);
     setError(null);
     try {
@@ -723,13 +574,47 @@ function Timesheet({ canSeeTeam, isOwner, roster, onCorrect }) {
   useEffect(() => {
     const t = setTimeout(load, 0);
     return () => clearTimeout(t);
-  }, [load]);
+  }, [load, reloadKey]);
+
+  // Where this week's pay run stands, so a correction made here is seen
+  // against it. undefined while loading, null when none is drafted.
+  const linked = Boolean(onOpenPayroll);
+  useEffect(() => {
+    if (!linked) return undefined;
+    let live = true;
+    const t = setTimeout(async () => {
+      setPayrollRun(undefined);
+      const periods = await api.getPayrollPeriods().catch(() => []);
+      if (live) setPayrollRun((Array.isArray(periods) ? periods : []).find((p) => p.period_start === week) || null);
+    }, 0);
+    return () => { live = false; clearTimeout(t); };
+  }, [linked, week, reloadKey]);
 
   const label = { fontSize: '12px', color: 'var(--text-secondary)' };
 
+  const runText = payrollRun === undefined ? 'Checking…'
+    : !payrollRun ? 'Not drafted yet'
+      : payrollRun.status === 'APPROVED'
+        ? `Approved and locked${payrollRun.totals?.paid_count ? ` · ${payrollRun.totals.paid_count} of ${payrollRun.totals.staff_count} paid` : ''}`
+        : 'Draft — corrections here are picked up when you recalculate';
+
   return (
-    <div style={{ marginTop: '22px' }}>
-      <h3 style={{ fontSize: '15px', fontWeight: 600, margin: '0 0 12px' }}>Weekly timesheet</h3>
+    <div>
+      {onOpenPayroll && (
+        <div style={{ ...panel, padding: '12px 16px', marginBottom: '14px', display: 'flex',
+                      alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+          <div style={{ fontSize: '13px' }}>
+            <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <Wallet size={14} /> Payroll for this week
+            </span>
+            <span style={{ color: 'var(--text-secondary)' }}> · {runText}</span>
+          </div>
+          <button type="button" className="btn-secondary" onClick={onOpenPayroll}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', minHeight: '36px' }}>
+            Open payroll <ArrowRight size={14} />
+          </button>
+        </div>
+      )}
 
       <div
         className="mobile-stack-grid"
@@ -747,7 +632,7 @@ function Timesheet({ canSeeTeam, isOwner, roster, onCorrect }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
           <label style={label} htmlFor="ts-week">Week of</label>
           <input id="ts-week" type="date" value={week}
-                 onChange={(e) => setWeek(mondayOf(e.target.value))} />
+                 onChange={(e) => onWeekChange(mondayOf(e.target.value))} />
         </div>
       </div>
 
@@ -1320,7 +1205,14 @@ function MonthlyAttendanceLogs({ reloadKey }) {
   );
 }
 
-export default function Attendance({ isOwner, canSeeTeam }) {
+const SUB_TABS = [
+  { key: 'today', label: "Today's Status & Roster", icon: Clock },
+  { key: 'timesheet', label: 'Weekly Timesheet', icon: CalendarDays },
+  { key: 'monthly', label: 'Monthly Attendance Log', icon: Calendar },
+  { key: 'payroll', label: 'Payroll', icon: Wallet },
+];
+
+export default function Attendance({ isOwner, canSeeTeam, showPayroll = false }) {
   const [roster, setRoster] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [dayMarks, setDayMarks] = useState([]);
@@ -1332,6 +1224,9 @@ export default function Attendance({ isOwner, canSeeTeam }) {
   // The roster tab is only for the Owner and the Master; everyone else opens
   // straight onto their monthly log.
   const [activeTab, setActiveTab] = useState(canSeeTeam ? 'today' : 'monthly');
+  // Payroll runs Monday to Sunday; the timesheet and the pay run share this
+  // week so switching between them never loses your place.
+  const [week, setWeek] = useState(() => mondayOf(todayISO()));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1360,55 +1255,37 @@ export default function Attendance({ isOwner, canSeeTeam }) {
 
   return (
     <>
-      <MyDay onChanged={refresh} />
+      {/* Your own check-in card belongs with attendance, not with a pay run. */}
+      {activeTab !== 'payroll' && <MyDay onChanged={refresh} />}
 
       <div className="at-scroll-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', margin: '20px 0 18px', gap: '8px' }}>
-        {canSeeTeam && (
-        <button
-          type="button"
-          onClick={() => setActiveTab('today')}
-          style={{
-            padding: '10px 18px',
-            fontSize: '14px',
-            fontWeight: activeTab === 'today' ? 600 : 500,
-            color: activeTab === 'today' ? 'var(--accent, #2ec4b6)' : 'var(--text-secondary)',
-            borderBottom: activeTab === 'today' ? '2px solid var(--accent, #2ec4b6)' : '2px solid transparent',
-            background: 'none',
-            borderLeft: 'none',
-            borderRight: 'none',
-            borderTop: 'none',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          <Clock size={16} /> Today's Status & Roster
-        </button>
-        )}
-        <button
-          type="button"
-          onClick={() => setActiveTab('monthly')}
-          style={{
-            padding: '10px 18px',
-            fontSize: '14px',
-            fontWeight: activeTab === 'monthly' ? 600 : 500,
-            color: activeTab === 'monthly' ? 'var(--accent, #2ec4b6)' : 'var(--text-secondary)',
-            borderBottom: activeTab === 'monthly' ? '2px solid var(--accent, #2ec4b6)' : '2px solid transparent',
-            background: 'none',
-            borderLeft: 'none',
-            borderRight: 'none',
-            borderTop: 'none',
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          <Calendar size={16} /> Monthly Attendance Log
-        </button>
+        {SUB_TABS
+          .filter(({ key }) => (key === 'monthly' || (key === 'payroll' ? showPayroll : canSeeTeam)))
+          .map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActiveTab(key)}
+              style={{
+                padding: '10px 18px',
+                fontSize: '14px',
+                fontWeight: activeTab === key ? 600 : 500,
+                color: activeTab === key ? 'var(--accent, #2ec4b6)' : 'var(--text-secondary)',
+                borderBottom: activeTab === key ? '2px solid var(--accent, #2ec4b6)' : '2px solid transparent',
+                background: 'none',
+                borderLeft: 'none',
+                borderRight: 'none',
+                borderTop: 'none',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <Icon size={16} /> {label}
+            </button>
+          ))}
       </div>
 
       {activeTab === 'today' && canSeeTeam && (
@@ -1460,8 +1337,25 @@ export default function Attendance({ isOwner, canSeeTeam }) {
         </>
       )}
 
+      {activeTab === 'timesheet' && canSeeTeam && (
+        <Timesheet
+          canSeeTeam={canSeeTeam}
+          isOwner={isOwner}
+          roster={roster}
+          onCorrect={setCorrecting}
+          week={week}
+          onWeekChange={setWeek}
+          reloadKey={reloadKey}
+          onOpenPayroll={showPayroll ? () => setActiveTab('payroll') : undefined}
+        />
+      )}
+
       {activeTab === 'monthly' && (
         <MonthlyAttendanceLogs reloadKey={reloadKey} />
+      )}
+
+      {activeTab === 'payroll' && showPayroll && (
+        <Payroll week={week} onWeekChange={setWeek} onChanged={refresh} />
       )}
 
       {correcting && (
