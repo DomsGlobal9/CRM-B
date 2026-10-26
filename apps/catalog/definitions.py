@@ -820,6 +820,12 @@ TEMPLATES = [
                 # already answered, so no order or draft is held up by it.
                 field('flare_size', 'Flare / Ghera', 'select', required=True, default='medium',
                       options=['Small', 'Medium', 'Big']),
+                # A petticoat is not designed: the order wizard shows these as
+                # pictures in place of the catalogue / photos / new-design cards.
+                field('petticoat_style', 'Petticoat Style', 'select', options=[
+                    ('shapewear', 'Shapewear / Fish-cut'), ('a_line_kali', 'A-line / Kali'),
+                    ('straight', 'Straight / Regular'), ('umbrella', 'Umbrella / Flared'),
+                    ('mermaid', 'Mermaid'), ('drawstring_cotton', 'Drawstring Cotton')]),
             ],
             'materials': bottom_materials(),
         },

@@ -31,6 +31,7 @@ const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
+import PetticoatStylePicker from './features/catalog/PetticoatStylePicker';
 import GarmentPurchases from './features/catalog/GarmentPurchases';
 import { purchaseError } from './features/catalog/materials';
 import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
@@ -8404,7 +8405,14 @@ function App() {
                         <details open id={`wz-design-${job.key}`} className="wz-sec">
                           <summary className="wz-sec-head"><span>{t('wizard.designTitle', 'Choose design')}</span><ChevronDown size={18} className="wz-sec-chev" aria-hidden /></summary>
 
-                        {/* The three ways to choose a design, side by side; a phone stacks them. */}
+                        {/* A petticoat is not designed: its styles as pictures, in
+                            place of the three cards. The choice is the template's
+                            petticoat_style, saved with the garment's other details. */}
+                        {job.template?.key === 'petticoat' ? (
+                          <PetticoatStylePicker value={job.values?.petticoat_style || ''}
+                                                onChange={(style) => updateGarmentValues(job.key, { ...(job.values || {}), petticoat_style: style })} />
+                        ) : (
+                        /* The three ways to choose a design, side by side; a phone stacks them. */
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginTop: '14px', marginBottom: '16px' }}>
                           <button
                             type="button"
@@ -8478,6 +8486,7 @@ function App() {
                             )}
                           </button>
                         </div>
+                        )}
 
                         {/* Everything picked for this garment, split by where it
                             came from -- our catalogue, or the customer -- each
