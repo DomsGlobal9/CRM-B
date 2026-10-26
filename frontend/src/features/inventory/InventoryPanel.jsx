@@ -173,15 +173,19 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       {/* Tab strip, not pill buttons: these switch a view, so an underline on
           the active one reads as navigation rather than seven call-to-actions. */}
       <div className="at-scroll-tabs" style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-5)', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
+        {/* Four tabs shown: Inventory, Materials library (the catalogue of
+            materials, by category, to add to stock), Shelves & racks and
+            Inventory history (the purchase list). Material requirements,
+            Suppliers and Reports are hidden, not removed: `hidden: true`. */}
         {[
           { key: 'items', label: t('inventoryPage.items'), icon: Package },
-          { key: 'catalog', label: t('inventoryPage.catalog'), icon: BookOpen },
+          { key: 'catalog', label: t('inventoryPage.materialsLibrary', 'Materials library'), icon: BookOpen },
           { key: 'locations', label: t('inventoryPage.locations'), icon: MapPin },
-          { key: 'recipes', label: t('inventoryPage.recipes'), icon: Scissors },
-          { key: 'suppliers', label: t('inventoryPage.suppliers'), icon: ClipboardList },
-          { key: 'purchases', label: t('inventoryPage.orderPurchases', 'Purchase list'), icon: ShoppingCart },
-          { key: 'reports', label: t('inventoryPage.reports'), icon: BarChart3 },
-        ].map(({ key, label, icon: Icon }) => {
+          { key: 'recipes', label: t('inventoryPage.recipes'), icon: Scissors, hidden: true },
+          { key: 'suppliers', label: t('inventoryPage.suppliers'), icon: ClipboardList, hidden: true },
+          { key: 'purchases', label: t('inventoryPage.inventoryHistory', 'Inventory history'), icon: ShoppingCart },
+          { key: 'reports', label: t('inventoryPage.reports'), icon: BarChart3, hidden: true },
+        ].filter((tabItem) => !tabItem.hidden).map(({ key, label, icon: Icon }) => {
           const active = tab === key;
           return (
             <button
