@@ -6016,9 +6016,12 @@ function App() {
                                 </button>
                               )}
                               {/* An order being made is read in the Workshop room. */}
-                              <button type="button" className="btn-secondary at-btn-sm"
+                              {/* The eye alone (named for screen readers and on hover), so
+                                  the row's buttons fit beside "Send to workshop". */}
+                              <button type="button" className="btn-secondary at-btn-sm at-btn-icon-view"
+                                      title="View order" aria-label={`View order ${orderRef(order)}${job ? `-${n}` : ''}`}
                                       onClick={() => { if (bucket === 'workshop') setDashboardTab('workshop'); setOpenGarmentJob(job?.id || null); setOpenOrdersRowId(order.id); }}>
-                                <Eye size={12} /> View
+                                <Eye size={16} />
                               </button>
                             </div>
                           </td>

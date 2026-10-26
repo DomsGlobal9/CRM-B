@@ -7657,3 +7657,18 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .portal-main:has(> .orders-stats) > .at-toolbar { margin: 12px 0 10px; }
   .portal-main:has(> .orders-stats) > .msg-failed-banner { margin: 10px 0; padding-top: 10px; padding-bottom: 10px; }
 }
+
+/* Orders / Workshop list: View as an eye-only square button, so the Action
+   column fits beside "Send to workshop" at every width. */
+.orders-book .at-btn-icon-view { width: 36px; min-width: 36px; height: 36px; min-height: 36px; padding: 0 !important; justify-content: center; flex: 0 0 auto !important; }
+.orders-book > tbody > tr > td:last-child > div { flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+@media (max-width: 1024px) {
+  .orders-book .at-btn-icon-view { width: 40px; min-width: 40px; height: 40px; min-height: 40px; }
+}
+@media (min-width: 1025px) and (max-width: 1365.98px) {
+  /* A laptop: tighter cells and headings that may wrap, so the whole row --
+     Send to workshop and the eye included -- fits without sideways scroll. */
+  .orders-book > thead > tr > th, .orders-book > tbody > tr > td { padding: 12px 10px; }
+  .orders-book > thead > tr > th { white-space: normal; line-height: 1.25; }
+  .orders-book .btn-primary.at-btn-sm { padding: 6px 10px !important; }
+}
