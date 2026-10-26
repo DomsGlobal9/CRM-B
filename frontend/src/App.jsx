@@ -5721,14 +5721,20 @@ function App() {
                     <aside className="od-side">
                       <OrderGarmentsCard order={order} focus={focusJob?.id} onSelectStage={(stage) => openStageReview(order, stage)} />
                       <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} role={currentUser?.role} />
+                      {/* Who the order is for, centred and stacked: "Customer
+                          details" as a small label, their initials, the name
+                          and mobile under them, and the way to their page last. */}
                       <section className="at-section od-customer">
-                        <div className="od-section-head" style={{ marginBottom: 0 }}>
-                          <IconTile icon={User} tone="neutral" size={40} iconSize={18} />
-                          <div className="od-section-title od-section-title--stack">
-                            <h3>{t('ordersPage.customerDetails', 'Customer details')}</h3>
-                            <span className="od-section-sub">{order.customer_name}</span>
+                        <div className="od-customer-row">
+                          <span className="od-customer-eyebrow">{t('ordersPage.customerDetails', 'Customer details')}</span>
+                          <AvatarInitials name={order.customer_name} size={56} />
+                          <div className="od-customer-info">
+                            <span className="od-customer-name" title={order.customer_name}>{order.customer_name}</span>
+                            {order.customer_mobile && (
+                              <span className="od-customer-meta"><Phone size={12} aria-hidden="true" /> {displayMobile(order.customer_mobile)}</span>
+                            )}
                           </div>
-                          <button type="button" className="btn-secondary at-btn-sm"
+                          <button type="button" className="btn-secondary at-btn-sm od-customer-btn"
                                   onClick={() => {
                                     // The name to show while openDirectoryCustomer fetches the full record.
                                     setDashboardTab('customers');
