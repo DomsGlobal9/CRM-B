@@ -160,7 +160,8 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       {summary && (
         <div className="at-stat-grid inv-stats">
           <StatCard icon={Package} tone="green" label={t('inventoryPage.stockValue')} value={money(summary.inventory_value)}
-                    sub={`${summary.item_count} ${summary.item_count === 1 ? t('inventoryPage.itemsTrackedOne', 'item in stock') : t('inventoryPage.itemsTracked', 'items in stock')}`} />
+                    sub={`${summary.item_count} ${summary.item_count === 1 ? t('inventoryPage.itemsTrackedOne', 'item in stock') : t('inventoryPage.itemsTracked', 'items in stock')}`}
+                    onClick={() => { setTab('items'); setReorderOnly(false); }} />
           <StatCard icon={AlertTriangle} tone="amber" label={t('inventoryPage.outOfStock')} value={summary.out_of_stock_count}
                     sub={t('inventoryPage.outOfStockSub', 'To reorder')} onClick={() => { setTab('items'); setReorderOnly(true); }} />
           <StatCard icon={ArrowDownCircle} tone="blue" label={t('inventoryPage.reorderDue')} value={summary.needs_reorder_count}
