@@ -4995,7 +4995,7 @@ function App() {
                       was made the button vanished and there was no way to make a
                       second. It belongs in the header, where it is there whether
                       the list is empty or not. */}
-                  <SectionCard icon={Calendar} tone="green" style={{ flex: 1 }}
+                  <SectionCard icon={Calendar} tone="green" style={{ flex: 1 }} className="dash-appointments"
                                title={t('dashboard.appointments', 'Appointments')}
                                subtitle={t('dashboard.appointmentsSub', 'Consultations, trials and deliveries still to come')}
                                action={() => { setEditingAppointment(null); setAppointmentForm(blankAppointmentForm); setShowAppointmentModal(true); }}

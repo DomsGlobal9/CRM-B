@@ -4401,6 +4401,17 @@ table.data-table tbody tr:hover {
 .at-section-heading { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
 .at-section-title { font-family: var(--font-serif); font-size: var(--text-lg); font-weight: 600; color: var(--text-primary); line-height: 1.2; }
 .at-section-sub { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 2px; }
+/* The dashboard's Appointments card: below about 345px wide (a 360-375px
+   phone) "Book appointment" no longer fits beside the one-word title and
+   slid over it. When the card is that narrow the link takes its own line,
+   lined up under the title text (past the 38px icon and its gap). A
+   container query, so it follows the card's width, not the screen's; it
+   measures the card inside its 20px padding, so 312px is a ~352px card. */
+.dash-appointments { container-type: inline-size; }
+@container (max-width: 312px) {
+  .dash-appointments .at-section-head { flex-wrap: wrap !important; row-gap: var(--space-2); }
+  .dash-appointments .at-section-head > .at-link { margin-left: calc(38px + var(--space-3)); }
+}
 .at-link { font-size: var(--text-sm); font-weight: 600; color: var(--primary-color); display: inline-flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; padding: 0; white-space: nowrap; }
 .at-link:hover { text-decoration: underline; }
 /* "See style notes" on the customer card: readable, and a thumb's height on a phone. */
