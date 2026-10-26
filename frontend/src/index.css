@@ -6695,11 +6695,13 @@ button, input, select, textarea { font-family: inherit; }
   .app-container .at-stat { flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
   .app-container .at-stat-label { font-size: 11px; letter-spacing: .06em; }
   .app-container .at-stat-value { font-size: 22px; }
-  /* The Staff page's figures (Team and Tasks tabs) and Finance's: icon,
-     label, number and line under it all on the card's centre line, as the
-     Inventory and Design Studio figures are. */
-  .app-container .staff-stats .at-stat, .app-container .fin-stats .at-stat { align-items: center; text-align: center; }
-  .app-container .staff-stats .at-stat-body, .app-container .fin-stats .at-stat-body { width: 100%; align-items: center; }
+  /* The Staff page's figures (Team and Tasks tabs), Finance's, Insights' and
+     the Dashboard's: icon, label, number and line under it all on the card's
+     centre line, as the Inventory and Design Studio figures are. */
+  .app-container .staff-stats .at-stat, .app-container .fin-stats .at-stat,
+  .app-container .insights-stats .at-stat, .app-container .dash-stats .at-stat { align-items: center; text-align: center; }
+  .app-container .staff-stats .at-stat-body, .app-container .fin-stats .at-stat-body,
+  .app-container .insights-stats .at-stat-body, .app-container .dash-stats .at-stat-body { width: 100%; align-items: center; }
 
   /* Attendance history: five columns scrolled sideways on a phone, so only
      the date, status and entry time showed. Each day is now a compact row --
@@ -7016,3 +7018,20 @@ button, input, select, textarea { font-family: inherit; }
 
 /* An order begun from the customer's own page keeps their name and number. */
 #wz-name[readonly], #wz-mobile[readonly] { background: var(--surface-inset, #f3f1ec); color: var(--text-secondary); cursor: not-allowed; }
+
+/* ---- Boutique alerts drawer ---------------------------------------------
+   A fixed 400px drawer is wider than a phone, so its left edge -- and every
+   alert's -- was cut off. It is never wider than the screen; on a phone it
+   fills it, a little tighter, and each alert's time takes its own line under
+   the title so a long title keeps the full width. The drawer's styles are
+   inline, hence !important on a phone. */
+.notif-drawer { max-width: 100vw; box-sizing: border-box; }
+@media (max-width: 640px) {
+  .notif-drawer { width: 100% !important; border-left: none !important; }
+  .notif-drawer .notif-drawer-head { padding: 14px 16px !important; }
+  .notif-drawer .notif-drawer-list { padding: 14px 16px 24px !important; gap: 12px !important; }
+  .notif-drawer .notif-card { padding: 14px !important; min-width: 0; }
+  .notif-drawer .notif-card-top { flex-direction: column; align-items: flex-start !important; gap: 2px; }
+  .notif-drawer .notif-card-top > span:first-child { overflow-wrap: anywhere; line-height: 1.35; }
+  .notif-drawer .notif-card p { overflow-wrap: anywhere; }
+}

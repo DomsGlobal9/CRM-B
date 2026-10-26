@@ -4847,7 +4847,7 @@ function App() {
                   const outstanding = Number(s.outstanding) || 0;
                   const overdue = Number(s.overdue) || 0;
                   return (
-                    <section className="at-stat-grid" style={{ marginBottom: 'var(--space-5)' }}>
+                    <section className="at-stat-grid dash-stats" style={{ marginBottom: 'var(--space-5)' }}>
                       <StatCard icon={TrendingUp} tone="green" label={t('dashboard.revenueThisMonth', 'Revenue this month')}
                                 value={inr(s.revenue_month)} sub={t('dashboard.allTime', '{amount} all time', { amount: inr(s.revenue_total) })}
                                 onClick={() => { setInvoiceFilter('All'); setDashboardTab('invoices'); }} />
@@ -7028,7 +7028,7 @@ function App() {
                     )}
                   />
 
-                  <section className="at-stat-grid" style={{ marginBottom: 'var(--space-5)' }}>
+                  <section className="at-stat-grid insights-stats" style={{ marginBottom: 'var(--space-5)' }}>
                     <StatCard icon={Coins} tone="green" label={t('analyticsPage.collectedRevenue', 'Collected Revenue')}
                               value={inr(paidRevenue)} sub={t('analyticsPage.fromPaidOrders', 'From paid customer orders')} />
                     <StatCard icon={Receipt} tone="amber" label={t('analyticsPage.pendingInvoices', 'Pending Invoices')}
@@ -9703,7 +9703,7 @@ function App() {
 
       {/* Notifications Drawer */}
       {showNotificationsDrawer && (
-        <div style={{
+        <div className="notif-drawer" style={{
           position: 'fixed',
           top: 0,
           right: 0,
@@ -9717,7 +9717,7 @@ function App() {
           flexDirection: 'column'
         }}>
           {/* Header */}
-          <div style={{
+          <div className="notif-drawer-head" style={{
             padding: '20px',
             borderBottom: '1px solid var(--border-color)',
             display: 'flex',
@@ -9738,7 +9738,7 @@ function App() {
           </div>
 
           {/* List */}
-          <div style={{
+          <div className="notif-drawer-list" style={{
             flex: 1,
             overflowY: 'auto',
             padding: '20px',
@@ -9755,7 +9755,7 @@ function App() {
                 // Coloured by what it is about: new work, to check, sent back, ready...
                 const kind = notificationKind(n.title);
                 return (
-                <div key={n.id} style={{
+                <div key={n.id} className="notif-card" style={{
                   padding: '16px',
                   backgroundColor: n.is_read ? 'rgba(0,0,0,0.01)' : 'rgba(212,175,55,0.04)',
                   border: `1px solid ${n.is_read ? 'var(--border-color)' : 'rgba(212,175,55,0.2)'}`,
@@ -9770,7 +9770,7 @@ function App() {
                                  color: kind.color, background: `${kind.color}1a` }}>
                     {kind.label}
                   </span>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div className="notif-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>{n.title}</span>
                     <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{fmtDateTime(n.created_at)}</span>
                   </div>
