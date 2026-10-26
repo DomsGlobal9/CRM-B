@@ -688,7 +688,7 @@ const en = {
     changesRequested: "Sent back",
     noWorkSupervisor: "No design requests open. Ask a designer for one above.",
     noWorkDesigner: "Nothing on your desk right now.",
-    assignDesignWork: "Ask a designer",
+    assignDesignWork: "Assign to designer",
     garment: "Garment",
     chooseGarment: "Choose a garment…",
     designer: "Designer",
