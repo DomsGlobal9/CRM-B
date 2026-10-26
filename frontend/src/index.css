@@ -7636,3 +7636,24 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .design-manager-content .dl-page > .dl-head { padding-bottom: 12px; }
 .design-manager-content .dl-page > .at-part-tabs { padding: 10px; }
 .design-manager-content .dl-page > .dcb-panel { margin-bottom: 0 !important; padding: 12px 16px !important; gap: 8px !important; }
+
+/* ---- Orders: a tighter top of page ---------------------------------------
+   As on the Design library: the title rises into the "Hi, <name>" chip's row,
+   the search box and "New order" sit side by side under the chip, and the
+   cards, the WhatsApp notice and the table follow closer. A phone (no chip
+   row) keeps its layout. */
+@media (min-width: 769px) {
+  .portal-main:has(> .orders-stats) { padding-top: 20px; }
+  .portal-main:has(> .orders-stats) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(> .orders-stats) > .at-page-head { margin-bottom: 14px; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-left { padding-right: 220px; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-right {
+    flex-direction: row; align-items: center; flex-wrap: wrap; justify-content: flex-end; padding-top: 50px;
+  }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-right .btn-primary { min-height: 40px; padding: 8px 16px !important; }
+  .portal-main:has(> .orders-stats) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
+  .portal-main:has(> .orders-stats) > .orders-stats { gap: var(--space-3); }
+  .portal-main:has(> .orders-stats) > .orders-stats .at-stat { padding: 16px 18px; }
+  .portal-main:has(> .orders-stats) > .at-toolbar { margin: 12px 0 10px; }
+  .portal-main:has(> .orders-stats) > .msg-failed-banner { margin: 10px 0; padding-top: 10px; padding-bottom: 10px; }
+}

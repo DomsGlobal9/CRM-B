@@ -5769,7 +5769,7 @@ function App() {
                   return (
                     <>
                       {dashboardTab === 'orders' && (
-                        <section className="at-stat-grid">
+                        <section className="at-stat-grid orders-stats">
                           {/* The three cards are the New / In progress / Closed switch
                               (the chips that repeated them under the cards are gone):
                               the open one is drawn as selected. */}
