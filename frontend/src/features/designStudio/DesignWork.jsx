@@ -8,7 +8,6 @@ import { orderRef } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../../components/ui/Atelier';
-import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, todayIso } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
 
@@ -110,7 +109,10 @@ function AssignPanel({ orders, designers, onAssigned, onError }) {
           </Field>
         </div>
         <Field label={t('designWorkPage.briefOptional', 'Brief / Notes (optional)')} icon={FileText}>
-          <VoiceTextarea className="form-input" rows={3} value={brief} maxLength={LIMITS.note}
+          {/* A plain text box: the brief has no dictation mic. Kept at the
+              height the voice box had (the field's 88px, not the 96px every
+              bare textarea gets). */}
+          <textarea className="form-input" rows={3} value={brief} maxLength={LIMITS.note} style={{ minHeight: '88px' }}
                     placeholder={t('designWorkPage.briefPlaceholder', 'What are you asking for, beyond the spec?')}
                     onChange={(e) => setBrief(e.target.value)} />
         </Field>
