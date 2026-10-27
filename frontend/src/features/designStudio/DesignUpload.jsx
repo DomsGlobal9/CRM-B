@@ -11,6 +11,7 @@ import { describePath, useDesignCatalogue } from './designCatalogue';
 import { getSection, pruneHidden } from '../../services/templates';
 import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import { libraryDesignParts } from './libraryParts';
 
 const MAX_STITCH_HOURS = 1000;
 /** A link the library can open: http(s) only, so plain text or javascript: never becomes an image_url. */
@@ -81,8 +82,9 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
     () => (template ? getSection(template, 'style') : null), [template]);
 
 
+  // The same parts the garment's library page shows (libraryParts.js).
   const designParts = useMemo(() => {
-    const defined = template?.design_parts;
+    const defined = libraryDesignParts(template?.key, template?.design_parts);
     return defined?.length ? defined : [{ key: 'overall', label: 'Overall Design' }];
   }, [template]);
 

@@ -5,6 +5,7 @@ import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
 import DesignUpload from './DesignUpload';
 import GarmentPartTabs from './GarmentPartTabs';
+import { libraryDesignParts } from './libraryParts';
 import DesignCatalogueBrowser from './DesignCatalogueBrowser';
 import ItemFormModal from '../inventory/ItemFormModal';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
@@ -288,8 +289,6 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
 }
 
 const SHOW_DESIGN_FILTERS = false;
-// Part tabs left out of a garment's library page, by garment key.
-const HIDDEN_LIBRARY_PARTS = { blouse: ['Overall Blouse Design', 'Neck Design', 'Hand Design'] };
 
 export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false, canStock = false, onOpenRequests = null, onOpenDesigners = null }) {
   const [stocking, setStocking] = useState(null);   
@@ -355,9 +354,7 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
 
   // Part tabs left out of a garment's library page (the parts stay on the
   // garment itself -- uploads and the order wizard still offer them).
-  const hiddenParts = HIDDEN_LIBRARY_PARTS[openKey];
-  const parts = useMemo(() => (partsByKey[openKey] || []).filter((p) => !(hiddenParts || []).includes(p.label)),
-    [partsByKey, openKey, hiddenParts]);
+  const parts = useMemo(() => libraryDesignParts(openKey, partsByKey[openKey]), [partsByKey, openKey]);
   const partLabels = useMemo(
     () => Object.fromEntries(parts.map(p => [p.key, p.label])), [parts]);
 
