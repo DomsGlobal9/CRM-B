@@ -6521,10 +6521,12 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Orders" className="cust-orders" style={{ overflow: 'hidden' }}>
-                            <div className="cust-desk" style={{ fontWeight: 700 }}>{orders}</div>
-                            <div className="cust-desk" style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
-                              {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
+                          <td data-label="Orders" className="cust-orders" style={{ textAlign: 'center', overflow: 'hidden' }}>
+                            <div className="cust-desk" style={{ display: 'inline-block', textAlign: 'center', transform: 'translateX(-28px)' }}>
+                              <div style={{ fontWeight: 700 }}>{orders}</div>
+                              <div style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
+                                {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
+                              </div>
                             </div>
                             <dl className="cust-stats">
                               <div><dt>{orders === 1 ? 'Order' : 'Orders'}</dt><dd>{orders}</dd></div>
