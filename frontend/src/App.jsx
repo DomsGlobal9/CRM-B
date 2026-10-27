@@ -6420,7 +6420,9 @@ function App() {
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: canAddCustomer ? '28%' : '30%', textAlign: 'left' }}>Customer</th>
+                            <th style={{ width: canAddCustomer ? '28%' : '30%', textAlign: 'center' }}>
+                              <span style={{ display: 'inline-block', transform: 'translateX(-28px)' }}>Customer</span>
+                            </th>
                             <th style={{ width: canAddCustomer ? '26%' : '28%' }}>Body measurements</th>
                             <th style={{ width: canAddCustomer ? '16%' : '18%', textAlign: 'left' }}>Garment</th>
                             <th style={{ width: canAddCustomer ? '20%' : '24%' }}>Orders</th>
