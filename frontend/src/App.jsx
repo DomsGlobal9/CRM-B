@@ -260,12 +260,36 @@ const TIER_TONES = {
   Gold: { background: 'var(--warning-bg)', color: 'var(--warning-color)', border: '1px solid color-mix(in srgb, var(--warning-color) 35%, transparent)' },
   Silver: { background: 'var(--surface-inset)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' },
 };
-const TierBadge = ({ tier }) => (
-  <span style={{
-    fontSize: 'var(--text-2xs)', fontWeight: 'var(--weight-bold)', letterSpacing: '0.06em',
-    padding: '2px 8px', borderRadius: '999px', textTransform: 'uppercase', ...TIER_TONES[tier] || TIER_TONES.Silver,
-  }}>{tier}</span>
-);
+const TIER_COLORS = {
+  Platinum: '#8b5cf6',
+  Gold: '#f59e0b',
+  Silver: '#94a3b8',
+  platinum: '#8b5cf6',
+  gold: '#f59e0b',
+  silver: '#94a3b8',
+};
+const TierBadge = ({ tier }) => {
+  const t = tier || 'Silver';
+  const color = TIER_COLORS[t] || TIER_COLORS.Silver;
+  return (
+    <span
+      role="status"
+      aria-label={`${t} tier`}
+      title={`${t} tier`}
+      style={{
+        display: 'inline-block',
+        width: '9px',
+        height: '9px',
+        borderRadius: '50%',
+        backgroundColor: color,
+        boxShadow: `0 0 0 2px var(--surface-color), 0 0 0 3px color-mix(in srgb, ${color} 40%, transparent)`,
+        verticalAlign: 'middle',
+        flexShrink: 0,
+        cursor: 'default',
+      }}
+    />
+  );
+};
 
 
 const orderStageKey = (order) => {
