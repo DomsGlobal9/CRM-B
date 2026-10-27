@@ -5772,7 +5772,7 @@ function App() {
                 <PageHeader
                   title={dashboardTab === 'workshop' ? t('ordersPage.workshopTitle', 'Workshop') : t('ordersPage.title')}
                   subtitle={dashboardTab === 'workshop' ? t('ordersPage.workshopSubtitle', 'Every order being made, who has it, and what comes next.') : t('ordersPage.subtitle')}
-                  aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
+                  aside={dashboardTab === 'workshop' ? null : <SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
                   actions={dashboardTab === 'workshop' ? null : (
                     <>
                       {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
@@ -5818,7 +5818,20 @@ function App() {
                           </button>
                         </div>
                       )}
-                      <div className="at-toolbar">
+                      <div className={`at-toolbar ${dashboardTab === 'workshop' ? 'workshop-toolbar' : ''}`}>
+                        {dashboardTab === 'workshop' && (
+                          <div className="workshop-view-switch">
+                            <Segmented ariaLabel="Orders view" value={ordersView} onChange={setOrdersView} options={[
+                              { key: 'kanban', label: 'Board', icon: LayoutGrid },
+                              { key: 'list', label: 'List', icon: List },
+                            ]} />
+                          </div>
+                        )}
+                        {dashboardTab === 'workshop' && (
+                          <div className="at-toolbar-right workshop-search-wrap">
+                            <SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />
+                          </div>
+                        )}
                         {/* Narrow by who it is for, what it is, and where it stands;
                             the list and the board read the same filter. */}
                         <details className="at-toolbar-filters at-filters-fold">
@@ -5851,16 +5864,6 @@ function App() {
                             ).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
                           </select>
                         </details>
-                        {/* List / Board: two drawings of the workshop; the
-                            board's columns are stages, so only that tab has one. */}
-                        {dashboardTab === 'workshop' && (
-                          <div className="at-toolbar-right">
-                            <Segmented ariaLabel="Orders view" value={ordersView} onChange={setOrdersView} options={[
-                              { key: 'kanban', label: 'Board', icon: LayoutGrid },
-                              { key: 'list', label: 'List', icon: List },
-                            ]} />
-                          </div>
-                        )}
                       </div>
                     </>
                   );

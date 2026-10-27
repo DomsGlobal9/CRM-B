@@ -7724,9 +7724,72 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head { margin-bottom: 10px; }
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-left { padding-right: 220px; }
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-right { padding-top: 50px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-right:empty { display: none; padding-top: 0; }
   .portal-main:has(> .at-toolbar .at-toolbar-right) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-toolbar { margin: 4px 0 10px; }
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .msg-failed-banner { margin: 10px 0; padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* ---- Workshop toolbar: Board/List toggle and search bar on the same row ---- */
+.workshop-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.workshop-toolbar .workshop-view-switch {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.workshop-toolbar .workshop-search-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 220px;
+  max-width: 360px;
+  min-width: 140px;
+  margin-left: auto;
+}
+
+.workshop-toolbar .workshop-search-wrap .at-search {
+  width: 100%;
+  max-width: 360px;
+}
+
+@media (max-width: 640px) {
+  .app-container .workshop-toolbar {
+    gap: 8px;
+    margin: 8px 0;
+  }
+  .app-container .workshop-toolbar .workshop-search-wrap {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 130px;
+    margin-left: 0;
+  }
+  .app-container .workshop-toolbar .workshop-search-wrap .at-search {
+    max-width: none;
+  }
+  .app-container .workshop-toolbar .workshop-search-wrap .at-search input {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 32px;
+    font-size: 13px;
+  }
+  .app-container .workshop-toolbar .workshop-search-wrap .at-search svg {
+    left: 10px;
+    width: 14px;
+    height: 14px;
+  }
+  .app-container .workshop-toolbar .workshop-view-switch .at-seg button {
+    padding: 7px 10px;
+    font-size: 13px;
+    gap: 4px;
+  }
 }
 
 /* ---- Reports (Profit & Costs, Insights): a tighter top --------------------
