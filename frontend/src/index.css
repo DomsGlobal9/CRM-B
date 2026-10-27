@@ -7706,3 +7706,15 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
    (and its menu) takes clicks; the rest of the row lets them through. */
 .portal-account-bar { pointer-events: none; }
 .portal-account-bar > * { pointer-events: auto; }
+
+/* Reports > Insights figures: every card reads the same -- icon and text on
+   the card's centre line, label and figure each on one line (the longer
+   labels and "12 Customers" were breaking onto a second line), the line
+   under the figure kept short. Phones keep their own stacked layout. */
+@media (min-width: 641px) {
+  .app-container .insights-stats .at-stat { align-items: center; }
+  .app-container .insights-stats .at-stat-body { justify-content: center; }
+  .app-container .insights-stats .at-stat-label { letter-spacing: .06em; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-container .insights-stats .at-stat-value { margin-top: 4px; line-height: 1.15; white-space: nowrap; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis; }
+  .app-container .insights-stats .at-stat-sub { margin-top: 4px; line-height: 1.35; }
+}
