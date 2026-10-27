@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
@@ -2611,7 +2611,6 @@ function App() {
     document.querySelector('.portal-main')?.scrollTo?.(0, 0);
   }, [openOrdersRowId]);
 
- 
   const orderMatchesFilters = (order) => {
     if (ordersTypeFilter === 'Alteration' && order.flow !== 'alteration') return false;
     if (ordersTypeFilter === 'Maggam' && order.flow !== 'maggam') return false;
@@ -2620,12 +2619,34 @@ function App() {
     if (ordersTierFilter !== 'All' && customerTier(order) !== ordersTierFilter) return false;
     if (ordersGarmentFilter !== 'All' && !orderGarmentNames(order).includes(ordersGarmentFilter)) return false;
     if (ordersStageFilter !== 'All' && orderStageKey(order) !== ordersStageFilter) return false;
+
     if (ordersSearch.trim()) {
-      const query = ordersSearch.toLowerCase();
-      const matchesId = order.order_id.toLowerCase().includes(query)
+      const query = ordersSearch.toLowerCase().trim();
+      const matchesId = (order.order_id || '').toLowerCase().includes(query)
         || orderRef(order).toLowerCase().includes(query);
       const matchesClient = (order.customer_name || '').toLowerCase().includes(query);
-      return matchesId || matchesClient;
+      const matchesPhone = (order.customer_phone || '').toLowerCase().includes(query);
+      const matchesGarment = orderGarmentNames(order).some(g => (g || '').toLowerCase().includes(query))
+        || (order.garment_jobs || []).some(j => (j.display_name || j.template_name || '').toLowerCase().includes(query));
+      const matchesStage = (order.stages || []).some(st => (st.stage_name || st.stage_key || '').toLowerCase().includes(query))
+        || (order.order_status || '').toLowerCase().includes(query)
+        || ((order.order_status === 'Delivered' || orderBucket(order) === 'done') && 'delivered'.includes(query))
+        || (order.order_status === 'Cancelled' && 'cancelled'.includes(query));
+      const matchesWorker = (order.stages || []).some(st => stageWho(st).toLowerCase().includes(query))
+        || (order.tailor_name || '').toLowerCase().includes(query)
+        || (order.master_name || '').toLowerCase().includes(query)
+        || (query === 'unassigned' && !(order.tailor_name || order.master_name || (order.stages || []).some(st => stageWho(st))));
+
+      const matchesJobInfo = (order.garment_jobs || []).some(job => {
+        const st = stageNow(order, job?.id);
+        const w = st && stageWho(st.current) ? stageWho(st.current) : '';
+        const sn = st?.current?.stage_name || st?.current?.stage_key || (job && !st ? 'delivered' : '');
+        return w.toLowerCase().includes(query) || sn.toLowerCase().includes(query);
+      });
+
+      if (!(matchesId || matchesClient || matchesPhone || matchesGarment || matchesStage || matchesWorker || matchesJobInfo)) {
+        return false;
+      }
     }
     return true;
   };
@@ -5911,7 +5932,11 @@ function App() {
                         )}
                         {dashboardTab === 'workshop' && (
                           <div className="at-toolbar-right workshop-search-wrap">
-                            <SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />
+                            <SearchBox
+                              value={ordersSearch}
+                              onChange={setOrdersSearch}
+                              placeholder={t('ordersPage.workshopSearchPlaceholder', 'Search by order, customer, status, or worker...')}
+                            />
                           </div>
                         )}
                         {/* Narrow by who it is for, what it is, and where it stands;
@@ -5991,8 +6016,58 @@ function App() {
                           : (st === 'Shipped' || st === 'Ready for Dispatch') ? 'info'
                           : 'warning';
                       const filtered = ordersList.filter(orderMatchesFilters);
+                      const workshopRows = filtered.flatMap(order => {
+                        // In the workshop an order of several garments is a row
+                        // per garment, "#15-1", "#15-2", each on its own path.
+                        const jobs = order.garment_jobs || [];
+                        const lanes = jobs.filter(j => (order.stages || []).some(st => st.garment_job === j.id));
+                        return dashboardTab === 'workshop' && orderBucket(order) === 'workshop' && lanes.length > 1
+                          ? lanes.map(job => ({ order, job, n: jobs.indexOf(job) + 1 }))
+                          : [{ order, job: null, n: 0 }];
+                      }).filter(({ order, job, n }) => {
+                        if (dashboardTab !== 'workshop') return true;
+                        const isDelivered = order.order_status === 'Delivered';
+                        const isCancelled = order.order_status === 'Cancelled';
+                        const bucket = orderBucket(order);
+                        const stage = bucket === 'workshop' ? stageNow(order, job?.id) : null;
+                        const isGarmentDelivered = bucket === 'workshop' && job && !stage;
+                        const isRowDelivered = isDelivered || (bucket === 'done' && !isCancelled) || isGarmentDelivered;
 
-                      if (filtered.length === 0) {
+                        let rowStatusName = '';
+                        if (isCancelled) {
+                          rowStatusName = 'Cancelled';
+                        } else if (isRowDelivered) {
+                          rowStatusName = 'Delivered';
+                        } else if (bucket === 'new' && !stage) {
+                          rowStatusName = 'Not sent yet';
+                        } else if (stage?.current) {
+                          rowStatusName = stage.current.stage_name || stage.current.stage_key || '';
+                        } else {
+                          rowStatusName = order.order_status || '';
+                        }
+
+                        const worker = stage && stageWho(stage.current) ? stageWho(stage.current) : (order.tailor_name || order.master_name || '');
+
+                        if (ordersSearch.trim()) {
+                          const query = ordersSearch.toLowerCase().trim();
+                          const ref = (orderRef(order) + (job ? `-${n}` : '')).toLowerCase();
+                          const matchesId = ref.includes(query) || (order.order_id || '').toLowerCase().includes(query) || orderRef(order).toLowerCase().includes(query);
+                          const matchesClient = (order.customer_name || '').toLowerCase().includes(query);
+                          const matchesPhone = (order.customer_phone || '').toLowerCase().includes(query);
+                          const garmentName = (job?.display_name || job?.template_name || '').toLowerCase();
+                          const matchesGarment = garmentName.includes(query) || orderGarmentNames(order).some(g => (g || '').toLowerCase().includes(query));
+                          const matchesStatus = rowStatusName.toLowerCase().includes(query);
+                          const matchesWorker = worker.toLowerCase().includes(query) || (query === 'unassigned' && !worker.trim());
+
+                          if (!(matchesId || matchesClient || matchesPhone || matchesGarment || matchesStatus || matchesWorker)) {
+                            return false;
+                          }
+                        }
+
+                        return true;
+                      });
+
+                      if (filtered.length === 0 || workshopRows.length === 0) {
                         return (
                           <div className="ui-card" style={{ padding: 'var(--space-10)', textAlign: 'center', color: 'var(--text-muted)' }}>
                             {ordersList.length === 0 ? (
@@ -6027,15 +6102,7 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                      {filtered.flatMap(order => {
-                        // In the workshop an order of several garments is a row
-                        // per garment, "#15-1", "#15-2", each on its own path.
-                        const jobs = order.garment_jobs || [];
-                        const lanes = jobs.filter(j => (order.stages || []).some(st => st.garment_job === j.id));
-                        return dashboardTab === 'workshop' && orderBucket(order) === 'workshop' && lanes.length > 1
-                          ? lanes.map(job => ({ order, job, n: jobs.indexOf(job) + 1 }))
-                          : [{ order, job: null, n: 0 }];
-                      }).map(({ order, job, n }) => {
+                      {workshopRows.map(({ order, job, n }) => {
                         const isDelivered = order.order_status === 'Delivered';
                         const isCancelled = order.order_status === 'Cancelled';
                         const bucket = orderBucket(order);

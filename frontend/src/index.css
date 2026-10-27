@@ -7871,15 +7871,15 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex: 1 1 220px;
-  max-width: 360px;
+  flex: 1 1 200px;
+  max-width: 380px;
   min-width: 140px;
   margin-left: auto;
 }
 
 .workshop-toolbar .workshop-search-wrap .at-search {
   width: 100%;
-  max-width: 360px;
+  max-width: 380px;
 }
 
 @media (max-width: 640px) {
