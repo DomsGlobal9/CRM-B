@@ -6357,16 +6357,21 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .orders-book > tbody { display: flex !important; flex-direction: column; gap: 10px; }
   .orders-book > tbody > tr {
     display: flex !important; flex-direction: column; gap: 10px;
-    padding: 14px 16px !important; background: var(--surface-color);
-    border: 1px solid var(--border-color) !important; border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 14px 16px !important; background: var(--row-status-bg, var(--surface-color));
+    border: 1px solid var(--border-color) !important; border-radius: 12px;
+    box-shadow: inset 4px 0 0 var(--row-status-border, transparent), var(--shadow-card);
   }
   .orders-book > tbody > tr:last-child { border-bottom: 1px solid var(--border-color) !important; }
   .orders-book > tbody > tr > td { padding: 0 !important; }
   .orders-book > tbody > tr > td:first-child { font-size: 15px; line-height: 1.5; }
   .orders-book > tbody > tr.gh-express {
-    background: color-mix(in srgb, var(--danger-bg) 45%, var(--surface-color));
+    background: var(--row-status-bg, var(--surface-color)) !important;
     border-color: color-mix(in srgb, var(--danger-color) 30%, var(--border-color)) !important;
-    box-shadow: inset 4px 0 0 var(--danger-color), var(--shadow-card);
+    box-shadow: inset 4px 0 0 var(--danger-color), var(--shadow-card) !important;
+  }
+  .orders-book > tbody > tr.at-row-stuck:not(.gh-express):not(.at-row-late) {
+    background: var(--row-status-bg, var(--surface-color)) !important;
+    box-shadow: inset 4px 0 0 var(--warning-color, #d97706), var(--shadow-card) !important;
   }
   .orders-book > tbody > tr.gh-express > td:first-child { box-shadow: none; }
   /* "Promised by" and its date on one line, under a hairline. */
@@ -7427,23 +7432,49 @@ button, input, select, textarea { font-family: inherit; }
    marked with an amber edge and a soft amber fill. */
 .at-step-days { display: flex; width: fit-content; align-items: center; gap: 4px; margin-top: 4px; padding: 2px 8px; border-radius: 999px;
   font-size: 11.5px; font-weight: 600; white-space: nowrap; color: var(--text-secondary); background: var(--surface-inset); }
-.at-step-days--stuck { color: #8a5a00; background: color-mix(in srgb, var(--warning-color, #d97706) 18%, transparent); }
+/* Orders / Workshop list: complete row coloring according to status */
+.orders-book > tbody > tr {
+  transition: background-color 0.15s ease, filter 0.15s ease;
+}
+.orders-book > tbody > tr > td {
+  background-color: inherit !important;
+}
+.orders-book > tbody > tr:hover > td {
+  background-color: inherit !important;
+}
+.orders-book > tbody > tr:hover {
+  filter: brightness(0.96);
+}
+
+/* Base stuck indicator: amber left edge and day chip */
 tr.at-row-stuck { background: color-mix(in srgb, var(--warning-color, #d97706) 14%, transparent); }
 tr.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--warning-color, #d97706); }
-/* An express row keeps its red; its day chip still turns amber. */
 tr.gh-express.at-row-stuck { background: color-mix(in srgb, var(--danger-bg) 45%, transparent); }
 tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--danger-color); }
 
-/* Orders / Workshop list: an order past its delivery date and still being made
-   ("Late") is highlighted across the whole row in red, stronger than an
-   express row's tint and taking over from the 10-day amber. */
+/* In orders-book: ensure express, stuck, and late rows keep their status background color while displaying indicator bars */
+.orders-book > tbody > tr.gh-express,
+.orders-book > tbody > tr.at-row-stuck,
+.orders-book > tbody > tr.gh-express.at-row-stuck,
 .orders-book > tbody > tr.at-row-late,
 .orders-book > tbody > tr.at-row-late.gh-express,
-.orders-book > tbody > tr.at-row-late.at-row-stuck { background: color-mix(in srgb, var(--danger-color) 13%, var(--surface-color)); }
-.orders-book > tbody > tr.at-row-late > td:first-child { box-shadow: inset 4px 0 0 var(--danger-color); }
-.orders-book > tbody > tr.at-row-late:hover { background: color-mix(in srgb, var(--danger-color) 18%, var(--surface-color)); }
-/* The table's own hover tint on the cells would cover the red. */
-.orders-book > tbody > tr.at-row-late > td { background: transparent !important; }
+.orders-book > tbody > tr.at-row-late.at-row-stuck {
+  background-color: var(--row-status-bg, inherit) !important;
+}
+
+/* Left accent bar on first cell: status border with express/stuck/late indicators taking precedence */
+.orders-book > tbody > tr > td:first-child {
+  box-shadow: inset 4px 0 0 var(--row-status-border, transparent);
+}
+.orders-book > tbody > tr.gh-express > td:first-child {
+  box-shadow: inset 3.5px 0 0 var(--danger-color) !important;
+}
+.orders-book > tbody > tr.at-row-stuck:not(.gh-express):not(.at-row-late) > td:first-child {
+  box-shadow: inset 3.5px 0 0 var(--warning-color, #d97706) !important;
+}
+.orders-book > tbody > tr.at-row-late > td:first-child {
+  box-shadow: inset 4px 0 0 var(--danger-color) !important;
+}
 
 /* Orders / Workshop list: "Assigned to", the person who has the current step. */
 .at-assignee { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
@@ -7530,6 +7561,21 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .orders-book .order-id-ref {
     font-size: 15px;
   }
+}
+
+/* Orders / Workshop list: stage step color badge */
+.stage-step-badge {
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  line-height: 1.5;
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 /* Design library > Boutique designs: every number card in one row on a laptop

@@ -310,6 +310,88 @@ const sinceLabel = (iso) => {
   return hours < 1 ? 'just now' : hours < 24 ? `${hours} h` : `${Math.floor(hours / 24)} d`;
 };
 
+const STEP_COLORS = {
+  // Cutting: Sky Blue
+  pattern_cutting: { rowBg: '#dbeafe', bg: '#bfdbfe', border: '#3b82f6', text: '#1d4ed8' },
+  cutting:         { rowBg: '#dbeafe', bg: '#bfdbfe', border: '#3b82f6', text: '#1d4ed8' },
+  // Paper Cutting: Vivid Turquoise Teal
+  paper_cutting:   { rowBg: '#ccfbf1', bg: '#99f6e4', border: '#14b8a6', text: '#0f766e' },
+  // Fabric Cutting: Indigo / Royal Periwinkle
+  fabric_cutting:  { rowBg: '#e0e7ff', bg: '#c7d2fe', border: '#6366f1', text: '#4338ca' },
+  // Maggam / Embroidery: Deep Orchid Purple
+  maggam:              { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
+  maggam_work:         { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
+  maggam_handwork:     { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
+  maggam_verification: { rowBg: '#fae8ff', bg: '#f5d0fe', border: '#d946ef', text: '#a21caf' },
+  embroidery:          { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
+  // Stitching: Warm Golden Amber
+  stitching:             { rowBg: '#fef3c7', bg: '#fde68a', border: '#f59e0b', text: '#b45309' },
+  stitching_in_progress: { rowBg: '#fef3c7', bg: '#fde68a', border: '#f59e0b', text: '#b45309' },
+  // Finishing: Fresh Lime Chartreuse
+  finishing: { rowBg: '#ecfccb', bg: '#d9f99d', border: '#84cc16', text: '#3f6212' },
+  // Pressing & Packaging: Electric Cyan / Aqua
+  pressing:  { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' },
+  ironing:   { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' },
+  packaging: { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' },
+  // Quality Check: Vivid Rose Pink
+  master_quality_check: { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' },
+  quality_check:        { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' },
+  qc:                   { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' },
+  // Trial: Lavender Iris
+  trial:           { rowBg: '#ede9fe', bg: '#ddd6fe', border: '#8b5cf6', text: '#6d28d9' },
+  trial_scheduled: { rowBg: '#ede9fe', bg: '#ddd6fe', border: '#8b5cf6', text: '#6d28d9' },
+  trial_completed: { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
+  // Alteration: Tangerine Orange
+  alteration:      { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' },
+  alteration_work: { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' },
+  // Delivery: Fresh Emerald Green
+  ready_for_delivery: { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
+  delivery:           { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
+  delivered:          { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
+  // Payment: Fuchsia Berry
+  payment: { rowBg: '#fae8ff', bg: '#f5d0fe', border: '#d946ef', text: '#a21caf' },
+  // New / Created / Not sent: Canary Yellow
+  new:      { rowBg: '#fef9c3', bg: '#fef08a', border: '#eab308', text: '#854d0e' },
+  not_sent: { rowBg: '#fef9c3', bg: '#fef08a', border: '#eab308', text: '#854d0e' },
+  // Cancelled: Cool Slate Gray
+  cancelled: { rowBg: '#e2e8f0', bg: '#cbd5e1', border: '#64748b', text: '#475569' },
+};
+
+const getStageBadgeStyle = (stageKey, stageName = '') => {
+  if (stageKey && STEP_COLORS[stageKey]) return STEP_COLORS[stageKey];
+  const name = (stageName || stageKey || '').toLowerCase();
+  if (name.includes('paper')) return STEP_COLORS.paper_cutting;
+  if (name.includes('fabric')) return STEP_COLORS.fabric_cutting;
+  if (name.includes('cut')) return STEP_COLORS.pattern_cutting;
+  if (name.includes('maggam') || name.includes('embroid') || name.includes('zari')) return STEP_COLORS.maggam_work;
+  if (name.includes('stitch') || name.includes('sew')) return STEP_COLORS.stitching_in_progress;
+  if (name.includes('finish') || name.includes('hem')) return STEP_COLORS.finishing;
+  if (name.includes('press') || name.includes('iron') || name.includes('pack')) return STEP_COLORS.pressing;
+  if (name.includes('qc') || name.includes('quality') || name.includes('check')) return STEP_COLORS.master_quality_check;
+  if (name.includes('trial') || name.includes('fit')) return STEP_COLORS.trial_scheduled;
+  if (name.includes('alter')) return STEP_COLORS.alteration_work;
+  if (name.includes('deliver') || name.includes('ready')) return STEP_COLORS.delivered;
+  if (name.includes('pay') || name.includes('bill')) return STEP_COLORS.payment;
+  if (name.includes('cancel')) return STEP_COLORS.cancelled;
+  if (name.includes('not sent') || name.includes('new') || name.includes('create')) return STEP_COLORS.new;
+
+  const PALETTE = [
+    { rowBg: '#dbeafe', bg: '#bfdbfe', border: '#3b82f6', text: '#1d4ed8' }, // Blue
+    { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' }, // Purple
+    { rowBg: '#fef3c7', bg: '#fde68a', border: '#f59e0b', text: '#b45309' }, // Amber
+    { rowBg: '#ccfbf1', bg: '#99f6e4', border: '#14b8a6', text: '#0f766e' }, // Teal
+    { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' }, // Rose Pink
+    { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' }, // Orange
+    { rowBg: '#ecfccb', bg: '#d9f99d', border: '#84cc16', text: '#3f6212' }, // Lime
+    { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' }, // Cyan
+    { rowBg: '#e0e7ff', bg: '#c7d2fe', border: '#6366f1', text: '#4338ca' }, // Indigo
+    { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' }, // Emerald
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
+  return PALETTE[Math.abs(hash) % PALETTE.length];
+};
+
 const StyleProfileCard = ({ customer }) => {
   const { t } = useLanguage();
   const dna = customer?.style_dna || {};
@@ -5975,10 +6057,39 @@ function App() {
                           // Past its delivery date and still in work: the whole row.
                           late ? 'at-row-late' : '',
                         ].filter(Boolean).join(' ') || undefined;
+
+                        const isGarmentDelivered = bucket === 'workshop' && job && !stage;
+                        const isRowDelivered = isDelivered || (bucket === 'done' && !isCancelled) || isGarmentDelivered;
+                        let rowStatusKey = '';
+                        let rowStatusName = '';
+                        if (isCancelled) {
+                          rowStatusKey = 'cancelled';
+                          rowStatusName = 'Cancelled';
+                        } else if (isRowDelivered) {
+                          rowStatusKey = 'delivered';
+                          rowStatusName = 'Delivered';
+                        } else if (bucket === 'new' && !stage) {
+                          rowStatusKey = 'new';
+                          rowStatusName = 'Not sent yet';
+                        } else if (stage?.current) {
+                          rowStatusKey = stage.current.stage_key || '';
+                          rowStatusName = stage.current.stage_name || '';
+                        } else {
+                          rowStatusKey = (order.order_status || '').toLowerCase();
+                          rowStatusName = order.order_status || '';
+                        }
+                        const rowStyle = getStageBadgeStyle(rowStatusKey, rowStatusName);
+
                         return (
                         <React.Fragment key={job ? `${order.id}-${job.id}` : order.id}>
                         <tr className={rowClass}
-                            style={isCancelled ? { opacity: 0.55 } : undefined}>
+                            data-status={rowStatusKey}
+                            style={{
+                              backgroundColor: rowStyle.rowBg,
+                              '--row-status-bg': rowStyle.rowBg,
+                              '--row-status-border': rowStyle.border,
+                              ...(isCancelled ? { opacity: 0.55 } : {}),
+                            }}>
                           <td className="order-id-cell">
                             <div className="order-id-content">
                               <div className="order-id-header">
@@ -6029,14 +6140,24 @@ function App() {
                             )}
                             {/* Where it stands: the step it is on (who has it is
                                 the next column; how long, under the order number). */}
-                            {stage && (
-                              <div className="at-stage-strip">
-                                <span className="at-stage-strip-now">
-                                  <strong>{stage.current.stage_name}</strong>
-                                </span>
-                                {late && <span className="ui-badge ui-badge--danger">{t('ordersPage.late', 'Late')}</span>}
-                              </div>
-                            )}
+                            {stage && (() => {
+                              const badgeStyle = getStageBadgeStyle(stage.current.stage_key, stage.current.stage_name);
+                              return (
+                                <div className="at-stage-strip">
+                                  <span
+                                    className="ui-badge stage-step-badge"
+                                    style={{
+                                      backgroundColor: badgeStyle.bg,
+                                      borderColor: badgeStyle.border,
+                                      color: badgeStyle.text,
+                                    }}
+                                  >
+                                    {stage.current.stage_name}
+                                  </span>
+                                  {late && <span className="ui-badge ui-badge--danger">{t('ordersPage.late', 'Late')}</span>}
+                                </div>
+                              );
+                            })()}
                           </td>
                           {/* Who has the step it is on. */}
                           <td data-label={t('ordersPage.assignedTo', 'Assigned to')} className="at-assignee-cell">
