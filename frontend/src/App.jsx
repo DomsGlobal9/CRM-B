@@ -6420,12 +6420,14 @@ function App() {
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: canAddCustomer ? '28%' : '30%', textAlign: 'center' }}>
+                            <th style={{ width: '30%', textAlign: 'center' }}>
                               <span style={{ display: 'inline-block', transform: 'translateX(-28px)' }}>Customer</span>
                             </th>
-                            <th style={{ width: canAddCustomer ? '26%' : '28%' }}>Body measurements</th>
-                            <th style={{ width: canAddCustomer ? '16%' : '18%', textAlign: 'left' }}>Garment</th>
-                            <th style={{ width: canAddCustomer ? '20%' : '24%' }}>Orders</th>
+                            <th style={{ width: '24%', textAlign: 'center' }}>
+                              <span style={{ display: 'inline-block', transform: 'translateX(-28px)', whiteSpace: 'nowrap' }}>Body measurements</span>
+                            </th>
+                            <th style={{ width: '16%', textAlign: 'left' }}>Garment</th>
+                            <th style={{ width: '20%' }}>Orders</th>
                             <th style={{ width: '80px', textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
@@ -6438,6 +6440,11 @@ function App() {
                                       ['arm_length', 'Arm'], ['neck', 'Neck'], ['length', 'Length']];
                       // Only columns holding a number: a row of dashes says nothing.
                       const shown = FIELDS.filter(([k]) => visible.includes(k) && m?.[k]).slice(0, 4);
+                      const hasMeasurements = Boolean(
+                        (m && shown.length > 0) ||
+                        (m && FIELDS.some(([k]) => m[k] !== null && m[k] !== undefined && String(m[k]).trim() !== '' && String(m[k]).trim() !== '—')) ||
+                        (m?.additional_measurements && Object.entries(m.additional_measurements).some(([k, v]) => k !== 'stitch_parts' && v !== null && v !== undefined && String(v).trim() !== '' && String(v).trim() !== '—'))
+                      );
                       const tags = [
                         `${cust.garment_type || ''}${parts.length ? ` (${parts.join(', ')})` : ''}`.trim(),
                         cust.neckline_style && `Neck: ${cust.neckline_style}`,
@@ -6485,20 +6492,21 @@ function App() {
                             </div>
                           </td>
 
-                          <td data-label="Body measurements" className="cust-measure" style={{ overflow: 'hidden' }}>
-                            {m && shown.length > 0 ? (
-                              <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
-                                   title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
-                                {shown.map(([k, label], i) => (
-                                  <span key={k} className="cust-chip">
-                                    {i > 0 && <span className="cust-sep" style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
-                                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{label} </span>
-                                    <strong>{measure(m[k])}</strong>
-                                  </span>
-                                ))}
-                              </div>
+                          <td data-label="Body measurements" className="cust-measure" style={{ textAlign: 'left', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {hasMeasurements ? (
+                              <span
+                                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', fontWeight: 600 }}
+                                title={shown.length > 0 ? shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ') : t('customersPage.recorded', 'Recorded')}
+                              >
+                                {t('customersPage.recorded', 'Recorded')}
+                              </span>
                             ) : (
-                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} title={t('customersPage.notRecorded', 'Not recorded')}>{t('customersPage.notRecorded', 'Not recorded')}</span>
+                              <span
+                                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}
+                                title={t('customersPage.notRecorded', 'Not recorded')}
+                              >
+                                {t('customersPage.notRecorded', 'Not recorded')}
+                              </span>
                             )}
                           </td>
 
