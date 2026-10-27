@@ -4508,7 +4508,7 @@ table.data-table tbody tr:hover {
   /* The figures sit under the name, where a glance lands first. */
   .cust-list td.cust-orders { order: 1; }
   .cust-list td.cust-measure { order: 2; }
-  .cust-list td[data-label="Style notes"] { order: 3; }
+  .cust-list td[data-label="Garment"], .cust-list td[data-label="Style notes"] { order: 3; }
   .cust-list td.cust-actions { order: 4; }
   .cust-list .at-table--fit tr:last-child { border-bottom: 1px solid var(--border-color); margin-bottom: 0; }
   .cust-list .at-table--fit tr:active { background: var(--surface-2); }
@@ -4534,6 +4534,7 @@ table.data-table tbody tr:hover {
   .cust-contact a { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; text-decoration: none; }
   .cust-list .cust-actions .at-link { min-height: 40px; margin-right: auto; }
   .cust-list .cust-actions .at-icon-btn { width: 40px; height: 40px; }
+  .cust-list .cust-actions .row-menu-btn { width: 40px; height: 40px; min-height: 40px; margin-left: auto; }
 }
 /* A tablet has room for the whole action row on one line. */
 @media (min-width: 641px) and (max-width: 1024px) {
@@ -5850,6 +5851,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 /* A row's ⋯ actions menu (components/ui/RowMenu.jsx), as on the platform
    console's boutique list: fixed on <body>, so no table can clip it. */
 .row-menu-btn { width: 40px; height: 36px; min-height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-color); color: var(--text-primary); cursor: pointer; }
+.cust-list td.cust-actions .row-menu-btn { vertical-align: middle; }
 .row-menu-btn:hover:not(:disabled), .row-menu-btn[aria-expanded="true"] { background: var(--surface-inset); }
 .row-menu-btn:disabled { opacity: .5; cursor: default; }
 .row-menu { position: fixed; z-index: 1100; min-width: 180px; padding: 6px; display: flex; flex-direction: column; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14); }

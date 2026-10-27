@@ -6,7 +6,7 @@ import { MoreHorizontal } from 'lucide-react';
 const GAP = 4;
 const EDGE = 8;
 
-export default function RowMenu({ items, label = 'Actions', disabled = false }) {
+export default function RowMenu({ items, label = 'Actions', disabled = false, icon = null }) {
   const [anchor, setAnchor] = useState(null); 
   const menuRef = useRef(null);
   const btnRef = useRef(null);
@@ -88,7 +88,7 @@ export default function RowMenu({ items, label = 'Actions', disabled = false }) 
     <>
       <button ref={btnRef} type="button" className="row-menu-btn" onClick={toggle} disabled={disabled}
               aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label}>
-        <MoreHorizontal size={16} />
+        {icon || <MoreHorizontal size={16} />}
       </button>
       {open && createPortal(
         <div ref={menuRef} className="row-menu" role="menu"

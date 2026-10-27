@@ -59,6 +59,7 @@ import { followerOf, syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
 import { AccountMenu } from './components/ui/AccountMenu';
+import RowMenu from './components/ui/RowMenu';
 import CustomerMessageQueue from './features/orders/CustomerMessageQueue';
 import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
@@ -6419,11 +6420,11 @@ function App() {
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: canAddCustomer ? '26%' : '29%' }}>Customer</th>
-                            <th style={{ width: canAddCustomer ? '24%' : '26%' }}>Body measurements</th>
-                            <th style={{ width: canAddCustomer ? '12%' : '13%' }}>Style notes</th>
-                            <th style={{ width: canAddCustomer ? '18%' : '18%' }}>Orders</th>
-                            <th style={{ width: canAddCustomer ? '20%' : '14%' }}>Actions</th>
+                            <th style={{ width: canAddCustomer ? '28%' : '30%', textAlign: 'left' }}>Customer</th>
+                            <th style={{ width: canAddCustomer ? '26%' : '28%' }}>Body measurements</th>
+                            <th style={{ width: canAddCustomer ? '16%' : '18%', textAlign: 'left' }}>Garment</th>
+                            <th style={{ width: canAddCustomer ? '20%' : '24%' }}>Orders</th>
+                            <th style={{ width: '80px', textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -6499,7 +6500,7 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Style notes" className={tags.length || cust.custom_requirements ? undefined : 'cust-empty'} style={{ overflow: 'hidden' }}>
+                          <td data-label="Garment" className={tags.length || cust.custom_requirements ? undefined : 'cust-empty'} style={{ overflow: 'hidden' }}>
                             <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
                               {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
@@ -6520,7 +6521,7 @@ function App() {
                             </dl>
                           </td>
 
-                          <td className="cust-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td className="cust-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                             {cust.mobile_number && (
                               <span className="cust-contact" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                 <a className="btn-secondary at-btn-sm" href={telLink(cust.mobile_number)}
@@ -6533,35 +6534,42 @@ function App() {
                                 </a>
                               </span>
                             )}
-                            <button
-                              type="button"
-                              className="at-link"
-                              style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                              onClick={(e) => { e.stopPropagation(); setStyleNotesFor(cust); }}
-                            >
-                              <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
-                            </button>
-                            {customerView === 'leads' && (
-                              <button type="button" className="at-icon-btn" title="Mark as contacted (moves to Customers)"
-                                      aria-label={`Mark ${cust.first_name} ${cust.last_name} as contacted`}
-                                      disabled={customerActionId === cust.id}
-                                      onClick={(e) => { e.stopPropagation(); handleMarkLeadContacted(cust); }}>
-                                <CheckCircle2 size={15} />
-                              </button>
-                            )}
-                            {canAddCustomer && (
-                              <span className="at-row-actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                                <button type="button" className="at-icon-btn" title="Edit customer" aria-label={`Edit ${cust.first_name} ${cust.last_name}`}
-                                        disabled={customerActionId === cust.id} onClick={() => startEditCustomer(cust)}>
-                                  <Edit2 size={15} />
-                                </button>
-                                <button type="button" className="at-icon-btn at-icon-btn--danger" title="Delete customer" aria-label={`Delete ${cust.first_name} ${cust.last_name}`}
-                                        disabled={customerActionId === cust.id} onClick={() => handleDeleteCustomer(cust)}>
-                                  <Trash2 size={15} />
-                                </button>
-                              </span>
-                            )}
-                            <ChevronRight size={16} className="cust-desk" style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
+                            <RowMenu
+                              label={`Actions for ${cust.first_name || ''} ${cust.last_name || ''}`.trim() || 'Customer actions'}
+                              items={[
+                                {
+                                  label: 'View profile',
+                                  icon: <Eye size={15} />,
+                                  onClick: open,
+                                },
+                                ...(customerView === 'leads' ? [{
+                                  label: 'Mark as contacted',
+                                  icon: <CheckCircle2 size={15} />,
+                                  disabled: customerActionId === cust.id,
+                                  onClick: () => handleMarkLeadContacted(cust),
+                                }] : []),
+                                ...(canAddCustomer ? [{
+                                  label: 'Edit customer',
+                                  icon: <Edit2 size={15} />,
+                                  disabled: customerActionId === cust.id,
+                                  onClick: () => startEditCustomer(cust),
+                                }] : []),
+                                ...(cust.mobile_number ? [
+                                  {
+                                    label: 'WhatsApp',
+                                    icon: <MessageSquare size={15} />,
+                                    onClick: () => { window.open(waLink(cust.mobile_number), '_blank', 'noopener,noreferrer'); },
+                                  },
+                                ] : []),
+                                ...(canAddCustomer ? [{
+                                  label: 'Delete customer',
+                                  icon: <Trash2 size={15} />,
+                                  danger: true,
+                                  disabled: customerActionId === cust.id,
+                                  onClick: () => handleDeleteCustomer(cust),
+                                }] : []),
+                              ]}
+                            />
                           </td>
                         </tr>
                       );
