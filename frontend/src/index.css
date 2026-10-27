@@ -7672,3 +7672,37 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .orders-book > thead > tr > th { white-space: normal; line-height: 1.25; }
   .orders-book .btn-primary.at-btn-sm { padding: 6px 10px !important; }
 }
+
+/* ---- Workshop: the same tighter top as Orders -----------------------------
+   Title in the chip's row, the search under the chip, the Board / List
+   switch and the WhatsApp notice closer. A phone keeps its layout. */
+@media (min-width: 769px) {
+  .portal-main:has(> .at-toolbar .at-toolbar-right) { padding-top: 20px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head { margin-bottom: 10px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-left { padding-right: 220px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-right { padding-top: 50px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-toolbar { margin: 4px 0 10px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .msg-failed-banner { margin: 10px 0; padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* ---- Reports (Profit & Costs, Insights): a tighter top --------------------
+   The REPORTS label and the Profit & Costs | Insights switch move up into the
+   "Hi, <name>" chip's row (the switch just left of the chip), the page title
+   follows close under it, and the first cards closer still. A phone keeps
+   its layout. */
+@media (min-width: 769px) {
+  .portal-main:has(> .reports-switch) { padding-top: 20px; }
+  .portal-main:has(> .reports-switch) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(> .reports-switch) > .reports-switch { min-height: 42px; margin-bottom: 12px; padding-right: 220px; }
+  .portal-main:has(> .reports-switch) > .at-page-head { margin-bottom: 16px; }
+  .portal-main:has(> .reports-switch) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
+}
+
+/* The account bar is a full-width row; where a page lets its content rise
+   into that row (Orders, Workshop, Reports, Design library), the bar's empty
+   space sat over that content and swallowed its clicks. Only the chip itself
+   (and its menu) takes clicks; the rest of the row lets them through. */
+.portal-account-bar { pointer-events: none; }
+.portal-account-bar > * { pointer-events: auto; }
