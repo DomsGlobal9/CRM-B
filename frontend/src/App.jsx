@@ -2586,7 +2586,6 @@ function App() {
 
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
   // Leads have their own sidebar item; it opens the customer book filtered to leads.
   const customerView = dashboardTab === 'leads' ? 'leads' : 'customers';
   const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
@@ -4193,17 +4192,17 @@ function App() {
   // counts the stat cards, chips and filter menus show. Leads are portal
   // sign-ups nobody has contacted or taken an order for yet.
   const isLead = (c) => !!c.is_lead && !((c.order_count ?? c.orders?.length ?? 0) > 0);
-  const customerPageKey = `${customerView}|${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
+  const customerPageKey = `${customerView}|${searchQuery}|${customerFilters.tier || ''}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
   const customerPage = customerPageAt.key === customerPageKey ? customerPageAt.page : 1;
   const onCustomerBook = dashboardTab === 'customers' || dashboardTab === 'leads';
   const directoryParams = React.useMemo(() => ({
     view: customerView,
     search: directorySearch.trim(),
-    tier: customerTypeFilter === 'All' ? '' : customerTypeFilter,
+    tier: customerFilters.tier || '',
     ...customerFilters,
     page: customerPage,
     page_size: customerPageSize,
-  }), [customerView, directorySearch, customerTypeFilter, customerFilters, customerPage, customerPageSize]);
+  }), [customerView, directorySearch, customerFilters, customerPage, customerPageSize]);
   // Which question the page on screen answers; a newer one makes it "loading".
   const directoryKey = `${JSON.stringify(directoryParams)}|${directoryVersion}`;
   useEffect(() => {
@@ -6354,12 +6353,6 @@ function App() {
                         <StatCard icon={ShoppingBag} tone="blue" label="With Orders" value={withOrders} sub="at least one order" />
                       </section>
                       {(() => {
-                        const tierChips = (
-                          <Chips value={customerTypeFilter} onChange={setCustomerTypeFilter} options={[
-                            { key: 'All', label: t('customersPage.filterAll'), count: bookSummary.total },
-                            ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
-                          ]} />
-                        );
                         const showing = (
                           <span className="cf-showing">
                             {directoryCount
@@ -6371,10 +6364,10 @@ function App() {
                         return bookSummary.total > 0 ? (
                           <div style={{ marginTop: 'var(--space-5)' }}>
                             <CustomerFilters facets={directoryData.facets} filters={customerFilters} onChange={setCustomerFilters}
-                                             leading={tierChips} trailing={showing} />
+                                             tierCounts={tiers} leading={showing} />
                           </div>
                         ) : (
-                          <div className="at-toolbar">{tierChips}{showing}</div>
+                          <div className="at-toolbar">{showing}</div>
                         );
                       })()}
                     </>

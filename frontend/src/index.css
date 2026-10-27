@@ -5832,20 +5832,20 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 
 /* Customer filters (features/customers/CustomerFilters.jsx): a row of small
    labelled selects, "More filters" for the rest, and the A-Z name strip. */
-.cf-bar { padding: var(--space-4); border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--surface-color); margin-bottom: var(--space-3); }
-.cf-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
-/* The headings over the More filters selects sit centred over their box. */
-.cf-field .cf-label { text-align: center; }
-.cf-bar select.cf-select { min-height: 38px; height: 38px; padding: 4px 30px 4px 12px; margin: 0; font-size: var(--text-sm); width: 100%; }
-.cf-bar select.cf-select--on { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 10%, var(--surface-color)); font-weight: 600; }
-.cf-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 14px; font-size: var(--text-sm); white-space: nowrap; }
+.cf-bar { padding: 14px 18px; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--surface-color); margin-bottom: var(--space-4); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); }
+.cf-label { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-secondary); }
+.cf-field { display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 0; }
+.cf-field .cf-label { text-align: left; }
+.cf-bar select.cf-select { min-height: 38px; height: 38px; padding: 4px 30px 4px 12px; margin: 0; font-size: var(--text-sm); width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border-color); background-color: var(--surface-color); color: var(--text-primary); transition: border-color .15s, box-shadow .15s; }
+.cf-bar select.cf-select:focus { border-color: var(--primary-color); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent); }
+.cf-bar select.cf-select--on { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 8%, var(--surface-color)); font-weight: 600; }
+.cf-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 14px; font-size: var(--text-sm); font-weight: 500; white-space: nowrap; border-radius: var(--radius-md); }
 .cf-btn:disabled { opacity: 1; cursor: default; }
 .cf-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary-color); color: var(--primary-foreground); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .cf-letter { min-width: 30px; height: 30px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
 .cf-letter:hover:not(:disabled) { background: var(--surface-inset); }
 .cf-letter:disabled { color: var(--text-muted); opacity: .45; cursor: default; }
 .cf-letter--on, .cf-letter--on:hover:not(:disabled) { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); }
-@media (max-width: 640px) { .cf-bar .cf-field { max-width: none !important; flex-basis: 100% !important; } }
 
 /* A row's ⋯ actions menu (components/ui/RowMenu.jsx), as on the platform
    console's boutique list: fixed on <body>, so no table can clip it. */
@@ -7012,17 +7012,51 @@ button, input, select, textarea { font-family: inherit; }
   .wz-measure-notes .at-field-control > .voice-textarea > textarea { font-size: 16px; }
 }
 
-/* Customers page: chips, sort and filters on one row (MOM, 2026-10-24). */
-.cf-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* Customers page: summary, sort and filters toolbar */
+.cf-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; width: 100%; }
+.cf-top-leading { display: flex; align-items: center; flex: 0 1 auto; }
+.cf-showing { display: inline-flex; align-items: center; font-size: 13.5px; font-weight: 500; color: var(--text-secondary); text-align: left; margin: 0; }
 .cf-top-end { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
 .cf-inline { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
-.cf-inline .cf-select { width: auto !important; min-width: 170px; }
-.cf-showing { display: block; font-size: var(--text-xs); color: var(--text-secondary); text-align: right; margin-top: -4px; }
+.cf-inline .cf-select { width: auto !important; min-width: 160px; }
+
+/* Expanded filters grid */
+.cf-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 1120px) {
+  .cf-filters-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .cf-filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
 @media (max-width: 640px) {
-  .cf-top-end { margin-left: 0; width: 100%; }
-  .cf-inline { flex: 1 1 100%; }
-  .cf-inline .cf-select { flex: 1; min-width: 0; }
-  .cf-showing { text-align: left; }
+  .cf-top { gap: 10px; }
+  .cf-top-leading { width: 100%; }
+  .cf-top-end { margin-left: 0; width: 100%; justify-content: flex-start; }
+  .cf-inline { flex: 1 1 auto; }
+  .cf-inline .cf-select { flex: 1; min-width: 130px; }
+}
+
+@media (max-width: 480px) {
+  .cf-filters-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 /* An order begun from the customer's own page keeps their name and number. */

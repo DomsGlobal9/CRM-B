@@ -9,13 +9,10 @@ import {
   EMPTY_CUSTOMER_FILTERS, ORDER_OPTIONS, SORT_OPTIONS, activeFilterCount,
 } from './filterRules';
 
-const ROW = { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 12 };
-const FIELD = { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 150, flex: '1 1 150px', maxWidth: 240 };
-
 function Select({ label, value, onChange, options, allLabel }) {
   const on = value !== '';
   return (
-    <label className="cf-field" style={FIELD}>
+    <label className="cf-field">
       <span className="cf-label">{label}</span>
       <select className={`form-control cf-select${on ? ' cf-select--on' : ''}`} value={value}
               onChange={(e) => onChange(e.target.value)}>
@@ -28,7 +25,7 @@ function Select({ label, value, onChange, options, allLabel }) {
   );
 }
 
-export default function CustomerFilters({ facets, filters, onChange, leading = null, trailing = null }) {
+export default function CustomerFilters({ facets, filters, onChange, leading = null, trailing = null, tierCounts = null }) {
   const [more, setMore] = useState(false);
   const set = (key) => (value) => onChange({ ...filters, [key]: value });
 
@@ -38,16 +35,23 @@ export default function CustomerFilters({ facets, filters, onChange, leading = n
     cities: facets?.cities || [],
   }), [facets]);
 
+  const tierOptions = useMemo(() => {
+    const t = facets?.tiers || tierCounts || {};
+    return [
+      { key: 'Platinum', label: 'Platinum', count: t.Platinum ?? 0 },
+      { key: 'Gold', label: 'Gold', count: t.Gold ?? 0 },
+      { key: 'Silver', label: 'Silver', count: t.Silver ?? 0 },
+    ];
+  }, [facets, tierCounts]);
+
   const active = activeFilterCount(filters);
-  const hiddenActive = ['orders', 'source', 'gender', 'city'].filter((k) => filters[k] !== '').length;
+  const hiddenActive = ['tier', 'orders', 'source', 'gender', 'city'].filter((k) => filters[k] !== '' && filters[k] !== undefined).length;
   const showMore = more || hiddenActive > 0;
 
   return (
-    <div className="cf-bar" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* One row: the tier chips (`leading`) on the left, sort and filters on
-          the right, so the page has a single toolbar instead of three rows. */}
+    <div className="cf-bar">
       <div className="cf-top">
-        {leading}
+        {leading && <div className="cf-top-leading">{leading}</div>}
         <div className="cf-top-end">
           <label className="cf-inline">
             <span className="cf-label">Sort</span>
@@ -72,7 +76,8 @@ export default function CustomerFilters({ facets, filters, onChange, leading = n
       {trailing}
 
       {showMore && (
-        <div style={ROW}>
+        <div className="cf-filters-grid">
+          <Select label="Subscription" value={filters.tier || ''} onChange={set('tier')} allLabel="All subscriptions" options={tierOptions} />
           <Select label="Orders" value={filters.orders} onChange={set('orders')} options={ORDER_OPTIONS} />
           <Select label="Source" value={filters.source} onChange={set('source')} allLabel="Any source" options={lists.sources} />
           <Select label="Gender" value={filters.gender} onChange={set('gender')} allLabel="Any" options={lists.genders} />

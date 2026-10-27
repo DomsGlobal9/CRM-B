@@ -12,11 +12,14 @@ import {
 
 export const EMPTY_CUSTOMER_FILTERS = {
   country: '', letter: '', orders: '', added: '', birthday: '',
-  source: '', gender: '', city: '', sort: '',
+  source: '', gender: '', city: '', tier: '', sort: '',
 };
 
 export const LETTERS = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#'];
 
+export const SUBSCRIPTION_OPTIONS = [
+  ['', 'All subscriptions'], ['Platinum', 'Platinum'], ['Gold', 'Gold'], ['Silver', 'Silver'],
+];
 export const ORDER_OPTIONS = [
   ['', 'All customers'], ['with', 'With orders'], ['repeat', 'Repeat (2+ orders)'], ['none', 'No orders yet'],
 ];
@@ -148,6 +151,7 @@ export function applyCustomerFilters(customers, f) {
     if (f.gender === '__none' && String(c.gender || '').trim()) return false;
     if (f.gender && f.gender !== '__none' && String(c.gender || '').trim() !== f.gender) return false;
     if (f.city && cityKey(c) !== f.city) return false;
+    if (f.tier && (c.customer_type || 'Silver') !== f.tier) return false;
     return true;
   });
   const time = (c) => new Date(c.created_at).getTime() || 0;
