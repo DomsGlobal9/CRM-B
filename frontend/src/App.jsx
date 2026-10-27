@@ -6427,7 +6427,9 @@ function App() {
                               <span style={{ display: 'inline-block', transform: 'translateX(-28px)', whiteSpace: 'nowrap' }}>Body measurements</span>
                             </th>
                             <th style={{ width: '16%', textAlign: 'left' }}>Garment</th>
-                            <th style={{ width: '20%' }}>Orders</th>
+                            <th style={{ width: '20%', textAlign: 'center' }}>
+                              <span style={{ display: 'inline-block', transform: 'translateX(-28px)' }}>Orders</span>
+                            </th>
                             <th style={{ width: '80px', textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
