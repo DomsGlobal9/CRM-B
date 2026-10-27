@@ -227,7 +227,9 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           the option chosen until the owner types one of their own. */}
       <FormSection icon={Shirt} tone="green" title="About this design"
         subtitle="Which garment and what to call it.">
-        <div className="at-form-grid at-form-grid--2">
+        {/* Garment, name and the part the photographs below are filed under,
+            side by side in one row. */}
+        <div className="at-form-grid at-form-grid--3">
           <Field label="Garment" icon={Shirt}>
             <select className="form-control" value={form.template_key} onChange={changeGarment}>
               <option value="">Uncategorised</option>
@@ -238,6 +240,11 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
             <input className="form-control" value={form.title} maxLength={200}
               onChange={(e) => { setTitleTouched(true); set('title')(e); }}
               placeholder="e.g. Hand-embroidered bridal lehenga" />
+          </Field>
+          <Field label="Selected Part" icon={ImageIcon}>
+            <select className="form-control" value={activePart} onChange={(e) => setSelectedPart(e.target.value)}>
+              {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </select>
           </Field>
         </div>
       </FormSection>
@@ -250,13 +257,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
         subtitle={template
           ? `${totalFiles} across ${designParts.length} part${designParts.length === 1 ? '' : 's'} of the ${template.name.toLowerCase()}.`
           : 'Pick a garment above to file photographs by part.'}
-        aside={(
-          <Field label="Selected Part" icon={ImageIcon} style={{ width: 'min(240px, calc(100vw - 100px))' }}>
-            <select className="form-control" value={activePart} onChange={(e) => setSelectedPart(e.target.value)}>
-              {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-            </select>
-          </Field>
-        )}
       >
         <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'stretch' }}>
           <div style={{ flex: '1 1 260px', maxWidth: '360px', display: 'flex' }}>
