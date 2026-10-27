@@ -5979,23 +5979,31 @@ function App() {
                         <React.Fragment key={job ? `${order.id}-${job.id}` : order.id}>
                         <tr className={rowClass}
                             style={isCancelled ? { opacity: 0.55 } : undefined}>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}{job ? `-${n}` : ''}
-                            {job && (
-                              <span style={{ display: 'block', fontWeight: 'var(--weight-regular)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                                {job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}
+                          <td className="order-id-cell">
+                            <div className="order-id-content">
+                              <div className="order-id-header">
+                                <span className="order-id-ref">{orderRef(order)}{job ? `-${n}` : ''}</span>
+                                {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
+                                  <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
+                                )}
+                              </div>
+                              {job && (
+                                <span className="order-id-garment">
+                                  {job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}
+                                </span>
+                              )}
+                              {stepDays !== null && (
+                                <span className={`at-step-days${stuck ? ' at-step-days--stuck' : ''}`}
+                                      title={`${stage.current.stage_name} · ${sinceLabel(stage.current.started_at)} (${t('ordersPage.since', 'since')} ${fmtDate(stage.current.started_at)})`}>
+                                  <Clock size={12} aria-hidden="true" />
+                                  {stepDays === 0 ? t('ordersPage.today', 'Today') : `${stepDays} ${stepDays === 1 ? t('ordersPage.day', 'day') : t('ordersPage.days', 'days')}`}
+                                </span>
+                              )}
+                              <span className="at-phone-only at-phone-line" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>
+                                <User size={12} aria-hidden="true" /> {order.customer_name}
                               </span>
-                            )}
-                            {stepDays !== null && (
-                              <span className={`at-step-days${stuck ? ' at-step-days--stuck' : ''}`}
-                                    title={`${stage.current.stage_name} · ${sinceLabel(stage.current.started_at)} (${t('ordersPage.since', 'since')} ${fmtDate(stage.current.started_at)})`}>
-                                <Clock size={12} aria-hidden="true" />
-                                {stepDays === 0 ? t('ordersPage.today', 'Today') : `${stepDays} ${stepDays === 1 ? t('ordersPage.day', 'day') : t('ordersPage.days', 'days')}`}
-                              </span>
-                            )}
-                            {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
-                              <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
-                            )}
-                            <span className="at-phone-only at-phone-line" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}><User size={12} aria-hidden="true" /> {order.customer_name}</span></td>
+                            </div>
+                          </td>
                           <td className="at-desk-only">{job ? (jobMaggam ? 'Maggam' : 'Stitching') : order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td className="at-desk-only">
                             {order.customer_name}
