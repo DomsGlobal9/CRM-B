@@ -1654,6 +1654,8 @@ function App() {
     return !portalSlugFromPath() && params.has('register') ? 'signup' : 'login';
   });
   const [requestedTab, setDashboardTab] = useState('overview'); 
+  const [previousDashboardTab, setPreviousDashboardTab] = useState('overview');
+  const lastTabRef = useRef('overview');
   const [navCollapsed, setNavCollapsed] = useState(() => {
     try { return localStorage.getItem('nav_collapsed') === '1'; } catch { return false; }
   });
@@ -1756,6 +1758,35 @@ function App() {
   );
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
+
+  useEffect(() => {
+    if (dashboardTab && dashboardTab !== lastTabRef.current) {
+      setPreviousDashboardTab(lastTabRef.current);
+      lastTabRef.current = dashboardTab;
+    }
+  }, [dashboardTab]);
+
+  const getTabLabel = (tabKey) => {
+    for (const section of navSections) {
+      const found = section.items?.find((item) => item.tab === tabKey);
+      if (found) return found.label;
+    }
+    if (tabKey === 'overview') return t('nav.overview', 'Overview');
+    if (tabKey === 'workshop') return t('nav.workshop', 'Workshop');
+    if (tabKey === 'orders') return t('nav.orders', 'Orders');
+    return tabKey;
+  };
+
+  const handleBackFromWorkshop = () => {
+    setOrdersStageFilter('All');
+    if (previousDashboardTab && previousDashboardTab !== 'workshop') {
+      setDashboardTab(previousDashboardTab);
+    } else if (window.history.state?.tab && window.history.state.tab !== 'workshop') {
+      window.history.back();
+    } else {
+      setDashboardTab('overview');
+    }
+  };
 
   // Reports: Profit & Costs and Insights under one sidebar item. Each is still
   // its own tab and page; the switch at the top of both moves between them,
@@ -5774,6 +5805,18 @@ function App() {
                           <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Closed')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
                                     onClick={() => setOrdersFilterTab('done')} active={ordersFilterTab === 'done'} />
                         </section>
+                      )}
+                      {dashboardTab === 'workshop' && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={handleBackFromWorkshop}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '13px', fontWeight: 600, borderRadius: 'var(--radius-md)' }}
+                          >
+                            <ArrowLeft size={15} /> {previousDashboardTab ? t('common.backTo', `Back to ${getTabLabel(previousDashboardTab)}`, { name: getTabLabel(previousDashboardTab) }) : t('common.back', 'Back')}
+                          </button>
+                        </div>
                       )}
                       <div className="at-toolbar">
                         {/* Narrow by who it is for, what it is, and where it stands;
