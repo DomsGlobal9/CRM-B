@@ -1726,6 +1726,29 @@ function App() {
   // phone has MobileHeader's avatar menu instead, so the bar is hidden there.
   const accountBar = (go) => (
     <div className="portal-account-bar">
+      <button
+        type="button"
+        className="portal-account-bell-btn"
+        disabled={markingNotificationsRead}
+        title={t('common.inboxAlerts', 'Inbox Alerts')}
+        aria-label={t('common.inboxAlerts', 'Inbox Alerts')}
+        onClick={() => {
+          setShowNotificationsDrawer(true);
+          if (markingNotificationsRead) return;
+          setMarkingNotificationsRead(true);
+          api.markNotificationsAsRead(currentUser?.role || 'Owner', currentUser?.email)
+            .then(() => fetchNotifications())
+            .catch(() => {})
+            .finally(() => setMarkingNotificationsRead(false));
+        }}
+      >
+        <Bell size={18} />
+        {notifications.filter(n => !n.is_read).length > 0 && (
+          <span className="portal-account-bell-badge">
+            {notifications.filter(n => !n.is_read).length}
+          </span>
+        )}
+      </button>
       <AccountMenu avatar={<UserAvatar user={currentUser} />}
                    label={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
                    currentUser={currentUser} items={headerAccountItems(go)} />
@@ -4858,35 +4881,6 @@ function App() {
                     : t('dashboard.welcomeBackUser', `Welcome back, ${currentUserName}! 👋`, { name: currentUserName })}
                   subtitle={t('dashboard.subtitle')}
                   meta={<HeaderClock />}
-                  aside={(
-                    <>
-                      <button
-                        type="button"
-                        className="btn-secondary at-btn-sm"
-                        disabled={markingNotificationsRead}
-                        title={t('common.inboxAlerts', 'Inbox Alerts')}
-                        aria-label={t('common.inboxAlerts', 'Inbox Alerts')}
-                        onClick={() => {
-                          setShowNotificationsDrawer(true);
-                          if (markingNotificationsRead) return;
-                          setMarkingNotificationsRead(true);
-                          api.markNotificationsAsRead(currentUser.role || 'Owner', currentUser.email)
-                            .then(() => fetchNotifications())
-                            .catch(() => {})
-                            .finally(() => setMarkingNotificationsRead(false));
-                        }}
-                        style={{ position: 'relative', borderRadius: '999px' }}
-                      >
-                        <Bell size={16} />
-                        {notifications.filter(n => !n.is_read).length > 0 && (
-                          <span style={{ backgroundColor: 'var(--danger-color)', color: '#fff', borderRadius: '10px',
-                                         padding: '1px 7px', fontSize: '10px', fontWeight: 700 }}>
-                            {notifications.filter(n => !n.is_read).length}
-                          </span>
-                        )}
-                      </button>
-                    </>
-                  )}
                   actions={(
                     <>
                       <button
