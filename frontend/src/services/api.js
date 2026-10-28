@@ -773,6 +773,15 @@ export const api = {
     return res.json();
   },
 
+  // The boutique's own names for the customer tiers (owner only).
+  async saveTierNames(tierNames) {
+    const res = await guardedFetch(`${BASE_URL}/boutique-settings/tier-names/`, {
+      method: 'PUT', headers: getHeaders(), body: JSON.stringify({ tier_names: tierNames }),
+    });
+    if (!res.ok) await failWith(res, 'Could not save the tier names');
+    return res.json();
+  },
+
   // The one staff member made Admin and the work handed to them (owner only).
   async getAdminAccess() {
     const res = await guardedFetch(`${BASE_URL}/boutique-settings/admin-access/`, { headers: getHeaders() });

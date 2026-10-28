@@ -8,6 +8,7 @@ import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
 import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../services/phone';
 import { CameraButton, FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
 import { useCustomerLookup } from './useCustomerLookup';
+import { tierName } from '../../services/tierNames';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same
    card design as the order chooser (.wz-services), rendered inside the
@@ -778,9 +779,9 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
           <div className="form-group">
             <label className="form-label" htmlFor="cf-tier">Customer tier</label>
             <select id="cf-tier" className="form-control" value={form.customer_type} onChange={(e) => set('customer_type', e.target.value)}>
-              <option value="Silver">Silver</option>
-              <option value="Gold">Gold</option>
-              <option value="Platinum">Platinum</option>
+              <option value="Silver">{tierName('Silver')}</option>
+              <option value="Gold">{tierName('Gold')}</option>
+              <option value="Platinum">{tierName('Platinum')}</option>
             </select>
           </div>
           <div className="form-group">

@@ -707,6 +707,12 @@ class BoutiqueSettings(models.Model):
    
     shop_radius_m = models.PositiveIntegerField(default=150)
 
+    # The boutique's own names for the customer tiers, as {"Silver": "Regular",
+    # ...}. Display only: customers keep Silver / Gold / Platinum in
+    # customer_type, so filters, counts and reports are untouched by a rename.
+    # A tier not listed shows its own name.
+    tier_names = models.JSONField(default=dict, blank=True)
+
     def __str__(self):
         return self.name
 

@@ -77,6 +77,7 @@ import GarmentPairingModal, { getGarmentPairConfig, findMatchingTemplate } from 
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
 import { voiceNoteList } from './components/ui/voiceNotes';
 import Loader, { LoaderRows } from './components/ui/Loader';
+import { hasTierNames, setTierNames, tierName } from './services/tierNames';
 function getCustomerMeasurement(m, key) {
   if (!m) return undefined;
   const flat = { ...m, ...(m.additional_measurements || {}) };
@@ -274,8 +275,8 @@ const TierBadge = ({ tier }) => {
   return (
     <span
       role="status"
-      aria-label={`${t} tier`}
-      title={`${t} tier`}
+      aria-label={`${tierName(t)} tier`}
+      title={`${tierName(t)} tier`}
       style={{
         display: 'inline-block',
         width: '9px',
@@ -2679,6 +2680,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false, status: 'disconnected', qrCode: null });
   const [boutiqueSettings, setBoutiqueSettings] = useState(null);
+  // The boutique's own tier names, for every screen that shows a tier.
+  setTierNames(boutiqueSettings?.tier_names);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
   
@@ -5134,7 +5137,7 @@ function App() {
                                 sub={`${t('dashboard.dueThisWeek', '{n} due this week', { n: s.due_soon ?? 0 })}${overdue ? ` · ${t('dashboard.overdueCount', '{n} overdue', { n: overdue })}` : ''}`}
                                 onClick={() => setDashboardTab('workshop')} />
                       <StatCard icon={Users} tone="blue" label={t('dashboard.totalCustomers', 'Customers')} value={s.total_customers ?? 0}
-                                sub={(() => { const c = bookTiers; return t('dashboard.tierSummary', '{platinum} Platinum · {gold} Gold · {silver} Silver', { platinum: c.Platinum, gold: c.Gold, silver: c.Silver }); })()}
+                                sub={(() => { const c = bookTiers; return hasTierNames() ? TIERS.map((tier) => `${c[tier]} ${tierName(tier)}`).join(' · ') : t('dashboard.tierSummary', '{platinum} Platinum · {gold} Gold · {silver} Silver', { platinum: c.Platinum, gold: c.Gold, silver: c.Silver }); })()}
                                 onClick={() => setDashboardTab('customers')} />
                     </section>
                   );
@@ -5977,7 +5980,7 @@ function App() {
                           <select className="form-control at-filter" value={ordersTierFilter} aria-label="Customer type"
                                   onChange={(e) => setOrdersTierFilter(e.target.value)}>
                             <option value="All">{t('ordersPage.allCustomerTypes', 'All customer types')}</option>
-                            {TIERS.map(tier => <option key={tier} value={tier}>{t(`wizard.${tier.toLowerCase()}`, tier)}</option>)}
+                            {TIERS.map(tier => <option key={tier} value={tier}>{tierName(tier, t(`wizard.${tier.toLowerCase()}`, tier))}</option>)}
                           </select>
                           <select className="form-control at-filter" value={ordersGarmentFilter} aria-label="Garment"
                                   onChange={(e) => setOrdersGarmentFilter(e.target.value)}>
@@ -6372,8 +6375,8 @@ function App() {
                       <section className="at-stat-grid">
                         <StatCard icon={Users} tone="green" label={customerView === 'leads' ? 'Total Leads' : 'Total Customers'} value={bookSummary.total}
                                   sub={t('customersPage.withOrdersCount', '{n} with orders', { n: withOrders })} />
-                        <StatCard icon={Crown} tone="amber" label="Platinum customers" value={tiers.Platinum}
-                                  sub={`${tiers.Gold} Gold · ${tiers.Silver} Silver`} />
+                        <StatCard icon={Crown} tone="amber" label={`${tierName('Platinum')} customers`} value={tiers.Platinum}
+                                  sub={`${tiers.Gold} ${tierName('Gold')} · ${tiers.Silver} ${tierName('Silver')}`} />
                         <StatCard icon={CalendarDays} tone="violet" label="New This Month" value={thisMonth} sub="registered" />
                         <StatCard icon={ShoppingBag} tone="blue" label="With Orders" value={withOrders} sub="at least one order" />
                       </section>
@@ -7292,7 +7295,7 @@ function App() {
                 const counts = bookTiers;
                 const colors = { Platinum: 'var(--primary-color)', Gold: 'var(--warning-color)', Silver: 'var(--border-strong)' };
                 const rows = TIERS.map(tier => ({
-                  name: t(`wizard.${tier.toLowerCase()}`, tier), count: counts[tier], color: colors[tier],
+                  name: tierName(tier, t(`wizard.${tier.toLowerCase()}`, tier)), count: counts[tier], color: colors[tier],
                 })).map(r => ({ ...r, pct: Math.round((r.count / total) * 100) }));
                 let acc = 0;
                 const stops = rows.map(r => { const from = acc; acc += (r.count / total) * 100; return `${r.color} ${from}% ${acc}%`; });
@@ -7644,6 +7647,7 @@ function App() {
               <SettingsPage
                 currentUser={currentUser}
                 boutiqueSettings={boutiqueSettings}
+                onTierNamesSaved={(names) => setBoutiqueSettings((prev) => ({ ...(prev || {}), tier_names: names }))}
                 whatsappStatus={whatsappStatus}
                 fetchWhatsAppStatus={fetchWhatsAppStatus}
               />
@@ -8433,9 +8437,9 @@ function App() {
                           <label className="form-label">{t('wizard.customerType', 'Customer tier')}</label>
                           <select className="form-control" value={customerForm.customer_type}
                                   onChange={(e) => setCustomerForm({ ...customerForm, customer_type: e.target.value })}>
-                            <option value="Silver">{t('wizard.silver', 'Silver')}</option>
-                            <option value="Gold">{t('wizard.gold', 'Gold')}</option>
-                            <option value="Platinum">{t('wizard.platinum', 'Platinum')}</option>
+                            <option value="Silver">{tierName('Silver', t('wizard.silver', 'Silver'))}</option>
+                            <option value="Gold">{tierName('Gold', t('wizard.gold', 'Gold'))}</option>
+                            <option value="Platinum">{tierName('Platinum', t('wizard.platinum', 'Platinum'))}</option>
                           </select>
                         </div>
                         <div className="form-group">

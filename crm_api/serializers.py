@@ -633,6 +633,40 @@ def build_style_dna(obj, revenue=None, last_order_date=None):
 GENDERS = ('Female', 'Male', 'Other')
 TIERS = ('Silver', 'Gold', 'Platinum')
 SOURCES = ('Walk In', 'Instagram', 'Referral', 'Website')
+TIER_NAME_MAX = 30
+
+
+def clean_tier_names(payload):
+    """Validate an owner's {tier: display name} map, or raise.
+
+    Keys are the stored tiers only. A blank name drops the entry, so the tier
+    shows its own name again. Two tiers may not end up with the same name --
+    a filter offering "VIP" twice cannot be told apart.
+    """
+    if not isinstance(payload, dict):
+        raise serializers.ValidationError(
+            {'tier_names': 'Expected {"Silver": "<name>", "Gold": "<name>", "Platinum": "<name>"}.'})
+    unknown = sorted(str(k) for k in payload if k not in TIERS)
+    if unknown:
+        raise serializers.ValidationError(
+            {'tier_names': f"Unknown tier(s): {', '.join(unknown)}."})
+    cleaned = {}
+    for tier in TIERS:
+        value = payload.get(tier)
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise serializers.ValidationError({'tier_names': f'The {tier} name must be text.'})
+        name = ' '.join(value.split())
+        if len(name) > TIER_NAME_MAX:
+            raise serializers.ValidationError(
+                {'tier_names': f'The {tier} name can be at most {TIER_NAME_MAX} characters.'})
+        if name and name != tier:
+            cleaned[tier] = name
+    shown = [cleaned.get(tier, tier).casefold() for tier in TIERS]
+    if len(set(shown)) != len(shown):
+        raise serializers.ValidationError({'tier_names': 'Each tier needs a different name.'})
+    return cleaned
 
 
 class CustomerSerializer(serializers.ModelSerializer):

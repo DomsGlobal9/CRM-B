@@ -2152,6 +2152,21 @@ class BoutiqueSettingsViewSet(viewsets.ViewSet):
             'catalogue': {section: list(tasks) for section, tasks in ADMIN_TASKS.items()},
         })
 
+    # The boutique's own names for the customer tiers. Read by everyone with
+    # the settings body above (every screen that shows a tier needs them);
+    # written here by the owner alone. PUT replaces the whole map: the screen
+    # always sends all three names.
+    @action(detail=False, methods=['put'], url_path='tier-names',
+            permission_classes=[OwnerOnly])
+    def tier_names(self, request):
+        from .serializers import clean_tier_names
+
+        names = clean_tier_names(request.data.get('tier_names'))
+        config, _ = BoutiqueSettings.objects.get_or_create(id=1)
+        config.tier_names = names
+        config.save(update_fields=['tier_names'])
+        return Response({'tier_names': names})
+
     @action(detail=False, methods=['get', 'patch'], url_path='role-modules',
             permission_classes=[OwnerOnly])
     def role_modules(self, request):

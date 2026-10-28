@@ -7984,3 +7984,33 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .app-container .insights-stats .at-stat-value { margin-top: 4px; line-height: 1.15; white-space: nowrap; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis; }
   .app-container .insights-stats .at-stat-sub { margin-top: 4px; line-height: 1.35; }
 }
+
+/* Settings > Customer tiers: the default tier name beside the box for the
+   boutique's own name; stacks on a phone. */
+.tier-names-form { display: flex; flex-direction: column; gap: 12px; }
+.tier-names-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 12px; margin: 0; }
+.tier-names-default { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.tier-names-msg { font-size: var(--text-sm); color: var(--success-color); }
+.tier-names-msg--error { color: var(--danger-color); }
+.tier-names-foot { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.tier-names-foot button { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 480px) {
+  .tier-names-row { grid-template-columns: 1fr; gap: 6px; }
+  .tier-names-foot button { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Customer tiers card, beside Invoice style: fills its grid row -- boxes on
+   top, preview under them, buttons at the foot. */
+.tier-names-card { display: flex; flex-direction: column; min-width: 0; }
+.tier-names-card .tier-names-form { flex: 1; }
+.tier-names-default { display: inline-flex; align-items: center; gap: 8px; }
+.tier-names-default i, .tier-names-chip i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.tier-names-preview { margin-top: 4px; padding: 14px 16px; border-radius: var(--radius-md); background: var(--surface-inset); border: 1px solid var(--border-color); }
+.tier-names-preview-label { display: block; margin-bottom: 10px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
+.tier-names-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.tier-names-chip { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 5px 12px; border-radius: 999px; background: var(--surface-color); border: 1px solid var(--border-color); font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+.tier-names-card .tier-names-foot { margin-top: auto; padding-top: 8px; }
+.tier-names-card .tier-names-row .form-control { min-width: 0; width: 100%; }
+@media (max-width: 480px) {
+  .tier-names-preview { padding: 12px; }
+}

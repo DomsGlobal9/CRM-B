@@ -8,6 +8,7 @@ import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import {
   EMPTY_CUSTOMER_FILTERS, ORDER_OPTIONS, SORT_OPTIONS, activeFilterCount,
 } from './filterRules';
+import { tierName } from '../../services/tierNames';
 
 function Select({ label, value, onChange, options, allLabel }) {
   const on = value !== '';
@@ -35,14 +36,16 @@ export default function CustomerFilters({ facets, filters, onChange, leading = n
     cities: facets?.cities || [],
   }), [facets]);
 
-  const tierOptions = useMemo(() => {
+  const tierCountsShown = useMemo(() => {
     const t = facets?.tiers || tierCounts || {};
     return [
-      { key: 'Platinum', label: 'Platinum', count: t.Platinum ?? 0 },
-      { key: 'Gold', label: 'Gold', count: t.Gold ?? 0 },
-      { key: 'Silver', label: 'Silver', count: t.Silver ?? 0 },
+      { key: 'Platinum', count: t.Platinum ?? 0 },
+      { key: 'Gold', count: t.Gold ?? 0 },
+      { key: 'Silver', count: t.Silver ?? 0 },
     ];
   }, [facets, tierCounts]);
+  // Named at render, not in the memo: a rename in Settings shows at once.
+  const tierOptions = tierCountsShown.map((o) => ({ ...o, label: tierName(o.key) }));
 
   const active = activeFilterCount(filters);
   const hiddenActive = ['tier', 'orders', 'source', 'gender', 'city'].filter((k) => filters[k] !== '' && filters[k] !== undefined).length;
