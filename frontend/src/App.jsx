@@ -10000,8 +10000,10 @@ function App() {
                   body * {
                     visibility: hidden;
                   }
+                  #invoice-printable, #invoice-printable * {
                     visibility: visible;
                   }
+                  #invoice-printable {
                     position: absolute;
                     left: 0;
                     top: 0;
@@ -10010,6 +10012,20 @@ function App() {
                   }
                   .no-print {
                     display: none !important;
+                  }
+                  /* Only the invoice and the boxes holding it are laid out:
+                     the page behind would otherwise print as blank pages,
+                     and the dialog's 90vh scroll box would cut the bill. */
+                  body *:not(:has(#invoice-printable)):not(#invoice-printable):not(#invoice-printable *) {
+                    display: none !important;
+                  }
+                  div:has(> .invoice-modal-content), .invoice-modal-content {
+                    position: static !important;
+                    max-height: none !important;
+                    overflow: visible !important;
+                    padding: 0 !important;
+                    background: none !important;
+                    box-shadow: none !important;
                   }
                 }
               `}</style>
