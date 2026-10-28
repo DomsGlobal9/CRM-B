@@ -76,12 +76,13 @@ const MEASUREMENT_ZONES = [
     label: 'Lehenga, Skirt & Gown',
     garments: 'Lehenga, Petticoat, Skirt, Anarkali, Gown',
     other: true,
-    // Waist, then the lengths down the leg, then the flare. Floor length,
+    // The lengths down the leg, then the waist (with the hip round -- the
+    // same box the Pants section reads), then the flare. Floor length,
     // height, waist to hip / floor, heel height and bottom full length left
     // this section; a customer's saved values for them are kept (and searchable).
     steps: [
-      ['Waist', ['lehenga_waist', 'high_waist', 'high_round']],
       ['Lengths', ['waist_to_knee', 'waist_to_ankle', 'lehenga_length']],
+      ['Waist', ['lehenga_waist', 'high_waist', 'high_round', 'hip_round']],
       ['Flare & hem', ['total_ghera', 'hem_circumference']],
     ],
   },
