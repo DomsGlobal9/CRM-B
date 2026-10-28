@@ -913,11 +913,14 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
             </>
           ) : (
             <>
+              {/* Sent back for rework: the work and the master's notes on it
+                  come first, then the rest as usual. */}
+              {mode === 'work' && stage.verification_note && stage.status === 'IN_PROGRESS' && workSoFar}
               {/* The photos the earlier steps uploaded come first, so the
                   next step sees what was done before it. */}
               {earlierPhotos}
               {whatToMake}
-              {workSoFar}
+              {!(mode === 'work' && stage.verification_note && stage.status === 'IN_PROGRESS') && workSoFar}
             </>
           )}
           {actions}
