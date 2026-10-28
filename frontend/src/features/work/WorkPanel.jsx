@@ -865,6 +865,24 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
   }
 
   const title = jobTitle(order, stage, t);
+  // Where this job came from and where it goes. From: who handed this step
+  // to its worker -- the latest Assign on it in the order's log (the server
+  // records who pressed it); a step given out with the order or by Send to
+  // workshop has no such entry, and the order's Master gave it out. Send
+  // to: a worker's finished work goes to the order's Master to check first
+  // (a Master or Designer marks it done themselves), then the next step.
+  const route = (order.stages || [])
+    .filter((o) => o.id !== stage.id && !(o.garment_job && stage.garment_job && o.garment_job !== stage.garment_job))
+    .sort((a, b) => a.sequence - b.sequence);
+  const nextStep = route.find((o) => o.sequence > stage.sequence && o.status !== 'SKIPPED');
+  const stepName = (o) => o.stage_name || humanise(o.stage_key);
+  const handedBy = (order.activities || [])
+    .filter((a) => a.event_type === 'ASSIGNMENT' && a.metadata?.stage_key === stage.stage_key
+      && String(a.metadata?.garment_job || '') === String(stage.garment_job || '')
+      && (!stage.assigned_to || String(a.metadata?.assigned_to_id) === String(stage.assigned_to)))
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))[0];
+  const fromName = handedBy?.user_name || order.master_name || '';
+  const fromRole = !handedBy || fromName === order.master_name ? t('workPage.master', 'Master') : '';
   return (
     <>
       <div className="wk-backdrop" onClick={onClose} />
@@ -879,6 +897,22 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
                 ? `${stage.assigned_to_name}${stage.assigned_to_role ? ` · ${stage.assigned_to_role}` : ''}`
                 : t('workPage.notAssigned', 'Not assigned yet')}</b>
             </small>
+            {/* From: who handed it over. Send to: who checks it, then the next step. */}
+            <small className="wk-sheet-assignee wk-sheet-route">
+              {t('workPage.from', 'From')}:{' '}
+              <b>{fromName ? `${fromName}${fromRole ? ` · ${fromRole}` : ''}` : t('workPage.theMaster', 'the Master')}</b>
+            </small>
+            {mode === 'work' && (
+              <small className="wk-sheet-assignee wk-sheet-route">
+                {t('workPage.sendTo', 'Send to')}:{' '}
+                {!isSupervisor && (
+                  <><b>{order.master_name || t('workPage.theMaster', 'the Master')} · {t('workPage.master', 'Master')}</b> {t('workPage.toCheck', 'to check')}{nextStep ? ' · ' : ''}</>
+                )}
+                {nextStep
+                  ? <>{t('workPage.next', 'next')}: <b>{stepName(nextStep)}</b>{' '}({nextStep.assigned_to_name || t('workPage.notAssigned', 'Not assigned yet')})</>
+                  : isSupervisor && <b>{t('workPage.lastStep', 'Last step')}</b>}
+              </small>
+            )}
           </div>
         </div>
         <div className="wk-sheet-body">

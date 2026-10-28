@@ -220,3 +220,8 @@
   .wk-sheet-title { font-size: 15px; }
   .wk-sheet-title small { font-size: 13px; }
 }
+
+/* Job screen header: From (who handed the job over) and Send to (who
+   checks it, then the next step) wrap onto a second line on a phone
+   rather than ending in "...". */
+.wk-sheet-title small.wk-sheet-route { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
