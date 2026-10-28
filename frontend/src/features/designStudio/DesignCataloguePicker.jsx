@@ -2,6 +2,7 @@ import { Layers, Sparkles } from 'lucide-react';
 
 import { Field, InfoNote } from '../../components/ui/Atelier';
 import { cataloguePayload, describePath, useDesignCatalogue } from './designCatalogue';
+import { visibleCategories } from './catalogueVisibility';
 
 /**
  * The three selects that file a design in its garment's catalogue:
@@ -17,7 +18,9 @@ import { cataloguePayload, describePath, useDesignCatalogue } from './designCata
  */
 export default function DesignCataloguePicker({ garmentKey, value = {}, onChange }) {
   const tree = useDesignCatalogue(garmentKey);
-  const categories = tree?.categories || [];
+  // The categories the library's browser offers (catalogueVisibility.js),
+  // plus the one this design is already filed under, if that is hidden.
+  const categories = visibleCategories(garmentKey, tree?.categories, value.category);
   if (categories.length === 0) return null;
 
   const cat = categories.find((c) => c.key === value.category) || null;

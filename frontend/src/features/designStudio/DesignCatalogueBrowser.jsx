@@ -1,12 +1,7 @@
 import { ChevronRight } from 'lucide-react';
 
 import { describePath, useDesignCatalogue } from './designCatalogue';
-
-// Blouse > Traditional Blouse Construction Cuts.
-const HIDDEN_CATEGORIES = ['traditional_blouse_construction_cuts'];
-// Left out of one garment's browser only, by garment key: the saree's
-// Blouse and Petticoat (each has a library of its own).
-const HIDDEN_BY_GARMENT = { saree: ['blouse', 'petticoat'] };
+import { visibleCategories } from './catalogueVisibility';
 
 /**
  * Walking a garment's design catalogue: category, then sub-category where the
@@ -63,8 +58,8 @@ export default function DesignCatalogueBrowser({ garmentKey, value = {}, onChang
   const tree = useDesignCatalogue(garmentKey);
   // Catalogue categories not offered in the library's browser (still on the
   // catalogue itself, so a design already filed under one keeps its place).
-  const hiddenHere = HIDDEN_BY_GARMENT[garmentKey] || [];
-  const categories = (tree?.categories || []).filter((c) => !HIDDEN_CATEGORIES.includes(c.key) && !hiddenHere.includes(c.key));
+  // (which ones: catalogueVisibility.js, shared with the upload forms).
+  const categories = visibleCategories(garmentKey, tree?.categories);
   if (categories.length === 0) return null;
 
   const category = categories.find((c) => c.key === value.category) || null;

@@ -1269,6 +1269,13 @@ export const api = {
 
   // Garments the boutique makes for its own stock: the same workroom as a
   // customer's order, with no customer, no price and no payment on it.
+  // Every in-house run (garments made for the boutique's own stock).
+  async getInternalProduction() {
+    const res = await guardedFetch(`${BASE_URL}/orders/?kind=internal`, { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Could not load the in-house garments');
+    return res.json();
+  },
+
   async createInternalProduction(payload) {
     const res = await guardedFetch(`${BASE_URL}/orders/internal-production/`, {
       method: 'POST', headers: getHeaders(), body: JSON.stringify(payload),
