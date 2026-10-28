@@ -382,7 +382,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
         {newOnTop.map((it) => card(it, {
           chip: it.group === 'now'
             ? <span className="ui-badge ui-badge--warning">{t('workPage.inProgress', 'In progress')}</span>
-            : <span className="ui-badge ui-badge--neutral">{t('workPage.ready', 'Ready')}</span>,
+            : null, // no "Ready" badge on a job not started yet
           meta: it.order.estimated_delivery && <span>{t('workPage.due', 'Due')} {formatDate(it.order.estimated_delivery)}</span>,
           body: (
             <div className="wk-assigned-for">
@@ -405,7 +405,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       const chip = key === 'now'
         ? <span className={`ui-badge ui-badge--${sentBack ? 'danger' : 'warning'}`}>{sentBack ? t('workPage.sentBack', 'Sent back') : t('workPage.inProgress', 'In progress')}</span>
         : key === 'next'
-          ? <span className="ui-badge ui-badge--neutral">{t('workPage.ready', 'Ready')}</span>
+          ? null // no "Ready" badge on a job not started yet
           : <span className="ui-badge ui-badge--info">{t('workPage.waiting', 'Waiting')}</span>;
       const due = it.order.estimated_delivery && <span>{t('workPage.due', 'Due')} {formatDate(it.order.estimated_delivery)}</span>;
       const sent = key === 'waiting' && <span>· {t('workPage.sentAgo', 'sent {n} ago', { n: ago(submittedAt(it.order, it.stage), t) })}</span>;

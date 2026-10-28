@@ -64,19 +64,13 @@ function DesignGrid({ rows, onView }) {
               <Eye size={12} /> View
             </button>
           </div>
-          <div style={{ padding: '6px 8px' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase',
-                          letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>
+          {/* One line under the photo -- what part it is. The design's name
+              and where it came from show on View, under the full-size photo. */}
+          <div style={{ padding: '7px 9px' }}>
+            <div title={[r.label, r.value, r.sub].filter(Boolean).join(' · ')}
+                 style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {r.label}
-            </div>
-            <div title={r.value}
-                 style={{ fontSize: '12.5px', fontWeight: 600, overflow: 'hidden',
-                          textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {r.value}
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden',
-                          textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {r.sub}
             </div>
           </div>
         </div>
@@ -345,7 +339,7 @@ export default function GarmentSelectionsReview({
         );
       })}
       {viewing && (
-        <Lightbox items={viewing.rows} index={viewing.index}
+        <Lightbox items={viewing.rows} index={viewing.index} details closeAtTop
                   onIndexChange={(index) => setViewing({ ...viewing, index })}
                   onClose={() => setViewing(null)} />
       )}
