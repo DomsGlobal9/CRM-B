@@ -286,8 +286,10 @@ class Tailor(models.Model):
         ('Maggam Master', 'Maggam Master'),
         ('Karigar', 'Karigar'),
         ('Maggam Karigar', 'Maggam Karigar'),
+        ('Hemming & Pressing Staff', 'Hemming & Pressing Staff'),
         ('Packaging Staff', 'Packaging Staff'),
         ('QC Staff', 'QC Staff'),
+        ('Logistics Staff', 'Logistics Staff'),
     ]
 
     name = models.CharField(max_length=100)
@@ -675,8 +677,8 @@ def get_default_workflow():
         {"key": "alteration_work", "name": "Alteration work", "sla_hours": 48, "roles": ["Owner", "Master", "Tailor"], "flows": ["alteration"]},
         {"key": "stitching_in_progress", "name": "Stitching", "sla_hours": 72, "roles": ["Owner", "Master", "Tailor"], "scope": "garment"},
         
-        {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master", "Tailor"], "scope": "garment"},
-        {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Packaging Staff"], "scope": "garment"},
+        {"key": "finishing", "name": "Hemming & finishing", "sla_hours": 24, "roles": ["Owner", "Master", "Tailor", "Hemming & Pressing Staff"], "scope": "garment"},
+        {"key": "pressing", "name": "Pressing & packaging", "sla_hours": 12, "roles": ["Owner", "Master", "Hemming & Pressing Staff", "Packaging Staff"], "scope": "garment"},
         {"key": "master_quality_check", "name": "Master quality check", "sla_hours": 12, "roles": ["Owner", "Master", "QC Staff"], "scope": "garment"},
         {"key": "trial_scheduled", "name": "Trial booking", "sla_hours": 48, "roles": ["Owner", "Master"], "scope": "garment"},
         {"key": "trial_completed", "name": "Trial", "sla_hours": 24, "roles": ["Owner", "Master"], "scope": "garment"},

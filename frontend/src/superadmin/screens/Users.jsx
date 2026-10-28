@@ -46,7 +46,8 @@ const PAGE_SIZE = 50;
  */
 const ROLES = [
   'Owner', 'Designer', 'Master', 'Tailor', 'Maggam Master', 'Karigar',
-  'Maggam Karigar', 'Packaging Staff', 'QC Staff',
+  'Maggam Karigar', 'Hemming & Pressing Staff', 'Packaging Staff', 'QC Staff',
+  'Logistics Staff',
 ];
 
 /**

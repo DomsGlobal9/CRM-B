@@ -16,8 +16,10 @@ export const STAFF_ROLES = [
   { value: 'Maggam Master', label: 'Maggam Master', hint: 'Runs embroidery before stitching.' },
   { value: 'Karigar', label: 'Karigar', hint: 'Handwork on the frame, alongside the Maggam Master.' },
   { value: 'Maggam Karigar', label: 'Maggam Karigar', hint: 'Frame work on the finished design, after the Maggam Master.' },
+  { value: 'Hemming & Pressing Staff', label: 'Hemming & Pressing Staff', hint: 'Hems and presses the garment after stitching.' },
   { value: 'Packaging Staff', label: 'Packaging Staff', hint: 'Packs the garment before dispatch.' },
   { value: 'QC Staff', label: 'QC Staff', hint: 'Runs the quality inspection.' },
+  { value: 'Logistics Staff', label: 'Logistics Staff', hint: 'Brings stock and products from the warehouse to the shop.' },
 ];
 
 export const PRODUCTION_ROLES = STAFF_ROLES.map((r) => r.value);

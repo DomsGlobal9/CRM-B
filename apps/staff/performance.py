@@ -566,10 +566,19 @@ ROLE_KPIS = {
     'Maggam Karigar': ('attendance.worked_hours', 'productivity.garments',
                        'productivity.completed', 'productivity.completion_rate',
                        'quality.rework_rate'),
+    # Hemming and pressing: two short stages per garment, so throughput,
+    # turnaround and how much came back are what an owner asks about.
+    'Hemming & Pressing Staff': ('attendance.worked_hours', 'productivity.garments',
+                                 'productivity.completed', 'timeliness.on_time_rate',
+                                 'quality.rework_rate'),
     'Packaging Staff': ('attendance.worked_hours', 'productivity.garments',
                         'productivity.completed', 'timeliness.on_time_rate'),
     'QC Staff': ('attendance.worked_hours', 'productivity.garments',
                  'quality.inspected', 'quality.pass_rate', 'timeliness.on_time_rate'),
+    # Warehouse-to-shop runs hold no workflow stage, so garment counts would
+    # read zero for a full day's work. Presence is what can be measured.
+    'Logistics Staff': ('attendance.worked_hours', 'attendance.days_attended',
+                        'attendance.average_hours_per_day'),
     # Briefs, not stages: see design_metrics.
     'Designer': ('attendance.worked_hours', 'design.assigned', 'design.approval_rate',
                  'design.on_time_rate'),

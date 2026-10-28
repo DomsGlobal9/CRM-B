@@ -62,6 +62,21 @@
         "--strictPort"
       ],
       "port": 5174
+    },
+    {
+      "name": "logistics-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "C:/Project_folder/Scaleezy/Scaleezy-Logistic/frontend",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5175",
+        "--strictPort"
+      ],
+      "port": 5175
     }
   ]
 }

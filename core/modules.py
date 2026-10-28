@@ -429,8 +429,10 @@ PRODUCTION_ROLES = (
     'Maggam Master',
     'Karigar',
     'Maggam Karigar',
+    'Hemming & Pressing Staff',
     'Packaging Staff',
     'QC Staff',
+    'Logistics Staff',
 )
 
 ALL_ROLES = (OWNER, DESIGNER) + PRODUCTION_ROLES
@@ -473,9 +475,14 @@ ALL_ROLES = (OWNER, DESIGNER) + PRODUCTION_ROLES
 #:  * A Designer gets the Design Studio and the garment specs and nothing else.
 #:    RolePermission already returns False for DESIGNER on every business
 #:    endpoint; granting more here would be a second, contradictory answer.
-#:  * The seven specialists are Tailor-shaped. They are the same job with a
+#:  * The bench specialists are Tailor-shaped. They are the same job with a
 #:    stage attached, and every place that has split them out so far
 #:    (App.jsx PRODUCTION_ROLES, get_default_workflow) treats them alike.
+#:  * Logistics Staff carry stock and finished products from the warehouse to
+#:    the shop. They hold no workflow stage, so they have no design brief to
+#:    read and lose `design_studio`; everything else a Tailor keeps they keep,
+#:    `alterations` included, because whoever is at the shop door when a
+#:    customer brings a garment back logs the return.
 #:  * Production staff keep `design_studio`. This looked like a module a
 #:    tailor had no business in, and withholding it 403'd the approved design
 #:    brief -- the picture and the tailor_instructions for the garment they are
@@ -487,6 +494,7 @@ _TAILOR = frozenset({'notifications', 'garment_catalog', 'staff',
                      'order_tracking', 'design_studio', 'alterations', 'todos'})
 _MASTER = _TAILOR | {'tailors', 'scheduling', 'production_api', 'activities'}
 _DESIGNER = _MASTER | {'staff_attendance'}
+_LOGISTICS = _TAILOR - {'design_studio'}
 
 def _with_children(keys):
     # A role that has a feature has its children too, unless told otherwise.
@@ -496,7 +504,9 @@ def _with_children(keys):
 ROLE_DEFAULTS = {
     DESIGNER: _with_children(_DESIGNER),
     'Master': _with_children(_MASTER),
-    **{role: _with_children(_TAILOR) for role in PRODUCTION_ROLES if role != 'Master'},
+    **{role: _with_children(_TAILOR) for role in PRODUCTION_ROLES
+       if role not in ('Master', 'Logistics Staff')},
+    'Logistics Staff': _with_children(_LOGISTICS),
 }
 
 
