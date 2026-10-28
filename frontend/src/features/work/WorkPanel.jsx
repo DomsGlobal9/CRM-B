@@ -313,7 +313,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
             data-kind={workKind(stage.stage_key).key} style={{ '--wk-kind': workKind(stage.stage_key).color }}
             onClick={() => { markOpened(order, stage); setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null }); }}>
       <div className="wk-card-head">
-        <div className="wk-card-title">{jobTitle(order, stage, t)}
+        {/* The garment here; the step itself is the coloured tag below, once. */}
+        <div className="wk-card-title">{stage.garment_name || garmentLabel(order, t)}
           {isNew(order, stage) && (
             <span className="wk-new-tag" title={t('workPage.newHint', 'Assigned to you, not opened yet')}>{t('workPage.new', 'NEW')}</span>
           )}
@@ -324,7 +325,9 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
         {extra.chip}
       </div>
       <div className="wk-card-sub">
-        <span className="wk-kind-tag">{workKind(stage.stage_key).label}</span>
+        {/* The step, by name, in its kind's colour (Pattern cutting, Paper
+            cutting and Fabric cutting share the cutting blue). */}
+        <span className="wk-kind-tag">{stage.stage_name || humanise(stage.stage_key)}</span>
         {stageRef(order, stage)} · {order.customer_name}
       </div>
       {extra.meta && <div className="wk-card-meta">{extra.meta}</div>}

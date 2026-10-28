@@ -663,7 +663,7 @@ def get_default_workflow():
        
         {"key": "created", "name": "Order taken", "sla_hours": 12, "roles": ["Owner", "Master"]},
         
-        {"key": "pattern_cutting", "name": "Cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["stitching"], "scope": "garment"},
+        {"key": "pattern_cutting", "name": "Pattern cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["stitching"], "scope": "garment"},
        
         {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
         {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar", "Maggam Karigar"], "flows": ["maggam"], "scope": "garment"},

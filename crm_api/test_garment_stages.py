@@ -94,7 +94,7 @@ class PerGarmentStageTests(StateMachineTestBase):
         # ...but the blouse cannot: its own cutting is outstanding.
         with self.assertRaises(ValueError) as caught:
             self.go('stitching_in_progress', self.blouse, 'IN_PROGRESS')
-        self.assertIn('Cutting', str(caught.exception))
+        self.assertIn('Pattern cutting', str(caught.exception))
 
     def test_a_finished_garment_goes_to_trial_while_another_is_stitched(self):
         self.finish_garment(self.saree)
