@@ -8014,3 +8014,70 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 @media (max-width: 480px) {
   .tier-names-preview { padding: 12px; }
 }
+
+/* A customer's page: one colour language and even alignment.
+   - The actions read as one set: Go with Existing Design drops its pale
+     olive outline for the plain secondary look of Edit beside it (Delete
+     keeps red, New order keeps the brand fill).
+   - The three facts are equal tiles; values are ink, labels grey.
+   - Measurement history's heading, the order totals and the suggested next
+     step are ink like every other value (Activity keeps its status colour);
+     no italics.
+   - A long value drops under its label rather than squeezing it.
+   Phones keep their own layout (the 640px block above). */
+.customer-detail-view-container > .at-toolbar { align-items: center; }
+.customer-detail-view-container > .at-toolbar .at-toolbar-right > .btn-secondary:not(.at-btn-danger) {
+  color: var(--text-primary) !important; border-color: var(--border-color) !important; background: var(--surface-color) !important;
+}
+.customer-detail-view-container > .at-toolbar .at-toolbar-right > button { min-height: 44px; }
+
+.customer-detail-view-container .at-profile-head { align-items: center; }
+.customer-detail-view-container .at-profile-id { align-items: center; }
+.customer-detail-view-container .at-profile-stat .at-measure-label { color: var(--text-secondary); }
+.customer-detail-view-container .at-profile-stat .at-measure-value { color: var(--text-primary); font-weight: 600; }
+@media (min-width: 641px) {
+  .customer-detail-view-container .at-profile-stats {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3);
+    flex: 1 1 480px; max-width: 680px;
+  }
+  .customer-detail-view-container .at-profile-stat { min-width: 0; }
+  .customer-detail-view-container .at-profile-stat > div { min-width: 0; }
+  .customer-detail-view-container .at-profile-stat .at-measure-value { overflow-wrap: anywhere; }
+}
+/* Head wraps to two rows (identity, then the facts across the full width). */
+@media (min-width: 641px) and (max-width: 1180px) {
+  .customer-detail-view-container .at-profile-stats { flex-basis: 100%; max-width: none; }
+}
+
+.customer-detail-view-container .at-measure-row { align-items: baseline; }
+.customer-detail-view-container .at-measure-row span { color: var(--text-secondary); }
+.customer-detail-view-container .at-measure-row strong { color: var(--text-primary); text-align: right; }
+.customer-detail-view-container .ui-eyebrow { color: var(--text-secondary) !important; }
+
+.customer-detail-view-container .at-dna-row { flex-wrap: wrap; row-gap: 4px; }
+.customer-detail-view-container .at-dna-label { flex: 0 1 auto; }
+.customer-detail-view-container .at-dna-row strong { margin-left: auto; font-style: normal !important; }
+.customer-detail-view-container .at-dna-row:has(.lucide-target) strong { color: var(--text-primary) !important; }
+
+.customer-detail-view-container .at-order-row-head .at-num { color: var(--text-primary) !important; }
+
+/* Tablet: the actions share the row evenly instead of wrapping ragged. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right { flex: 1 1 100%; justify-content: flex-end; }
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right > button { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Order history row: the order's name and garment line keep a readable
+   width; the alteration button, status, date and total wrap under it when
+   the card is narrow instead of squeezing it into a column of single words. */
+.customer-detail-view-container .at-order-row-head > .at-row-main { flex: 1 1 200px; }
+.customer-detail-view-container .at-order-row-head > .at-row-main .at-row-sub { overflow-wrap: anywhere; }
+
+/* A customer's page, two columns: the last card in each column stretches to
+   the foot of the taller column, so both columns end on one line (Order
+   History level with Saved Designs). One column on smaller screens, where
+   cards keep their own height. */
+@media (min-width: 1025px) {
+  .customer-detail-view-container .responsive-profile-grid { align-items: stretch; }
+  .customer-detail-view-container .responsive-profile-grid > .at-stack > section.at-section:last-of-type { flex-grow: 1; }
+}
