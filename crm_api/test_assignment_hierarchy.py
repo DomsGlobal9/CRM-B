@@ -24,18 +24,18 @@ class AssignmentMatrixTests(SimpleTestCase):
     """The rule itself, with no database."""
 
     def test_owner_assigns_anyone(self):
-        for assignee in (DESIGNER, MASTER, 'Tailor', 'Maggam Karigar', 'Karigar', OWNER):
+        for assignee in (DESIGNER, MASTER, 'Tailor', 'Maggam Karigar', OWNER):
             self.assertTrue(can_assign(OWNER, assignee), assignee)
 
     def test_designer_assigns_master_and_workers(self):
-        for assignee in (MASTER, 'Tailor', 'Maggam Karigar', 'Karigar', 'QC Staff'):
+        for assignee in (MASTER, 'Tailor', 'Maggam Karigar', 'QC Staff'):
             self.assertTrue(can_assign(DESIGNER, assignee), assignee)
 
     def test_designer_cannot_assign_owner(self):
         self.assertFalse(can_assign(DESIGNER, OWNER))
 
     def test_master_assigns_workers(self):
-        for assignee in ('Tailor', 'Maggam Karigar', 'Karigar', 'Packaging Staff', 'QC Staff'):
+        for assignee in ('Tailor', 'Maggam Karigar', 'Packaging Staff', 'QC Staff'):
             self.assertTrue(can_assign(MASTER, assignee), assignee)
 
     def test_master_cannot_assign_designer_or_owner(self):
@@ -43,7 +43,7 @@ class AssignmentMatrixTests(SimpleTestCase):
         self.assertFalse(can_assign(MASTER, OWNER))
 
     def test_workers_assign_nobody(self):
-        for worker in ('Tailor', 'Maggam Karigar', 'Karigar', 'Maggam Master',
+        for worker in ('Tailor', 'Maggam Karigar', 'Maggam Master',
                        'Packaging Staff', 'QC Staff'):
             self.assertFalse(assigns_work(worker), worker)
             for assignee in (OWNER, DESIGNER, MASTER, 'Tailor'):

@@ -380,7 +380,7 @@ const SUPERVISOR_ROLES = ['Master', 'Designer'];
 
 
 const PRODUCTION_ROLES = [
-  'Tailor', 'Master', 'Maggam Master', 'Karigar', 'Maggam Karigar', 'Hemming & Pressing Staff',
+  'Tailor', 'Master', 'Maggam Master', 'Maggam Karigar', 'Hemming & Pressing Staff',
   'Packaging Staff', 'QC Staff', 'Logistics Staff',
 ];
 const isProductionStaff = (role) => PRODUCTION_ROLES.includes(role);
@@ -442,7 +442,6 @@ const STAFF_ROLES = [
   { value: 'Tailor', label: 'Stitching Tailor', hint: 'Stitches the garment.' },
   { value: 'Master', label: 'Master Tailor (generalist)', hint: 'Can work on every stage.' },
   { value: 'Maggam Master', label: 'Maggam Master', hint: 'Runs embroidery before stitching.' },
-  { value: 'Karigar', label: 'Karigar', hint: 'Handwork on the frame, alongside the Maggam Master.' },
   { value: 'Maggam Karigar', label: 'Maggam Karigar', hint: 'Frame work on the finished design, after the Maggam Master.' },
   { value: 'Hemming & Pressing Staff', label: 'Hemming & Pressing Staff', hint: 'Hems and presses the garment after stitching.' },
   { value: 'Packaging Staff', label: 'Packaging Staff', hint: 'Packs the garment before dispatch.' },

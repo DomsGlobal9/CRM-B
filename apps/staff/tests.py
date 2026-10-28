@@ -403,7 +403,7 @@ class PermissionMatrixTests(StaffProfileTestCase):
 
     def test_owner_creates_and_edits(self):
         newcomer = Tailor.objects.create(
-            name='Nadia', specialty='Handwork', role='Karigar')
+            name='Nadia', specialty='Handwork', role='Maggam Karigar')
         created = self.client_for(self.owner).post(
             reverse('staff-profile-list'),
             {'staff': newcomer.id, 'hourly_rate': '111.00'}, format='json')

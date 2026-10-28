@@ -542,7 +542,7 @@ def staff_metrics(staff, start, end, *, profile=None, readings=None):
 
 #: What each role is actually measured on. Not one generic set pretending a
 #: presser and a designer do the same job: a QC Staff's inspections mean
-#: something a Karigar's do not, and a set that fits everybody fits
+#: something a Maggam Karigar's do not, and a set that fits everybody fits
 #: nobody. Roles absent here fall back to DEFAULT_KPIS.
 ROLE_KPIS = {
     'Tailor': ('attendance.worked_hours', 'productivity.garments',
@@ -560,9 +560,6 @@ ROLE_KPIS = {
                       'quality.rework_rate'),
     # Handwork, same shape as the Maggam Master above it: what matters is how
     # much came off the frame and how much of it came back.
-    'Karigar': ('attendance.worked_hours', 'productivity.garments',
-                'productivity.completed', 'productivity.completion_rate',
-                'quality.rework_rate'),
     'Maggam Karigar': ('attendance.worked_hours', 'productivity.garments',
                        'productivity.completed', 'productivity.completion_rate',
                        'quality.rework_rate'),

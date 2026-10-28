@@ -284,7 +284,6 @@ class Tailor(models.Model):
         ('Master', 'Master (generalist)'),
         ('Tailor', 'Tailor'),
         ('Maggam Master', 'Maggam Master'),
-        ('Karigar', 'Karigar'),
         ('Maggam Karigar', 'Maggam Karigar'),
         ('Hemming & Pressing Staff', 'Hemming & Pressing Staff'),
         ('Packaging Staff', 'Packaging Staff'),
@@ -668,9 +667,9 @@ def get_default_workflow():
         {"key": "pattern_cutting", "name": "Cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["stitching"], "scope": "garment"},
        
         {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
-        {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Karigar", "Maggam Karigar"], "flows": ["maggam"], "scope": "garment"},
+        {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Maggam Karigar"], "flows": ["maggam"], "scope": "garment"},
         
-        {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar", "Karigar"], "flows": ["maggam"], "scope": "garment"},
+        {"key": "maggam_handwork", "name": "Maggam handwork", "sla_hours": 72, "roles": ["Owner", "Master", "Maggam Karigar"], "flows": ["maggam"], "scope": "garment"},
         {"key": "maggam_verification", "name": "Maggam verification", "sla_hours": 12, "roles": ["Owner", "Master"], "flows": ["maggam"], "scope": "garment"},
         {"key": "fabric_cutting", "name": "Fabric cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
         

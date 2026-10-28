@@ -64,7 +64,7 @@ class PlatformUserListTests(TransactionTestCase):
                 cutter = User.objects.create_user(username='cutter@usa.test',
                                                   email='cutter@usa.test')
                 Tailor.objects.create(name='Cutter', specialty='Handwork',
-                                      role='Karigar', user=cutter)
+                                      role='Maggam Karigar', user=cutter)
             with schema_context('sa_us_b'):
                 User.objects.create_user(username='owner@usb.test',
                                          email='owner@usb.test')
@@ -76,7 +76,7 @@ class PlatformUserListTests(TransactionTestCase):
             self.assertEqual(
                 rows[('sa_us_a', 'owner@usa.test')]['role'], 'Owner')
             self.assertEqual(
-                rows[('sa_us_a', 'cutter@usa.test')]['role'], 'Karigar')
+                rows[('sa_us_a', 'cutter@usa.test')]['role'], 'Maggam Karigar')
             self.assertEqual(
                 rows[('sa_us_b', 'owner@usb.test')]['role'], 'Owner')
             self.assertEqual(

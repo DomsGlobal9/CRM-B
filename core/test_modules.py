@@ -260,9 +260,9 @@ class CatalogueTests(SimpleTestCase):
 
     def test_all_roles_covers_owner_designer_and_the_floor(self):
         # Owner, Designer, and the floor: Master, Tailor, Maggam Master,
-        # Karigar, Maggam Karigar, Hemming & Pressing Staff, Packaging Staff,
-        # QC Staff, Logistics Staff.
-        self.assertEqual(len(ALL_ROLES), 11)
+        # Maggam Karigar, Hemming & Pressing Staff, Packaging Staff, QC Staff,
+        # Logistics Staff.
+        self.assertEqual(len(ALL_ROLES), 10)
         self.assertEqual(set(ALL_ROLES), {'Owner', 'Designer'} | set(PRODUCTION_ROLES))
 
 

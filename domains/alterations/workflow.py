@@ -161,7 +161,7 @@ WORK_ROLES = frozenset({OWNER}) | PRODUCTION_ROLES
 #: Who may take a garment in. Every staff login: whoever is at the door when
 #: the customer arrives logs the return, and the counter takes over from
 #: inspection onwards. Read off the roster's own role list so a role added
-#: there (Karigar, Packaging Staff, QC Staff...) is never refused at the door.
+#: there (Maggam Karigar, Packaging Staff, QC Staff...) is never refused at the door.
 #: check_role already refuses None.
 INTAKE_ROLES = COUNTER_ROLES | PRODUCTION_ROLES | frozenset(
     role for role, _label in Tailor.ROLE_CHOICES)

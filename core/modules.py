@@ -427,7 +427,6 @@ PRODUCTION_ROLES = (
     'Master',
     'Tailor',
     'Maggam Master',
-    'Karigar',
     'Maggam Karigar',
     'Hemming & Pressing Staff',
     'Packaging Staff',

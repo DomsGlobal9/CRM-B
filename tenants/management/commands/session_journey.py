@@ -96,7 +96,7 @@ class Command(BaseCommand):
         staff = {}
         team = [('Lakshmi', 'Master'), ('Sunita', 'QC Staff'), ('Ravi', 'Tailor'),
                 ('Meena', 'Maggam Master'), ('Farah', 'Packaging Staff'),
-                ('Imran', 'Karigar'), ('Ganesh', 'Janitor')]  # Janitor = custom role
+                ('Imran', 'Maggam Karigar'), ('Ganesh', 'Janitor')]  # Janitor = custom role
         for name, role in team:
             email = f'{name.lower()}-{tag}@sess.test'
             resp = owner.post('/api/tailors/', {

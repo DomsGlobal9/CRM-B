@@ -1769,13 +1769,13 @@ class ReassignmentTests(WorkflowTestBase):
 
     def test_a_specialist_is_notified_under_their_own_role(self):
         karigar = Tailor.objects.create(
-            name="Ravi Karigar", specialty="Handwork", role="Karigar",
+            name="Ravi Karigar", specialty="Handwork", role="Maggam Karigar",
             status="Available")
         self._reassign_to(karigar)
         from crm_api.models import Notification
         note = Notification.objects.filter(
             title__contains=self.order.reference).order_by('-id').first()
-        self.assertEqual(note.recipient_role, 'Karigar')
+        self.assertEqual(note.recipient_role, 'Maggam Karigar')
 
     def test_a_plain_edit_does_not_touch_assignment(self):
         from crm_api.models import Notification
@@ -2133,7 +2133,7 @@ class FlowTests(WorkflowTestBase):
         order = self.make_order(flow="maggam")
         stage = next(s for s in BoutiqueSettings.objects.get(id=1).workflow_config
                      if s["key"] == "maggam_handwork")
-        self.assertEqual(stage["roles"], ["Owner", "Master", "Maggam Karigar", "Karigar"])
+        self.assertEqual(stage["roles"], ["Owner", "Master", "Maggam Karigar"])
         self.reach(order, "maggam_work")
         with self.assertRaises((TransitionError, ValueError)):
             self.step(order, "maggam_handwork", status="IN_PROGRESS")
