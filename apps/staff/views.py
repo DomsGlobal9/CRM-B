@@ -454,6 +454,25 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(AttendanceSessionSerializer(session).data,
                         status=status.HTTP_201_CREATED)
 
+    @action(detail=False, methods=['POST'], url_path='check-in-location')
+    def check_in_location(self, request):
+        """Add the device's position to the caller's own open check-in that
+        was saved without one (attendance.add_check_in_location)."""
+        profile = _staff_for(request.user)
+        if profile is None:
+            return Response(
+                {'error': 'Your account is not on the staff roster, so it '
+                          'cannot record attendance.'},
+                status=status.HTTP_403_FORBIDDEN)
+        try:
+            session = attendance.add_check_in_location(profile, _location_from(request.data))
+        except attendance.AttendanceError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        _log(request, 'CHECK_IN_LOCATION', session, f'{profile.name} added the check-in location',
+             after={'distance_m': session.check_in_distance_m,
+                    'outside_shop': session.check_in_outside_shop})
+        return Response(AttendanceSessionSerializer(session).data)
+
     @action(detail=False, methods=['POST'], url_path='check-out')
     def check_out(self, request):
         """Close the caller's own session and store its duration."""

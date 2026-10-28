@@ -162,6 +162,10 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   const [toast, setToast] = useState('');
   // My work's status tab: 'all' is the whole list, as it always was.
   const [tab, setTab] = useState('all');
+  // My work's step filter (Cutting, Stitching, ...): Masters and Designers
+  // only. 'all' is every step, the list as it always was.
+  const [step, setStep] = useState('all');
+  const canFilterSteps = view === 'open' && ['Master', 'Designer'].includes(currentUser?.role);
   // Work handed to me that I have not opened yet is marked NEW, so a fresh
   // assignment stands out from the jobs already on my list. Opened jobs are
   // remembered on this device per person; a job handed back to me counts again.
@@ -249,7 +253,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     || (o.garment_job && s.garment_job && o.garment_job !== s.garment_job));
 
   // Every (order, stage) pair this view lists, already sorted.
-  const { items, later } = useMemo(() => {
+  const { items: allItems, later } = useMemo(() => {
     const out = [];
     let notReady = 0;
     orders.forEach((order) => {
@@ -272,6 +276,22 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     return { items: out, later: notReady };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, view, me, currentUser?.role, workflowConfig]);
+
+  // The steps in this list, each with how many jobs it has; a step picked
+  // earlier that has since emptied falls back to all of them.
+  const steps = useMemo(() => {
+    if (!canFilterSteps) return [];
+    const byKey = new Map();
+    allItems.forEach(({ stage }) => {
+      const hit = byKey.get(stage.stage_key);
+      if (hit) hit.count += 1;
+      else byKey.set(stage.stage_key, { key: stage.stage_key, label: stage.stage_name || humanise(stage.stage_key), count: 1 });
+    });
+    return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [allItems, canFilterSteps]);
+  const activeStep = steps.some((s) => s.key === step) ? step : 'all';
+  const stepActive = activeStep !== 'all';
+  const items = stepActive ? allItems.filter((i) => i.stage.stage_key === activeStep) : allItems;
 
   // The open job re-reads from the fresh orders after each refetch.
   const current = open && (() => {
@@ -315,7 +335,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
 
   let body;
   if (view === 'open') {
-    const taskSection = tasks.length > 0 && (
+    // A step picked: tasks are not steps, so they stand aside.
+    const taskSection = tasks.length > 0 && !stepActive && (
       <section className="wk-group">
         <h3 className="wk-group-title">{t('workPage.tasks', 'Tasks')} <span className="wk-count">{tasks.length}</span></h3>
         {tasks.map((task) => (
@@ -401,7 +422,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       ['assigned', t('workPage.tabAssigned', 'Assigned'), byStatus('next')],
       ['now', t('workPage.inProgress', 'In progress'), byStatus('now')],
       ['waiting', t('workPage.tabWaiting', 'Waiting for check'), byStatus('waiting')],
-      ['todos', t('workPage.tasks', 'Tasks'), tasks],
+      ['todos', t('workPage.tasks', 'Tasks'), stepActive ? [] : tasks],
     ].filter(([key, , list]) => key === 'all' || key === 'assigned' || key === 'now' || list.length > 0);
     const active = tabs.some(([key]) => key === tab) ? tab : 'all';
     const tabBar = (
@@ -410,16 +431,30 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           <button key={key} type="button" role="tab" aria-selected={active === key}
                   className={`tab-btn${active === key ? ' active' : ''}`} onClick={() => setTab(key)}>
             {label}
-            <span className="wk-count">{key === 'all' ? items.length + tasks.length : list.length}</span>
+            <span className="wk-count">{key === 'all' ? items.length + (stepActive ? 0 : tasks.length) : list.length}</span>
           </button>
         ))}
       </div>
     );
+    // The status tabs, and beside them the step filter (Master / Designer).
+    const filterBar = canFilterSteps && steps.length > 0 ? (
+      <div className="wk-toolbar">
+        {tabBar}
+        <label className="wk-step-filter">
+          <span>{t('workPage.workStep', 'Work step')}</span>
+          <select className="form-control" value={activeStep} onChange={(e) => setStep(e.target.value)}
+                  aria-label={t('workPage.filterByStep', 'Filter by work step')}>
+            <option value="all">{t('workPage.allSteps', 'All steps')} ({allItems.length})</option>
+            {steps.map((s) => <option key={s.key} value={s.key}>{s.label} ({s.count})</option>)}
+          </select>
+        </label>
+      </div>
+    ) : tabBar;
     const tabList = tabs.find(([key]) => key === active)?.[2];
     if (active !== 'all') {
       body = (
         <>
-          {tabBar}
+          {filterBar}
           {tabList.length === 0
             ? <div className="wk-empty">{t('workPage.emptyTab', 'Nothing here right now.')}</div>
             : active === 'todos'
@@ -427,7 +462,9 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
               : <section className="wk-group">{tabList.map((it) => groupCard(active === 'assigned' ? 'next' : active, it))}</section>}
         </>
       );
-    } else body = items.length === 0 && !taskSection && !newSection
+    } else body = stepActive && items.length === 0
+      ? <>{filterBar}<div className="wk-empty">{t('workPage.emptyStep', 'No work for this step right now.')}</div></>
+      : items.length === 0 && !taskSection && !newSection
       ? (
         <div className="wk-empty">
           {later
@@ -437,7 +474,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       )
       : (
         <>
-          {tabBar}
+          {filterBar}
           {newSection}
           {taskSection}
           {groups.map(([key, label]) => {

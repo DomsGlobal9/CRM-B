@@ -2226,6 +2226,8 @@ Object.assign(api, {
   getAttendance: (params) => staffRequest('attendance/', {}, params),
   getCurrentAttendance: () => staffRequest('attendance/current/'),
   checkIn: (payload) => staffRequest('attendance/check-in/', { method: 'POST', body: payload || {} }),
+  // The position for one's own open check-in saved without one (within 30 minutes).
+  addCheckInLocation: (location) => staffRequest('attendance/check-in-location/', { method: 'POST', body: { location } }),
   checkOut: () => staffRequest('attendance/check-out/', { method: 'POST', body: {} }),
   recordAttendance: (payload) => staffRequest('attendance/record/', { method: 'POST', body: payload }),
   correctAttendance: (id, payload) =>

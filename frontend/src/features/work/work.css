@@ -169,3 +169,15 @@
   background: transparent; border-top: 0;
 }
 .wk-sheet:has(.wk-actions--pair) { --wk-actions-h: 0px; }
+
+/* My work, Masters and Designers: the status tabs with the work-step filter
+   on their right; the filter takes its own line under them on a phone. */
+.wk-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-bottom: var(--space-4, 16px); }
+.wk-toolbar > .wk-tabs { margin-bottom: 0; flex: 1 1 auto; min-width: 0; }
+.wk-step-filter { display: inline-flex; align-items: center; gap: 8px; margin: 0; flex: 0 0 auto; }
+.wk-step-filter > span { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); white-space: nowrap; }
+.wk-step-filter .form-control { min-width: 200px; max-width: 280px; min-height: 40px; padding: 6px 12px; font-size: 14px; }
+@media (max-width: 640px) {
+  .wk-step-filter { flex: 1 1 100%; }
+  .wk-step-filter .form-control { flex: 1 1 auto; min-width: 0; max-width: none; }
+}
