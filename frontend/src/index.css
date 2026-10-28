@@ -8120,3 +8120,19 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .invoice-modal-foot > .invoice-send-note { order: -2; }
   .invoice-modal-foot > .invoice-send-btn { order: -1; flex-basis: 100%; }
 }
+
+/* Profit & Costs: "Where the Money Went" and "Costs you entered" side by
+   side at one height -- the shorter card stretches to the taller, and the
+   "No cost data" message sits in the middle of the space. Stacked on narrow
+   screens, each card keeps its own height. */
+.fin-costs-grid { align-items: stretch; }
+.fin-costs-grid > .at-section { display: flex; flex-direction: column; }
+.fin-costs-grid > .at-section > .fin-costs-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.fin-costs-grid > .at-section > .at-table-wrap { max-width: 100%; overflow-x: auto; }
+@media (max-width: 480px) {
+  .fin-costs-grid > .at-section .at-table th, .fin-costs-grid > .at-section .at-table td { padding-left: 10px; padding-right: 10px; }
+  .fin-costs-grid > .at-section > .fin-costs-empty .btn-primary { width: 100%; justify-content: center; }
+}
+
+/* Add a Cost: Paid to and Note in one row, both tops level. */
+.fin-expense-pair { align-items: start; }

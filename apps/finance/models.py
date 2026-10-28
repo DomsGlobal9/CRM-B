@@ -62,6 +62,9 @@ class Expense(models.Model):
                                  validators=[MinValueValidator(0)])
     incurred_on = models.DateField(db_index=True)
     paid_to = models.CharField(max_length=150, blank=True, default='')
+    # What an "Other" cost was for, in the owner's words. Required with
+    # Other, empty for every other category.
+    other_reason = models.CharField(max_length=150, blank=True, default='')
     note = models.TextField(blank=True, default='')
     receipt = models.FileField(upload_to=upload_to_receipts,
                                storage=_receipt_storage,
