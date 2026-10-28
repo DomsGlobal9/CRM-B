@@ -18,6 +18,10 @@ import { Lightbox } from '../designStudio/GarmentPartPicker';
 import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
 import './work.css';
 
+// The "Customer messages not sent" box at the top of My work: hidden, not
+// removed -- set to true to bring it back.
+const SHOW_FAILED_MESSAGES = false;
+
 /**
  * The floor's three screens: My work, Done, To check. One job = one stage of
  * one order that is mine. Everything reads off the orders the app already
@@ -479,13 +483,15 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
 
   // A Master has no order page to reach: the Workshop orders' customer
   // messages WhatsApp gave up on sit at the top of My work instead.
+  // Hidden for now (SHOW_FAILED_MESSAGES); the messages are still listed for
+  // the owner, on the orders' pages.
   const failedMessages = view === 'open' && onRetryMessage
     ? customerMessages.filter((m) => m.status === 'FAILED' && orders.some((o) => o.id === m.order && inWorkshop(o)))
     : [];
 
   return (
     <div className="wk">
-      {failedMessages.length > 0 && (
+      {SHOW_FAILED_MESSAGES && failedMessages.length > 0 && (
         <CustomerMessageQueue
           title={t('workPage.failedMessages', 'Customer messages not sent')}
           messages={failedMessages}
@@ -514,9 +520,12 @@ function Thumbs({ urls }) {
 }
 
 /* The sticky row at the foot of the sheet: the one thing to do, and why it can't be done yet. */
-function ActionBar({ error, children }) {
+// Every job screen's buttons: compact and side by side (wk-actions--pair,
+// work.css) -- the secondary choice on the left, the main one on the right;
+// a lone button sits on the right on a computer and fills the row on a phone.
+function ActionBar({ error, children, className = 'wk-actions--pair' }) {
   return (
-    <div className="wk-actions">
+    <div className={`wk-actions${className ? ` ${className}` : ''}`}>
       {error && <div className="wk-error" role="alert">{error}</div>}
       {children}
     </div>
@@ -1032,7 +1041,9 @@ function CheckForm({ stage, busy, error, save }) {
           </div>
         </div>
       )}
-      <ActionBar error={error}>
+      {/* The check screen's two choices sit side by side (wk-actions--pair):
+          Send back / Cancel on the left, Approve / Send back to … on the right. */}
+      <ActionBar error={error} className="wk-actions--pair">
         {sending ? (
           <>
             {!ready && <div className="wk-hint">{t('workPage.reasonRequired', 'A reason is needed so the worker knows what to fix')}</div>}

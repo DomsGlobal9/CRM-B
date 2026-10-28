@@ -15,7 +15,7 @@ import { Menu, Bell } from 'lucide-react';
  * profile and for signing out.
  */
 
-export function MobileHeader({ title, currentUser, notificationsCount, onOpenNotifications, onOpenMenu, accountItems = [] }) {
+export function MobileHeader({ title, currentUser, notificationsCount, onOpenNotifications, onOpenMenu, accountItems = [], showBell = true }) {
   const [accountOpen, setAccountOpen] = useState(false);
   const wrapRef = useRef(null);
   const avatarRef = useRef(null);
@@ -66,12 +66,15 @@ export function MobileHeader({ title, currentUser, notificationsCount, onOpenNot
           </div>
 
           <div className="mobile-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* `showBell`: the page decides (the owner's Dashboard only). */}
+            {showBell && (
             <button type="button" className="icon-btn-touch relative-btn" onClick={onOpenNotifications} aria-label="Notifications">
               <Bell size={20} />
               {notificationsCount > 0 && (
                 <span className="mobile-header-badge">{notificationsCount}</span>
               )}
             </button>
+            )}
 
             <div className="mobile-account" ref={wrapRef}>
               <button type="button" ref={avatarRef} className="mobile-header-avatar mobile-account-btn"

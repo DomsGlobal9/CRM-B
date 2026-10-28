@@ -1836,6 +1836,7 @@ function App() {
   // phone has MobileHeader's avatar menu instead, so the bar is hidden there.
   const accountBar = (go) => (
     <div className="portal-account-bar">
+      {showBell && (
       <button
         type="button"
         className="portal-account-bell-btn"
@@ -1859,6 +1860,7 @@ function App() {
           </span>
         )}
       </button>
+      )}
       <AccountMenu avatar={<UserAvatar user={currentUser} />}
                    label={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
                    currentUser={currentUser} items={headerAccountItems(go)} />
@@ -1866,6 +1868,10 @@ function App() {
   );
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
+  // The bell (inbox alerts) shows on the owner's Dashboard page only -- not
+  // on any other page, and not for any other role. Read by the top bar, the
+  // phone header and the tablet header alike.
+  const showBell = (!currentUser?.role || currentUser.role === 'Owner') && view === 'dashboard' && dashboardTab === 'overview';
 
   useEffect(() => {
     if (dashboardTab && dashboardTab !== lastTabRef.current) {
@@ -4918,6 +4924,7 @@ function App() {
       {view === 'dashboard' && currentUser && (
         <div className={`portal-layout${navCollapsed ? ' nav-collapsed' : ''}`}>
           <MobileHeader
+            showBell={showBell}
             // The sidebar's own label first, so the two never disagree
             // ("To-do" in the menu, "Todo" in the header); the key lookup
             // covers tabs the sidebar does not list.
@@ -4965,6 +4972,7 @@ function App() {
               <img className="portal-wordmark portal-wordmark--sm" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {showBell && (
               <button
                 disabled={markingNotificationsRead}
                 onClick={() => {
@@ -4987,6 +4995,7 @@ function App() {
                   </span>
                 )}
               </button>
+              )}
             </div>
           </div>
 
@@ -8022,6 +8031,7 @@ function App() {
               screen had no navigation at all on a phone: the sidebar sat parked
               at translateX(-100%) and nothing on the page could bring it back. */}
           <MobileHeader
+            showBell={showBell}
             title="New Order"
             currentUser={currentUser}
             notificationsCount={notifications.filter(n => !n.is_read).length}
