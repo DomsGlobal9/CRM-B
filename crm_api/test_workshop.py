@@ -82,19 +82,20 @@ class SendToWorkshopTests(WorkflowTestBase):
         order = self.make_order(tailor=False, master=False)
         self.assertEqual(self.send(order, master=self.master.id, tailor=self.tailor.id).status_code, 200)
         self.assertEqual(self.stage(order, "stitching_in_progress").assigned_to_id, self.tailor.id)
-        # The default lets a Tailor finish (crm_api 0068_tailor_on_finishing).
-        self.assertEqual(self.stage(order, "finishing").assigned_to_id, self.tailor.id)
+        # A Tailor stitches but does not finish (crm_api 0083_tailor_off_finishing):
+        # by default finishing goes to the master.
+        self.assertEqual(self.stage(order, "finishing").assigned_to_id, self.master.id)
 
-        # A boutique that keeps finishing with its Masters gets it on the master.
+        # A boutique that lets its Tailors finish gets it on the tailor.
         from crm_api.models import BoutiqueSettings
         settings = BoutiqueSettings.objects.get(id=1)
         for s in settings.workflow_config:
-            if s["key"] == "finishing":
-                s["roles"] = [r for r in s["roles"] if r != "Tailor"]
+            if s["key"] == "finishing" and "Tailor" not in s["roles"]:
+                s["roles"] = s["roles"] + ["Tailor"]
         settings.save(update_fields=["workflow_config"])
         order = self.make_order(customer=order.customer, tailor=False, master=False)
         self.assertEqual(self.send(order, master=self.master.id, tailor=self.tailor.id).status_code, 200)
-        self.assertEqual(self.stage(order, "finishing").assigned_to_id, self.master.id)
+        self.assertEqual(self.stage(order, "finishing").assigned_to_id, self.tailor.id)
 
     def test_master_may_send(self):
         order = self.make_order(tailor=False, master=False)

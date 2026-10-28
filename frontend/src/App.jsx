@@ -3138,7 +3138,9 @@ function App() {
   };
 
   
-  const TAILOR_STEPS = ['stitching_in_progress', 'finishing', 'alteration_work'];
+  // A Tailor stitches -- new garments and alterations; Hemming & finishing is
+  // the Hemming & Pressing Staff's (crm_api 0083_tailor_off_finishing).
+  const TAILOR_STEPS = ['stitching_in_progress', 'alteration_work'];
   const staffRole = (id) => tailors.find(tl => String(tl.id) === String(id))?.role;
   // The supervising Master's steps are the rest of the garment -- but not a
   // step Send to workshop handed a specialist by role (a Maggam Karigar's

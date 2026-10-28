@@ -806,7 +806,7 @@ const en = {
     assignMasterTailorTitle: "1. Master tailor (cutting & supervision)",
     noMasterTailorsAvailable: "No master tailors yet. Add one to carry on:",
     addMasterTailorBtn: "Add a master tailor",
-    assignStitchingTailorTitle: "2. Stitching tailor (sewing & finishing)",
+    assignStitchingTailorTitle: "2. Stitching tailor (sewing)",
     noStitchingTailorsAvailable: "No stitching tailors yet. Add one to carry on:",
     addStitchingTailorBtn: "Add a stitching tailor",
     deliveryMethodConfigTitle: "3. How the customer gets it",

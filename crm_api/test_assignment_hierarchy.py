@@ -182,10 +182,11 @@ class StageAssignmentTests(HierarchyTestBase):
         res = self.assign_stage(order, self.tailor, self.owner, "trial_scheduled")
         self.assertEqual(res.status_code, 400)
 
-    def test_master_hands_hemming_to_a_tailor(self):
+    def test_master_cannot_hand_hemming_to_a_tailor(self):
+        # A Tailor stitches but does not finish (crm_api 0083_tailor_off_finishing).
         order = self.make_order()
         res = self.assign_stage(order, self.tailor, self.master_user, "finishing")
-        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.status_code, 400, res.content)
 
 
 class SendToWorkshopHierarchyTests(HierarchyTestBase):
