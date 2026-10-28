@@ -31,11 +31,13 @@ export default function DesignCataloguePicker({ garmentKey, value = {}, onChange
 
   return (
     <>
-      <Field label="Catalogue category" icon={Layers}>
+      {/* Worded as the library's filters are -- Category, then Design, with
+          the categories' short names -- so the choice reads the same here. */}
+      <Field label="Category" icon={Layers}>
         <select className="form-control" value={value.category || ''}
                 onChange={(e) => set(e.target.value ? { category: e.target.value } : {})}>
           <option value="">Not filed in the catalogue</option>
-          {categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          {categories.map((c) => <option key={c.key} value={c.key}>{c.short || c.label}</option>)}
         </select>
       </Field>
       {cat?.subcategories && (
@@ -48,7 +50,7 @@ export default function DesignCataloguePicker({ garmentKey, value = {}, onChange
         </Field>
       )}
       {cat && (!cat.subcategories || sub) && options.length > 0 && (
-        <Field label="Design option" icon={Sparkles}>
+        <Field label="Design" icon={Sparkles}>
           <select className="form-control" value={value.option || ''}
                   onChange={(e) => set({ ...value, option: e.target.value })}>
             <option value="">Choose a design option</option>

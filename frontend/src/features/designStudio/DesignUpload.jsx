@@ -7,7 +7,8 @@ import {
 import { api } from '../../services/api';
 import TemplateForm from '../catalog/TemplateForm';
 import DesignCataloguePicker from './DesignCataloguePicker';
-import { describePath, useDesignCatalogue } from './designCatalogue';
+import { cataloguePayload as toCataloguePayload, describePath, useDesignCatalogue } from './designCatalogue';
+import { visibleCategories } from './catalogueVisibility';
 import { getSection, pruneHidden } from '../../services/templates';
 import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
@@ -54,6 +55,11 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   });
  
   const catalogueTree = useDesignCatalogue(form.template_key);
+  // The garment offers library types (the categories the library shows).
+  const hasCatalogue = visibleCategories(form.template_key, catalogueTree?.categories).length > 0;
+  // The full position to file under -- picked here, or the library filter the
+  // form was opened on -- or null while it is not complete.
+  const filedUnder = cataloguePayload || (catalogueTree ? toCataloguePayload(catalogueTree, catalogue) : null);
 
   useEffect(() => {
     api.getGarmentTemplates().then(d => setTemplates(d.results || d)).catch(() => setTemplates([]));
@@ -179,7 +185,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
         source_url: form.source_url.trim(),
         image_url: totalFiles ? '' : form.source_url.trim(),
         spec_tags: specTags,
-        catalogue: cataloguePayload || undefined,
+        catalogue: filedUnder || undefined,
       }, flatFiles, flatParts);
       onUploaded?.(created);
       onClose?.();
@@ -236,7 +242,8 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
               {templates.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
             </select>
           </Field>
-          <Field label="Design Name" required icon={Type}>
+          <Field label="Design Name" required icon={Type}
+            hint={!titleTouched && form.title && filedUnder ? 'Suggested from the library type — edit it as you like.' : undefined}>
             <input className="form-control" value={form.title} maxLength={200}
               onChange={(e) => { setTitleTouched(true); set('title')(e); }}
               placeholder="e.g. Hand-embroidered bridal lehenga" />
@@ -248,6 +255,34 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           </Field>
         </div>
       </FormSection>
+
+      {/* Where the design shows in the library: the same Category and
+          Design choices as the library's filters, so a design uploaded from
+          anywhere -- the library's Upload design, or any Add design button --
+          is found under the right filter. Opened from a filtered library
+          page, it starts on that filter. Optional: left empty, the design is
+          still under its garment, in All designs. Only for a garment that
+          has a catalogue. */}
+      {hasCatalogue && (
+        <FormSection icon={Layers} tone="green" title="Where it goes in the library"
+          subtitle={`Pick the type and style, so it shows when someone filters the ${template?.name ? template.name.toLowerCase() : 'garment'} library. Optional.`}>
+          <div className="at-form-grid">
+            <DesignCataloguePicker
+              garmentKey={form.template_key}
+              value={catalogue}
+              onChange={(value, payload) => {
+                setCatalogue(value);
+                setCataloguePayload(payload);
+                // The chosen style names the design until the owner types a name.
+                if (payload && !titleTouched) {
+                  const label = describePath(catalogueTree, value).split(' \u203a ').pop();
+                  if (label) setForm((f) => ({ ...f, title: label }));
+                }
+              }}
+            />
+          </div>
+        </FormSection>
+      )}
 
       {/* Photographs are filed by part of the garment -- a saree has a pallu,
           a border and a body -- so the boutique can show a customer the part
