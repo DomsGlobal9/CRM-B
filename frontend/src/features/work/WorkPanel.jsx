@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseIcon } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseIcon, ChevronDown } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { expressLabel, isExpressJob, isExpressOrder } from '../orders/express';
@@ -30,6 +30,8 @@ const SHOW_FAILED_MESSAGES = false;
 
 const CLOSED = ['Delivered', 'Cancelled'];
 const FINISHED = ['COMPLETED', 'SKIPPED'];
+// My work shows this many cards first, and this many more per "Show more".
+const PAGE = 5;
 const MAX_PHOTOS = 5;
 const STATUS_LABELS = {
   NOT_STARTED: ['workPage.statusTodo', 'To do'],
@@ -165,6 +167,9 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   // My work's step filter (Cutting, Stitching, ...): Masters and Designers
   // only. 'all' is every step, the list as it always was.
   const [step, setStep] = useState('all');
+  // How many cards My work shows, remembered for the tab and step it was
+  // widened on: another tab or step starts again from the first PAGE.
+  const [shown, setShown] = useState({ key: '', n: PAGE });
   const canFilterSteps = view === 'open' && ['Master', 'Designer'].includes(currentUser?.role);
   // Work handed to me that I have not opened yet is marked NEW, so a fresh
   // assignment stands out from the jobs already on my list. Opened jobs are
@@ -339,10 +344,13 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   let body;
   if (view === 'open') {
     // A step picked: tasks are not steps, so they stand aside.
-    const taskSection = tasks.length > 0 && !stepActive && (
+    const showTasks = tasks.length > 0 && !stepActive;
+    // `list`: the tasks shown (the pager may hold some back); the heading
+    // still counts them all.
+    const taskSection = (list) => showTasks && list.length > 0 && (
       <section className="wk-group">
         <h3 className="wk-group-title">{t('workPage.tasks', 'Tasks')} <span className="wk-count">{tasks.length}</span></h3>
-        {tasks.map((task) => (
+        {list.map((task) => (
           <div key={`todo-${task.id}`} className="wk-card" data-kind={TODO_KIND.key} style={{ '--wk-kind': TODO_KIND.color }}>
             <div className="wk-card-head">
               <div className="wk-card-title">{task.title}</div>
@@ -377,9 +385,9 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       assignedToMe(order, stage, me)?.timestamp || order.activities?.[0]?.timestamp || order.order_date || 0);
     const newOnTop = items.filter((i) => (i.group === 'next' || i.group === 'now') && isNew(i.order, i.stage))
       .sort((a, b) => assignedAt(b) - assignedAt(a));
-    const newSection = newOnTop.length > 0 && (
+    const newSection = (list) => list.length > 0 && (
       <section className="wk-group">
-        {newOnTop.map((it) => card(it, {
+        {list.map((it) => card(it, {
           chip: it.group === 'now'
             ? <span className="ui-badge ui-badge--warning">{t('workPage.inProgress', 'In progress')}</span>
             : null, // no "Ready" badge on a job not started yet
@@ -428,6 +436,31 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       ['todos', t('workPage.tasks', 'Tasks'), stepActive ? [] : tasks],
     ].filter(([key, , list]) => key === 'all' || key === 'assigned' || key === 'now' || list.length > 0);
     const active = tabs.some(([key]) => key === tab) ? tab : 'all';
+    // The pager: the first `limit` cards in the order they are listed, then
+    // "Show more". `takeAll` hands the allowance out list by list, in order.
+    const pageKey = `${active}|${activeStep}`;
+    const limit = shown.key === pageKey ? shown.n : PAGE;
+    const takeAll = (lists) => {
+      let left = limit;
+      return lists.map((list) => { const out = list.slice(0, Math.max(left, 0)); left -= out.length; return out; });
+    };
+    const pager = (total) => total > limit && (
+      <div className="wk-more">
+        <span className="wk-more-count">
+          {t('workPage.showingOf', 'Showing {n} of {total}', { n: limit, total })}
+        </span>
+        <div className="wk-more-actions">
+          <button type="button" className="btn-secondary" onClick={() => setShown({ key: pageKey, n: limit + PAGE })}>
+            {t('workPage.showMore', 'Show {n} more', { n: Math.min(PAGE, total - limit) })} <ChevronDown size={16} />
+          </button>
+          {total - limit > PAGE && (
+            <button type="button" className="wk-more-all" onClick={() => setShown({ key: pageKey, n: total })}>
+              {t('workPage.showAll', 'Show all {total}', { total })}
+            </button>
+          )}
+        </div>
+      </div>
+    );
     const tabBar = (
       <div className="wk-tabs" role="tablist" aria-label={t('workPage.byStatus', 'Work by status')}>
         {tabs.map(([key, label, list]) => (
@@ -461,13 +494,23 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           {tabList.length === 0
             ? <div className="wk-empty">{t('workPage.emptyTab', 'Nothing here right now.')}</div>
             : active === 'todos'
-              ? taskSection
-              : <section className="wk-group">{tabList.map((it) => groupCard(active === 'assigned' ? 'next' : active, it))}</section>}
+              ? taskSection(tabList.slice(0, limit))
+              : <section className="wk-group">{tabList.slice(0, limit).map((it) => groupCard(active === 'assigned' ? 'next' : active, it))}</section>}
+          {pager(tabList.length)}
         </>
       );
-    } else body = stepActive && items.length === 0
+    } else {
+    // The All list in its order -- new work, tasks, Do now, Next, Waiting --
+    // each section showing what is left of the pager's allowance.
+    const groupLists = groups.map(([key, label]) => [key, label,
+      items.filter((i) => i.group === key && !((key === 'next' || key === 'now') && isNew(i.order, i.stage)))]);
+    const allTotal = newOnTop.length + (showTasks ? tasks.length : 0)
+      + groupLists.reduce((sum, [, , list]) => sum + list.length, 0);
+    const [visNew, visTasks, ...visLists] = takeAll([newOnTop, showTasks ? tasks : [], ...groupLists.map(([, , list]) => list)]);
+    const visGroups = groupLists.map(([key, label, list], i) => [key, label, list, visLists[i]]);
+    body = stepActive && items.length === 0
       ? <>{filterBar}<div className="wk-empty">{t('workPage.emptyStep', 'No work for this step right now.')}</div></>
-      : items.length === 0 && !taskSection && !newSection
+      : items.length === 0 && !showTasks && newOnTop.length === 0
       ? (
         <div className="wk-empty">
           {later
@@ -478,21 +521,22 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       : (
         <>
           {filterBar}
-          {newSection}
-          {taskSection}
-          {groups.map(([key, label]) => {
-            const list = items.filter((i) => i.group === key && !((key === 'next' || key === 'now') && isNew(i.order, i.stage)));
-            if (!list.length) return null;
+          {newSection(visNew)}
+          {taskSection(visTasks)}
+          {visGroups.map(([key, label, list, shownList]) => {
+            if (!shownList.length) return null;
             return (
               <section key={key} className="wk-group">
                 <h3 className="wk-group-title">{label} <span className="wk-count">{list.length}</span></h3>
-                {list.map((it) => groupCard(key, it))}
+                {shownList.map((it) => groupCard(key, it))}
               </section>
             );
           })}
+          {pager(allTotal)}
           {later > 0 && <div className="wk-quiet">{t('workPage.moreLater', '{n} more later', { n: later })}</div>}
         </>
       );
+    }
   } else if (view === 'done') {
     body = items.length === 0
       ? <div className="wk-empty">{t('workPage.emptyDone', 'Nothing finished yet.')}</div>

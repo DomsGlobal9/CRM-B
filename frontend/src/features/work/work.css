@@ -185,3 +185,16 @@
 /* The job panel's header: who holds this step, under the order line. */
 .wk-sheet-title small.wk-sheet-assignee { margin-top: 2px; }
 .wk-sheet-assignee b { font-weight: 600; color: var(--text-primary); }
+
+/* My work: the pager under the cards -- how many are showing, then
+   "Show N more" and, when there are many, "Show all". Centred; the buttons
+   share the width on a phone. */
+.wk-more { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 6px 0 var(--space-4, 16px); padding-top: 4px; }
+.wk-more-count { font-size: 13px; color: var(--text-secondary); }
+.wk-more-actions { display: flex; align-items: center; justify-content: center; gap: 10px 16px; flex-wrap: wrap; }
+.wk-more-actions .btn-secondary { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 8px 20px; border-radius: 999px; font-weight: 600; }
+.wk-more-all { border: 0; background: none; padding: 6px 4px; font: inherit; font-size: 14px; font-weight: 600; color: var(--brand-link); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 480px) {
+  .wk-more-actions { width: 100%; }
+  .wk-more-actions .btn-secondary { flex: 1 1 auto; justify-content: center; }
+}
