@@ -260,7 +260,7 @@ export default function GarmentSelectionsReview({
               <span className="garment-card-name">{garmentName}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2, 8px)', flexWrap: 'wrap' }}>
                 <span className="ui-badge ui-badge--neutral">
-                  {total} selection{total === 1 ? '' : 's'}
+                  Selected {total}
                 </span>
                 {onEditDesigns && (
                   <button type="button" className="btn-secondary"
@@ -279,7 +279,7 @@ export default function GarmentSelectionsReview({
               </span>
             </div>
 
-            <Group icon={Sparkles} title="Designs" count={designRows.length}>
+            <Group icon={Sparkles} title="Referral designs" count={designRows.length}>
               {designRows.length === 0 ? <Empty>No design selected</Empty> : (
                 <DesignGrid rows={designRows}
                             onView={(index) => setViewing({ rows: designRows, index })} />
