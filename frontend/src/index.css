@@ -8200,3 +8200,84 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
    the Category box under it. */
 .design-manager-content .dl-page > .at-part-tabs + .dcb-panel,
 .dl-page > .dcb-panel { margin-top: 16px; }
+
+/* ---- Design library: the Category / Design filter panel -----------------
+   One card, two clear levels. The label sits in a fixed column on the left
+   (above the chips on a phone). Category: filled pills, the main choice; on
+   a phone a single strip that scrolls sideways. Design: the long list, so
+   lighter, smaller chips, folded to twelve with "Show all" and a search box
+   when there are more. The foot says what is showing, with Clear. */
+.dcb-panel--v2,
+.design-manager-content .dl-page > .dcb-panel.dcb-panel--v2 {
+  display: flex; flex-direction: column; gap: 14px !important; padding: 18px 20px !important; margin-bottom: 0 !important;
+  border: 1px solid var(--border-color); border-radius: var(--radius-lg, 14px); background: var(--surface-color);
+}
+.dcb-level { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: start; gap: 8px 16px; }
+.dcb-level + .dcb-level { padding-top: 14px; border-top: 1px dashed var(--border-color); }
+.dcb-level-label { display: flex; flex-direction: column; gap: 2px; padding-top: 9px; }
+.dcb-level-label > span:first-child { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.dcb-level-count { font-size: 12px; color: var(--text-muted); }
+.dcb-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+
+.dcb-chip {
+  display: inline-flex; align-items: center; max-width: 100%; min-height: 36px; padding: 6px 14px; border-radius: 999px;
+  border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary);
+  font: inherit; font-size: 13.5px; font-weight: 500; line-height: 1.25; text-align: left; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.dcb-chip:hover:not(.dcb-chip--on) { background: var(--surface-2); border-color: var(--border-strong, var(--border-color)); }
+.dcb-chip--on { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); font-weight: 600; }
+.dcb-chip--option { min-height: 32px; padding: 5px 12px; border-radius: 10px; font-size: 13px;
+  background: var(--surface-2); border-color: transparent; }
+.dcb-chip--option:hover:not(.dcb-chip--on) { border-color: var(--border-color); background: var(--surface-color); }
+.dcb-chip--option.dcb-chip--on { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); }
+
+.dcb-search { position: relative; display: inline-flex; align-items: center; flex: 0 1 220px; min-width: 160px; }
+.dcb-search > svg { position: absolute; left: 11px; color: var(--text-muted); pointer-events: none; }
+.dcb-search input {
+  width: 100%; min-height: 34px; padding: 6px 30px 6px 33px; border-radius: 10px; border: 1px solid var(--border-color);
+  background: var(--surface-color); color: var(--text-primary); font: inherit; font-size: 13px;
+}
+.dcb-search input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 25%, transparent); }
+.dcb-search-clear { position: absolute; right: 6px; display: inline-flex; padding: 3px; border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: pointer; }
+.dcb-more { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 5px 10px; border: 0; border-radius: 10px;
+  background: none; color: var(--brand-link); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.dcb-more:hover { background: var(--accent-color); }
+.dcb-more svg { transition: transform .15s; }
+.dcb-none, .dcb-note { font-size: 13px; color: var(--text-secondary); }
+.dcb-note { padding-left: 128px; }
+
+.dcb-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.dcb-path { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; flex: 1 1 260px; font-size: 13px; color: var(--text-secondary); }
+.dcb-path > svg { color: var(--text-muted); flex-shrink: 0; }
+.dcb-path-label { margin-right: 4px; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
+.dcb-path-root { font-weight: 600; color: var(--text-primary); }
+.dcb-path-note { flex-basis: 100%; order: 3; font-size: 12px; font-style: italic; color: var(--text-muted); }
+.dcb-clear { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; min-height: 32px; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.dcb-clear:hover { background: var(--surface-2); }
+
+/* Tablet: a narrower label column. */
+@media (max-width: 900px) {
+  .dcb-level { grid-template-columns: 92px minmax(0, 1fr); gap: 8px 12px; }
+  .dcb-note { padding-left: 104px; }
+}
+/* Phone: labels above their chips; categories one sideways strip; the
+   search box takes the full width. */
+@media (max-width: 640px) {
+  .dcb-panel--v2,
+  .design-manager-content .dl-page > .dcb-panel.dcb-panel--v2 { padding: 14px !important; gap: 12px !important; }
+  .dcb-level { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .dcb-level-label { flex-direction: row; align-items: baseline; gap: 8px; padding-top: 0; }
+  .dcb-chips--scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 2px 14px 4px;
+    scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .dcb-chips--scroll::-webkit-scrollbar { display: none; }
+  .dcb-chips--scroll > .dcb-chip { flex: 0 0 auto; white-space: nowrap; scroll-snap-align: start; }
+  .dcb-chip { min-height: 34px; padding: 6px 12px; font-size: 13px; }
+  .dcb-chip--option { min-height: 30px; padding: 5px 10px; font-size: 12.5px; }
+  .dcb-search { flex: 1 1 100%; }
+  .dcb-note { padding-left: 0; }
+  .dcb-foot { gap: 8px; }
+  .dcb-path { flex-basis: 100%; }
+  .dcb-clear { margin-left: 0; }
+}

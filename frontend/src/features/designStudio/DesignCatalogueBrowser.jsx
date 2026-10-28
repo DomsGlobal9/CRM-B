@@ -1,4 +1,5 @@
-import { ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronRight, Search, X } from 'lucide-react';
 
 import { describePath, useDesignCatalogue } from './designCatalogue';
 import { visibleCategories } from './catalogueVisibility';
@@ -17,39 +18,83 @@ import { visibleCategories } from './catalogueVisibility';
  * `value` is {category, subcategory, option}; every key optional. Changing a
  * level clears the levels beneath it -- a Cotton option makes no sense under
  * Silk / Pattu.
+ *
+ * Layout: Category reads as the main choice (filled pills; one sideways
+ * strip on a phone). Design options are the long list -- up to ~35 under one
+ * category -- so they are lighter, smaller chips, folded to the first
+ * OPTIONS_FOLDED with "Show all", and searchable once there are more than
+ * that. The foot says what is showing and clears it in one tap.
  */
 
-function Chip({ active, onClick, children, title }) {
+// How many design options show before "Show all".
+const OPTIONS_FOLDED = 12;
+
+function Chip({ active, onClick, children, title, kind = 'category' }) {
   return (
     <button type="button" onClick={onClick} title={title} aria-pressed={active}
-            // No nowrap: a long name must fold inside its chip rather than push
-            // the page sideways on a phone.
-            style={{ padding: '6px 12px', borderRadius: '999px', fontSize: '12px', fontWeight: 600,
-                     cursor: 'pointer', maxWidth: '100%', textAlign: 'left', lineHeight: 1.3,
-                     border: active ? '1.5px solid var(--primary-color)' : '1.5px solid var(--border-color)',
-                     background: active ? 'var(--primary-color)' : 'var(--surface-color, #fff)',
-                     color: active ? '#fff' : 'var(--text-primary)',
-                     boxShadow: active ? '0 2px 8px rgba(16,124,65,0.25)' : 'none',
-                     transition: 'all 0.15s ease' }}>
+            className={`dcb-chip dcb-chip--${kind}${active ? ' dcb-chip--on' : ''}`}>
       {children}
     </button>
   );
 }
 
-function Level({ label, children }) {
+function Level({ label, extra = null, scroll = false, children }) {
   return (
-    // The label sits beside the chips where there is room and above them
-    // where there is not: the chip row asks for 260px and wraps under the
-    // label rather than being squeezed to one chip per line.
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px 10px', flexWrap: 'wrap' }}>
-      <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase',
-                     color: 'var(--text-secondary)', paddingTop: '8px', flex: '0 0 92px' }}>
-        {label}
-      </span>
-      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', flex: '1 1 260px', minWidth: 0 }}>
-        {children}
+    <div className="dcb-level">
+      <div className="dcb-level-label">
+        <span>{label}</span>
+        {extra}
       </div>
+      <div className={`dcb-chips${scroll ? ' dcb-chips--scroll' : ''}`}>{children}</div>
     </div>
+  );
+}
+
+/** The design options under the chosen category (or section): folded, and
+ *  searchable when there are many. Keyed by its category by the caller, so
+ *  opening another category starts folded with an empty search. */
+function DesignOptions({ options, selected, onPick }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const many = options.length > OPTIONS_FOLDED;
+  const needle = query.trim().toLowerCase();
+  const matching = needle ? options.filter((o) => o.label.toLowerCase().includes(needle)) : options;
+  // Folded: the first few, plus the chosen one wherever it sits in the list.
+  const shown = open || needle || !many
+    ? matching
+    : matching.filter((o, i) => i < OPTIONS_FOLDED || o.key === selected);
+  const hidden = matching.length - shown.length;
+
+  return (
+    <Level
+      label="Design"
+      extra={<span className="dcb-level-count">{options.length} {options.length === 1 ? 'style' : 'styles'}</span>}
+    >
+      {many && (
+        <label className="dcb-search">
+          <Search size={15} aria-hidden="true" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a style…"
+                 aria-label="Find a design style" />
+          {query && (
+            <button type="button" className="dcb-search-clear" aria-label="Clear search" onClick={() => setQuery('')}>
+              <X size={14} />
+            </button>
+          )}
+        </label>
+      )}
+      {shown.map((o) => (
+        <Chip key={o.key} kind="option" active={selected === o.key} onClick={() => onPick(o.key)}>
+          {o.label}
+        </Chip>
+      ))}
+      {needle && matching.length === 0 && <span className="dcb-none">No style matches &ldquo;{query.trim()}&rdquo;.</span>}
+      {many && !needle && (hidden > 0 || open) && (
+        <button type="button" className="dcb-more" onClick={() => setOpen(!open)} aria-expanded={open}>
+          {open ? 'Show fewer' : `Show all ${options.length}`}
+          <ChevronDown size={14} style={{ transform: open ? 'rotate(180deg)' : 'none' }} />
+        </button>
+      )}
+    </Level>
   );
 }
 
@@ -69,10 +114,8 @@ export default function DesignCatalogueBrowser({ garmentKey, value = {}, onChang
     : [];
 
   return (
-    <div className="dcb-panel" style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '14px 16px',
-                  marginBottom: '16px', borderRadius: '12px', border: '1px solid var(--border-color)',
-                  background: 'var(--surface-color, #fff)' }}>
-      <Level label="Category">
+    <div className="dcb-panel dcb-panel--v2">
+      <Level label="Category" scroll>
         <Chip active={!category} onClick={() => onChange({})}>{allLabel}</Chip>
         {categories.map((c) => (
           <Chip key={c.key} active={category?.key === c.key} title={c.label}
@@ -85,7 +128,7 @@ export default function DesignCatalogueBrowser({ garmentKey, value = {}, onChang
       {category?.subcategories && (
         <Level label="Section">
           {category.subcategories.map((s) => (
-            <Chip key={s.key} active={subcategory?.key === s.key}
+            <Chip key={s.key} kind="section" active={subcategory?.key === s.key}
                   onClick={() => onChange({ category: category.key, subcategory: s.key })}>
               {s.label}
             </Chip>
@@ -95,31 +138,32 @@ export default function DesignCatalogueBrowser({ garmentKey, value = {}, onChang
 
       {category && (!category.subcategories || subcategory) && (
         options.length > 0 ? (
-          <Level label="Design">
-            {options.map((o) => (
-              <Chip key={o.key} active={value.option === o.key}
-                    onClick={() => onChange({ category: category.key, subcategory: subcategory?.key,
-                                              option: value.option === o.key ? undefined : o.key })}>
-                {o.label}
-              </Chip>
-            ))}
-          </Level>
+          <DesignOptions
+            key={`${category.key}/${subcategory?.key || ''}`}
+            options={options}
+            selected={value.option}
+            onPick={(key) => onChange({ category: category.key, subcategory: subcategory?.key,
+                                        option: value.option === key ? undefined : key })}
+          />
         ) : (
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', paddingLeft: 0 }}>
-            {category.note || 'No design options are listed here yet.'}
-          </div>
+          <div className="dcb-note">{category.note || 'No design options are listed here yet.'}</div>
         )
       )}
 
       {category && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px',
-                      color: 'var(--text-secondary)', paddingLeft: 0 }}>
+        <div className="dcb-foot">
+          <div className="dcb-path">
+            <span className="dcb-path-label">Showing</span>
+            <span className="dcb-path-root">{tree.label}</span>
+            <ChevronRight size={13} aria-hidden="true" />
+            <span>{describePath(tree, value)}</span>
+          </div>
           {category.note && !category.subcategories && options.length > 0 && (
-            <span style={{ marginRight: '8px', fontStyle: 'italic' }}>{category.note}</span>
+            <span className="dcb-path-note">{category.note}</span>
           )}
-          <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{tree.label}</span>
-          <ChevronRight size={12} />
-          <span>{describePath(tree, value).split(' › ').join(' › ')}</span>
+          <button type="button" className="dcb-clear" onClick={() => onChange({})}>
+            <X size={14} /> Clear
+          </button>
         </div>
       )}
     </div>
