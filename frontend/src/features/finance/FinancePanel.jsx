@@ -299,7 +299,7 @@ export default function FinancePanel() {
           </div>
 
           <div className="at-grid-2 fin-costs-grid">
-            <SectionCard icon={Wallet} tone="neutral" title="Where the Money Went" subtitle="All costs recorded for this period."
+            <SectionCard icon={Wallet} tone="neutral" title="Expenses & Costs" subtitle="All costs recorded for this period."
                          action={() => setAdding(true)} actionLabel="Add a cost">
               <div className="at-table-wrap">
                 <table className="at-table" style={{ minWidth: 0 }}>
