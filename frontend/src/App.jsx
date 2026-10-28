@@ -3741,6 +3741,9 @@ function App() {
     const candidate = alterPick;
     if (!candidate) { alert('Pick the garment first.'); return; }
     if (!alterationForm.issue.trim()) { alert('Say what needs changing.'); return; }
+    // Every alteration is photographed as it came in (the record of what was
+    // already wrong), ours as much as one stitched elsewhere.
+    if (!outsidePhoto?.file) { alert('Take a photo of the garment as it came in.'); return; }
     const isPaid = alterationForm.type === 'PAID_CLIENT_REQUEST';
     if (isPaid) {
       const charge = parseFloat(alterationForm.charge || 0);
@@ -3755,6 +3758,8 @@ function App() {
         charge: isPaid && alterationForm.charge ? alterationForm.charge : '0',
         paid_now: isPaid && alterationForm.paidNow ? alterationForm.paidNow : '0',
       });
+      try { await api.uploadGarmentImage(created.id, 'FRONT', outsidePhoto.file); }
+      catch (err) { alert(`Taken in, but the photo could not be saved: ${err.message}`); }
       setView('dashboard');
       openAlteration(created.id);
     } catch (err) {
@@ -3777,6 +3782,7 @@ function App() {
       scale, f.notes.trim(),
     ].filter(Boolean).join('\n');
     if (!f.request.trim() && !f.adjustments.trim()) { alert('Say what needs changing.'); return; }
+    if (!outsidePhoto?.file) { alert('Take a photo of the garment as it came in.'); return; }
     const charge = parseFloat(f.charge || 0);
     const bad = amountError(f.charge, { label: 'Charge' })
       || amountError(f.paidNow, { label: 'Paid now', max: charge });
@@ -3928,6 +3934,7 @@ function App() {
         if (!outsideForm.templateId && !outsideForm.note.trim()) {
           alert('Say what the garment is: pick a garment type or describe it.'); return;
         }
+        if (!outsidePhoto?.file) { alert('Take a photo of the garment as it came in.'); return; }
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'outIssue') {
         await createOutsideAlterationFromWizard();
@@ -9670,6 +9677,32 @@ function App() {
                               onChange={(e) => setAlterationForm({ ...alterationForm, issue: e.target.value })}
                               placeholder={t('wizard.alterIssuePlaceholder', 'e.g. Waist too tight, let out by an inch. Sleeve length short.')} />
                   </div>
+                  {/* Required: the garment as it came back, before any work. */}
+                  <div className="form-group">
+                    <span className="form-label">{t('wizard.outPhoto', 'Photo as it came in')} <span className="required">*</span></span>
+                    {outsidePhoto ? (
+                      <div className="wz-out-photo">
+                        <img src={outsidePhoto.url} alt={t('wizard.outPhotoAlt', 'The garment as it came in')} />
+                        <div className="wz-out-photo-meta">
+                          <span className="wz-out-photo-name">{outsidePhoto.file.name}</span>
+                          <button type="button" className="btn-secondary at-btn-sm" onClick={() => setOutsidePhoto(null)}>
+                            <X size={13} /> {t('common.remove', 'Remove')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Dropzone compact camera
+                                onFiles={([file]) => {
+                                  if (!file) return;
+                                  const bad = imageFilesError([file]);
+                                  if (bad) { alert(bad); return; }
+                                  setOutsidePhoto({ file, url: URL.createObjectURL(file) });
+                                }}
+                                title={t('wizard.outPhotoDrop', 'Drop a photo here')}
+                                subtitle={t('wizard.outPhotoOr', 'or choose a photo')}
+                                chooseLabel={t('wizard.outPhotoChoose', 'Choose photo')} />
+                    )}
+                  </div>
                   <div className="form-group">
                     <span className="form-label">{t('wizard.alterKind', 'Who pays')}</span>
                     <div className="at-seg" role="group">
@@ -9732,7 +9765,7 @@ function App() {
                     </div>
                   </div>
                   <div className="form-group">
-                    <span className="form-label">{t('wizard.outPhoto', 'Photo as it came in')} <span className="od-hint">({t('common.optional', 'optional')})</span></span>
+                    <span className="form-label">{t('wizard.outPhoto', 'Photo as it came in')} <span className="required">*</span></span>
                     {outsidePhoto ? (
                       <div className="wz-out-photo">
                         <img src={outsidePhoto.url} alt={t('wizard.outPhotoAlt', 'The garment as it came in')} />
