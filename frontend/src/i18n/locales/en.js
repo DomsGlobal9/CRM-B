@@ -307,6 +307,8 @@ const en = {
     supervisingMaster: "Master in charge",
     stitchingTailor: "Stitching tailor",
     totalValue: "Order value",
+    designerInCharge: "Designer in charge",
+    severalDesigners: "Several designers",
     estDelivery: "Promised by",
     unassigned: "Not yet assigned",
     tbd: "Not set",

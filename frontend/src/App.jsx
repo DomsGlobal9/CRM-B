@@ -3124,55 +3124,35 @@ function App() {
     }
   };
 
-  const handleAssignWorkflow = async (orderId, updates) => {
-    if (assigningWorkflowOrderId) return;
-    setAssigningWorkflowOrderId(orderId);
-    try {
-      await api.updateOrder(orderId, updates);
-      fetchDashboardAndConfig();
-    } catch (err) {
-      alert("Failed to update staff assignment: " + err.message);
-    } finally {
-      setAssigningWorkflowOrderId(null);
-    }
-  };
 
   
   const TAILOR_STEPS = ['stitching_in_progress', 'finishing', 'alteration_work'];
-  const staffRole = (id) => tailors.find(tl => String(tl.id) === String(id))?.role;
-  // The supervising Master's steps are the rest of the garment -- but not a
-  // step Send to workshop handed a specialist by role (a Maggam Karigar's
-  // embroidery, QC Staff's check). Picking a Master here used to take those.
-  const garmentSteps = (order, jobId, tailor) => (order.stages || [])
-    .filter(st => st.garment_job === jobId && TAILOR_STEPS.includes(st.stage_key) === tailor
-      && (tailor || !st.assigned_to || staffRole(st.assigned_to) === 'Master'));
-  // Whether the picked person may take this step at all: assign-stage refuses
-  // otherwise, which stopped the loop halfway with a partial save.
-  const mayTake = (staffId, stageKey) => {
-    const roles = (boutiqueSettings?.workflow_config || []).find(s => s.key === stageKey)?.roles || [];
-    const role = staffRole(staffId);
-    return !staffId || !role || !roles.length || roles.includes(role);
+
+  // Designer in charge. The garment's DesignAssignment is the one record the
+  // Design Work screen, the designer's desk and the Design Studio all read, so
+  // writing it here is what makes the choice show up everywhere.
+  const designerInCharge = (jobs) => {
+    const held = jobs.map(j => j.design_assignment).filter(Boolean);
+    if (!held.length) return { id: '', name: '' };
+    const ids = [...new Set(held.map(a => a.designer))];
+    if (ids.length > 1) return { id: '', name: '', mixed: true };
+    return { id: held[0].designer, name: held[0].designer_name };
   };
-  const garmentHolder = (order, jobId, tailor) => {
-    const rows = garmentSteps(order, jobId, tailor);
-    const row = rows.find(st => st.status === 'NOT_STARTED')
-      || rows.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || rows[rows.length - 1];
-    return { id: row?.assigned_to || null, name: row?.assigned_to_name || '' };
-  };
-  
-  const assignGarmentSteps = async (order, jobId, tailor, staffId) => {
-    if (assigningWorkflowOrderId) return;
-    const open = garmentSteps(order, jobId, tailor)
-      .filter(st => st.status === 'NOT_STARTED' && mayTake(staffId, st.stage_key));
-    if (!open.length) {
-      alert('Every one of these steps on this garment has already started. Reassign a started step from its stage window.');
-      return;
-    }
+
+  const assignOrderDesigner = async (order, jobs, designerId) => {
+    if (!designerId || assigningWorkflowOrderId) return;
+    const approved = jobs.filter(j => j.design_assignment?.status === 'APPROVED'
+      && j.design_assignment.designer !== designerId);
+    const todo = jobs.filter(j => !approved.includes(j) && j.design_assignment?.designer !== designerId);
     setAssigningWorkflowOrderId(order.id);
     try {
-      for (const st of open) await api.assignStage(order.id, st.stage_key, staffId || null, jobId);
+      for (const job of todo) await api.assignDesignWork({ garment_job: job.id, designer: designerId });
+      if (approved.length) {
+        alert(`${approved.length === 1 ? 'One garment keeps its designer' : `${approved.length} garments keep their designer`}: `
+          + 'the design is already approved. Request changes on it in Design Work before reassigning.');
+      }
     } catch (err) {
-      alert("Failed to update staff assignment: " + err.message);
+      alert('Failed to update the designer: ' + err.message);
     } finally {
       setAssigningWorkflowOrderId(null);
       fetchDashboardAndConfig();
@@ -3988,6 +3968,22 @@ function App() {
     return () => { cancelled = true; };
   }, [view, serviceType]);
 
+  // The order page's Designer in charge picker. Only the Owner may hand design
+  // work to a Designer (core.roles), so nobody else needs the list.
+  const openOrderId = openOrder?.id;
+  useEffect(() => {
+    if (!openOrderId || currentUser?.role !== 'Owner' || designersLoaded) return;
+    let cancelled = false;
+    api.getDesigners({ active: 'true' })
+      .then(rows => {
+        if (cancelled) return;
+        setDesigners(Array.isArray(rows) ? rows : (rows?.results || []));
+        setDesignersLoaded(true);
+      })
+      .catch(() => { if (!cancelled) { setDesigners([]); setDesignersLoaded(true); } });
+    return () => { cancelled = true; };
+  }, [openOrderId, currentUser?.role, designersLoaded]);
+
   const handleNext = () => runOnce(performNext);
   const handleSaveDraft = () => runOnce(performSaveDraft);
 
@@ -4213,7 +4209,6 @@ function App() {
     return pool.filter(t => allowed.includes(t.role));
   };
 
-  const stitchingStaff = () => eligibleStaffForStage('stitching_in_progress');
 
   const handleApproveDesign = async (prefId, fallbackImage) => {
     if (!selectedDirectoryCustomer) return;
@@ -5492,8 +5487,8 @@ function App() {
               const stages = order.stages || [];
               const focusJob = (order.garment_jobs || []).find(j => j.id === openGarmentJob) || null;
               const focusNo = focusJob ? order.garment_jobs.indexOf(focusJob) + 1 : 0;
-              const masterWho = focusJob ? garmentHolder(order, focusJob.id, false) : { id: order.master, name: order.master_name };
-              const tailorWho = focusJob ? garmentHolder(order, focusJob.id, true) : { id: order.tailor, name: order.tailor_name };
+              const designJobs = focusJob ? [focusJob] : (order.garment_jobs || []);
+              const designerWho = designerInCharge(designJobs);
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
               const verification = order.master_verification || {};
               const verifyTotal = 6 + (orderGarmentNames(order).includes('Saree') ? 1 : 0);
@@ -5598,48 +5593,28 @@ function App() {
                   {/* The four facts to scan: who is on it, what it is worth, when it is due. */}
                   <section className="od-facts">
                     <div className="od-fact">
-                      <IconTile icon={User} tone="green" size={44} iconSize={20} />
+                      <IconTile icon={PenTool} tone="green" size={44} iconSize={20} />
                       <div>
-                        <div className="od-fact-label">{t('ordersPage.supervisingMaster', 'Supervising Master')}</div>
-                        {isProductionStaff(currentUser.role) ? (
-                          <div className={`od-fact-value${masterWho.name ? '' : ' od-fact-value--empty'}`}>
-                            {masterWho.name || t('ordersPage.unassigned', 'Unassigned')}
-                          </div>
-                        ) : (
-                          <select className="od-fact-select" value={masterWho.id || ''} aria-label={t('ordersPage.supervisingMaster', 'Supervising Master')}
+                        <div className="od-fact-label">{t('ordersPage.designerInCharge', 'Designer in charge')}</div>
+                        {currentUser?.role === 'Owner' && designJobs.length > 0 ? (
+                          <select className="od-fact-select" value={designerWho.id}
+                                  aria-label={t('ordersPage.designerInCharge', 'Designer in charge')}
                                   disabled={assigningWorkflowOrderId === order.id}
-                                  onChange={(e) => (focusJob
-                                    ? assignGarmentSteps(order, focusJob.id, false, e.target.value || null)
-                                    : handleAssignWorkflow(order.id, { master: e.target.value || null }))}>
-                            <option value="">{t('ordersPage.unassigned', 'Unassigned')}</option>
-                            {masterWho.id && !tailors.some(tl => tl.id === masterWho.id) && (
-                              <option value={masterWho.id}>{masterWho.name || `#${masterWho.id}`}</option>
+                                  onChange={(e) => assignOrderDesigner(order, designJobs, e.target.value)}>
+                            <option value="" disabled>
+                              {designerWho.mixed ? t('ordersPage.severalDesigners', 'Several designers')
+                                : t('ordersPage.unassigned', 'Unassigned')}
+                            </option>
+                            {designerWho.id && !designers.some(d => String(d.id) === String(designerWho.id)) && (
+                              <option value={designerWho.id}>{designerWho.name}</option>
                             )}
-                            {tailors.filter(tl => tl.role === 'Master').map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
+                            {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                           </select>
-                        )}
-                      </div>
-                    </div>
-                    <div className="od-fact">
-                      <IconTile icon={Scissors} tone="amber" size={44} iconSize={20} />
-                      <div>
-                        <div className="od-fact-label">{t('ordersPage.stitchingTailor', 'Stitching Tailor')}</div>
-                        {isProductionStaff(currentUser.role) ? (
-                          <div className={`od-fact-value${tailorWho.name ? '' : ' od-fact-value--empty'}`}>
-                            {tailorWho.name || t('ordersPage.unassigned', 'Unassigned')}
-                          </div>
                         ) : (
-                          <select className="od-fact-select" value={tailorWho.id || ''} aria-label={t('ordersPage.stitchingTailor', 'Stitching Tailor')}
-                                  disabled={assigningWorkflowOrderId === order.id}
-                                  onChange={(e) => (focusJob
-                                    ? assignGarmentSteps(order, focusJob.id, true, e.target.value || null)
-                                    : handleAssignWorkflow(order.id, { tailor: e.target.value || null }))}>
-                            <option value="">{t('ordersPage.unassigned', 'Unassigned')}</option>
-                            {tailorWho.id && !stitchingStaff().some(tl => tl.id === tailorWho.id) && (
-                              <option value={tailorWho.id}>{tailorWho.name || `#${tailorWho.id}`}</option>
-                            )}
-                            {stitchingStaff().map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
-                          </select>
+                          <div className={`od-fact-value${designerWho.name || designerWho.mixed ? '' : ' od-fact-value--empty'}`}>
+                            {designerWho.mixed ? t('ordersPage.severalDesigners', 'Several designers')
+                              : (designerWho.name || t('ordersPage.unassigned', 'Unassigned'))}
+                          </div>
                         )}
                       </div>
                     </div>

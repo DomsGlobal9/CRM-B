@@ -31,6 +31,8 @@ ORDER_PREFETCH = (
     'stage_histories',
     'garment_jobs',
     'garment_jobs__template',
+    # GarmentJobSerializer.design_assignment: who is designing each garment.
+    'garment_jobs__design_assignment__designer',
     'garment_jobs__materials',
     # JobMaterialSerializer.item_name.
     'garment_jobs__materials__inventory_item',
@@ -60,6 +62,7 @@ class OrderRepository:
             'stages', 'stages__performed_by', 'stages__assigned_to',
             'stages__garment_job__template',
             'garment_jobs', 'garment_jobs__template',
+            'garment_jobs__design_assignment__designer',
         ).order_by('-order_date')
 
     @staticmethod

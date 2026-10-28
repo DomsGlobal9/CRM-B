@@ -569,3 +569,36 @@ class DesignerPerformanceTests(AssignmentTestCase):
         tailor = Tailor.objects.create(name="Ravi", role="Tailor", specialty="Bridal")
         today = date.today()
         self.assertNotIn('design', staff_metrics(tailor, today, today))
+
+
+class OrderPageDesignerTests(AssignmentTestCase):
+    """The order page's Designer in charge reads the same DesignAssignment the
+    Design Work screen and the designer's desk read, so a change made in one
+    place is what every other place shows."""
+
+    def _order_jobs(self):
+        response = self.client.get(reverse('order-detail', args=[self.order.id]))
+        self.assertEqual(response.status_code, 200, response.content)
+        return {job['id']: job for job in response.json()['garment_jobs']}
+
+    def test_a_garment_with_no_designer_reports_none(self):
+        jobs = self._order_jobs()
+        self.assertIsNone(jobs[str(self.lehenga_job.id)]['design_assignment'])
+
+    def test_the_order_reports_each_garments_designer_and_follows_a_reassignment(self):
+        self.assertEqual(self._assign(self.lehenga_job, self.meera).status_code, 201)
+        self.assertEqual(self._assign(self.blouse_job, self.meera).status_code, 201)
+        jobs = self._order_jobs()
+        held = jobs[str(self.lehenga_job.id)]['design_assignment']
+        self.assertEqual(held['designer'], str(self.meera.id))
+        self.assertEqual(held['designer_name'], 'Meera')
+        self.assertEqual(held['status'], DesignAssignment.Status.ASSIGNED)
+
+        self.assertEqual(self._assign(self.lehenga_job, self.kavya).status_code, 200)
+        jobs = self._order_jobs()
+        self.assertEqual(jobs[str(self.lehenga_job.id)]['design_assignment']['designer_name'], 'Kavya')
+        self.assertEqual(jobs[str(self.blouse_job.id)]['design_assignment']['designer_name'], 'Meera')
+        # Kavya's desk now holds the lehenga; Meera's keeps only the blouse.
+        kavya_desk = self.kavya_client.get(reverse('design-assignment-list')).json()
+        kavya_rows = kavya_desk if isinstance(kavya_desk, list) else kavya_desk['results']
+        self.assertEqual([str(r['garment_job']) for r in kavya_rows], [str(self.lehenga_job.id)])
