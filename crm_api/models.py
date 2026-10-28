@@ -664,7 +664,7 @@ def get_default_workflow():
        
         {"key": "created", "name": "Order taken", "sla_hours": 12, "roles": ["Owner", "Master"]},
         
-        {"key": "pattern_cutting", "name": "Cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["stitching"], "scope": "garment"},
+        {"key": "pattern_cutting", "name": "Pattern cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["stitching"], "scope": "garment"},
        
         {"key": "paper_cutting", "name": "Paper cutting", "sla_hours": 24, "roles": ["Owner", "Master", "Pattern Master", "Cutting Master"], "flows": ["maggam"], "scope": "garment"},
         {"key": "maggam_work", "name": "Maggam design", "sla_hours": 96, "roles": ["Owner", "Master", "Maggam Master", "Maggam Karigar"], "flows": ["maggam"], "scope": "garment"},
@@ -707,6 +707,12 @@ class BoutiqueSettings(models.Model):
     shop_longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
    
     shop_radius_m = models.PositiveIntegerField(default=150)
+
+    # The boutique's own names for the customer tiers, as {"Silver": "Regular",
+    # ...}. Display only: customers keep Silver / Gold / Platinum in
+    # customer_type, so filters, counts and reports are untouched by a rename.
+    # A tier not listed shows its own name.
+    tier_names = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return self.name

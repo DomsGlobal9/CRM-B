@@ -134,3 +134,94 @@
 /* My work's status tabs. */
 .wk-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-4, 16px); }
 .wk-tabs .tab-btn { display: inline-flex; align-items: center; gap: 6px; }
+
+
+/* The check screen (Approve / Send back): the two buttons side by side and
+   smaller -- the way back on the left, the decision on the right -- with
+   the hint or error on a full line above them. Other job screens keep their
+   full-width buttons. */
+.wk-actions.wk-actions--pair { flex-direction: row; flex-wrap: wrap; align-items: stretch; gap: 10px; }
+.wk-actions--pair > .wk-hint, .wk-actions--pair > .wk-error { flex: 1 1 100%; order: 0; }
+.wk-actions--pair > .btn-primary, .wk-actions--pair > .btn-secondary {
+  flex: 1 1 0; width: auto; min-width: 0; min-height: 44px; padding: 8px 14px; font-size: 15px; border-radius: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wk-actions--pair > .btn-secondary { order: 1; }
+.wk-actions--pair > .btn-primary { order: 2; }
+.wk-actions--pair > .btn-primary svg, .wk-actions--pair > .btn-secondary svg { width: 16px; height: 16px; flex-shrink: 0; }
+@media (min-width: 900px) {
+  .wk-actions.wk-actions--pair { justify-content: flex-end; }
+  .wk-actions--pair > .btn-primary, .wk-actions--pair > .btn-secondary { flex: 0 1 200px; }
+}
+
+/* Phones: a touch smaller so a longer label ("Add photo or note", "Send
+   back to …") fits beside its partner. */
+@media (max-width: 420px) {
+  .wk-actions--pair > .btn-primary, .wk-actions--pair > .btn-secondary { padding: 8px 10px; font-size: 14px; gap: 6px; }
+}
+
+/* Job screens: the buttons are not pinned to the bottom of the screen --
+   they come right after the job's content and scroll with it, as part of
+   the page (no separate band). With no pinned bar there is nothing to keep
+   clear of, so the space the forms reserved for it goes too. */
+.wk-actions.wk-actions--pair {
+  position: static; margin: var(--space-4) 0 var(--space-5); padding: 0;
+  background: transparent; border-top: 0;
+}
+.wk-sheet:has(.wk-actions--pair) { --wk-actions-h: 0px; }
+
+/* My work, Masters and Designers: the status tabs with the work-step filter
+   on their right; the filter takes its own line under them on a phone. */
+.wk-toolbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-bottom: var(--space-4, 16px); }
+.wk-toolbar > .wk-tabs { margin-bottom: 0; flex: 1 1 auto; min-width: 0; }
+.wk-step-filter { display: inline-flex; align-items: center; gap: 8px; margin: 0; flex: 0 0 auto; }
+.wk-step-filter > span { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); white-space: nowrap; }
+.wk-step-filter .form-control { min-width: 200px; max-width: 280px; min-height: 40px; padding: 6px 12px; font-size: 14px; }
+@media (max-width: 640px) {
+  .wk-step-filter { flex: 1 1 100%; }
+  .wk-step-filter .form-control { flex: 1 1 auto; min-width: 0; max-width: none; }
+}
+
+/* The job panel's header: who holds this step, under the order line. */
+.wk-sheet-title small.wk-sheet-assignee { margin-top: 2px; }
+.wk-sheet-assignee b { font-weight: 600; color: var(--text-primary); }
+
+/* My work: the pager under the cards -- how many are showing, then
+   "Show N more" and, when there are many, "Show all". Centred; the buttons
+   share the width on a phone. */
+.wk-more { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 6px 0 var(--space-4, 16px); padding-top: 4px; }
+.wk-more-count { font-size: 13px; color: var(--text-secondary); }
+.wk-more-actions { display: flex; align-items: center; justify-content: center; gap: 10px 16px; flex-wrap: wrap; }
+.wk-more-actions .btn-secondary { display: inline-flex; align-items: center; gap: 6px; min-height: 42px; padding: 8px 20px; border-radius: 999px; font-weight: 600; }
+.wk-more-all { border: 0; background: none; padding: 6px 4px; font: inherit; font-size: 14px; font-weight: 600; color: var(--brand-link); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 480px) {
+  .wk-more-actions { width: 100%; }
+  .wk-more-actions .btn-secondary { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Job screen > Measurements: the Measurement and Specification headings in bold. */
+.wk-sub.wk-sub--head { font-weight: 700; color: var(--text-primary); }
+
+/* Job screen header: the back arrow lines up with the title's first line
+   and the page's left edge; title, order line and assignee stack with even
+   spacing, the title wraps on a narrow phone and the two lines under it end
+   in "..." rather than pushing the header wider. */
+.wk-sheet-head { align-items: flex-start; gap: 6px; padding: 8px 16px 10px 6px; }
+.wk-sheet-head .wk-icon-btn { margin-top: 0; }
+.wk-sheet-title { padding-top: 10px; line-height: 1.35; overflow-wrap: anywhere; }
+.wk-sheet-title small { margin-top: 3px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-sheet-title small.wk-sheet-assignee { margin-top: 3px; }
+@media (min-width: 641px) {
+  .wk-sheet-head { padding-top: 10px; padding-bottom: 12px; }
+  .wk-sheet-title { font-size: 17px; }
+}
+@media (max-width: 360px) {
+  .wk-sheet-head { padding-right: 12px; gap: 2px; }
+  .wk-sheet-title { font-size: 15px; }
+  .wk-sheet-title small { font-size: 13px; }
+}
+
+/* Job screen header: From (who handed the job over) and Send to (who
+   checks it, then the next step) wrap onto a second line on a phone
+   rather than ending in "...". */
+.wk-sheet-title small.wk-sheet-route { white-space: normal; overflow: visible; overflow-wrap: anywhere; }

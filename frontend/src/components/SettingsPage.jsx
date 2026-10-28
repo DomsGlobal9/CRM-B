@@ -4,6 +4,7 @@ import LanguageSelector from './LanguageSelector.jsx';
 import { PageHeader } from './ui/Atelier.jsx';
 import { InvoiceTemplateSelector } from './invoice/InvoiceTemplateSelector.jsx';
 import DailySummarySettings from './DailySummarySettings.jsx';
+import TierNamesSettings from './TierNamesSettings.jsx';
 import { Globe, ShieldCheck, CheckCircle2, Building, Link2, User, Clock, MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor } from 'lucide-react';
 import { getColorMode, setColorMode } from '../theme.js';
 import { api } from '../services/api.js';
@@ -24,6 +25,7 @@ const infoRowValue = { fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(
 export const SettingsPage = ({
   currentUser,
   boutiqueSettings,
+  onTierNamesSaved,
   whatsappStatus = { connected: false, status: 'disconnected', qrCode: null },
   fetchWhatsAppStatus,
 }) => {
@@ -76,8 +78,11 @@ export const SettingsPage = ({
     <div className="settings-page-wrapper" style={{ maxWidth: '1100px', margin: '0 auto' }}>
       <PageHeader title={t('settingsPage.title')} subtitle={t('settingsPage.subtitle')} />
 
+      {/* Other roles see three cards (Language, Appearance, Your boutique):
+          `settings-grid--staff` lays them out without a gap. The owner's
+          grid is unchanged. */}
       <div
-        className="settings-grid"
+        className={`settings-grid${isOwner ? '' : ' settings-grid--staff'}`}
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
@@ -145,7 +150,7 @@ export const SettingsPage = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
+          <div className="settings-info-rows" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             <div className="ui-row" style={infoRow}>
               <span style={infoRowLabel}><User size={16} /> {t('settingsPage.activeUser')}</span>
               {/* .ui-badge for size/shape on the accent fill. The text is ink:
@@ -302,6 +307,14 @@ export const SettingsPage = ({
 
         {/* Invoice Template Selection Card (Right side of WhatsApp Link card) */}
         <InvoiceTemplateSelector currentUser={currentUser} />
+
+        {/* Owner only: the boutique's own names for the customer tiers -- beside
+            the invoice style, in the slot that row left empty.
+            Keyed on whether settings have loaded, so the boxes fill once they do. */}
+        {isOwner && (
+          <TierNamesSettings key={boutiqueSettings ? 'loaded' : 'loading'} iconChip={iconChip}
+                             tierNames={boutiqueSettings?.tier_names} onSaved={onTierNamesSaved} />
+        )}
 
         {isOwner && <DailySummarySettings iconChip={iconChip} />}
       </div>

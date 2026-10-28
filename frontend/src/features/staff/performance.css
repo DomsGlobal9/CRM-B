@@ -1,0 +1,63 @@
+/* Staff > Performance as charts (Performance.jsx). One mark colour: the
+   brand's darker lime on light (passes contrast on white), lime 700 in the
+   dark theme; other design systems use their own accent ink. */
+.pf-viz, .pf-team { --pf-mark: var(--accent-text, #5C6C13); --pf-track: var(--surface-inset); }
+html[data-theme="scaleezy-dark"] .pf-viz, html[data-theme="scaleezy-dark"] .pf-team { --pf-mark: #7E9033; }
+
+/* Team at a glance: one measure, a bar per person. */
+.pf-team { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm); padding: 16px 18px 12px; margin-bottom: 14px; min-width: 0; }
+.pf-team-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-bottom: 12px; }
+.pf-team-title { margin: 0; font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.pf-team-sub { margin: 2px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+.pf-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf-chip { border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-secondary);
+  border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.pf-chip:hover { color: var(--text-primary); border-color: var(--border-strong, var(--border-color)); }
+.pf-chip.is-on { background: var(--brand-dark); border-color: var(--brand-dark); color: var(--brand-dark-foreground); }
+.pf-team-empty { padding: 12px 0; font-size: 13px; color: var(--text-muted); }
+.pf-bars { display: flex; flex-direction: column; }
+.pf-bar-row { display: grid; grid-template-columns: minmax(90px, 180px) minmax(0, 1fr) 64px; align-items: center; gap: 12px;
+  width: 100%; padding: 7px 6px; border: 0; border-radius: 8px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.pf-bar-row:hover, .pf-bar-row:focus-visible { background: var(--surface-2, var(--surface-inset)); }
+.pf-bar-name { min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-bar-name small { display: block; font-size: 11.5px; font-weight: 400; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; }
+.pf-bar-track { position: relative; height: 14px; border-left: 1px solid var(--border-strong, var(--border-color)); }
+.pf-bar-track--none { border-left-style: dashed; }
+.pf-bar-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--pf-mark); border-radius: 0 4px 4px 0; min-width: 3px; }
+.pf-bar-value { font-size: 13.5px; font-weight: 600; color: var(--text-primary); text-align: right; white-space: nowrap; }
+
+/* A person's card: initials, name and role, review on the right; then up
+   to four figures -- rings for percentages, a bar against the team's best
+   for counts and hours. */
+.pf-cards { display: flex; flex-direction: column; gap: 10px; }
+.pf-card { transition: border-color .15s ease, box-shadow .15s ease; }
+.pf-card:hover, .pf-card:focus-visible { border-color: var(--border-strong, var(--border-color)) !important; box-shadow: var(--shadow-md) !important; }
+.pf-avatar { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent-color); color: var(--accent-text); font-size: 14px; font-weight: 700; letter-spacing: .02em; }
+.pf-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 18px;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.pf-metric { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pf-metric--ring { flex-direction: row; align-items: center; gap: 10px; }
+.pf-metric-label { font-size: 12px; color: var(--text-secondary); }
+.pf-metric-value { font-size: 20px; font-weight: 700; line-height: 1.15; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.pf-metric-none { color: var(--text-muted) !important; font-style: italic; font-weight: 600; font-size: 14px; }
+.pf-metric-value.pf-metric-none { font-size: 16px; }
+.pf-meter { position: relative; height: 6px; margin-top: 4px; border-radius: 999px; background: var(--pf-track); overflow: hidden; }
+.pf-meter > span { position: absolute; left: 0; top: 0; bottom: 0; background: var(--pf-mark); border-radius: 999px; min-width: 4px; }
+.pf-meter--none { background: none; border: 1px dashed var(--border-strong, var(--border-color)); box-sizing: border-box; }
+.pf-ring { width: 60px; height: 60px; flex-shrink: 0; }
+.pf-ring-track { fill: none; stroke: var(--pf-track); stroke-width: 6; }
+.pf-ring-track--none { stroke: var(--border-strong, var(--border-color)); stroke-width: 2; stroke-dasharray: 4 4; }
+.pf-ring-arc { fill: none; stroke: var(--pf-mark); stroke-width: 6; stroke-linecap: round; }
+.pf-ring-text { font-size: 14px; font-weight: 700; fill: var(--text-primary); text-anchor: middle; dominant-baseline: central; }
+.pf-ring-text--none { fill: var(--text-muted); font-weight: 600; }
+
+@media (max-width: 640px) {
+  .pf-team { padding: 14px 12px 8px; }
+  .pf-chips { width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+  .pf-chip { flex-shrink: 0; }
+  .pf-bar-row { grid-template-columns: minmax(70px, 34%) minmax(0, 1fr) 54px; gap: 8px; padding: 7px 2px; }
+  .pf-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .pf-ring { width: 52px; height: 52px; }
+}

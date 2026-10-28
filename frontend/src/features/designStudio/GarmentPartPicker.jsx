@@ -136,7 +136,11 @@ function WebResultCard({ hit, kept, keeping, onKeep, sourceUrl, title }) {
 }
 
 
-export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onToggle }) {
+// `details`: the item's full words under the photo (its label, then `value`
+// and `sub` when it has them). `closeAtTop`: an icon-only close in the top
+// corner instead of the Close button under the photo. Both off by default, so
+// every lightbox that does not ask for them looks exactly as it did.
+export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onToggle, details = false, closeAtTop = false }) {
   const item = items[index];
   const many = items.length > 1;
 
@@ -166,7 +170,18 @@ export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onT
     <div onClick={close}
          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 1100,
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  justifyContent: 'center', gap: '14px', padding: '28px' }}>
+                  justifyContent: 'center', gap: '14px', padding: closeAtTop ? '64px 28px 28px' : '28px',
+                  ...(details ? { overflowY: 'auto' } : {}) }}>
+
+      {closeAtTop && (
+        <button type="button" title="Close (Esc)" aria-label="Close" onClick={close}
+                style={{ position: 'absolute', top: '14px', right: '14px', width: '42px', height: '42px',
+                         borderRadius: '50%', border: 'none', cursor: 'pointer', zIndex: 1,
+                         background: 'rgba(255,255,255,0.16)', color: '#fff', display: 'flex',
+                         alignItems: 'center', justifyContent: 'center' }}>
+          <X size={20} />
+        </button>
+      )}
 
       {many && (
         <>
@@ -183,14 +198,23 @@ export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onT
 
       <img src={resolveMediaUrl(item.image_url, FALLBACK)} alt={item.label} onError={onImgError}
            onClick={(e) => e.stopPropagation()}
-           style={{ maxWidth: '100%', maxHeight: '74vh', objectFit: 'contain',
-                    borderRadius: '8px', display: 'block' }} />
+           style={{ maxWidth: '100%',
+                    // With the words under it, the photo leaves them room on a short screen.
+                    maxHeight: details ? 'min(74vh, calc(100vh - 220px))' : '74vh',
+                    objectFit: 'contain', borderRadius: '8px', display: 'block', ...(details ? { minHeight: 0 } : {}) }} />
 
-      <div style={{ color: '#fff', fontSize: '13px', fontWeight: 600, textAlign: 'center' }}
+      <div style={{ color: '#fff', fontSize: '13px', fontWeight: 600, textAlign: 'center',
+                    maxWidth: 'min(640px, 100%)', overflowWrap: 'anywhere' }}
            onClick={(e) => e.stopPropagation()}>
         {item.label}
         {many && (
           <span style={{ opacity: 0.6, fontWeight: 400 }}> · {index + 1} of {items.length}</span>
+        )}
+        {details && item.value && item.value !== item.label && (
+          <div style={{ fontSize: '15px', fontWeight: 600, marginTop: '4px' }}>{item.value}</div>
+        )}
+        {details && item.sub && (
+          <div style={{ fontSize: '12.5px', fontWeight: 400, opacity: 0.75, marginTop: '2px' }}>{item.sub}</div>
         )}
       </div>
 
@@ -206,10 +230,12 @@ export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onT
             {isSelected ? <><X size={13} /> Remove selection</> : <><Check size={13} /> Select this</>}
           </button>
         )}
-        <button className="btn-secondary" style={{ padding: '6px 14px', fontSize: '12px' }}
-                onClick={close}>
-          <X size={13} /> Close
-        </button>
+        {!closeAtTop && (
+          <button className="btn-secondary" style={{ padding: '6px 14px', fontSize: '12px' }}
+                  onClick={close}>
+            <X size={13} /> Close
+          </button>
+        )}
       </div>
     </div>
   );

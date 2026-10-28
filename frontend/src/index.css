@@ -4508,7 +4508,7 @@ table.data-table tbody tr:hover {
   /* The figures sit under the name, where a glance lands first. */
   .cust-list td.cust-orders { order: 1; }
   .cust-list td.cust-measure { order: 2; }
-  .cust-list td[data-label="Style notes"] { order: 3; }
+  .cust-list td[data-label="Garment"], .cust-list td[data-label="Style notes"] { order: 3; }
   .cust-list td.cust-actions { order: 4; }
   .cust-list .at-table--fit tr:last-child { border-bottom: 1px solid var(--border-color); margin-bottom: 0; }
   .cust-list .at-table--fit tr:active { background: var(--surface-2); }
@@ -4534,6 +4534,7 @@ table.data-table tbody tr:hover {
   .cust-contact a { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; text-decoration: none; }
   .cust-list .cust-actions .at-link { min-height: 40px; margin-right: auto; }
   .cust-list .cust-actions .at-icon-btn { width: 40px; height: 40px; }
+  .cust-list .cust-actions .row-menu-btn { width: 40px; height: 40px; min-height: 40px; margin-left: auto; }
 }
 /* A tablet has room for the whole action row on one line. */
 @media (min-width: 641px) and (max-width: 1024px) {
@@ -5832,24 +5833,28 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 
 /* Customer filters (features/customers/CustomerFilters.jsx): a row of small
    labelled selects, "More filters" for the rest, and the A-Z name strip. */
-.cf-bar { padding: var(--space-4); border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--surface-color); margin-bottom: var(--space-3); }
-.cf-label { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
-/* The headings over the More filters selects sit centred over their box. */
-.cf-field .cf-label { text-align: center; }
-.cf-bar select.cf-select { min-height: 38px; height: 38px; padding: 4px 30px 4px 12px; margin: 0; font-size: var(--text-sm); width: 100%; }
-.cf-bar select.cf-select--on { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 10%, var(--surface-color)); font-weight: 600; }
-.cf-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 14px; font-size: var(--text-sm); white-space: nowrap; }
+.cf-bar { padding: 14px 18px; border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--surface-color); margin-bottom: var(--space-4); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); }
+.cf-label { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--text-secondary); }
+.cf-field { display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 0; }
+.cf-field .cf-label { text-align: left; }
+.cf-bar select.cf-select { min-height: 38px; height: 38px; padding: 4px 30px 4px 12px; margin: 0; font-size: var(--text-sm); width: 100%; border-radius: var(--radius-md); border: 1px solid var(--border-color); background-color: var(--surface-color); color: var(--text-primary); transition: border-color .15s, box-shadow .15s; }
+.cf-bar select.cf-select:focus { border-color: var(--primary-color); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent); }
+.cf-bar select.cf-select--on { border-color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 8%, var(--surface-color)); font-weight: 600; }
+.cf-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 6px 14px; font-size: var(--text-sm); font-weight: 500; white-space: nowrap; border-radius: var(--radius-md); }
 .cf-btn:disabled { opacity: 1; cursor: default; }
 .cf-count { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--primary-color); color: var(--primary-foreground); font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .cf-letter { min-width: 30px; height: 30px; padding: 0 6px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--text-primary); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
 .cf-letter:hover:not(:disabled) { background: var(--surface-inset); }
 .cf-letter:disabled { color: var(--text-muted); opacity: .45; cursor: default; }
 .cf-letter--on, .cf-letter--on:hover:not(:disabled) { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); }
-@media (max-width: 640px) { .cf-bar .cf-field { max-width: none !important; flex-basis: 100% !important; } }
 
 /* A row's ⋯ actions menu (components/ui/RowMenu.jsx), as on the platform
    console's boutique list: fixed on <body>, so no table can clip it. */
 .row-menu-btn { width: 40px; height: 36px; min-height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-color); color: var(--text-primary); cursor: pointer; }
+.cust-list td.cust-actions .row-menu-btn { vertical-align: middle; }
+@media (min-width: 1025px) {
+  .cust-list td.cust-measure { padding-left: 44px; }
+}
 .row-menu-btn:hover:not(:disabled), .row-menu-btn[aria-expanded="true"] { background: var(--surface-inset); }
 .row-menu-btn:disabled { opacity: .5; cursor: default; }
 .row-menu { position: fixed; z-index: 1100; min-width: 180px; padding: 6px; display: flex; flex-direction: column; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14); }
@@ -6357,16 +6362,21 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .orders-book > tbody { display: flex !important; flex-direction: column; gap: 10px; }
   .orders-book > tbody > tr {
     display: flex !important; flex-direction: column; gap: 10px;
-    padding: 14px 16px !important; background: var(--surface-color);
-    border: 1px solid var(--border-color) !important; border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 14px 16px !important; background: var(--row-status-bg, var(--surface-color));
+    border: 1px solid var(--border-color) !important; border-radius: 12px;
+    box-shadow: inset 4px 0 0 var(--row-status-border, transparent), var(--shadow-card);
   }
   .orders-book > tbody > tr:last-child { border-bottom: 1px solid var(--border-color) !important; }
   .orders-book > tbody > tr > td { padding: 0 !important; }
   .orders-book > tbody > tr > td:first-child { font-size: 15px; line-height: 1.5; }
   .orders-book > tbody > tr.gh-express {
-    background: color-mix(in srgb, var(--danger-bg) 45%, var(--surface-color));
+    background: var(--row-status-bg, var(--surface-color)) !important;
     border-color: color-mix(in srgb, var(--danger-color) 30%, var(--border-color)) !important;
-    box-shadow: inset 4px 0 0 var(--danger-color), var(--shadow-card);
+    box-shadow: inset 4px 0 0 var(--danger-color), var(--shadow-card) !important;
+  }
+  .orders-book > tbody > tr.at-row-stuck:not(.gh-express):not(.at-row-late) {
+    background: var(--row-status-bg, var(--surface-color)) !important;
+    box-shadow: inset 4px 0 0 var(--warning-color, #d97706), var(--shadow-card) !important;
   }
   .orders-book > tbody > tr.gh-express > td:first-child { box-shadow: none; }
   /* "Promised by" and its date on one line, under a hairline. */
@@ -7007,17 +7017,51 @@ button, input, select, textarea { font-family: inherit; }
   .wz-measure-notes .at-field-control > .voice-textarea > textarea { font-size: 16px; }
 }
 
-/* Customers page: chips, sort and filters on one row (MOM, 2026-10-24). */
-.cf-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* Customers page: summary, sort and filters toolbar */
+.cf-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; width: 100%; }
+.cf-top-leading { display: flex; align-items: center; flex: 0 1 auto; }
+.cf-showing { display: inline-flex; align-items: center; font-size: 13.5px; font-weight: 500; color: var(--text-secondary); text-align: left; margin: 0; }
 .cf-top-end { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
 .cf-inline { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
-.cf-inline .cf-select { width: auto !important; min-width: 170px; }
-.cf-showing { display: block; font-size: var(--text-xs); color: var(--text-secondary); text-align: right; margin-top: -4px; }
+.cf-inline .cf-select { width: auto !important; min-width: 160px; }
+
+/* Expanded filters grid */
+.cf-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 1120px) {
+  .cf-filters-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .cf-filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
 @media (max-width: 640px) {
-  .cf-top-end { margin-left: 0; width: 100%; }
-  .cf-inline { flex: 1 1 100%; }
-  .cf-inline .cf-select { flex: 1; min-width: 0; }
-  .cf-showing { text-align: left; }
+  .cf-top { gap: 10px; }
+  .cf-top-leading { width: 100%; }
+  .cf-top-end { margin-left: 0; width: 100%; justify-content: flex-start; }
+  .cf-inline { flex: 1 1 auto; }
+  .cf-inline .cf-select { flex: 1; min-width: 130px; }
+}
+
+@media (max-width: 480px) {
+  .cf-filters-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 /* An order begun from the customer's own page keeps their name and number. */
@@ -7289,7 +7333,49 @@ button, input, select, textarea { font-family: inherit; }
    Profile, Settings and Sign out -- the entries the sidebar's Account group
    used to hold. A phone (768px and below) has the header avatar's menu for
    the same entries, so the bar is hidden there. */
-.portal-account-bar { display: flex; justify-content: flex-end; margin: -16px 0 12px; position: relative; z-index: 20; }
+.portal-account-bar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: -16px 0 12px; position: relative; z-index: 20; }
+.portal-account-bell-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  border-radius: 999px;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, color .15s ease;
+}
+.portal-account-bell-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+.portal-account-bell-btn:focus-visible {
+  outline: 3px solid var(--accent-border);
+  outline-offset: 2px;
+}
+.portal-account-bell-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.portal-account-bell-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background-color: var(--danger-color, #dc2626);
+  color: #fff;
+  border-radius: 10px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
 .acct-menu { position: relative; }
 .acct-menu-btn {
   display: inline-flex; align-items: center; gap: 10px; padding: 4px 12px 4px 4px; min-height: 0;
@@ -7385,23 +7471,49 @@ button, input, select, textarea { font-family: inherit; }
    marked with an amber edge and a soft amber fill. */
 .at-step-days { display: flex; width: fit-content; align-items: center; gap: 4px; margin-top: 4px; padding: 2px 8px; border-radius: 999px;
   font-size: 11.5px; font-weight: 600; white-space: nowrap; color: var(--text-secondary); background: var(--surface-inset); }
-.at-step-days--stuck { color: #8a5a00; background: color-mix(in srgb, var(--warning-color, #d97706) 18%, transparent); }
+/* Orders / Workshop list: complete row coloring according to status */
+.orders-book > tbody > tr {
+  transition: background-color 0.15s ease, filter 0.15s ease;
+}
+.orders-book > tbody > tr > td {
+  background-color: inherit !important;
+}
+.orders-book > tbody > tr:hover > td {
+  background-color: inherit !important;
+}
+.orders-book > tbody > tr:hover {
+  filter: brightness(0.96);
+}
+
+/* Base stuck indicator: amber left edge and day chip */
 tr.at-row-stuck { background: color-mix(in srgb, var(--warning-color, #d97706) 14%, transparent); }
 tr.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--warning-color, #d97706); }
-/* An express row keeps its red; its day chip still turns amber. */
 tr.gh-express.at-row-stuck { background: color-mix(in srgb, var(--danger-bg) 45%, transparent); }
 tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--danger-color); }
 
-/* Orders / Workshop list: an order past its delivery date and still being made
-   ("Late") is highlighted across the whole row in red, stronger than an
-   express row's tint and taking over from the 10-day amber. */
+/* In orders-book: ensure express, stuck, and late rows keep their status background color while displaying indicator bars */
+.orders-book > tbody > tr.gh-express,
+.orders-book > tbody > tr.at-row-stuck,
+.orders-book > tbody > tr.gh-express.at-row-stuck,
 .orders-book > tbody > tr.at-row-late,
 .orders-book > tbody > tr.at-row-late.gh-express,
-.orders-book > tbody > tr.at-row-late.at-row-stuck { background: color-mix(in srgb, var(--danger-color) 13%, var(--surface-color)); }
-.orders-book > tbody > tr.at-row-late > td:first-child { box-shadow: inset 4px 0 0 var(--danger-color); }
-.orders-book > tbody > tr.at-row-late:hover { background: color-mix(in srgb, var(--danger-color) 18%, var(--surface-color)); }
-/* The table's own hover tint on the cells would cover the red. */
-.orders-book > tbody > tr.at-row-late > td { background: transparent !important; }
+.orders-book > tbody > tr.at-row-late.at-row-stuck {
+  background-color: var(--row-status-bg, inherit) !important;
+}
+
+/* Left accent bar on first cell: status border with express/stuck/late indicators taking precedence */
+.orders-book > tbody > tr > td:first-child {
+  box-shadow: inset 4px 0 0 var(--row-status-border, transparent);
+}
+.orders-book > tbody > tr.gh-express > td:first-child {
+  box-shadow: inset 3.5px 0 0 var(--danger-color) !important;
+}
+.orders-book > tbody > tr.at-row-stuck:not(.gh-express):not(.at-row-late) > td:first-child {
+  box-shadow: inset 3.5px 0 0 var(--warning-color, #d97706) !important;
+}
+.orders-book > tbody > tr.at-row-late > td:first-child {
+  box-shadow: inset 4px 0 0 var(--danger-color) !important;
+}
 
 /* Orders / Workshop list: "Assigned to", the person who has the current step. */
 .at-assignee { display: inline-flex; align-items: center; gap: 5px; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
@@ -7412,6 +7524,97 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .orders-book > tbody > tr > td.at-assignee-cell { display: flex !important; align-items: baseline; justify-content: space-between; gap: 12px; }
   .orders-book > tbody > tr > td.at-assignee-cell::before { margin: 0 !important; font-weight: 500; }
   .orders-book > tbody > tr > td.at-assignee-cell:has(> .at-assignee-none) { display: none !important; }
+}
+
+/* Orders / Workshop list: Order ID column clean alignment & responsive layout */
+.orders-book th:first-child,
+.orders-book td.order-id-cell {
+  text-align: left !important;
+}
+
+.orders-book .order-id-cell {
+  vertical-align: middle;
+}
+
+.orders-book .order-id-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  text-align: left;
+}
+
+.orders-book .order-id-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  line-height: 1.3;
+}
+
+.orders-book .order-id-ref {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.orders-book .order-id-garment {
+  display: block;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.orders-book .order-id-cell .gh-express-tag {
+  margin-left: 0 !important;
+  vertical-align: middle;
+}
+
+.orders-book .order-id-cell .at-step-days {
+  margin-top: 2px;
+}
+
+.orders-book .order-id-cell .at-phone-line {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+@media (max-width: 1024px) {
+  .orders-book .order-id-content {
+    gap: 4px;
+    width: 100%;
+  }
+  .orders-book .order-id-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100%;
+  }
+  .orders-book .order-id-ref {
+    font-size: 15px;
+  }
+}
+
+/* Orders / Workshop list: stage step color badge */
+.stage-step-badge {
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  line-height: 1.5;
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 /* Design library > Boutique designs: every number card in one row on a laptop
@@ -7553,3 +7756,760 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   border: 0; background: var(--surface-color); color: var(--text-primary); font: inherit; font-size: 12px; cursor: pointer;
 }
 .staff-only-chip button:hover { background: var(--surface-2); }
+
+/* Design library > Boutique designs: the number cards carry a label and a
+   number only, so the icon sits centred beside them and every card is the
+   same height. */
+.dl-page .dl-stats--plain .at-stat { align-items: center !important; }
+.dl-page .dl-stats--plain .at-stat-body { justify-content: center; }
+.dl-page .dl-stats--plain .at-stat-label { line-height: 1.3; }
+.dl-page .dl-stats--plain .at-stat-value { margin-top: 2px; line-height: 1.1; }
+@media (min-width: 1025px) and (max-width: 1279.98px) {
+  /* Icon above the words here: centre the words under it as well. */
+  .dl-page .dl-stats--plain .at-stat-body { align-items: center; text-align: center; width: 100%; }
+}
+
+/* Design library > Design Categories: the heading lines up with the cards
+   under it -- its icon over the cards' icons (same size), its title over the
+   garment names, "Upload design" over the arrows -- and inside each card the
+   icon, the name with its count and the arrow share one centre line. */
+@media (min-width: 601px) {
+  .dl-cats-card > .at-section-head { padding: 0 16px; align-items: center; }
+  .dl-cats-card > .at-section-head .at-section-heading { align-items: center; gap: 12px; }
+  .dl-cats-card > .at-section-head .at-section-heading > .at-tile { width: 44px !important; height: 44px !important; border-radius: 12px; }
+}
+.dl-cats-card .at-cat { align-items: center; gap: 12px; }
+.dl-cats-card .at-cat > span:not(.at-tile) { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; flex: 1; }
+.dl-cats-card .at-cat-name { font-size: 14px; font-weight: 600; line-height: 1.3; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dl-cats-card .at-cat-count { margin: 0 !important; font-size: 12.5px; line-height: 1.3; color: var(--text-secondary); }
+.dl-cats-card .at-cat-chevron { flex-shrink: 0; margin-left: auto; align-self: center; }
+
+/* Inventory > the four stock cards: label and number only, the icon centred
+   beside them, every card the same height. */
+.inv-stats--plain .at-stat { align-items: center !important; }
+.inv-stats--plain .at-stat-body { justify-content: center; }
+.inv-stats--plain .at-stat-label { line-height: 1.3; }
+.inv-stats--plain .at-stat-value { margin-top: 2px; line-height: 1.1; }
+
+/* ---- Design library: a tighter top of page --------------------------------
+   The page title rises into the row of the "Hi, <name>" chip (title on the
+   left, chip on the right, "Add a design" under the chip), the tabs and the
+   library card follow closer, and inside a garment's card the header, the
+   part tabs and the rest are spaced by the card's own gap alone. A phone has
+   no chip row (the header avatar carries it) and keeps its layout. */
+@media (min-width: 769px) {
+  .portal-main:has(.design-manager-content) { padding-top: 24px; }
+  .portal-main:has(.design-manager-content) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(.design-manager-content) > .at-page-head { margin-bottom: 16px; }
+  .portal-main:has(.design-manager-content) > .at-page-head .at-page-head-left { padding-right: 220px; }
+  .portal-main:has(.design-manager-content) > .at-page-head .at-page-head-right { padding-top: 52px; }
+  .portal-main:has(.design-manager-content) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
+  .portal-main:has(.design-manager-content) .dl-tabs { margin-bottom: 12px !important; }
+}
+.design-manager-content .content-card.dl-page { gap: 16px; }
+.design-manager-content .dl-page > .dl-head { margin-bottom: 0 !important; }
+.design-manager-content .dl-page > .at-part-tabs { margin-bottom: 0; }
+@media (min-width: 769px) {
+  .design-manager-content .content-card.dl-page { padding: 24px 28px; }
+}
+
+/* Design library > a garment: "All categories" in the soft lime with black
+   words and arrow, at rest and on hover. */
+.dl-page > .dl-head .dl-back,
+.dl-page > .dl-head .dl-back:hover:not(:disabled) {
+  background: var(--accent-color) !important; border-color: var(--accent-border) !important;
+  color: var(--text-primary) !important;
+}
+.dl-page > .dl-head .dl-back svg { color: var(--text-primary); }
+.dl-page > .dl-head .dl-back:hover:not(:disabled) { border-color: var(--primary-color) !important; }
+
+/* Design library: tighter still. "Add a design" a little smaller under the
+   chip, the head and tabs closer, and inside a garment's card even 12px
+   steps between the header, the part tabs, the catalogue chips and the
+   designs (the chips' own bottom margin no longer doubles the gap). */
+@media (min-width: 769px) {
+  .portal-main:has(.design-manager-content) { padding-top: 20px; }
+  .portal-main:has(.design-manager-content) > .at-page-head { margin-bottom: 8px; }
+  .portal-main:has(.design-manager-content) > .at-page-head .at-page-head-right { padding-top: 48px; }
+  .portal-main:has(.design-manager-content) > .at-page-head .at-page-head-right .btn-primary { min-height: 36px; padding: 6px 16px !important; font-size: 14px; }
+  .portal-main:has(.design-manager-content) .dl-tabs { margin-bottom: 10px !important; }
+  .design-manager-content .content-card.dl-page { padding: 20px 24px; }
+}
+.design-manager-content .content-card.dl-page { gap: 12px; }
+.design-manager-content .dl-page > .dl-head { padding-bottom: 12px; }
+.design-manager-content .dl-page > .at-part-tabs { padding: 10px; }
+.design-manager-content .dl-page > .dcb-panel { margin-bottom: 0 !important; padding: 12px 16px !important; gap: 8px !important; }
+
+/* ---- Orders: a tighter top of page ---------------------------------------
+   As on the Design library: the title rises into the "Hi, <name>" chip's row,
+   the search box and "New order" sit side by side under the chip, and the
+   cards, the WhatsApp notice and the table follow closer. A phone (no chip
+   row) keeps its layout. */
+@media (min-width: 769px) {
+  .portal-main:has(> .orders-stats) { padding-top: 20px; }
+  .portal-main:has(> .orders-stats) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(> .orders-stats) > .at-page-head { margin-bottom: 14px; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-left { padding-right: 220px; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-right {
+    flex-direction: row; align-items: center; flex-wrap: wrap; justify-content: flex-end; padding-top: 50px;
+  }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-right .btn-primary { min-height: 40px; padding: 8px 16px !important; }
+  .portal-main:has(> .orders-stats) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
+  .portal-main:has(> .orders-stats) > .orders-stats { gap: var(--space-3); }
+  .portal-main:has(> .orders-stats) > .orders-stats .at-stat { padding: 16px 18px; }
+  .portal-main:has(> .orders-stats) > .at-toolbar { margin: 12px 0 10px; }
+  .portal-main:has(> .orders-stats) > .msg-failed-banner { margin: 10px 0; padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* Orders / Workshop list: View as an eye-only square button, so the Action
+   column fits beside "Send to workshop" at every width. */
+.orders-book .at-btn-icon-view { width: 36px; min-width: 36px; height: 36px; min-height: 36px; padding: 0 !important; justify-content: center; flex: 0 0 auto !important; }
+.orders-book > tbody > tr > td:last-child > div { flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+@media (max-width: 1024px) {
+  .orders-book .at-btn-icon-view { width: 40px; min-width: 40px; height: 40px; min-height: 40px; }
+}
+@media (min-width: 1025px) and (max-width: 1365.98px) {
+  /* A laptop: tighter cells and headings that may wrap, so the whole row --
+     Send to workshop and the eye included -- fits without sideways scroll. */
+  .orders-book > thead > tr > th, .orders-book > tbody > tr > td { padding: 12px 10px; }
+  .orders-book > thead > tr > th { white-space: normal; line-height: 1.25; }
+  .orders-book .btn-primary.at-btn-sm { padding: 6px 10px !important; }
+}
+
+/* ---- Workshop: the same tighter top as Orders -----------------------------
+   Title in the chip's row, the search under the chip, the Board / List
+   switch and the WhatsApp notice closer. A phone keeps its layout. */
+@media (min-width: 769px) {
+  .portal-main:has(> .at-toolbar .at-toolbar-right) { padding-top: 20px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head { margin-bottom: 10px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-left { padding-right: 220px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-right { padding-top: 50px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-right:empty { display: none; padding-top: 0; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-toolbar { margin: 4px 0 10px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .msg-failed-banner { margin: 10px 0; padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* ---- Workshop toolbar: Board/List toggle and search bar on the same row ---- */
+.workshop-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.workshop-toolbar .workshop-view-switch {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.workshop-toolbar .workshop-search-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 1 1 200px;
+  max-width: 380px;
+  min-width: 140px;
+  margin-left: auto;
+}
+
+.workshop-toolbar .workshop-search-wrap .at-search {
+  width: 100%;
+  max-width: 380px;
+}
+
+@media (max-width: 640px) {
+  .app-container .workshop-toolbar {
+    gap: 8px;
+    margin: 8px 0;
+  }
+  .app-container .workshop-toolbar .workshop-search-wrap {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 130px;
+    margin-left: 0;
+  }
+  .app-container .workshop-toolbar .workshop-search-wrap .at-search {
+    max-width: none;
+  }
+  .app-container .workshop-toolbar .workshop-search-wrap .at-search input {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 32px;
+    font-size: 13px;
+  }
+  .app-container .workshop-toolbar .workshop-search-wrap .at-search svg {
+    left: 10px;
+    width: 14px;
+    height: 14px;
+  }
+  .app-container .workshop-toolbar .workshop-view-switch .at-seg button {
+    padding: 7px 10px;
+    font-size: 13px;
+    gap: 4px;
+  }
+}
+
+/* ---- Reports (Profit & Costs, Insights): a tighter top --------------------
+   The REPORTS label and the Profit & Costs | Insights switch move up into the
+   "Hi, <name>" chip's row (the switch just left of the chip), the page title
+   follows close under it, and the first cards closer still. A phone keeps
+   its layout. */
+@media (min-width: 769px) {
+  .portal-main:has(> .reports-switch) { padding-top: 20px; }
+  .portal-main:has(> .reports-switch) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(> .reports-switch) > .reports-switch { min-height: 42px; margin-bottom: 12px; padding-right: 220px; }
+  .portal-main:has(> .reports-switch) > .at-page-head { margin-bottom: 16px; }
+  .portal-main:has(> .reports-switch) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
+}
+
+/* The account bar is a full-width row; where a page lets its content rise
+   into that row (Orders, Workshop, Reports, Design library), the bar's empty
+   space sat over that content and swallowed its clicks. Only the chip itself
+   (and its menu) takes clicks; the rest of the row lets them through. */
+.portal-account-bar { pointer-events: none; }
+.portal-account-bar > * { pointer-events: auto; }
+
+/* Reports > Insights figures: every card reads the same -- icon and text on
+   the card's centre line, label and figure each on one line (the longer
+   labels and "12 Customers" were breaking onto a second line), the line
+   under the figure kept short. Phones keep their own stacked layout. */
+@media (min-width: 641px) {
+  .app-container .insights-stats .at-stat { align-items: center; }
+  .app-container .insights-stats .at-stat-body { justify-content: center; }
+  .app-container .insights-stats .at-stat-label { letter-spacing: .06em; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-container .insights-stats .at-stat-value { margin-top: 4px; line-height: 1.15; white-space: nowrap; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis; }
+  .app-container .insights-stats .at-stat-sub { margin-top: 4px; line-height: 1.35; }
+}
+
+/* Settings > Customer tiers: the default tier name beside the box for the
+   boutique's own name; stacks on a phone. */
+.tier-names-form { display: flex; flex-direction: column; gap: 12px; }
+.tier-names-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 12px; margin: 0; }
+.tier-names-default { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.tier-names-msg { font-size: var(--text-sm); color: var(--success-color); }
+.tier-names-msg--error { color: var(--danger-color); }
+.tier-names-foot { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.tier-names-foot button { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 480px) {
+  .tier-names-row { grid-template-columns: 1fr; gap: 6px; }
+  .tier-names-foot button { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Customer tiers card, beside Invoice style: fills its grid row -- boxes on
+   top, preview under them, buttons at the foot. */
+.tier-names-card { display: flex; flex-direction: column; min-width: 0; }
+.tier-names-card .tier-names-form { flex: 1; }
+.tier-names-default { display: inline-flex; align-items: center; gap: 8px; }
+.tier-names-default i, .tier-names-chip i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+.tier-names-preview { margin-top: 4px; padding: 14px 16px; border-radius: var(--radius-md); background: var(--surface-inset); border: 1px solid var(--border-color); }
+.tier-names-preview-label { display: block; margin-bottom: 10px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--text-secondary); }
+.tier-names-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.tier-names-chip { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 5px 12px; border-radius: 999px; background: var(--surface-color); border: 1px solid var(--border-color); font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+.tier-names-card .tier-names-foot { margin-top: auto; padding-top: 8px; }
+.tier-names-card .tier-names-row .form-control { min-width: 0; width: 100%; }
+@media (max-width: 480px) {
+  .tier-names-preview { padding: 12px; }
+}
+
+/* A customer's page: one colour language and even alignment.
+   - The actions read as one set: Go with Existing Design drops its pale
+     olive outline for the plain secondary look of Edit beside it (Delete
+     keeps red, New order keeps the brand fill).
+   - The three facts are equal tiles; values are ink, labels grey.
+   - Measurement history's heading, the order totals and the suggested next
+     step are ink like every other value (Activity keeps its status colour);
+     no italics.
+   - A long value drops under its label rather than squeezing it.
+   Phones keep their own layout (the 640px block above). */
+.customer-detail-view-container > .at-toolbar { align-items: center; }
+.customer-detail-view-container > .at-toolbar .at-toolbar-right > .btn-secondary:not(.at-btn-danger) {
+  color: var(--text-primary) !important; border-color: var(--border-color) !important; background: var(--surface-color) !important;
+}
+.customer-detail-view-container > .at-toolbar .at-toolbar-right > button { min-height: 44px; }
+
+.customer-detail-view-container .at-profile-head { align-items: center; }
+.customer-detail-view-container .at-profile-id { align-items: center; }
+.customer-detail-view-container .at-profile-stat .at-measure-label { color: var(--text-secondary); }
+.customer-detail-view-container .at-profile-stat .at-measure-value { color: var(--text-primary); font-weight: 600; }
+@media (min-width: 641px) {
+  .customer-detail-view-container .at-profile-stats {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3);
+    flex: 1 1 480px; max-width: 680px;
+  }
+  .customer-detail-view-container .at-profile-stat { min-width: 0; }
+  .customer-detail-view-container .at-profile-stat > div { min-width: 0; }
+  .customer-detail-view-container .at-profile-stat .at-measure-value { overflow-wrap: anywhere; }
+}
+/* Head wraps to two rows (identity, then the facts across the full width). */
+@media (min-width: 641px) and (max-width: 1180px) {
+  .customer-detail-view-container .at-profile-stats { flex-basis: 100%; max-width: none; }
+}
+
+.customer-detail-view-container .at-measure-row { align-items: baseline; }
+.customer-detail-view-container .at-measure-row span { color: var(--text-secondary); }
+.customer-detail-view-container .at-measure-row strong { color: var(--text-primary); text-align: right; }
+.customer-detail-view-container .ui-eyebrow { color: var(--text-secondary) !important; }
+
+.customer-detail-view-container .at-dna-row { flex-wrap: wrap; row-gap: 4px; }
+.customer-detail-view-container .at-dna-label { flex: 0 1 auto; }
+.customer-detail-view-container .at-dna-row strong { margin-left: auto; font-style: normal !important; }
+.customer-detail-view-container .at-dna-row:has(.lucide-target) strong { color: var(--text-primary) !important; }
+
+.customer-detail-view-container .at-order-row-head .at-num { color: var(--text-primary) !important; }
+
+/* Tablet: the actions share the row evenly instead of wrapping ragged. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right { flex: 1 1 100%; justify-content: flex-end; }
+  .customer-detail-view-container > .at-toolbar .at-toolbar-right > button { flex: 1 1 auto; justify-content: center; }
+}
+
+/* Order history row: the order's name and garment line keep a readable
+   width; the alteration button, status, date and total wrap under it when
+   the card is narrow instead of squeezing it into a column of single words. */
+.customer-detail-view-container .at-order-row-head > .at-row-main { flex: 1 1 200px; }
+.customer-detail-view-container .at-order-row-head > .at-row-main .at-row-sub { overflow-wrap: anywhere; }
+
+/* A customer's page, two columns: the last card in each column stretches to
+   the foot of the taller column, so both columns end on one line (Order
+   History level with Saved Designs). One column on smaller screens, where
+   cards keep their own height. */
+@media (min-width: 1025px) {
+  .customer-detail-view-container .responsive-profile-grid { align-items: stretch; }
+  .customer-detail-view-container .responsive-profile-grid > .at-stack > section.at-section:last-of-type { flex-grow: 1; }
+}
+
+/* New order chooser: Back on the left of the "Hi, <name>" row, the title
+   straight under it, the three doors close below -- no band of empty page
+   above. Back sits on the left edge of the doors. Phones (no chip row) start
+   with Back at the top of the page. */
+.selector-back { display: flex; align-items: center; min-height: 42px; width: 100%; max-width: 980px; margin-inline: auto; }
+.selector-back .at-link { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.portal-main > .selector-container { margin: 0 auto 32px; gap: 14px; }
+.portal-main > .selector-container > .selector-header { gap: 6px; }
+.portal-main > .selector-container > .selector-header .selector-title { margin: 0; line-height: 1.1; }
+.portal-main > .selector-container > .selector-header .selector-subtitle { margin: 0; }
+.portal-main > .selector-container > .wz-services--three { margin-top: 10px; }
+@media (min-width: 769px) {
+  .portal-main:has(> .selector-container) > .portal-account-bar { margin: 0 0 -42px; }
+}
+@media (max-width: 768px) {
+  .portal-main > .selector-container { gap: 10px; }
+  .portal-main > .selector-container > .selector-header .selector-title { font-size: 26px !important; }
+  .selector-back { min-height: 36px; }
+}
+
+/* Invoice dialog footer: the Send on WhatsApp result on the left, the
+   buttons on the right; on a phone the note takes its own line and the
+   buttons share the row below. */
+.invoice-modal-foot { flex-wrap: wrap; align-items: center; }
+.invoice-send-note { flex: 1 1 220px; min-width: 0; margin-right: auto; font-size: 13px; line-height: 1.4; color: var(--text-secondary); }
+.invoice-send-note a { color: var(--brand-link); font-weight: 600; text-decoration: underline; }
+.invoice-send-note--sent { color: var(--success-color); font-weight: 600; }
+.invoice-send-note--retrying, .invoice-send-note--manual, .invoice-send-note--pending { color: var(--warning-color); }
+.invoice-send-note--failed, .invoice-send-note--error { color: var(--danger-color); }
+.invoice-send-btn { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 560px) {
+  .invoice-modal-foot { padding: 14px 16px !important; gap: 10px !important; }
+  .invoice-send-note { flex-basis: 100%; }
+  .invoice-modal-foot > button { flex: 1 1 calc(50% - 5px); justify-content: center; min-width: 0; padding-inline: 8px; gap: 6px; font-size: 14px; white-space: nowrap; }
+  /* Send on WhatsApp on its own row; Close and Print side by side under it. */
+  .invoice-modal-foot > .invoice-send-note { order: -2; }
+  .invoice-modal-foot > .invoice-send-btn { order: -1; flex-basis: 100%; }
+}
+
+/* Profit & Costs: "Where the Money Went" and "Costs you entered" side by
+   side at one height -- the shorter card stretches to the taller, and the
+   "No cost data" message sits in the middle of the space. Stacked on narrow
+   screens, each card keeps its own height. */
+.fin-costs-grid { align-items: stretch; }
+.fin-costs-grid > .at-section { display: flex; flex-direction: column; }
+.fin-costs-grid > .at-section > .fin-costs-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.fin-costs-grid > .at-section > .at-table-wrap { max-width: 100%; overflow-x: auto; }
+@media (max-width: 480px) {
+  .fin-costs-grid > .at-section .at-table th, .fin-costs-grid > .at-section .at-table td { padding-left: 10px; padding-right: 10px; }
+  .fin-costs-grid > .at-section > .fin-costs-empty .btn-primary { width: 100%; justify-content: center; }
+}
+
+/* Add a Cost: Paid to and Note in one row, both tops level. */
+.fin-expense-pair { align-items: start; }
+
+/* Design library card: Add to inventory (or "In your inventory") on the
+   left, the delete icon on the right, on one line. */
+.dl-page .dl-card-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dl-page .dl-card-actions > .dl-card-stock { flex: 0 1 auto; min-width: 0; }
+.dl-page .dl-card-delete {
+  margin-left: auto; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: 10px;
+  color: var(--danger-color); border-color: color-mix(in srgb, var(--danger-color) 40%, var(--border-color));
+}
+.dl-page .dl-card-delete:hover { background: var(--danger-bg); border-color: var(--danger-color); }
+@media (max-width: 640px) {
+  .dl-page .dl-card-actions > .dl-card-stock { flex: 1 1 auto; align-self: auto !important; margin-top: 0; }
+  .dl-page .dl-card-delete { width: 32px; height: 32px; }
+}
+
+/* Inventory > In-house: the runs made for the boutique's own stock. */
+.ih-tab { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
+.ih-filters { display: flex; flex-wrap: wrap; gap: 10px; }
+.ih-chip { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 18px; border-radius: 999px;
+  border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary);
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
+.ih-chip--on { background: var(--primary-color); border-color: var(--primary-color); color: var(--text-on-primary, #111); }
+.ih-chip-count { font-weight: 500; opacity: .75; }
+.ih-search { position: relative; display: flex; align-items: center; }
+.ih-search svg { position: absolute; left: 16px; color: var(--text-secondary); pointer-events: none; }
+.ih-search .form-control { padding-left: 46px; min-height: 52px; width: 100%; }
+.ih-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr)); gap: 16px; }
+.ih-card { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--border-color); border-radius: var(--radius-lg);
+  background: var(--surface-color); overflow: hidden; }
+.ih-card-img { position: relative; aspect-ratio: 4 / 3; background: var(--surface-inset); display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.ih-card-img img { width: 100%; height: 100%; object-fit: cover; }
+.ih-badge { position: absolute; top: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .04em; background: rgba(20, 20, 20, .85); color: #fff; }
+.ih-badge--ref { left: 12px; }
+.ih-badge--making, .ih-badge--stocked, .ih-badge--cancelled { right: 12px; text-transform: uppercase; }
+.ih-badge--stocked { background: var(--success-color); }
+.ih-badge--cancelled { background: var(--danger-color); }
+.ih-card-body { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; min-width: 0; }
+.ih-card-title { font-size: 16px; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+.ih-card-sub { font-size: 13px; color: var(--text-secondary); }
+.ih-progress { height: 6px; border-radius: 999px; background: var(--surface-inset); overflow: hidden; }
+.ih-progress span { display: block; height: 100%; border-radius: inherit; background: var(--primary-color); }
+.ih-card-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-secondary); }
+.ih-card-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.ih-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 40px 16px; text-align: center;
+  border: 1px dashed var(--border-color); border-radius: var(--radius-lg); background: var(--surface-color); color: var(--text-muted); }
+.ih-empty-title { font-weight: 600; color: var(--text-primary); font-size: 16px; }
+.ih-empty-sub { font-size: 14px; color: var(--text-secondary); max-width: 420px; }
+.ih-empty--error { flex-direction: row; justify-content: center; flex-wrap: wrap; color: var(--danger-color); border-style: solid; border-color: var(--danger-color); }
+@media (max-width: 560px) {
+  .ih-chip { min-height: 40px; padding: 0 14px; font-size: 14px; }
+  .ih-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ih-card-body { padding: 10px 11px 12px; gap: 6px; }
+  .ih-card-title { font-size: 14px; }
+  .ih-badge { top: 8px; padding: 3px 7px; font-size: 10px; }
+  .ih-badge--ref { left: 8px; }
+  .ih-badge--making, .ih-badge--stocked, .ih-badge--cancelled { right: 8px; }
+}
+
+/* Design library, a garment's page: a gap between the part tabs card and
+   the Category box under it. */
+.design-manager-content .dl-page > .at-part-tabs + .dcb-panel,
+.dl-page > .dcb-panel { margin-top: 16px; }
+
+/* ---- Design library: the Category / Design filter panel -----------------
+   One card, two clear levels. The label sits in a fixed column on the left
+   (above the chips on a phone). Category: filled pills, the main choice; on
+   a phone a single strip that scrolls sideways. Design: the long list, so
+   lighter, smaller chips, folded to twelve with "Show all" and a search box
+   when there are more. The foot says what is showing, with Clear. */
+.dcb-panel--v2,
+.design-manager-content .dl-page > .dcb-panel.dcb-panel--v2 {
+  display: flex; flex-direction: column; gap: 14px !important; padding: 18px 20px !important; margin-bottom: 0 !important;
+  border: 1px solid var(--border-color); border-radius: var(--radius-lg, 14px); background: var(--surface-color);
+}
+.dcb-level { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: start; gap: 8px 16px; }
+.dcb-level + .dcb-level { padding-top: 14px; border-top: 1px dashed var(--border-color); }
+.dcb-level-label { display: flex; flex-direction: column; gap: 2px; padding-top: 9px; }
+.dcb-level-label > span:first-child { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
+.dcb-level-count { font-size: 12px; color: var(--text-muted); }
+.dcb-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+
+.dcb-chip {
+  display: inline-flex; align-items: center; max-width: 100%; min-height: 36px; padding: 6px 14px; border-radius: 999px;
+  border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary);
+  font: inherit; font-size: 13.5px; font-weight: 500; line-height: 1.25; text-align: left; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.dcb-chip:hover:not(.dcb-chip--on) { background: var(--surface-2); border-color: var(--border-strong, var(--border-color)); }
+.dcb-chip--on { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); font-weight: 600; }
+.dcb-chip--option { min-height: 32px; padding: 5px 12px; border-radius: 10px; font-size: 13px;
+  background: var(--surface-2); border-color: transparent; }
+.dcb-chip--option:hover:not(.dcb-chip--on) { border-color: var(--border-color); background: var(--surface-color); }
+.dcb-chip--option.dcb-chip--on { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); }
+
+.dcb-search { position: relative; display: inline-flex; align-items: center; flex: 0 1 220px; min-width: 160px; }
+.dcb-search > svg { position: absolute; left: 11px; color: var(--text-muted); pointer-events: none; }
+.dcb-search input {
+  width: 100%; min-height: 34px; padding: 6px 30px 6px 33px; border-radius: 10px; border: 1px solid var(--border-color);
+  background: var(--surface-color); color: var(--text-primary); font: inherit; font-size: 13px;
+}
+.dcb-search input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 25%, transparent); }
+.dcb-search-clear { position: absolute; right: 6px; display: inline-flex; padding: 3px; border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: pointer; }
+.dcb-more { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 5px 10px; border: 0; border-radius: 10px;
+  background: none; color: var(--brand-link); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.dcb-more:hover { background: var(--accent-color); }
+.dcb-more svg { transition: transform .15s; }
+.dcb-none, .dcb-note { font-size: 13px; color: var(--text-secondary); }
+.dcb-note { padding-left: 128px; }
+
+.dcb-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.dcb-path { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; flex: 1 1 260px; font-size: 13px; color: var(--text-secondary); }
+.dcb-path > svg { color: var(--text-muted); flex-shrink: 0; }
+.dcb-path-label { margin-right: 4px; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-secondary); }
+.dcb-path-root { font-weight: 600; color: var(--text-primary); }
+.dcb-path-note { flex-basis: 100%; order: 3; font-size: 12px; font-style: italic; color: var(--text-muted); }
+.dcb-clear { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; min-height: 32px; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.dcb-clear:hover { background: var(--surface-2); }
+
+/* Tablet: a narrower label column. */
+@media (max-width: 900px) {
+  .dcb-level { grid-template-columns: 92px minmax(0, 1fr); gap: 8px 12px; }
+  .dcb-note { padding-left: 104px; }
+}
+/* Phone: labels above their chips; categories one sideways strip; the
+   search box takes the full width. */
+@media (max-width: 640px) {
+  .dcb-panel--v2,
+  .design-manager-content .dl-page > .dcb-panel.dcb-panel--v2 { padding: 14px !important; gap: 12px !important; }
+  .dcb-level { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .dcb-level-label { flex-direction: row; align-items: baseline; gap: 8px; padding-top: 0; }
+  .dcb-chips--scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 2px 14px 4px;
+    scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+  .dcb-chips--scroll::-webkit-scrollbar { display: none; }
+  .dcb-chips--scroll > .dcb-chip { flex: 0 0 auto; white-space: nowrap; scroll-snap-align: start; }
+  .dcb-chip { min-height: 34px; padding: 6px 12px; font-size: 13px; }
+  .dcb-chip--option { min-height: 30px; padding: 5px 10px; font-size: 12.5px; }
+  .dcb-search { flex: 1 1 100%; }
+  .dcb-note { padding-left: 0; }
+  .dcb-foot { gap: 8px; }
+  .dcb-path { flex-basis: 100%; }
+  .dcb-clear { margin-left: 0; }
+}
+
+/* ---- My account: a tidier page -------------------------------------------
+   The title rises into the row of the "Hi, <name>" chip (as on the other
+   pages), so the cards start higher. The band over the photo is a soft brand
+   tint rather than near-white empty space. On a computer, with the boutique
+   form on the right, both columns end on one line: the left column's last
+   card and the form stretch to the taller side (contents stay at the top). */
+@media (min-width: 769px) {
+  .portal-main:has(> .at-account) { padding-top: 24px; }
+  .portal-main:has(> .at-account) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(> .at-account) > .at-page-head { margin-bottom: 20px; padding-right: 280px; }
+}
+.at-account .at-account-card .at-cover {
+  height: 104px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 30%, var(--surface-color)) 0%,
+                                      color-mix(in srgb, var(--primary-color) 12%, var(--surface-color)) 55%,
+                                      var(--surface-2) 100%);
+}
+.at-account .at-account-avatar { margin-top: -56px; }
+.at-account .at-account-card > .ui-badge { margin-bottom: 4px; }
+.at-account .at-account-rows { gap: 14px; }
+.at-account .at-account-row { min-height: 40px; }
+.at-account .at-account-row > button { flex-shrink: 0; align-self: center; }
+.at-account .at-account-row .at-measure-label { margin-bottom: 2px; }
+@media (min-width: 901px) {
+  .at-account { align-items: stretch; }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack > :nth-child(1),
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack > :nth-child(2) { align-self: stretch; }
+}
+/* Tablet: the cover a little lower, matching the side-by-side profile row. */
+@media (min-width: 601px) and (max-width: 900px) {
+  .at-account .at-account-card .at-cover { height: 88px; }
+  .at-account .at-account-avatar { margin-top: -50px; }
+}
+/* Phone: no chip row; the cover is a slim band. */
+@media (max-width: 600px) {
+  .at-account .at-account-card .at-cover { height: 76px; }
+  .at-account .at-account-avatar { margin-top: -44px; }
+}
+
+/* My account > Boutique logo: the current logo as a centred card -- the
+   logo large on top, "Current logo" and its line under it, the buttons at
+   the foot -- beside the guidelines, both cards one height. The guideline
+   ticks sit on each item's first line. Stacked on a phone. */
+.acct-logo-grid:has(> .acct-logo-current) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+.acct-logo-current {
+  flex-direction: column !important; flex-wrap: nowrap !important; align-items: center !important; justify-content: center;
+  gap: 12px !important; padding: 22px 20px !important; text-align: center; min-width: 0;
+}
+.acct-logo-current > img {
+  width: 104px !important; height: 104px !important; padding: 10px; border-radius: 16px !important;
+  background: var(--surface-inset) !important; box-shadow: var(--shadow-sm);
+}
+.acct-logo-current > .at-row-main { flex: 0 0 auto; width: 100%; min-width: 0; }
+.acct-logo-current > .at-row-main .at-row-title { font-size: 15px; overflow-wrap: anywhere; }
+.acct-logo-current > .at-row-main .at-row-sub { margin-top: 2px; overflow-wrap: anywhere; }
+.acct-logo-current > button { min-width: 160px; justify-content: center; }
+.acct-logo-grid > .at-note { height: 100%; }
+.acct-logo-grid .at-note-list { gap: 8px; }
+.acct-logo-grid .at-note-list li { align-items: flex-start; line-height: 1.45; }
+.acct-logo-grid .at-note-list li > svg { margin-top: 3px; }
+@media (max-width: 700px) {
+  .acct-logo-grid:has(> .acct-logo-current) { grid-template-columns: minmax(0, 1fr); }
+  .acct-logo-current { padding: 18px 16px !important; }
+  .acct-logo-current > img { width: 88px !important; height: 88px !important; }
+  .acct-logo-current > button { width: 100%; min-width: 0; }
+}
+
+/* My details > Change password: a small heading with the show/hide switch
+   on its right; the three boxes alike; labels on one line; the two new
+   boxes side by side with their tops level, one under the other on a
+   phone; hints that turn green when met. */
+.my-pw-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.my-pw-title { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-secondary); }
+.my-pw-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary);
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.my-pw-toggle:hover { background: var(--surface-2); }
+.my-pw-pair { align-items: start; }
+.my-pw-form .at-field-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.my-pw-hint { display: inline-flex; align-items: center; gap: 4px; color: var(--text-secondary); }
+.my-pw-hint--ok { color: var(--success-color); font-weight: 600; }
+.my-pw-hint--bad { color: var(--warning-color); }
+@media (max-width: 560px) {
+  .my-pw-pair { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Change password, compact: the three boxes one under another, each a
+   little smaller (40px tall, 14px text, a narrower icon tile), with
+   tighter spacing between them. */
+.my-pw-form { gap: 12px !important; }
+.my-pw-form .my-pw-pair { grid-template-columns: minmax(0, 1fr) !important; gap: 12px; }
+.my-pw-form .at-field { gap: 5px; }
+.my-pw-form .at-field-label { font-size: 11px; }
+.my-pw-form .at-field-control { min-height: 0; }
+.my-pw-form .at-field-control .form-control { height: 40px; min-height: 40px; padding: 8px 12px; font-size: 14px; }
+.my-pw-form .at-field-icon { width: 40px; }
+.my-pw-form .at-field-icon svg { width: 15px; height: 15px; }
+.my-pw-form .at-field-hint { margin-top: 2px; font-size: 12px; }
+.my-pw-form .my-pw-title { font-size: 11px; }
+.my-pw-form .my-pw-toggle { min-height: 28px; padding: 3px 10px; font-size: 12px; }
+
+/* Settings for every role but the owner: Language and Appearance side by
+   side at one height, "Your boutique" across the full width under them with
+   its four rows two by two -- no empty slot beside it. One column on a phone.
+   The owner's Settings keeps its own layout (no settings-grid--staff). */
+.settings-grid--staff { align-items: stretch; }
+.settings-grid--staff > .settings-card { display: flex; flex-direction: column; min-width: 0; }
+@media (min-width: 761px) {
+  .settings-grid--staff { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .settings-grid--staff > .settings-card:nth-child(3) { grid-column: 1 / -1; }
+  .settings-grid--staff > .settings-card:nth-child(3) .settings-info-rows {
+    display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px !important;
+  }
+  .settings-grid--staff .settings-info-rows > .ui-row { min-width: 0; }
+}
+@media (max-width: 760px) {
+  .settings-grid--staff { grid-template-columns: minmax(0, 1fr) !important; gap: 14px !important; margin-top: 16px !important; }
+}
+.settings-grid--staff .settings-info-rows > .ui-row { min-height: 52px; align-items: center; gap: 12px; }
+.settings-grid--staff .settings-info-rows > .ui-row > span:last-child { min-width: 0; overflow-wrap: anywhere; text-align: right; }
+@media (max-width: 420px) {
+  .settings-grid--staff .settings-info-rows > .ui-row { flex-wrap: wrap; }
+  .settings-grid--staff .settings-info-rows > .ui-row > span:last-child { text-align: left; }
+}
+
+/* Settings for every role but the owner: a tighter top -- the title rises
+   into the row of the bell and "Hi, <name>" chip, as on the other pages,
+   and the cards follow closer under it. (Phones have no chip row.) The
+   owner's Settings is untouched. */
+@media (min-width: 769px) {
+  .portal-main:has(.settings-grid--staff) { padding-top: 24px; }
+  .portal-main:has(.settings-grid--staff) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(.settings-grid--staff) .settings-page-wrapper > .at-page-head { margin-bottom: 0; padding-right: 280px; }
+  .settings-grid--staff { margin-top: 18px !important; }
+}
+
+/* Customer updates: a failed message reads as one plain reason in a soft
+   red box -- the raw server error folded under "Technical details". The
+   actions share the row on a phone. */
+.od-feed-error { margin-top: 8px; padding: 10px 12px; border-radius: var(--radius-md, 10px); background: var(--danger-bg);
+  border: 1px solid color-mix(in srgb, var(--danger-color) 22%, transparent); font-size: 13px; line-height: 1.5; gap: 8px; }
+.od-feed-error-body { flex: 1; min-width: 0; }
+.od-feed-error-title { font-weight: 600; color: var(--danger-color); }
+.od-feed-error-title span { font-weight: 400; }
+.od-feed-error-why { margin: 2px 0 0; color: var(--text-primary); overflow-wrap: anywhere; }
+.od-feed-error-details { margin-top: 6px; }
+.od-feed-error-details summary { cursor: pointer; width: fit-content; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.od-feed-error-details code { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--surface-color);
+  border: 1px solid var(--border-color); color: var(--text-secondary); font-size: 11.5px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow-y: auto; }
+@media (max-width: 640px) {
+  .od-feed-actions > * { flex: 1 1 130px; justify-content: center; }
+}
+
+/* Customer updates: a failed message is one red line and its buttons;
+   the feed opens three at a time with "Show more" under it. */
+.od-feed-failed { display: flex; align-items: center; gap: 6px; margin: 2px 0 0; font-size: 14px; font-weight: 600; color: var(--danger-color); }
+.od-feed-failed svg { flex-shrink: 0; }
+.od-feed-item:has(.od-feed-failed) { align-items: center; }
+.od-feed-item:has(.od-feed-failed) .od-feed-dot { margin-top: 0; }
+.od-feed-more { display: flex; justify-content: center; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.od-feed-more .btn-secondary { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) {
+  .od-feed-item:has(.od-feed-failed) { align-items: start; }
+  .od-feed-item:has(.od-feed-failed) .od-feed-dot { margin-top: 6px; }
+  .od-feed-more .btn-secondary { width: 100%; justify-content: center; }
+}
+
+/* Order page: every card on one grid. The cards under the timeline
+   (Master's verification checklist, delivery, stitching report) take the
+   same corners, padding and spacing as the cards around them. */
+.od-extra { gap: 20px; }
+.od-extra > div:not(.at-section) { border-radius: var(--radius-lg) !important; padding: var(--space-5) !important; min-width: 0; }
+.od-extra > div:not(.at-section) label { align-items: flex-start !important; line-height: 1.4; }
+.od-extra > div:not(.at-section) label input[type="checkbox"] { flex-shrink: 0; margin-top: 2px; }
+.od-tip { border-radius: var(--radius-lg); }
+@media (max-width: 640px) {
+  .od-extra > div:not(.at-section) > div[style*="grid"] { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Customer updates, a failed message: its three buttons side by side on a
+   row under the red line (lined up with the text), not stacked -- each
+   message stays two short lines tall. */
+.od-feed-item:has(.od-feed-failed) { align-items: start; row-gap: 10px; padding: 12px 0; }
+.od-feed-item:has(.od-feed-failed) .od-feed-dot { margin-top: 6px; }
+.od-feed-item:has(.od-feed-failed) .od-feed-actions { grid-column: 3 / -1; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+.od-feed-item:has(.od-feed-failed) .od-feed-meta { margin-bottom: 4px; }
+@media (max-width: 640px) {
+  .od-feed-item:has(.od-feed-failed) .od-feed-actions { grid-column: 2; }
+  .od-feed-item:has(.od-feed-failed) .od-feed-actions > * { flex: 1 1 auto; padding-left: 10px; padding-right: 10px; }
+}
+
+/* Order page, side column: under the notes, the Master's checklist, the
+   handover and the tip -- the same card look as the rest. In the narrow
+   column (wide screens) their two-up grids go one-up; on one column
+   (tablets, phones) the group follows the order's other extras. */
+.od-side-extra { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.od-side-extra > div:not(.at-section):not(.od-tip) { border-radius: var(--radius-lg) !important; padding: var(--space-5) !important; min-width: 0; }
+.od-side-extra > div:not(.at-section) label { align-items: flex-start !important; line-height: 1.4; }
+.od-side-extra > div:not(.at-section) label input[type="checkbox"] { flex-shrink: 0; margin-top: 2px; }
+.od-side-extra .od-tip { align-items: flex-start; }
+@media (min-width: 1025px) {
+  .od-side-extra > div > div[style*="grid"], .od-side-extra .form-grid-2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .od-side-extra .form-grid-2 > *, .od-side-extra div[style*="grid"] > * { grid-column: auto !important; }
+}
+@media (max-width: 1024px) {
+  .od-side-extra { order: 7; }
+}
+@media (max-width: 640px) {
+  .od-side-extra > div:not(.at-section) > div[style*="grid"] { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Every page for every role but the owner: less space above the content.
+   The page starts nearer the top, and on a page that opens with a title
+   row or an order (Back to workshop) its first row rises into the row of
+   the "Hi, <name>" chip -- that row alone keeps room on the right for the
+   chip, every card under it keeps the full width. Any other page keeps the
+   chip on its own row. Pages that already lift their title into the
+   chip's row keep their own spacing. A phone has no chip row (the header
+   carries it) and just starts a little higher. The owner's pages are
+   untouched. */
+@media (min-width: 769px) {
+  .portal-main--staff { padding-top: 20px; }
+  .portal-main--staff > .portal-account-bar:has(+ .at-page-head, + .od-page) { margin: 0 0 -42px; }
+  .portal-main--staff > .portal-account-bar + .at-page-head > .at-page-head-left { padding-right: 240px; }
+  .portal-main--staff > .portal-account-bar + .od-page > .od-topbar { padding-right: 240px; min-height: 42px; }
+}
+@media (max-width: 768px) {
+  .portal-main--staff { padding-top: 12px; }
+}

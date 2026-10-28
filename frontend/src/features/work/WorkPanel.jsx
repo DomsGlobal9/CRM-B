@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseIcon } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseIcon, ChevronDown } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { expressLabel, isExpressJob, isExpressOrder } from '../orders/express';
@@ -18,6 +18,10 @@ import { Lightbox } from '../designStudio/GarmentPartPicker';
 import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
 import './work.css';
 
+// The "Customer messages not sent" box at the top of My work: hidden, not
+// removed -- set to true to bring it back.
+const SHOW_FAILED_MESSAGES = false;
+
 /**
  * The floor's three screens: My work, Done, To check. One job = one stage of
  * one order that is mine. Everything reads off the orders the app already
@@ -26,6 +30,8 @@ import './work.css';
 
 const CLOSED = ['Delivered', 'Cancelled'];
 const FINISHED = ['COMPLETED', 'SKIPPED'];
+// My work shows this many cards first, and this many more per "Show more".
+const PAGE = 5;
 const MAX_PHOTOS = 5;
 const STATUS_LABELS = {
   NOT_STARTED: ['workPage.statusTodo', 'To do'],
@@ -158,6 +164,13 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   const [toast, setToast] = useState('');
   // My work's status tab: 'all' is the whole list, as it always was.
   const [tab, setTab] = useState('all');
+  // My work's step filter (Cutting, Stitching, ...): Masters and Designers
+  // only. 'all' is every step, the list as it always was.
+  const [step, setStep] = useState('all');
+  // How many cards My work shows, remembered for the tab and step it was
+  // widened on: another tab or step starts again from the first PAGE.
+  const [shown, setShown] = useState({ key: '', n: PAGE });
+  const canFilterSteps = view === 'open' && ['Master', 'Designer'].includes(currentUser?.role);
   // Work handed to me that I have not opened yet is marked NEW, so a fresh
   // assignment stands out from the jobs already on my list. Opened jobs are
   // remembered on this device per person; a job handed back to me counts again.
@@ -245,7 +258,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     || (o.garment_job && s.garment_job && o.garment_job !== s.garment_job));
 
   // Every (order, stage) pair this view lists, already sorted.
-  const { items, later } = useMemo(() => {
+  const { items: allItems, later } = useMemo(() => {
     const out = [];
     let notReady = 0;
     orders.forEach((order) => {
@@ -269,6 +282,22 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, view, me, currentUser?.role, workflowConfig]);
 
+  // The steps in this list, each with how many jobs it has; a step picked
+  // earlier that has since emptied falls back to all of them.
+  const steps = useMemo(() => {
+    if (!canFilterSteps) return [];
+    const byKey = new Map();
+    allItems.forEach(({ stage }) => {
+      const hit = byKey.get(stage.stage_key);
+      if (hit) hit.count += 1;
+      else byKey.set(stage.stage_key, { key: stage.stage_key, label: stage.stage_name || humanise(stage.stage_key), count: 1 });
+    });
+    return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
+  }, [allItems, canFilterSteps]);
+  const activeStep = steps.some((s) => s.key === step) ? step : 'all';
+  const stepActive = activeStep !== 'all';
+  const items = stepActive ? allItems.filter((i) => i.stage.stage_key === activeStep) : allItems;
+
   // The open job re-reads from the fresh orders after each refetch.
   const current = open && (() => {
     const order = orders.find((o) => o.id === open.orderId);
@@ -289,7 +318,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
             data-kind={workKind(stage.stage_key).key} style={{ '--wk-kind': workKind(stage.stage_key).color }}
             onClick={() => { markOpened(order, stage); setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null }); }}>
       <div className="wk-card-head">
-        <div className="wk-card-title">{jobTitle(order, stage, t)}
+        {/* The garment here; the step itself is the coloured tag below, once. */}
+        <div className="wk-card-title">{stage.garment_name || garmentLabel(order, t)}
           {isNew(order, stage) && (
             <span className="wk-new-tag" title={t('workPage.newHint', 'Assigned to you, not opened yet')}>{t('workPage.new', 'NEW')}</span>
           )}
@@ -300,7 +330,9 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
         {extra.chip}
       </div>
       <div className="wk-card-sub">
-        <span className="wk-kind-tag">{workKind(stage.stage_key).label}</span>
+        {/* The step, by name, in its kind's colour (Pattern cutting, Paper
+            cutting and Fabric cutting share the cutting blue). */}
+        <span className="wk-kind-tag">{stage.stage_name || humanise(stage.stage_key)}</span>
         {stageRef(order, stage)} · {order.customer_name}
       </div>
       {extra.meta && <div className="wk-card-meta">{extra.meta}</div>}
@@ -311,10 +343,14 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
 
   let body;
   if (view === 'open') {
-    const taskSection = tasks.length > 0 && (
+    // A step picked: tasks are not steps, so they stand aside.
+    const showTasks = tasks.length > 0 && !stepActive;
+    // `list`: the tasks shown (the pager may hold some back); the heading
+    // still counts them all.
+    const taskSection = (list) => showTasks && list.length > 0 && (
       <section className="wk-group">
         <h3 className="wk-group-title">{t('workPage.tasks', 'Tasks')} <span className="wk-count">{tasks.length}</span></h3>
-        {tasks.map((task) => (
+        {list.map((task) => (
           <div key={`todo-${task.id}`} className="wk-card" data-kind={TODO_KIND.key} style={{ '--wk-kind': TODO_KIND.color }}>
             <div className="wk-card-head">
               <div className="wk-card-title">{task.title}</div>
@@ -349,12 +385,12 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       assignedToMe(order, stage, me)?.timestamp || order.activities?.[0]?.timestamp || order.order_date || 0);
     const newOnTop = items.filter((i) => (i.group === 'next' || i.group === 'now') && isNew(i.order, i.stage))
       .sort((a, b) => assignedAt(b) - assignedAt(a));
-    const newSection = newOnTop.length > 0 && (
+    const newSection = (list) => list.length > 0 && (
       <section className="wk-group">
-        {newOnTop.map((it) => card(it, {
+        {list.map((it) => card(it, {
           chip: it.group === 'now'
             ? <span className="ui-badge ui-badge--warning">{t('workPage.inProgress', 'In progress')}</span>
-            : <span className="ui-badge ui-badge--neutral">{t('workPage.ready', 'Ready')}</span>,
+            : null, // no "Ready" badge on a job not started yet
           meta: it.order.estimated_delivery && <span>{t('workPage.due', 'Due')} {formatDate(it.order.estimated_delivery)}</span>,
           body: (
             <div className="wk-assigned-for">
@@ -377,7 +413,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       const chip = key === 'now'
         ? <span className={`ui-badge ui-badge--${sentBack ? 'danger' : 'warning'}`}>{sentBack ? t('workPage.sentBack', 'Sent back') : t('workPage.inProgress', 'In progress')}</span>
         : key === 'next'
-          ? <span className="ui-badge ui-badge--neutral">{t('workPage.ready', 'Ready')}</span>
+          ? null // no "Ready" badge on a job not started yet
           : <span className="ui-badge ui-badge--info">{t('workPage.waiting', 'Waiting')}</span>;
       const due = it.order.estimated_delivery && <span>{t('workPage.due', 'Due')} {formatDate(it.order.estimated_delivery)}</span>;
       const sent = key === 'waiting' && <span>· {t('workPage.sentAgo', 'sent {n} ago', { n: ago(submittedAt(it.order, it.stage), t) })}</span>;
@@ -397,58 +433,110 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       ['assigned', t('workPage.tabAssigned', 'Assigned'), byStatus('next')],
       ['now', t('workPage.inProgress', 'In progress'), byStatus('now')],
       ['waiting', t('workPage.tabWaiting', 'Waiting for check'), byStatus('waiting')],
-      ['todos', t('workPage.tasks', 'Tasks'), tasks],
+      ['todos', t('workPage.tasks', 'Tasks'), stepActive ? [] : tasks],
     ].filter(([key, , list]) => key === 'all' || key === 'assigned' || key === 'now' || list.length > 0);
     const active = tabs.some(([key]) => key === tab) ? tab : 'all';
+    // The pager: the first `limit` cards in the order they are listed, then
+    // "Show more". `takeAll` hands the allowance out list by list, in order.
+    const pageKey = `${active}|${activeStep}`;
+    const limit = shown.key === pageKey ? shown.n : PAGE;
+    const takeAll = (lists) => {
+      let left = limit;
+      return lists.map((list) => { const out = list.slice(0, Math.max(left, 0)); left -= out.length; return out; });
+    };
+    const pager = (total) => total > limit && (
+      <div className="wk-more">
+        <span className="wk-more-count">
+          {t('workPage.showingOf', 'Showing {n} of {total}', { n: limit, total })}
+        </span>
+        <div className="wk-more-actions">
+          <button type="button" className="btn-secondary" onClick={() => setShown({ key: pageKey, n: limit + PAGE })}>
+            {t('workPage.showMore', 'Show {n} more', { n: Math.min(PAGE, total - limit) })} <ChevronDown size={16} />
+          </button>
+          {total - limit > PAGE && (
+            <button type="button" className="wk-more-all" onClick={() => setShown({ key: pageKey, n: total })}>
+              {t('workPage.showAll', 'Show all {total}', { total })}
+            </button>
+          )}
+        </div>
+      </div>
+    );
     const tabBar = (
       <div className="wk-tabs" role="tablist" aria-label={t('workPage.byStatus', 'Work by status')}>
         {tabs.map(([key, label, list]) => (
           <button key={key} type="button" role="tab" aria-selected={active === key}
                   className={`tab-btn${active === key ? ' active' : ''}`} onClick={() => setTab(key)}>
             {label}
-            <span className="wk-count">{key === 'all' ? items.length + tasks.length : list.length}</span>
+            <span className="wk-count">{key === 'all' ? items.length + (stepActive ? 0 : tasks.length) : list.length}</span>
           </button>
         ))}
       </div>
     );
+    // The status tabs, and beside them the step filter (Master / Designer).
+    const filterBar = canFilterSteps && steps.length > 0 ? (
+      <div className="wk-toolbar">
+        {tabBar}
+        <label className="wk-step-filter">
+          <span>{t('workPage.workStep', 'Work step')}</span>
+          <select className="form-control" value={activeStep} onChange={(e) => setStep(e.target.value)}
+                  aria-label={t('workPage.filterByStep', 'Filter by work step')}>
+            <option value="all">{t('workPage.allSteps', 'All steps')} ({allItems.length})</option>
+            {steps.map((s) => <option key={s.key} value={s.key}>{s.label} ({s.count})</option>)}
+          </select>
+        </label>
+      </div>
+    ) : tabBar;
     const tabList = tabs.find(([key]) => key === active)?.[2];
     if (active !== 'all') {
       body = (
         <>
-          {tabBar}
+          {filterBar}
           {tabList.length === 0
             ? <div className="wk-empty">{t('workPage.emptyTab', 'Nothing here right now.')}</div>
             : active === 'todos'
-              ? taskSection
-              : <section className="wk-group">{tabList.map((it) => groupCard(active === 'assigned' ? 'next' : active, it))}</section>}
+              ? taskSection(tabList.slice(0, limit))
+              : <section className="wk-group">{tabList.slice(0, limit).map((it) => groupCard(active === 'assigned' ? 'next' : active, it))}</section>}
+          {pager(tabList.length)}
         </>
       );
-    } else body = items.length === 0 && !taskSection && !newSection
+    } else {
+    // The All list in its order -- new work, tasks, Do now, Next, Waiting --
+    // each section showing what is left of the pager's allowance.
+    const groupLists = groups.map(([key, label]) => [key, label,
+      items.filter((i) => i.group === key && !((key === 'next' || key === 'now') && isNew(i.order, i.stage)))]);
+    const allTotal = newOnTop.length + (showTasks ? tasks.length : 0)
+      + groupLists.reduce((sum, [, , list]) => sum + list.length, 0);
+    const [visNew, visTasks, ...visLists] = takeAll([newOnTop, showTasks ? tasks : [], ...groupLists.map(([, , list]) => list)]);
+    const visGroups = groupLists.map(([key, label, list], i) => [key, label, list, visLists[i]]);
+    body = stepActive && items.length === 0
+      ? <>{filterBar}<div className="wk-empty">{t('workPage.emptyStep', 'No work for this step right now.')}</div></>
+      : items.length === 0 && !showTasks && newOnTop.length === 0
       ? (
         <div className="wk-empty">
           {later
             ? t('workPage.emptyLater', 'Nothing to do right now. {n} job(s) are waiting for earlier steps to finish.', { n: later })
-            : t('workPage.emptyOpen', 'Nothing to do right now — the master will assign you work.')}
+            : t('workPage.emptyOpen', 'Nothing to do right now.')}
         </div>
       )
       : (
         <>
-          {tabBar}
-          {newSection}
-          {taskSection}
-          {groups.map(([key, label]) => {
-            const list = items.filter((i) => i.group === key && !((key === 'next' || key === 'now') && isNew(i.order, i.stage)));
-            if (!list.length) return null;
+          {filterBar}
+          {newSection(visNew)}
+          {taskSection(visTasks)}
+          {visGroups.map(([key, label, list, shownList]) => {
+            if (!shownList.length) return null;
             return (
               <section key={key} className="wk-group">
                 <h3 className="wk-group-title">{label} <span className="wk-count">{list.length}</span></h3>
-                {list.map((it) => groupCard(key, it))}
+                {shownList.map((it) => groupCard(key, it))}
               </section>
             );
           })}
+          {pager(allTotal)}
           {later > 0 && <div className="wk-quiet">{t('workPage.moreLater', '{n} more later', { n: later })}</div>}
         </>
       );
+    }
   } else if (view === 'done') {
     body = items.length === 0
       ? <div className="wk-empty">{t('workPage.emptyDone', 'Nothing finished yet.')}</div>
@@ -479,13 +567,15 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
 
   // A Master has no order page to reach: the Workshop orders' customer
   // messages WhatsApp gave up on sit at the top of My work instead.
+  // Hidden for now (SHOW_FAILED_MESSAGES); the messages are still listed for
+  // the owner, on the orders' pages.
   const failedMessages = view === 'open' && onRetryMessage
     ? customerMessages.filter((m) => m.status === 'FAILED' && orders.some((o) => o.id === m.order && inWorkshop(o)))
     : [];
 
   return (
     <div className="wk">
-      {failedMessages.length > 0 && (
+      {SHOW_FAILED_MESSAGES && failedMessages.length > 0 && (
         <CustomerMessageQueue
           title={t('workPage.failedMessages', 'Customer messages not sent')}
           messages={failedMessages}
@@ -514,9 +604,12 @@ function Thumbs({ urls }) {
 }
 
 /* The sticky row at the foot of the sheet: the one thing to do, and why it can't be done yet. */
-function ActionBar({ error, children }) {
+// Every job screen's buttons: compact and side by side (wk-actions--pair,
+// work.css) -- the secondary choice on the left, the main one on the right;
+// a lone button sits on the right on a computer and fills the row on a phone.
+function ActionBar({ error, children, className = 'wk-actions--pair' }) {
   return (
-    <div className="wk-actions">
+    <div className={`wk-actions${className ? ` ${className}` : ''}`}>
       {error && <div className="wk-error" role="alert">{error}</div>}
       {children}
     </div>
@@ -679,8 +772,10 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
               <summary>{j.display_name || j.template_name || t('workPage.customGarment', 'Custom garment')}</summary>
               <div className="wk-details-body">
                 {m.length === 0 && s.length === 0 && <div className="wk-quiet">{t('workPage.noMeasurements', 'No measurements recorded.')}</div>}
+                {/* Bold headings over the two lists: Measurement, then Specification. */}
+                {m.length > 0 && <div className="wk-sub wk-sub--head">{t('workPage.measurementHead', 'Measurement')}</div>}
                 {m.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}{Number.isFinite(Number(v)) ? ` ${t('workPage.inch', 'Inches')}` : ''}</span></div>)}
-                {s.length > 0 && <div className="wk-sub">{t('workPage.style', 'Style')}</div>}
+                {s.length > 0 && <div className="wk-sub wk-sub--head">{t('workPage.specification', 'Specification')}</div>}
                 {s.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}</span></div>)}
               </div>
             </details>
@@ -770,13 +865,55 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
   }
 
   const title = jobTitle(order, stage, t);
+  // Where this job came from and where it goes. From: who handed this step
+  // to its worker -- the latest Assign on it in the order's log (the server
+  // records who pressed it); a step given out with the order or by Send to
+  // workshop has no such entry, and the order's Master gave it out. Send
+  // to: a worker's finished work goes to the order's Master to check first
+  // (a Master or Designer marks it done themselves), then the next step.
+  const route = (order.stages || [])
+    .filter((o) => o.id !== stage.id && !(o.garment_job && stage.garment_job && o.garment_job !== stage.garment_job))
+    .sort((a, b) => a.sequence - b.sequence);
+  const nextStep = route.find((o) => o.sequence > stage.sequence && o.status !== 'SKIPPED');
+  const stepName = (o) => o.stage_name || humanise(o.stage_key);
+  const handedBy = (order.activities || [])
+    .filter((a) => a.event_type === 'ASSIGNMENT' && a.metadata?.stage_key === stage.stage_key
+      && String(a.metadata?.garment_job || '') === String(stage.garment_job || '')
+      && (!stage.assigned_to || String(a.metadata?.assigned_to_id) === String(stage.assigned_to)))
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))[0];
+  const fromName = handedBy?.user_name || order.master_name || '';
+  const fromRole = !handedBy || fromName === order.master_name ? t('workPage.master', 'Master') : '';
   return (
     <>
       <div className="wk-backdrop" onClick={onClose} />
       <div className="wk-sheet" role="dialog" aria-modal="true" aria-label={title}>
         <div className="wk-sheet-head">
           <button type="button" className="wk-icon-btn" onClick={onClose} aria-label={t('workPage.back', 'Back')}><ArrowLeft size={22} /></button>
-          <div className="wk-sheet-title">{title}<small>{stageRef(order, stage)} · {order.customer_name}</small></div>
+          <div className="wk-sheet-title">{title}<small>{stageRef(order, stage)} · {order.customer_name}</small>
+            {/* Who holds this step now -- the same words as the job's card. */}
+            <small className="wk-sheet-assignee">
+              {t('workPage.assigned', 'Assigned')}:{' '}
+              <b>{stage.assigned_to_name
+                ? `${stage.assigned_to_name}${stage.assigned_to_role ? ` · ${stage.assigned_to_role}` : ''}`
+                : t('workPage.notAssigned', 'Not assigned yet')}</b>
+            </small>
+            {/* From: who handed it over. Send to: who checks it, then the next step. */}
+            <small className="wk-sheet-assignee wk-sheet-route">
+              {t('workPage.from', 'From')}:{' '}
+              <b>{fromName ? `${fromName}${fromRole ? ` · ${fromRole}` : ''}` : t('workPage.theMaster', 'the Master')}</b>
+            </small>
+            {mode === 'work' && (
+              <small className="wk-sheet-assignee wk-sheet-route">
+                {t('workPage.sendTo', 'Send to')}:{' '}
+                {!isSupervisor && (
+                  <><b>{order.master_name || t('workPage.theMaster', 'the Master')} · {t('workPage.master', 'Master')}</b> {t('workPage.toCheck', 'to check')}{nextStep ? ' · ' : ''}</>
+                )}
+                {nextStep
+                  ? <>{t('workPage.next', 'next')}: <b>{stepName(nextStep)}</b>{' '}({nextStep.assigned_to_name || t('workPage.notAssigned', 'Not assigned yet')})</>
+                  : isSupervisor && <b>{t('workPage.lastStep', 'Last step')}</b>}
+              </small>
+            )}
+          </div>
         </div>
         <div className="wk-sheet-body">
           {head}
@@ -810,9 +947,14 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
             </>
           ) : (
             <>
-              {whatToMake}
-              {workSoFar}
+              {/* Sent back for rework: the work and the master's notes on it
+                  come first, then the rest as usual. */}
+              {mode === 'work' && stage.verification_note && stage.status === 'IN_PROGRESS' && workSoFar}
+              {/* The photos the earlier steps uploaded come first, so the
+                  next step sees what was done before it. */}
               {earlierPhotos}
+              {whatToMake}
+              {!(mode === 'work' && stage.verification_note && stage.status === 'IN_PROGRESS') && workSoFar}
             </>
           )}
           {actions}
@@ -1032,7 +1174,9 @@ function CheckForm({ stage, busy, error, save }) {
           </div>
         </div>
       )}
-      <ActionBar error={error}>
+      {/* The check screen's two choices sit side by side (wk-actions--pair):
+          Send back / Cancel on the left, Approve / Send back to … on the right. */}
+      <ActionBar error={error} className="wk-actions--pair">
         {sending ? (
           <>
             {!ready && <div className="wk-hint">{t('workPage.reasonRequired', 'A reason is needed so the worker knows what to fix')}</div>}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, History, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -15,6 +15,7 @@ import LocationsTab from './LocationsTab';
 import RecipesTab from './RecipesTab';
 import ReportsTab from './ReportsTab';
 import OrderPurchasesTab from './OrderPurchasesTab';
+import InHouseTab from './InHouseTab';
 import Loader from '../../components/ui/Loader';
 
 const MOVEMENTS = [
@@ -159,29 +160,31 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
       {/* The four stock cards belong to the stock list: not shown on the
           Materials library, Shelves & racks or Inventory history tabs. */}
-      {summary && !['catalog', 'locations', 'purchases'].includes(tab) && (
-        <div className="at-stat-grid inv-stats">
+      {summary && !['catalog', 'locations', 'purchases', 'inhouse'].includes(tab) && (
+        // Just the label and the number on each card (no line under it).
+        <div className="at-stat-grid inv-stats inv-stats--plain">
           <StatCard icon={Package} tone="green" label={t('inventoryPage.stockValue')} value={money(summary.inventory_value)}
-                    sub={`${summary.item_count} ${summary.item_count === 1 ? t('inventoryPage.itemsTrackedOne', 'item in stock') : t('inventoryPage.itemsTracked', 'items in stock')}`}
                     onClick={() => { setTab('items'); setReorderOnly(false); }} />
           <StatCard icon={AlertTriangle} tone="amber" label={t('inventoryPage.outOfStock')} value={summary.out_of_stock_count}
-                    sub={t('inventoryPage.outOfStockSub', 'To reorder')} onClick={() => { setTab('items'); setReorderOnly(true); }} />
+                    onClick={() => { setTab('items'); setReorderOnly(true); }} />
           <StatCard icon={ArrowDownCircle} tone="blue" label={t('inventoryPage.reorderDue')} value={summary.needs_reorder_count}
-                    sub={t('inventoryPage.reorderDueSub', 'Below reorder level')} onClick={() => { setTab('items'); setReorderOnly(true); }} />
+                    onClick={() => { setTab('items'); setReorderOnly(true); }} />
           <StatCard icon={History} tone="rose" label={t('inventoryPage.deadStock')} value={summary.dead_stock_count}
-                    sub={t('inventoryPage.noMovement90Days', 'No movement in 90 days')} onClick={() => setTab('reports')} />
+                    onClick={() => setTab('reports')} />
         </div>
       )}
 
       {/* Tab strip, not pill buttons: these switch a view, so an underline on
           the active one reads as navigation rather than seven call-to-actions. */}
       <div className="at-scroll-tabs" style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-5)', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
-        {/* Four tabs shown: Inventory, Materials library (the catalogue of
+        {/* Five tabs shown: Inventory, In-house (garments made for the
+            boutique's own stock), Materials library (the catalogue of
             materials, by category, to add to stock), Shelves & racks and
             Inventory history (the purchase list). Material requirements,
             Suppliers and Reports are hidden, not removed: `hidden: true`. */}
         {[
           { key: 'items', label: t('inventoryPage.items'), icon: Package },
+          { key: 'inhouse', label: t('inventoryPage.inHouse', 'In-house'), icon: Factory },
           { key: 'catalog', label: t('inventoryPage.materialsLibrary', 'Materials library'), icon: BookOpen },
           { key: 'locations', label: t('inventoryPage.locations'), icon: MapPin },
           { key: 'recipes', label: t('inventoryPage.recipes'), icon: Scissors, hidden: true },
@@ -255,6 +258,8 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       )}
 
       {!loadError && tab === 'purchases' && <OrderPurchasesTab suppliers={suppliers} isOwner={isOwner} />}
+
+      {!loadError && tab === 'inhouse' && <InHouseTab />}
 
       {!loadError && tab === 'reports' && <ReportsTab />}
 
@@ -347,10 +352,11 @@ const MATERIAL_GROUPS = [
   { key: 'all', label: 'All', categories: null },
   { key: 'fabrics', label: 'Fabrics', categories: ['FABRIC', 'LINING'] },
   { key: 'accessories', label: 'Accessories & Trims', categories: ['BORDER', 'EMBELLISHMENT', 'STITCHING', 'MAGGAM'] },
-  { key: 'packaging', label: 'Packaging', categories: ['PACKAGING'] },
+  // Hidden, not removed: packaging items are counted under Other instead.
+  { key: 'packaging', label: 'Packaging', categories: ['PACKAGING'], hidden: true },
   { key: 'other', label: 'Other', categories: ['DESIGN', 'OTHER'] },
 ];
-const NAMED_CATEGORIES = new Set(MATERIAL_GROUPS.flatMap((g) => g.categories || []));
+const NAMED_CATEGORIES = new Set(MATERIAL_GROUPS.filter((g) => !g.hidden).flatMap((g) => g.categories || []));
 const inGroup = (item, group) => (
   group.categories === null
     ? true
@@ -375,7 +381,7 @@ function ItemsTab({
   return (
     <>
       <div style={{ display: 'flex', gap: '8px', marginTop: '20px', flexWrap: 'wrap' }}>
-        {MATERIAL_GROUPS.map((g) => {
+        {MATERIAL_GROUPS.filter((g) => !g.hidden).map((g) => {
           const count = items.filter((item) => inGroup(item, g)).length;
           const active = g.key === groupKey;
           return (

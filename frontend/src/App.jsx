@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
@@ -59,6 +59,7 @@ import { followerOf, syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
 import { AccountMenu } from './components/ui/AccountMenu';
+import RowMenu from './components/ui/RowMenu';
 import CustomerMessageQueue from './features/orders/CustomerMessageQueue';
 import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
@@ -76,6 +77,7 @@ import GarmentPairingModal, { getGarmentPairConfig, findMatchingTemplate } from 
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
 import { voiceNoteList } from './components/ui/voiceNotes';
 import Loader, { LoaderRows } from './components/ui/Loader';
+import { hasTierNames, setTierNames, tierName } from './services/tierNames';
 function getCustomerMeasurement(m, key) {
   if (!m) return undefined;
   const flat = { ...m, ...(m.additional_measurements || {}) };
@@ -259,12 +261,36 @@ const TIER_TONES = {
   Gold: { background: 'var(--warning-bg)', color: 'var(--warning-color)', border: '1px solid color-mix(in srgb, var(--warning-color) 35%, transparent)' },
   Silver: { background: 'var(--surface-inset)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' },
 };
-const TierBadge = ({ tier }) => (
-  <span style={{
-    fontSize: 'var(--text-2xs)', fontWeight: 'var(--weight-bold)', letterSpacing: '0.06em',
-    padding: '2px 8px', borderRadius: '999px', textTransform: 'uppercase', ...TIER_TONES[tier] || TIER_TONES.Silver,
-  }}>{tier}</span>
-);
+const TIER_COLORS = {
+  Platinum: '#8b5cf6',
+  Gold: '#f59e0b',
+  Silver: '#94a3b8',
+  platinum: '#8b5cf6',
+  gold: '#f59e0b',
+  silver: '#94a3b8',
+};
+const TierBadge = ({ tier }) => {
+  const t = tier || 'Silver';
+  const color = TIER_COLORS[t] || TIER_COLORS.Silver;
+  return (
+    <span
+      role="status"
+      aria-label={`${tierName(t)} tier`}
+      title={`${tierName(t)} tier`}
+      style={{
+        display: 'inline-block',
+        width: '9px',
+        height: '9px',
+        borderRadius: '50%',
+        backgroundColor: color,
+        boxShadow: `0 0 0 2px var(--surface-color), 0 0 0 3px color-mix(in srgb, ${color} 40%, transparent)`,
+        verticalAlign: 'middle',
+        flexShrink: 0,
+        cursor: 'default',
+      }}
+    />
+  );
+};
 
 
 const orderStageKey = (order) => {
@@ -308,6 +334,88 @@ const sinceLabel = (iso) => {
   if (!iso) return '';
   const hours = Math.floor((Date.now() - new Date(iso).getTime()) / 36e5);
   return hours < 1 ? 'just now' : hours < 24 ? `${hours} h` : `${Math.floor(hours / 24)} d`;
+};
+
+const STEP_COLORS = {
+  // Cutting: Sky Blue
+  pattern_cutting: { rowBg: '#dbeafe', bg: '#bfdbfe', border: '#3b82f6', text: '#1d4ed8' },
+  cutting:         { rowBg: '#dbeafe', bg: '#bfdbfe', border: '#3b82f6', text: '#1d4ed8' },
+  // Paper Cutting: Vivid Turquoise Teal
+  paper_cutting:   { rowBg: '#ccfbf1', bg: '#99f6e4', border: '#14b8a6', text: '#0f766e' },
+  // Fabric Cutting: Indigo / Royal Periwinkle
+  fabric_cutting:  { rowBg: '#e0e7ff', bg: '#c7d2fe', border: '#6366f1', text: '#4338ca' },
+  // Maggam / Embroidery: Deep Orchid Purple
+  maggam:              { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
+  maggam_work:         { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
+  maggam_handwork:     { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
+  maggam_verification: { rowBg: '#fae8ff', bg: '#f5d0fe', border: '#d946ef', text: '#a21caf' },
+  embroidery:          { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
+  // Stitching: Warm Golden Amber
+  stitching:             { rowBg: '#fef3c7', bg: '#fde68a', border: '#f59e0b', text: '#b45309' },
+  stitching_in_progress: { rowBg: '#fef3c7', bg: '#fde68a', border: '#f59e0b', text: '#b45309' },
+  // Finishing: Fresh Lime Chartreuse
+  finishing: { rowBg: '#ecfccb', bg: '#d9f99d', border: '#84cc16', text: '#3f6212' },
+  // Pressing & Packaging: Electric Cyan / Aqua
+  pressing:  { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' },
+  ironing:   { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' },
+  packaging: { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' },
+  // Quality Check: Vivid Rose Pink
+  master_quality_check: { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' },
+  quality_check:        { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' },
+  qc:                   { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' },
+  // Trial: Lavender Iris
+  trial:           { rowBg: '#ede9fe', bg: '#ddd6fe', border: '#8b5cf6', text: '#6d28d9' },
+  trial_scheduled: { rowBg: '#ede9fe', bg: '#ddd6fe', border: '#8b5cf6', text: '#6d28d9' },
+  trial_completed: { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
+  // Alteration: Tangerine Orange
+  alteration:      { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' },
+  alteration_work: { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' },
+  // Delivery: Fresh Emerald Green
+  ready_for_delivery: { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
+  delivery:           { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
+  delivered:          { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
+  // Payment: Fuchsia Berry
+  payment: { rowBg: '#fae8ff', bg: '#f5d0fe', border: '#d946ef', text: '#a21caf' },
+  // New / Created / Not sent: Canary Yellow
+  new:      { rowBg: '#fef9c3', bg: '#fef08a', border: '#eab308', text: '#854d0e' },
+  not_sent: { rowBg: '#fef9c3', bg: '#fef08a', border: '#eab308', text: '#854d0e' },
+  // Cancelled: Cool Slate Gray
+  cancelled: { rowBg: '#e2e8f0', bg: '#cbd5e1', border: '#64748b', text: '#475569' },
+};
+
+const getStageBadgeStyle = (stageKey, stageName = '') => {
+  if (stageKey && STEP_COLORS[stageKey]) return STEP_COLORS[stageKey];
+  const name = (stageName || stageKey || '').toLowerCase();
+  if (name.includes('paper')) return STEP_COLORS.paper_cutting;
+  if (name.includes('fabric')) return STEP_COLORS.fabric_cutting;
+  if (name.includes('cut')) return STEP_COLORS.pattern_cutting;
+  if (name.includes('maggam') || name.includes('embroid') || name.includes('zari')) return STEP_COLORS.maggam_work;
+  if (name.includes('stitch') || name.includes('sew')) return STEP_COLORS.stitching_in_progress;
+  if (name.includes('finish') || name.includes('hem')) return STEP_COLORS.finishing;
+  if (name.includes('press') || name.includes('iron') || name.includes('pack')) return STEP_COLORS.pressing;
+  if (name.includes('qc') || name.includes('quality') || name.includes('check')) return STEP_COLORS.master_quality_check;
+  if (name.includes('trial') || name.includes('fit')) return STEP_COLORS.trial_scheduled;
+  if (name.includes('alter')) return STEP_COLORS.alteration_work;
+  if (name.includes('deliver') || name.includes('ready')) return STEP_COLORS.delivered;
+  if (name.includes('pay') || name.includes('bill')) return STEP_COLORS.payment;
+  if (name.includes('cancel')) return STEP_COLORS.cancelled;
+  if (name.includes('not sent') || name.includes('new') || name.includes('create')) return STEP_COLORS.new;
+
+  const PALETTE = [
+    { rowBg: '#dbeafe', bg: '#bfdbfe', border: '#3b82f6', text: '#1d4ed8' }, // Blue
+    { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' }, // Purple
+    { rowBg: '#fef3c7', bg: '#fde68a', border: '#f59e0b', text: '#b45309' }, // Amber
+    { rowBg: '#ccfbf1', bg: '#99f6e4', border: '#14b8a6', text: '#0f766e' }, // Teal
+    { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' }, // Rose Pink
+    { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' }, // Orange
+    { rowBg: '#ecfccb', bg: '#d9f99d', border: '#84cc16', text: '#3f6212' }, // Lime
+    { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' }, // Cyan
+    { rowBg: '#e0e7ff', bg: '#c7d2fe', border: '#6366f1', text: '#4338ca' }, // Indigo
+    { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' }, // Emerald
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
+  return PALETTE[Math.abs(hash) % PALETTE.length];
 };
 
 const StyleProfileCard = ({ customer }) => {
@@ -1523,6 +1631,8 @@ const navSectionsFor = (user, t) => {
         { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
         { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
+        // The order workflow (Production), as the Designer has it.
+        { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
       ] },
@@ -1656,6 +1766,8 @@ function App() {
     return !portalSlugFromPath() && params.has('register') ? 'signup' : 'login';
   });
   const [requestedTab, setDashboardTab] = useState('overview'); 
+  const [previousDashboardTab, setPreviousDashboardTab] = useState('overview');
+  const lastTabRef = useRef('overview');
   const [navCollapsed, setNavCollapsed] = useState(() => {
     try { return localStorage.getItem('nav_collapsed') === '1'; } catch { return false; }
   });
@@ -1728,6 +1840,31 @@ function App() {
   // phone has MobileHeader's avatar menu instead, so the bar is hidden there.
   const accountBar = (go) => (
     <div className="portal-account-bar">
+      {showBell && (
+      <button
+        type="button"
+        className="portal-account-bell-btn"
+        disabled={markingNotificationsRead}
+        title={t('common.inboxAlerts', 'Inbox Alerts')}
+        aria-label={t('common.inboxAlerts', 'Inbox Alerts')}
+        onClick={() => {
+          setShowNotificationsDrawer(true);
+          if (markingNotificationsRead) return;
+          setMarkingNotificationsRead(true);
+          api.markNotificationsAsRead(currentUser?.role || 'Owner', currentUser?.email)
+            .then(() => fetchNotifications())
+            .catch(() => {})
+            .finally(() => setMarkingNotificationsRead(false));
+        }}
+      >
+        <Bell size={18} />
+        {notifications.filter(n => !n.is_read).length > 0 && (
+          <span className="portal-account-bell-badge">
+            {notifications.filter(n => !n.is_read).length}
+          </span>
+        )}
+      </button>
+      )}
       <AccountMenu avatar={<UserAvatar user={currentUser} />}
                    label={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
                    currentUser={currentUser} items={headerAccountItems(go)} />
@@ -1735,6 +1872,39 @@ function App() {
   );
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
+  // The bell (inbox alerts) shows on the owner's Dashboard page only -- not
+  // on any other page, and not for any other role. Read by the top bar, the
+  // phone header and the tablet header alike.
+  const showBell = (!currentUser?.role || currentUser.role === 'Owner') && view === 'dashboard' && dashboardTab === 'overview';
+
+  useEffect(() => {
+    if (dashboardTab && dashboardTab !== lastTabRef.current) {
+      setPreviousDashboardTab(lastTabRef.current);
+      lastTabRef.current = dashboardTab;
+    }
+  }, [dashboardTab]);
+
+  const getTabLabel = (tabKey) => {
+    for (const section of navSections) {
+      const found = section.items?.find((item) => item.tab === tabKey);
+      if (found) return found.label;
+    }
+    if (tabKey === 'overview') return t('nav.overview', 'Overview');
+    if (tabKey === 'workshop') return t('nav.workshop', 'Workshop');
+    if (tabKey === 'orders') return t('nav.orders', 'Orders');
+    return tabKey;
+  };
+
+  const handleBackFromWorkshop = () => {
+    setOrdersStageFilter('All');
+    if (previousDashboardTab && previousDashboardTab !== 'workshop') {
+      setDashboardTab(previousDashboardTab);
+    } else if (window.history.state?.tab && window.history.state.tab !== 'workshop') {
+      window.history.back();
+    } else {
+      setDashboardTab('overview');
+    }
+  };
 
   // Reports: Profit & Costs and Insights under one sidebar item. Each is still
   // its own tab and page; the switch at the top of both moves between them,
@@ -1915,6 +2085,20 @@ function App() {
 
   const [quotePrices, setQuotePrices] = useState({ packaging: 500, discount: 0 });
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  // The invoice's Send on WhatsApp: { orderId, state, error, url } for the
+  // order it was pressed on (state: sending | sent | retrying | failed |
+  // manual | pending | error).
+  const [invoiceSend, setInvoiceSend] = useState(null);
+  const sendInvoiceToWhatsApp = async (order) => {
+    setInvoiceSend({ orderId: order.id, state: 'sending' });
+    try {
+      const { outcome, message } = await api.sendInvoice(order.id);
+      // 'sending' from the server: still being tried when it stopped waiting.
+      setInvoiceSend({ orderId: order.id, state: outcome === 'sending' ? 'pending' : outcome, error: message?.error || '', url: message?.whatsapp_url || '' });
+    } catch (err) {
+      setInvoiceSend({ orderId: order.id, state: 'error', error: err?.message || 'Could not send the invoice.' });
+    }
+  };
   const [activeDesignTab, setActiveDesignTab] = useState({});
 
   const fabricTaxonomy = useFabricTaxonomy();
@@ -2452,7 +2636,6 @@ function App() {
 
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [customerTypeFilter, setCustomerTypeFilter] = useState('All');
   // Leads have their own sidebar item; it opens the customer book filtered to leads.
   const customerView = dashboardTab === 'leads' ? 'leads' : 'customers';
   const [customerPageAt, setCustomerPageAt] = useState({ key: '', page: 1 });
@@ -2477,7 +2660,6 @@ function App() {
     document.querySelector('.portal-main')?.scrollTo?.(0, 0);
   }, [openOrdersRowId]);
 
- 
   const orderMatchesFilters = (order) => {
     if (ordersTypeFilter === 'Alteration' && order.flow !== 'alteration') return false;
     if (ordersTypeFilter === 'Maggam' && order.flow !== 'maggam') return false;
@@ -2486,12 +2668,34 @@ function App() {
     if (ordersTierFilter !== 'All' && customerTier(order) !== ordersTierFilter) return false;
     if (ordersGarmentFilter !== 'All' && !orderGarmentNames(order).includes(ordersGarmentFilter)) return false;
     if (ordersStageFilter !== 'All' && orderStageKey(order) !== ordersStageFilter) return false;
+
     if (ordersSearch.trim()) {
-      const query = ordersSearch.toLowerCase();
-      const matchesId = order.order_id.toLowerCase().includes(query)
+      const query = ordersSearch.toLowerCase().trim();
+      const matchesId = (order.order_id || '').toLowerCase().includes(query)
         || orderRef(order).toLowerCase().includes(query);
       const matchesClient = (order.customer_name || '').toLowerCase().includes(query);
-      return matchesId || matchesClient;
+      const matchesPhone = (order.customer_phone || '').toLowerCase().includes(query);
+      const matchesGarment = orderGarmentNames(order).some(g => (g || '').toLowerCase().includes(query))
+        || (order.garment_jobs || []).some(j => (j.display_name || j.template_name || '').toLowerCase().includes(query));
+      const matchesStage = (order.stages || []).some(st => (st.stage_name || st.stage_key || '').toLowerCase().includes(query))
+        || (order.order_status || '').toLowerCase().includes(query)
+        || ((order.order_status === 'Delivered' || orderBucket(order) === 'done') && 'delivered'.includes(query))
+        || (order.order_status === 'Cancelled' && 'cancelled'.includes(query));
+      const matchesWorker = (order.stages || []).some(st => stageWho(st).toLowerCase().includes(query))
+        || (order.tailor_name || '').toLowerCase().includes(query)
+        || (order.master_name || '').toLowerCase().includes(query)
+        || (query === 'unassigned' && !(order.tailor_name || order.master_name || (order.stages || []).some(st => stageWho(st))));
+
+      const matchesJobInfo = (order.garment_jobs || []).some(job => {
+        const st = stageNow(order, job?.id);
+        const w = st && stageWho(st.current) ? stageWho(st.current) : '';
+        const sn = st?.current?.stage_name || st?.current?.stage_key || (job && !st ? 'delivered' : '');
+        return w.toLowerCase().includes(query) || sn.toLowerCase().includes(query);
+      });
+
+      if (!(matchesId || matchesClient || matchesPhone || matchesGarment || matchesStage || matchesWorker || matchesJobInfo)) {
+        return false;
+      }
     }
     return true;
   };
@@ -2500,6 +2704,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false, status: 'disconnected', qrCode: null });
   const [boutiqueSettings, setBoutiqueSettings] = useState(null);
+  // The boutique's own tier names, for every screen that shows a tier.
+  setTierNames(boutiqueSettings?.tier_names);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [logoFile, setLogoFile] = useState(null);
   
@@ -3539,6 +3745,9 @@ function App() {
     const candidate = alterPick;
     if (!candidate) { alert('Pick the garment first.'); return; }
     if (!alterationForm.issue.trim()) { alert('Say what needs changing.'); return; }
+    // Every alteration is photographed as it came in (the record of what was
+    // already wrong), ours as much as one stitched elsewhere.
+    if (!outsidePhoto?.file) { alert('Take a photo of the garment as it came in.'); return; }
     const isPaid = alterationForm.type === 'PAID_CLIENT_REQUEST';
     if (isPaid) {
       const charge = parseFloat(alterationForm.charge || 0);
@@ -3553,6 +3762,8 @@ function App() {
         charge: isPaid && alterationForm.charge ? alterationForm.charge : '0',
         paid_now: isPaid && alterationForm.paidNow ? alterationForm.paidNow : '0',
       });
+      try { await api.uploadGarmentImage(created.id, 'FRONT', outsidePhoto.file); }
+      catch (err) { alert(`Taken in, but the photo could not be saved: ${err.message}`); }
       setView('dashboard');
       openAlteration(created.id);
     } catch (err) {
@@ -3575,6 +3786,7 @@ function App() {
       scale, f.notes.trim(),
     ].filter(Boolean).join('\n');
     if (!f.request.trim() && !f.adjustments.trim()) { alert('Say what needs changing.'); return; }
+    if (!outsidePhoto?.file) { alert('Take a photo of the garment as it came in.'); return; }
     const charge = parseFloat(f.charge || 0);
     const bad = amountError(f.charge, { label: 'Charge' })
       || amountError(f.paidNow, { label: 'Paid now', max: charge });
@@ -3726,6 +3938,7 @@ function App() {
         if (!outsideForm.templateId && !outsideForm.note.trim()) {
           alert('Say what the garment is: pick a garment type or describe it.'); return;
         }
+        if (!outsidePhoto?.file) { alert('Take a photo of the garment as it came in.'); return; }
         reachStep(currentStep + 1);
       } else if (wizardStepKey === 'outIssue') {
         await createOutsideAlterationFromWizard();
@@ -4038,17 +4251,17 @@ function App() {
   // counts the stat cards, chips and filter menus show. Leads are portal
   // sign-ups nobody has contacted or taken an order for yet.
   const isLead = (c) => !!c.is_lead && !((c.order_count ?? c.orders?.length ?? 0) > 0);
-  const customerPageKey = `${customerView}|${searchQuery}|${customerTypeFilter}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
+  const customerPageKey = `${customerView}|${searchQuery}|${customerFilters.tier || ''}|${customerPageSize}|${JSON.stringify(customerFilters)}`;
   const customerPage = customerPageAt.key === customerPageKey ? customerPageAt.page : 1;
   const onCustomerBook = dashboardTab === 'customers' || dashboardTab === 'leads';
   const directoryParams = React.useMemo(() => ({
     view: customerView,
     search: directorySearch.trim(),
-    tier: customerTypeFilter === 'All' ? '' : customerTypeFilter,
+    tier: customerFilters.tier || '',
     ...customerFilters,
     page: customerPage,
     page_size: customerPageSize,
-  }), [customerView, directorySearch, customerTypeFilter, customerFilters, customerPage, customerPageSize]);
+  }), [customerView, directorySearch, customerFilters, customerPage, customerPageSize]);
   // Which question the page on screen answers; a newer one makes it "loading".
   const directoryKey = `${JSON.stringify(directoryParams)}|${directoryVersion}`;
   useEffect(() => {
@@ -4722,6 +4935,7 @@ function App() {
       {view === 'dashboard' && currentUser && (
         <div className={`portal-layout${navCollapsed ? ' nav-collapsed' : ''}`}>
           <MobileHeader
+            showBell={showBell}
             // The sidebar's own label first, so the two never disagree
             // ("To-do" in the menu, "Todo" in the header); the key lookup
             // covers tabs the sidebar does not list.
@@ -4769,6 +4983,7 @@ function App() {
               <img className="portal-wordmark portal-wordmark--sm" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {showBell && (
               <button
                 disabled={markingNotificationsRead}
                 onClick={() => {
@@ -4791,6 +5006,7 @@ function App() {
                   </span>
                 )}
               </button>
+              )}
             </div>
           </div>
 
@@ -4837,7 +5053,9 @@ function App() {
           </aside>
 
           {/* Main Content Area */}
-          <main className="portal-main" key={`${dashboardTab}:${sectionVisit}`}>
+          {/* Every role but the owner gets a tighter top (portal-main--staff). */}
+          <main className={`portal-main${!currentUser?.role || currentUser.role === 'Owner' ? '' : ' portal-main--staff'}`}
+                key={`${dashboardTab}:${sectionVisit}`}>
             {accountBar((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}
             {(dashboardTab === 'work' || dashboardTab === 'done' || dashboardTab === 'check') && (
               <>
@@ -4860,35 +5078,6 @@ function App() {
                     : t('dashboard.welcomeBackUser', `Welcome back, ${currentUserName}! 👋`, { name: currentUserName })}
                   subtitle={t('dashboard.subtitle')}
                   meta={<HeaderClock />}
-                  aside={(
-                    <>
-                      <button
-                        type="button"
-                        className="btn-secondary at-btn-sm"
-                        disabled={markingNotificationsRead}
-                        title={t('common.inboxAlerts', 'Inbox Alerts')}
-                        aria-label={t('common.inboxAlerts', 'Inbox Alerts')}
-                        onClick={() => {
-                          setShowNotificationsDrawer(true);
-                          if (markingNotificationsRead) return;
-                          setMarkingNotificationsRead(true);
-                          api.markNotificationsAsRead(currentUser.role || 'Owner', currentUser.email)
-                            .then(() => fetchNotifications())
-                            .catch(() => {})
-                            .finally(() => setMarkingNotificationsRead(false));
-                        }}
-                        style={{ position: 'relative', borderRadius: '999px' }}
-                      >
-                        <Bell size={16} />
-                        {notifications.filter(n => !n.is_read).length > 0 && (
-                          <span style={{ backgroundColor: 'var(--danger-color)', color: '#fff', borderRadius: '10px',
-                                         padding: '1px 7px', fontSize: '10px', fontWeight: 700 }}>
-                            {notifications.filter(n => !n.is_read).length}
-                          </span>
-                        )}
-                      </button>
-                    </>
-                  )}
                   actions={(
                     <>
                       <button
@@ -4984,7 +5173,7 @@ function App() {
                                 sub={`${t('dashboard.dueThisWeek', '{n} due this week', { n: s.due_soon ?? 0 })}${overdue ? ` · ${t('dashboard.overdueCount', '{n} overdue', { n: overdue })}` : ''}`}
                                 onClick={() => setDashboardTab('workshop')} />
                       <StatCard icon={Users} tone="blue" label={t('dashboard.totalCustomers', 'Customers')} value={s.total_customers ?? 0}
-                                sub={(() => { const c = bookTiers; return t('dashboard.tierSummary', '{platinum} Platinum · {gold} Gold · {silver} Silver', { platinum: c.Platinum, gold: c.Gold, silver: c.Silver }); })()}
+                                sub={(() => { const c = bookTiers; return hasTierNames() ? TIERS.map((tier) => `${c[tier]} ${tierName(tier)}`).join(' · ') : t('dashboard.tierSummary', '{platinum} Platinum · {gold} Gold · {silver} Silver', { platinum: c.Platinum, gold: c.Gold, silver: c.Silver }); })()}
                                 onClick={() => setDashboardTab('customers')} />
                     </section>
                   );
@@ -5569,56 +5758,6 @@ function App() {
                             onOpenAlteration={openAlteration}
                           />
 
-                          {/* Master verification checklist */}
-                          {currentUser.role === 'Master' && (
-                            <div style={{ padding: 'var(--space-4)', background: 'var(--accent-color)',
-                                 border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
-                              <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-3)', color: 'var(--accent-text)' }}>👑 Master production verification</div>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-2) var(--space-4)' }}>
-                                {[
-                                  { key: 'dress_cutting', label: 'Dress & Pattern Cutting' },
-                                  { key: 'thread', label: 'Matching Thread & Accents' },
-                                  { key: 'hemming', label: 'Hemming & Seam Finishes' },
-                                  ...(order.customer_garment_type === 'Saree' ? [{ key: 'fall_pico', label: 'Fall & Pico / Peack' }] : []),
-                                  { key: 'hook_buttons', label: 'Hook or Buttons Closure' },
-                                  { key: 'pressing', label: 'Garment Steam Pressing' },
-                                  { key: 'dispatch_trial', label: 'Dispatch or Fit Trial Ready' }
-                                ].map(item => {
-                                  const isChecked = order.master_verification?.[item.key] || false;
-                                  return (
-                                    <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        disabled={savingVerificationOrderId === order.id}
-                                        onChange={async (e) => {
-                                          if (savingVerificationOrderId) return;
-                                          const updatedVerification = { ...(order.master_verification || {}), [item.key]: e.target.checked };
-                                          setSavingVerificationOrderId(order.id);
-                                          try {
-                                            await api.saveMasterVerification(order.id, updatedVerification);
-                                            fetchDashboardAndConfig();
-                                          } catch (err) {
-                                            alert("Failed to update verification check: " + err.message);
-                                          } finally {
-                                            setSavingVerificationOrderId(null);
-                                          }
-                                        }}
-                                      />
-                                      <span style={{ textDecoration: isChecked ? 'line-through' : 'none', color: isChecked ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                                        {item.label}
-                                      </span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Delivery */}
-                          <DeliveryCard key={`${order.id}-${order.delivery_method}-${order.tracking_number}`} order={order}
-                                        canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
-
                           {/* Tailor completion report */}
                           {(order.tailor_comments || order.completed_garment_image) && (
                             <div style={{ background: 'var(--accent-color)', border: '1px solid var(--accent-border)',
@@ -5693,13 +5832,6 @@ function App() {
                             </div>
                           )}
                       </div>
-                      <div className="od-tip" role="note">
-                        <IconTile icon={Sparkles} tone="green" size={36} iconSize={16} />
-                        <div>
-                          <strong>{t('ordersPage.tipTitle', 'Keep the quality high!')}</strong>
-                          <span>{t('ordersPage.tipText', 'Check measurements and design notes before moving to the next stage.')}</span>
-                        </div>
-                      </div>
                     </div>
 
                     <aside className="od-side">
@@ -5730,6 +5862,66 @@ function App() {
                       </section>
 
                       <OrderNotesCard key={order.id} order={order} canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
+                      {/* The Master's checklist, the handover and the tip sit under the
+                          notes in the side column, so the two columns share the page. */}
+                      <div className="od-side-extra">
+                        {/* Master verification checklist */}
+                        {currentUser.role === 'Master' && (
+                          <div style={{ padding: 'var(--space-4)', background: 'var(--accent-color)',
+                               border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
+                            <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-3)', color: 'var(--accent-text)' }}>👑 Master production verification</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-2) var(--space-4)' }}>
+                              {[
+                                { key: 'dress_cutting', label: 'Dress & Pattern Cutting' },
+                                { key: 'thread', label: 'Matching Thread & Accents' },
+                                { key: 'hemming', label: 'Hemming & Seam Finishes' },
+                                ...(order.customer_garment_type === 'Saree' ? [{ key: 'fall_pico', label: 'Fall & Pico / Peack' }] : []),
+                                { key: 'hook_buttons', label: 'Hook or Buttons Closure' },
+                                { key: 'pressing', label: 'Garment Steam Pressing' },
+                                { key: 'dispatch_trial', label: 'Dispatch or Fit Trial Ready' }
+                              ].map(item => {
+                                const isChecked = order.master_verification?.[item.key] || false;
+                                return (
+                                  <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      disabled={savingVerificationOrderId === order.id}
+                                      onChange={async (e) => {
+                                        if (savingVerificationOrderId) return;
+                                        const updatedVerification = { ...(order.master_verification || {}), [item.key]: e.target.checked };
+                                        setSavingVerificationOrderId(order.id);
+                                        try {
+                                          await api.saveMasterVerification(order.id, updatedVerification);
+                                          fetchDashboardAndConfig();
+                                        } catch (err) {
+                                          alert("Failed to update verification check: " + err.message);
+                                        } finally {
+                                          setSavingVerificationOrderId(null);
+                                        }
+                                      }}
+                                    />
+                                    <span style={{ textDecoration: isChecked ? 'line-through' : 'none', color: isChecked ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                                      {item.label}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Delivery */}
+                        <DeliveryCard key={`${order.id}-${order.delivery_method}-${order.tracking_number}`} order={order}
+                                      canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
+                        <div className="od-tip" role="note">
+                          <IconTile icon={Sparkles} tone="green" size={36} iconSize={16} />
+                          <div>
+                            <strong>{t('ordersPage.tipTitle', 'Keep the quality high!')}</strong>
+                            <span>{t('ordersPage.tipText', 'Check measurements and design notes before moving to the next stage.')}</span>
+                          </div>
+                        </div>
+                      </div>
                     </aside>
                   </div>
                 </div>
@@ -5749,7 +5941,7 @@ function App() {
                 <PageHeader
                   title={dashboardTab === 'workshop' ? t('ordersPage.workshopTitle', 'Workshop') : t('ordersPage.title')}
                   subtitle={dashboardTab === 'workshop' ? t('ordersPage.workshopSubtitle', 'Every order being made, who has it, and what comes next.') : t('ordersPage.subtitle')}
-                  aside={<SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
+                  aside={dashboardTab === 'workshop' ? null : <SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
                   actions={dashboardTab === 'workshop' ? null : (
                     <>
                       {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
@@ -5771,7 +5963,7 @@ function App() {
                   return (
                     <>
                       {dashboardTab === 'orders' && (
-                        <section className="at-stat-grid">
+                        <section className="at-stat-grid orders-stats">
                           {/* The three cards are the New / In progress / Closed switch
                               (the chips that repeated them under the cards are gone):
                               the open one is drawn as selected. */}
@@ -5783,7 +5975,36 @@ function App() {
                                     onClick={() => setOrdersFilterTab('done')} active={ordersFilterTab === 'done'} />
                         </section>
                       )}
-                      <div className="at-toolbar">
+                      {dashboardTab === 'workshop' && (
+                        <div style={{ marginBottom: '10px' }}>
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            onClick={handleBackFromWorkshop}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '13px', fontWeight: 600, borderRadius: 'var(--radius-md)' }}
+                          >
+                            <ArrowLeft size={15} /> {previousDashboardTab ? t('common.backTo', `Back to ${getTabLabel(previousDashboardTab)}`, { name: getTabLabel(previousDashboardTab) }) : t('common.back', 'Back')}
+                          </button>
+                        </div>
+                      )}
+                      <div className={`at-toolbar ${dashboardTab === 'workshop' ? 'workshop-toolbar' : ''}`}>
+                        {dashboardTab === 'workshop' && (
+                          <div className="workshop-view-switch">
+                            <Segmented ariaLabel="Orders view" value={ordersView} onChange={setOrdersView} options={[
+                              { key: 'kanban', label: 'Board', icon: LayoutGrid },
+                              { key: 'list', label: 'List', icon: List },
+                            ]} />
+                          </div>
+                        )}
+                        {dashboardTab === 'workshop' && (
+                          <div className="at-toolbar-right workshop-search-wrap">
+                            <SearchBox
+                              value={ordersSearch}
+                              onChange={setOrdersSearch}
+                              placeholder={t('ordersPage.workshopSearchPlaceholder', 'Search by order, customer, status, or worker...')}
+                            />
+                          </div>
+                        )}
                         {/* Narrow by who it is for, what it is, and where it stands;
                             the list and the board read the same filter. */}
                         <details className="at-toolbar-filters at-filters-fold">
@@ -5798,7 +6019,7 @@ function App() {
                           <select className="form-control at-filter" value={ordersTierFilter} aria-label="Customer type"
                                   onChange={(e) => setOrdersTierFilter(e.target.value)}>
                             <option value="All">{t('ordersPage.allCustomerTypes', 'All customer types')}</option>
-                            {TIERS.map(tier => <option key={tier} value={tier}>{t(`wizard.${tier.toLowerCase()}`, tier)}</option>)}
+                            {TIERS.map(tier => <option key={tier} value={tier}>{tierName(tier, t(`wizard.${tier.toLowerCase()}`, tier))}</option>)}
                           </select>
                           <select className="form-control at-filter" value={ordersGarmentFilter} aria-label="Garment"
                                   onChange={(e) => setOrdersGarmentFilter(e.target.value)}>
@@ -5816,16 +6037,6 @@ function App() {
                             ).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
                           </select>
                         </details>
-                        {/* List / Board: two drawings of the workshop; the
-                            board's columns are stages, so only that tab has one. */}
-                        {dashboardTab === 'workshop' && (
-                          <div className="at-toolbar-right">
-                            <Segmented ariaLabel="Orders view" value={ordersView} onChange={setOrdersView} options={[
-                              { key: 'kanban', label: 'Board', icon: LayoutGrid },
-                              { key: 'list', label: 'List', icon: List },
-                            ]} />
-                          </div>
-                        )}
                       </div>
                     </>
                   );
@@ -5871,8 +6082,58 @@ function App() {
                           : (st === 'Shipped' || st === 'Ready for Dispatch') ? 'info'
                           : 'warning';
                       const filtered = ordersList.filter(orderMatchesFilters);
+                      const workshopRows = filtered.flatMap(order => {
+                        // In the workshop an order of several garments is a row
+                        // per garment, "#15-1", "#15-2", each on its own path.
+                        const jobs = order.garment_jobs || [];
+                        const lanes = jobs.filter(j => (order.stages || []).some(st => st.garment_job === j.id));
+                        return dashboardTab === 'workshop' && orderBucket(order) === 'workshop' && lanes.length > 1
+                          ? lanes.map(job => ({ order, job, n: jobs.indexOf(job) + 1 }))
+                          : [{ order, job: null, n: 0 }];
+                      }).filter(({ order, job, n }) => {
+                        if (dashboardTab !== 'workshop') return true;
+                        const isDelivered = order.order_status === 'Delivered';
+                        const isCancelled = order.order_status === 'Cancelled';
+                        const bucket = orderBucket(order);
+                        const stage = bucket === 'workshop' ? stageNow(order, job?.id) : null;
+                        const isGarmentDelivered = bucket === 'workshop' && job && !stage;
+                        const isRowDelivered = isDelivered || (bucket === 'done' && !isCancelled) || isGarmentDelivered;
 
-                      if (filtered.length === 0) {
+                        let rowStatusName = '';
+                        if (isCancelled) {
+                          rowStatusName = 'Cancelled';
+                        } else if (isRowDelivered) {
+                          rowStatusName = 'Delivered';
+                        } else if (bucket === 'new' && !stage) {
+                          rowStatusName = 'Not sent yet';
+                        } else if (stage?.current) {
+                          rowStatusName = stage.current.stage_name || stage.current.stage_key || '';
+                        } else {
+                          rowStatusName = order.order_status || '';
+                        }
+
+                        const worker = stage && stageWho(stage.current) ? stageWho(stage.current) : (order.tailor_name || order.master_name || '');
+
+                        if (ordersSearch.trim()) {
+                          const query = ordersSearch.toLowerCase().trim();
+                          const ref = (orderRef(order) + (job ? `-${n}` : '')).toLowerCase();
+                          const matchesId = ref.includes(query) || (order.order_id || '').toLowerCase().includes(query) || orderRef(order).toLowerCase().includes(query);
+                          const matchesClient = (order.customer_name || '').toLowerCase().includes(query);
+                          const matchesPhone = (order.customer_phone || '').toLowerCase().includes(query);
+                          const garmentName = (job?.display_name || job?.template_name || '').toLowerCase();
+                          const matchesGarment = garmentName.includes(query) || orderGarmentNames(order).some(g => (g || '').toLowerCase().includes(query));
+                          const matchesStatus = rowStatusName.toLowerCase().includes(query);
+                          const matchesWorker = worker.toLowerCase().includes(query) || (query === 'unassigned' && !worker.trim());
+
+                          if (!(matchesId || matchesClient || matchesPhone || matchesGarment || matchesStatus || matchesWorker)) {
+                            return false;
+                          }
+                        }
+
+                        return true;
+                      });
+
+                      if (filtered.length === 0 || workshopRows.length === 0) {
                         return (
                           <div className="ui-card" style={{ padding: 'var(--space-10)', textAlign: 'center', color: 'var(--text-muted)' }}>
                             {ordersList.length === 0 ? (
@@ -5907,15 +6168,7 @@ function App() {
                           </tr>
                         </thead>
                         <tbody>
-                      {filtered.flatMap(order => {
-                        // In the workshop an order of several garments is a row
-                        // per garment, "#15-1", "#15-2", each on its own path.
-                        const jobs = order.garment_jobs || [];
-                        const lanes = jobs.filter(j => (order.stages || []).some(st => st.garment_job === j.id));
-                        return dashboardTab === 'workshop' && orderBucket(order) === 'workshop' && lanes.length > 1
-                          ? lanes.map(job => ({ order, job, n: jobs.indexOf(job) + 1 }))
-                          : [{ order, job: null, n: 0 }];
-                      }).map(({ order, job, n }) => {
+                      {workshopRows.map(({ order, job, n }) => {
                         const isDelivered = order.order_status === 'Delivered';
                         const isCancelled = order.order_status === 'Cancelled';
                         const bucket = orderBucket(order);
@@ -5937,27 +6190,64 @@ function App() {
                           // Past its delivery date and still in work: the whole row.
                           late ? 'at-row-late' : '',
                         ].filter(Boolean).join(' ') || undefined;
+
+                        const isGarmentDelivered = bucket === 'workshop' && job && !stage;
+                        const isRowDelivered = isDelivered || (bucket === 'done' && !isCancelled) || isGarmentDelivered;
+                        let rowStatusKey = '';
+                        let rowStatusName = '';
+                        if (isCancelled) {
+                          rowStatusKey = 'cancelled';
+                          rowStatusName = 'Cancelled';
+                        } else if (isRowDelivered) {
+                          rowStatusKey = 'delivered';
+                          rowStatusName = 'Delivered';
+                        } else if (bucket === 'new' && !stage) {
+                          rowStatusKey = 'new';
+                          rowStatusName = 'Not sent yet';
+                        } else if (stage?.current) {
+                          rowStatusKey = stage.current.stage_key || '';
+                          rowStatusName = stage.current.stage_name || '';
+                        } else {
+                          rowStatusKey = (order.order_status || '').toLowerCase();
+                          rowStatusName = order.order_status || '';
+                        }
+                        const rowStyle = getStageBadgeStyle(rowStatusKey, rowStatusName);
+
                         return (
                         <React.Fragment key={job ? `${order.id}-${job.id}` : order.id}>
                         <tr className={rowClass}
-                            style={isCancelled ? { opacity: 0.55 } : undefined}>
-                          <td style={{ fontWeight: 'var(--weight-bold)' }}>{orderRef(order)}{job ? `-${n}` : ''}
-                            {job && (
-                              <span style={{ display: 'block', fontWeight: 'var(--weight-regular)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                                {job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}
+                            data-status={rowStatusKey}
+                            style={{
+                              backgroundColor: rowStyle.rowBg,
+                              '--row-status-bg': rowStyle.rowBg,
+                              '--row-status-border': rowStyle.border,
+                              ...(isCancelled ? { opacity: 0.55 } : {}),
+                            }}>
+                          <td className="order-id-cell">
+                            <div className="order-id-content">
+                              <div className="order-id-header">
+                                <span className="order-id-ref">{orderRef(order)}{job ? `-${n}` : ''}</span>
+                                {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
+                                  <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
+                                )}
+                              </div>
+                              {job && (
+                                <span className="order-id-garment">
+                                  {job.display_name || job.template_name || t('ordersPage.garment', 'Garment')}
+                                </span>
+                              )}
+                              {stepDays !== null && (
+                                <span className={`at-step-days${stuck ? ' at-step-days--stuck' : ''}`}
+                                      title={`${stage.current.stage_name} · ${sinceLabel(stage.current.started_at)} (${t('ordersPage.since', 'since')} ${fmtDate(stage.current.started_at)})`}>
+                                  <Clock size={12} aria-hidden="true" />
+                                  {stepDays === 0 ? t('ordersPage.today', 'Today') : `${stepDays} ${stepDays === 1 ? t('ordersPage.day', 'day') : t('ordersPage.days', 'days')}`}
+                                </span>
+                              )}
+                              <span className="at-phone-only at-phone-line" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}>
+                                <User size={12} aria-hidden="true" /> {order.customer_name}
                               </span>
-                            )}
-                            {stepDays !== null && (
-                              <span className={`at-step-days${stuck ? ' at-step-days--stuck' : ''}`}
-                                    title={`${stage.current.stage_name} · ${sinceLabel(stage.current.started_at)} (${t('ordersPage.since', 'since')} ${fmtDate(stage.current.started_at)})`}>
-                                <Clock size={12} aria-hidden="true" />
-                                {stepDays === 0 ? t('ordersPage.today', 'Today') : `${stepDays} ${stepDays === 1 ? t('ordersPage.day', 'day') : t('ordersPage.days', 'days')}`}
-                              </span>
-                            )}
-                            {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
-                              <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
-                            )}
-                            <span className="at-phone-only at-phone-line" style={{ fontWeight: 'var(--weight-regular)', color: 'var(--text-secondary)' }}><User size={12} aria-hidden="true" /> {order.customer_name}</span></td>
+                            </div>
+                          </td>
                           <td className="at-desk-only">{job ? (jobMaggam ? 'Maggam' : 'Stitching') : order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
                           <td className="at-desk-only">
                             {order.customer_name}
@@ -5983,14 +6273,24 @@ function App() {
                             )}
                             {/* Where it stands: the step it is on (who has it is
                                 the next column; how long, under the order number). */}
-                            {stage && (
-                              <div className="at-stage-strip">
-                                <span className="at-stage-strip-now">
-                                  <strong>{stage.current.stage_name}</strong>
-                                </span>
-                                {late && <span className="ui-badge ui-badge--danger">{t('ordersPage.late', 'Late')}</span>}
-                              </div>
-                            )}
+                            {stage && (() => {
+                              const badgeStyle = getStageBadgeStyle(stage.current.stage_key, stage.current.stage_name);
+                              return (
+                                <div className="at-stage-strip">
+                                  <span
+                                    className="ui-badge stage-step-badge"
+                                    style={{
+                                      backgroundColor: badgeStyle.bg,
+                                      borderColor: badgeStyle.border,
+                                      color: badgeStyle.text,
+                                    }}
+                                  >
+                                    {stage.current.stage_name}
+                                  </span>
+                                  {late && <span className="ui-badge ui-badge--danger">{t('ordersPage.late', 'Late')}</span>}
+                                </div>
+                              );
+                            })()}
                           </td>
                           {/* Who has the step it is on. */}
                           <td data-label={t('ordersPage.assignedTo', 'Assigned to')} className="at-assignee-cell">
@@ -6018,9 +6318,12 @@ function App() {
                                 </button>
                               )}
                               {/* An order being made is read in the Workshop room. */}
-                              <button type="button" className="btn-secondary at-btn-sm"
+                              {/* The eye alone (named for screen readers and on hover), so
+                                  the row's buttons fit beside "Send to workshop". */}
+                              <button type="button" className="btn-secondary at-btn-sm at-btn-icon-view"
+                                      title="View order" aria-label={`View order ${orderRef(order)}${job ? `-${n}` : ''}`}
                                       onClick={() => { if (bucket === 'workshop') setDashboardTab('workshop'); setOpenGarmentJob(job?.id || null); setOpenOrdersRowId(order.id); }}>
-                                <Eye size={12} /> View
+                                <Eye size={16} />
                               </button>
                             </div>
                           </td>
@@ -6111,18 +6414,12 @@ function App() {
                       <section className="at-stat-grid">
                         <StatCard icon={Users} tone="green" label={customerView === 'leads' ? 'Total Leads' : 'Total Customers'} value={bookSummary.total}
                                   sub={t('customersPage.withOrdersCount', '{n} with orders', { n: withOrders })} />
-                        <StatCard icon={Crown} tone="amber" label="Platinum customers" value={tiers.Platinum}
-                                  sub={`${tiers.Gold} Gold · ${tiers.Silver} Silver`} />
+                        <StatCard icon={Crown} tone="amber" label={`${tierName('Platinum')} customers`} value={tiers.Platinum}
+                                  sub={`${tiers.Gold} ${tierName('Gold')} · ${tiers.Silver} ${tierName('Silver')}`} />
                         <StatCard icon={CalendarDays} tone="violet" label="New This Month" value={thisMonth} sub="registered" />
                         <StatCard icon={ShoppingBag} tone="blue" label="With Orders" value={withOrders} sub="at least one order" />
                       </section>
                       {(() => {
-                        const tierChips = (
-                          <Chips value={customerTypeFilter} onChange={setCustomerTypeFilter} options={[
-                            { key: 'All', label: t('customersPage.filterAll'), count: bookSummary.total },
-                            ...TIERS.map(tier => ({ key: tier, label: t(`wizard.${tier.toLowerCase()}`, tier), count: tiers[tier] })),
-                          ]} />
-                        );
                         const showing = (
                           <span className="cf-showing">
                             {directoryCount
@@ -6134,10 +6431,10 @@ function App() {
                         return bookSummary.total > 0 ? (
                           <div style={{ marginTop: 'var(--space-5)' }}>
                             <CustomerFilters facets={directoryData.facets} filters={customerFilters} onChange={setCustomerFilters}
-                                             leading={tierChips} trailing={showing} />
+                                             tierCounts={tiers} leading={showing} />
                           </div>
                         ) : (
-                          <div className="at-toolbar">{tierChips}{showing}</div>
+                          <div className="at-toolbar">{showing}</div>
                         );
                       })()}
                     </>
@@ -6189,11 +6486,17 @@ function App() {
                       <table className="at-table at-table--fit" style={{ tableLayout: 'fixed' }}>
                         <thead>
                           <tr>
-                            <th style={{ width: canAddCustomer ? '26%' : '29%' }}>Customer</th>
-                            <th style={{ width: canAddCustomer ? '24%' : '26%' }}>Body measurements</th>
-                            <th style={{ width: canAddCustomer ? '12%' : '13%' }}>Style notes</th>
-                            <th style={{ width: canAddCustomer ? '18%' : '18%' }}>Orders</th>
-                            <th style={{ width: canAddCustomer ? '20%' : '14%' }}>Actions</th>
+                            <th style={{ width: '30%', textAlign: 'center' }}>
+                              <span style={{ display: 'inline-block', transform: 'translateX(-28px)' }}>Customer</span>
+                            </th>
+                            <th style={{ width: '24%', textAlign: 'center' }}>
+                              <span style={{ display: 'inline-block', transform: 'translateX(-28px)', whiteSpace: 'nowrap' }}>Body measurements</span>
+                            </th>
+                            <th style={{ width: '16%', textAlign: 'left' }}>Garment</th>
+                            <th style={{ width: '20%', textAlign: 'center' }}>
+                              <span style={{ display: 'inline-block', transform: 'translateX(-28px)' }}>Orders</span>
+                            </th>
+                            <th style={{ width: '80px', textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -6205,6 +6508,11 @@ function App() {
                                       ['arm_length', 'Arm'], ['neck', 'Neck'], ['length', 'Length']];
                       // Only columns holding a number: a row of dashes says nothing.
                       const shown = FIELDS.filter(([k]) => visible.includes(k) && m?.[k]).slice(0, 4);
+                      const hasMeasurements = Boolean(
+                        (m && shown.length > 0) ||
+                        (m && FIELDS.some(([k]) => m[k] !== null && m[k] !== undefined && String(m[k]).trim() !== '' && String(m[k]).trim() !== '—')) ||
+                        (m?.additional_measurements && Object.entries(m.additional_measurements).some(([k, v]) => k !== 'stitch_parts' && v !== null && v !== undefined && String(v).trim() !== '' && String(v).trim() !== '—'))
+                      );
                       const tags = [
                         `${cust.garment_type || ''}${parts.length ? ` (${parts.join(', ')})` : ''}`.trim(),
                         cust.neckline_style && `Neck: ${cust.neckline_style}`,
@@ -6252,24 +6560,25 @@ function App() {
                             </div>
                           </td>
 
-                          <td data-label="Body measurements" className="cust-measure" style={{ overflow: 'hidden' }}>
-                            {m && shown.length > 0 ? (
-                              <div style={{ ...line, fontVariantNumeric: 'tabular-nums' }}
-                                   title={shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ')}>
-                                {shown.map(([k, label], i) => (
-                                  <span key={k} className="cust-chip">
-                                    {i > 0 && <span className="cust-sep" style={{ color: 'var(--border-color)', margin: '0 8px' }}>·</span>}
-                                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{label} </span>
-                                    <strong>{measure(m[k])}</strong>
-                                  </span>
-                                ))}
-                              </div>
+                          <td data-label="Body measurements" className="cust-measure" style={{ textAlign: 'left', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {hasMeasurements ? (
+                              <span
+                                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-primary)', fontWeight: 600 }}
+                                title={shown.length > 0 ? shown.map(([k, label]) => `${label} ${measure(m[k])}`).join(' · ') : t('customersPage.recorded', 'Recorded')}
+                              >
+                                {t('customersPage.recorded', 'Recorded')}
+                              </span>
                             ) : (
-                              <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }} title={t('customersPage.notRecorded', 'Not recorded')}>{t('customersPage.notRecorded', 'Not recorded')}</span>
+                              <span
+                                style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}
+                                title={t('customersPage.notRecorded', 'Not recorded')}
+                              >
+                                {t('customersPage.notRecorded', 'Not recorded')}
+                              </span>
                             )}
                           </td>
 
-                          <td data-label="Style notes" className={tags.length || cust.custom_requirements ? undefined : 'cust-empty'} style={{ overflow: 'hidden' }}>
+                          <td data-label="Garment" className={tags.length || cust.custom_requirements ? undefined : 'cust-empty'} style={{ overflow: 'hidden' }}>
                             <div className="at-tags" style={{ flexWrap: 'nowrap', overflow: 'hidden' }} title={tags.join(' · ')}>
                               {tags.map(tag => <span key={tag} className="at-tag" style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{tag}</span>)}
                             </div>
@@ -6278,10 +6587,12 @@ function App() {
                             )}
                           </td>
 
-                          <td data-label="Orders" className="cust-orders" style={{ overflow: 'hidden' }}>
-                            <div className="cust-desk" style={{ fontWeight: 700 }}>{orders}</div>
-                            <div className="cust-desk" style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
-                              {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
+                          <td data-label="Orders" className="cust-orders" style={{ textAlign: 'center', overflow: 'hidden' }}>
+                            <div className="cust-desk" style={{ display: 'inline-block', textAlign: 'center', transform: 'translateX(-28px)' }}>
+                              <div style={{ fontWeight: 700 }}>{orders}</div>
+                              <div style={sub} title={`${inr(cust.total_spend)} spent · ${t('customersPage.registered')} ${fmtDate(cust.created_at)}`}>
+                                {inr(cust.total_spend)} · {fmtDate(cust.created_at)}
+                              </div>
                             </div>
                             <dl className="cust-stats">
                               <div><dt>{orders === 1 ? 'Order' : 'Orders'}</dt><dd>{orders}</dd></div>
@@ -6290,7 +6601,7 @@ function App() {
                             </dl>
                           </td>
 
-                          <td className="cust-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <td className="cust-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                             {cust.mobile_number && (
                               <span className="cust-contact" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                 <a className="btn-secondary at-btn-sm" href={telLink(cust.mobile_number)}
@@ -6303,35 +6614,42 @@ function App() {
                                 </a>
                               </span>
                             )}
-                            <button
-                              type="button"
-                              className="at-link"
-                              style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-text)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                              onClick={(e) => { e.stopPropagation(); setStyleNotesFor(cust); }}
-                            >
-                              <Sparkles size={12} /> {t('customersPage.viewStyleDna')}
-                            </button>
-                            {customerView === 'leads' && (
-                              <button type="button" className="at-icon-btn" title="Mark as contacted (moves to Customers)"
-                                      aria-label={`Mark ${cust.first_name} ${cust.last_name} as contacted`}
-                                      disabled={customerActionId === cust.id}
-                                      onClick={(e) => { e.stopPropagation(); handleMarkLeadContacted(cust); }}>
-                                <CheckCircle2 size={15} />
-                              </button>
-                            )}
-                            {canAddCustomer && (
-                              <span className="at-row-actions" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                                <button type="button" className="at-icon-btn" title="Edit customer" aria-label={`Edit ${cust.first_name} ${cust.last_name}`}
-                                        disabled={customerActionId === cust.id} onClick={() => startEditCustomer(cust)}>
-                                  <Edit2 size={15} />
-                                </button>
-                                <button type="button" className="at-icon-btn at-icon-btn--danger" title="Delete customer" aria-label={`Delete ${cust.first_name} ${cust.last_name}`}
-                                        disabled={customerActionId === cust.id} onClick={() => handleDeleteCustomer(cust)}>
-                                  <Trash2 size={15} />
-                                </button>
-                              </span>
-                            )}
-                            <ChevronRight size={16} className="cust-desk" style={{ color: 'var(--text-muted)', verticalAlign: 'middle', marginLeft: '6px' }} />
+                            <RowMenu
+                              label={`Actions for ${cust.first_name || ''} ${cust.last_name || ''}`.trim() || 'Customer actions'}
+                              items={[
+                                {
+                                  label: 'View profile',
+                                  icon: <Eye size={15} />,
+                                  onClick: open,
+                                },
+                                ...(customerView === 'leads' ? [{
+                                  label: 'Mark as contacted',
+                                  icon: <CheckCircle2 size={15} />,
+                                  disabled: customerActionId === cust.id,
+                                  onClick: () => handleMarkLeadContacted(cust),
+                                }] : []),
+                                ...(canAddCustomer ? [{
+                                  label: 'Edit customer',
+                                  icon: <Edit2 size={15} />,
+                                  disabled: customerActionId === cust.id,
+                                  onClick: () => startEditCustomer(cust),
+                                }] : []),
+                                ...(cust.mobile_number ? [
+                                  {
+                                    label: 'WhatsApp',
+                                    icon: <MessageSquare size={15} />,
+                                    onClick: () => { window.open(waLink(cust.mobile_number), '_blank', 'noopener,noreferrer'); },
+                                  },
+                                ] : []),
+                                ...(canAddCustomer ? [{
+                                  label: 'Delete customer',
+                                  icon: <Trash2 size={15} />,
+                                  danger: true,
+                                  disabled: customerActionId === cust.id,
+                                  onClick: () => handleDeleteCustomer(cust),
+                                }] : []),
+                              ]}
+                            />
                           </td>
                         </tr>
                       );
@@ -7016,7 +7334,7 @@ function App() {
                 const counts = bookTiers;
                 const colors = { Platinum: 'var(--primary-color)', Gold: 'var(--warning-color)', Silver: 'var(--border-strong)' };
                 const rows = TIERS.map(tier => ({
-                  name: t(`wizard.${tier.toLowerCase()}`, tier), count: counts[tier], color: colors[tier],
+                  name: tierName(tier, t(`wizard.${tier.toLowerCase()}`, tier)), count: counts[tier], color: colors[tier],
                 })).map(r => ({ ...r, pct: Math.round((r.count / total) * 100) }));
                 let acc = 0;
                 const stops = rows.map(r => { const from = acc; acc += (r.count / total) * 100; return `${r.color} ${from}% ${acc}%`; });
@@ -7296,9 +7614,9 @@ function App() {
 
                         <div className="at-field">
                           <span className="at-field-label">{t('accountPage.boutiqueLogo', 'Boutique Logo')}</span>
-                          <div className="at-side-by-side">
+                          <div className="at-side-by-side acct-logo-grid">
                             {(logoFile || boutiqueSettings?.logo) ? (
-                              <div className="at-form-section" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                              <div className="at-form-section acct-logo-current" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
                                 <img src={logoFile ? URL.createObjectURL(logoFile) : boutiqueSettings.logo} alt="Boutique logo"
                                      style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: '8px', background: 'var(--surface-inset)', border: '1px solid var(--border-color)' }} />
                                 <div className="at-row-main">
@@ -7368,6 +7686,7 @@ function App() {
               <SettingsPage
                 currentUser={currentUser}
                 boutiqueSettings={boutiqueSettings}
+                onTierNamesSaved={(names) => setBoutiqueSettings((prev) => ({ ...(prev || {}), tier_names: names }))}
                 whatsappStatus={whatsappStatus}
                 fetchWhatsAppStatus={fetchWhatsAppStatus}
               />
@@ -7728,6 +8047,7 @@ function App() {
               screen had no navigation at all on a phone: the sidebar sat parked
               at translateX(-100%) and nothing on the page could bring it back. */}
           <MobileHeader
+            showBell={showBell}
             title="New Order"
             currentUser={currentUser}
             notificationsCount={notifications.filter(n => !n.is_read).length}
@@ -7775,6 +8095,14 @@ function App() {
           <main className="portal-main">
             {accountBar((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })}
             <div className="selector-container">
+              {/* Back to where New order was opened from. The dashboard keeps
+                  the section it was on (and the customer page, if one was
+                  open) while this chooser shows, so returning to it is enough. */}
+              <div className="selector-back">
+                <button type="button" className="at-link" onClick={() => setView('dashboard')}>
+                  <ArrowLeft size={16} /> {t('entry.back', 'Back')}
+                </button>
+              </div>
               <div className="selector-header">
                 <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{t('entry.newOrderTitle', 'New order')}</h1>
                 <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>{t('entry.serviceQuestion', 'What are we doing for this customer today?')}</p>
@@ -8157,9 +8485,9 @@ function App() {
                           <label className="form-label">{t('wizard.customerType', 'Customer tier')}</label>
                           <select className="form-control" value={customerForm.customer_type}
                                   onChange={(e) => setCustomerForm({ ...customerForm, customer_type: e.target.value })}>
-                            <option value="Silver">{t('wizard.silver', 'Silver')}</option>
-                            <option value="Gold">{t('wizard.gold', 'Gold')}</option>
-                            <option value="Platinum">{t('wizard.platinum', 'Platinum')}</option>
+                            <option value="Silver">{tierName('Silver', t('wizard.silver', 'Silver'))}</option>
+                            <option value="Gold">{tierName('Gold', t('wizard.gold', 'Gold'))}</option>
+                            <option value="Platinum">{tierName('Platinum', t('wizard.platinum', 'Platinum'))}</option>
                           </select>
                         </div>
                         <div className="form-group">
@@ -9358,6 +9686,32 @@ function App() {
                               onChange={(e) => setAlterationForm({ ...alterationForm, issue: e.target.value })}
                               placeholder={t('wizard.alterIssuePlaceholder', 'e.g. Waist too tight, let out by an inch. Sleeve length short.')} />
                   </div>
+                  {/* Required: the garment as it came back, before any work. */}
+                  <div className="form-group">
+                    <span className="form-label">{t('wizard.outPhoto', 'Photo as it came in')} <span className="required">*</span></span>
+                    {outsidePhoto ? (
+                      <div className="wz-out-photo">
+                        <img src={outsidePhoto.url} alt={t('wizard.outPhotoAlt', 'The garment as it came in')} />
+                        <div className="wz-out-photo-meta">
+                          <span className="wz-out-photo-name">{outsidePhoto.file.name}</span>
+                          <button type="button" className="btn-secondary at-btn-sm" onClick={() => setOutsidePhoto(null)}>
+                            <X size={13} /> {t('common.remove', 'Remove')}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Dropzone compact camera
+                                onFiles={([file]) => {
+                                  if (!file) return;
+                                  const bad = imageFilesError([file]);
+                                  if (bad) { alert(bad); return; }
+                                  setOutsidePhoto({ file, url: URL.createObjectURL(file) });
+                                }}
+                                title={t('wizard.outPhotoDrop', 'Drop a photo here')}
+                                subtitle={t('wizard.outPhotoOr', 'or choose a photo')}
+                                chooseLabel={t('wizard.outPhotoChoose', 'Choose photo')} />
+                    )}
+                  </div>
                   <div className="form-group">
                     <span className="form-label">{t('wizard.alterKind', 'Who pays')}</span>
                     <div className="at-seg" role="group">
@@ -9420,7 +9774,7 @@ function App() {
                     </div>
                   </div>
                   <div className="form-group">
-                    <span className="form-label">{t('wizard.outPhoto', 'Photo as it came in')} <span className="od-hint">({t('common.optional', 'optional')})</span></span>
+                    <span className="form-label">{t('wizard.outPhoto', 'Photo as it came in')} <span className="required">*</span></span>
                     {outsidePhoto ? (
                       <div className="wz-out-photo">
                         <img src={outsidePhoto.url} alt={t('wizard.outPhotoAlt', 'The garment as it came in')} />
@@ -9712,8 +10066,10 @@ function App() {
                   body * {
                     visibility: hidden;
                   }
+                  #invoice-printable, #invoice-printable * {
                     visibility: visible;
                   }
+                  #invoice-printable {
                     position: absolute;
                     left: 0;
                     top: 0;
@@ -9722,6 +10078,20 @@ function App() {
                   }
                   .no-print {
                     display: none !important;
+                  }
+                  /* Only the invoice and the boxes holding it are laid out:
+                     the page behind would otherwise print as blank pages,
+                     and the dialog's 90vh scroll box would cut the bill. */
+                  body *:not(:has(#invoice-printable)):not(#invoice-printable):not(#invoice-printable *) {
+                    display: none !important;
+                  }
+                  div:has(> .invoice-modal-content), .invoice-modal-content {
+                    position: static !important;
+                    max-height: none !important;
+                    overflow: visible !important;
+                    padding: 0 !important;
+                    background: none !important;
+                    box-shadow: none !important;
                   }
                 }
               `}</style>
@@ -9742,13 +10112,49 @@ function App() {
               backgroundColor: '#fafbfc',
               borderBottomLeftRadius: '12px',
               borderBottomRightRadius: '12px'
-            }} className="no-print">
-              <button 
-                className="btn-secondary" 
+            }} className="no-print invoice-modal-foot">
+              {/* How the last Send on WhatsApp for this bill went. A send that
+                  did not go through shows no note: the button turns into
+                  Retry again instead. */}
+              {invoiceSend?.orderId === confirmedOrder.id && !['retrying', 'failed', 'error'].includes(invoiceSend.state) && (
+                <div className={`invoice-send-note invoice-send-note--${invoiceSend.state}`} role="status" aria-live="polite">
+                  {invoiceSend.state === 'sending' && 'Sending the invoice on WhatsApp…'}
+                  {invoiceSend.state === 'sent' && `Invoice sent to ${confirmedOrder.customer_name || 'the customer'} on WhatsApp.`}
+                  {invoiceSend.state === 'retrying' && `Not sent yet${invoiceSend.error ? ` (${invoiceSend.error.replace(/^WhatsApp sending failed:\s*/, '')})` : ''}. It will be tried again automatically.`}
+                  {invoiceSend.state === 'failed' && `Could not send${invoiceSend.error ? `: ${invoiceSend.error.replace(/^WhatsApp sending failed:\s*/, '')}` : '.'}`}
+                  {invoiceSend.state === 'pending' && 'Still sending. If it does not go through, it will be tried again automatically.'}
+                  {invoiceSend.state === 'manual' && (
+                    <>
+                      WhatsApp sending is not set up.{' '}
+                      {invoiceSend.url && <a href={invoiceSend.url} target="_blank" rel="noopener noreferrer">Open WhatsApp</a>}
+                    </>
+                  )}
+                  {invoiceSend.state === 'error' && invoiceSend.error}
+                </div>
+              )}
+              <button
+                className="btn-secondary"
                 onClick={() => setShowInvoiceModal(false)}
               >
                 Close
               </button>
+              {/* Owner or Master, on a bill with a customer: the PDF to the
+                  customer's WhatsApp. */}
+              {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && confirmedOrder.customer && (
+                <button
+                  type="button"
+                  className="btn-secondary invoice-send-btn"
+                  disabled={invoiceSend?.orderId === confirmedOrder.id && invoiceSend.state === 'sending'}
+                  onClick={() => sendInvoiceToWhatsApp(confirmedOrder)}
+                >
+                  {invoiceSend?.orderId === confirmedOrder.id && ['retrying', 'failed', 'error'].includes(invoiceSend.state)
+                    ? <RefreshCw size={16} /> : <Send size={16} />}
+                  {invoiceSend?.orderId === confirmedOrder.id && invoiceSend.state === 'sending' ? 'Sending…'
+                    : invoiceSend?.orderId === confirmedOrder.id && invoiceSend.state === 'sent' ? 'Send again'
+                    : invoiceSend?.orderId === confirmedOrder.id && ['retrying', 'failed', 'error'].includes(invoiceSend.state) ? 'Retry again'
+                    : 'Send on WhatsApp'}
+                </button>
+              )}
               <button 
                 className="btn-primary" 
                 onClick={() => window.print()}

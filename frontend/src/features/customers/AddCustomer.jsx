@@ -8,6 +8,7 @@ import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
 import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../services/phone';
 import { CameraButton, FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
 import { useCustomerLookup } from './useCustomerLookup';
+import { tierName } from '../../services/tierNames';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same
    card design as the order chooser (.wz-services), rendered inside the
@@ -75,12 +76,13 @@ const MEASUREMENT_ZONES = [
     label: 'Lehenga, Skirt & Gown',
     garments: 'Lehenga, Petticoat, Skirt, Anarkali, Gown',
     other: true,
-    // Waist, then the lengths down the leg, then the flare. Floor length,
+    // The lengths down the leg, then the waist (with the hip round -- the
+    // same box the Pants section reads), then the flare. Floor length,
     // height, waist to hip / floor, heel height and bottom full length left
     // this section; a customer's saved values for them are kept (and searchable).
     steps: [
-      ['Waist', ['lehenga_waist', 'high_waist', 'high_round']],
       ['Lengths', ['waist_to_knee', 'waist_to_ankle', 'lehenga_length']],
+      ['Waist', ['lehenga_waist', 'high_waist', 'high_round', 'hip_round']],
       ['Flare & hem', ['total_ghera', 'hem_circumference']],
     ],
   },
@@ -778,9 +780,9 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
           <div className="form-group">
             <label className="form-label" htmlFor="cf-tier">Customer tier</label>
             <select id="cf-tier" className="form-control" value={form.customer_type} onChange={(e) => set('customer_type', e.target.value)}>
-              <option value="Silver">Silver</option>
-              <option value="Gold">Gold</option>
-              <option value="Platinum">Platinum</option>
+              <option value="Silver">{tierName('Silver')}</option>
+              <option value="Gold">{tierName('Gold')}</option>
+              <option value="Platinum">{tierName('Platinum')}</option>
             </select>
           </div>
           <div className="form-group">

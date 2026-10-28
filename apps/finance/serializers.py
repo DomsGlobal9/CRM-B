@@ -14,7 +14,7 @@ class ExpenseSerializer(serializers.ModelSerializer):
         model = Expense
         fields = [
             'id', 'category', 'category_display', 'amount', 'incurred_on',
-            'paid_to', 'note', 'receipt', 'receipt_url', 'created_at',
+            'paid_to', 'other_reason', 'note', 'receipt', 'receipt_url', 'created_at',
         ]
         read_only_fields = ['id', 'created_at']
         extra_kwargs = {'receipt': {'write_only': True, 'required': False}}
@@ -39,6 +39,21 @@ class ExpenseSerializer(serializers.ModelSerializer):
 
     def validate_note(self, value):
         return validate_text(value, label='Note', max_length=MAX_NOTE)
+
+    def validate_other_reason(self, value):
+        return validate_text(value, label='Reason', max_length=150)
+
+    def validate(self, attrs):
+        # "Other" says nothing on its own: it needs the reason. Any other
+        # category drops a reason left over from switching away from Other.
+        category = attrs.get('category', getattr(self.instance, 'category', None))
+        if category == Expense.Category.OTHER:
+            reason = attrs.get('other_reason', getattr(self.instance, 'other_reason', '')) or ''
+            if not reason.strip():
+                raise serializers.ValidationError({'other_reason': 'Say what this cost was for.'})
+        elif 'category' in attrs:
+            attrs['other_reason'] = ''
+        return attrs
 
 
 class PaymentSerializer(serializers.ModelSerializer):

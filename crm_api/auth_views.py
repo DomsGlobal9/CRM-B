@@ -395,6 +395,20 @@ class LogoutView(views.APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        # Signing out checks the person out of attendance if they are checked
+        # in: the same check-out as the Check out button (the server stamps the
+        # time), logged the same way. Someone not on the roster, or not checked
+        # in, is simply signed out. Never stands in the way of signing out.
+        try:
+            from apps.staff import attendance
+            from apps.staff.views import _log, _staff_for
+            profile = _staff_for(request.user)
+            if profile is not None and attendance.open_session(profile) is not None:
+                session = attendance.check_out(profile, user=request.user)
+                _log(request, 'CHECKED_OUT', session, f'{profile.name} checked out (signed out)',
+                     after={'check_out': str(session.check_out), 'minutes': session.minutes})
+        except Exception:
+            logger.exception('attendance: could not check out at sign-out')
         try:
             try:
                 request.user.auth_token.delete()

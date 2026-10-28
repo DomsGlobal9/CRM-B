@@ -64,19 +64,13 @@ function DesignGrid({ rows, onView }) {
               <Eye size={12} /> View
             </button>
           </div>
-          <div style={{ padding: '6px 8px' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 700, textTransform: 'uppercase',
-                          letterSpacing: '0.04em', color: 'var(--text-secondary)' }}>
+          {/* One line under the photo -- what part it is. The design's name
+              and where it came from show on View, under the full-size photo. */}
+          <div style={{ padding: '7px 9px' }}>
+            <div title={[r.label, r.value, r.sub].filter(Boolean).join(' · ')}
+                 style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {r.label}
-            </div>
-            <div title={r.value}
-                 style={{ fontSize: '12.5px', fontWeight: 600, overflow: 'hidden',
-                          textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {r.value}
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden',
-                          textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {r.sub}
             </div>
           </div>
         </div>
@@ -260,7 +254,7 @@ export default function GarmentSelectionsReview({
               <span className="garment-card-name">{garmentName}</span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2, 8px)', flexWrap: 'wrap' }}>
                 <span className="ui-badge ui-badge--neutral">
-                  {total} selection{total === 1 ? '' : 's'}
+                  Selected {total}
                 </span>
                 {onEditDesigns && (
                   <button type="button" className="btn-secondary"
@@ -279,7 +273,7 @@ export default function GarmentSelectionsReview({
               </span>
             </div>
 
-            <Group icon={Sparkles} title="Designs" count={designRows.length}>
+            <Group icon={Sparkles} title="Referral designs" count={designRows.length}>
               {designRows.length === 0 ? <Empty>No design selected</Empty> : (
                 <DesignGrid rows={designRows}
                             onView={(index) => setViewing({ rows: designRows, index })} />
@@ -345,7 +339,7 @@ export default function GarmentSelectionsReview({
         );
       })}
       {viewing && (
-        <Lightbox items={viewing.rows} index={viewing.index}
+        <Lightbox items={viewing.rows} index={viewing.index} details closeAtTop
                   onIndexChange={(index) => setViewing({ ...viewing, index })}
                   onClose={() => setViewing(null)} />
       )}

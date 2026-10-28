@@ -305,7 +305,9 @@ class StaffSelfOrOwner(ModuleAccess):
     #: review" is a write, and without it here the acknowledgement step is
     #: unreachable by the only people entitled to perform it. The action itself
     #: still checks the review is theirs and is finalised.
-    SELF_SERVICE_ACTIONS = frozenset({'check_in', 'check_out', 'acknowledge'})
+    #: `check_in_location` adds the device's position to the caller's own open
+    #: check-in that was saved without one (attendance.add_check_in_location).
+    SELF_SERVICE_ACTIONS = frozenset({'check_in', 'check_out', 'check_in_location', 'acknowledge'})
 
     def has_role_permission(self, request, view):
         role = resolve_user_role(request.user)

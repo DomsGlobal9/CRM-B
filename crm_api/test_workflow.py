@@ -1367,7 +1367,7 @@ class VerificationTests(WorkflowTestBase):
         self.assertTrue(rows, "no voice-note notification was created")
         title = rows[0].title
         self.assertIn(order.reference, title)
-        self.assertIn("Cutting", title)
+        self.assertIn("Pattern cutting", title)
         audience = {(r.recipient_role, r.recipient_email or "") for r in rows}
         self.assertIn(("Tailor", "tailor@workflow.test"), audience)
         self.assertIn(("Master", "master@workflow.test"), audience)

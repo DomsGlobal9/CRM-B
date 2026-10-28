@@ -91,6 +91,37 @@ def _location_fields(location):
     return fields
 
 
+#: How long after checking in a position can still be added to the check-in
+#: (the device was slow, or location was blocked and then allowed). Short on
+#: purpose: the position says where somebody checked in, so it has to be taken
+#: close to then -- not hours later, wherever they happen to be by then.
+ADD_LOCATION_WITHIN = timedelta(minutes=30)
+
+
+def add_check_in_location(staff, location, now=None):
+    """The position for this person's open check-in, when it was saved without
+    one. Only their own open, self-recorded session; only while it has no
+    position yet; only within ADD_LOCATION_WITHIN of checking in."""
+    now = now or timezone.now()
+    session = open_session(staff)
+    if session is None:
+        raise AttendanceError('You are not checked in.')
+    if session.source != AttendanceSession.Source.SELF:
+        raise AttendanceError('This check-in was not made by you, so it takes no location.')
+    if session.check_in_latitude is not None:
+        raise AttendanceError('This check-in already has its location.')
+    if now - session.check_in > ADD_LOCATION_WITHIN:
+        raise AttendanceError('It is too long since you checked in to add a location now. '
+                              'It will be taken when you next check in.')
+    if not location:
+        raise AttendanceError('No position came from this device.')
+    fields = _location_fields(location)
+    for name, value in fields.items():
+        setattr(session, name, value)
+    session.save(update_fields=list(fields))
+    return session
+
+
 def check_in(staff, *, user, source=AttendanceSession.Source.SELF, note='', location=None):
     """Start a session. The server stamps the time; the caller does not.
 

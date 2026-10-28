@@ -1,11 +1,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar, CalendarDays, Wallet, ArrowRight } from 'lucide-react';
+import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar, CalendarDays, Wallet, ArrowRight, MapPin } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { LIMITS } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
-import { currentLocation } from '../../services/location';
+import { currentLocationDetailed, locationProblem } from '../../services/location';
 import { CorrectionForm } from './CorrectionForm';
 import { nowForInput, timesError } from './attendanceTimes';
 import Payroll from './Payroll';
@@ -123,10 +123,17 @@ function Modal({ title, onClose, children, width = '520px' }) {
 }
 
 
+// Checks in with the device's position when it gives one; resolves to why it
+// did not (null when it did), so the card can say what to do about it.
 const checkInHere = async () => {
-  const location = await currentLocation();
-  return api.checkIn(location ? { location } : undefined);
+  const { location, reason } = await currentLocationDetailed();
+  await api.checkIn(location ? { location } : undefined);
+  return location ? null : reason;
 };
+
+// How long after checking in "Add my location" is offered (the server's
+// ADD_LOCATION_WITHIN in apps/staff/attendance.py says the same).
+const ADD_LOCATION_MINUTES = 30;
 
 const metresText = (m) => (m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`);
 
@@ -148,7 +155,14 @@ function WhereTag({ session }) {
   if (session.check_in_accuracy_m == null) {
     return <span style={{ color: 'var(--text-muted)' }}>No location</span>;
   }
-  return null; // a position, but the boutique has not pinned its shop yet
+  // A position, but the boutique has not pinned its shop yet, so there is
+  // nothing to measure it against -- say it was recorded rather than leave
+  // the line ending on a bare separator.
+  return (
+    <span title="Set the shop's location (My account › Shop location for staff check-in) to see At shop / Outside shop">
+      Location saved{accuracy}
+    </span>
+  );
 }
 
 /**
@@ -163,6 +177,8 @@ function MyDay({ onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [now, setNow] = useState(() => Date.now());
+  // Why the last check-in went without a position, in words, or ''.
+  const [locNote, setLocNote] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -230,7 +246,7 @@ function MyDay({ onChanged }) {
           </div>
           <button
             type="button" className="btn-primary" disabled={busy}
-            onClick={() => act(checkInHere)}
+            onClick={() => act(async () => { setLocNote(locationProblem(await checkInHere())); })}
             style={{
               padding: '9px 20px', fontSize: '14px', fontWeight: 600,
               borderRadius: '8px', cursor: 'pointer',
@@ -254,6 +270,31 @@ function MyDay({ onChanged }) {
               Since {clockText(session.check_in)} · {hoursText(elapsed)} so far
               {session.source === 'SELF' && <> · <WhereTag session={session} /></>}
             </div>
+            {/* Checked in without a position: why, and -- shortly after
+                checking in -- a way to add it now. */}
+            {session.source === 'SELF' && session.check_in_accuracy_m == null && (() => {
+              const canAdd = (now - new Date(session.check_in).getTime()) / 60000 < ADD_LOCATION_MINUTES;
+              if (!canAdd && !locNote) return null;
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
+                  <span style={{ fontSize: '12.5px', color: 'var(--warning-color)', flex: '1 1 240px', minWidth: 0 }}>
+                    {locNote || 'Your check-in has no location yet.'}
+                  </span>
+                  {canAdd && (
+                    <button type="button" className="btn-secondary" disabled={busy}
+                            onClick={() => act(async () => {
+                              const { location, reason } = await currentLocationDetailed();
+                              if (!location) { setLocNote(locationProblem(reason)); return; }
+                              await api.addCheckInLocation(location);
+                              setLocNote('');
+                            })}
+                            style={{ padding: '6px 12px', fontSize: '13px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <MapPin size={14} /> {busy ? 'Finding you…' : 'Add my location'}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <button
             type="button" className="btn-primary" disabled={busy}
@@ -287,7 +328,7 @@ function MyDay({ onChanged }) {
           </div>
           <button
             type="button" className="btn-secondary" disabled={busy}
-            onClick={() => act(checkInHere)}
+            onClick={() => act(async () => { setLocNote(locationProblem(await checkInHere())); })}
             style={{
               padding: '9px 20px', fontSize: '14px', fontWeight: 600,
               borderRadius: '8px', cursor: 'pointer',

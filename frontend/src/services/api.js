@@ -773,6 +773,15 @@ export const api = {
     return res.json();
   },
 
+  // The boutique's own names for the customer tiers (owner only).
+  async saveTierNames(tierNames) {
+    const res = await guardedFetch(`${BASE_URL}/boutique-settings/tier-names/`, {
+      method: 'PUT', headers: getHeaders(), body: JSON.stringify({ tier_names: tierNames }),
+    });
+    if (!res.ok) await failWith(res, 'Could not save the tier names');
+    return res.json();
+  },
+
   // The one staff member made Admin and the work handed to them (owner only).
   async getAdminAccess() {
     const res = await guardedFetch(`${BASE_URL}/boutique-settings/admin-access/`, { headers: getHeaders() });
@@ -920,6 +929,20 @@ export const api = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(describeApiError(res, err) || 'Failed to mark the message sent');
+    }
+    return res.json();
+  },
+
+  // The order's invoice as a PDF to the customer's WhatsApp. Resolves to
+  // { outcome: 'sent' | 'retrying' | 'failed' | 'manual' | 'sending', message }.
+  async sendInvoice(orderId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/send-invoice/`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(describeApiError(res, err) || 'Could not send the invoice');
     }
     return res.json();
   },
@@ -1246,6 +1269,13 @@ export const api = {
 
   // Garments the boutique makes for its own stock: the same workroom as a
   // customer's order, with no customer, no price and no payment on it.
+  // Every in-house run (garments made for the boutique's own stock).
+  async getInternalProduction() {
+    const res = await guardedFetch(`${BASE_URL}/orders/?kind=internal`, { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Could not load the in-house garments');
+    return res.json();
+  },
+
   async createInternalProduction(payload) {
     const res = await guardedFetch(`${BASE_URL}/orders/internal-production/`, {
       method: 'POST', headers: getHeaders(), body: JSON.stringify(payload),
@@ -2196,6 +2226,8 @@ Object.assign(api, {
   getAttendance: (params) => staffRequest('attendance/', {}, params),
   getCurrentAttendance: () => staffRequest('attendance/current/'),
   checkIn: (payload) => staffRequest('attendance/check-in/', { method: 'POST', body: payload || {} }),
+  // The position for one's own open check-in saved without one (within 30 minutes).
+  addCheckInLocation: (location) => staffRequest('attendance/check-in-location/', { method: 'POST', body: { location } }),
   checkOut: () => staffRequest('attendance/check-out/', { method: 'POST', body: {} }),
   recordAttendance: (payload) => staffRequest('attendance/record/', { method: 'POST', body: payload }),
   correctAttendance: (id, payload) =>

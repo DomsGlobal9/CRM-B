@@ -15,7 +15,6 @@ import { Calendar, FileText, IndianRupee, LayoutGrid, Lightbulb, PieChart, Plus,
 
 import { api } from '../../services/api';
 import { Dropzone, Field, FormModal, IconTile, InfoNote, PageHeader, SectionCard, Segmented, StatCard } from '../../components/ui/Atelier';
-import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount, amountError, todayIso } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
 
@@ -73,8 +72,9 @@ const PERIODS = [
 function AddExpenseForm({ onCancel, onSaved }) {
   const [form, setForm] = useState({
     category: 'RENT', amount: '', incurred_on: monthWindow().until,
-    paid_to: '', note: '',
+    paid_to: '', note: '', other_reason: '',
   });
+  const isOther = form.category === 'OTHER';
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -83,6 +83,7 @@ function AddExpenseForm({ onCancel, onSaved }) {
   const submit = async (e) => {
     e.preventDefault();
     const problem = amountError(form.amount, { label: 'Amount', allowZero: false, required: true })
+      || (isOther && !form.other_reason.trim() ? 'Say what this cost was for.' : '')
       || (!form.incurred_on ? 'Pick the date this cost is for.' : '')
       || (form.incurred_on > todayIso() ? 'The cost date cannot be in the future.' : '');
     if (problem) { setError(problem); return; }
@@ -90,13 +91,15 @@ function AddExpenseForm({ onCancel, onSaved }) {
     try {
       // FormData only when a receipt is attached; otherwise plain JSON keeps
       // the request small and the server parses it the same way.
+      // The reason goes only with Other.
+      const fields = isOther ? { ...form, other_reason: form.other_reason.trim() } : { ...form, other_reason: '' };
       let body;
       if (file) {
         body = new FormData();
-        Object.entries(form).forEach(([k, v]) => body.append(k, v));
+        Object.entries(fields).forEach(([k, v]) => body.append(k, v));
         body.append('receipt', file);
       } else {
-        body = { ...form };
+        body = { ...fields };
       }
       await api.createExpense(body);
       onSaved();
@@ -136,18 +139,29 @@ function AddExpenseForm({ onCancel, onSaved }) {
                    placeholder="0.00" />
           </Field>
         </div>
+        {/* Other: what the cost was for, in the owner's words. */}
+        {isOther && (
+          <Field label="What was this cost for?" required icon={Lightbulb}>
+            <input className="form-input" value={form.other_reason} onChange={set('other_reason')} maxLength={150}
+                   placeholder="e.g. Diwali decorations, courier charges, staff tea…" autoFocus />
+          </Field>
+        )}
         <Field label="Date this cost is for" required icon={Calendar}>
           <input className="form-input" type="date" value={form.incurred_on} max={todayIso()}
                  onChange={set('incurred_on')} />
         </Field>
-        <Field label="Paid to" optional icon={User}>
-          <input className="form-input" value={form.paid_to} onChange={set('paid_to')} maxLength={150}
-                 placeholder="Landlord, electricity board, supplier name…" />
-        </Field>
-        <Field label="Note" optional icon={FileText}>
-          <VoiceTextarea className="form-input" rows={3} maxLength={LIMITS.note} value={form.note} onChange={set('note')}
-                    placeholder="Add any additional details about this expense…" />
-        </Field>
+        {/* Paid to and Note side by side (one under the other on a phone).
+            The note is a plain box -- no voice recorder here. */}
+        <div className="at-form-grid fin-expense-pair">
+          <Field label="Paid to" optional icon={User}>
+            <input className="form-input" value={form.paid_to} onChange={set('paid_to')} maxLength={150}
+                   placeholder="Landlord, electricity board, supplier name…" />
+          </Field>
+          <Field label="Note" optional icon={FileText}>
+            <textarea className="form-input" rows={3} maxLength={LIMITS.note} value={form.note} onChange={set('note')}
+                      placeholder="Add any additional details about this expense…" />
+          </Field>
+        </div>
         <div className="at-field">
           <span className="at-field-label">Receipt <span className="at-field-opt">(optional, image or PDF)</span></span>
           <div className="at-side-by-side">
@@ -284,8 +298,8 @@ export default function FinancePanel() {
                       sub="still owed on open orders" />
           </div>
 
-          <div className="at-grid-2">
-            <SectionCard icon={Wallet} tone="neutral" title="Where the Money Went" subtitle="All costs recorded for this period."
+          <div className="at-grid-2 fin-costs-grid">
+            <SectionCard icon={Wallet} tone="neutral" title="Expenses & Costs" subtitle="All costs recorded for this period."
                          action={() => setAdding(true)} actionLabel="Add a cost">
               <div className="at-table-wrap">
                 <table className="at-table" style={{ minWidth: 0 }}>
@@ -310,7 +324,7 @@ export default function FinancePanel() {
 
             <SectionCard icon={PieChart} tone="neutral" title="Costs you entered" subtitle="Rent, utilities and the rest — with receipts.">
               {expenses.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 'var(--space-4) 0' }}>
+                <div className="fin-costs-empty" style={{ textAlign: 'center', padding: 'var(--space-4) 0' }}>
                   <div style={{ fontWeight: 600, fontSize: 'var(--text-md)', color: 'var(--text-primary)' }}>No cost data for this period</div>
                   <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', margin: '6px 0 14px' }}>
                     Add your costs to see a breakdown by category.
@@ -324,7 +338,7 @@ export default function FinancePanel() {
                   <div key={x.id} className="at-row">
                     <div className="at-row-main">
                       <div className="at-row-title">
-                        {x.category_display}{x.paid_to ? ` · ${x.paid_to}` : ''}
+                        {x.category_display}{x.other_reason ? ` (${x.other_reason})` : ''}{x.paid_to ? ` · ${x.paid_to}` : ''}
                       </div>
                       <div className="at-row-sub">
                         {x.incurred_on}{x.note ? ` · ${x.note}` : ''}

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Lock, Save, Upload, User } from 'lucide-react';
+import { Check, Eye, EyeOff, KeyRound, Lock, Save, ShieldCheck, Upload, User } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { LIMITS, cleanName, imageFilesError, nameError } from '../../services/validate';
@@ -70,6 +70,11 @@ export default function MyDetails({ user, onUser }) {
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
   const [pwBusy, setPwBusy] = useState(false);
   const [pwMsg, setPwMsg] = useState({ tone: '', text: '' });
+  // Show the typed passwords (one switch for all three boxes).
+  const [showPw, setShowPw] = useState(false);
+  const pwType = showPw ? 'text' : 'password';
+  const longEnough = pw.next.length >= MIN_PASSWORD;
+  const matches = pw.confirm.length > 0 && pw.confirm === pw.next;
   const setPwField = (key) => (e) => setPw((prev) => ({ ...prev, [key]: e.target.value }));
   const changePassword = async (e) => {
     e.preventDefault();
@@ -128,20 +133,37 @@ export default function MyDetails({ user, onUser }) {
           </div>
         </form>
 
-        <form className="at-stack" onSubmit={changePassword} noValidate
+        {/* Change password: a heading of its own, the three boxes alike
+            (icon, one height, labels on one line), live hints under the new
+            ones, and one switch to show what was typed. */}
+        <form className="at-stack my-pw-form" onSubmit={changePassword} noValidate
               style={{ borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-4)' }}>
+          <div className="my-pw-head">
+            <span className="my-pw-title"><KeyRound size={15} /> Change password</span>
+            <button type="button" className="my-pw-toggle" onClick={() => setShowPw((v) => !v)} aria-pressed={showPw}>
+              {showPw ? <EyeOff size={14} /> : <Eye size={14} />} {showPw ? 'Hide passwords' : 'Show passwords'}
+            </button>
+          </div>
           <Field label="Current password" required icon={Lock} htmlFor="my-current-password">
-            <input id="my-current-password" type="password" className="form-control" autoComplete="current-password"
-                   value={pw.current} onChange={setPwField('current')} />
+            <input id="my-current-password" type={pwType} className="form-control" autoComplete="current-password"
+                   placeholder="Your password now" value={pw.current} onChange={setPwField('current')} />
           </Field>
-          <div className="at-form-grid">
-            <Field label="New password" required htmlFor="my-new-password" hint={`At least ${MIN_PASSWORD} characters`}>
-              <input id="my-new-password" type="password" className="form-control" autoComplete="new-password"
-                     value={pw.next} onChange={setPwField('next')} />
+          <div className="at-form-grid my-pw-pair">
+            <Field label="New password" required icon={KeyRound} htmlFor="my-new-password"
+                   hint={<span className={`my-pw-hint${longEnough ? ' my-pw-hint--ok' : ''}`}>
+                     {longEnough && <Check size={13} />} At least {MIN_PASSWORD} characters
+                   </span>}>
+              <input id="my-new-password" type={pwType} className="form-control" autoComplete="new-password"
+                     placeholder="New password" value={pw.next} onChange={setPwField('next')} />
             </Field>
-            <Field label="Confirm new password" required htmlFor="my-confirm-password">
-              <input id="my-confirm-password" type="password" className="form-control" autoComplete="new-password"
-                     value={pw.confirm} onChange={setPwField('confirm')} />
+            <Field label="Confirm password" required icon={ShieldCheck} htmlFor="my-confirm-password"
+                   hint={pw.confirm ? (
+                     <span className={`my-pw-hint${matches ? ' my-pw-hint--ok' : ' my-pw-hint--bad'}`}>
+                       {matches && <Check size={13} />} {matches ? 'Passwords match' : 'Does not match yet'}
+                     </span>
+                   ) : <span className="my-pw-hint">Type the new password again</span>}>
+              <input id="my-confirm-password" type={pwType} className="form-control" autoComplete="new-password"
+                     placeholder="Repeat new password" value={pw.confirm} onChange={setPwField('confirm')} />
             </Field>
           </div>
           <Notice tone={pwMsg.tone}>{pwMsg.text}</Notice>

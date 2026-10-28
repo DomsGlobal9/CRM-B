@@ -98,3 +98,59 @@ class ShopLocationSettingTests(AttendanceTestCase):
         response = self.client_for(self.anita_user).post(
             self.url, {'shop_latitude': '0', 'shop_longitude': '0'})
         self.assertEqual(response.status_code, 403)
+
+
+class AddCheckInLocationTests(AttendanceTestCase):
+    """A check-in saved without a position can be given one shortly after."""
+
+    def post(self, path, body):
+        return self.client_for(self.anita_user).post(reverse(path), body, format='json')
+
+    def test_adds_the_position_to_an_open_check_in_without_one(self):
+        BoutiqueSettings.objects.update_or_create(id=1, defaults={
+            'shop_latitude': SHOP[0], 'shop_longitude': SHOP[1], 'shop_radius_m': 150})
+        self.assertEqual(self.post('staff-attendance-check-in', {}).status_code, 201)
+        res = self.post('staff-attendance-check-in-location',
+                        {'location': {'latitude': 13.0830, 'longitude': 80.2707, 'accuracy': 20}})
+        self.assertEqual(res.status_code, 200, res.data)
+        session = AttendanceSession.objects.get()
+        self.assertEqual(session.check_in_accuracy_m, 20)
+        self.assertFalse(session.check_in_outside_shop)
+
+    def test_refused_once_it_has_one_or_when_not_checked_in(self):
+        res = self.post('staff-attendance-check-in-location', {'location': {'latitude': 13.08, 'longitude': 80.27}})
+        self.assertEqual(res.status_code, 400)
+        self.post('staff-attendance-check-in', {'location': {'latitude': 13.08, 'longitude': 80.27, 'accuracy': 9}})
+        res = self.post('staff-attendance-check-in-location', {'location': {'latitude': 1, 'longitude': 1}})
+        self.assertEqual(res.status_code, 400)
+        self.assertEqual(AttendanceSession.objects.get().check_in_latitude, Decimal('13.080000'))
+
+    def test_refused_long_after_checking_in(self):
+        from datetime import timedelta
+        self.post('staff-attendance-check-in', {})
+        AttendanceSession.objects.update(check_in=AttendanceSession.objects.get().check_in - timedelta(hours=1))
+        res = self.post('staff-attendance-check-in-location', {'location': {'latitude': 13.08, 'longitude': 80.27}})
+        self.assertEqual(res.status_code, 400)
+        self.assertIsNone(AttendanceSession.objects.get().check_in_latitude)
+
+    def test_a_bad_position_is_refused(self):
+        self.post('staff-attendance-check-in', {})
+        res = self.post('staff-attendance-check-in-location', {'location': {'latitude': 999, 'longitude': 1}})
+        self.assertEqual(res.status_code, 400)
+
+
+class SignOutChecksOutTests(AttendanceTestCase):
+    """Signing out checks the person out of attendance."""
+
+    def test_sign_out_closes_the_open_session(self):
+        client = self.client_for(self.anita_user)
+        self.assertEqual(client.post(reverse('staff-attendance-check-in'), {}, format='json').status_code, 201)
+        self.assertEqual(client.post('/api/auth/logout/').status_code, 200)
+        session = AttendanceSession.objects.get()
+        self.assertIsNotNone(session.check_out)
+        self.assertIsNotNone(session.minutes)
+
+    def test_sign_out_without_a_check_in_is_just_a_sign_out(self):
+        client = self.client_for(self.anita_user)
+        self.assertEqual(client.post('/api/auth/logout/').status_code, 200)
+        self.assertFalse(AttendanceSession.objects.exists())

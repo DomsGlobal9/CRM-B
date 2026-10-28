@@ -5,6 +5,7 @@ import { api } from '../../services/api';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, todayIso } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
+import './performance.css';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -426,6 +427,135 @@ function StaffDetail({ member, reviews, isOwner, canReview, onBack, onChanged })
   );
 }
 
+/* ---- The list as charts ---------------------------------------------
+   One colour (the brand's, --pf-mark) for every mark: there is one measure
+   per chart, so colour never has to tell people apart -- names do. A figure
+   with no data stays "No data" (a dashed, empty mark), never a zero bar. */
+
+const isPercent = (name) => SUFFIX[name] === '%';
+const valueText = (m, name) => (m?.available ? `${m.value}${SUFFIX[name] || ''}` : 'No data');
+const initials = (name) => String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2)
+  .map((w) => w[0].toUpperCase()).join('') || '?';
+
+/** The biggest figure the team has for each headline measure: what a bar is measured against. */
+function teamMaxima(results) {
+  const max = {};
+  results.forEach((r) => (r.headline || []).forEach((h) => {
+    if (h.available && Number.isFinite(Number(h.value))) max[h.key] = Math.max(max[h.key] || 0, Number(h.value));
+  }));
+  return max;
+}
+
+/** A percentage as a ring: the arc is the share, the figure sits inside. */
+function Ring({ metric, name, label }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const pct = metric?.available ? Math.max(0, Math.min(100, Number(metric.value) || 0)) : 0;
+  return (
+    <svg className="pf-ring" viewBox="0 0 64 64" role="img"
+         aria-label={`${label}: ${valueText(metric, name)}`}>
+      <circle className={`pf-ring-track${metric?.available ? '' : ' pf-ring-track--none'}`} cx="32" cy="32" r={r} />
+      {metric?.available && pct > 0 && (
+        <circle className="pf-ring-arc" cx="32" cy="32" r={r}
+                strokeDasharray={`${(pct / 100) * c} ${c}`} transform="rotate(-90 32 32)" />
+      )}
+      <text x="32" y="32" className={`pf-ring-text${metric?.available ? '' : ' pf-ring-text--none'}`}>
+        {metric?.available ? `${Math.round(Number(metric.value))}%` : '—'}
+      </text>
+    </svg>
+  );
+}
+
+/** One headline figure on a card: a ring for a percentage, else the figure
+ *  with a bar against the team's best. */
+function MetricViz({ metric, label, max }) {
+  if (!metric) return null;
+  const { name, available } = metric;
+  const tip = available ? undefined : metric.reason;
+  if (isPercent(name)) {
+    return (
+      <div className="pf-metric pf-metric--ring" title={tip}>
+        <Ring metric={metric} name={name} label={label} />
+        <div className="pf-metric-text">
+          <div className="pf-metric-label">{label}</div>
+          {!available && <div className="pf-metric-none">No data</div>}
+        </div>
+      </div>
+    );
+  }
+  const share = available && max > 0 ? Math.max(0, Math.min(1, Number(metric.value) / max)) : 0;
+  return (
+    <div className="pf-metric" title={tip}>
+      <div className="pf-metric-label">{label}</div>
+      <div className={`pf-metric-value${available ? '' : ' pf-metric-none'}`}>{valueText(metric, name)}</div>
+      <div className={`pf-meter${available ? '' : ' pf-meter--none'}`} aria-hidden="true">
+        {share > 0 && <span style={{ width: `${share * 100}%` }} />}
+      </div>
+    </div>
+  );
+}
+
+/** The team side by side on one measure (picked above the bars): longest
+ *  first, people without data at the foot. A row opens that person. */
+function TeamChart({ results, onOpen }) {
+  const measures = useMemo(() => {
+    const seen = new Map();
+    results.forEach((r) => (r.headline || []).forEach((h) => {
+      if (!seen.has(h.key)) seen.set(h.key, h.name);
+    }));
+    return [...seen.entries()];
+  }, [results]);
+  const [picked, setPicked] = useState('');
+  const key = measures.some(([k]) => k === picked) ? picked
+    : (measures.find(([k]) => k === 'productivity.completed') || measures[0] || [''])[0];
+  const name = (measures.find(([k]) => k === key) || [])[1];
+  if (!key) return null;
+
+  const rows = results.map((r) => ({ r, m: (r.headline || []).find((h) => h.key === key) }))
+    .filter(({ m }) => m)
+    .sort((a, b) => (b.m.available - a.m.available) || (Number(b.m.value) - Number(a.m.value)));
+  const top = isPercent(name) ? 100 : Math.max(0, ...rows.filter(({ m }) => m.available).map(({ m }) => Number(m.value) || 0));
+  const title = LABELS[key] || name;
+
+  return (
+    <section className="pf-team" aria-label="Team at a glance">
+      <div className="pf-team-head">
+        <div>
+          <h3 className="pf-team-title">Team at a glance</h3>
+          <p className="pf-team-sub">{title}, by person{isPercent(name) ? ' (out of 100%)' : ''}</p>
+        </div>
+        <div className="pf-chips" role="tablist" aria-label="Measure">
+          {measures.map(([k]) => (
+            <button key={k} type="button" role="tab" aria-selected={k === key}
+                    className={`pf-chip${k === key ? ' is-on' : ''}`} onClick={() => setPicked(k)}>
+              {LABELS[k] || k.split('.').pop()}
+            </button>
+          ))}
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <div className="pf-team-empty">No one has this figure in this period.</div>
+      ) : (
+        <div className="pf-bars">
+          {rows.map(({ r, m }) => {
+            const share = m.available && top > 0 ? Math.max(0, Math.min(1, Number(m.value) / top)) : 0;
+            return (
+              <button key={r.staff} type="button" className="pf-bar-row" onClick={() => onOpen(r.staff)}
+                      title={`${r.staff_name} · ${title}: ${valueText(m, name)}`}>
+                <span className="pf-bar-name">{r.staff_name}<small>{r.role}</small></span>
+                <span className={`pf-bar-track${m.available ? '' : ' pf-bar-track--none'}`}>
+                  {share > 0 && <span className="pf-bar-fill" style={{ width: `${share * 100}%` }} />}
+                </span>
+                <span className={`pf-bar-value${m.available ? '' : ' pf-metric-none'}`}>{valueText(m, name)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function Performance({ isOwner, canSeeTeam }) {
   const [start, setStart] = useState(() => daysAgoISO(29));
   const [end, setEnd] = useState(todayISO);
@@ -468,6 +598,8 @@ export default function Performance({ isOwner, canSeeTeam }) {
     });
     return map;
   }, [reviews]);
+
+  const maxima = useMemo(() => teamMaxima(data?.results || []), [data]);
 
   const roles = useMemo(() => {
     const set = new Set((data?.results || []).map((r) => r.role).filter(Boolean));
@@ -529,7 +661,8 @@ export default function Performance({ isOwner, canSeeTeam }) {
           {!data.quality_available && (
             <Banner icon={AlertCircle} text={data.quality_note} />
           )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {data.results.length > 1 && <TeamChart results={data.results} onOpen={setOpenStaff} />}
+          <div className="pf-viz pf-cards">
             {data.results.map((member) => {
               const theirReviews = reviewsByStaff.get(String(member.staff)) || [];
               const latest = theirReviews[0];
@@ -538,6 +671,7 @@ export default function Performance({ isOwner, canSeeTeam }) {
                   key={member.staff}
                   role="button"
                   tabIndex={0}
+                  className="pf-card"
                   onClick={() => setOpenStaff(member.staff)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') setOpenStaff(member.staff);
@@ -545,8 +679,9 @@ export default function Performance({ isOwner, canSeeTeam }) {
                   style={{ ...panel, padding: '14px 16px', cursor: 'pointer' }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between',
-                                alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-                    <div style={{ minWidth: 0 }}>
+                                alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <span className="pf-avatar" aria-hidden="true">{initials(member.staff_name)}</span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ fontWeight: 600, fontSize: '15px' }}>
                         {member.staff_name}
                       </div>
@@ -571,18 +706,10 @@ export default function Performance({ isOwner, canSeeTeam }) {
                     )}
                   </div>
 
-                  <div
-                    className="mobile-stack-grid"
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: `repeat(${Math.min((member.headline || []).length, 4) || 1}, 1fr)`,
-                      gap: '10px', marginTop: '12px', paddingTop: '12px',
-                      borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))',
-                    }}
-                  >
+                  <div className="pf-metrics">
                     {(member.headline || []).slice(0, 4).map((h) => (
-                      <Metric key={h.key} name={h.name} metric={h}
-                              label={LABELS[h.key] || h.name} />
+                      <MetricViz key={h.key} metric={h} max={maxima[h.key] || 0}
+                                 label={LABELS[h.key] || h.name} />
                     ))}
                   </div>
                 </div>

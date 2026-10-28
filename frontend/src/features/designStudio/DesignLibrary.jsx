@@ -5,6 +5,7 @@ import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
 import DesignUpload from './DesignUpload';
 import GarmentPartTabs from './GarmentPartTabs';
+import { libraryDesignParts } from './libraryParts';
 import DesignCatalogueBrowser from './DesignCatalogueBrowser';
 import ItemFormModal from '../inventory/ItemFormModal';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
@@ -287,6 +288,8 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
   );
 }
 
+const SHOW_DESIGN_FILTERS = false;
+
 export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false, canStock = false, onOpenRequests = null, onOpenDesigners = null }) {
   const [stocking, setStocking] = useState(null);   
   const [categories, setCategories] = useState([]);
@@ -349,7 +352,9 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
     return () => { cancelled = true; };
   }, [needsParts, openKey]);
 
-  const parts = partsByKey[openKey] || [];
+  // Part tabs left out of a garment's library page (the parts stay on the
+  // garment itself -- uploads and the order wizard still offer them).
+  const parts = useMemo(() => libraryDesignParts(openKey, partsByKey[openKey]), [partsByKey, openKey]);
   const partLabels = useMemo(
     () => Object.fromEntries(parts.map(p => [p.key, p.label])), [parts]);
 
@@ -407,23 +412,20 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
     const toCategories = () => document.querySelector('.dl-cats-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return (
       <div className="at-stack dl-page">
-        <div className="at-stat-grid dl-stats">
+        {/* Just the label and the number on each card (no line under it). */}
+        <div className="at-stat-grid dl-stats dl-stats--plain">
           <StatCard icon={ImageIcon} tone="green" label="Total Designs" value={total}
-                    sub={`${total === 1 ? 'design' : 'designs'} in the library`}
                     onClick={toCategories} />
           {/* From the Overview tab, merged in here: the active designers and
               collections (the category count is the list of categories below). */}
-          <StatCard icon={Users} tone="amber" label="Designers" value={(Array.isArray(designers) ? designers : designers?.results || []).length} sub="Active"
+          <StatCard icon={Users} tone="amber" label="Designers" value={(Array.isArray(designers) ? designers : designers?.results || []).length}
                     onClick={onOpenDesigners || onOpenRequests || toCategories} />
           <StatCard icon={Award} tone="violet" label="Collections" value={(Array.isArray(collections) ? collections : collections?.results || []).length}
-                    sub={(Array.isArray(collections) ? collections : collections?.results || []).length ? 'Curated sets' : 'Create your first'}
                     onClick={() => setUploading(true)} />
           <StatCard icon={ImageIcon} tone="violet" label="Uncategorised" value={uncategorised?.count ?? 0}
-                    sub={uncategorised?.count ? 'not yet filed under a garment' : 'everything is filed'}
                     onClick={uncategorised ? () => { setFilters({}); setOpenCategory(uncategorised); } : toCategories} />
           {canReview && (
             <StatCard icon={Clock} tone={pendingCount > 0 ? 'rose' : 'blue'} label="Awaiting review" value={pendingCount}
-                      sub={pendingCount > 0 ? 'designs waiting on you' : 'all reviewed'}
                       onClick={() => { setFilters({}); setOpenCategory(PENDING_QUEUE); }} />
           )}
         </div>
@@ -505,7 +507,9 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
         />
       )}
 
-      {!openPart && (
+      {/* The search-and-filter panel over a garment's designs is hidden, not
+          removed: set SHOW_DESIGN_FILTERS to true to bring it back. */}
+      {SHOW_DESIGN_FILTERS && !openPart && (
         <Filters value={filters} onChange={setFilters} designers={designers}
                  collections={collections} parts={parts} />
       )}
@@ -557,6 +561,9 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
                     </span>
                   )}
                 </div>
+                {/* The card's actions: stock it, and -- for the designs the
+                    detail's Delete covers -- delete it (asks first). */}
+                <div className="dl-card-actions">
                 {design.inventory_item_id ? (
                   <span className="dl-card-meta" style={{ fontSize: '11.5px', color: 'var(--success-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <Check size={13} /> In your inventory
@@ -569,6 +576,15 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
                     Add to inventory
                   </button>
                 ) : null}
+                {onDeleteDesign && EDITABLE_SOURCES.includes(design.source) && (
+                  <button type="button" className="btn-secondary dl-card-delete"
+                          aria-label={`Delete ${design.title}`} title="Delete design"
+                          onClick={(e) => { e.stopPropagation(); onDeleteDesign(design); }}
+                          onKeyDown={(e) => e.stopPropagation()}>
+                    <Trash2 size={14} />
+                  </button>
+                )}
+                </div>
               </div>
             </div>
           );

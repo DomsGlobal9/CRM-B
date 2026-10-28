@@ -7,10 +7,12 @@ import {
 import { api } from '../../services/api';
 import TemplateForm from '../catalog/TemplateForm';
 import DesignCataloguePicker from './DesignCataloguePicker';
-import { describePath, useDesignCatalogue } from './designCatalogue';
+import { cataloguePayload as toCataloguePayload, describePath, useDesignCatalogue } from './designCatalogue';
+import { visibleCategories } from './catalogueVisibility';
 import { getSection, pruneHidden } from '../../services/templates';
 import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import { libraryDesignParts } from './libraryParts';
 
 const MAX_STITCH_HOURS = 1000;
 /** A link the library can open: http(s) only, so plain text or javascript: never becomes an image_url. */
@@ -53,6 +55,11 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
   });
  
   const catalogueTree = useDesignCatalogue(form.template_key);
+  // The garment offers library types (the categories the library shows).
+  const hasCatalogue = visibleCategories(form.template_key, catalogueTree?.categories).length > 0;
+  // The full position to file under -- picked here, or the library filter the
+  // form was opened on -- or null while it is not complete.
+  const filedUnder = cataloguePayload || (catalogueTree ? toCataloguePayload(catalogueTree, catalogue) : null);
 
   useEffect(() => {
     api.getGarmentTemplates().then(d => setTemplates(d.results || d)).catch(() => setTemplates([]));
@@ -81,8 +88,9 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
     () => (template ? getSection(template, 'style') : null), [template]);
 
 
+  // The same parts the garment's library page shows (libraryParts.js).
   const designParts = useMemo(() => {
-    const defined = template?.design_parts;
+    const defined = libraryDesignParts(template?.key, template?.design_parts);
     return defined?.length ? defined : [{ key: 'overall', label: 'Overall Design' }];
   }, [template]);
 
@@ -177,7 +185,7 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
         source_url: form.source_url.trim(),
         image_url: totalFiles ? '' : form.source_url.trim(),
         spec_tags: specTags,
-        catalogue: cataloguePayload || undefined,
+        catalogue: filedUnder || undefined,
       }, flatFiles, flatParts);
       onUploaded?.(created);
       onClose?.();
@@ -225,20 +233,56 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
           the option chosen until the owner types one of their own. */}
       <FormSection icon={Shirt} tone="green" title="About this design"
         subtitle="Which garment and what to call it.">
-        <div className="at-form-grid at-form-grid--2">
+        {/* Garment, name and the part the photographs below are filed under,
+            side by side in one row. */}
+        <div className="at-form-grid at-form-grid--3">
           <Field label="Garment" icon={Shirt}>
             <select className="form-control" value={form.template_key} onChange={changeGarment}>
               <option value="">Uncategorised</option>
               {templates.map(t => <option key={t.key} value={t.key}>{t.name}</option>)}
             </select>
           </Field>
-          <Field label="Design Name" required icon={Type}>
+          <Field label="Design Name" required icon={Type}
+            hint={!titleTouched && form.title && filedUnder ? 'Suggested from the library type — edit it as you like.' : undefined}>
             <input className="form-control" value={form.title} maxLength={200}
               onChange={(e) => { setTitleTouched(true); set('title')(e); }}
               placeholder="e.g. Hand-embroidered bridal lehenga" />
           </Field>
+          <Field label="Selected Part" icon={ImageIcon}>
+            <select className="form-control" value={activePart} onChange={(e) => setSelectedPart(e.target.value)}>
+              {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+            </select>
+          </Field>
         </div>
       </FormSection>
+
+      {/* Where the design shows in the library: the same Category and
+          Design choices as the library's filters, so a design uploaded from
+          anywhere -- the library's Upload design, or any Add design button --
+          is found under the right filter. Opened from a filtered library
+          page, it starts on that filter. Optional: left empty, the design is
+          still under its garment, in All designs. Only for a garment that
+          has a catalogue. */}
+      {hasCatalogue && (
+        <FormSection icon={Layers} tone="green" title="Where it goes in the library"
+          subtitle={`Pick the type and style, so it shows when someone filters the ${template?.name ? template.name.toLowerCase() : 'garment'} library. Optional.`}>
+          <div className="at-form-grid">
+            <DesignCataloguePicker
+              garmentKey={form.template_key}
+              value={catalogue}
+              onChange={(value, payload) => {
+                setCatalogue(value);
+                setCataloguePayload(payload);
+                // The chosen style names the design until the owner types a name.
+                if (payload && !titleTouched) {
+                  const label = describePath(catalogueTree, value).split(' \u203a ').pop();
+                  if (label) setForm((f) => ({ ...f, title: label }));
+                }
+              }}
+            />
+          </div>
+        </FormSection>
+      )}
 
       {/* Photographs are filed by part of the garment -- a saree has a pallu,
           a border and a body -- so the boutique can show a customer the part
@@ -248,13 +292,6 @@ export default function DesignUpload({ onClose, onUploaded, initialGarmentKey = 
         subtitle={template
           ? `${totalFiles} across ${designParts.length} part${designParts.length === 1 ? '' : 's'} of the ${template.name.toLowerCase()}.`
           : 'Pick a garment above to file photographs by part.'}
-        aside={(
-          <Field label="Selected Part" icon={ImageIcon} style={{ width: 'min(240px, calc(100vw - 100px))' }}>
-            <select className="form-control" value={activePart} onChange={(e) => setSelectedPart(e.target.value)}>
-              {designParts.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-            </select>
-          </Field>
-        )}
       >
         <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'stretch' }}>
           <div style={{ flex: '1 1 260px', maxWidth: '360px', display: 'flex' }}>

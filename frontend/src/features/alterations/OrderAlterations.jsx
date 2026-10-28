@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, Scissors, X } from 'lucide-react';
+import { Dropzone } from '../../components/ui/Atelier';
 import { api } from '../../services/api';
 import { formatDate as fmtDate, formatMoney } from '../../services/format';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
-import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import { LIMITS, cleanAmount, amountError, imageFilesError } from '../../services/validate';
 
 /**
  * A delivered garment back for changes. An alteration is an order on the
@@ -31,10 +32,14 @@ export function RequestAlterationModal({ order, onClose, onCreated }) {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // Required: a photo of the garment as it came back, before any work.
+  const [photo, setPhoto] = useState(null); // { file, url }
+  useEffect(() => () => { if (photo?.url) URL.revokeObjectURL(photo.url); }, [photo]);
   const set = (key) => (event) => setForm((prev) => ({ ...prev, [key]: event.target.value }));
 
   const submit = async () => {
     if (!form.issue.trim()) { setError('Say what needs changing.'); return; }
+    if (!photo?.file) { setError('Take a photo of the garment as it came in.'); return; }
     const charge = form.paid ? parseFloat(form.charge || 0) : 0;
     const bad = form.paid
       ? (amountError(form.charge, { label: 'Charge' }) || amountError(form.paid_now, { label: 'Paid now', max: charge }))
@@ -51,6 +56,8 @@ export function RequestAlterationModal({ order, onClose, onCreated }) {
         paid_now: form.paid && form.paid_now ? form.paid_now : '0',
         promised_by: form.promised_by || null,
       });
+      try { await api.uploadGarmentImage(created.id, 'FRONT', photo.file); }
+      catch (err) { alert(`Taken in, but the photo could not be saved: ${err.message}`); }
       onCreated(created);
     } catch (err) {
       setError(err.message);
@@ -127,6 +134,31 @@ export function RequestAlterationModal({ order, onClose, onCreated }) {
         <div style={field}>
           <label style={label}>What needs changing?</label>
           <VoiceTextarea className="form-control" rows={3} maxLength={LIMITS.note} placeholder="The waist is loose, let out 1 inch…" value={form.issue} onChange={set('issue')} />
+        </div>
+
+        {/* Required: the garment as it came back, before any work. */}
+        <div style={field}>
+          <label style={label}>Photo as it came in <span style={{ color: 'var(--danger-color)' }}>*</span></label>
+          {photo ? (
+            <div className="wz-out-photo">
+              <img src={photo.url} alt="The garment as it came in" />
+              <div className="wz-out-photo-meta">
+                <span className="wz-out-photo-name">{photo.file.name}</span>
+                <button type="button" className="btn-secondary at-btn-sm" onClick={() => setPhoto(null)}>
+                  <X size={13} /> Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <Dropzone compact camera
+                      onFiles={([file]) => {
+                        if (!file) return;
+                        const bad = imageFilesError([file]);
+                        if (bad) { setError(bad); return; }
+                        setPhoto({ file, url: URL.createObjectURL(file) });
+                      }}
+                      title="Drop a photo here" subtitle="or choose a photo" chooseLabel="Choose photo" />
+          )}
         </div>
 
         <div className="form-grid-2" style={{ gap: '12px' }}>

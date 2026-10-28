@@ -120,6 +120,7 @@ TEXT = {
 STEPS = {
     'hi': {
         'Order taken': "ऑर्डर लिया गया", 'Design': "डिज़ाइन", 'Cutting': "कटिंग",
+        'Pattern cutting': "पैटर्न कटिंग",
         'Paper cutting': "पेपर कटिंग", 'Maggam design': "मग्गम डिज़ाइन",
         'Maggam handwork': "मग्गम हैंडवर्क", 'Maggam verification': "मग्गम जाँच",
         'Fabric cutting': "कपड़ा कटिंग", 'Alteration work': "बदलाव का काम",
@@ -130,6 +131,7 @@ STEPS = {
     },
     'te': {
         'Order taken': "ఆర్డర్ తీసుకున్నారు", 'Design': "డిజైన్", 'Cutting': "కటింగ్",
+        'Pattern cutting': "ప్యాటర్న్ కటింగ్",
         'Paper cutting': "పేపర్ కటింగ్", 'Maggam design': "మగ్గం డిజైన్",
         'Maggam handwork': "మగ్గం చేతి పని", 'Maggam verification': "మగ్గం తనిఖీ",
         'Fabric cutting': "బట్ట కటింగ్", 'Alteration work': "మార్పుల పని",
