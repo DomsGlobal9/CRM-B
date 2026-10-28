@@ -772,8 +772,10 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
               <summary>{j.display_name || j.template_name || t('workPage.customGarment', 'Custom garment')}</summary>
               <div className="wk-details-body">
                 {m.length === 0 && s.length === 0 && <div className="wk-quiet">{t('workPage.noMeasurements', 'No measurements recorded.')}</div>}
+                {/* Bold headings over the two lists: Measurement, then Specification. */}
+                {m.length > 0 && <div className="wk-sub wk-sub--head">{t('workPage.measurementHead', 'Measurement')}</div>}
                 {m.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}{Number.isFinite(Number(v)) ? ` ${t('workPage.inch', 'Inches')}` : ''}</span></div>)}
-                {s.length > 0 && <div className="wk-sub">{t('workPage.style', 'Style')}</div>}
+                {s.length > 0 && <div className="wk-sub wk-sub--head">{t('workPage.specification', 'Specification')}</div>}
                 {s.map(([k, v]) => <div key={k} className="wk-kv"><span>{humanise(k)}</span><span>{String(v)}</span></div>)}
               </div>
             </details>

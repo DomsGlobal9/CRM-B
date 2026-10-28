@@ -198,3 +198,6 @@
   .wk-more-actions { width: 100%; }
   .wk-more-actions .btn-secondary { flex: 1 1 auto; justify-content: center; }
 }
+
+/* Job screen > Measurements: the Measurement and Specification headings in bold. */
+.wk-sub.wk-sub--head { font-weight: 700; color: var(--text-primary); }
