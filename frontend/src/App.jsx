@@ -2075,6 +2075,20 @@ function App() {
 
   const [quotePrices, setQuotePrices] = useState({ packaging: 500, discount: 0 });
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  // The invoice's Send on WhatsApp: { orderId, state, error, url } for the
+  // order it was pressed on (state: sending | sent | retrying | failed |
+  // manual | pending | error).
+  const [invoiceSend, setInvoiceSend] = useState(null);
+  const sendInvoiceToWhatsApp = async (order) => {
+    setInvoiceSend({ orderId: order.id, state: 'sending' });
+    try {
+      const { outcome, message } = await api.sendInvoice(order.id);
+      // 'sending' from the server: still being tried when it stopped waiting.
+      setInvoiceSend({ orderId: order.id, state: outcome === 'sending' ? 'pending' : outcome, error: message?.error || '', url: message?.whatsapp_url || '' });
+    } catch (err) {
+      setInvoiceSend({ orderId: order.id, state: 'error', error: err?.message || 'Could not send the invoice.' });
+    }
+  };
   const [activeDesignTab, setActiveDesignTab] = useState({});
 
   const fabricTaxonomy = useFabricTaxonomy();
@@ -10046,13 +10060,49 @@ function App() {
               backgroundColor: '#fafbfc',
               borderBottomLeftRadius: '12px',
               borderBottomRightRadius: '12px'
-            }} className="no-print">
-              <button 
-                className="btn-secondary" 
+            }} className="no-print invoice-modal-foot">
+              {/* How the last Send on WhatsApp for this bill went. A send that
+                  did not go through shows no note: the button turns into
+                  Retry again instead. */}
+              {invoiceSend?.orderId === confirmedOrder.id && !['retrying', 'failed', 'error'].includes(invoiceSend.state) && (
+                <div className={`invoice-send-note invoice-send-note--${invoiceSend.state}`} role="status" aria-live="polite">
+                  {invoiceSend.state === 'sending' && 'Sending the invoice on WhatsApp…'}
+                  {invoiceSend.state === 'sent' && `Invoice sent to ${confirmedOrder.customer_name || 'the customer'} on WhatsApp.`}
+                  {invoiceSend.state === 'retrying' && `Not sent yet${invoiceSend.error ? ` (${invoiceSend.error.replace(/^WhatsApp sending failed:\s*/, '')})` : ''}. It will be tried again automatically.`}
+                  {invoiceSend.state === 'failed' && `Could not send${invoiceSend.error ? `: ${invoiceSend.error.replace(/^WhatsApp sending failed:\s*/, '')}` : '.'}`}
+                  {invoiceSend.state === 'pending' && 'Still sending. If it does not go through, it will be tried again automatically.'}
+                  {invoiceSend.state === 'manual' && (
+                    <>
+                      WhatsApp sending is not set up.{' '}
+                      {invoiceSend.url && <a href={invoiceSend.url} target="_blank" rel="noopener noreferrer">Open WhatsApp</a>}
+                    </>
+                  )}
+                  {invoiceSend.state === 'error' && invoiceSend.error}
+                </div>
+              )}
+              <button
+                className="btn-secondary"
                 onClick={() => setShowInvoiceModal(false)}
               >
                 Close
               </button>
+              {/* Owner or Master, on a bill with a customer: the PDF to the
+                  customer's WhatsApp. */}
+              {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && confirmedOrder.customer && (
+                <button
+                  type="button"
+                  className="btn-secondary invoice-send-btn"
+                  disabled={invoiceSend?.orderId === confirmedOrder.id && invoiceSend.state === 'sending'}
+                  onClick={() => sendInvoiceToWhatsApp(confirmedOrder)}
+                >
+                  {invoiceSend?.orderId === confirmedOrder.id && ['retrying', 'failed', 'error'].includes(invoiceSend.state)
+                    ? <RefreshCw size={16} /> : <Send size={16} />}
+                  {invoiceSend?.orderId === confirmedOrder.id && invoiceSend.state === 'sending' ? 'Sending…'
+                    : invoiceSend?.orderId === confirmedOrder.id && invoiceSend.state === 'sent' ? 'Send again'
+                    : invoiceSend?.orderId === confirmedOrder.id && ['retrying', 'failed', 'error'].includes(invoiceSend.state) ? 'Retry again'
+                    : 'Send on WhatsApp'}
+                </button>
+              )}
               <button 
                 className="btn-primary" 
                 onClick={() => window.print()}

@@ -933,6 +933,20 @@ export const api = {
     return res.json();
   },
 
+  // The order's invoice as a PDF to the customer's WhatsApp. Resolves to
+  // { outcome: 'sent' | 'retrying' | 'failed' | 'manual' | 'sending', message }.
+  async sendInvoice(orderId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/send-invoice/`, {
+      method: 'POST',
+      headers: getHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(describeApiError(res, err) || 'Could not send the invoice');
+    }
+    return res.json();
+  },
+
   // One more automatic try at a FAILED message; resolves to the message after it.
   async retryCustomerMessage(orderId, messageId) {
     const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/retry-message/`, {

@@ -1142,6 +1142,62 @@ class OrderViewSet(viewsets.ModelViewSet):
                 metadata={'garment_job': str(job.pk), 'garment': job.display_name, 'photos': len(images)})
         return Response(OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request}).data)
 
+    @action(detail=True, methods=['POST'], url_path='send-invoice',
+            permission_classes=[OwnerOrMaster])
+    def send_invoice(self, request, pk=None):
+        """The order's invoice, as a PDF, to the customer's WhatsApp -- the
+        Send button on the invoice. Logged and sent like every customer
+        message (send_customer_invoice); this waits for the first try so the
+        button can say how it went.
+
+        `outcome`: 'sent'; 'retrying' (the first try failed, automatic tries
+        follow, `message.error` says why); 'failed'; 'manual' (no WhatsApp
+        sender is set up -- `message.whatsapp_url` opens a chat to send it by
+        hand); 'sending' (still being tried when the wait ran out).
+        """
+        import time
+
+        from domains.orders import messaging
+
+        order = self.get_object()
+        if order.customer_id is None:
+            return Response({'error': 'This order has no customer to send the invoice to.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if not (order.customer.mobile_number or '').strip():
+            return Response({'error': 'Add the customer\'s mobile number first.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            message = messaging.send_customer_invoice(order, sent_by=request.user)
+            if message is None:
+                return Response({'error': 'Customer messaging is switched off in Settings.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+            OrderActivity.objects.create(
+                order=order, event_type='INVOICE_SENT', user=request.user,
+                metadata={'message_id': message.pk})
+
+        if messaging.get_backend() is None:
+            outcome = 'manual'
+        else:
+            # The commit started the first try on a thread; make it here if
+            # that thread has not claimed it yet, else wait for its result.
+            messaging.attempt(message.pk)
+            deadline = time.monotonic() + 25
+            while True:
+                message.refresh_from_db()
+                if message.status != 'QUEUED' or message.error or time.monotonic() >= deadline:
+                    break
+                time.sleep(0.5)
+            if message.status in ('SENT', 'DELIVERED', 'READ'):
+                outcome = 'sent'
+            elif message.status == 'FAILED':
+                outcome = 'failed'
+            elif message.error:
+                outcome = 'retrying'
+            else:
+                outcome = 'sending'
+        return Response({'outcome': outcome, 'message': CustomerMessageSerializer(message).data})
+
     @action(detail=False, methods=['GET'], url_path='customer-messages',
             permission_classes=[OwnerOrMaster])
     def customer_messages(self, request):
