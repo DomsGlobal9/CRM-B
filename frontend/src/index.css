@@ -8081,3 +8081,23 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .customer-detail-view-container .responsive-profile-grid { align-items: stretch; }
   .customer-detail-view-container .responsive-profile-grid > .at-stack > section.at-section:last-of-type { flex-grow: 1; }
 }
+
+/* New order chooser: Back on the left of the "Hi, <name>" row, the title
+   straight under it, the three doors close below -- no band of empty page
+   above. Back sits on the left edge of the doors. Phones (no chip row) start
+   with Back at the top of the page. */
+.selector-back { display: flex; align-items: center; min-height: 42px; width: 100%; max-width: 980px; margin-inline: auto; }
+.selector-back .at-link { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.portal-main > .selector-container { margin: 0 auto 32px; gap: 14px; }
+.portal-main > .selector-container > .selector-header { gap: 6px; }
+.portal-main > .selector-container > .selector-header .selector-title { margin: 0; line-height: 1.1; }
+.portal-main > .selector-container > .selector-header .selector-subtitle { margin: 0; }
+.portal-main > .selector-container > .wz-services--three { margin-top: 10px; }
+@media (min-width: 769px) {
+  .portal-main:has(> .selector-container) > .portal-account-bar { margin: 0 0 -42px; }
+}
+@media (max-width: 768px) {
+  .portal-main > .selector-container { gap: 10px; }
+  .portal-main > .selector-container > .selector-header .selector-title { font-size: 26px !important; }
+  .selector-back { min-height: 36px; }
+}

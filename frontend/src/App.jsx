@@ -8055,6 +8055,14 @@ function App() {
           <main className="portal-main">
             {accountBar((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })}
             <div className="selector-container">
+              {/* Back to where New order was opened from. The dashboard keeps
+                  the section it was on (and the customer page, if one was
+                  open) while this chooser shows, so returning to it is enough. */}
+              <div className="selector-back">
+                <button type="button" className="at-link" onClick={() => setView('dashboard')}>
+                  <ArrowLeft size={16} /> {t('entry.back', 'Back')}
+                </button>
+              </div>
               <div className="selector-header">
                 <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{t('entry.newOrderTitle', 'New order')}</h1>
                 <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>{t('entry.serviceQuestion', 'What are we doing for this customer today?')}</p>
