@@ -8407,3 +8407,14 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .settings-grid--staff .settings-info-rows > .ui-row { flex-wrap: wrap; }
   .settings-grid--staff .settings-info-rows > .ui-row > span:last-child { text-align: left; }
 }
+
+/* Settings for every role but the owner: a tighter top -- the title rises
+   into the row of the bell and "Hi, <name>" chip, as on the other pages,
+   and the cards follow closer under it. (Phones have no chip row.) The
+   owner's Settings is untouched. */
+@media (min-width: 769px) {
+  .portal-main:has(.settings-grid--staff) { padding-top: 24px; }
+  .portal-main:has(.settings-grid--staff) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(.settings-grid--staff) .settings-page-wrapper > .at-page-head { margin-bottom: 0; padding-right: 280px; }
+  .settings-grid--staff { margin-top: 18px !important; }
+}
