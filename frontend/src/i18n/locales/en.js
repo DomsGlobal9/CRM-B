@@ -376,7 +376,7 @@ const en = {
     sizingHistory: "Measurement history",
     orderHistory: "Order History",
     noOrdersYet: "No orders yet.",
-    styleProfile: "Style profile",
+    styleProfile: "Profile Specification",
     noStyleProfile: "No style profile for this customer yet.",
     totalSpent: "Total spent",
     stylePreferences: "Style preferences",
