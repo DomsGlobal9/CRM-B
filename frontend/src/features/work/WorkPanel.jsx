@@ -515,7 +515,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
         <div className="wk-empty">
           {later
             ? t('workPage.emptyLater', 'Nothing to do right now. {n} job(s) are waiting for earlier steps to finish.', { n: later })
-            : t('workPage.emptyOpen', 'Nothing to do right now — the master will assign you work.')}
+            : t('workPage.emptyOpen', 'Nothing to do right now.')}
         </div>
       )
       : (

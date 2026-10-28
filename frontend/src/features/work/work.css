@@ -201,3 +201,22 @@
 
 /* Job screen > Measurements: the Measurement and Specification headings in bold. */
 .wk-sub.wk-sub--head { font-weight: 700; color: var(--text-primary); }
+
+/* Job screen header: the back arrow lines up with the title's first line
+   and the page's left edge; title, order line and assignee stack with even
+   spacing, the title wraps on a narrow phone and the two lines under it end
+   in "..." rather than pushing the header wider. */
+.wk-sheet-head { align-items: flex-start; gap: 6px; padding: 8px 16px 10px 6px; }
+.wk-sheet-head .wk-icon-btn { margin-top: 0; }
+.wk-sheet-title { padding-top: 10px; line-height: 1.35; overflow-wrap: anywhere; }
+.wk-sheet-title small { margin-top: 3px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk-sheet-title small.wk-sheet-assignee { margin-top: 3px; }
+@media (min-width: 641px) {
+  .wk-sheet-head { padding-top: 10px; padding-bottom: 12px; }
+  .wk-sheet-title { font-size: 17px; }
+}
+@media (max-width: 360px) {
+  .wk-sheet-head { padding-right: 12px; gap: 2px; }
+  .wk-sheet-title { font-size: 15px; }
+  .wk-sheet-title small { font-size: 13px; }
+}
