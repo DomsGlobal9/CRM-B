@@ -911,9 +911,11 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
             </>
           ) : (
             <>
+              {/* The photos the earlier steps uploaded come first, so the
+                  next step sees what was done before it. */}
+              {earlierPhotos}
               {whatToMake}
               {workSoFar}
-              {earlierPhotos}
             </>
           )}
           {actions}
