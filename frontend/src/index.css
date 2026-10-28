@@ -8383,3 +8383,27 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .my-pw-form .at-field-hint { margin-top: 2px; font-size: 12px; }
 .my-pw-form .my-pw-title { font-size: 11px; }
 .my-pw-form .my-pw-toggle { min-height: 28px; padding: 3px 10px; font-size: 12px; }
+
+/* Settings for every role but the owner: Language and Appearance side by
+   side at one height, "Your boutique" across the full width under them with
+   its four rows two by two -- no empty slot beside it. One column on a phone.
+   The owner's Settings keeps its own layout (no settings-grid--staff). */
+.settings-grid--staff { align-items: stretch; }
+.settings-grid--staff > .settings-card { display: flex; flex-direction: column; min-width: 0; }
+@media (min-width: 761px) {
+  .settings-grid--staff { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .settings-grid--staff > .settings-card:nth-child(3) { grid-column: 1 / -1; }
+  .settings-grid--staff > .settings-card:nth-child(3) .settings-info-rows {
+    display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px !important;
+  }
+  .settings-grid--staff .settings-info-rows > .ui-row { min-width: 0; }
+}
+@media (max-width: 760px) {
+  .settings-grid--staff { grid-template-columns: minmax(0, 1fr) !important; gap: 14px !important; margin-top: 16px !important; }
+}
+.settings-grid--staff .settings-info-rows > .ui-row { min-height: 52px; align-items: center; gap: 12px; }
+.settings-grid--staff .settings-info-rows > .ui-row > span:last-child { min-width: 0; overflow-wrap: anywhere; text-align: right; }
+@media (max-width: 420px) {
+  .settings-grid--staff .settings-info-rows > .ui-row { flex-wrap: wrap; }
+  .settings-grid--staff .settings-info-rows > .ui-row > span:last-child { text-align: left; }
+}

@@ -78,8 +78,11 @@ export const SettingsPage = ({
     <div className="settings-page-wrapper" style={{ maxWidth: '1100px', margin: '0 auto' }}>
       <PageHeader title={t('settingsPage.title')} subtitle={t('settingsPage.subtitle')} />
 
+      {/* Other roles see three cards (Language, Appearance, Your boutique):
+          `settings-grid--staff` lays them out without a gap. The owner's
+          grid is unchanged. */}
       <div
-        className="settings-grid"
+        className={`settings-grid${isOwner ? '' : ' settings-grid--staff'}`}
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
@@ -147,7 +150,7 @@ export const SettingsPage = ({
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
+          <div className="settings-info-rows" style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
             <div className="ui-row" style={infoRow}>
               <span style={infoRowLabel}><User size={16} /> {t('settingsPage.activeUser')}</span>
               {/* .ui-badge for size/shape on the accent fill. The text is ink:
