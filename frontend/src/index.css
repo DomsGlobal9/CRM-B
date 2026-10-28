@@ -8281,3 +8281,42 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .dcb-path { flex-basis: 100%; }
   .dcb-clear { margin-left: 0; }
 }
+
+/* ---- My account: a tidier page -------------------------------------------
+   The title rises into the row of the "Hi, <name>" chip (as on the other
+   pages), so the cards start higher. The band over the photo is a soft brand
+   tint rather than near-white empty space. On a computer, with the boutique
+   form on the right, both columns end on one line: the left column's last
+   card and the form stretch to the taller side (contents stay at the top). */
+@media (min-width: 769px) {
+  .portal-main:has(> .at-account) { padding-top: 24px; }
+  .portal-main:has(> .at-account) > .portal-account-bar { margin: 0 0 -42px; }
+  .portal-main:has(> .at-account) > .at-page-head { margin-bottom: 20px; padding-right: 280px; }
+}
+.at-account .at-account-card .at-cover {
+  height: 104px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary-color) 30%, var(--surface-color)) 0%,
+                                      color-mix(in srgb, var(--primary-color) 12%, var(--surface-color)) 55%,
+                                      var(--surface-2) 100%);
+}
+.at-account .at-account-avatar { margin-top: -56px; }
+.at-account .at-account-card > .ui-badge { margin-bottom: 4px; }
+.at-account .at-account-rows { gap: 14px; }
+.at-account .at-account-row { min-height: 40px; }
+.at-account .at-account-row > button { flex-shrink: 0; align-self: center; }
+.at-account .at-account-row .at-measure-label { margin-bottom: 2px; }
+@media (min-width: 901px) {
+  .at-account { align-items: stretch; }
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack > :nth-child(1),
+  .at-account:has(> .at-stack > :nth-child(2)) > .at-stack > :nth-child(2) { align-self: stretch; }
+}
+/* Tablet: the cover a little lower, matching the side-by-side profile row. */
+@media (min-width: 601px) and (max-width: 900px) {
+  .at-account .at-account-card .at-cover { height: 88px; }
+  .at-account .at-account-avatar { margin-top: -50px; }
+}
+/* Phone: no chip row; the cover is a slim band. */
+@media (max-width: 600px) {
+  .at-account .at-account-card .at-cover { height: 76px; }
+  .at-account .at-account-avatar { margin-top: -44px; }
+}
