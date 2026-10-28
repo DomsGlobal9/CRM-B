@@ -825,7 +825,15 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
       <div className="wk-sheet" role="dialog" aria-modal="true" aria-label={title}>
         <div className="wk-sheet-head">
           <button type="button" className="wk-icon-btn" onClick={onClose} aria-label={t('workPage.back', 'Back')}><ArrowLeft size={22} /></button>
-          <div className="wk-sheet-title">{title}<small>{stageRef(order, stage)} · {order.customer_name}</small></div>
+          <div className="wk-sheet-title">{title}<small>{stageRef(order, stage)} · {order.customer_name}</small>
+            {/* Who holds this step now -- the same words as the job's card. */}
+            <small className="wk-sheet-assignee">
+              {t('workPage.assigned', 'Assigned')}:{' '}
+              <b>{stage.assigned_to_name
+                ? `${stage.assigned_to_name}${stage.assigned_to_role ? ` · ${stage.assigned_to_role}` : ''}`
+                : t('workPage.notAssigned', 'Not assigned yet')}</b>
+            </small>
+          </div>
         </div>
         <div className="wk-sheet-body">
           {head}

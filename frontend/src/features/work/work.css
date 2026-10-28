@@ -181,3 +181,7 @@
   .wk-step-filter { flex: 1 1 100%; }
   .wk-step-filter .form-control { flex: 1 1 auto; min-width: 0; max-width: none; }
 }
+
+/* The job panel's header: who holds this step, under the order line. */
+.wk-sheet-title small.wk-sheet-assignee { margin-top: 2px; }
+.wk-sheet-assignee b { font-weight: 600; color: var(--text-primary); }
