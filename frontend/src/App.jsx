@@ -7589,9 +7589,9 @@ function App() {
 
                         <div className="at-field">
                           <span className="at-field-label">{t('accountPage.boutiqueLogo', 'Boutique Logo')}</span>
-                          <div className="at-side-by-side">
+                          <div className="at-side-by-side acct-logo-grid">
                             {(logoFile || boutiqueSettings?.logo) ? (
-                              <div className="at-form-section" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                              <div className="at-form-section acct-logo-current" style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
                                 <img src={logoFile ? URL.createObjectURL(logoFile) : boutiqueSettings.logo} alt="Boutique logo"
                                      style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: '8px', background: 'var(--surface-inset)', border: '1px solid var(--border-color)' }} />
                                 <div className="at-row-main">

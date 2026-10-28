@@ -8320,3 +8320,66 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .at-account .at-account-card .at-cover { height: 76px; }
   .at-account .at-account-avatar { margin-top: -44px; }
 }
+
+/* My account > Boutique logo: the current logo as a centred card -- the
+   logo large on top, "Current logo" and its line under it, the buttons at
+   the foot -- beside the guidelines, both cards one height. The guideline
+   ticks sit on each item's first line. Stacked on a phone. */
+.acct-logo-grid:has(> .acct-logo-current) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
+.acct-logo-current {
+  flex-direction: column !important; flex-wrap: nowrap !important; align-items: center !important; justify-content: center;
+  gap: 12px !important; padding: 22px 20px !important; text-align: center; min-width: 0;
+}
+.acct-logo-current > img {
+  width: 104px !important; height: 104px !important; padding: 10px; border-radius: 16px !important;
+  background: var(--surface-inset) !important; box-shadow: var(--shadow-sm);
+}
+.acct-logo-current > .at-row-main { flex: 0 0 auto; width: 100%; min-width: 0; }
+.acct-logo-current > .at-row-main .at-row-title { font-size: 15px; overflow-wrap: anywhere; }
+.acct-logo-current > .at-row-main .at-row-sub { margin-top: 2px; overflow-wrap: anywhere; }
+.acct-logo-current > button { min-width: 160px; justify-content: center; }
+.acct-logo-grid > .at-note { height: 100%; }
+.acct-logo-grid .at-note-list { gap: 8px; }
+.acct-logo-grid .at-note-list li { align-items: flex-start; line-height: 1.45; }
+.acct-logo-grid .at-note-list li > svg { margin-top: 3px; }
+@media (max-width: 700px) {
+  .acct-logo-grid:has(> .acct-logo-current) { grid-template-columns: minmax(0, 1fr); }
+  .acct-logo-current { padding: 18px 16px !important; }
+  .acct-logo-current > img { width: 88px !important; height: 88px !important; }
+  .acct-logo-current > button { width: 100%; min-width: 0; }
+}
+
+/* My details > Change password: a small heading with the show/hide switch
+   on its right; the three boxes alike; labels on one line; the two new
+   boxes side by side with their tops level, one under the other on a
+   phone; hints that turn green when met. */
+.my-pw-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.my-pw-title { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text-secondary); }
+.my-pw-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary);
+  font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.my-pw-toggle:hover { background: var(--surface-2); }
+.my-pw-pair { align-items: start; }
+.my-pw-form .at-field-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.my-pw-hint { display: inline-flex; align-items: center; gap: 4px; color: var(--text-secondary); }
+.my-pw-hint--ok { color: var(--success-color); font-weight: 600; }
+.my-pw-hint--bad { color: var(--warning-color); }
+@media (max-width: 560px) {
+  .my-pw-pair { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Change password, compact: the three boxes one under another, each a
+   little smaller (40px tall, 14px text, a narrower icon tile), with
+   tighter spacing between them. */
+.my-pw-form { gap: 12px !important; }
+.my-pw-form .my-pw-pair { grid-template-columns: minmax(0, 1fr) !important; gap: 12px; }
+.my-pw-form .at-field { gap: 5px; }
+.my-pw-form .at-field-label { font-size: 11px; }
+.my-pw-form .at-field-control { min-height: 0; }
+.my-pw-form .at-field-control .form-control { height: 40px; min-height: 40px; padding: 8px 12px; font-size: 14px; }
+.my-pw-form .at-field-icon { width: 40px; }
+.my-pw-form .at-field-icon svg { width: 15px; height: 15px; }
+.my-pw-form .at-field-hint { margin-top: 2px; font-size: 12px; }
+.my-pw-form .my-pw-title { font-size: 11px; }
+.my-pw-form .my-pw-toggle { min-height: 28px; padding: 3px 10px; font-size: 12px; }
