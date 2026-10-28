@@ -8418,3 +8418,98 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .portal-main:has(.settings-grid--staff) .settings-page-wrapper > .at-page-head { margin-bottom: 0; padding-right: 280px; }
   .settings-grid--staff { margin-top: 18px !important; }
 }
+
+/* Customer updates: a failed message reads as one plain reason in a soft
+   red box -- the raw server error folded under "Technical details". The
+   actions share the row on a phone. */
+.od-feed-error { margin-top: 8px; padding: 10px 12px; border-radius: var(--radius-md, 10px); background: var(--danger-bg);
+  border: 1px solid color-mix(in srgb, var(--danger-color) 22%, transparent); font-size: 13px; line-height: 1.5; gap: 8px; }
+.od-feed-error-body { flex: 1; min-width: 0; }
+.od-feed-error-title { font-weight: 600; color: var(--danger-color); }
+.od-feed-error-title span { font-weight: 400; }
+.od-feed-error-why { margin: 2px 0 0; color: var(--text-primary); overflow-wrap: anywhere; }
+.od-feed-error-details { margin-top: 6px; }
+.od-feed-error-details summary { cursor: pointer; width: fit-content; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.od-feed-error-details code { display: block; margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--surface-color);
+  border: 1px solid var(--border-color); color: var(--text-secondary); font-size: 11.5px; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 160px; overflow-y: auto; }
+@media (max-width: 640px) {
+  .od-feed-actions > * { flex: 1 1 130px; justify-content: center; }
+}
+
+/* Customer updates: a failed message is one red line and its buttons;
+   the feed opens three at a time with "Show more" under it. */
+.od-feed-failed { display: flex; align-items: center; gap: 6px; margin: 2px 0 0; font-size: 14px; font-weight: 600; color: var(--danger-color); }
+.od-feed-failed svg { flex-shrink: 0; }
+.od-feed-item:has(.od-feed-failed) { align-items: center; }
+.od-feed-item:has(.od-feed-failed) .od-feed-dot { margin-top: 0; }
+.od-feed-more { display: flex; justify-content: center; padding-top: 12px; border-top: 1px solid var(--border-color); }
+.od-feed-more .btn-secondary { display: inline-flex; align-items: center; gap: 6px; }
+@media (max-width: 640px) {
+  .od-feed-item:has(.od-feed-failed) { align-items: start; }
+  .od-feed-item:has(.od-feed-failed) .od-feed-dot { margin-top: 6px; }
+  .od-feed-more .btn-secondary { width: 100%; justify-content: center; }
+}
+
+/* Order page: every card on one grid. The cards under the timeline
+   (Master's verification checklist, delivery, stitching report) take the
+   same corners, padding and spacing as the cards around them. */
+.od-extra { gap: 20px; }
+.od-extra > div:not(.at-section) { border-radius: var(--radius-lg) !important; padding: var(--space-5) !important; min-width: 0; }
+.od-extra > div:not(.at-section) label { align-items: flex-start !important; line-height: 1.4; }
+.od-extra > div:not(.at-section) label input[type="checkbox"] { flex-shrink: 0; margin-top: 2px; }
+.od-tip { border-radius: var(--radius-lg); }
+@media (max-width: 640px) {
+  .od-extra > div:not(.at-section) > div[style*="grid"] { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Customer updates, a failed message: its three buttons side by side on a
+   row under the red line (lined up with the text), not stacked -- each
+   message stays two short lines tall. */
+.od-feed-item:has(.od-feed-failed) { align-items: start; row-gap: 10px; padding: 12px 0; }
+.od-feed-item:has(.od-feed-failed) .od-feed-dot { margin-top: 6px; }
+.od-feed-item:has(.od-feed-failed) .od-feed-actions { grid-column: 3 / -1; flex-direction: row; flex-wrap: wrap; gap: 8px; }
+.od-feed-item:has(.od-feed-failed) .od-feed-meta { margin-bottom: 4px; }
+@media (max-width: 640px) {
+  .od-feed-item:has(.od-feed-failed) .od-feed-actions { grid-column: 2; }
+  .od-feed-item:has(.od-feed-failed) .od-feed-actions > * { flex: 1 1 auto; padding-left: 10px; padding-right: 10px; }
+}
+
+/* Order page, side column: under the notes, the Master's checklist, the
+   handover and the tip -- the same card look as the rest. In the narrow
+   column (wide screens) their two-up grids go one-up; on one column
+   (tablets, phones) the group follows the order's other extras. */
+.od-side-extra { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.od-side-extra > div:not(.at-section):not(.od-tip) { border-radius: var(--radius-lg) !important; padding: var(--space-5) !important; min-width: 0; }
+.od-side-extra > div:not(.at-section) label { align-items: flex-start !important; line-height: 1.4; }
+.od-side-extra > div:not(.at-section) label input[type="checkbox"] { flex-shrink: 0; margin-top: 2px; }
+.od-side-extra .od-tip { align-items: flex-start; }
+@media (min-width: 1025px) {
+  .od-side-extra > div > div[style*="grid"], .od-side-extra .form-grid-2 { grid-template-columns: minmax(0, 1fr) !important; }
+  .od-side-extra .form-grid-2 > *, .od-side-extra div[style*="grid"] > * { grid-column: auto !important; }
+}
+@media (max-width: 1024px) {
+  .od-side-extra { order: 7; }
+}
+@media (max-width: 640px) {
+  .od-side-extra > div:not(.at-section) > div[style*="grid"] { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* Every page for every role but the owner: less space above the content.
+   The page starts nearer the top, and on a page that opens with a title
+   row or an order (Back to workshop) its first row rises into the row of
+   the "Hi, <name>" chip -- that row alone keeps room on the right for the
+   chip, every card under it keeps the full width. Any other page keeps the
+   chip on its own row. Pages that already lift their title into the
+   chip's row keep their own spacing. A phone has no chip row (the header
+   carries it) and just starts a little higher. The owner's pages are
+   untouched. */
+@media (min-width: 769px) {
+  .portal-main--staff { padding-top: 20px; }
+  .portal-main--staff > .portal-account-bar:has(+ .at-page-head, + .od-page) { margin: 0 0 -42px; }
+  .portal-main--staff > .portal-account-bar + .at-page-head > .at-page-head-left { padding-right: 240px; }
+  .portal-main--staff > .portal-account-bar + .od-page > .od-topbar { padding-right: 240px; min-height: 42px; }
+}
+@media (max-width: 768px) {
+  .portal-main--staff { padding-top: 12px; }
+}

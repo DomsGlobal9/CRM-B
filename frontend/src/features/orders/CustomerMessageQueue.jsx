@@ -1,10 +1,33 @@
 import { useState } from 'react';
-import { AlertTriangle, Check, MessageSquare, RotateCw } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, MessageSquare, RotateCw } from 'lucide-react';
 
 import { IconTile } from '../../components/ui/Atelier';
 
 // What a pre-filled WhatsApp chat cannot carry: staff attach it themselves.
 const MESSAGE_ATTACHMENT = { invoice: 'the invoice PDF', garment_photos: 'the garment photos' };
+
+// Why a message failed, in words staff can act on. The server keeps the
+// raw error (a connection trace, a service reply); it stays one tap away
+// under "Technical details". First match wins.
+const FAILURE_REASONS = [
+  [/connection refused|failed to establish|max retries exceeded|newconnectionerror|econnrefused|winerror 10061|failed to reach|connectionerror|getaddrinfo|name or service not known/i,
+    'The WhatsApp service is not running right now, so this message could not go out. Once it is back on, tap Retry, or send it yourself with Open WhatsApp.'],
+  [/unauthori[sz]ed|internal api secret/i,
+    'The app could not sign in to the WhatsApp service. Ask your admin to check the WhatsApp setup, then tap Retry.'],
+  [/not connected|current status|disconnected|logged out|not ready|qr/i,
+    'WhatsApp is not linked to the boutique right now. Link it in Settings by scanning the QR code, then tap Retry.'],
+  [/invalid phone|phone number is required|not registered|not on whatsapp|not a whatsapp/i,
+    "This mobile number does not look like a WhatsApp number. Check the customer's number, then tap Retry."],
+  [/timed? ?out|timeout/i,
+    'WhatsApp took too long to answer. Tap Retry in a moment.'],
+  [/64mb|exceeds maximum|mime type|download media|media delivery/i,
+    'The attachment could not be sent with this message. Tap Retry, or send it yourself with Open WhatsApp.'],
+];
+const failureReason = (raw) => (raw && FAILURE_REASONS.find(([pattern]) => pattern.test(raw))?.[1])
+  || 'Something went wrong while sending. Tap Retry, or send it yourself with Open WhatsApp.';
+
+// The feed shows this many messages first; "Show more" opens the rest.
+const FIRST_SHOWN = 3;
 
 const when = (iso) => {
   if (!iso) return ['', ''];
@@ -22,14 +45,18 @@ const when = (iso) => {
 export default function CustomerMessageQueue({ messages, onMarkSent, onRetry, orderLabel, title = 'Customer updates' }) {
   const [busy, setBusy] = useState(null); // [messageId, 'retry' | 'sent']
   const [error, setError] = useState(null);
+  const [showAll, setShowAll] = useState(false);
 
+  // A Retry that goes through takes the message (and any earlier error) off
+  // the list; one that fails again says so in a single red line -- the raw
+  // reply stays on the message, behind its red line's tooltip.
   const run = async (message, kind, work) => {
     setBusy([message.id, kind]);
     setError(null);
     try {
       await work(message.order, message.id);
     } catch (err) {
-      setError(err.message);
+      setError(kind === 'retry' ? 'Still not sent on WhatsApp.' : err.message);
     } finally {
       setBusy(null);
     }
@@ -58,7 +85,7 @@ export default function CustomerMessageQueue({ messages, onMarkSent, onRetry, or
       {error && <div className="od-error">{error}</div>}
 
       <ol className="od-feed">
-        {messages.map((message) => {
+        {(showAll ? messages : messages.slice(0, FIRST_SHOWN)).map((message) => {
           const isFailed = message.status === 'FAILED';
           const isQueued = message.status === 'QUEUED' || isFailed;
           const attachment = MESSAGE_ATTACHMENT[message.template_key];
@@ -76,15 +103,15 @@ export default function CustomerMessageQueue({ messages, onMarkSent, onRetry, or
                     <span>· {message.status.toLowerCase()}{message.sent_by_name ? ` by ${message.sent_by_name}` : ''}</span>
                   )}
                 </div>
-                <p className="od-feed-text">{message.body}</p>
+                {/* A failed message shows just its red line (the reason on
+                    hover) and the three buttons. */}
+                {!isFailed && <p className="od-feed-text">{message.body}</p>}
                 {isFailed && (
-                  <p className="od-feed-error">
-                    <AlertTriangle size={13} aria-hidden="true" /> WhatsApp could not send this
-                    {message.attempts ? ` after ${message.attempts} ${message.attempts === 1 ? 'try' : 'tries'}` : ''}
-                    {message.error ? `: ${message.error}` : '.'}
+                  <p className="od-feed-failed" title={failureReason(message.error)}>
+                    <AlertTriangle size={14} aria-hidden="true" /> Not sent on WhatsApp
                   </p>
                 )}
-                {isQueued && attachment && (
+                {isQueued && !isFailed && attachment && (
                   <p className="od-hint">Sending it yourself? Attach {attachment} in WhatsApp.</p>
                 )}
               </div>
@@ -113,6 +140,15 @@ export default function CustomerMessageQueue({ messages, onMarkSent, onRetry, or
           );
         })}
       </ol>
+
+      {messages.length > FIRST_SHOWN && (
+        <div className="od-feed-more">
+          <button type="button" className="btn-secondary at-btn-sm" onClick={() => setShowAll(!showAll)}>
+            {showAll ? 'Show less' : `Show ${messages.length - FIRST_SHOWN} more`}
+            <ChevronDown size={14} style={{ transform: showAll ? 'rotate(180deg)' : 'none' }} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

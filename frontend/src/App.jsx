@@ -1629,6 +1629,8 @@ const navSectionsFor = (user, t) => {
         { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
         { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
+        // The order workflow (Production), as the Designer has it.
+        { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
       ] },
@@ -5049,7 +5051,9 @@ function App() {
           </aside>
 
           {/* Main Content Area */}
-          <main className="portal-main" key={`${dashboardTab}:${sectionVisit}`}>
+          {/* Every role but the owner gets a tighter top (portal-main--staff). */}
+          <main className={`portal-main${!currentUser?.role || currentUser.role === 'Owner' ? '' : ' portal-main--staff'}`}
+                key={`${dashboardTab}:${sectionVisit}`}>
             {accountBar((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}
             {(dashboardTab === 'work' || dashboardTab === 'done' || dashboardTab === 'check') && (
               <>
@@ -5752,56 +5756,6 @@ function App() {
                             onOpenAlteration={openAlteration}
                           />
 
-                          {/* Master verification checklist */}
-                          {currentUser.role === 'Master' && (
-                            <div style={{ padding: 'var(--space-4)', background: 'var(--accent-color)',
-                                 border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
-                              <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-3)', color: 'var(--accent-text)' }}>👑 Master production verification</div>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-2) var(--space-4)' }}>
-                                {[
-                                  { key: 'dress_cutting', label: 'Dress & Pattern Cutting' },
-                                  { key: 'thread', label: 'Matching Thread & Accents' },
-                                  { key: 'hemming', label: 'Hemming & Seam Finishes' },
-                                  ...(order.customer_garment_type === 'Saree' ? [{ key: 'fall_pico', label: 'Fall & Pico / Peack' }] : []),
-                                  { key: 'hook_buttons', label: 'Hook or Buttons Closure' },
-                                  { key: 'pressing', label: 'Garment Steam Pressing' },
-                                  { key: 'dispatch_trial', label: 'Dispatch or Fit Trial Ready' }
-                                ].map(item => {
-                                  const isChecked = order.master_verification?.[item.key] || false;
-                                  return (
-                                    <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        disabled={savingVerificationOrderId === order.id}
-                                        onChange={async (e) => {
-                                          if (savingVerificationOrderId) return;
-                                          const updatedVerification = { ...(order.master_verification || {}), [item.key]: e.target.checked };
-                                          setSavingVerificationOrderId(order.id);
-                                          try {
-                                            await api.saveMasterVerification(order.id, updatedVerification);
-                                            fetchDashboardAndConfig();
-                                          } catch (err) {
-                                            alert("Failed to update verification check: " + err.message);
-                                          } finally {
-                                            setSavingVerificationOrderId(null);
-                                          }
-                                        }}
-                                      />
-                                      <span style={{ textDecoration: isChecked ? 'line-through' : 'none', color: isChecked ? 'var(--text-muted)' : 'var(--text-primary)' }}>
-                                        {item.label}
-                                      </span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Delivery */}
-                          <DeliveryCard key={`${order.id}-${order.delivery_method}-${order.tracking_number}`} order={order}
-                                        canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
-
                           {/* Tailor completion report */}
                           {(order.tailor_comments || order.completed_garment_image) && (
                             <div style={{ background: 'var(--accent-color)', border: '1px solid var(--accent-border)',
@@ -5876,13 +5830,6 @@ function App() {
                             </div>
                           )}
                       </div>
-                      <div className="od-tip" role="note">
-                        <IconTile icon={Sparkles} tone="green" size={36} iconSize={16} />
-                        <div>
-                          <strong>{t('ordersPage.tipTitle', 'Keep the quality high!')}</strong>
-                          <span>{t('ordersPage.tipText', 'Check measurements and design notes before moving to the next stage.')}</span>
-                        </div>
-                      </div>
                     </div>
 
                     <aside className="od-side">
@@ -5913,6 +5860,66 @@ function App() {
                       </section>
 
                       <OrderNotesCard key={order.id} order={order} canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
+                      {/* The Master's checklist, the handover and the tip sit under the
+                          notes in the side column, so the two columns share the page. */}
+                      <div className="od-side-extra">
+                        {/* Master verification checklist */}
+                        {currentUser.role === 'Master' && (
+                          <div style={{ padding: 'var(--space-4)', background: 'var(--accent-color)',
+                               border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', textAlign: 'left' }}>
+                            <div className="ui-eyebrow" style={{ marginBottom: 'var(--space-3)', color: 'var(--accent-text)' }}>👑 Master production verification</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-2) var(--space-4)' }}>
+                              {[
+                                { key: 'dress_cutting', label: 'Dress & Pattern Cutting' },
+                                { key: 'thread', label: 'Matching Thread & Accents' },
+                                { key: 'hemming', label: 'Hemming & Seam Finishes' },
+                                ...(order.customer_garment_type === 'Saree' ? [{ key: 'fall_pico', label: 'Fall & Pico / Peack' }] : []),
+                                { key: 'hook_buttons', label: 'Hook or Buttons Closure' },
+                                { key: 'pressing', label: 'Garment Steam Pressing' },
+                                { key: 'dispatch_trial', label: 'Dispatch or Fit Trial Ready' }
+                              ].map(item => {
+                                const isChecked = order.master_verification?.[item.key] || false;
+                                return (
+                                  <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      disabled={savingVerificationOrderId === order.id}
+                                      onChange={async (e) => {
+                                        if (savingVerificationOrderId) return;
+                                        const updatedVerification = { ...(order.master_verification || {}), [item.key]: e.target.checked };
+                                        setSavingVerificationOrderId(order.id);
+                                        try {
+                                          await api.saveMasterVerification(order.id, updatedVerification);
+                                          fetchDashboardAndConfig();
+                                        } catch (err) {
+                                          alert("Failed to update verification check: " + err.message);
+                                        } finally {
+                                          setSavingVerificationOrderId(null);
+                                        }
+                                      }}
+                                    />
+                                    <span style={{ textDecoration: isChecked ? 'line-through' : 'none', color: isChecked ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                                      {item.label}
+                                    </span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Delivery */}
+                        <DeliveryCard key={`${order.id}-${order.delivery_method}-${order.tracking_number}`} order={order}
+                                      canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
+                        <div className="od-tip" role="note">
+                          <IconTile icon={Sparkles} tone="green" size={36} iconSize={16} />
+                          <div>
+                            <strong>{t('ordersPage.tipTitle', 'Keep the quality high!')}</strong>
+                            <span>{t('ordersPage.tipText', 'Check measurements and design notes before moving to the next stage.')}</span>
+                          </div>
+                        </div>
+                      </div>
                     </aside>
                   </div>
                 </div>
