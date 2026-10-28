@@ -8136,3 +8136,18 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 
 /* Add a Cost: Paid to and Note in one row, both tops level. */
 .fin-expense-pair { align-items: start; }
+
+/* Design library card: Add to inventory (or "In your inventory") on the
+   left, the delete icon on the right, on one line. */
+.dl-page .dl-card-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dl-page .dl-card-actions > .dl-card-stock { flex: 0 1 auto; min-width: 0; }
+.dl-page .dl-card-delete {
+  margin-left: auto; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; min-height: 0; padding: 0; border-radius: 10px;
+  color: var(--danger-color); border-color: color-mix(in srgb, var(--danger-color) 40%, var(--border-color));
+}
+.dl-page .dl-card-delete:hover { background: var(--danger-bg); border-color: var(--danger-color); }
+@media (max-width: 640px) {
+  .dl-page .dl-card-actions > .dl-card-stock { flex: 1 1 auto; align-self: auto !important; margin-top: 0; }
+  .dl-page .dl-card-delete { width: 32px; height: 32px; }
+}

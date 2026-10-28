@@ -561,6 +561,9 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
                     </span>
                   )}
                 </div>
+                {/* The card's actions: stock it, and -- for the designs the
+                    detail's Delete covers -- delete it (asks first). */}
+                <div className="dl-card-actions">
                 {design.inventory_item_id ? (
                   <span className="dl-card-meta" style={{ fontSize: '11.5px', color: 'var(--success-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <Check size={13} /> In your inventory
@@ -573,6 +576,15 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
                     Add to inventory
                   </button>
                 ) : null}
+                {onDeleteDesign && EDITABLE_SOURCES.includes(design.source) && (
+                  <button type="button" className="btn-secondary dl-card-delete"
+                          aria-label={`Delete ${design.title}`} title="Delete design"
+                          onClick={(e) => { e.stopPropagation(); onDeleteDesign(design); }}
+                          onKeyDown={(e) => e.stopPropagation()}>
+                    <Trash2 size={14} />
+                  </button>
+                )}
+                </div>
               </div>
             </div>
           );
