@@ -6005,8 +6005,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
    person and their buttons on top, then Status / Contact / Work type / Pay /
    Advances as labelled pairs (the labels are the cells' data-label) -- all
    five on one line on a tablet, three to a line on a phone. An opened row's
-   pay details hang under its card. */
-@media (max-width: 1024px) {
+   pay details hang under its card. Up to 1099px: below that the seven
+   columns (with Pay, Advances and the buttons) do not fit a table. */
+@media (max-width: 1099px) {
   .staff-table-wrap { border: none !important; background: transparent !important; overflow: visible !important; }
   .staff-table { min-width: 0 !important; display: block; }
   .staff-table thead { display: none; }
@@ -6057,7 +6058,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 }
 /* A tablet has the width for all five details on one line (four 12px gaps),
    and a little more room in the card. */
-@media (min-width: 601px) and (max-width: 1024px) {
+@media (min-width: 601px) and (max-width: 1099px) {
   .staff-table tr.staff-row { padding: 12px 16px; gap: 10px 12px; }
   .staff-table td[data-label] { flex: 0 0 calc((100% - 48px) / 5); font-size: 13px !important; }
   .staff-table tr.staff-detail { padding: 0 16px 16px; }
@@ -8585,4 +8586,39 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .staff-card-filter { margin-left: auto; }
 @media (max-width: 600px) {
   .staff-card-filter { margin-left: 0; width: 100%; justify-content: space-between; }
+}
+
+/* Staff > Team figures on a laptop (1025-1440px): the icon above the label,
+   so "Pay details added" and "Available now" keep to one line and all four
+   numbers sit level. Wider screens keep the icon beside the text. */
+@media (min-width: 1025px) and (max-width: 1440px) {
+  .staff-stats .at-stat { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .staff-stats .at-stat-body { width: 100%; min-width: 0; }
+  .staff-stats .at-stat-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .06em; }
+}
+
+/* Staff > Team figures, every width: the cards in a row are one height, and
+   the label takes the spare room, so each number and the line under it sit
+   level across the row even where one label wraps to two lines. */
+.staff-stats > .at-stat { align-self: stretch; }
+.staff-stats .at-stat-body { display: flex; flex-direction: column; align-self: stretch; flex: 1 1 auto; min-width: 0; }
+.staff-stats .at-stat-label { flex: 1 0 auto; }
+
+/* Staff > Team on a laptop (1100-1366px): the table, fitted. Tighter cells;
+   headings, phone numbers and "Not added" on one line; the Action column
+   only as wide as its buttons, "+ Advance" there as its "+" alone (its
+   title and accessible name stay). Bigger screens keep the full table. */
+@media (min-width: 1100px) and (max-width: 1366px) {
+  .staff-table > thead > tr > th, .staff-table > tbody > tr.staff-row > td { padding-left: 10px !important; padding-right: 10px !important; }
+  .staff-table > thead > tr > th { white-space: nowrap; }
+  .staff-table td[data-label="Contact"], .staff-table td[data-label="Work type"] { white-space: nowrap; }
+  .staff-table td.staff-cell-actions .btn-secondary:has(> svg.lucide-plus) { font-size: 0 !important; gap: 0 !important; padding: 0 8px !important; min-width: 32px; justify-content: center; }
+  .staff-table td.staff-cell-actions .btn-secondary:has(> svg.lucide-chevron-down, > svg.lucide-chevron-up) { padding: 0 6px !important; min-width: 30px !important; }
+  .staff-table td.staff-cell-actions > div { gap: 4px !important; }
+  .staff-table td.staff-cell-actions .btn-secondary:has(> svg.lucide-plus) svg { width: 14px; height: 14px; }
+}
+/* Every desktop table (1100px up): the Action column only as wide as its
+   buttons, so the person, status and pay columns get the room. */
+@media (min-width: 1100px) {
+  .staff-table td.staff-cell-actions { width: 1%; }
 }
