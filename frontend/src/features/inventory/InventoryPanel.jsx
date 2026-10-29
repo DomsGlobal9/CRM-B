@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, Layers, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, ArrowLeft, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, Layers, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -162,7 +162,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       <PageHeader
         title={t('inventoryPage.title')}
         subtitle={t('inventoryPage.subtitle')}
-        actions={canItems && (
+        actions={canItems && tab !== 'shelves' && (
           <button type="button" className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setEditingItem({})}>
             <Plus size={16} />
             {t('inventoryPage.newItem')}
@@ -188,6 +188,21 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
       {/* Tab strip, not pill buttons: these switch a view, so an underline on
           the active one reads as navigation rather than seven call-to-actions. */}
+      {/* Racks & shelves: Back to Inventory, above the tabs. */}
+      {/* Add material moves down beside it, so the two share one row. */}
+      {tab === 'shelves' && (
+        <div className="sh-page-row">
+          <button type="button" className="btn-secondary sh-back sh-back--page" onClick={() => setTab('items')} aria-label="Back to Inventory" title="Back to Inventory">
+            <ArrowLeft size={15} /> <span>Back</span>
+          </button>
+          {canItems && (
+            <button type="button" className="btn-primary sh-page-add" style={{ padding: '10px 18px' }} onClick={() => setEditingItem({})}>
+              <Plus size={16} />
+              {t('inventoryPage.newItem')}
+            </button>
+          )}
+        </div>
+      )}
       <div className="at-scroll-tabs" style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-5)', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
         {/* Five tabs shown: Inventory, In-house (garments made for the
             boutique's own stock), Materials library (the catalogue of
@@ -286,7 +301,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
       {!loadError && tab === 'inhouse' && <InHouseTab />}
 
-      {!loadError && tab === 'shelves' && <ShelvesTab canMove={canStock || canTransfer} canManage={canItems} onBack={() => setTab('items')} />}
+      {!loadError && tab === 'shelves' && <ShelvesTab canMove={canStock || canTransfer} canManage={canItems} />}
 
       {!loadError && tab === 'reports' && <ReportsTab />}
 

@@ -168,13 +168,9 @@
 }
 .portal-main:has(> .sh) > .at-scroll-tabs { margin-top: 0 !important; }
 
-@media (max-width: 1279px) {
-  .sh-views { flex-basis: 100%; }
-}
-/* Touch screens give buttons 44px: the location box matches Back. */
+/* Touch screens give buttons 44px. */
 @media (max-width: 1024px) {
   .sh-back { height: 44px; min-height: 44px; }
-  .sh-location > select.form-control { height: 44px; min-height: 44px; }
 }
 @media (max-width: 640px) {
   .sh { margin-top: 10px; gap: 10px; }
@@ -205,4 +201,29 @@
 @media (max-width: 640px) {
   .sh-thumb { width: 44px; height: 44px; }
   .sh-look-img { max-height: 260px; }
+}
+
+/* Back sits above the Inventory tabs; the location and the views share
+   one line, and when the views do not fit beside it they move to the next
+   line together (never half beside, half under). */
+.sh-back--page { display: inline-flex; align-self: flex-start; margin: 0 0 12px; }
+.portal-main:has(> .sh) > .sh-page-row + .at-scroll-tabs { margin-top: 0 !important; }
+.sh-views { flex: 0 1 auto; }
+@media (max-width: 640px) {
+  .sh-back--page { margin-bottom: 10px; }
+  .sh-views { flex: 0 0 auto; }
+}
+.sh-location > select.form-control { height: 40px !important; min-height: 40px !important; }
+
+/* Back and Add material on one row above the tabs (Racks & shelves). */
+.sh-page-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; }
+.sh-page-row > .sh-back--page { margin: 0; height: 44px; min-height: 44px; }
+.sh-page-add { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; min-height: 44px; margin-left: auto; }
+/* No button in the title's row any more: it only keeps clear of the chip. */
+@media (min-width: 769px) {
+  .portal-main:has(> .sh) > .portal-account-bar + .at-page-head > .at-page-head-right:empty { display: none; }
+}
+@media (max-width: 640px) {
+  .sh-page-row { margin-bottom: 10px; }
+  .sh-page-add { flex: 1 1 auto; }
 }
