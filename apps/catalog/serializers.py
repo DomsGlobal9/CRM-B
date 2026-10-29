@@ -91,12 +91,16 @@ class GarmentJobSerializer(serializers.ModelSerializer):
     template_name = serializers.CharField(source='template.name', read_only=True)
     # The name to show: the counter's own for this garment, else the template's.
     display_name = serializers.CharField(read_only=True)
+    # Who is designing this garment. Read off the DesignAssignment, the one
+    # record the Design Work screen, the designer's desk and the Design Studio
+    # all read, so the order page can never disagree with them.
+    design_assignment = serializers.SerializerMethodField()
 
     class Meta:
         model = GarmentJob
         fields = [
             'id', 'order', 'template', 'template_key', 'template_name',
-            'label', 'display_name',
+            'label', 'display_name', 'design_assignment',
             'template_version', 'spec', 'measurements', 'sequence', 'materials',
             'selections',
             'base_price', 'fabric_price', 'embroidery_price',
@@ -110,6 +114,21 @@ class GarmentJobSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'template': {'queryset': GarmentTemplate.objects.prefetch_related(
                 'sections__fields__options')},
+        }
+
+    def get_design_assignment(self, obj):
+        from django.core.exceptions import ObjectDoesNotExist
+        if obj.pk is None:
+            return None
+        try:
+            assignment = obj.design_assignment
+        except ObjectDoesNotExist:
+            return None
+        return {
+            'id': str(assignment.id),
+            'designer': str(assignment.designer_id),
+            'designer_name': assignment.designer.name,
+            'status': assignment.status,
         }
 
     def validate_label(self, value):

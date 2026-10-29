@@ -509,6 +509,9 @@ class TailorViewSet(viewsets.ModelViewSet):
         self._ensure_user_account(tailor)
 
     def perform_update(self, serializer):
+        from apps.staff.views import guard_handed_team_write
+        guard_handed_team_write(
+            self.request, own_row=serializer.instance.user_id == self.request.user.id)
         tailor = serializer.save()
         self._ensure_user_account(tailor)
 
@@ -2170,41 +2173,48 @@ class BoutiqueSettingsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get', 'put'], url_path='admin-access',
             permission_classes=[OwnerOnly])
     def admin_access(self, request):
-        """The one staff member made Admin, and the work handed to them.
+        """The work handed to each role.
 
-        PUT replaces the whole setting: the screen always sends both the person
-        and every ticked task, and one Admin at a time is the point of it.
+        PUT replaces the whole map: the screen always sends every role's ticked
+        tasks, so a role left out is handed nothing.
         """
         from django.core.exceptions import ValidationError as DjangoValidationError
 
         from apps.design_studio.models import Designer
-        from core.admin_access import ADMIN_TASKS, clean_admin_access
+        from core.admin_access import (ADMIN_TASKS, assignable_roles,
+                                       clean_admin_access, role_tasks)
 
         if request.method == 'PUT':
             try:
                 access = clean_admin_access(request.data)
             except ValueError as exc:
                 return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-            member = access['member']
-            if member:
-                model = Tailor if member['kind'] == 'staff' else Designer
-                try:
-                    found = model.objects.filter(pk=member['id']).exists()
-                except (ValueError, DjangoValidationError):
-                    found = False
-                if not found:
-                    return Response({'error': 'That team member is not on this boutique\'s staff list.'},
-                                    status=status.HTTP_400_BAD_REQUEST)
             with transaction.atomic():
                 config, _ = BoutiqueSettings.objects.select_for_update().get_or_create(id=1)
                 config.admin_access = access
                 config.save(update_fields=['admin_access'])
         else:
             config, _ = BoutiqueSettings.objects.get_or_create(id=1)
-        stored = config.admin_access or {}
+        stored = config.admin_access if isinstance(config.admin_access, dict) else {}
+
+        # The single Admin the old screen saved, which grants nothing now
+        # (core.admin_access). Named so the owner can tick that work on a role.
+        previous = None
+        member = stored.get('member') if 'roles' not in stored else None
+        if isinstance(member, dict) and stored.get('tasks'):
+            model = Tailor if member.get('kind') == 'staff' else Designer
+            try:
+                person = model.objects.filter(pk=member.get('id')).first()
+            except (ValueError, DjangoValidationError):
+                person = None
+            if person is not None:
+                previous = {'name': person.name,
+                            'role': 'Designer' if model is Designer else person.role,
+                            'tasks': sorted(stored.get('tasks') or [])}
         return Response({
-            'member': stored.get('member'),
-            'tasks': stored.get('tasks') or [],
+            'roles': role_tasks(stored),
+            'role_names': list(assignable_roles()),
+            'previous_admin': previous,
             'catalogue': {section: list(tasks) for section, tasks in ADMIN_TASKS.items()},
         })
 

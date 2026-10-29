@@ -200,11 +200,21 @@ class DistributionTests(SimpleTestCase):
 
     def test_specialists_are_tailor_shaped(self):
         for role in PRODUCTION_ROLES:
-            if role == 'Master':
+            if role in ('Master', 'Logistics Staff'):
                 continue
             with self.subTest(role=role):
                 self.assertEqual(ROLE_DEFAULTS[role], TAILOR_DEFAULT)
         self.assertLess(TAILOR_DEFAULT, ROLE_DEFAULTS['Master'])
+
+    def test_logistics_staff_are_tailor_shaped_without_the_design_studio(self):
+        # They carry stock from the warehouse to the shop and hold no workflow
+        # stage, so there is no design brief for them to read.
+        logistics = ROLE_DEFAULTS['Logistics Staff']
+        self.assertLess(logistics, TAILOR_DEFAULT)
+        self.assertEqual({k for k in TAILOR_DEFAULT - logistics
+                          if k != 'design_studio' and PARENT.get(k) != 'design_studio'}, set())
+        self.assertNotIn('design_studio', logistics)
+        self.assertNotIn('inventory', logistics)
 
     def test_malformed_role_modules_does_not_raise(self):
         # The column is JSON written through an API. Anything can be in it, and

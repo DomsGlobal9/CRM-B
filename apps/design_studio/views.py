@@ -17,6 +17,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from apps.activities.models import UniversalActivity
+from core.admin_access import holds
 from core.roles import DESIGNER, OWNER, can_assign, resolve_user_role
 from core.validators import (
     MAX_NOTE, validate_image_upload, validate_image_uploads, validate_text,
@@ -1151,12 +1152,15 @@ class DesignAssignmentViewSet(viewsets.ModelViewSet):
         job = serializer.validated_data['garment_job']
         designer = serializer.validated_data['designer']
 
-        if not can_assign(role, DESIGNER):
+        # A role the owner handed design assignment to (core.admin_access)
+        # assigns as the owner would, whatever its rank.
+        handed = holds(request.user, 'design.assign')
+        if not handed and not can_assign(role, DESIGNER):
             return Response({'detail': f'A {role} cannot assign design work to a Designer.'},
                             status=status.HTTP_403_FORBIDDEN)
 
         existing = DesignAssignment.objects.filter(garment_job=job).first()
-        if role == DESIGNER:
+        if role == DESIGNER and not handed:
             # Handing on your OWN work. Taking a garment another designer is
             # already working on is not handing down; it is taking over.
             profile = getattr(request.user, 'designer_profile', None)

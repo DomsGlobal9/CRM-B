@@ -376,8 +376,11 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
 }
 
 export default function DesignWork({ currentUser }) {
-  const isSupervisor = ['Owner', 'Master'].includes(currentUser?.role);
-  const canAssignDesign = currentUser?.role === 'Owner';
+  // A role the owner handed design assignment (core/admin_access.py) runs
+  // this board as the owner does.
+  const handedAssign = (currentUser?.admin_tasks || []).includes('design.assign');
+  const isSupervisor = ['Owner', 'Master'].includes(currentUser?.role) || handedAssign;
+  const canAssignDesign = currentUser?.role === 'Owner' || handedAssign;
   const isDesigner = currentUser?.role === 'Designer';
 
   const [assignments, setAssignments] = useState([]);

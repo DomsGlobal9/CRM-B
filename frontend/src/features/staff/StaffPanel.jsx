@@ -843,7 +843,11 @@ function DeleteMemberDialog({ state, onCancel, onConfirm }) {
 
 // `onlyDesigners`: opened from the Design library's Designers card -- the
 // team list shows the designers alone until `onShowAll` clears it.
-function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowAll = null }) {
+function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, canAttend = isOwner,
+                  portalUrl, onlyDesigners = false, onShowAll = null }) {
+  // Edit/delete, pay and today's attendance each follow their own handed
+  // task (core/admin_access.py); sign-in credentials stay the owner's alone.
+  const canAct = canManage || canPay;
   const [roster, setRoster] = useState([]);
   const [designers, setDesigners] = useState([]);
   const [terms, setTerms] = useState([]);
@@ -870,9 +874,9 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
         canSeeTeam ? api.getTailors().catch(() => []) : Promise.resolve([]),
         canSeeTeam ? api.getDesigners().catch(() => []) : Promise.resolve([]),
         api.getStaffProfiles().catch(() => []),
-        isOwner ? api.getDeposits().catch(() => []) : Promise.resolve([]),
-        isOwner ? api.getAdvances({ active: 'true' }).catch(() => []) : Promise.resolve([]),
-        isOwner ? api.getAttendance({ date: today }).catch(() => []) : Promise.resolve([]),
+        canPay ? api.getDeposits().catch(() => []) : Promise.resolve([]),
+        canPay ? api.getAdvances({ active: 'true' }).catch(() => []) : Promise.resolve([]),
+        canAttend ? api.getAttendance({ date: today }).catch(() => []) : Promise.resolve([]),
       ]);
       setRoster(Array.isArray(people) ? people : []);
       setDesigners(Array.isArray(designed) ? designed : []);
@@ -885,7 +889,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
     } finally {
       setLoading(false);
     }
-  }, [canSeeTeam, isOwner]);
+  }, [canSeeTeam, canPay, canAttend]);
 
 
   useEffect(() => {
@@ -989,7 +993,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
                       sub={`${roster.length} people`} />
             <StatCard icon={UserCheck} tone="amber" label="Available now" value={analytics.available}
                       sub={analytics.busy ? `${analytics.busy} busy` : 'nobody busy'} />
-            {isOwner && (
+            {canAttend && (
               <StatCard icon={Clock} tone="blue" label="Present today" value={analytics.presentToday}
                         sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'Marked in attendance'} />
             )}
@@ -1050,7 +1054,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
               )}
             </span>
           )}
-          {isOwner && (
+          {canManage && (
             <button type="button" className="btn-primary" style={{ marginLeft: 'auto', padding: '10px 18px' }} onClick={() => setAdding(true)}>
               <Plus size={16} /> Add a team member
             </button>
@@ -1067,8 +1071,8 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
       ) : (
         
         (() => {
-          const showPay = isOwner && rows.some(({ terms }) => terms && showsPay(terms));
-          const cols = 4 + (showPay ? 2 : 0) + (isOwner ? 1 : 0);
+          const showPay = canPay && rows.some(({ terms }) => terms && showsPay(terms));
+          const cols = 4 + (showPay ? 2 : 0) + (canAct ? 1 : 0);
           const toggle = (id) => setExpanded((prev) => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id); else next.add(id);
@@ -1088,7 +1092,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
                 <th>Work type</th>
                 {showPay && <th>Pay</th>}
                 {showPay && <th>Advances</th>}
-                {isOwner && <th style={{ textAlign: 'right' }}>Action</th>}
+                {canAct && <th style={{ textAlign: 'right' }}>Action</th>}
               </tr>
             </thead>
             <tbody>
@@ -1105,7 +1109,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
                     <AvatarInitials name={member.name} size={36} />
                     <div style={{ minWidth: 0 }}>
-                      {isOwner ? (
+                      {canManage ? (
                         <button
                           type="button"
                           onClick={() => setPerson(member)}
@@ -1129,7 +1133,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
                 </td>
 
                 <td data-label="Status">
-                  {member.status && isOwner && !member.isDesigner
+                  {member.status && canAttend && !member.isDesigner
                    && !attendanceToday.some((s) => String(s.staff) === String(member.id)) ? (
                     // Not marked in today: the stored Available/Busy is stale until they arrive.
                     <span className="ui-badge ui-badge--danger">● Absent</span>
@@ -1137,7 +1141,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
                     <span className={`ui-badge ui-badge--${member.status === 'Available' ? 'success' : member.status === 'Busy' ? 'warning' : 'neutral'}`}>
                       ● {member.status}
                     </span>
-                  ) : member.isDesigner && isOwner ? (
+                  ) : member.isDesigner && canAttend ? (
                     // A designer's attendance is recorded on their linked row (member.staff).
                     member.staff && attendanceToday.some((s) => String(s.staff) === String(member.staff))
                       ? <span className="ui-badge ui-badge--success">● Present</span>
@@ -1193,10 +1197,10 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
                   </td>
                 )}
 
-                {isOwner && (
+                {canAct && (
                   <td className="staff-cell-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
-                      {t && showsPay(t) && !member.isDesigner && (
+                      {canPay && t && showsPay(t) && !member.isDesigner && (
                         <button type="button" className="btn-secondary at-btn-sm"
                                 onClick={() => setIssuingFor(member)} title="Issue an advance">
                           <Plus size={14} /> Advance
@@ -1204,15 +1208,17 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
                       )}
                       {/* Edit (details, employment and documents) and
                           Delete, behind one ⋯ button. */}
-                      <RowMenu
-                        label={`Actions for ${member.name}`}
-                        items={[
-                          { label: 'Edit', icon: <Pencil size={14} />, onClick: () => setPerson(member) },
-                          { label: 'Credentials', icon: <KeyRound size={14} />, onClick: () => setCredentialsFor(member) },
-                          { label: 'Delete', icon: <Trash2 size={14} />, danger: true,
-                            onClick: () => setRemoving({ member, busy: false, error: null }) },
-                        ]}
-                      />
+                      {canManage && (
+                        <RowMenu
+                          label={`Actions for ${member.name}`}
+                          items={[
+                            { label: 'Edit', icon: <Pencil size={14} />, onClick: () => setPerson(member) },
+                            ...(isOwner ? [{ label: 'Credentials', icon: <KeyRound size={14} />, onClick: () => setCredentialsFor(member) }] : []),
+                            { label: 'Delete', icon: <Trash2 size={14} />, danger: true,
+                              onClick: () => setRemoving({ member, busy: false, error: null }) },
+                          ]}
+                        />
+                      )}
                       {hasDetail && (
                         <button type="button" className="btn-secondary at-btn-sm"
                                 onClick={() => toggle(member.id)}
@@ -1295,7 +1301,7 @@ function Roster({ isOwner, canSeeTeam, portalUrl, onlyDesigners = false, onShowA
 
               {/* Advances are paid back out of payroll, which covers the
                   roster only, so a designer has no advances section. */}
-              {isOwner && t && showsPay(t) && !member.isDesigner && (
+              {canPay && t && showsPay(t) && !member.isDesigner && (
                 <div style={{
                   marginTop: '12px', paddingTop: '12px',
                   borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))',
@@ -1432,10 +1438,13 @@ const TABS = [
 export default function StaffPanel({ currentUser, onlyDesigners = false, onShowAllStaff = null }) {
   const isOwner = !currentUser?.role || currentUser.role === 'Owner';
   const isSupervisor = currentUser?.role === 'Master';
-  const canSeeTeam = isOwner || isSupervisor;
+  // Team work the owner handed this role (core/admin_access.py, team.*).
+  const handed = (currentUser?.admin_tasks || []).filter((task) => task.startsWith('team.'));
+  const can = (task) => isOwner || handed.includes(task);
+  const canSeeTeam = isOwner || isSupervisor || handed.length > 0;
   // Payroll is its own module switch, independent of attendance; mirrors
   // App.jsx's hasModule (no list at all means nothing is switched off).
-  const payrollOn = isOwner
+  const payrollOn = can('team.payroll')
     && (!Array.isArray(currentUser?.modules) || currentUser.modules.includes('payroll'));
 
   const [tab, setTab] = useState(isOwner || (onlyDesigners && canSeeTeam) ? 'roster' : 'attendance');
@@ -1484,17 +1493,18 @@ export default function StaffPanel({ currentUser, onlyDesigners = false, onShowA
         })}
       </div>
 
-      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)}
+      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} canManage={can('team.manage')}
+                                   canPay={can('team.payroll')} canAttend={can('team.attendance')} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)}
                                    onlyDesigners={onlyDesigners} onShowAll={onShowAllStaff} />}
       {tab === 'tasks' && <TeamTasks currentUser={currentUser} canSeeTeam={canSeeTeam} />}
       {/* The team's attendance is the owner's alone; everyone else sees their own.
           Payroll lives inside it as an owner-only view, since every pay run is
           built from that attendance. */}
       {tab === 'attendance' && (
-        <Attendance isOwner={isOwner} canSeeTeam={isOwner} showPayroll={payrollOn} />
+        <Attendance isOwner={can('team.attendance')} canSeeTeam={can('team.attendance')} showPayroll={payrollOn} />
       )}
       {tab === 'performance' && (
-        <Performance isOwner={isOwner} canSeeTeam={canSeeTeam} />
+        <Performance isOwner={isOwner} canReview={can('team.reviews')} canSeeTeam={canSeeTeam} />
       )}
       {tab === 'permissions' && isOwner && <RolePermissions />}
     </>

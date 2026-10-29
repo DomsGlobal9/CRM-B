@@ -21,3 +21,6 @@ media/*
 !media/fabric_*.jpg
 
 docs/user-guide/pdf-build/
+
+# Local demo-video tooling (ffmpeg binaries, raw renders, node_modules) - too large for GitHub
+demo-video/

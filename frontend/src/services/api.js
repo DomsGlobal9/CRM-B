@@ -782,7 +782,7 @@ export const api = {
     return res.json();
   },
 
-  // The one staff member made Admin and the work handed to them (owner only).
+  // The extra work handed to each role, {roles: {role: [task]}} (owner only).
   async getAdminAccess() {
     const res = await guardedFetch(`${BASE_URL}/boutique-settings/admin-access/`, { headers: getHeaders() });
     if (!res.ok) await failWith(res, 'Could not load the admin settings');

@@ -187,17 +187,18 @@ class DailySummaryTests(TenantTestCase):
         self.assertIn('Overdue: 1', text)
         self.assertNotIn('assign', text.replace('Assigned', ''))
 
-    def test_the_admin_handed_leads_hears_about_leads(self):
+    def test_a_role_handed_leads_hears_about_leads(self):
         self._customer('Lead', '9000000003', created=at(14), lead=True)
         settings = BoutiqueSettings.objects.get_or_create(id=1)[0]
-        settings.admin_access = {'member': {'kind': 'staff', 'id': self.ravi.id},
-                                 'tasks': ['customers.leads']}
+        # Handed to another role: a Tailor hears nothing about leads.
+        settings.admin_access = {'roles': {'Master': ['customers.leads']}}
         settings.save()
+        self.assertIsNone(self.text_for(self.ravi_user, 'Tailor', self.ravi))
 
+        settings.admin_access = {'roles': {'Tailor': ['customers.leads']}}
+        settings.save()
         text = self.text_for(self.ravi_user, 'Tailor', self.ravi)
-
         self.assertIn('Leads awaiting contact: 1', text)
-        self.assertIsNone(self.text_for(self.anita_user, 'Tailor', self.anita))
 
     # -- sending ------------------------------------------------------------
 

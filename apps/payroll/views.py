@@ -19,7 +19,7 @@ from apps.activities.models import UniversalActivity
 from apps.staff.attendance import business_date
 from apps.staff.models import StaffProfile
 from core.permissions import OwnerOnly, OwnerOrOwnFinancialRecord
-from core.roles import OWNER, resolve_user_role
+from core.admin_access import holds
 from crm_api.models import Tailor
 
 from . import advances, deposits, payouts, services
@@ -163,7 +163,7 @@ class PayrollRecordViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         queryset = PayrollRecord.objects.select_related(
             'period', 'staff', 'advance_recovered_from', 'payout')
-        if resolve_user_role(self.request.user) != OWNER:
+        if not holds(self.request.user, 'team.payroll'):
             mine = _own_staff(self.request.user)
             return queryset.filter(staff=mine) if mine else queryset.none()
         # Parsed before the ORM sees them. `?staff=abc` reached
@@ -195,7 +195,7 @@ class PayrollRecordViewSet(viewsets.ReadOnlyModelViewSet):
         paid. The amount is never read from the body -- it is the record's own
         net_payable, copied inside the payout transaction.
         """
-        if resolve_user_role(request.user) != OWNER:
+        if not holds(request.user, 'team.payroll'):
             return Response({'error': 'Only the boutique owner can record a payout.'},
                             status=status.HTTP_403_FORBIDDEN)
         record = self.get_object()
@@ -301,7 +301,7 @@ class StaffAdvanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = StaffAdvance.objects.select_related('staff')
-        if resolve_user_role(self.request.user) != OWNER:
+        if not holds(self.request.user, 'team.payroll'):
             mine = _own_staff(self.request.user)
             return queryset.filter(staff=mine) if mine else queryset.none()
         staff = self.request.query_params.get('staff')
@@ -340,7 +340,7 @@ class StaffAdvanceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['POST'])
     def cancel(self, request, pk=None):
         """Reverse an advance entered in error, before anything is recovered."""
-        if resolve_user_role(request.user) != OWNER:
+        if not holds(request.user, 'team.payroll'):
             return Response({'error': 'Only the boutique owner can cancel an advance.'},
                             status=status.HTTP_403_FORBIDDEN)
         advance = self.get_object()

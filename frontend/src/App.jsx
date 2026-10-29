@@ -1459,12 +1459,12 @@ function CuttingUsage({ orderId }) {
 const hasMaterials = (order) =>
   (order.garment_jobs || []).some((job) => (job.materials || []).length > 0);
 
-function MaterialsChecklist({ orderId, role, onActivity }) {
+function MaterialsChecklist({ orderId, role, onActivity, handed = false }) {
   const [plan, setPlan] = useState(null);
   const [loaded, setLoaded] = useState(false);
   const [opened, setOpened] = useState(false);
   const [busyLineId, setBusyLineId] = useState(null);
-  const canEdit = role === 'Owner' || SUPERVISOR_ROLES.includes(role);
+  const canEdit = handed || role === 'Owner' || SUPERVISOR_ROLES.includes(role);
 
   const refresh = () => api.getMaterialChecklist(orderId)
     .then((data) => { setPlan(data.plan); setLoaded(true); })
@@ -1656,11 +1656,19 @@ const navSectionsFor = (user, t) => {
   // (user.admin_tasks, e.g. 'orders.create'), ahead of their own menu.
   const handed = new Set((user?.admin_tasks || []).map((task) => task.split('.')[0]));
   const own = new Set(sections.flatMap((section) => section.items.map((i) => i.tab)));
+  // `section` is the task prefix (core/admin_access.py ADMIN_TASKS) that opens
+  // the screen. Team is not here: every role already has the staff screen.
   const adminItems = [
-    { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
-    { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
-    { tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
-  ].filter((item) => handed.has(item.tab) && !own.has(item.tab));
+    { section: 'dashboard', tab: 'overview', icon: Store, label: t('nav.dashboard') },
+    { section: 'orders', tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
+    { section: 'workshop', tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
+    { section: 'customers', tab: 'customers', icon: Contact, label: t('nav.customers'), phone: true },
+    { section: 'design', tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
+    { section: 'inventory', tab: 'inventory', icon: Package, label: t('nav.inventory') },
+    { section: 'finance', tab: 'finance', icon: Wallet, label: t('nav.finance', 'Profit & Costs') },
+    { section: 'invoices', tab: 'invoices', icon: Receipt, label: t('nav.invoices') },
+    { section: 'analytics', tab: 'analytics', icon: BarChart2, label: t('nav.analytics') },
+  ].filter((item) => handed.has(item.section) && !own.has(item.tab));
   if (adminItems.length) sections.unshift({ key: 'admin', label: t('nav.groups.admin', 'Admin'), items: adminItems });
 
   const roomy = !role || role === 'Owner' || SUPERVISOR_ROLES.includes(role);
@@ -3124,57 +3132,37 @@ function App() {
     }
   };
 
-  const handleAssignWorkflow = async (orderId, updates) => {
-    if (assigningWorkflowOrderId) return;
-    setAssigningWorkflowOrderId(orderId);
-    try {
-      await api.updateOrder(orderId, updates);
-      fetchDashboardAndConfig();
-    } catch (err) {
-      alert("Failed to update staff assignment: " + err.message);
-    } finally {
-      setAssigningWorkflowOrderId(null);
-    }
-  };
 
   
   // A Tailor stitches -- new garments and alterations; Hemming & finishing is
   // the Hemming & Pressing Staff's (crm_api 0083_tailor_off_finishing).
   const TAILOR_STEPS = ['stitching_in_progress', 'alteration_work'];
-  const staffRole = (id) => tailors.find(tl => String(tl.id) === String(id))?.role;
-  // The supervising Master's steps are the rest of the garment -- but not a
-  // step Send to workshop handed a specialist by role (a Maggam Karigar's
-  // embroidery, QC Staff's check). Picking a Master here used to take those.
-  const garmentSteps = (order, jobId, tailor) => (order.stages || [])
-    .filter(st => st.garment_job === jobId && TAILOR_STEPS.includes(st.stage_key) === tailor
-      && (tailor || !st.assigned_to || staffRole(st.assigned_to) === 'Master'));
-  // Whether the picked person may take this step at all: assign-stage refuses
-  // otherwise, which stopped the loop halfway with a partial save.
-  const mayTake = (staffId, stageKey) => {
-    const roles = (boutiqueSettings?.workflow_config || []).find(s => s.key === stageKey)?.roles || [];
-    const role = staffRole(staffId);
-    return !staffId || !role || !roles.length || roles.includes(role);
+
+  // Designer in charge. The garment's DesignAssignment is the one record the
+  // Design Work screen, the designer's desk and the Design Studio all read, so
+  // writing it here is what makes the choice show up everywhere.
+  const designerInCharge = (jobs) => {
+    const held = jobs.map(j => j.design_assignment).filter(Boolean);
+    if (!held.length) return { id: '', name: '' };
+    const ids = [...new Set(held.map(a => a.designer))];
+    if (ids.length > 1) return { id: '', name: '', mixed: true };
+    return { id: held[0].designer, name: held[0].designer_name };
   };
-  const garmentHolder = (order, jobId, tailor) => {
-    const rows = garmentSteps(order, jobId, tailor);
-    const row = rows.find(st => st.status === 'NOT_STARTED')
-      || rows.find(st => st.status !== 'COMPLETED' && st.status !== 'SKIPPED') || rows[rows.length - 1];
-    return { id: row?.assigned_to || null, name: row?.assigned_to_name || '' };
-  };
-  
-  const assignGarmentSteps = async (order, jobId, tailor, staffId) => {
-    if (assigningWorkflowOrderId) return;
-    const open = garmentSteps(order, jobId, tailor)
-      .filter(st => st.status === 'NOT_STARTED' && mayTake(staffId, st.stage_key));
-    if (!open.length) {
-      alert('Every one of these steps on this garment has already started. Reassign a started step from its stage window.');
-      return;
-    }
+
+  const assignOrderDesigner = async (order, jobs, designerId) => {
+    if (!designerId || assigningWorkflowOrderId) return;
+    const approved = jobs.filter(j => j.design_assignment?.status === 'APPROVED'
+      && j.design_assignment.designer !== designerId);
+    const todo = jobs.filter(j => !approved.includes(j) && j.design_assignment?.designer !== designerId);
     setAssigningWorkflowOrderId(order.id);
     try {
-      for (const st of open) await api.assignStage(order.id, st.stage_key, staffId || null, jobId);
+      for (const job of todo) await api.assignDesignWork({ garment_job: job.id, designer: designerId });
+      if (approved.length) {
+        alert(`${approved.length === 1 ? 'One garment keeps its designer' : `${approved.length} garments keep their designer`}: `
+          + 'the design is already approved. Request changes on it in Design Work before reassigning.');
+      }
     } catch (err) {
-      alert("Failed to update staff assignment: " + err.message);
+      alert('Failed to update the designer: ' + err.message);
     } finally {
       setAssigningWorkflowOrderId(null);
       fetchDashboardAndConfig();
@@ -3990,6 +3978,24 @@ function App() {
     return () => { cancelled = true; };
   }, [view, serviceType]);
 
+  // The order page's Designer in charge picker. Only the Owner may hand design
+  // work to a Designer (core.roles), so nobody else needs the list.
+  const openOrderId = openOrder?.id;
+  useEffect(() => {
+    const mayAssignDesign = currentUser?.role === 'Owner'
+      || (currentUser?.admin_tasks || []).includes('design.assign');
+    if (!openOrderId || !mayAssignDesign || designersLoaded) return;
+    let cancelled = false;
+    api.getDesigners({ active: 'true' })
+      .then(rows => {
+        if (cancelled) return;
+        setDesigners(Array.isArray(rows) ? rows : (rows?.results || []));
+        setDesignersLoaded(true);
+      })
+      .catch(() => { if (!cancelled) { setDesigners([]); setDesignersLoaded(true); } });
+    return () => { cancelled = true; };
+  }, [openOrderId, currentUser?.role, currentUser?.admin_tasks, designersLoaded]);
+
   const handleNext = () => runOnce(performNext);
   const handleSaveDraft = () => runOnce(performSaveDraft);
 
@@ -4215,7 +4221,6 @@ function App() {
     return pool.filter(t => allowed.includes(t.role));
   };
 
-  const stitchingStaff = () => eligibleStaffForStage('stitching_in_progress');
 
   const handleApproveDesign = async (prefId, fallbackImage) => {
     if (!selectedDirectoryCustomer) return;
@@ -4326,7 +4331,11 @@ function App() {
 
   /** Whether the owner handed this user `task` as Admin (core/admin_access.py). */
   const adminCan = (task) => (currentUser?.admin_tasks || []).includes(task);
-  const canAddCustomer = !currentUser?.role || currentUser.role === 'Owner' || adminCan('customers.add');
+  const isOwnerUser = !currentUser?.role || currentUser.role === 'Owner';
+  const canAddCustomer = isOwnerUser || adminCan('customers.add');
+  const canEditCustomer = isOwnerUser || adminCan('customers.edit');
+  const canDeleteCustomer = isOwnerUser || adminCan('customers.delete');
+  const canImportCustomers = isOwnerUser || adminCan('customers.import');
   const guideCustomers = !loading && canAddCustomer && bookTotal < 10;
   const guideOrders = !loading && ordersList.length < 10;
   
@@ -5386,7 +5395,7 @@ function App() {
                 <PageHeader
                   title={t('designsPage.title')}
                   subtitle={t('designsPage.subtitle')}
-                  actions={(!currentUser?.role || currentUser.role === 'Owner') && (
+                  actions={(!currentUser?.role || currentUser.role === 'Owner' || adminCan('design.upload')) && (
                       <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setShowDesignUpload(true)}>
                         <Plus size={16} />
                         {t('designsPage.addNewDesign')}
@@ -5436,14 +5445,14 @@ function App() {
                     ) : designsView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB ? (
                       <DesignDashboard
                         onOpenLibrary={() => setDesignsView('library')}
-                        canManageDesigners={!currentUser?.role || currentUser.role === 'Owner'}
+                        canManageDesigners={!currentUser?.role || currentUser.role === 'Owner' || adminCan('team.manage')}
                         shopSlug={currentUser?.shop_slug}
                       />
                     ) : (
                       <DesignLibrary
                         refreshToken={designLibraryToken}
-                        canReview={!currentUser?.role || currentUser.role === 'Owner'}
-                        canStock={!currentUser?.role || currentUser.role === 'Owner'}
+                        canReview={!currentUser?.role || currentUser.role === 'Owner' || adminCan('design.approve')}
+                        canStock={!currentUser?.role || currentUser.role === 'Owner' || adminCan('inventory.items')}
                         onOpenRequests={() => setDesignsView('requests')}
                         onOpenDesigners={navTabs.includes('staff') ? () => {
                           setStaffDesignersVisit(sectionVisit + 1);
@@ -5494,8 +5503,8 @@ function App() {
               const stages = order.stages || [];
               const focusJob = (order.garment_jobs || []).find(j => j.id === openGarmentJob) || null;
               const focusNo = focusJob ? order.garment_jobs.indexOf(focusJob) + 1 : 0;
-              const masterWho = focusJob ? garmentHolder(order, focusJob.id, false) : { id: order.master, name: order.master_name };
-              const tailorWho = focusJob ? garmentHolder(order, focusJob.id, true) : { id: order.tailor, name: order.tailor_name };
+              const designJobs = focusJob ? [focusJob] : (order.garment_jobs || []);
+              const designerWho = designerInCharge(designJobs);
               const allDone = stages.length > 0 && stages.every(st => st.status === 'COMPLETED' || st.status === 'SKIPPED');
               const verification = order.master_verification || {};
               const verifyTotal = 6 + (orderGarmentNames(order).includes('Saree') ? 1 : 0);
@@ -5600,48 +5609,28 @@ function App() {
                   {/* The four facts to scan: who is on it, what it is worth, when it is due. */}
                   <section className="od-facts">
                     <div className="od-fact">
-                      <IconTile icon={User} tone="green" size={44} iconSize={20} />
+                      <IconTile icon={PenTool} tone="green" size={44} iconSize={20} />
                       <div>
-                        <div className="od-fact-label">{t('ordersPage.supervisingMaster', 'Supervising Master')}</div>
-                        {isProductionStaff(currentUser.role) ? (
-                          <div className={`od-fact-value${masterWho.name ? '' : ' od-fact-value--empty'}`}>
-                            {masterWho.name || t('ordersPage.unassigned', 'Unassigned')}
-                          </div>
-                        ) : (
-                          <select className="od-fact-select" value={masterWho.id || ''} aria-label={t('ordersPage.supervisingMaster', 'Supervising Master')}
+                        <div className="od-fact-label">{t('ordersPage.designerInCharge', 'Designer in charge')}</div>
+                        {(currentUser?.role === 'Owner' || adminCan('design.assign')) && designJobs.length > 0 ? (
+                          <select className="od-fact-select" value={designerWho.id}
+                                  aria-label={t('ordersPage.designerInCharge', 'Designer in charge')}
                                   disabled={assigningWorkflowOrderId === order.id}
-                                  onChange={(e) => (focusJob
-                                    ? assignGarmentSteps(order, focusJob.id, false, e.target.value || null)
-                                    : handleAssignWorkflow(order.id, { master: e.target.value || null }))}>
-                            <option value="">{t('ordersPage.unassigned', 'Unassigned')}</option>
-                            {masterWho.id && !tailors.some(tl => tl.id === masterWho.id) && (
-                              <option value={masterWho.id}>{masterWho.name || `#${masterWho.id}`}</option>
+                                  onChange={(e) => assignOrderDesigner(order, designJobs, e.target.value)}>
+                            <option value="" disabled>
+                              {designerWho.mixed ? t('ordersPage.severalDesigners', 'Several designers')
+                                : t('ordersPage.unassigned', 'Unassigned')}
+                            </option>
+                            {designerWho.id && !designers.some(d => String(d.id) === String(designerWho.id)) && (
+                              <option value={designerWho.id}>{designerWho.name}</option>
                             )}
-                            {tailors.filter(tl => tl.role === 'Master').map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
+                            {designers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                           </select>
-                        )}
-                      </div>
-                    </div>
-                    <div className="od-fact">
-                      <IconTile icon={Scissors} tone="amber" size={44} iconSize={20} />
-                      <div>
-                        <div className="od-fact-label">{t('ordersPage.stitchingTailor', 'Stitching Tailor')}</div>
-                        {isProductionStaff(currentUser.role) ? (
-                          <div className={`od-fact-value${tailorWho.name ? '' : ' od-fact-value--empty'}`}>
-                            {tailorWho.name || t('ordersPage.unassigned', 'Unassigned')}
-                          </div>
                         ) : (
-                          <select className="od-fact-select" value={tailorWho.id || ''} aria-label={t('ordersPage.stitchingTailor', 'Stitching Tailor')}
-                                  disabled={assigningWorkflowOrderId === order.id}
-                                  onChange={(e) => (focusJob
-                                    ? assignGarmentSteps(order, focusJob.id, true, e.target.value || null)
-                                    : handleAssignWorkflow(order.id, { tailor: e.target.value || null }))}>
-                            <option value="">{t('ordersPage.unassigned', 'Unassigned')}</option>
-                            {tailorWho.id && !stitchingStaff().some(tl => tl.id === tailorWho.id) && (
-                              <option value={tailorWho.id}>{tailorWho.name || `#${tailorWho.id}`}</option>
-                            )}
-                            {stitchingStaff().map(tl => <option key={tl.id} value={tl.id}>{tl.name}</option>)}
-                          </select>
+                          <div className={`od-fact-value${designerWho.name || designerWho.mixed ? '' : ' od-fact-value--empty'}`}>
+                            {designerWho.mixed ? t('ordersPage.severalDesigners', 'Several designers')
+                              : (designerWho.name || t('ordersPage.unassigned', 'Unassigned'))}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -5745,7 +5734,7 @@ function App() {
                             ))}
                           </div>
                         )}
-                        <MaterialsChecklist orderId={order.id} role={currentUser.role} />
+                        <MaterialsChecklist orderId={order.id} role={currentUser.role} handed={adminCan('workshop.materials')} />
                       </section>
                       )}
 
@@ -6302,7 +6291,8 @@ function App() {
                           </td>
                           <td style={{ whiteSpace: 'nowrap' }}>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
-                              {bucket === 'new' && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                              {bucket === 'new' && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)
+                                || adminCan('workshop.assign') || adminCan('workshop.move')) && (
                                 <button type="button" className="btn-primary at-btn-sm" disabled={sendBusy}
                                         onClick={() => openSendToWorkshop(order)}>
                                   <Scissors size={12} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
@@ -6312,7 +6302,8 @@ function App() {
                                   request form the order card and the customer
                                   profile open, one click from the row, for
                                   the roles that run the counter. */}
-                              {isDelivered && order.flow !== 'alteration' && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && (
+                              {isDelivered && order.flow !== 'alteration' && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)
+                                || adminCan('workshop.alterations')) && (
                                 <button type="button" className="btn-secondary at-btn-sm"
                                         style={{ color: 'var(--accent-text)', borderColor: 'var(--accent-border)', background: 'var(--accent-color)' }}
                                         onClick={() => setOrdersAlterationOrder(order)}>
@@ -6381,9 +6372,9 @@ function App() {
                       <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder={t('customersPage.searchPlaceholder')} />
                     </>
                   )}
-                  actions={canAddCustomer && (
+                  actions={(canAddCustomer || canDeleteCustomer || canImportCustomers) && (
                     <>
-                      {bookTotal > 0 && (
+                      {bookTotal > 0 && canDeleteCustomer && (
                         <button type="button" className="btn-secondary at-btn-danger" style={{ padding: '10px 18px' }}
                                 onClick={() => setDeletingAllCustomers(true)}>
                           <Trash2 size={16} /> Delete all
@@ -6392,15 +6383,19 @@ function App() {
                       {/* Leads come in through the lead API, not the counter: no Add or import here. */}
                       {customerView !== 'leads' && (
                         <>
-                          <button type="button" className="btn-secondary" style={{ padding: '10px 18px' }}
-                                  onClick={() => setCustomerAddMode('import')}>
-                            <Upload size={16} /> {t('customersPage.importExcel', 'Import from Excel')}
-                          </button>
-                          <GuidedHighlight show={guideCustomers}>
-                            <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
-                              <Plus size={16} /> Add Customer
+                          {canImportCustomers && (
+                            <button type="button" className="btn-secondary" style={{ padding: '10px 18px' }}
+                                    onClick={() => setCustomerAddMode('import')}>
+                              <Upload size={16} /> {t('customersPage.importExcel', 'Import from Excel')}
                             </button>
-                          </GuidedHighlight>
+                          )}
+                          {canAddCustomer && (
+                            <GuidedHighlight show={guideCustomers}>
+                              <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={handleStartNewCustomer}>
+                                <Plus size={16} /> Add Customer
+                              </button>
+                            </GuidedHighlight>
+                          )}
                         </>
                       )}
                     </>
@@ -6630,7 +6625,7 @@ function App() {
                                   disabled: customerActionId === cust.id,
                                   onClick: () => handleMarkLeadContacted(cust),
                                 }] : []),
-                                ...(canAddCustomer ? [{
+                                ...(canEditCustomer ? [{
                                   label: 'Edit customer',
                                   icon: <Edit2 size={15} />,
                                   disabled: customerActionId === cust.id,
@@ -6643,7 +6638,7 @@ function App() {
                                     onClick: () => { window.open(waLink(cust.mobile_number), '_blank', 'noopener,noreferrer'); },
                                   },
                                 ] : []),
-                                ...(canAddCustomer ? [{
+                                ...(canDeleteCustomer ? [{
                                   label: 'Delete customer',
                                   icon: <Trash2 size={15} />,
                                   danger: true,
@@ -7225,7 +7220,8 @@ function App() {
                                   max={order.total_amount}
                                   inputMode="decimal"
                                   defaultValue={parseFloat(order.amount_paid || 0)}
-                                  disabled={savingPaymentId === order.id}
+                                  disabled={savingPaymentId === order.id
+                                    || !(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.edit'))}
                                   aria-label={`Amount paid for invoice ${orderRef(order)}`}
                                   onChange={(e) => { e.target.value = cleanAmount(e.target.value); }}
                                   onBlur={async (e) => {
@@ -7557,10 +7553,10 @@ function App() {
                   {/* Right column: everyone's own details, then the owner's boutique profile. */}
                   <div className="at-stack">
                   <MyDetails key={currentUser.id} user={currentUser} onUser={setCurrentUser} />
-                  {/* Owner only: submitting POSTs /boutique-settings/, which
-                      RolePermission refuses for every other role. A form that
-                      cannot succeed should not be drawn. */}
-                  {isOwner && (
+                  {/* Owner, or a role handed settings: submitting POSTs
+                      /boutique-settings/, which RolePermission refuses for every
+                      other role. A form that cannot succeed should not be drawn. */}
+                  {(isOwner || adminCan('settings.edit')) && (
                     <SectionCard icon={Store} tone="green" title={t('accountPage.editProfile', 'Edit Boutique Profile')}
                                  subtitle="Keep your boutique information up to date. This will be visible across the platform.">
                       <form
@@ -10661,7 +10657,7 @@ Complete the Payment stage with this partial payment?`)) return;
                       onChange={(e) => handleAssignStage(activeReviewOrder.id, stage.stage_key, e.target.value, stage.garment_job || null)}
                     >
                       {/* No one set on this step: it is the order's stitching tailor's
-                          (stitching, hemming) or master's, as My work already treats it. */}
+                          (stitching, alteration) or master's, as My work already treats it. */}
                       <option value="">{(() => {
                         const tailorStep = TAILOR_STEPS.includes(stage.stage_key);
                         const name = tailorStep ? activeReviewOrder.tailor_name : activeReviewOrder.master_name;

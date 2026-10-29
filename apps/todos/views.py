@@ -46,7 +46,14 @@ class TodoViewSet(viewsets.GenericViewSet):
 
     def _role(self):
         if not hasattr(self, '_cached_role'):
-            self._cached_role = resolve_user_role(self.request.user)
+            role = resolve_user_role(self.request.user)
+            # A role the owner handed "assign to-dos" (core.admin_access)
+            # works the to-do list as a Master does, however junior it is.
+            from core.admin_access import tasks_for
+            from core.roles import MASTER, assigns_work
+            if role is not None and not assigns_work(role) and 'team.todos' in tasks_for(self.request.user):
+                role = MASTER
+            self._cached_role = role
         return self._cached_role
 
     def get_queryset(self):

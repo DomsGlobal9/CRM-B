@@ -9,7 +9,10 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
 
 from apps.activities.models import UniversalActivity
+from rest_framework.exceptions import PermissionDenied
+
 from core import formatting as core_formatting
+from core.admin_access import ADMIN_TASKS, holds
 from core.permissions import OwnerOnly, SUPERVISOR_ROLES, StaffSelfOrOwner
 from core.validators import MAX_NOTE, MAX_REASON, validate_text
 from core.roles import DESIGNER, OWNER, resolve_user_role
@@ -21,9 +24,27 @@ from .models import (
     StaffProfile,
 )
 from .serializers import (
-    AttendanceSessionSerializer, DayMarkSerializer, StaffDocumentSerializer,
+    CONFIDENTIAL_FIELDS, AttendanceSessionSerializer, DayMarkSerializer, StaffDocumentSerializer,
     StaffPerformanceReviewSerializer, StaffProfileSerializer,
 )
+
+#: Any of the Team screen's handed tasks (core.admin_access) shows the roster.
+TEAM_TASKS = tuple(f'team.{task}' for task in ADMIN_TASKS['team'])
+
+
+def guard_handed_team_write(request, own_row):
+    """Limits on team records changed through a handed task, not as owner.
+
+    Nobody edits their own record that way: a role handed "manage the team"
+    could otherwise make itself Master, or raise its own pay. And pay stays with
+    whoever holds payroll -- managing people is not setting what they earn.
+    """
+    if resolve_user_role(request.user) == OWNER:
+        return
+    if own_row:
+        raise PermissionDenied('You cannot change your own staff record. Ask the owner.')
+    if not holds(request.user, 'team.payroll') and set(request.data or {}) & set(CONFIDENTIAL_FIELDS):
+        raise PermissionDenied('Pay and hours are set by the owner, or by a role handed payroll.')
 
 
 def _aware(moment):
@@ -117,11 +138,18 @@ class StaffProfileViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def perform_create(self, serializer):
+        guard_handed_team_write(self.request, own_row=False)
         profile = serializer.save()
         self._record_deposit_agreement(profile, None)
 
     @transaction.atomic
     def perform_update(self, serializer):
+        mine = _staff_for(self.request.user)
+        instance = serializer.instance
+        designer = getattr(self.request.user, 'designer_profile', None)
+        guard_handed_team_write(self.request, own_row=(
+            (mine is not None and instance.staff_id == mine.id)
+            or (designer is not None and instance.designer_id == designer.id)))
         was = serializer.instance.deposit_total
         profile = serializer.save()
         self._record_deposit_agreement(profile, was)
@@ -185,7 +213,7 @@ class StaffProfileViewSet(viewsets.ModelViewSet):
         """
         queryset = StaffProfile.objects.select_related('staff', 'designer')
         role = resolve_user_role(self.request.user)
-        if role == OWNER or role in SUPERVISOR_ROLES:
+        if role == OWNER or role in SUPERVISOR_ROLES or holds(self.request.user, *TEAM_TASKS):
             return queryset
 
         # Everyone else: their own profile, reached through the Tailor row or
@@ -288,10 +316,6 @@ def _staff_for(user):
     return None
 
 
-def _is_owner(user):
-    return resolve_user_role(user) == OWNER
-
-
 def _can_see_team(user):
     role = resolve_user_role(user)
     return role == OWNER or role in SUPERVISOR_ROLES
@@ -340,7 +364,7 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
         Master included -- sees their own days.
         """
         queryset = AttendanceSession.objects.select_related('staff')
-        if _is_owner(self.request.user):
+        if holds(self.request.user, 'team.attendance'):
             # Both filters go through the database as-is, so both used to turn a
             # malformed query string into a 500: `?staff=abc` raises ValueError
             # out of IntegerField.get_prep_value and `?date=abc` raises Django's
@@ -494,7 +518,7 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=False, methods=['POST'], url_path='record')
     def record(self, request):
         """Owner enters a shift somebody missed. Marked OWNER, never SELF."""
-        if not _is_owner(request.user):
+        if not holds(request.user, 'team.attendance'):
             return Response(
                 {'error': 'Only the boutique owner can record attendance for '
                           'someone else.'},
@@ -546,7 +570,7 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
         who can quietly add an hour to a timesheet is the conflict the financial
         boundary exists to prevent.
         """
-        if not _is_owner(request.user):
+        if not holds(request.user, 'team.attendance'):
             return Response(
                 {'error': 'Only the boutique owner can correct attendance.'},
                 status=status.HTTP_403_FORBIDDEN)
@@ -591,8 +615,8 @@ class TimesheetView(views.APIView):
     def get(self, request):
         requested = request.query_params.get('staff')
 
-        # Only the owner may open someone else's timesheet.
-        if _is_owner(request.user):
+        # Only the owner, or a role handed attendance, opens someone else's.
+        if holds(request.user, 'team.attendance'):
             # int() first: a non-numeric id reached IntegerField.get_prep_value
             # and raised ValueError, which DRF does not convert, so `?staff=abc`
             # was a 500 rather than the 400 below.
@@ -659,7 +683,7 @@ class StaffPerformanceReviewViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = StaffPerformanceReview.objects.select_related('staff')
-        if not _is_owner(self.request.user):
+        if not holds(self.request.user, 'team.reviews'):
             mine = _staff_for(self.request.user)
             if mine is None:
                 return queryset.none()
@@ -737,7 +761,7 @@ class StaffPerformanceReviewViewSet(viewsets.ModelViewSet):
         later attendance, reassigned work, a changed role or a deleted roster
         row cannot alter what this review says.
         """
-        if not _is_owner(request.user):
+        if not holds(request.user, 'team.reviews'):
             return Response({'error': 'Only the boutique owner can finalise a review.'},
                             status=status.HTTP_403_FORBIDDEN)
 
@@ -866,7 +890,7 @@ class PerformanceView(views.APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         profiles = StaffProfile.objects.select_related('staff')
-        if _can_see_team(request.user):
+        if _can_see_team(request.user) or holds(request.user, 'team.reviews'):
             requested = request.query_params.get('staff')
             if requested:
                 try:
@@ -931,8 +955,7 @@ class StaffDocumentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = StaffDocument.objects.select_related('staff', 'designer')
-        role = resolve_user_role(self.request.user)
-        if role != OWNER:
+        if not holds(self.request.user, 'team.documents'):
             # An account can be attached to a roster row, to a designer, or to
             # neither. Whichever it is, they see their own documents only.
             staff = getattr(self.request.user, 'tailor_profile', None)

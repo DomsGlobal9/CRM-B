@@ -556,7 +556,7 @@ function TeamChart({ results, onOpen }) {
   );
 }
 
-export default function Performance({ isOwner, canSeeTeam }) {
+export default function Performance({ isOwner, canReview = isOwner, canSeeTeam }) {
   const [start, setStart] = useState(() => daysAgoISO(29));
   const [end, setEnd] = useState(todayISO);
   const [role, setRole] = useState('');
@@ -614,7 +614,7 @@ export default function Performance({ isOwner, canSeeTeam }) {
           member={member}
           reviews={reviewsByStaff.get(String(openStaff)) || []}
           isOwner={isOwner}
-          canReview={isOwner}
+          canReview={canReview}
           onBack={() => setOpenStaff(null)}
           onChanged={() => setReloadKey((n) => n + 1)}
         />

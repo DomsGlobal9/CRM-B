@@ -28,7 +28,9 @@ const TEMPLATE_OPTIONS = [
 
 export const InvoiceTemplateSelector = ({ currentUser }) => {
   const { t } = useLanguage();
-  const isOwner = !currentUser?.role || currentUser?.role === 'Owner';
+  // The owner, or a role handed the invoice design (core/admin_access.py).
+  const isOwner = !currentUser?.role || currentUser?.role === 'Owner'
+    || (currentUser?.admin_tasks || []).includes('invoices.template');
   const [selectedTemplate, setSelectedTemplate] = useState('classic');
   const [availableTemplates, setAvailableTemplates] = useState(TEMPLATE_OPTIONS);
   const [currentIndex, setCurrentIndex] = useState(0);

@@ -19,7 +19,7 @@ from tenants.models import BoutiqueTenant
 from tenants.onboarding import TERMS_VERSION  # noqa: F401 -- kept importable from here
 from django_tenants.utils import schema_context
 from superadmin import signins
-from core.modules import MODULE_GROUP, effective_modules
+from core.modules import MODULE_GROUP, effective_modules, entitled_modules
 from core.validators import validate_name
 from core.roles import OWNER, resolve_user_role
 from apps.email_service.services import EmailService
@@ -159,7 +159,7 @@ def user_payload(user, role=None):
         role,
     )
 
-    # The work the owner handed this person as Admin; [] for everyone else.
+    # The work the owner handed this person's role; [] for the owner.
     # Never a 500 on login: a lookup failure just means no extra work.
     try:
         from core.admin_access import tasks_for
@@ -167,6 +167,15 @@ def user_payload(user, role=None):
     except Exception:
         logger.exception('admin task lookup failed for user %s', user.pk)
         admin_tasks = []
+
+    # The screens those tasks open, so the navigation shows them. Only modules
+    # the boutique is entitled to: a task never switches on what the platform
+    # switched off.
+    if admin_tasks:
+        from core.admin_access import modules_opened
+        entitled = set(entitled_modules(getattr(tenant, 'plan', None),
+                                        getattr(tenant, 'enabled_modules', None)))
+        modules = sorted(set(modules) | (modules_opened(admin_tasks) & entitled))
 
     module_groups = {}
     for key in modules:
