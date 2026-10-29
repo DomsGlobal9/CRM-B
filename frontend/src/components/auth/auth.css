@@ -136,6 +136,13 @@
   .auth-show-caption *, .auth-show-dot { animation: none !important; transition: none !important; }
 }
 
+/* Request access: its heading sits above the card, in bold. */
+.auth-split .auth-outside-title {
+  order: 1; margin: 0 0 14px !important; width: 100%; max-width: 720px;
+  font-size: clamp(26px, 3vw, 34px) !important; font-weight: 700 !important; line-height: 1.15;
+  letter-spacing: -.02em; color: var(--au-ink) !important; text-align: center;
+}
+
 /* ---- Computer: two halves ------------------------------------------------------ */
 /* Sign-in screens split from 1024px; Request access (its card holds two
    fields to a row) from 1200px -- below that it keeps the card alone. */
@@ -166,8 +173,9 @@
     column-gap: clamp(40px, 5vw, 96px);
     padding: 96px clamp(32px, 5vw, 72px) 48px !important;
   }
-  .auth-split--wide > .auth-show { grid-area: 1 / 1; display: flex; flex-direction: column; align-items: flex-start; gap: 22px; min-width: 0; }
-  .auth-split--wide > .auth-card { grid-area: 1 / 2; width: 100%; max-width: none !important; margin: 0 !important; }
+  .auth-split--wide > .auth-show { grid-area: 1 / 1 / 3 / 2; align-self: center; display: flex; flex-direction: column; align-items: flex-start; gap: 22px; min-width: 0; }
+  .auth-split--wide > .auth-card { grid-area: 2 / 2; width: 100%; max-width: none !important; margin: 0 !important; }
+  .auth-split--wide > .auth-outside-title { grid-area: 1 / 2; align-self: end; max-width: none; }
   .auth-split--wide > .portal-wordmark--auth, .auth-split--wide > .auth-logo-sub { display: none !important; }
   .auth-split--wide > button { left: max(clamp(32px, 5vw, 72px), calc((100vw - 1120px - clamp(40px, 5vw, 96px)) / 2)) !important; }
 }
@@ -180,6 +188,11 @@
   .auth-show-logo { height: 42px; margin-bottom: 2px; }
   .auth-show-title { font-size: clamp(30px, 3vw, 44px); }
   .auth-show-art { width: min(100%, 600px, calc(46vh * 1.67)); }
+}
+/* Request access on a laptop screen: its heading above the card still fits. */
+@media (min-width: 1200px) and (max-height: 800px) {
+  .auth-page.auth-split--wide { padding-top: 72px !important; padding-bottom: 18px !important; }
+  .auth-split--wide > .auth-outside-title { font-size: 30px !important; margin-bottom: 8px !important; }
 }
 @media (min-width: 1024px) and (max-height: 640px) {
   .auth-show-art { width: min(100%, 560px, calc(42vh * 1.67)); }

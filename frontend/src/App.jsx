@@ -4762,11 +4762,11 @@ function App() {
               tab 1, boutique on tab 2) with a step tracker above it; owners
               lost their place between the tabs. Everything is on one screen
               now, sized to fit a laptop viewport without scrolling. */}
+          {signupStep === 1 && <h2 className="auth-title auth-outside-title">Request access</h2>}
           <div className="auth-card auth-card--signup">
             {signupStep === 1 && (
               <form onSubmit={handleSignupSubmit} className="auth-form" style={{ gap: '10px' }}>
                 <div>
-                  <h2 className="auth-title" style={{ fontSize: '24px' }}>Request access</h2>
                   <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>Tell us about your boutique. Our team reviews every request and emails you your login details.</p>
                 </div>
 
@@ -4938,9 +4938,9 @@ function App() {
             )}
 
             {signupStep === 1 && (
-              <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '24px', paddingTop: '18px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+              <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '24px', paddingTop: '18px', textAlign: 'center', fontSize: '15px', color: 'var(--text-secondary)' }}>
                 Already have a boutique?{' '}
-                <a href="/app" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}
+                <a href="/app" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 700, fontSize: '16px', textDecoration: 'none' }}
                    onClick={(e) => { e.preventDefault(); setView('login'); }}>
                   Log in
                 </a>
