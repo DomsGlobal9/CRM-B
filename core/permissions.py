@@ -1,7 +1,7 @@
 
 from rest_framework import permissions
 
-from .admin_access import admin_may, has_section, tasks_for
+from .admin_access import admin_may, has_section, modules_opened, request_tasks, tasks_for
 from .modules import MODULES, module_for_path, role_allows
 from .roles import DESIGNER, MASTER, OWNER, resolve_user_role
 
@@ -88,7 +88,9 @@ class ModuleAccess(permissions.BasePermission):
         # None means NOT GOVERNED, never "unknown, so deny": /api/auth/,
         # /api/dashboard/ and every prefix nobody has assigned a module to
         # resolve to None, and denying on it would switch off the product.
-        if key is not None and not self._module_permits(request, key) and not admin_may(request, view):
+        if (key is not None and not self._module_permits(request, key)
+                and not admin_may(request, view)
+                and key not in modules_opened(request_tasks(request))):
             return False
         return self.has_role_permission(request, view)
 
@@ -317,6 +319,10 @@ class StaffSelfOrOwner(ModuleAccess):
             return True
         if getattr(view, 'action', None) in self.SELF_SERVICE_ACTIONS:
             return True
+        # Work the owner handed this role (core.admin_access): team records,
+        # attendance, documents, reviews. Rows are widened by the viewsets.
+        if admin_may(request, view):
+            return True
         # Read-only for everyone else. A staff member raising their own pay is
         # the obvious thing to close, and it is closed here rather than by
         # trusting the interface not to offer the button.
@@ -347,6 +353,9 @@ class OwnerOrOwnFinancialRecord(ModuleAccess):
         if role is None:
             return False
         if role == OWNER:
+            return True
+        # Payroll handed to this role by the owner (team.payroll).
+        if admin_may(request, view):
             return True
         return request.method in permissions.SAFE_METHODS
 
@@ -393,8 +402,9 @@ def visible_orders(queryset, user):
     role = resolve_user_role(user)
     if role == OWNER or role in SUPERVISOR_ROLES:
         return queryset
-    # The Admin handed order or workshop work works the whole book.
-    if has_section(tasks_for(user), 'orders', 'workshop'):
+    # A role handed order, workshop or reporting work works the whole book:
+    # the dashboard, invoices and analytics screens are all read off it.
+    if has_section(tasks_for(user), 'orders', 'workshop', 'dashboard', 'invoices', 'analytics'):
         return queryset
 
     profile = getattr(user, 'tailor_profile', None)
@@ -415,7 +425,7 @@ def visible_customers(queryset, user):
     role = resolve_user_role(user)
     if role == OWNER or role in SUPERVISOR_ROLES:
         return queryset
-    if has_section(tasks_for(user), 'customers', 'orders'):
+    if has_section(tasks_for(user), 'customers', 'orders', 'dashboard', 'analytics'):
         return queryset
 
     profile = getattr(user, 'tailor_profile', None)

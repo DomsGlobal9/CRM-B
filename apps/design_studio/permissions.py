@@ -1,6 +1,7 @@
 
 from rest_framework import permissions
 
+from core.admin_access import admin_may, holds
 from core.permissions import ModuleAccess
 from core.permissions import OwnerOnly as CoreOwnerOnly
 from core.roles import DESIGNER, OWNER, resolve_user_role
@@ -22,7 +23,10 @@ class DesignStudioPermission(ModuleAccess):
             return True
         if request.method in permissions.SAFE_METHODS:
             return True
-        return role == MASTER and getattr(view, 'action', None) == 'production_notes'
+        if role == MASTER and getattr(view, 'action', None) == 'production_notes':
+            return True
+        # Design work the owner handed this role (core.admin_access).
+        return admin_may(request, view)
 
 
 class DesignLibraryPermission(DesignStudioPermission):
@@ -39,7 +43,7 @@ class DesignLibraryPermission(DesignStudioPermission):
 
     def has_object_permission(self, request, view, obj):
         role = resolve_user_role(request.user)
-        if role == OWNER:
+        if role == OWNER or admin_may(request, view):
             return True
         if role == DESIGNER and getattr(view, 'action', None) in self.OWN_UPLOAD_ACTIONS:
             return obj.created_by_id == request.user.id
@@ -54,7 +58,7 @@ class OwnerOnly(CoreOwnerOnly):
 
 def visible_boards(queryset, user):
     role = resolve_user_role(user)
-    if role == OWNER:
+    if role == OWNER or holds(user, 'design.view', 'design.boards'):
         return queryset
     if role == MASTER:
         return queryset.exclude(status=queryset.model.STATUS_DRAFT)
@@ -79,7 +83,7 @@ class DesignAssignmentPermission(ModuleAccess):
         role = resolve_user_role(request.user)
         if role is None:
             return False
-        if role == OWNER:
+        if role == OWNER or admin_may(request, view):
             return True
         action = getattr(view, 'action', None)
         if role == MASTER:
@@ -91,7 +95,7 @@ class DesignAssignmentPermission(ModuleAccess):
 
 def visible_assignments(queryset, user):
     role = resolve_user_role(user)
-    if role in (OWNER, MASTER):
+    if role in (OWNER, MASTER) or holds(user, 'design.assign'):
         return queryset
     if role == DESIGNER:
         profile = getattr(user, 'designer_profile', None)

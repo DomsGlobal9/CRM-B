@@ -5,7 +5,6 @@ from rest_framework import serializers
 
 from crm_api.models import Tailor
 
-from core.roles import OWNER, resolve_user_role
 from core.validators import (
     MAX_NOTE, validate_amount, validate_document_number,
     validate_mobile, validate_quantity, validate_text,
@@ -151,7 +150,9 @@ class StaffProfileSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request is None:
             return data
-        if resolve_user_role(request.user) == OWNER:
+        # The owner, or a role the owner handed payroll (core.admin_access).
+        from core.admin_access import holds
+        if holds(request.user, 'team.payroll'):
             return data
 
         viewer = getattr(request.user, 'tailor_profile', None)

@@ -311,7 +311,7 @@ export const SettingsPage = ({
         {/* Owner only: the boutique's own names for the customer tiers -- beside
             the invoice style, in the slot that row left empty.
             Keyed on whether settings have loaded, so the boxes fill once they do. */}
-        {isOwner && (
+        {(isOwner || (currentUser?.admin_tasks || []).includes('settings.edit')) && (
           <TierNamesSettings key={boutiqueSettings ? 'loaded' : 'loading'} iconChip={iconChip}
                              tierNames={boutiqueSettings?.tier_names} onSaved={onTierNamesSaved} />
         )}

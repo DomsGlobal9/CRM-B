@@ -85,6 +85,14 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
   const [showSupplierForm, setShowSupplierForm] = useState(false);
 
   const isOwner = currentUser?.role === 'Owner';
+  // The owner, or a role the owner handed this inventory task
+  // (core/admin_access.py). The server enforces the same split.
+  const handed = currentUser?.admin_tasks || [];
+  const can = (task) => isOwner || handed.includes(task);
+  const canItems = can('inventory.items');
+  const canStock = can('inventory.stock');
+  const canTransfer = can('inventory.transfer');
+  const canSuppliers = can('inventory.suppliers');
 
   // "Stock this" on a catalogue row opens the full item form pre-filled.
   const stockFromCatalog = (row) => setEditingItem({
@@ -107,7 +115,8 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
         }),
         api.getInventorySummary(),
         api.getInventoryOptions(),
-        api.getSuppliers(),
+        // Suppliers are their own task; without it there is nothing to read.
+        canSuppliers ? api.getSuppliers() : Promise.resolve([]),
       ]);
       setItems(list);
       setSummary(sum);
@@ -119,7 +128,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
     } finally {
       setLoading(false);
     }
-  }, [search, category, reorderOnly]);
+  }, [search, category, reorderOnly, canSuppliers]);
 
   useEffect(() => {
     const t = setTimeout(refresh, search ? 300 : 0);
@@ -150,7 +159,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       <PageHeader
         title={t('inventoryPage.title')}
         subtitle={t('inventoryPage.subtitle')}
-        actions={isOwner && (
+        actions={canItems && (
           <button type="button" className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setEditingItem({})}>
             <Plus size={16} />
             {t('inventoryPage.newItem')}
@@ -234,30 +243,30 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
           setReorderOnly={setReorderOnly}
           categories={options.categories}
           categoryLabel={categoryLabel}
-          isOwner={isOwner}
-          onMove={setMovementItem}
+          isOwner={canItems}
+          onMove={canStock ? setMovementItem : null}
           onLedger={openLedger}
           onEdit={setEditingItem}
         />
       )}
 
       {!loadError && tab === 'suppliers' && (
-        <SuppliersTab suppliers={suppliers} isOwner={isOwner} onAdd={() => setShowSupplierForm(true)} />
+        <SuppliersTab suppliers={suppliers} isOwner={canSuppliers} onAdd={() => setShowSupplierForm(true)} />
       )}
 
       {!loadError && tab === 'catalog' && (
-        <CatalogBrowser isOwner={isOwner} onStock={stockFromCatalog} version={catalogVersion} />
+        <CatalogBrowser isOwner={canItems} onStock={stockFromCatalog} version={catalogVersion} />
       )}
 
       {!loadError && tab === 'locations' && (
-        <LocationsTab items={items} isOwner={isOwner} onMoved={refresh} />
+        <LocationsTab items={items} isOwner={canTransfer} onMoved={refresh} />
       )}
 
       {!loadError && tab === 'recipes' && (
-        <RecipesTab items={items} isOwner={isOwner} />
+        <RecipesTab items={items} isOwner={canItems} />
       )}
 
-      {!loadError && tab === 'purchases' && <OrderPurchasesTab suppliers={suppliers} isOwner={isOwner} />}
+      {!loadError && tab === 'purchases' && <OrderPurchasesTab suppliers={suppliers} isOwner={canStock} />}
 
       {!loadError && tab === 'inhouse' && <InHouseTab />}
 
@@ -476,13 +485,13 @@ function ItemsTab({
                   <div className="inv-card-meta" style={{ fontSize: '11px', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
                     {qty(item.current_stock)} {t('inventoryPage.tableInStock', 'In stock').toLowerCase()} · {qty(item.reserved_stock)} {t('inventoryPage.tableReserved', 'Reserved').toLowerCase()}
                   </div>
-                  <button type="button" className="inv-card-btn" onClick={() => onMove(item)} style={{
+                  {onMove && <button type="button" className="inv-card-btn" onClick={() => onMove(item)} style={{
                     marginTop: 10, width: '100%', padding: '11px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
                     background: '#1a1a1a', color: '#fff', fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                   }}>
                     <ArrowDownCircle size={14} />{t('inventoryPage.move', 'Move')}
-                  </button>
+                  </button>}
                 </div>
               </div>
             );
