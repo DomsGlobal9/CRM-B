@@ -588,7 +588,7 @@ const en = {
     deadStock: "Idle stock",
     items: "Inventory",
     catalog: "Catalogue",
-    locations: "Shelves & racks",
+    locations: "Locations",
     recipes: "Material requirements",
     purchaseOrders: "Supplier orders",
     suppliers: "Suppliers",

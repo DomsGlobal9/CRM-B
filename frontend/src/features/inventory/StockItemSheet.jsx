@@ -4,6 +4,8 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { inventoryImage } from '../../services/inventoryImages';
 import { LIMITS, amountError, imageFilesError } from '../../services/validate';
 import { Field, Modal, SelectField } from './ItemFormModal';
+import ShelfPlace from './ShelfPlace';
+import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';
 
 /**
  * The fast way to put stock on the shelf: what it is (a catalogue row, or a
@@ -14,6 +16,8 @@ import { Field, Modal, SelectField } from './ItemFormModal';
 // The next roll usually comes from the same supplier onto the same rack.
 let lastSupplier = '';
 let lastRack = '';
+let lastPlaces = [];
+const placesFrom = (spots) => spots.map((spot) => ({ spot, quantity: '' }));
 
 const errorBox = {
   fontSize: 'var(--text-sm)', color: 'var(--danger-color)', background: 'var(--danger-bg)',
@@ -35,6 +39,8 @@ export default function StockItemSheet({ catalogItem = null, options, suppliers,
   // crumb: breadcrumb · choose: group + item selects · search: catalogue search · custom: name + category
   const [mode, setMode] = useState(catalogItem ? 'crumb' : 'search');
   const [form, setForm] = useState(blank);
+  // Shelves it goes on (ShelfPlace); the next item usually goes on the same one.
+  const [places, setPlaces] = useState(() => placesFrom(lastPlaces));
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -109,8 +115,10 @@ export default function StockItemSheet({ catalogItem = null, options, suppliers,
       || amountError(form.quantity, { label: t('inventoryPage.quantityOnShelf', 'Quantity on shelf'), max: LIMITS.quantity, allowZero: false, required: true })
       || amountError(form.purchase_price, { label: t('inventoryPage.purchasePricePerUnit', 'Purchase price'), allowZero: false, required: true })
       || amountError(form.selling_price, { label: t('inventoryPage.sellingPricePerUnit', 'Selling price'), allowZero: false, required: true })
-      || amountError(form.gst_percent, { label: 'GST %', max: 100 });
+      || amountError(form.gst_percent, { label: 'GST %', max: 100 })
+      || placePlan(places, form.quantity).error;
     if (problem) { setError(problem); return; }
+    const plan = placePlan(places, form.quantity);
     setError(null);
     setSaving(true);
     try {
@@ -132,16 +140,23 @@ export default function StockItemSheet({ catalogItem = null, options, suppliers,
         onSaved(false);
         throw new Error(t('inventoryPage.openingStockFailed', 'The item was saved but the opening stock was not: use Stock in on the item.') + ` (${err.message})`, { cause: err });
       }
+      const failed = await putOnShelves(saved.id, plan.lines);
       lastSupplier = form.supplier;
       lastRack = form.rack_location;
-      onSaved(another);
-      if (another) {
+      lastPlaces = places.map((p) => p.spot);
+      // A shelf that refused leaves the stock saved and Not shelved: the sheet
+      // stays open, as Save & stock another does, so the message is read.
+      const stayOpen = another || failed.length > 0;
+      onSaved(stayOpen);
+      if (stayOpen) {
         setPicked(null);
         setForm(blank());
+        setPlaces(placesFrom(lastPlaces));
         setQuery('');
         setSaves((n) => n + 1);
         setMode(sectionId ? 'choose' : 'search');
       }
+      if (failed.length) throw new Error(shelfFailedText(name.trim(), failed));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -257,6 +272,8 @@ export default function StockItemSheet({ catalogItem = null, options, suppliers,
           <Field label={withUnit(t('inventoryPage.sellingPricePerUnit', 'Selling price'), true)} required type="number"
                  value={form.selling_price} onChange={(v) => set('selling_price', v)} />
         </div>
+
+        <ShelfPlace places={places} onChange={setPlaces} total={form.quantity} unitLabel={unitLabel} />
 
         <details>
           <summary style={{ cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.moreDetails', 'More details')}</summary>

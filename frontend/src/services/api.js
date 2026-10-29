@@ -2089,6 +2089,43 @@ Object.assign(api, {
   getItemLocations: (itemId) => inventoryGet(`items/${itemId}/locations/`),
   transferStock: (itemId, payload) => inventoryPost(`items/${itemId}/transfer/`, payload),
 
+  // Racks & shelves (apps/inventory/shelves.py): where inside a location
+  // stock sits. Errors come back as a sentence for the screen.
+  getShelfTree: (location) => inventoryGet('shelves/tree/', { location }),
+  findOnShelves: (q, location) => inventoryGet('shelves/find/', { q, location }),
+  getItemShelves: (itemId, location) => inventoryGet(`shelves/item/${itemId}/`, { location }),
+  getNotShelved: (location) => inventoryGet('shelves/not-shelved/', { location }),
+  scanShelf: (code, location) => inventoryGet('shelves/scan/', { code, location }),
+  previewShelfSetup: (payload) => inventoryPost('shelves/setup/', { ...payload, preview: true }),
+  saveShelfSetup: (payload) => inventoryPost('shelves/setup/', { ...payload, preview: false }),
+  getShelfLabels: (location, spots) => inventoryGet('shelves/labels/', { location, spots }),
+  putAwayOnShelf: (payload) => inventoryPost('shelves/put-away/', payload),
+  moveOnShelves: (payload) => inventoryPost('shelves/move/', payload),
+  moveWholeShelf: (payload) => inventoryPost('shelves/move-all/', payload),
+  reportMissingOnShelf: (payload) => inventoryPost('shelves/report-missing/', payload),
+  createShelfSpot: (payload) => inventoryPost('shelves/spots/', payload),
+  getShelfSpot: (id) => inventoryGet(`shelves/spots/${id}/`),
+  getShelfSpotHistory: (id) => inventoryGet(`shelves/spots/${id}/history/`),
+  countShelf: (id, payload) => inventoryPost(`shelves/spots/${id}/count/`, payload),
+  getShelfIssues: (params) => inventoryGet('shelves/issues/', params),
+  resolveShelfIssue: (id, note) => inventoryPost(`shelves/issues/${id}/resolve/`, { note }),
+  updateShelfSpot: async (id, payload) => {
+    const res = await guardedFetch(inventoryUrl(`shelves/spots/${id}/`), {
+      method: 'PATCH', headers: getHeaders(), body: JSON.stringify(payload || {}),
+    });
+    let data = null;
+    try { data = await res.json(); } catch { data = null; }
+    if (!res.ok) throw new Error(describeApiError(res, data));
+    return data;
+  },
+  deleteShelfSpot: async (id) => {
+    const res = await guardedFetch(inventoryUrl(`shelves/spots/${id}/`), { method: 'DELETE', headers: getHeaders() });
+    let data = null;
+    try { data = await res.json(); } catch { data = null; }
+    if (!res.ok) throw new Error(describeApiError(res, data));
+    return data;
+  },
+
   // Recipes
   getBoms: (params) => inventoryGet('boms/', params),
   createBom: (payload) => inventoryPost('boms/', payload),

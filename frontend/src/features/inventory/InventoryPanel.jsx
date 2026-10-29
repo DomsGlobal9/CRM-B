@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, Layers, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -16,6 +16,9 @@ import RecipesTab from './RecipesTab';
 import ReportsTab from './ReportsTab';
 import OrderPurchasesTab from './OrderPurchasesTab';
 import InHouseTab from './InHouseTab';
+import ShelvesTab from './ShelvesTab';
+import ShelfPlace, { NotShelvedReminder } from './ShelfPlace';
+import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';
 import Loader from '../../components/ui/Loader';
 
 const MOVEMENTS = [
@@ -169,7 +172,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
       {/* The four stock cards belong to the stock list: not shown on the
           Materials library, Shelves & racks or Inventory history tabs. */}
-      {summary && !['catalog', 'locations', 'purchases', 'inhouse'].includes(tab) && (
+      {summary && !['catalog', 'locations', 'purchases', 'inhouse', 'shelves'].includes(tab) && (
         // Just the label and the number on each card (no line under it).
         <div className="at-stat-grid inv-stats inv-stats--plain">
           <StatCard icon={Package} tone="green" label={t('inventoryPage.stockValue')} value={money(summary.inventory_value)}
@@ -196,6 +199,8 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
           { key: 'inhouse', label: t('inventoryPage.inHouse', 'In-house'), icon: Factory },
           { key: 'catalog', label: t('inventoryPage.materialsLibrary', 'Materials library'), icon: BookOpen },
           { key: 'locations', label: t('inventoryPage.locations'), icon: MapPin },
+          // Where inside a location the stock sits: racks, shelves, boxes (ShelvesTab).
+          { key: 'shelves', label: t('inventoryPage.racksShelves', 'Racks & shelves'), icon: Layers },
           { key: 'recipes', label: t('inventoryPage.recipes'), icon: Scissors, hidden: true },
           { key: 'suppliers', label: t('inventoryPage.suppliers'), icon: ClipboardList, hidden: true },
           { key: 'purchases', label: t('inventoryPage.inventoryHistory', 'Inventory history'), icon: ShoppingCart },
@@ -223,6 +228,17 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
         })}
       </div>
 
+
+      {!loadError && tab === 'items' && (canStock || canTransfer) && (
+        <NotShelvedReminder version={items} onOpen={(location) => {
+          // Opens Racks & shelves straight on Put away for that location.
+          try {
+            localStorage.setItem('inventory-shelves-view', 'putaway');
+            localStorage.setItem('inventory-shelves-location', String(location.id));
+          } catch { /* private mode */ }
+          setTab('shelves');
+        }} />
+      )}
 
       {loadError && (
         <div style={{ ...panel, padding: '32px', textAlign: 'center', marginTop: '20px', borderColor: 'var(--danger-color)' }}>
@@ -269,6 +285,8 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       {!loadError && tab === 'purchases' && <OrderPurchasesTab suppliers={suppliers} isOwner={canStock} />}
 
       {!loadError && tab === 'inhouse' && <InHouseTab />}
+
+      {!loadError && tab === 'shelves' && <ShelvesTab canMove={canStock || canTransfer} canManage={canItems} />}
 
       {!loadError && tab === 'reports' && <ReportsTab />}
 
@@ -547,6 +565,10 @@ function MovementModal({ item, onClose, onDone }) {
   const [locations, setLocations] = useState(null);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  // Stock In only: the shelves it goes on (ShelfPlace), and "saved, but a
+  // shelf refused it" -- then only Done is left, so it is not stocked twice.
+  const [places, setPlaces] = useState([]);
+  const [shelfDone, setShelfDone] = useState(false);
 
   const chosen = MOVEMENTS.find((m) => m.key === movement);
   const wantsOrder = ORDER_LINKED.has(movement);
@@ -570,7 +592,9 @@ function MovementModal({ item, onClose, onDone }) {
   const submit = async (e) => {
     e.preventDefault();
     
-    const problem = amountError(amount, { label: 'Quantity', max: LIMITS.quantity, required: true, allowZero: movement === 'adjust' });
+    const shelving = movement === 'stock-in' ? placePlan(places, amount) : { lines: [] };
+    const problem = amountError(amount, { label: 'Quantity', max: LIMITS.quantity, required: true, allowZero: movement === 'adjust' })
+      || shelving.error;
     if (problem) { setError(problem); return; }
     setError(null);
     setSaving(true);
@@ -582,6 +606,12 @@ function MovementModal({ item, onClose, onDone }) {
       if (orderId && ORDER_LINKED.has(movement)) payload.order_id = orderId;
       if (fromLocation && STOCK_OUT.has(movement)) payload.from_location = fromLocation;
       await api.moveStock(item.id, movement, payload);
+      const failed = await putOnShelves(item.id, shelving.lines);
+      if (failed.length) {
+        setShelfDone(true);
+        setError(shelfFailedText(item.name, failed));
+        return;
+      }
       onDone();
     } catch (err) {
       setError(err.message);
@@ -659,6 +689,10 @@ function MovementModal({ item, onClose, onDone }) {
           </div>
         )}
 
+        {movement === 'stock-in' && (
+          <ShelfPlace places={places} onChange={setPlaces} total={amount} unitLabel={item.unit_display} />
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           <label style={{ fontSize: '12px', fontWeight: 600 }}>Remarks</label>
           <input type="text" className="form-control" maxLength={LIMITS.note} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
@@ -670,10 +704,16 @@ function MovementModal({ item, onClose, onDone }) {
           </div>
         )}
 
+        {shelfDone ? (
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-primary" onClick={onDone}>Done</button>
+          </div>
+        ) : (
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
           <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
           <button type="submit" className="btn-primary" disabled={saving}>{saving ? 'Recording…' : 'Record movement'}</button>
         </div>
+        )}
       </form>
     </Modal>
   );

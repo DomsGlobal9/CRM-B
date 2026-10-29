@@ -429,6 +429,10 @@ class StockMovement(models.Model):
         SCRAP = 'SCRAP', 'Scrapped'
         CUSTOMER_RETURN = 'CUSTOMER_RETURN', 'Customer Return'
         SUPPLIER_RETURN = 'SUPPLIER_RETURN', 'Supplier Return'
+        #: Racks & shelves (apps/inventory/shelves.py): pieces moved between
+        #: shelves, or on/off a shelf, inside one location. The location's
+        #: quantity does not change -- only where in it the stock sits.
+        SHELF_MOVE = 'SHELF_MOVE', 'Shelf move'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name='movements')
@@ -874,3 +878,163 @@ class CustomerMaterialMovement(models.Model):
 
     def __str__(self):
         return f"{self.get_movement_type_display()} {self.quantity} of {self.material.name}"
+
+
+# ---- Racks & shelves --------------------------------------------------------
+# Where inside a location stock sits: area -> rack / cupboard -> shelf -> box,
+# each with an address (FLOOR-C2-1) and a printed QR label. The location's
+# quantity (LocationStock) stays the only stock truth; shelves only say where
+# some of it is. The rest is "Not shelved". The one rule, kept by
+# apps/inventory/shelves.py inside every stock change and re-checked by the
+# database at commit (migration 0017):
+#
+#     sum of an item's pieces on a location's shelves <= LocationStock.quantity
+
+
+class StorageSpot(models.Model):
+    """One node of a location's rack tree. Only a spot with nothing inside it
+    (a leaf -- a shelf, a box) holds stock."""
+
+    class Kind(models.TextChoices):
+        AREA = 'AREA', 'Area'
+        RACK = 'RACK', 'Rack'
+        CUPBOARD = 'CUPBOARD', 'Cupboard'
+        SHELF = 'SHELF', 'Shelf'
+        BOX = 'BOX', 'Box'
+        RAIL = 'RAIL', 'Rail'
+        STACK = 'STACK', 'Stack'
+        COUNTER = 'COUNTER', 'Counter'
+        DRAWER = 'DRAWER', 'Drawer'
+        DISPLAY = 'DISPLAY', 'Display'
+        TRUNK = 'TRUNK', 'Trunk'
+        OTHER = 'OTHER', 'Other'
+
+    MAX_DEPTH = 4
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    location = models.ForeignKey(StockLocation, on_delete=models.PROTECT, related_name='spots')
+    parent = models.ForeignKey(
+        'self', on_delete=models.PROTECT, null=True, blank=True, related_name='children')
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.SHELF)
+    #: This level's part of the address: "C2", "1".
+    code = models.CharField(max_length=12)
+    #: The codes from the area down, joined by "-": "FLOOR-C2-1".
+    address = models.CharField(max_length=64)
+    #: What the boutique calls it: "Silk sarees, blue box".
+    name = models.CharField(max_length=80, blank=True, default='')
+    depth = models.PositiveSmallIntegerField(default=1)
+    #: Order among its siblings when someone walks the store.
+    walk_order = models.PositiveIntegerField(default=0)
+    #: Set on an area and copied to everything under it.
+    is_shop_floor = models.BooleanField(default=True)
+    #: Printed in the QR as "SEZ:<label_code>"; never changes, so a label
+    #: survives a renamed address.
+    label_code = models.CharField(max_length=16, unique=True)
+    #: A rough "holds about" figure -- a warning, never a refusal.
+    capacity = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
+    last_counted_at = models.DateTimeField(null=True, blank=True)
+    #: Switched off: cannot receive stock (what is on it stays until moved).
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['location', 'depth', 'walk_order', 'address']
+        constraints = [
+            models.UniqueConstraint(fields=['location', 'address'], name='uniq_spot_address_per_location'),
+            models.CheckConstraint(condition=models.Q(depth__gte=1) & models.Q(depth__lte=4),
+                                   name='spot_depth_1_to_4'),
+            models.CheckConstraint(condition=models.Q(capacity__isnull=True) | models.Q(capacity__gt=0),
+                                   name='spot_capacity_positive'),
+        ]
+
+    def __str__(self):
+        return f"{self.address} @ {self.location.name}"
+
+
+class SpotStock(models.Model):
+    """How much of one item sits on one shelf. A row at 0 is removed."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    spot = models.ForeignKey(StorageSpot, on_delete=models.PROTECT, related_name='stocks')
+    item = models.ForeignKey(InventoryItem, on_delete=models.CASCADE, related_name='spot_stocks')
+    location = models.ForeignKey(StockLocation, on_delete=models.PROTECT, related_name='spot_stocks')
+    quantity = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['spot', 'item'], name='uniq_item_per_spot'),
+            models.CheckConstraint(condition=models.Q(quantity__gte=0), name='spot_stock_not_negative'),
+        ]
+        indexes = [models.Index(fields=['item', 'location'], name='spotstock_item_location')]
+
+    def __str__(self):
+        return f"{self.item.name} on {self.spot.address}: {self.quantity}"
+
+
+class StockMovementSpot(models.Model):
+    """One shelf's part of a stock movement: +3 onto R1-2, -1 off R1-2."""
+
+    class Source(models.TextChoices):
+        SCANNED = 'SCANNED', 'Named by a person'
+        AUTO = 'AUTO', 'Chosen by the app'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    movement = models.ForeignKey(StockMovement, on_delete=models.CASCADE, related_name='spot_legs')
+    spot = models.ForeignKey(
+        StorageSpot, on_delete=models.SET_NULL, null=True, blank=True, related_name='legs')
+    #: Kept so the history still reads right after a rename or a delete.
+    address = models.CharField(max_length=64)
+    item = models.ForeignKey(InventoryItem, on_delete=models.CASCADE, related_name='spot_legs')
+    location = models.ForeignKey(StockLocation, on_delete=models.PROTECT, related_name='spot_legs')
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.SCANNED)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.CheckConstraint(condition=~models.Q(quantity=0), name='spot_leg_not_zero'),
+        ]
+
+
+class ShelfIssue(models.Model):
+    """Something the shelf rule had to guess, for a person to check
+    (Racks & shelves > Problems). Marking it fixed never changes stock."""
+
+    class Kind(models.TextChoices):
+        AUTO_TAKEN = 'AUTO_TAKEN', 'Shelf chosen by the app'
+        COUNT_BELOW_SHELVES = 'COUNT_BELOW_SHELVES', 'Count and stock do not match'
+        MISSING_FROM_SHELF = 'MISSING_FROM_SHELF', 'Missing from the shelf'
+
+    class Status(models.TextChoices):
+        OPEN = 'OPEN', 'Open'
+        RESOLVED = 'RESOLVED', 'Fixed'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    kind = models.CharField(max_length=24, choices=Kind.choices)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN, db_index=True)
+    message = models.TextField()
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    item = models.ForeignKey(InventoryItem, on_delete=models.CASCADE, related_name='shelf_issues')
+    location = models.ForeignKey(StockLocation, on_delete=models.PROTECT, related_name='shelf_issues')
+    spot = models.ForeignKey(
+        StorageSpot, on_delete=models.SET_NULL, null=True, blank=True, related_name='issues')
+    address = models.CharField(max_length=64, blank=True, default='')
+    movement = models.ForeignKey(
+        StockMovement, on_delete=models.SET_NULL, null=True, blank=True, related_name='shelf_issues')
+    resolved_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    resolved_by_name = models.CharField(max_length=150, blank=True, default='')
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    resolution_note = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        constraints = [
+            models.CheckConstraint(condition=models.Q(quantity__gt=0), name='shelf_issue_quantity_positive'),
+        ]
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {self.message[:60]}"

@@ -8,7 +8,13 @@ from .views import (
     StockLocationViewSet, StockMovementViewSet, SupplierViewSet, UnitConversionViewSet,
 )
 
+from .shelf_views import ShelfIssueViewSet, ShelfViewSet, StorageSpotViewSet
+
 router = DefaultRouter()
+# Racks & shelves (apps/inventory/shelves.py).
+router.register(r'shelves/spots', StorageSpotViewSet, basename='shelf-spot')
+router.register(r'shelves/issues', ShelfIssueViewSet, basename='shelf-issue')
+router.register(r'shelves', ShelfViewSet, basename='shelf')
 router.register(r'items', InventoryItemViewSet, basename='inventory-item')
 router.register(r'movements', StockMovementViewSet, basename='stock-movement')
 router.register(r'suppliers', SupplierViewSet, basename='supplier')

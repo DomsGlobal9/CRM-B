@@ -126,6 +126,12 @@ class InventoryService:
             remarks=remarks,
         )
 
+        # Racks & shelves: stock that left a location never leaves its shelves
+        # holding more than the location now has (apps/inventory/shelves.py).
+        # A location with no shelves pays one indexed lookup.
+        from . import shelves
+        shelves.after_stock_change(locked, movement, from_location=from_location)
+
         InventoryService._raise_alerts(locked)
         return movement
 

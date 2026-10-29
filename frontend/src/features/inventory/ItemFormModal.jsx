@@ -7,6 +7,8 @@ import { resolveMediaUrl } from '../../services/media';
 import FabricPlacements from '../fabrics/FabricPlacements';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import ShelfPlace from './ShelfPlace';
+import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';
 
 
 const EMPTY_OPTIONS = { categories: [], units: [], default_unit_by_category: {} };
@@ -59,6 +61,9 @@ export default function ItemFormModal({ item = {}, options, suppliers, onClose, 
   const opts = options || loadedOptions || EMPTY_OPTIONS;
   const sups = suppliers || loadedSuppliers || [];
   const isNew = !item?.id;
+  const [places, setPlaces] = useState([]);
+  // Saved, but a shelf refused it: only Done is left (a second Save would duplicate).
+  const [shelfDone, setShelfDone] = useState(false);
   const [form, setForm] = useState({
     item_code: item?.item_code || '',
     name: item?.name || '',
@@ -117,7 +122,9 @@ export default function ItemFormModal({ item = {}, options, suppliers, onClose, 
       || amountError(form.selling_price, { label: 'Selling price' })
       || amountError(form.reorder_level, { label: 'Reorder level', max: LIMITS.quantity })
       || amountError(form.minimum_stock, { label: 'Minimum stock', max: LIMITS.quantity })
-      || amountError(form.opening_stock, { label: 'Opening stock', max: LIMITS.quantity });
+      || amountError(form.opening_stock, { label: 'Opening stock', max: LIMITS.quantity })
+      || (isNew && places.length && !(Number(form.opening_stock) > 0) ? 'Enter the opening stock to put it on a shelf.' : '')
+      || (isNew ? placePlan(places, form.opening_stock).error : '');
     if (problem) { setError(problem); return; }
     setError(null);
     setSaving(true);
@@ -136,6 +143,13 @@ export default function ItemFormModal({ item = {}, options, suppliers, onClose, 
       const saved = await api.saveInventoryItem(payload, item?.id || null);
       if (isNew && Number(openingStock) > 0) {
         await api.moveStock(saved.id, 'stock-in', { quantity: openingStock, remarks: 'Opening stock' });
+        const failed = await putOnShelves(saved.id, placePlan(places, openingStock).lines);
+        if (failed.length) {
+          // Saved and in stock; only the shelf step is left, from Put away.
+          setShelfDone(true);
+          setError(shelfFailedText(saved.name, failed));
+          return;
+        }
       }
       onSaved();
     } catch (err) {
@@ -177,6 +191,8 @@ export default function ItemFormModal({ item = {}, options, suppliers, onClose, 
           )}
         </div>
 
+        {isNew && <ShelfPlace places={places} onChange={setPlaces} total={form.opening_stock} />}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <label style={{ fontSize: '12px', fontWeight: 600 }}>{t('inventoryPage.photos', 'Photos')}</label>
           <Dropzone compact multiple camera title="Drag & drop photos here" subtitle="or choose from your device"
@@ -213,12 +229,18 @@ export default function ItemFormModal({ item = {}, options, suppliers, onClose, 
           <div style={errorBox}>{error}</div>
         )}
 
+        {shelfDone ? (
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+            <button type="button" className="btn-primary" onClick={() => onSaved()}>{t('common.done', 'Done')}</button>
+          </div>
+        ) : (
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
           <button type="button" className="btn-secondary" onClick={onClose}>{t('common.cancel', 'Cancel')}</button>
           <button type="submit" className="btn-primary" disabled={saving || uploading}>
             {uploading ? t('common.uploading', 'Uploading…') : saving ? t('common.saving', 'Saving…') : t('inventoryPage.saveItem', 'Save item')}
           </button>
         </div>
+        )}
       </form>
     </Modal>
   );
