@@ -72,6 +72,7 @@ import ProductTour from './components/ui/ProductTour';
 import { markTourSeen, tourSeen } from './components/ui/tourState';
 import { hasPageTour } from './components/ui/tourPages';
 import { hasTask } from './components/ui/tourTasks';
+import { SetupPasswordStep, SetupProfileBanner } from './features/staff/StaffFirstSetup';
 
 import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
@@ -2724,6 +2725,36 @@ function App() {
   // The guided tour: open on a person's first visit to the workspace, once the
   // page has loaded; "Guide for this page" in the account menu opens it again.
   const [tourOpen, setTourOpen] = useState(false);
+  // A newly added staff member's first sign-in (StaffFirstSetup.jsx):
+  // 'password', then 'profile', then the workspace. Remembered per user in
+  // this browser so a refresh mid-way picks it up again.
+  const [staffSetup, setStaffSetup] = useState(null);
+  const [setupCurrent, setSetupCurrent] = useState('');
+  const setupKey = (user) => {
+    let tenant = '';
+    try { tenant = localStorage.getItem('tenant_id') || ''; } catch { /* private mode */ }
+    return `scaleezy_staff_setup:${tenant}:${user?.id || user?.email || 'user'}`;
+  };
+  const storeSetup = (user, step) => {
+    try { if (step) localStorage.setItem(setupKey(user), step); else localStorage.removeItem(setupKey(user)); } catch { /* private mode */ }
+  };
+  const storedSetup = (user) => {
+    try { return localStorage.getItem(setupKey(user)); } catch { return null; }
+  };
+  const toProfileStep = (user) => {
+    storeSetup(user, 'profile');
+    setSetupCurrent('');
+    setStaffSetup('profile');
+    setDashboardTab('account');
+  };
+  // Done or skipped: the person's own first page, as a sign-in opens it.
+  const finishStaffSetup = () => {
+    storeSetup(currentUser, null);
+    setStaffSetup(null);
+    if (currentUser?.role === 'Designer') openDesignRequests();
+    else if (isProductionStaff(currentUser?.role)) setDashboardTab('work');
+    else setDashboardTab('overview');
+  };
   const [pageTour, setPageTour] = useState(null);
   // Pages whose guide found nothing to point at this session (not retried).
   const pageTourEmpty = useRef(new Set());
@@ -2732,24 +2763,31 @@ function App() {
   useEffect(() => {
     // Only on a page without a guide of its own (the Dashboard); every other
     // page opens its own guide instead.
-    if (view !== 'dashboard' || !currentUser || loading || tourOpen || taskGuide || tourSeen(currentUser)) return undefined;
+    if (view !== 'dashboard' || !currentUser || loading || tourOpen || taskGuide || staffSetup || tourSeen(currentUser)) return undefined;
     if (hasPageTour(dashboardTab, currentUser.role)) return undefined;
     const timer = setTimeout(() => setTourOpen(true), 700);
     return () => clearTimeout(timer);
     // Only these: reopening it on every render after it is closed would be wrong.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading]);
+  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, staffSetup]);
   // Each page's own tour: the first time the page is opened, once the
   // workspace tour has been seen (or skipped), and never on top of it.
   useEffect(() => {
     // An unfinished guide left behind on another page does not hold this one up.
-    if (view !== 'dashboard' || !currentUser || loading || tourOpen || pageTour === dashboardTab || taskGuide) return undefined;
+    if (view !== 'dashboard' || !currentUser || loading || tourOpen || pageTour === dashboardTab || taskGuide || staffSetup) return undefined;
     if (!hasPageTour(dashboardTab, currentUser.role) || tourSeen(currentUser, dashboardTab) || pageTourEmpty.current.has(dashboardTab)) return undefined;
     // A moment for the page to draw its parts before the tour looks for them.
     const timer = setTimeout(() => setPageTour(dashboardTab), 900);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, tourOpen, pageTour, taskGuide]);
+  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, tourOpen, pageTour, taskGuide, staffSetup]);
+  // Step 2 is the My profile page: leaving it for another page ends the setup.
+  useEffect(() => {
+    if (staffSetup !== 'profile' || dashboardTab === 'account') return undefined;
+    const timer = setTimeout(() => { storeSetup(currentUser, null); setStaffSetup(null); }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staffSetup, dashboardTab]);
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false, status: 'disconnected', qrCode: null });
   const [boutiqueSettings, setBoutiqueSettings] = useState(null);
   // The boutique's own tier names, for every screen that shows a tier.
@@ -2906,6 +2944,11 @@ function App() {
     try {
       const user = await api.getMe();
       if (user && enterWorkspace(user)) {
+        const step = storedSetup(user);
+        if (step === 'password' || step === 'profile') {
+          setStaffSetup(step);
+          if (step === 'profile') setDashboardTab('account');
+        }
         await fetchDashboardAndConfig(user);
       }
     } catch (e) {
@@ -3281,6 +3324,14 @@ function App() {
       const res = await api.login(loginEmail, loginPassword, portalSlug);
       // The temporary password is the "current" one the change screen asks for.
       setChangeCurrent(res.user.must_change_password ? loginPassword : '');
+      // A newly added staff member's first sign-in here: the skippable setup,
+      // with the password they signed in with as the one being replaced.
+      setStaffSetup(null);
+      if (res.first_sign_in && res.user?.role && res.user.role !== 'Owner') {
+        setSetupCurrent(loginPassword);
+        storeSetup(res.user, 'password');
+        setStaffSetup('password');
+      }
       setLoginPassword('');  // signed in: the password is not kept in the form
       setJustRegistered(false);
       if (enterWorkspace(res.user)) fetchDashboardAndConfig(res.user);
@@ -4405,6 +4456,11 @@ function App() {
   const pageTourOpen = !!pageTour && pageTour === dashboardTab && !tourOpen;
   return (
     <div className="app-container">
+      {view === 'dashboard' && currentUser && staffSetup === 'password' && (
+        <SetupPasswordStep user={currentUser} knownCurrent={setupCurrent}
+                           onDone={(user) => { if (user) setCurrentUser(user); toProfileStep(user || currentUser); }}
+                           onSkip={() => toProfileStep(currentUser)} />
+      )}
       {taskGuide && currentUser && (
         <ProductTour key={taskGuide.key} open task={taskGuide.key} taskLabel={taskGuide.label}
                      user={currentUser} menu={tourMenu} onMenu={setMobileNavOpen} onClose={() => setTaskGuide(null)} />
@@ -7537,6 +7593,7 @@ function App() {
               const copyText = (text) => navigator.clipboard?.writeText(text);
               return (
               <>
+                {staffSetup === 'profile' && <SetupProfileBanner onSkip={finishStaffSetup} onDone={finishStaffSetup} />}
                 <PageHeader
                   title={t('accountPage.title')}
                   subtitle={t('accountPage.subtitle')}

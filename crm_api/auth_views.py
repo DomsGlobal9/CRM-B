@@ -384,15 +384,21 @@ class LoginView(views.APIView):
             )
 
         tenant, user = authenticated
+        # Asked before this sign-in is recorded, or it would always be False.
+        first_time = signins.first_sign_in(user.username, tenant.schema_name)
         signins.record(request, 'login', user.username, ok=True, boutique=tenant.schema_name)
         connection.set_tenant(tenant)
 
         try:
             token, created = Token.objects.get_or_create(user=user)
+            payload = user_payload(user)
             return Response({
                 "token": token.key,
                 "tenant_id": tenant.schema_name,
-                "user": user_payload(user),
+                "user": payload,
+                # A staff member's very first sign-in here: the app offers them
+                # a skippable setup (own password, profile). Never the owner.
+                "first_sign_in": bool(first_time and payload.get("role") not in (None, OWNER)),
             }, status=status.HTTP_200_OK)
         except Exception as e:
             logger.exception('%s failed', self.__class__.__name__)
