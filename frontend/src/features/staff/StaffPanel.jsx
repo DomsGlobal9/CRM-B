@@ -850,6 +850,9 @@ function DeleteMemberDialog({ state, onCancel, onConfirm }) {
    today, or the owner's Leave / Weekly off mark. Each view also flags what
    needs a hand: someone away with work waiting, someone in with none. */
 const STATUS_VIEW_KEY = 'staff-team-status-view';
+// Staff > Team's "By role" box (5 Tailors, 4 Masters...). Hidden for now, not
+// removed: set to true to bring it back.
+const SHOW_ROLE_MIX = false;
 const readStatusView = () => {
   try { return localStorage.getItem(STATUS_VIEW_KEY) === 'attendance' ? 'attendance' : 'work'; } catch { return 'work'; }
 };
@@ -1102,7 +1105,7 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
       {/* Role mix: a chip is a count plus a label, so it reads
           as one figure. Grouped with an eyebrow, on a well, so the eye takes
           them as a breakdown rather than four more cards. */}
-      {canSeeTeam && Object.keys(roleCounts).length > 0 && (() => {
+      {SHOW_ROLE_MIX && canSeeTeam && Object.keys(roleCounts).length > 0 && (() => {
         const chip = (n, label) => (
           <div key={label} style={{
             background: 'var(--surface-color)', border: '1px solid var(--border-color)',

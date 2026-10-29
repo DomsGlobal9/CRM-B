@@ -8588,13 +8588,21 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .staff-card-filter { margin-left: 0; width: 100%; justify-content: space-between; }
 }
 
-/* Staff > Team figures on a laptop (1025-1440px): the icon above the label,
-   so "Pay details added" and "Available now" keep to one line and all four
-   numbers sit level. Wider screens keep the icon beside the text. */
-@media (min-width: 1025px) and (max-width: 1440px) {
-  .staff-stats .at-stat { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .staff-stats .at-stat-body { width: 100%; min-width: 0; }
+/* Staff > Team figures: each card decides from its own width (a size
+   container). With room, the icon sits beside the text and the label keeps
+   to one line -- a compact card; only a narrow card (a small phone) puts the
+   text under the icon, where a long label may take two lines. Laptops
+   (1440px and below) get a little less side padding so "Pay details added"
+   fits beside its icon at 4 cards a row. */
+.staff-stats .at-stat { container-type: inline-size; flex-wrap: wrap; }
+@container (min-width: 181px) {
   .staff-stats .at-stat-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .06em; }
+}
+@container (max-width: 180px) {
+  .staff-stats .at-stat-body { flex-basis: 100%; }
+}
+@media (min-width: 601px) and (max-width: 1440px) {
+  .staff-stats .at-stat { padding-left: 16px; padding-right: 16px; gap: 10px; }
 }
 
 /* Staff > Team figures, every width: the cards in a row are one height, and
@@ -8622,3 +8630,14 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 @media (min-width: 1100px) {
   .staff-table td.staff-cell-actions { width: 1%; }
 }
+
+/* The bell beside "Hi, <name>": a dark circle with a light bell, so it stands
+   out on the page -- the theme's text colour as the fill and its page colour
+   as the icon, which inverts in a dark theme and stays visible there too.
+   The count badge gets a ring in the page colour to sit crisply on it. */
+.portal-account-bell-btn { background: var(--text-primary); border-color: var(--text-primary); color: var(--bg-color); }
+.portal-account-bell-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text-primary) 85%, var(--bg-color));
+  border-color: color-mix(in srgb, var(--text-primary) 85%, var(--bg-color));
+}
+.portal-account-bell-badge { box-shadow: 0 0 0 2px var(--bg-color), 0 2px 4px rgba(0, 0, 0, 0.15); }
