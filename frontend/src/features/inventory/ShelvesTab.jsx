@@ -8,12 +8,13 @@
    handed the role (move: stock or transfer; set up: items). */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Camera, CheckCircle2, ClipboardCheck, Layers,
+  AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, CheckCircle2, ClipboardCheck, Eye, Layers,
   MapPin, Minus, Move, PackagePlus, Pencil, Plus, Printer, Search, Trash2, X,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { api } from '../../services/api';
 import { cleanAmount } from '../../services/validate';
+import { inventoryImage } from '../../services/inventoryImages';
 import { Field, Modal, SelectField } from './ItemFormModal';
 import Loader from '../../components/ui/Loader';
 import './shelves.css';
@@ -140,7 +141,7 @@ function ShelfSelect({ label = 'Shelf', leaves, value, onChange, suggested = [],
   );
 }
 
-export default function ShelvesTab({ canMove = false, canManage = false }) {
+export default function ShelvesTab({ canMove = false, canManage = false, onBack }) {
   const [locations, setLocations] = useState(null);
   const [locationId, setLocationId] = useState(recall(LOCATION_KEY));
   const [tree, setTree] = useState(null);
@@ -184,13 +185,21 @@ export default function ShelvesTab({ canMove = false, canManage = false }) {
   return (
     <div className="sh">
       <div className="sh-top">
-        <label className="sh-location">
-          <span>Location</span>
-          <select className="form-control" value={location.id}
-                  onChange={(e) => { setLocationId(e.target.value); remember(LOCATION_KEY, e.target.value); setTree(null); }}>
-            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select>
-        </label>
+        <div className="sh-top-left">
+          {onBack && (
+            <button type="button" className="btn-secondary sh-back" onClick={onBack} aria-label="Back to Inventory" title="Back to Inventory">
+              <ArrowLeft size={15} /> <span>Back</span>
+            </button>
+          )}
+          <label className="sh-location">
+            <span className="sh-location-label">Location</span>
+            <MapPin size={15} aria-hidden="true" className="sh-location-icon" />
+            <select className="form-control" value={location.id} aria-label="Location"
+                    onChange={(e) => { setLocationId(e.target.value); remember(LOCATION_KEY, e.target.value); setTree(null); }}>
+              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </label>
+        </div>
         <div className="sh-views" role="tablist" aria-label="Racks & shelves">
           {views.map(({ key, label, icon: Icon }) => (
             <button key={key} type="button" role="tab" aria-selected={view === key}
@@ -642,6 +651,7 @@ function RackSetup({ location, tree, onDone }) {
   const [describing, setDescribing] = useState(false);
   const [adding, setAdding] = useState(null); // { parent } or {} for a new area
   const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
   const [error, setError] = useState('');
   const byId = useMemo(() => Object.fromEntries(tree.map((s) => [s.id, s])), [tree]);
 
@@ -694,6 +704,9 @@ function RackSetup({ location, tree, onDone }) {
                 <span className="sh-node-count">{s.item_count ? `${s.item_count} item(s)` : 'empty'}</span>
               </div>
               <div className="sh-node-actions">
+                <button type="button" className="sh-mini sh-mini--view" onClick={() => setViewing(s)} aria-label={`See what is in ${s.address}`} title="See what is here">
+                  <Eye size={14} /> <span>View</span>
+                </button>
                 <button type="button" className="sh-mini" disabled={index <= 0} onClick={() => reorder(s, -1)} aria-label="Earlier in the walk" title="Earlier in the walk"><ArrowUp size={14} /></button>
                 <button type="button" className="sh-mini" disabled={index >= siblings.length - 1} onClick={() => reorder(s, 1)} aria-label="Later in the walk" title="Later in the walk"><ArrowDown size={14} /></button>
                 {s.depth < 4 && !(s.is_leaf && s.item_count) && (
@@ -711,7 +724,76 @@ function RackSetup({ location, tree, onDone }) {
       {describing && <DescribeStore location={location} onClose={() => setDescribing(false)} onDone={async () => { setDescribing(false); await onDone(); }} />}
       {adding && <AddSpot location={location} parent={adding.parent} onClose={() => setAdding(null)} onDone={async () => { setAdding(null); await onDone(); }} />}
       {editing && <EditSpot spot={editing} parent={byId[editing.parent]} onClose={() => setEditing(null)} onDone={async () => { setEditing(null); await onDone(); }} />}
+      {viewing && <SpotView spot={viewing} onClose={() => setViewing(null)} />}
     </div>
+  );
+}
+
+/** Everything sitting in a spot -- on it, or on any shelf or box inside it. */
+function SpotView({ spot, onClose }) {
+  const [inside, setInside] = useState(null);
+  const [error, setError] = useState('');
+  // A material tapped: its picture large, with where it sits and how much.
+  const [looking, setLooking] = useState(null);
+  useEffect(() => {
+    let current = true;
+    api.getShelfSpot(spot.id)
+      .then((d) => { if (current) setInside(d?.inside || []); })
+      .catch((err) => { if (current) { setError(err.message || 'Could not load what is here.'); setInside([]); } });
+    return () => { current = false; };
+  }, [spot.id]);
+  const items = (inside || []).reduce((n, group) => n + group.contents.length, 0);
+  return (
+    <Modal title={`What is in ${spot.address}`} onClose={onClose} width="560px">
+      <div className="sh-form">
+        <p className="sh-muted">
+          {spot.kind_label}{spot.name ? ` · ${spot.name}` : ''}
+          {inside && inside.length > 0 && ` · ${items} item${items === 1 ? '' : 's'} on ${inside.length} shel${inside.length === 1 ? 'f' : 'ves'}`}
+        </p>
+        {error && <div className="sh-error" role="alert">{error}</div>}
+        {inside === null && <Loader label="Loading…" />}
+        {inside && inside.length === 0 && !error && <div className="sh-empty">Nothing here yet.</div>}
+        {looking && (
+          <div className="sh-look">
+            <img className="sh-look-img" src={inventoryImage(looking.row.item)} alt={looking.row.item.name} />
+            <div className="sh-look-text">
+              <b>{looking.row.item.name}</b>
+              <span className="sh-muted">{looking.row.item.item_code}{looking.row.item.color ? ` · ${looking.row.item.color}` : ''}</span>
+              <span><b>{looking.row.quantity_text}</b> on <b className="sh-address">{looking.spot.address}</b>{looking.spot.name ? ` · ${looking.spot.name}` : ''}</span>
+            </div>
+            <div className="sh-actions sh-actions--top">
+              <button type="button" className="btn-secondary" onClick={() => setLooking(null)}><ArrowLeft size={15} /> Back to the list</button>
+            </div>
+          </div>
+        )}
+        {!looking && (inside || []).map((group) => (
+          <div key={group.spot.id} className="sh-card">
+            <div className="sh-card-head">
+              <b className="sh-address">{group.spot.address}</b>
+              {group.spot.name && <span className="sh-muted">{group.spot.name}</span>}
+            </div>
+            <div className="sh-list">
+              {group.contents.map((row) => (
+                <div key={row.item.id} className="sh-view-row">
+                  <button type="button" className="sh-thumb" onClick={() => setLooking({ row, spot: group.spot })}
+                          aria-label={`See ${row.item.name}`} title="See the material">
+                    <img src={inventoryImage(row.item)} alt="" loading="lazy" />
+                  </button>
+                  <span className="sh-row-main sh-view-main">
+                    <b>{row.item.name}</b>
+                    <span className="sh-muted">{row.item.item_code}{row.item.color ? ` · ${row.item.color}` : ''}</span>
+                  </span>
+                  <span className="sh-row-qty">{row.quantity_text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div className="sh-actions">
+          <button type="button" className="btn-secondary" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

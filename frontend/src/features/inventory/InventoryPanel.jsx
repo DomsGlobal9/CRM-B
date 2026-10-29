@@ -286,7 +286,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
       {!loadError && tab === 'inhouse' && <InHouseTab />}
 
-      {!loadError && tab === 'shelves' && <ShelvesTab canMove={canStock || canTransfer} canManage={canItems} />}
+      {!loadError && tab === 'shelves' && <ShelvesTab canMove={canStock || canTransfer} canManage={canItems} onBack={() => setTab('items')} />}
 
       {!loadError && tab === 'reports' && <ReportsTab />}
 

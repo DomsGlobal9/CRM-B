@@ -136,3 +136,73 @@
   .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sp-qty { width: 80px; }
 }
+
+/* Top of Racks & shelves, one height for everything: Back and the location
+   on the left, the views beside them -- on narrower screens the views drop
+   to the next line, and on a phone they scroll sideways. */
+.sh { margin-top: 12px; gap: 12px; }
+.sh-top { align-items: center; gap: 10px 12px; }
+.sh-top-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; }
+.sh-back { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; min-height: 40px; padding: 0 14px !important; flex-shrink: 0; }
+.sh-location { position: relative; flex-direction: row; align-items: center; gap: 0; width: 220px; min-width: 0; }
+.sh-location > .sh-location-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sh-location-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+.sh-location > select.form-control { width: 100%; height: 40px; min-height: 40px; padding-top: 0; padding-bottom: 0; padding-left: 34px; }
+.sh-views { flex: 1 1 520px; align-items: center; min-width: 0; }
+.sh-view { height: 40px; padding: 0 14px; white-space: nowrap; }
+
+/* Set up racks: the three buttons line up; View on each row. */
+.sh-actions--top > button { min-height: 40px; }
+.sh-mini--view { width: auto; padding: 0 10px; gap: 4px; font: inherit; font-size: 12.5px; font-weight: 600; }
+.sh-node-actions { flex-wrap: wrap; justify-content: flex-end; }
+.sh-view-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: var(--radius-md);
+  border: 1px solid var(--border-color); background: var(--surface-color); }
+
+/* The page header sits higher on this tab: on a computer the title rises
+   into the "Hi, <name>" row and Add material sits under the chip. */
+@media (min-width: 769px) {
+  .portal-main:has(> .sh) > .portal-account-bar:has(+ .at-page-head) { margin-bottom: -41px; }
+  .portal-main:has(> .sh) > .portal-account-bar + .at-page-head { margin-bottom: 14px; }
+  .portal-main:has(> .sh) > .portal-account-bar + .at-page-head > .at-page-head-left { padding-right: 240px; }
+  .portal-main:has(> .sh) > .portal-account-bar + .at-page-head > .at-page-head-right { padding-top: 52px; }
+}
+.portal-main:has(> .sh) > .at-scroll-tabs { margin-top: 0 !important; }
+
+@media (max-width: 1279px) {
+  .sh-views { flex-basis: 100%; }
+}
+/* Touch screens give buttons 44px: the location box matches Back. */
+@media (max-width: 1024px) {
+  .sh-back { height: 44px; min-height: 44px; }
+  .sh-location > select.form-control { height: 44px; min-height: 44px; }
+}
+@media (max-width: 640px) {
+  .sh { margin-top: 10px; gap: 10px; }
+  .sh-top { flex-direction: column; align-items: stretch; }
+  .sh-top-left { width: 100%; }
+  .sh-location { flex: 1 1 auto; width: auto; }
+  .sh-back { padding: 0 12px !important; }
+  .sh-title-row { flex-direction: column; align-items: stretch; }
+  .sh-actions--top { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sh-actions--top > .btn-primary { grid-column: 1 / -1; order: -1; }
+  .sh-actions--top > button { justify-content: center; }
+  .sh-node-main { flex-basis: 100%; }
+}
+@media (max-width: 360px) {
+  .sh-back > span { display: none; }
+  .sh-actions--top { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* View on Set up racks: each material's picture; tapped, it shows large. */
+.sh-thumb { flex-shrink: 0; width: 52px; height: 52px; padding: 0; border-radius: var(--radius-md); border: 1px solid var(--border-color);
+  background: var(--surface-inset); overflow: hidden; cursor: zoom-in; }
+.sh-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.sh-view-main { flex: 1 1 auto; }
+.sh-look { display: flex; flex-direction: column; gap: 12px; }
+.sh-look-img { width: 100%; max-height: 360px; object-fit: contain; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--surface-inset); }
+.sh-look-text { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--text-primary); overflow-wrap: anywhere; }
+.sh-look-text > b:first-child { font-size: 16px; }
+@media (max-width: 640px) {
+  .sh-thumb { width: 44px; height: 44px; }
+  .sh-look-img { max-height: 260px; }
+}

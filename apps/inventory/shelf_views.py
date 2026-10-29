@@ -194,7 +194,8 @@ class StorageSpotViewSet(viewsets.ViewSet):
         def work():
             spot = _spot(pk)
             return {**shelves.spot_json(spot, is_leaf=not spot.children.exists()),
-                    'location_name': spot.location.name, 'contents': shelves.spot_contents(spot)}
+                    'location_name': spot.location.name, 'contents': shelves.spot_contents(spot),
+                    'inside': shelves.branch_contents(spot)}
         return _guarded(work)
 
     def partial_update(self, request, pk=None):

@@ -208,13 +208,31 @@ def _item_json(item):
     return {
         'id': str(item.id), 'name': item.name, 'item_code': item.item_code,
         'category': item.category, 'color': item.color or '', 'unit': item.unit,
-        'unit_label': item.get_unit_display(), 'image_url': item.image_url or '',
+        'unit_label': item.get_unit_display(),
+        'image_url': item.image_url or next((u for u in (item.image_urls or []) if u), ''),
+        # For the material's picture when it has no photo (inventoryImage).
+        'color_hex': item.color_hex or '', 'sub_category': item.sub_category or '',
     }
 
 
 def _stock_row(row):
     return {'item': _item_json(row.item), 'quantity': fmt(row.quantity),
             'quantity_text': amount(row.quantity, row.item)}
+
+
+def branch_contents(spot):
+    """What sits on a spot and on everything inside it, shelf by shelf, in
+    walking order (the View on Set up racks)."""
+    rows = (SpotStock.objects.filter(location_id=spot.location_id, quantity__gt=0)
+            .filter(Q(spot=spot) | Q(spot__address__startswith=spot.address + '-'))
+            .select_related('item', 'spot').order_by('item__name'))
+    by_spot = {}
+    for row in rows:
+        by_spot.setdefault(row.spot_id, (row.spot, []))[1].append(_stock_row(row))
+    keys = _walk_keys(list(StorageSpot.objects.filter(location_id=spot.location_id)))
+    ordered = sorted(by_spot.values(), key=lambda pair: keys[pair[0].id])
+    return [{'spot': {'id': str(s.id), 'address': s.address, 'name': s.name, 'kind_label': s.get_kind_display()},
+             'contents': contents} for s, contents in ordered]
 
 
 def spot_history(spot, limit=50):

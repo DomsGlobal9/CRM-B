@@ -195,6 +195,25 @@ class RuleTests(ShelvesTestBase):
                                          location=self.store, quantity=5)
 
 
+class ViewInsideTests(ShelvesTestBase):
+
+    def test_view_lists_everything_inside_a_rack_shelf_by_shelf(self):
+        self.stock_in(self.silk, 10)
+        self.stock_in(self.hooks, 40)
+        shelves.put_away(self.store, self.silk, self.spot('FLOOR-C1-1'), '6')
+        shelves.put_away(self.store, self.hooks, self.spot('FLOOR-C1-2'), '40')
+        cupboard = self.spot('FLOOR-C1')
+        res = self.client.get(f'{API}spots/{cupboard.id}/')
+        self.assertEqual(res.status_code, 200)
+        inside = res.json()['inside']
+        self.assertEqual([g['spot']['address'] for g in inside], ['FLOOR-C1-1', 'FLOOR-C1-2'])
+        self.assertEqual(inside[0]['contents'][0]['item']['name'], 'Red Kanchi silk')
+        self.assertEqual(inside[0]['contents'][0]['quantity'], '6')
+        # FLOOR-C2 is a different cupboard: nothing of C1 shows there.
+        other = self.spot('FLOOR-C2')
+        self.assertEqual(self.client.get(f'{API}spots/{other.id}/').json()['inside'], [])
+
+
 class CountTests(ShelvesTestBase):
 
     def setUp(self):
