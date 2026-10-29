@@ -77,6 +77,7 @@ import GarmentPairingModal, { getGarmentPairConfig, findMatchingTemplate } from 
 import VoiceTextarea, { SpeakButton, VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
 import { voiceNoteList } from './components/ui/voiceNotes';
 import Loader, { LoaderRows } from './components/ui/Loader';
+import AuthShowcase from './components/auth/AuthShowcase';
 import { hasTierNames, setTierNames, tierName } from './services/tierNames';
 function getCustomerMeasurement(m, key) {
   if (!m) return undefined;
@@ -4363,7 +4364,8 @@ function App() {
       {/* 2. SIGN IN SCREEN (Image 2) */}
 
       {view === 'find' && (
-        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+        <div className="auth-page auth-split" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <AuthShowcase kind="find" />
           <button
             onClick={() => { setFindError(null); setView('signup'); }}
             style={{ position: 'absolute', top: '30px', left: '5%', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface-color)', border: '1px solid var(--border-color)', padding: '10px 18px', borderRadius: '99px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '600', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}
@@ -4372,7 +4374,7 @@ function App() {
             Back
           </button>
 
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
           <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
@@ -4382,7 +4384,7 @@ function App() {
             <form onSubmit={handleFindSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Boutique name or address</label>
-                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
+                <div className="auth-slug-box" style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
                   <span style={{ padding: '12px 0 12px 14px', fontSize: '14px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{window.location.host}/</span>
                   <input
                     type="text"
@@ -4425,8 +4427,9 @@ function App() {
       )}
 
       {boutiqueNotFound && view !== 'find' && (
-        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+        <div className="auth-page auth-split" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <AuthShowcase kind="notfound" />
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
 
           <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)', textAlign: 'center' }}>
@@ -4448,7 +4451,8 @@ function App() {
       )}
 
       {view === 'login' && !boutiqueNotFound && (
-        <div className="auth-page" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '76px 16px 20px' }}>
+        <div className="auth-page auth-split" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '76px 16px 20px' }}>
+          <AuthShowcase kind="login" />
           
           {/* Back to Home Button */}
           <button 
@@ -4478,7 +4482,7 @@ function App() {
             Back to Home
           </button>
 
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '18px' }}>YOUR VISION. OUR CRAFT.</div>
 
           <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 5vw, 32px)', gap: '16px', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
@@ -4568,7 +4572,8 @@ function App() {
       {/* Ask for a reset link. Reached from the login screen; leaves back to
           it. Nothing here reveals whether the address is one we know. */}
       {view === 'forgot' && (
-        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+        <div className="auth-page auth-split" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <AuthShowcase kind="help" />
           <div className="auth-card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
             <h2 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Reset your password</h2>
 
@@ -4617,7 +4622,8 @@ function App() {
       {/* Choose the new password. Only reachable by following the emailed
           link, which is what put resetToken in state. */}
       {view === 'reset' && (
-        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+        <div className="auth-page auth-split" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <AuthShowcase kind="help" />
           <div className="auth-card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
             <h2 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Choose a new password</h2>
 
@@ -4670,8 +4676,9 @@ function App() {
           replaces the temporary password before anything else. The server
           refuses every other request from this account until they do. */}
       {view === 'change-password' && currentUser && (
-        <div className="auth-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+        <div className="auth-page auth-split" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
+          <AuthShowcase kind="password" />
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
           <div className="auth-card" style={{ width: '100%', maxWidth: '440px', marginTop: '24px' }}>
             <form onSubmit={handleChangePasswordSubmit} className="auth-form" style={{ gap: '12px' }}>
               <div>
@@ -4717,7 +4724,8 @@ function App() {
       )}
 
       {view === 'signup' && (
-        <div className="auth-page auth-page--signup" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)' }}>
+        <div className="auth-page auth-page--signup auth-split auth-split--wide" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)' }}>
+          <AuthShowcase kind="signup" />
           
           {/* Back to Home Button */}
           <button 
@@ -4747,7 +4755,7 @@ function App() {
             Back to Home
           </button>
 
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
           <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '16px' }}>YOUR VISION. OUR CRAFT.</div>
 
           {/* One card, no steps. It used to be a two-tab wizard (owner on
