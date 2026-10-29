@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send } from 'lucide-react';
+import { Compass, Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { notificationKind } from './services/notificationKind';
@@ -68,6 +68,9 @@ import SettingsPage from './components/SettingsPage.jsx';
 import { InvoiceRenderer, normalizeInvoiceData } from './components/invoice/InvoiceTemplates';
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from './constants/legal';
 import { BottomNavigation } from './components/ui/BottomNavigation';
+import ProductTour from './components/ui/ProductTour';
+import { markTourSeen, tourSeen } from './components/ui/tourState';
+import { hasPageTour } from './components/ui/tourPages';
 
 import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
@@ -1700,7 +1703,7 @@ function GuidedHighlight({ show, text, children }) {
   );
 }
 
-function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
+function NavItem({ icon: Icon, label, active, onClick, collapsed, hint, tour }) {
   const [flyout, setFlyout] = useState(null);
   const show = (e) => {
     if (!collapsed) return;
@@ -1711,6 +1714,7 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
   return (
     <a
       className={`portal-menu-item${active ? ' active' : ''}${hint && !collapsed ? ' gh-nav' : ''}`}
+      data-tour={tour}
       role="button"
       tabIndex={0}
       aria-label={collapsed ? label : undefined}
@@ -1742,7 +1746,8 @@ function PortalMenu({ sections, activeTab, onPick, collapsed = false, hints = {}
       {section.items.map(({ tab, icon, label, match }) => (
         <NavItem key={match ? match.join('+') : tab} icon={icon} label={label}
                  active={match ? match.includes(activeTab) : activeTab === tab}
-                 collapsed={collapsed} onClick={() => onPick(tab)} hint={hints[tab]} />
+                 collapsed={collapsed} onClick={() => onPick(tab)} hint={hints[tab]}
+                 tour={match ? 'reports' : tab} />
       ))}
     </React.Fragment>
   ));
@@ -1842,6 +1847,11 @@ function App() {
       key: tab, label: tab === 'account' ? t('nav.account') : t('nav.settings'),
       icon: tab === 'account' ? User : Settings, onClick: () => go(tab),
     })),
+    { key: 'tour', label: t('nav.takeTour', 'Take the tour'), icon: Compass, onClick: () => setTourOpen(true) },
+    ...(hasPageTour(dashboardTab, currentUser?.role) ? [{
+      key: 'page-tour', label: t('nav.pageGuide', 'Guide for this page'), icon: Compass,
+      onClick: () => setPageTour(dashboardTab),
+    }] : []),
     { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => handleLogout() },
   ];
   // The same account entries on a computer or tablet: the "Hi, <name>" chip at
@@ -2711,6 +2721,27 @@ function App() {
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [invoiceFilter, setInvoiceFilter] = useState('All');
   const [loading, setLoading] = useState(true);
+  // The guided tour: open on a person's first visit to the workspace, once the
+  // page has loaded; "Take the tour" in the account menu opens it again.
+  const [tourOpen, setTourOpen] = useState(false);
+  const [pageTour, setPageTour] = useState(null);
+  useEffect(() => {
+    if (view !== 'dashboard' || !currentUser || loading || tourOpen || tourSeen(currentUser)) return undefined;
+    const timer = setTimeout(() => setTourOpen(true), 700);
+    return () => clearTimeout(timer);
+    // Only these: reopening it on every render after it is closed would be wrong.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, currentUser?.id, currentUser?.email, loading]);
+  // Each page's own tour: the first time the page is opened, once the
+  // workspace tour has been seen (or skipped), and never on top of it.
+  useEffect(() => {
+    if (view !== 'dashboard' || !currentUser || loading || tourOpen || pageTour) return undefined;
+    if (!tourSeen(currentUser) || !hasPageTour(dashboardTab, currentUser.role) || tourSeen(currentUser, dashboardTab)) return undefined;
+    // A moment for the page to draw its parts before the tour looks for them.
+    const timer = setTimeout(() => setPageTour(dashboardTab), 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, tourOpen, pageTour]);
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false, status: 'disconnected', qrCode: null });
   const [boutiqueSettings, setBoutiqueSettings] = useState(null);
   // The boutique's own tier names, for every screen that shows a tier.
@@ -4359,6 +4390,11 @@ function App() {
 
   ].filter((step) => !step.tab || canSeeTab(currentUser, step.tab));
   const showOnboarding = !loading && !onboardingDismissed && onboardingSteps.some(step => !step.done);
+  // The guided tour (ProductTour.jsx): the menu this user really has.
+  const tourMenu = sidebarSections.flatMap((section) => section.items)
+    .map(({ tab, label, match }) => ({ tab, label, tour: match ? 'reports' : tab }));
+  // A page's own tour is open only while that page is the one on screen.
+  const pageTourOpen = !!pageTour && pageTour === dashboardTab && !tourOpen;
   return (
     <div className="app-container">
       {/* 2. SIGN IN SCREEN (Image 2) */}
@@ -5122,7 +5158,7 @@ function App() {
                 />
 
                 {showOnboarding && (
-                  <section className="content-card" style={{ padding: '20px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
+                  <section className="content-card" data-tour="getting-started" style={{ padding: '20px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
                       <div>
                         <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 500 }}>{t('dashboard.gettingStarted', 'Getting started')}</h2>
@@ -8042,6 +8078,10 @@ function App() {
             activeTab={dashboardTab}
             onChangeTab={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); }}
           />
+          {/* Mounted only while open, so it always starts at the welcome. */}
+          {tourOpen && <ProductTour open user={currentUser} menu={tourMenu} onMenu={setMobileNavOpen}
+                                    onClose={(how) => { if (how?.skipped) markTourSeen(currentUser, dashboardTab); setTourOpen(false); }} />}
+          {pageTourOpen && <ProductTour key={pageTour} open page={pageTour} user={currentUser} menu={tourMenu} onClose={() => setPageTour(null)} />}
         </div>
       )}
 
