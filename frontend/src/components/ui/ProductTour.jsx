@@ -69,7 +69,7 @@ function buildSteps({ user }) {
     });
     steps.push({
       part: 'dash', title: 'Your numbers',
-      text: "This month's revenue, the money still to collect, the orders in progress and your customers, updated as you work.",
+      text: "This month's revenue, pending payments, the orders in progress and your customers, updated as you work.",
       targets: ['.portal-main .at-stat-grid.dash-stats'], optional: true,
     });
     steps.push({
