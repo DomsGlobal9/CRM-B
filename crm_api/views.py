@@ -498,11 +498,33 @@ class TailorViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         if self.action != 'list':
             return queryset
+        queryset = self._with_open_steps(queryset)
         if self.request.query_params.get('attendance') == '1':
             return queryset.exclude(role=DESIGNER, designer_profiles__isnull=True)
         return queryset.exclude(role=DESIGNER).exclude(
             role='Tailor', user__isnull=False,
             designer_profiles__user=F('user'))
+
+    #: Steps still to be done by whoever holds them, on orders still open:
+    #: what Staff > Team's work-wise view counts. Waiting for the master's
+    #: check is the master's to move, not the worker's, so it is left out.
+    OPEN_DOING = ('IN_PROGRESS', 'PAUSED')
+    OPEN_TODO = ('NOT_STARTED',)
+
+    @classmethod
+    def _with_open_steps(cls, queryset):
+        """Each person's open steps, counted in the same query (one subquery
+        per count) -- read by TailorSerializer.get_open_steps."""
+        from django.db.models import IntegerField, OuterRef, Subquery
+
+        def count(statuses):
+            rows = (OrderStage.objects
+                    .filter(assigned_to=OuterRef('pk'), status__in=statuses)
+                    .exclude(order__order_status__in=('Shipped', 'Delivered', 'Cancelled'))
+                    .values('assigned_to').annotate(n=Count('id')).values('n'))
+            return Coalesce(Subquery(rows, output_field=IntegerField()), 0)
+
+        return queryset.annotate(open_doing=count(cls.OPEN_DOING), open_todo=count(cls.OPEN_TODO))
 
     def perform_create(self, serializer):
         tailor = serializer.save()

@@ -360,11 +360,15 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [StaffSelfOrOwner]
 
     def get_queryset(self):
-        """Only the owner sees the team's attendance; everyone else -- the
-        Master included -- sees their own days.
+        """The owner sees the team's attendance, and so do the supervisors
+        (Master, Designer) -- read only: listing and opening days, never the
+        writes, which keep their own owner checks. Everyone else sees their
+        own days.
         """
         queryset = AttendanceSession.objects.select_related('staff')
-        if holds(self.request.user, 'team.attendance'):
+        supervisor_reads = (self.action in ('list', 'retrieve')
+                            and resolve_user_role(self.request.user) in SUPERVISOR_ROLES)
+        if holds(self.request.user, 'team.attendance') or supervisor_reads:
             # Both filters go through the database as-is, so both used to turn a
             # malformed query string into a 500: `?staff=abc` raises ValueError
             # out of IntegerField.get_prep_value and `?date=abc` raises Django's
@@ -994,6 +998,13 @@ class DayMarkViewSet(viewsets.ModelViewSet):
 
     serializer_class = DayMarkSerializer
     permission_classes = [OwnerOnly]
+
+    def get_permissions(self):
+        # The supervisors (Master, Designer) read the marks with the team's
+        # attendance (who is on leave today); marking a day stays the owner's.
+        if self.action in ('list', 'retrieve') and resolve_user_role(self.request.user) in SUPERVISOR_ROLES:
+            return [StaffSelfOrOwner()]
+        return super().get_permissions()
 
     def get_queryset(self):
         qs = DayMark.objects.select_related('staff')

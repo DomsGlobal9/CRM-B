@@ -8561,3 +8561,28 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     flex: 1 1 auto !important; gap: 6px; padding: 0 14px !important; font-size: 14px; font-weight: 600; }
   .app-container .orders-book .at-btn-icon-view::after { content: attr(title); }
 }
+
+/* Staff > Team: the Work-wise / Attendance-wise switch and its live counts
+   above the list; in the Status cell, the badge with a small line under it
+   (what they are doing, or their hours today) and, in red, someone away with
+   work waiting. On a phone the switch fills the row and the Status detail
+   gets the card's whole width. */
+.staff-status-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-bottom: var(--space-4); }
+.staff-status-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.staff-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
+.staff-status-sub { flex: 1 1 100%; font-size: var(--text-xs, 12px); line-height: 1.35; color: var(--text-muted); overflow-wrap: anywhere; }
+.staff-status-flag { color: var(--danger-color); font-weight: 600; }
+.staff-status-free { color: var(--success-color); font-weight: 600; }
+.staff-status-tag { font-size: 11px; }
+@media (max-width: 600px) {
+  .staff-status-bar > .at-seg { width: 100%; }
+  .staff-status-bar > .at-seg button { flex: 1 1 0; justify-content: center; }
+  .staff-table td.staff-cell-status[data-label] { flex: 1 1 100%; }
+}
+
+/* Staff > Team: the stat cards filter the list -- the "Showing" chip says
+   which, beside the counts; it takes its own line on a phone. */
+.staff-card-filter { margin-left: auto; }
+@media (max-width: 600px) {
+  .staff-card-filter { margin-left: 0; width: 100%; justify-content: space-between; }
+}

@@ -109,10 +109,20 @@ class TailorSerializer(serializers.ModelSerializer):
     #: never grant more than a tailor by accident.
     role = serializers.CharField(max_length=50, required=False)
 
+    #: {"doing": n, "todo": n}: the person's open workflow steps, for Staff >
+    #: Team's work-wise view. Only the roster list counts them
+    #: (TailorViewSet._with_open_steps); anywhere else it is null.
+    open_steps = serializers.SerializerMethodField()
+
     class Meta:
         model = Tailor
         fields = '__all__'
         read_only_fields = ['user']
+
+    def get_open_steps(self, tailor):
+        if not hasattr(tailor, 'open_doing'):
+            return None
+        return {'doing': tailor.open_doing, 'todo': tailor.open_todo}
 
     def validate_phone(self, value):
         return validate_mobile(value)

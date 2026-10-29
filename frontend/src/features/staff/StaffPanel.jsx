@@ -1,5 +1,5 @@
 
-import { Fragment, useState, useEffect, useCallback, useMemo } from 'react';
+import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Check,
   Plus, Clock, TrendingUp, Users, FileText, ClipboardList, Trash2, Phone, Calendar, Briefcase, UserCheck,
   User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil, ChevronDown, ChevronUp, KeyRound, X,
@@ -843,6 +843,52 @@ function DeleteMemberDialog({ state, onCancel, onConfirm }) {
 
 // `onlyDesigners`: opened from the Design library's Designers card -- the
 // team list shows the designers alone until `onShowAll` clears it.
+/* Staff > Team: the Status column read two ways (the switch above the list).
+   Work-wise: Busy while the person holds open workflow steps (any role), with
+   how many are in progress and how many are still to do (open_steps, counted
+   by the roster list itself). Attendance-wise: Present / Checked out / Absent
+   today, or the owner's Leave / Weekly off mark. Each view also flags what
+   needs a hand: someone away with work waiting, someone in with none. */
+const STATUS_VIEW_KEY = 'staff-team-status-view';
+const readStatusView = () => {
+  try { return localStorage.getItem(STATUS_VIEW_KEY) === 'attendance' ? 'attendance' : 'work'; } catch { return 'work'; }
+};
+const clockTime = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
+const hoursText = (minutes) => {
+  const m = Math.max(0, Math.round(minutes || 0));
+  return m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`;
+};
+
+/** Today's attendance for one roster row: {kind, since, until, minutes, outside}. */
+function attendanceOf(member, sessions, marks) {
+  const staffId = member.isDesigner ? member.staff : member.id;
+  if (staffId == null) return null;
+  const mine = sessions.filter((s) => String(s.staff) === String(staffId))
+    .sort((a, b) => String(a.check_in).localeCompare(String(b.check_in)));
+  const outside = mine.some((s) => s.check_in_outside_shop);
+  if (mine.length) {
+    const open = mine.find((s) => s.is_open);
+    const minutes = mine.reduce((n, s) => n + (s.is_open
+      ? (Date.now() - new Date(s.check_in).getTime()) / 60000
+      : Number(s.minutes || 0)), 0);
+    return open
+      ? { kind: 'present', since: mine[0].check_in, minutes, outside }
+      : { kind: 'out', since: mine[0].check_in, until: mine[mine.length - 1].check_out, minutes, outside };
+  }
+  const mark = marks.find((d) => String(d.staff) === String(staffId));
+  if (mark) return { kind: mark.kind === 'WEEKLY_OFF' ? 'off' : 'leave', note: mark.note };
+  return { kind: 'absent' };
+}
+
+const ATTENDANCE_BADGE = {
+  present: ['success', 'Present'],
+  out: ['neutral', 'Checked out'],
+  absent: ['danger', 'Absent'],
+  leave: ['warning', 'On leave'],
+  off: ['neutral', 'Weekly off'],
+};
+const AWAY = new Set(['absent', 'leave', 'off']);
+
 function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, canAttend = isOwner,
                   portalUrl, onlyDesigners = false, onShowAll = null }) {
   // Edit/delete, pay and today's attendance each follow their own handed
@@ -852,6 +898,16 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
   const [designers, setDesigners] = useState([]);
   const [terms, setTerms] = useState([]);
   const [attendanceToday, setAttendanceToday] = useState([]);
+  const [dayMarksToday, setDayMarksToday] = useState([]);
+  // The stat card clicked above the list: 'available' | 'present' | 'pay', or
+  // null for everyone. It narrows the list to what the card counts.
+  const [cardFilter, setCardFilter] = useState(null);
+  const listRef = useRef(null);
+  const [statusView, setStatusViewState] = useState(readStatusView);
+  const setStatusView = (next) => {
+    setStatusViewState(next);
+    try { localStorage.setItem(STATUS_VIEW_KEY, next); } catch { /* private mode: this visit only */ }
+  };
   const [deposits, setDeposits] = useState([]);
   const [advances, setAdvances] = useState([]);
   const [issuingFor, setIssuingFor] = useState(null);
@@ -870,13 +926,16 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
     try {
       const d = new Date();
       const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const [people, designed, profiles, deposited, advanced, present] = await Promise.all([
+      const [people, designed, profiles, deposited, advanced, present, marked] = await Promise.all([
         canSeeTeam ? api.getTailors().catch(() => []) : Promise.resolve([]),
         canSeeTeam ? api.getDesigners().catch(() => []) : Promise.resolve([]),
         api.getStaffProfiles().catch(() => []),
         canPay ? api.getDeposits().catch(() => []) : Promise.resolve([]),
         canPay ? api.getAdvances({ active: 'true' }).catch(() => []) : Promise.resolve([]),
         canAttend ? api.getAttendance({ date: today }).catch(() => []) : Promise.resolve([]),
+        // Leave / weekly off: the owner marks them; the owner and the
+        // supervisors read them (DayMarkViewSet).
+        canAttend ? api.getDayMarks({ since: today, until: today }).catch(() => []) : Promise.resolve([]),
       ]);
       setRoster(Array.isArray(people) ? people : []);
       setDesigners(Array.isArray(designed) ? designed : []);
@@ -884,6 +943,7 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
       setDeposits(Array.isArray(deposited) ? deposited : []);
       setAdvances(Array.isArray(advanced) ? advanced : []);
       setAttendanceToday(Array.isArray(present) ? present : []);
+      setDayMarksToday(Array.isArray(marked) ? marked : []);
     } catch (err) {
       setLoadError(err.message || 'Could not load the staff list.');
     } finally {
@@ -963,7 +1023,12 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
 
   const analytics = useMemo(() => {
     const total = roster.length + designers.length;
-    const busy = roster.filter((p) => (p.status || '').toLowerCase() === 'busy').length;
+    // Busy as the Work-wise view counts it -- open steps held -- so the card
+    // and the list it opens agree; the stored status only for a row the list
+    // endpoint did not count (open_steps null).
+    const busy = roster.filter((p) => (p.open_steps
+      ? p.open_steps.doing + p.open_steps.todo > 0
+      : (p.status || '').toLowerCase() === 'busy')).length;
     const available = roster.length - busy;
     const presentIds = new Set(attendanceToday.map((s) => String(s.staff)));
     const workingNow = new Set(
@@ -972,6 +1037,33 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
   }, [roster, designers, attendanceToday]);
 
   
+  // A card: the list narrowed to what it counts, in the view it is about
+  // (Available -> Work-wise, Present -> Attendance-wise); the same card again,
+  // or Team size, shows everyone.
+  const CARD_LABEL = { available: 'Available now', present: 'Present today', pay: 'Pay details added' };
+  const pickCard = (key) => {
+    const next = key && cardFilter === key ? null : key;
+    setCardFilter(next);
+    if (next === 'available') setStatusView('work');
+    if (next === 'present' && canAttend) setStatusView('attendance');
+    setTimeout(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
+  const cardKeeps = ({ member, terms: t }) => {
+    if (cardFilter === 'available') {
+      if (member.isDesigner) return false;
+      return member.open_steps
+        ? member.open_steps.doing + member.open_steps.todo === 0
+        : (member.status || '').toLowerCase() !== 'busy';
+    }
+    if (cardFilter === 'present') {
+      const a = attendanceOf(member, attendanceToday, dayMarksToday);
+      return Boolean(a && (a.kind === 'present' || a.kind === 'out'));
+    }
+    if (cardFilter === 'pay') return Boolean(t);
+    return true;
+  };
+  const shownRows = cardFilter ? rows.filter(cardKeeps) : rows;
+
   const plural = (role, n) =>
     (n === 1 || /staff$/i.test(role)) ? role : `${role}s`;
 
@@ -990,15 +1082,19 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
         return (
           <div className="at-stat-grid staff-stats" style={{ marginBottom: 'var(--space-5)' }}>
             <StatCard icon={Users} tone="green" label="Team size" value={analytics.total}
-                      sub={`${roster.length} people`} />
+                      sub={`${roster.length} people`}
+                      onClick={() => pickCard(null)} active={cardFilter === null} />
             <StatCard icon={UserCheck} tone="amber" label="Available now" value={analytics.available}
-                      sub={analytics.busy ? `${analytics.busy} busy` : 'nobody busy'} />
+                      sub={analytics.busy ? `${analytics.busy} busy` : 'nobody busy'}
+                      onClick={() => pickCard('available')} active={cardFilter === 'available'} />
             {canAttend && (
               <StatCard icon={Clock} tone="blue" label="Present today" value={analytics.presentToday}
-                        sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'Marked in attendance'} />
+                        sub={analytics.workingNow ? `${analytics.workingNow} in now` : 'Marked in attendance'}
+                        onClick={() => pickCard('present')} active={cardFilter === 'present'} />
             )}
             <StatCard icon={Briefcase} tone="violet" label="Pay details added" value={withTerms}
-                      sub={`${withTerms} of ${roster.length + designers.length}`} />
+                      sub={`${withTerms} of ${roster.length + designers.length}`}
+                      onClick={() => pickCard('pay')} active={cardFilter === 'pay'} />
           </div>
         );
       })()}
@@ -1062,6 +1158,51 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
         </div>
       )}
 
+      {canSeeTeam && rows.length > 0 && (() => {
+        const view = canAttend ? statusView : 'work';
+        const people = rows.map(({ member }) => member);
+        const working = people.filter((m) => m.open_steps);
+        const busy = working.filter((m) => m.open_steps.doing + m.open_steps.todo > 0).length;
+        const kinds = {};
+        if (canAttend) {
+          people.forEach((m) => {
+            const a = attendanceOf(m, attendanceToday, dayMarksToday);
+            if (a) kinds[a.kind] = (kinds[a.kind] || 0) + 1;
+          });
+        }
+        const counts = view === 'work'
+          ? [['warning', 'Busy', busy], ['success', 'Available', working.length - busy]]
+          : Object.entries(ATTENDANCE_BADGE).map(([k, [tone, label]]) => [tone, label, kinds[k] || 0])
+            .filter(([, , n], i) => n > 0 || i < 3);
+        return (
+          <div className="staff-status-bar" ref={listRef}>
+            {canAttend && (
+              <div className="at-seg" role="group" aria-label="Show status by">
+                <button type="button" aria-pressed={view === 'work'} onClick={() => setStatusView('work')}>
+                  <Briefcase size={15} /> Work-wise
+                </button>
+                <button type="button" aria-pressed={view === 'attendance'} onClick={() => setStatusView('attendance')}>
+                  <Clock size={15} /> Attendance-wise
+                </button>
+              </div>
+            )}
+            <div className="staff-status-counts" aria-live="polite">
+              {counts.map(([tone, label, n]) => (
+                <span key={label} className={`ui-badge ui-badge--${tone}`}>{label} · {n}</span>
+              ))}
+            </div>
+            {cardFilter && (
+              <span className="staff-only-chip staff-card-filter">
+                Showing: {CARD_LABEL[cardFilter]} · {shownRows.length}
+                <button type="button" onClick={() => setCardFilter(null)} aria-label="Show the whole team">
+                  Show everyone <X size={13} />
+                </button>
+              </span>
+            )}
+          </div>
+        );
+      })()}
+
       {rows.length === 0 ? (
         <div className="ui-card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-secondary)' }}>
           {canSeeTeam
@@ -1071,7 +1212,7 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
       ) : (
         
         (() => {
-          const showPay = canPay && rows.some(({ terms }) => terms && showsPay(terms));
+          const showPay = canPay && shownRows.some(({ terms }) => terms && showsPay(terms));
           const cols = 4 + (showPay ? 2 : 0) + (canAct ? 1 : 0);
           const toggle = (id) => setExpanded((prev) => {
             const next = new Set(prev);
@@ -1087,7 +1228,7 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
             <thead>
               <tr>
                 <th>Team member</th>
-                <th>Status</th>
+                <th>{canSeeTeam && canAttend && statusView === 'attendance' ? 'Attendance today' : 'Status'}</th>
                 <th>Contact</th>
                 <th>Work type</th>
                 {showPay && <th>Pay</th>}
@@ -1096,7 +1237,12 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
               </tr>
             </thead>
             <tbody>
-          {rows.map(({ member, terms: t }) => {
+          {shownRows.length === 0 && (
+            <tr><td colSpan={cols} style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+              Nobody here for “{CARD_LABEL[cardFilter]}” right now.
+            </td></tr>
+          )}
+          {shownRows.map(({ member, terms: t }) => {
             const hasDetail = Boolean(t && showsPay(t));
             const open = expanded.has(member.id);
             const deposit = depositByStaff.get(String(member.id));
@@ -1132,8 +1278,47 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
                   </div>
                 </td>
 
-                <td data-label="Status">
-                  {member.status && canAttend && !member.isDesigner
+                <td data-label={canSeeTeam && canAttend && statusView === 'attendance' ? 'Attendance' : 'Status'}
+                    className="staff-cell-status">
+                  {(() => {
+                    if (!canSeeTeam || (member.isDesigner && !(canAttend && statusView === 'attendance'))) return null;
+                    const att = canAttend ? attendanceOf(member, attendanceToday, dayMarksToday) : null;
+                    const work = member.open_steps;
+                    const jobs = work ? work.doing + work.todo : 0;
+                    const workLine = work && jobs > 0
+                      ? [work.doing && `${work.doing} in progress`, work.todo && `${work.todo} to do`].filter(Boolean).join(' · ')
+                      : null;
+                    if (canAttend && statusView === 'attendance') {
+                      if (!att) return <span className="ui-badge ui-badge--neutral">—</span>;
+                      const [tone, label] = ATTENDANCE_BADGE[att.kind];
+                      const detail = att.kind === 'present' ? `In since ${clockTime(att.since)} · ${hoursText(att.minutes)}`
+                        : att.kind === 'out' ? `${clockTime(att.since)} – ${clockTime(att.until)} · ${hoursText(att.minutes)}`
+                        : att.note || null;
+                      return (
+                        <div className="staff-status">
+                          <span className={`ui-badge ui-badge--${tone}`}>● {label}</span>
+                          {att.outside && <span className="ui-badge ui-badge--warning staff-status-tag">Outside shop</span>}
+                          {detail && <div className="staff-status-sub">{detail}</div>}
+                          {work && AWAY.has(att.kind) && jobs > 0 && (
+                            <div className="staff-status-sub staff-status-flag">{jobs} {jobs === 1 ? 'job' : 'jobs'} waiting</div>
+                          )}
+                          {work && att.kind === 'present' && jobs === 0 && (
+                            <div className="staff-status-sub staff-status-free">No work assigned</div>
+                          )}
+                        </div>
+                      );
+                    }
+                    if (!work) return undefined;
+                    return (
+                      <div className="staff-status">
+                        <span className={`ui-badge ui-badge--${jobs > 0 ? 'warning' : 'success'}`}>● {jobs > 0 ? 'Busy' : 'Available'}</span>
+                        <div className="staff-status-sub">{workLine || 'No work assigned'}</div>
+                        {att && AWAY.has(att.kind) && jobs > 0 && (
+                          <div className="staff-status-sub staff-status-flag">{ATTENDANCE_BADGE[att.kind][1]} today</div>
+                        )}
+                      </div>
+                    );
+                  })() ?? (member.status && canAttend && !member.isDesigner
                    && !attendanceToday.some((s) => String(s.staff) === String(member.id)) ? (
                     // Not marked in today: the stored Available/Busy is stale until they arrive.
                     <span className="ui-badge ui-badge--danger">● Absent</span>
@@ -1148,7 +1333,7 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
                       : <span className="ui-badge ui-badge--danger">● Absent</span>
                   ) : member.isDesigner ? (
                     <span className="ui-badge ui-badge--neutral">Designer</span>
-                  ) : null}
+                  ) : null)}
                 </td>
 
                 <td style={cell} data-label="Contact">
@@ -1442,6 +1627,13 @@ export default function StaffPanel({ currentUser, onlyDesigners = false, onShowA
   const handed = (currentUser?.admin_tasks || []).filter((task) => task.startsWith('team.'));
   const can = (task) => isOwner || handed.includes(task);
   const canSeeTeam = isOwner || isSupervisor || handed.length > 0;
+  // The Team list's Work-wise / Attendance-wise views and the team's
+  // attendance: the owner's, and the supervisors' to read (Master, Designer --
+  // apps.staff AttendanceSessionViewSet / DayMarkViewSet). Corrections, leave
+  // marks and pay stay the owner's.
+  const isDesignerRole = currentUser?.role === 'Designer';
+  const canSeeTeamAttendance = can('team.attendance') || isSupervisor || isDesignerRole;
+  const rosterSeesTeam = canSeeTeam || isDesignerRole;
   // Payroll is its own module switch, independent of attendance; mirrors
   // App.jsx's hasModule (no list at all means nothing is switched off).
   const payrollOn = can('team.payroll')
@@ -1486,22 +1678,25 @@ export default function StaffPanel({ currentUser, onlyDesigners = false, onShowA
                 borderBottom: `2px solid ${active ? 'var(--primary-color)' : 'transparent'}`,
               }}
             >
-              <Icon size={15} /> {!canSeeTeam && key === 'roster' ? 'My details'
+              <Icon size={15} /> {!rosterSeesTeam && key === 'roster' ? 'My details'
                 : key === 'attendance' && !payrollOn ? 'Attendance' : label}
             </button>
           );
         })}
       </div>
 
-      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={canSeeTeam} canManage={can('team.manage')}
-                                   canPay={can('team.payroll')} canAttend={can('team.attendance')} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)}
+      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={rosterSeesTeam} canManage={can('team.manage')}
+                                   canPay={can('team.payroll')} canAttend={canSeeTeamAttendance} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)}
                                    onlyDesigners={onlyDesigners} onShowAll={onShowAllStaff} />}
       {tab === 'tasks' && <TeamTasks currentUser={currentUser} canSeeTeam={canSeeTeam} />}
       {/* The team's attendance is the owner's alone; everyone else sees their own.
           Payroll lives inside it as an owner-only view, since every pay run is
           built from that attendance. */}
+      {/* The Master and the Designer see the team's attendance too, read only
+          (the server's AttendanceSessionViewSet / DayMarkViewSet): no
+          corrections, no pay. */}
       {tab === 'attendance' && (
-        <Attendance isOwner={can('team.attendance')} canSeeTeam={can('team.attendance')} showPayroll={payrollOn} />
+        <Attendance isOwner={can('team.attendance')} canSeeTeam={canSeeTeamAttendance} showPayroll={payrollOn} />
       )}
       {tab === 'performance' && (
         <Performance isOwner={isOwner} canReview={can('team.reviews')} canSeeTeam={canSeeTeam} />
