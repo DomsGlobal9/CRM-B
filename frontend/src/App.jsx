@@ -71,6 +71,7 @@ import { BottomNavigation } from './components/ui/BottomNavigation';
 import ProductTour from './components/ui/ProductTour';
 import { markTourSeen, tourSeen } from './components/ui/tourState';
 import { hasPageTour } from './components/ui/tourPages';
+import { hasTask } from './components/ui/tourTasks';
 
 import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
@@ -1847,11 +1848,10 @@ function App() {
       key: tab, label: tab === 'account' ? t('nav.account') : t('nav.settings'),
       icon: tab === 'account' ? User : Settings, onClick: () => go(tab),
     })),
-    { key: 'tour', label: t('nav.takeTour', 'Take the tour'), icon: Compass, onClick: () => setTourOpen(true) },
-    ...(hasPageTour(dashboardTab, currentUser?.role) ? [{
-      key: 'page-tour', label: t('nav.pageGuide', 'Guide for this page'), icon: Compass,
-      onClick: () => setPageTour(dashboardTab),
-    }] : []),
+    // One guide entry: this page's own guide, or on the Dashboard (which has
+    // none of its own) the Dashboard tour.
+    { key: 'page-tour', label: t('nav.pageGuide', 'Guide for this page'), icon: Compass,
+      onClick: () => (hasPageTour(dashboardTab, currentUser?.role) ? setPageTour(dashboardTab) : setTourOpen(true)) },
     { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => handleLogout() },
   ];
   // The same account entries on a computer or tablet: the "Hi, <name>" chip at
@@ -2722,26 +2722,34 @@ function App() {
   const [invoiceFilter, setInvoiceFilter] = useState('All');
   const [loading, setLoading] = useState(true);
   // The guided tour: open on a person's first visit to the workspace, once the
-  // page has loaded; "Take the tour" in the account menu opens it again.
+  // page has loaded; "Guide for this page" in the account menu opens it again.
   const [tourOpen, setTourOpen] = useState(false);
   const [pageTour, setPageTour] = useState(null);
+  // Pages whose guide found nothing to point at this session (not retried).
+  const pageTourEmpty = useRef(new Set());
+  // A Getting started item's hands-on guide ({ key, label }), while it runs.
+  const [taskGuide, setTaskGuide] = useState(null);
   useEffect(() => {
-    if (view !== 'dashboard' || !currentUser || loading || tourOpen || tourSeen(currentUser)) return undefined;
+    // Only on a page without a guide of its own (the Dashboard); every other
+    // page opens its own guide instead.
+    if (view !== 'dashboard' || !currentUser || loading || tourOpen || taskGuide || tourSeen(currentUser)) return undefined;
+    if (hasPageTour(dashboardTab, currentUser.role)) return undefined;
     const timer = setTimeout(() => setTourOpen(true), 700);
     return () => clearTimeout(timer);
     // Only these: reopening it on every render after it is closed would be wrong.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, currentUser?.id, currentUser?.email, loading]);
+  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading]);
   // Each page's own tour: the first time the page is opened, once the
   // workspace tour has been seen (or skipped), and never on top of it.
   useEffect(() => {
-    if (view !== 'dashboard' || !currentUser || loading || tourOpen || pageTour) return undefined;
-    if (!tourSeen(currentUser) || !hasPageTour(dashboardTab, currentUser.role) || tourSeen(currentUser, dashboardTab)) return undefined;
+    // An unfinished guide left behind on another page does not hold this one up.
+    if (view !== 'dashboard' || !currentUser || loading || tourOpen || pageTour === dashboardTab || taskGuide) return undefined;
+    if (!hasPageTour(dashboardTab, currentUser.role) || tourSeen(currentUser, dashboardTab) || pageTourEmpty.current.has(dashboardTab)) return undefined;
     // A moment for the page to draw its parts before the tour looks for them.
     const timer = setTimeout(() => setPageTour(dashboardTab), 900);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, tourOpen, pageTour]);
+  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, tourOpen, pageTour, taskGuide]);
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false, status: 'disconnected', qrCode: null });
   const [boutiqueSettings, setBoutiqueSettings] = useState(null);
   // The boutique's own tier names, for every screen that shows a tier.
@@ -4397,6 +4405,10 @@ function App() {
   const pageTourOpen = !!pageTour && pageTour === dashboardTab && !tourOpen;
   return (
     <div className="app-container">
+      {taskGuide && currentUser && (
+        <ProductTour key={taskGuide.key} open task={taskGuide.key} taskLabel={taskGuide.label}
+                     user={currentUser} menu={tourMenu} onMenu={setMobileNavOpen} onClose={() => setTaskGuide(null)} />
+      )}
       {/* 2. SIGN IN SCREEN (Image 2) */}
 
       {view === 'find' && (
@@ -5184,7 +5196,7 @@ function App() {
                           key={step.key}
                           type="button"
                           disabled={step.done || !step.go}
-                          onClick={step.go}
+                          onClick={() => { step.go(); if (hasTask(step.key)) setTaskGuide({ key: step.key, label: step.label }); }}
                           style={{
                             display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
                             background: 'transparent', border: 'none', borderRadius: '6px', textAlign: 'left',
@@ -7396,6 +7408,8 @@ function App() {
                 );
               };
 
+              // What people order, Neckline & sleeve trends, Orders by step: hidden.
+              const SHOW_MORE_INSIGHTS = false;
               return (
                 <>
                   {reportsSwitch}
@@ -7416,19 +7430,23 @@ function App() {
                               sub={t('analyticsPage.totalDirectoryProfiles', 'Total boutique directory profiles')} />
                   </section>
 
-                  <div className="at-grid-2">
-                    <div className="at-stack">
-                      <SectionCard icon={Shirt} tone="green" title={t('analyticsPage.popularGarmentTypes', 'Popular Garment Types')}
-                                   subtitle="Most ordered garment categories" action={() => setDashboardTab('orders')}>
-                        {topGarmentsList.length === 0 ? (
-                          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No garments ordered yet.</div>
-                        ) : (
-                          <div className="at-stack" style={{ gap: 'var(--space-3)' }}>
-                            {topGarmentsList.map(([garment, count]) => bar(garment, count, garmentTotal, 'forest'))}
-                          </div>
-                        )}
-                      </SectionCard>
-
+                  {/* Customer tiers and Workshop load side by side, the same height.
+                      What people order, Neckline & sleeve trends and Orders by
+                      step are hidden, not removed: SHOW_MORE_INSIGHTS = true
+                      brings them back. */}
+                  <div className="at-grid-2 insights-grid">
+                    {SHOW_MORE_INSIGHTS && (
+                          <SectionCard icon={Shirt} tone="green" title={t('analyticsPage.popularGarmentTypes', 'Popular Garment Types')}
+                                       subtitle="Most ordered garment categories" action={() => setDashboardTab('orders')}>
+                            {topGarmentsList.length === 0 ? (
+                              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No garments ordered yet.</div>
+                            ) : (
+                              <div className="at-stack" style={{ gap: 'var(--space-3)' }}>
+                                {topGarmentsList.map(([garment, count]) => bar(garment, count, garmentTotal, 'forest'))}
+                              </div>
+                            )}
+                          </SectionCard>
+                    )}
                       <SectionCard icon={Users} tone="violet" title={t('analyticsPage.customerSegmentation', 'Customer Segmentation')}
                                    subtitle="Customers grouped by how much they spend" action={() => setDashboardTab('customers')}>
                         <div style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -7449,35 +7467,6 @@ function App() {
                           </div>
                         </div>
                       </SectionCard>
-
-                      <SectionCard icon={PenTool} tone="amber" title={t('analyticsPage.necklineSleeveTrends', 'Neckline & Sleeve Trends')}
-                                   subtitle="What is being asked for at the counter">
-                        <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                          <div>
-                            <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>{t('analyticsPage.topNecklines', 'Top Necklines')}</div>
-                            {topNecklinesList.length === 0 && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>None recorded yet.</div>}
-                            {topNecklinesList.map(([style, count]) => (
-                              <div key={style} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                <span>{style}</span>
-                                <span className="at-num" style={{ fontWeight: 600 }}>{count}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div>
-                            <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>{t('analyticsPage.topSleeves', 'Top Sleeves')}</div>
-                            {topSleevesList.length === 0 && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>None recorded yet.</div>}
-                            {topSleevesList.map(([style, count]) => (
-                              <div key={style} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                <span>{style}</span>
-                                <span className="at-num" style={{ fontWeight: 600 }}>{count}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </SectionCard>
-                    </div>
-
-                    <div className="at-stack">
                       <SectionCard icon={Scissors} tone="blue" title={t('analyticsPage.staffWorkloadOverview', 'Staff & Workload Overview')}
                                    subtitle="Who is working, and who is free" action={() => setDashboardTab('staff')} actionLabel="Manage team">
                         <div className="wl-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--space-3)' }}>
@@ -7495,16 +7484,43 @@ function App() {
                           </div>
                         </div>
                       </SectionCard>
-
-                      <SectionCard icon={FileText} tone="green" title={t('analyticsPage.orderStatusBreakdown', 'Order Status Breakdown')}
-                                   subtitle="Current order distribution" action={() => setDashboardTab('orders')}>
-                        <div className="at-stack" style={{ gap: 'var(--space-3)' }}>
-                          {Object.entries(dashboardData?.stats?.status_distribution || {})
-                            .sort((a, b) => b[1] - a[1])
-                            .map(([status, count]) => bar(t(`status.${status}`, status), count, ordersList.length, 'forest'))}
-                        </div>
-                      </SectionCard>
-                    </div>
+                    {SHOW_MORE_INSIGHTS && (
+                          <SectionCard icon={PenTool} tone="amber" title={t('analyticsPage.necklineSleeveTrends', 'Neckline & Sleeve Trends')}
+                                       subtitle="What is being asked for at the counter">
+                            <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                              <div>
+                                <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>{t('analyticsPage.topNecklines', 'Top Necklines')}</div>
+                                {topNecklinesList.length === 0 && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>None recorded yet.</div>}
+                                {topNecklinesList.map(([style, count]) => (
+                                  <div key={style} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                    <span>{style}</span>
+                                    <span className="at-num" style={{ fontWeight: 600 }}>{count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div>
+                                <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>{t('analyticsPage.topSleeves', 'Top Sleeves')}</div>
+                                {topSleevesList.length === 0 && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>None recorded yet.</div>}
+                                {topSleevesList.map(([style, count]) => (
+                                  <div key={style} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                    <span>{style}</span>
+                                    <span className="at-num" style={{ fontWeight: 600 }}>{count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </SectionCard>
+                    )}
+                    {SHOW_MORE_INSIGHTS && (
+                          <SectionCard icon={FileText} tone="green" title={t('analyticsPage.orderStatusBreakdown', 'Order Status Breakdown')}
+                                       subtitle="Current order distribution" action={() => setDashboardTab('orders')}>
+                            <div className="at-stack" style={{ gap: 'var(--space-3)' }}>
+                              {Object.entries(dashboardData?.stats?.status_distribution || {})
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([status, count]) => bar(t(`status.${status}`, status), count, ordersList.length, 'forest'))}
+                            </div>
+                          </SectionCard>
+                    )}
                   </div>
                 </>
               );
@@ -8081,7 +8097,8 @@ function App() {
           {/* Mounted only while open, so it always starts at the welcome. */}
           {tourOpen && <ProductTour open user={currentUser} menu={tourMenu} onMenu={setMobileNavOpen}
                                     onClose={(how) => { if (how?.skipped) markTourSeen(currentUser, dashboardTab); setTourOpen(false); }} />}
-          {pageTourOpen && <ProductTour key={pageTour} open page={pageTour} user={currentUser} menu={tourMenu} onClose={() => setPageTour(null)} />}
+          {pageTourOpen && <ProductTour key={pageTour} open page={pageTour} user={currentUser} menu={tourMenu}
+                                        onClose={(how) => { if (how?.empty) pageTourEmpty.current.add(pageTour); setPageTour(null); }} />}
         </div>
       )}
 

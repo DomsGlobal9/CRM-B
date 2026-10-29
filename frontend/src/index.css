@@ -8641,3 +8641,27 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   border-color: color-mix(in srgb, var(--text-primary) 85%, var(--bg-color));
 }
 .portal-account-bell-badge { box-shadow: 0 0 0 2px var(--bg-color), 0 2px 4px rgba(0, 0, 0, 0.15); }
+
+/* Reports > Insights: four figures, then Customer tiers and Workshop load.
+   Figures: four to a row on a computer, two on a tablet, two on a phone;
+   label and figure wrap at a space instead of being cut short with "...".
+   The two cards: side by side from 900px, the same height, one above the
+   other below that. */
+@media (min-width: 641px) {
+  .app-container .insights-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-container .insights-stats .at-stat { align-items: center; height: 100%; }
+  .app-container .insights-stats .at-stat-label { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: normal; word-break: normal; }
+  .app-container .insights-stats .at-stat-value { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: normal; word-break: normal; font-size: clamp(20px, 1.9vw, 24px); }
+}
+@media (min-width: 1200px) {
+  .app-container .insights-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.insights-grid { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+.insights-grid > * { height: 100%; min-width: 0; }
+@media (min-width: 900px) {
+  .insights-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) {
+  .insights-grid .at-donut { margin: 0 auto; }
+  .insights-grid .at-legend { width: 100%; }
+}

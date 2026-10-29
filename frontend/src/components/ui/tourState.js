@@ -1,7 +1,9 @@
 /* Whether this person has seen a guided tour (ProductTour.jsx): the
    workspace tour, and each page's own tour, one flag per boutique, user
    and page, in this browser. */
-const KEY = 'scaleezy_tour_done_v1';
+// v2: every guide shows once more after the page-by-page change (v1 marks
+// from earlier tours are ignored).
+const KEY = 'scaleezy_tour_done_v2';
 
 const tourKey = (user, page) => {
   let tenant = '';

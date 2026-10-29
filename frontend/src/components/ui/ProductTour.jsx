@@ -3,14 +3,18 @@
    order button, the account menu -- and a card beside it saying what it is
    for, with Back / Next, Skip (the rest of this part) and Skip all (end the
    tour). Each role gets its own tour, built from the menu that user really
-   has. It opens once per person per browser (localStorage), and "Take the
-   tour" in the account menu replays it. With `page`, it is that page's own
+   has. It opens once per person per browser (localStorage), and "Guide for
+   this page" in the account menu replays it. With `page`, it is that page's own
    tour instead (tourPages.js), shown the first time the page is opened.
-   Purely a guide: nothing behind it is clicked or changed while it is open. */
+   With `task`, it is a hands-on guide to one Getting started item
+   (tourTasks.js): the page stays usable, the lit part is the real button or
+   box to use, and the guide moves on as the person does each thing.
+   The tours themselves never click or change anything. */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { markTourSeen } from './tourState';
 import { pageTourSteps } from './tourPages';
+import { taskSteps } from './tourTasks';
 import './tour.css';
 
 const isOwner = (role) => !role || role === 'Owner';
@@ -44,54 +48,57 @@ function describe(tab, role) {
 }
 
 /** The steps for this user, in parts: welcome, the menu, the tools, the end. */
-function buildSteps({ user, menu }) {
+/** The first-visit tour: the Dashboard only, page by page from there on --
+ *  every other page shows its own short guide the first time it is opened
+ *  (tourPages.js), so the menu is not walked through item by item. */
+function buildSteps({ user }) {
   const role = user?.role;
   const name = user?.first_name || user?.name || '';
+  const owner = isOwner(role);
   const steps = [{
     part: 'welcome', center: true,
     title: `Welcome${name ? `, ${name}` : ''}! 👋`,
-    text: isOwner(role)
-      ? 'Let us show you around your boutique workspace. It takes about a minute, and you can skip any part, or all of it.'
-      : 'Let us show you around your workspace: where your work is, and how to get it done. It takes less than a minute.',
+    text: owner
+      ? 'Let us show you around your Dashboard. Every other page has its own short guide, shown the first time you open it.'
+      : 'Here is a quick look around. Every page has its own short guide, shown the first time you open it.',
   }];
-  menu.forEach((item) => {
-    const text = describe(item.tour, role);
-    if (!text) return;
-    steps.push({ part: 'menu', title: item.label, text, targets: [`.portal-sidebar [data-tour="${item.tour}"]`, `.mobile-bottom-nav [data-tour="${item.tab}"]`], menuItem: true });
-  });
-  if (isOwner(role)) {
+  if (owner) {
     steps.push({
-      part: 'tools', title: 'Your numbers',
-      text: 'This month\'s revenue, the money still to collect, the orders in progress and your customers, updated as you work.',
+      part: 'dash', title: 'Your Dashboard', text: describe('overview', role),
+      targets: ['.portal-main .at-page-head .at-page-title'], optional: true,
+    });
+    steps.push({
+      part: 'dash', title: 'Your numbers',
+      text: "This month's revenue, the money still to collect, the orders in progress and your customers, updated as you work.",
       targets: ['.portal-main .at-stat-grid.dash-stats'], optional: true,
     });
     steps.push({
-      part: 'tools', title: 'Getting started',
-      text: 'Your first steps, in the order the work flows: add a customer, take an order, add your team, stock your fabrics. Each one ticks itself off once it is done.',
+      part: 'dash', title: 'Getting started',
+      text: 'Your first steps, in the order the work flows: add a customer, take an order, add your team, stock your fabrics. Click any of them and it guides you through it. Each one ticks itself off once it is done.',
       targets: ['.portal-main [data-tour="getting-started"]'], optional: true,
     });
     steps.push({
-      part: 'tools', title: 'Take a new order',
+      part: 'dash', title: 'Take a new order',
       text: 'Start here when a customer walks in: pick the garment, take measurements and the design, and the order goes to your workshop.',
       targets: ['.portal-main .at-page-head .btn-gold'], optional: true,
     });
     steps.push({
-      part: 'tools', title: 'Alerts',
+      part: 'dash', title: 'Alerts',
       text: 'New requests, payments and anything that needs you show up here, with a count of what you have not read yet.',
       targets: ['.portal-account-bell-btn', '.mobile-app-header [aria-label="Notifications"]'], optional: true,
     });
   }
   steps.push({
-    part: 'tools', title: 'Your account',
-    text: 'Your profile, the settings, and signing out. You will also find "Take the tour" here, to see this guide again any time.',
+    part: 'account', title: 'Your account',
+    text: 'Your profile, the settings, and signing out. You will also find "Guide for this page" here, to see the guide for whichever page you are on again.',
     targets: ['.portal-account-bar .acct-menu-btn', '.mobile-app-header .mobile-account-btn'],
   });
   steps.push({
     part: 'end', center: true,
     title: 'You are all set! 🎉',
-    text: isOwner(role)
-      ? 'That is your workspace. Start with a new order, or add your team first. You can replay this tour from your account menu whenever you like.'
-      : 'That is everything you need. Open My work to begin. You can replay this tour from your account menu whenever you like.',
+    text: owner
+      ? 'That is your Dashboard. Open any page from the menu, and it shows you around the first time. You can replay this from your account menu whenever you like.'
+      : 'Next, a short guide to your page. Every page you open shows you around the first time. You can replay this from your account menu whenever you like.',
   });
   return steps;
 }
@@ -102,10 +109,25 @@ const sentences = (text) => String(text || '').split(/(?<=[.!?])\s+/).filter(Boo
 const PAD = 6;     // the lit area's margin round its target
 const GAP = 14;    // between the lit area and the card
 
+const candidates = (target) => {
+  if (typeof target === 'string') return [...document.querySelectorAll(target)];
+  const found = [...document.querySelectorAll(target.sel)]
+    .filter((el) => el.textContent.trim().startsWith(target.text));
+  return found.map((el) => {
+    let at = el;
+    for (let i = 0; i < (target.up || 0) && at.parentElement; i += 1) at = at.parentElement;
+    return at;
+  });
+};
+
+/** The heading of the order wizard's current screen, for steps with `at`. */
+const wizardTitle = () => document.querySelector('h1.page-title')?.textContent.trim() || '';
+const atMatches = (step) => !step.at || step.at.test(wizardTitle());
+
 /** The first of a step's targets that is on screen, or null. */
 function findTarget(step) {
   for (const sel of step.targets || []) {
-    for (const el of document.querySelectorAll(sel)) {
+    for (const el of candidates(sel)) {
       const r = el.getBoundingClientRect();
       const style = getComputedStyle(el);
       if (r.width > 0 && r.height > 0 && style.visibility !== 'hidden'
@@ -131,11 +153,30 @@ function place(rect, card) {
   return { left: clampX(rect.left + rect.width / 2 - cw / 2), top: clampY(vh - ch - 12), side: 'over' };
 }
 
-export default function ProductTour({ open, user, menu, onClose, onMenu, page }) {
+export default function ProductTour({ open, user, onClose, onMenu, page, task, taskLabel }) {
   // A page's tour keeps only the steps whose part is on the page as it opens.
-  const steps = useMemo(() => (page
-    ? pageTourSteps(page, user?.role).filter((s) => findTarget(s))
-    : buildSteps({ user, menu })), [page, user, menu]);
+  // A page's steps are the parts already on the page; while the page is
+  // still drawing them (its data loading), look again for a few seconds
+  // before giving up, rather than opening empty.
+  const pageParts = () => pageTourSteps(page, user?.role).filter((s) => findTarget(s));
+  const [found, setFound] = useState(() => (page ? pageParts() : []));
+  const waiting = !!page && found.length === 0;
+  useEffect(() => {
+    if (!waiting) return undefined;
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      const now = pageTourSteps(page, user?.role).filter((st) => findTarget(st));
+      if (now.length) { clearInterval(timer); setFound(now); }
+      else if (tries >= 20) { clearInterval(timer); onClose({ empty: true }); }
+    }, 300);
+    return () => clearInterval(timer);
+  }, [waiting, page, user, onClose]);
+  const steps = useMemo(() => (task
+    ? taskSteps(task)
+    : page
+      ? found
+      : buildSteps({ user })), [task, page, user, found]);
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState(null);
   const [pos, setPos] = useState(null);
@@ -144,12 +185,13 @@ export default function ProductTour({ open, user, menu, onClose, onMenu, page })
   const target = useRef(null);
 
   // Finish at the end; Skip all, ✕ and Esc skip it (onClose is told which).
-  const finish = useCallback(() => { markTourSeen(user, page); onClose({ skipped: false }); }, [user, page, onClose]);
-  const skipAll = useCallback(() => { markTourSeen(user, page); onClose({ skipped: true }); }, [user, page, onClose]);
+  const finish = useCallback(() => { if (!task) markTourSeen(user, page); onClose({ skipped: false }); }, [task, user, page, onClose]);
+  const skipAll = useCallback(() => { if (!task) markTourSeen(user, page); onClose({ skipped: true }); }, [task, user, page, onClose]);
   // A step whose target is not on this screen (the New order button off the
   // Dashboard, the bell on another page) is passed over; a menu item that
   // only the phone's ☰ menu holds is shown as a card in the middle.
-  const usable = useCallback((s) => !s.optional || !!findTarget(s), []);
+  // A guide's wizard steps count only on their own screen of the wizard.
+  const usable = useCallback((s) => (!s.optional || !!findTarget(s)) && atMatches(s), []);
   const go = useCallback((dir) => {
     setIndex((i) => {
       let n = i + dir;
@@ -195,11 +237,11 @@ export default function ProductTour({ open, user, menu, onClose, onMenu, page })
       const t = step.center ? null : target.current;
       setRect(t ? t.getBoundingClientRect() : null);
     };
-    // Scrolling and resizing: once a frame. Everything else measures at once,
-    // so the tour does not wait on frames a hidden tab never draws.
+    // Scrolling and resizing measure straight away too (a frame-timed measure
+    // waits on frames a background tab never draws, and the lit part lags).
     const measure = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measureNow);
+      measureNow();
     };
     target.current = step.center ? null : findTarget(step);
     target.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -207,18 +249,68 @@ export default function ProductTour({ open, user, menu, onClose, onMenu, page })
     const late = setTimeout(measureNow, 250);
     const later = setTimeout(measureNow, 450);
     const settled = setTimeout(measureNow, 800);
+    // A guide's page keeps changing under it (forms open, fields grow).
+    const poll = step.task ? setInterval(measureNow, 400) : 0;
     window.addEventListener('resize', measure);
     window.addEventListener('scroll', measure, true);
     // The drawer sliding in moves the item without a scroll or resize.
     const onSlide = (e) => { if (!e.target.closest?.('.pt')) measureNow(); };
     document.addEventListener('transitionend', onSlide, true);
     return () => {
-      cancelAnimationFrame(frame); clearTimeout(late); clearTimeout(later); clearTimeout(settled);
+      cancelAnimationFrame(frame); clearTimeout(late); clearTimeout(later); clearTimeout(settled); clearInterval(poll);
       window.removeEventListener('resize', measure);
       window.removeEventListener('scroll', measure, true);
       document.removeEventListener('transitionend', onSlide, true);
     };
   }, [open, step]);
+
+  // A guide: keep up with the page. On a wizard screen the step does not
+  // belong to, go to the nearest step that does (back first: a Next that the
+  // form refused); when the lit part is gone and a later step's screen is up,
+  // go there.
+  const indexRef = useRef(index);
+  useEffect(() => { indexRef.current = index; }, [index]);
+  useEffect(() => {
+    if (!open || !task) return undefined;
+    const sync = () => {
+      const i = indexRef.current;
+      const s = steps[i];
+      if (!s) return;
+      if (s.at && !atMatches(s)) {
+        for (let n = i - 1; n >= 0; n -= 1) if (steps[n].at && atMatches(steps[n])) { setIndex(n); return; }
+        for (let n = i + 1; n < steps.length; n += 1) if (steps[n].at && atMatches(steps[n])) { setIndex(n); return; }
+        return;
+      }
+      if (!findTarget(s)) {
+        for (let n = i + 1; n < steps.length; n += 1) {
+          if (steps[n].at && atMatches(steps[n]) && findTarget(steps[n])) { setIndex(n); return; }
+        }
+      }
+    };
+    const timer = setInterval(sync, 400);
+    return () => clearInterval(timer);
+  }, [open, task, steps]);
+  // The move after a click outlives re-renders (the click itself re-renders
+  // the app), so it keeps the latest go / finish in refs.
+  const moveRef = useRef({ go, finish, last: steps.length - 1 });
+  useEffect(() => { moveRef.current = { go, finish, last: steps.length - 1 }; }, [go, finish, steps.length]);
+  const pending = useRef(0);
+  useEffect(() => () => clearTimeout(pending.current), []);
+  useEffect(() => {
+    if (!open || !task || !step?.click) return undefined;
+    const onClick = (e) => {
+      const lit = target.current;
+      if (!lit || !lit.contains(e.target)) return;
+      // A moment for the click to do its work (open the form, change screen).
+      clearTimeout(pending.current);
+      pending.current = setTimeout(() => {
+        const { go: next, finish: done, last } = moveRef.current;
+        if (indexRef.current === last) done(); else next(1);
+      }, 350);
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [open, task, step]);
 
   // The card's place follows the lit area and the card's own size.
   useLayoutEffect(() => {
@@ -227,17 +319,23 @@ export default function ProductTour({ open, user, menu, onClose, onMenu, page })
     if (!card) return;
     const size = card.getBoundingClientRect();
     if (!rect) {
+      if (task) {
+        setPos({ left: Math.max(12, window.innerWidth - size.width - 20), top: Math.max(12, window.innerHeight - size.height - 20), side: 'corner' });
+        return;
+      }
       setPos({ left: Math.max(12, (window.innerWidth - size.width) / 2), top: Math.max(12, (window.innerHeight - size.height) / 2), side: 'center' });
       return;
     }
     const lit = { left: rect.left - PAD, top: rect.top - PAD, right: rect.right + PAD, bottom: rect.bottom + PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2 };
     setPos(place(lit, size));
-  }, [open, rect, index]);
+  }, [open, rect, index, task]);
 
   // Keys: → / Enter next, ← back, Esc skip all. Focus sits on the card.
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
+      const el = e.target;
+      if (el?.closest?.('input, textarea, select, [contenteditable="true"]') && !el.closest('.pt')) return;
       if (e.key === 'Escape') { e.preventDefault(); skipAll(); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); if (index === steps.length - 1) finish(); else go(1); }
       else if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
@@ -245,7 +343,8 @@ export default function ProductTour({ open, user, menu, onClose, onMenu, page })
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, index, steps.length, go, finish, skipAll]);
-  useEffect(() => { if (open) cardRef.current?.focus({ preventScroll: true }); }, [open, index]);
+  // A guide leaves the focus where the person is typing.
+  useEffect(() => { if (open && !task) cardRef.current?.focus({ preventScroll: true }); }, [open, index, task]);
 
   if (!open || !step) return null;
 
@@ -255,28 +354,30 @@ export default function ProductTour({ open, user, menu, onClose, onMenu, page })
   const number = counted.indexOf(step) + 1;
   const middle = !step.center;
   const offMenu = step.menuItem && !rect;
+  const text = task && !rect && step.missing ? step.missing : step.text;
   const lit = rect && {
     left: rect.left - PAD, top: rect.top - PAD, width: rect.width + PAD * 2, height: rect.height + PAD * 2,
   };
 
   return (
-    <div className="pt" role="presentation">
-      {/* Blocks the page behind while the tour is open. */}
+    <div className={`pt${task ? ' pt--task' : ''}`} role="presentation">
+      {/* Blocks the page behind while a tour is open; a guide leaves it usable. */}
       <div className={`pt-shade${lit ? '' : ' pt-shade--full'}`} />
       {lit && <div className="pt-lit" style={lit} aria-hidden="true" />}
       <div ref={cardRef} className={`pt-card pt-card--${pos?.side || 'center'}${step.center ? ' pt-card--intro' : ''}`}
            style={pos ? { left: pos.left, top: pos.top } : { visibility: 'hidden' }}
-           role="dialog" aria-modal="true" aria-labelledby="pt-title" aria-describedby="pt-text" tabIndex={-1}>
+           role="dialog" aria-modal={task ? 'false' : 'true'} aria-labelledby="pt-title" aria-describedby="pt-text" tabIndex={-1}>
         <button type="button" className="pt-close" onClick={skipAll} aria-label="Close the tour" title="Close the tour"><X size={16} /></button>
         {step.center && <span className="pt-step">{intro ? 'Quick tour' : 'All done'}</span>}
-        {middle && <span className="pt-step">Step {number} of {counted.length}</span>}
+        {middle && !task && <span className="pt-step">Step {number} of {counted.length}</span>}
+        {task && <span className="pt-step">{taskLabel || 'Guide'}</span>}
         <h3 id="pt-title" className="pt-title">{step.title}</h3>
         <p id="pt-text" className="pt-text">
           {/* One sentence to a line, each starting under the one before. */}
-          {sentences(step.text).map((line) => <span key={line} className="pt-line">{line}</span>)}
+          {sentences(text).map((line) => <span key={line} className="pt-line">{line}</span>)}
           {offMenu && <span className="pt-line pt-hint">You will find it in the menu ☰ at the top left.</span>}
         </p>
-        {middle && (
+        {middle && !task && (
           <div className="pt-dots" aria-hidden="true">
             {counted.map((s, i) => <span key={i} className={i + 1 === number ? 'is-on' : i + 1 < number ? 'is-done' : ''} />)}
           </div>
