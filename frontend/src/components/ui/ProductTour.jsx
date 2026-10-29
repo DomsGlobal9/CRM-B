@@ -96,6 +96,9 @@ function buildSteps({ user, menu }) {
   return steps;
 }
 
+/** A step's text as its sentences (split after . ! or ? and a space). */
+const sentences = (text) => String(text || '').split(/(?<=[.!?])\s+/).filter(Boolean);
+
 const PAD = 6;     // the lit area's margin round its target
 const GAP = 14;    // between the lit area and the card
 
@@ -269,8 +272,9 @@ export default function ProductTour({ open, user, menu, onClose, onMenu, page })
         {middle && <span className="pt-step">Step {number} of {counted.length}</span>}
         <h3 id="pt-title" className="pt-title">{step.title}</h3>
         <p id="pt-text" className="pt-text">
-          {step.text}
-          {offMenu && <span className="pt-hint"> You will find it in the menu ☰ at the top left.</span>}
+          {/* One sentence to a line, each starting under the one before. */}
+          {sentences(step.text).map((line) => <span key={line} className="pt-line">{line}</span>)}
+          {offMenu && <span className="pt-line pt-hint">You will find it in the menu ☰ at the top left.</span>}
         </p>
         {middle && (
           <div className="pt-dots" aria-hidden="true">

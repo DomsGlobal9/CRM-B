@@ -28,6 +28,8 @@
 .pt-title { margin: 0 28px 6px 0; font-size: 18px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; color: #14170f; font-family: inherit; }
 .pt-card--intro .pt-title { margin: 0 28px 8px 0; font-size: 22px; }
 .pt-text { margin: 0; font-size: 14px; line-height: 1.55; color: #4b5145; }
+.pt-line { display: block; }
+.pt-line + .pt-line { margin-top: 4px; }
 .pt-hint { color: #5b7410; font-weight: 600; }
 .pt-dots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 14px; }
 .pt-dots > span { width: 7px; height: 7px; border-radius: 999px; background: #e3e7d8; transition: width .25s ease, background-color .25s ease; }
