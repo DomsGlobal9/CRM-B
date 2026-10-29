@@ -902,15 +902,13 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
               {t('workPage.from', 'From')}:{' '}
               <b>{fromName ? `${fromName}${fromRole ? ` · ${fromRole}` : ''}` : t('workPage.theMaster', 'the Master')}</b>
             </small>
-            {mode === 'work' && (
+            {/* Send to: only for the worker who sends the step for checking --
+                a Master or Designer marks it done themselves, so they get none. */}
+            {mode === 'work' && !isSupervisor && (
               <small className="wk-sheet-assignee wk-sheet-route">
                 {t('workPage.sendTo', 'Send to')}:{' '}
-                {!isSupervisor && (
-                  <><b>{order.master_name || t('workPage.theMaster', 'the Master')} · {t('workPage.master', 'Master')}</b> {t('workPage.toCheck', 'to check')}{nextStep ? ' · ' : ''}</>
-                )}
-                {nextStep
-                  ? <>{t('workPage.next', 'next')}: <b>{stepName(nextStep)}</b>{' '}({nextStep.assigned_to_name || t('workPage.notAssigned', 'Not assigned yet')})</>
-                  : isSupervisor && <b>{t('workPage.lastStep', 'Last step')}</b>}
+                <b>{order.master_name || t('workPage.theMaster', 'the Master')} · {t('workPage.master', 'Master')}</b> {t('workPage.toCheck', 'to check')}{nextStep ? ' · ' : ''}
+                {nextStep && <>{t('workPage.next', 'next')}: <b>{stepName(nextStep)}</b>{' '}({nextStep.assigned_to_name || t('workPage.notAssigned', 'Not assigned yet')})</>}
               </small>
             )}
           </div>
