@@ -15,7 +15,7 @@
   --au-cream: #f6efdf;
   --au-mint: #d7efe4;
   background:
-    radial-gradient(70vmax 55vmax at -8% -12%, color-mix(in srgb, var(--au-accent) 48%, transparent) 0%, transparent 64%),
+    radial-gradient(60vmax 45vmax at -12% -18%, color-mix(in srgb, var(--au-accent) 14%, transparent) 0%, transparent 60%),
     radial-gradient(55vmax 45vmax at 108% 6%, color-mix(in srgb, #f3e6c6 95%, transparent) 0%, transparent 60%),
     radial-gradient(62vmax 52vmax at 104% 108%, color-mix(in srgb, #bfe6d3 95%, transparent) 0%, transparent 64%),
     radial-gradient(45vmax 35vmax at 30% 112%, color-mix(in srgb, var(--au-accent) 24%, transparent) 0%, transparent 60%),
@@ -39,15 +39,22 @@
 
 /* ---- The card: calm fields, one strong button ---------------------------- */
 .auth-split .auth-card {
-  /* Edged like the picture's platforms: a dark olive-green outline. */
-  border: 1.5px solid #9fb46a !important;
+  border: 0 !important;
   border-radius: 22px !important;
   background: #ffffff !important;
-  box-shadow:
-    0 30px 60px -28px rgba(52, 70, 10, .30),
-    0 12px 24px -14px rgba(20, 23, 15, .12) !important;
+  box-shadow: none !important;
 }
 .auth-split .auth-card .auth-title, .auth-split .auth-card h2 { color: var(--au-ink) !important; }
+/* A shorter card: less padding and tighter gaps (Request access keeps its own). */
+.auth-split .auth-card:not(.auth-card--signup) { padding: 36px clamp(24px, 3.4vw, 48px) 30px !important; gap: 14px !important; }
+.auth-split .auth-card:not(.auth-card--signup) .auth-form { gap: 16px !important; }
+.auth-split .auth-card:not(.auth-card--signup) .auth-subtitle { margin: -6px 0 2px !important; }
+.auth-split .auth-card:not(.auth-card--signup) .auth-remember-row { margin: -4px 0 2px !important; }
+.auth-split .auth-card:not(.auth-card--signup) .auth-card-footer { margin-top: 0 !important; padding-top: 14px !important; }
+/* Wider on tablets too. */
+@media (min-width: 641px) {
+  .auth-split .auth-card:not(.auth-card--signup) { max-width: 520px !important; }
+}
 .auth-split .auth-card .form-label { letter-spacing: .08em; text-transform: uppercase; font-size: 11px !important; color: var(--au-ink-2) !important; }
 .auth-split .auth-card input:not([type="checkbox"]):not([type="radio"]),
 .auth-split .auth-card .form-control {
@@ -135,7 +142,7 @@
 @media (min-width: 1024px) {
   .auth-page.auth-split:not(.auth-split--wide) {
     display: grid !important;
-    grid-template-columns: minmax(0, 600px) minmax(360px, 440px);
+    grid-template-columns: minmax(0, 580px) minmax(400px, 540px);
     justify-content: center;
     align-items: center;
     align-content: center;
@@ -147,7 +154,7 @@
   /* The logo and tagline above the card move into the left half. */
   .auth-split:not(.auth-split--wide) > .portal-wordmark--auth, .auth-split:not(.auth-split--wide) > .auth-logo-sub { display: none !important; }
   /* "Back" lines up with the left edge of the content under it. */
-  .auth-split:not(.auth-split--wide) > button { left: max(clamp(32px, 5vw, 72px), calc((100vw - 1040px - clamp(48px, 7vw, 120px)) / 2)) !important; }
+  .auth-split:not(.auth-split--wide) > button { left: max(clamp(32px, 5vw, 72px), calc((100vw - 1120px - clamp(48px, 7vw, 120px)) / 2)) !important; }
 }
 @media (min-width: 1200px) {
   .auth-page.auth-split--wide {
