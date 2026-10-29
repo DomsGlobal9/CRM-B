@@ -8513,3 +8513,51 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 @media (max-width: 768px) {
   .portal-main--staff { padding-top: 12px; }
 }
+
+/* Workshop on a phone (640px and below; tablets and computers unchanged):
+   the cards start much higher. The title and its line shrink; "Back to
+   My work" slims; Board/List and Filters share a row with the search
+   under them (opened filters drop below the search); and the WhatsApp
+   warning becomes one compact box -- icon beside its heading, the order
+   links as small chips in a row. */
+@media (max-width: 640px) {
+  .portal-main:has(> .workshop-toolbar) > .at-page-head { margin-bottom: 10px; }
+  .portal-main:has(> .workshop-toolbar) > .at-page-head .at-page-title { font-size: 24px; line-height: 1.2; }
+  .portal-main:has(> .workshop-toolbar) > .at-page-head .at-page-sub { margin-top: 2px; font-size: 13px; line-height: 1.4; }
+  .portal-main:has(> .workshop-toolbar) > .at-page-head .at-page-head-right:empty { display: none; }
+  .portal-main:has(> .workshop-toolbar) > .at-page-head + div:not([class]) { margin-bottom: 8px !important; }
+  .portal-main:has(> .workshop-toolbar) > .at-page-head + div:not([class]) > .btn-secondary { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+
+  .portal-main > .at-toolbar.workshop-toolbar { display: grid !important; grid-template-columns: auto minmax(0, 1fr); align-items: center !important; gap: 8px; margin: 0 0 10px; }
+  .workshop-toolbar > .workshop-view-switch { grid-column: 1; grid-row: 1; }
+  .workshop-toolbar > .workshop-view-switch .at-seg button { min-height: 32px; }
+  .workshop-toolbar > .at-toolbar-filters { grid-column: 2; grid-row: 1; justify-self: end; }
+  .workshop-toolbar > .at-toolbar-filters[open] { grid-column: 1 / -1; grid-row: 3; justify-self: stretch; }
+  .workshop-toolbar > .at-toolbar-filters[open] > summary { margin-bottom: 8px; }
+  .workshop-toolbar > .at-toolbar-filters[open] > select { display: inline-block; vertical-align: top; width: calc(50% - 4px); min-width: 0; margin: 0 0 8px; }
+  .workshop-toolbar > .at-toolbar-filters[open] > select:nth-of-type(odd) { margin-right: 8px; }
+  .workshop-toolbar > .workshop-search-wrap { grid-column: 1 / -1; grid-row: 2; }
+  .workshop-toolbar > .workshop-search-wrap .at-search input { min-height: 40px; }
+
+  .portal-main:has(> .workshop-toolbar) > .msg-failed-banner { display: flex; flex-wrap: wrap; align-items: center;
+    gap: 6px; padding: 10px 12px 10px 34px; margin-bottom: 12px; position: relative; font-size: 12.5px; line-height: 1.4; }
+  .portal-main:has(> .workshop-toolbar) > .msg-failed-banner > svg { position: absolute; left: 12px; top: 11px; }
+  .portal-main:has(> .workshop-toolbar) > .msg-failed-banner > strong { flex: 1 1 100%; }
+  .portal-main:has(> .workshop-toolbar) > .msg-failed-banner > span { flex: 1 1 100%; }
+  .portal-main:has(> .workshop-toolbar) > .msg-failed-banner > .at-link { min-height: 28px; padding: 2px 10px; border-radius: 999px;
+    background: color-mix(in srgb, var(--danger-color) 10%, var(--surface-color)); text-decoration: none; }
+}
+
+/* Orders / Workshop cards on a phone (640px and below): one coloured edge,
+   on the card itself. The desktop table's edge on the first cell (express,
+   late, stuck included) sat on top of "#16-1" and the garment line here.
+   View becomes a full-width "View order" button with its eye. */
+@media (max-width: 640px) {
+  .app-container .orders-book > tbody > tr > td.order-id-cell.order-id-cell.order-id-cell:first-child { box-shadow: none !important; }
+  .app-container .orders-book .order-id-header { width: 100%; justify-content: space-between; }
+  .app-container .orders-book .order-id-content { width: 100%; gap: 4px; }
+  .app-container .orders-book > tbody > tr > td:last-child > div { gap: 8px; }
+  .app-container .orders-book .at-btn-icon-view { width: auto; min-width: 0; height: 40px; min-height: 40px;
+    flex: 1 1 auto !important; gap: 6px; padding: 0 14px !important; font-size: 14px; font-weight: 600; }
+  .app-container .orders-book .at-btn-icon-view::after { content: attr(title); }
+}
