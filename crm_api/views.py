@@ -1508,6 +1508,14 @@ class OrderViewSet(viewsets.ModelViewSet):
         config, _ = BoutiqueSettings.objects.get_or_create(id=1)
         stage_conf = next((s for s in config.workflow_config if s['key'] == stage_key), {})
         allowed_roles = stage_conf.get('roles', [])
+        from domains.orders.workflow import ASSIGN_ONLY_TO
+        only = ASSIGN_ONLY_TO.get(stage_key)
+        if only and tailor.role not in only:
+            return Response(
+                {'error': f"{stage.stage_name} can only be assigned to {' or '.join(only)}.",
+                 'allowed_roles': list(only)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         if allowed_roles and tailor.role not in allowed_roles:
             return Response(
                 {'error': f"{tailor.name} is a {tailor.role} and cannot be assigned to {stage.stage_name}.",

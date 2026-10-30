@@ -9,6 +9,7 @@ import { resolveMediaUrl } from '../../services/media';
 import { inventoryImage } from '../../services/inventoryImages';
 import { imageFilesError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
+import { ASSIGN_ONLY_TO } from '../../constants/roles';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
@@ -631,7 +632,10 @@ function AssignTo({ order, stage, me, stageRoles, onDone }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const options = (staff || []).filter((s) => s.id !== me && (!stageRoles.length || stageRoles.includes(s.role)));
+  // Hemming & finishing goes only to the Hemming & Pressing Staff.
+  const only = ASSIGN_ONLY_TO[stage.stage_key];
+  const options = (staff || []).filter((s) => s.id !== me
+    && (only ? only.includes(s.role) : (!stageRoles.length || stageRoles.includes(s.role))));
 
   const assign = async () => {
     const who = options.find((s) => String(s.id) === pick);
@@ -648,7 +652,9 @@ function AssignTo({ order, stage, me, stageRoles, onDone }) {
     <section className="wk-section">
       <h3 className="wk-section-title">{t('workPage.assignTo', 'Assign to')}</h3>
       {staff && options.length === 0
-        ? <div className="wk-quiet">{t('workPage.noOneToAssign', 'No one else can take this step.')}</div>
+        ? <div className="wk-quiet">{only
+            ? t('workPage.noHemmingStaff', 'No Hemming & Pressing Staff yet. Add one in Staff to hand this step on.')
+            : t('workPage.noOneToAssign', 'No one else can take this step.')}</div>
         : (
           <div className="wk-pickers">
             <select className="form-control" value={pick} disabled={busy || !staff} onChange={(e) => setPick(e.target.value)}
@@ -908,7 +914,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
               <small className="wk-sheet-assignee wk-sheet-route">
                 {t('workPage.sendTo', 'Send to')}:{' '}
                 <b>{order.master_name || t('workPage.theMaster', 'the Master')} · {t('workPage.master', 'Master')}</b> {t('workPage.toCheck', 'to check')}{nextStep ? ' · ' : ''}
-                {nextStep && <>{t('workPage.next', 'next')}: <b>{stepName(nextStep)}</b>{' '}({nextStep.assigned_to_name || t('workPage.notAssigned', 'Not assigned yet')})</>}
+                {nextStep && <>{t('workPage.next', 'next')}: <b>{stepName(nextStep)}</b></>}
               </small>
             )}
           </div>

@@ -73,6 +73,7 @@ import { markTourSeen, tourSeen } from './components/ui/tourState';
 import { hasPageTour } from './components/ui/tourPages';
 import { hasTask } from './components/ui/tourTasks';
 import { SetupPasswordStep, SetupProfileBanner } from './features/staff/StaffFirstSetup';
+import { ASSIGN_ONLY_TO } from './constants/roles';
 
 import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
@@ -4305,6 +4306,9 @@ function App() {
 
 
   const eligibleStaffForStage = (stageKey) => {
+    // Hemming & finishing goes only to the Hemming & Pressing Staff.
+    const only = ASSIGN_ONLY_TO[stageKey];
+    if (only) return tailors.filter(t => only.includes(t.role));
     const stageConf = (boutiqueSettings?.workflow_config || []).find(s => s.key === stageKey);
     const allowed = stageConf?.roles || [];
     if (allowed.length === 0) return tailors;

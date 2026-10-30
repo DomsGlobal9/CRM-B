@@ -115,7 +115,7 @@ class StageAssignmentTests(HierarchyTestBase):
         order = self.make_order()
         self.assertEqual(self.assign_stage(order, self.tailor, self.owner).status_code, 200)
         self.assertEqual(
-            self.assign_stage(order, self.master, self.owner, "finishing").status_code, 200)
+            self.assign_stage(order, self.master, self.owner, "trial_scheduled").status_code, 200)
 
     def test_master_assigns_a_worker(self):
         order = self.make_order()
@@ -124,7 +124,7 @@ class StageAssignmentTests(HierarchyTestBase):
 
     def test_master_can_still_assign_a_master_only_stage(self):
         order = self.make_order()
-        res = self.assign_stage(order, self.master, self.master_user, "finishing")
+        res = self.assign_stage(order, self.master, self.master_user, "trial_scheduled")
         self.assertEqual(res.status_code, 200, res.content)
 
     def test_master_hands_on_their_own_stage(self):
@@ -146,7 +146,7 @@ class StageAssignmentTests(HierarchyTestBase):
         self.assertEqual(
             self.assign_stage(order, self.tailor, self.designer_user).status_code, 200)
         self.assertEqual(
-            self.assign_stage(order, self.master, self.designer_user, "finishing").status_code,
+            self.assign_stage(order, self.master, self.designer_user, "trial_scheduled").status_code,
             200)
 
     def test_designer_to_maggam_karigar_passes_the_hierarchy(self):
@@ -187,6 +187,67 @@ class StageAssignmentTests(HierarchyTestBase):
         order = self.make_order()
         res = self.assign_stage(order, self.tailor, self.master_user, "finishing")
         self.assertEqual(res.status_code, 400, res.content)
+
+
+class HemmingAssignmentTests(HierarchyTestBase):
+    """Hemming & finishing: given out by the Owner, a Designer or a Master,
+    and only ever to the Hemming & Pressing Staff."""
+
+    def setUp(self):
+        super().setUp()
+        self.hemmer = Tailor.objects.create(
+            name="Sita", specialty="Hemming", role="Hemming & Pressing Staff",
+            status="Available")
+
+    def test_owner_designer_and_master_hand_hemming_to_hemming_staff(self):
+        for user in (self.owner, self.designer_user, self.master_user):
+            order = self.make_order()
+            res = self.assign_stage(order, self.hemmer, user, "finishing")
+            self.assertEqual(res.status_code, 200, (user.username, res.content))
+            self.assertEqual(
+                order.stages.get(stage_key="finishing").assigned_to_id, self.hemmer.id)
+
+    def test_hemming_never_goes_to_a_master(self):
+        for user in (self.owner, self.designer_user, self.master_user):
+            order = self.make_order()
+            res = self.assign_stage(order, self.master, user, "finishing")
+            self.assertEqual(res.status_code, 400, (user.username, res.content))
+            self.assertIn("Hemming & Pressing Staff", res.json()["error"])
+
+    def test_hemming_never_goes_to_other_workers(self):
+        order = self.make_order()
+        for staff in (self.tailor, self.karigar):
+            res = self.assign_stage(order, staff, self.owner, "finishing")
+            self.assertEqual(res.status_code, 400, (staff.role, res.content))
+
+    def test_hemming_staff_cannot_assign_it(self):
+        user = User.objects.create_user(
+            username="sita@workflow.test", email="sita@workflow.test", password="sitapass123")
+        self.hemmer.user = user
+        self.hemmer.save(update_fields=["user"])
+        order = self.make_order()
+        res = self.assign_stage(order, self.hemmer, user, "finishing")
+        self.assertEqual(res.status_code, 403, res.content)
+
+    def test_with_no_hemming_staff_a_master_or_designer_does_it_themselves(self):
+        # Nobody to hand it to: the step stays open to the Master and the
+        # Designer (and the Owner), who start and finish it themselves.
+        self.hemmer.delete()
+        for user in (self.master_user, self.designer_user):
+            order = self.make_order()
+            self.reach(order, "finishing")
+            url = reverse("order-transition-stage", args=[order.id])
+            for status in ("IN_PROGRESS", "COMPLETED"):
+                res = self.client_for(user).post(
+                    url, {"stage_key": "finishing", "status": status}, format="json")
+                self.assertEqual(res.status_code, 200, (user.username, status, res.content))
+            self.assertEqual(order.stages.get(stage_key="finishing").status, "COMPLETED")
+
+    def test_other_steps_keep_their_own_roles(self):
+        # Pressing is not narrowed: a Master may still be given it.
+        order = self.make_order()
+        res = self.assign_stage(order, self.master, self.owner, "pressing")
+        self.assertEqual(res.status_code, 200, res.content)
 
 
 class SendToWorkshopHierarchyTests(HierarchyTestBase):

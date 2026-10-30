@@ -85,6 +85,13 @@ def worker_stage_keys(config, role):
                      if holds_stage_role(role, s.get('roles') or ()))
 
 
+#: Steps that are handed only to one kind of worker. The Owner, a Designer or
+#: a Master gives Hemming & finishing out, and only to the Hemming & Pressing
+#: Staff; who else the workflow lets hold the step is unchanged.
+#: Mirrored in frontend/src/constants/roles.js (ASSIGN_ONLY_TO).
+ASSIGN_ONLY_TO = {'finishing': ('Hemming & Pressing Staff',)}
+
+
 VALID_STATUSES = ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'SKIPPED', 'PAUSED',
                   'PENDING_VERIFICATION')
 
