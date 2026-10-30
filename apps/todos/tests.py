@@ -138,7 +138,16 @@ class TodoTests(TenantTestCase):
         self.assertEqual(self.titles(self.designer), ['design', 'given', 'mine', 'ravis'])
         self.assertEqual(self.titles(self.other), ['ravis'])
         self.assertEqual(self.titles(self.owner), ['design', 'given', 'mine', 'ravis'])
-        self.assertEqual(self.titles(self.master), ['design', 'given', 'mine', 'ravis'])
+        # The Designer ranks above the Master: a Designer's to-do is not shown
+        # to them, nor may they open or change it.
+        self.assertEqual(self.titles(self.master), ['given', 'mine', 'ravis'])
+        design = Todo.objects.get(title='design')
+        self.assertEqual(self.call(self.master, 'get', f'/api/todos/{design.id}/').status_code, 404)
+        self.assertEqual(self.call(self.master, 'post', f'/api/todos/{design.id}/status/',
+                                   {'status': 'CLOSED'}).status_code, 404)
+        # Nor is design work on the Master's order-work list.
+        rows = self.call(self.master, 'get', '/api/todos/order-work/').data
+        self.assertFalse(any(r['kind'] == 'DESIGN' for r in rows))
 
     def test_a_designer_changes_to_dos_like_a_master(self):
         todo = self.make(self.tailor)
@@ -302,14 +311,27 @@ class TodoTests(TenantTestCase):
                             {'title': 'x', 'order_stage': rows['stitching_in_progress'].id})
         self.assertEqual(refused.status_code, 400)
 
-        # A Master closing their to-do completes the step.
+        # A Master closing their to-do sends their own cutting to the Owner
+        # or Designer to check, with a photo like anybody's work.
         cutting = self.make(self.master, order_stage=rows['pattern_cutting'].id)
+        self.assertEqual(close(self.master, cutting).status_code, 400)
+        self.call(self.master, 'post', f"/api/todos/{cutting['id']}/updates/",
+                  {'photos': [SimpleUploadedFile('cut.jpg', JPEG, content_type='image/jpeg')]},
+                  fmt='multipart')
         self.assertEqual(close(self.master, cutting).status_code, 200)
+        rows['pattern_cutting'].refresh_from_db()
+        self.assertEqual(rows['pattern_cutting'].status, 'PENDING_VERIFICATION')
+        self.assertEqual(rows['pattern_cutting'].performed_by, meera)
+        self.assertTrue(Todo.objects.get(pk=cutting['id']).updates.filter(
+            text='Cutting sent to the Owner or Designer to check · work done by Meera').exists())
+
+        # The Owner confirms it, and the step is done.
+        from domains.orders.services import OrderService
+        OrderService.transition_order_stage(order=order, stage_key='pattern_cutting',
+                                            new_status='COMPLETED', user=self.owner)
         rows['pattern_cutting'].refresh_from_db()
         self.assertEqual(rows['pattern_cutting'].status, 'COMPLETED')
         self.assertEqual(rows['pattern_cutting'].performed_by, meera)
-        self.assertTrue(Todo.objects.get(pk=cutting['id']).updates.filter(
-            text='Cutting completed in the workflow · work done by Meera').exists())
 
         # A tailor needs a photo: without one the to-do stays open.
         stitching = self.make(self.tailor, order_stage=rows['stitching_in_progress'].id)
@@ -357,9 +379,10 @@ class TodoTests(TenantTestCase):
         self.assertTrue(OrderActivity.objects.filter(
             order=order, event_type='STAGE_NOTE', metadata__comments='Half the panels cut').exists())
 
-        # The step finished in the workflow closes the to-do here, once.
+        # The step finished in the workflow closes the to-do here, once. (The
+        # Master's own cutting is the Owner's or Designer's to complete.)
         OrderService.transition_order_stage(order=order, stage_key='pattern_cutting',
-                                            new_status='COMPLETED', user=self.master,
+                                            new_status='COMPLETED', user=self.owner,
                                             garment_job=None)
         self.assertEqual(status_of(cutting), Todo.STATUS_CLOSED)
         self.assertEqual(Todo.objects.get(pk=cutting['id']).updates.filter(author_name='Workflow').count(), 1)
@@ -372,6 +395,10 @@ class TodoTests(TenantTestCase):
         self.assertEqual(status_of(stitching), Todo.STATUS_IN_PROGRESS)
 
         # Closing the to-do itself records it once, not a second "automatically".
+        # The Master's own stitching goes for checking, so it needs a photo.
+        self.call(self.master, 'post', f"/api/todos/{stitching['id']}/updates/",
+                  {'photos': [SimpleUploadedFile('sew.jpg', JPEG, content_type='image/jpeg')]},
+                  fmt='multipart')
         self.call(self.master, 'post', f"/api/todos/{stitching['id']}/status/", {'status': 'CLOSED'})
         closed = Todo.objects.get(pk=stitching['id'])
         self.assertEqual(closed.status, Todo.STATUS_CLOSED)

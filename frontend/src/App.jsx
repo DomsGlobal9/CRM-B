@@ -3,6 +3,7 @@ import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { notificationKind } from './services/notificationKind';
+import { maySignOff, submitsForSignOff, submittedByMaster } from './services/signOff';
 import MyDetails from './features/staff/MyDetails';
 import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
 import {
@@ -4162,7 +4163,9 @@ function App() {
     setStageReviewComments('');  
     setStageReviewRecording(false);
     setStageReviewImages([]);
-    const canVerify = !currentUser?.role || currentUser.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser.role);
+    // Only someone who may sign this submission off ticks it as seen: a
+    // Master opening another Master's submission is not its verifier.
+    const canVerify = maySignOff(currentUser?.role, stage);
     if (stage.status === 'PENDING_VERIFICATION' && !stage.verification_seen_at && canVerify) {
       api.markStageSeen(order.id, stage.stage_key, stage.garment_job || null)
         .then((seen) => setSelectedStageObj((prev) => (prev && prev.id === seen.id ? { ...prev, ...seen } : prev)))
@@ -5774,7 +5777,9 @@ function App() {
                                 const photos = stitching?.attachments?.length ? stitching.attachments
                                   : (order.completed_garment_image ? [order.completed_garment_image] : []);
                                 const reviews = stitching?.attachment_reviews || {};
-                                const canReview = currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role) || adminCan('workshop.review');
+                                const canReview = ((currentUser?.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser?.role))
+                                  && (stitching?.status !== 'PENDING_VERIFICATION' || maySignOff(currentUser?.role, stitching)))
+                                  || adminCan('workshop.review');
                                 const items = photos.map((u, i) => ({ image_url: u, label: `Photo ${i + 1}` }));
                                 const reject = async (url) => {
                                   const remark = window.prompt('What is wrong with this photo? The tailor reads this.');
@@ -10264,6 +10269,14 @@ function App() {
         };
         const isSupervisor = !currentUser.role || currentUser.role === 'Owner'
           || SUPERVISOR_ROLES.includes(currentUser.role);
+        // Whose work this is decides whether Done completes it or sends it
+        // for checking (services/signOff.js; the server holds the same rule).
+        // A supervisor's Done is recorded for the stage's assignee, below.
+        const stageRoles = (boutiqueSettings?.workflow_config || []).find((s) => s.key === stage?.stage_key)?.roles || [];
+        const workerRole = isSupervisor && stage?.assigned_to ? stage.assigned_to_role : currentUser.role;
+        const submits = !!stage && submitsForSignOff(currentUser.role, workerRole, stage.stage_key, stageRoles);
+        const canSignOff = !!stage && maySignOff(currentUser.role, stage);
+        const checkers = stage && submittedByMaster(stage) ? 'The Owner or Designer' : 'The owner or Master';
         const transition = async (status, okMessage, comments = stageReviewComments, sentVoiceNote = null, clearVoiceNote = false) => {
           if (stageTransitionBusy) return;
           if (status === 'COMPLETED' && stage.stage_key === 'payment' && activeReviewOrder.payment_status !== 'Paid') {
@@ -10333,7 +10346,7 @@ Complete the Payment stage with this partial payment?`)) return;
                     with a photo and the owner or Master confirms; the server
                     holds the same rule. No pause: a step is in progress until
                     it is complete. */}
-                {stage.status === 'IN_PROGRESS' && (isSupervisor ? (
+                {stage.status === 'IN_PROGRESS' && (!submits ? (
                   <button className="btn-primary" disabled={stageTransitionBusy}
                           onClick={() => transition('COMPLETED', 'Step completed.')}>
                     <Check size={16} /> Mark completed
@@ -10341,11 +10354,11 @@ Complete the Payment stage with this partial payment?`)) return;
                 ) : (
                   <button className="btn-primary" disabled={stageTransitionBusy || stageReviewImages.length === 0}
                           title={stageReviewImages.length ? '' : 'Upload a photo of the work first'}
-                          onClick={() => transition('PENDING_VERIFICATION', 'Sent for verification. The owner or Master will confirm it.')}>
+                          onClick={() => transition('PENDING_VERIFICATION', `Sent for verification. ${isSupervisor ? 'The Owner or Designer' : 'The owner or Master'} will confirm it.`)}>
                     <Check size={16} /> Submit for verification
                   </button>
                 ))}
-                {stage.status === 'PENDING_VERIFICATION' && (isSupervisor ? (
+                {stage.status === 'PENDING_VERIFICATION' && (canSignOff ? (
                   <>
                     <button className="btn-secondary at-btn-warn" disabled={stageTransitionBusy}
                             onClick={() => {
@@ -10361,7 +10374,7 @@ Complete the Payment stage with this partial payment?`)) return;
                   </>
                 ) : (
                   <span style={{ fontSize: '13px', color: 'var(--text-secondary)', alignSelf: 'center' }}>
-                    Marked done. The owner or Master will confirm it.
+                    Marked done. {checkers} will confirm it.
                   </span>
                 ))}
                 {/* Reversals. Forward-only is the rule; these are the two
@@ -10523,7 +10536,7 @@ Complete the Payment stage with this partial payment?`)) return;
             {stage && stage.status === 'PENDING_VERIFICATION' && (
               <InfoNote icon={Clock} tone="warning" title="Pending verification">
                 {stage.performed_by_name || 'The worker'} has submitted this stage. Check the photos below
-                {isSupervisor ? ', then verify it or send it back.' : '. The owner or Master will verify it.'}
+                {canSignOff ? ', then verify it or send it back.' : `. ${checkers} will verify it.`}
                 {stage.verification_seen_at && (
                   <div className="od-hint" style={{ marginTop: '6px' }}>
                     <Eye size={12} style={{ verticalAlign: '-2px', marginRight: '4px' }} />
@@ -10628,7 +10641,7 @@ Complete the Payment stage with this partial payment?`)) return;
                           )}
                         </div>
                         {verdict && <div style={{ fontSize: '11px', color: 'var(--danger-color)', marginTop: '4px', lineHeight: 1.3 }}>{verdict.remark}</div>}
-                        {isSupervisor && stage.status === 'PENDING_VERIFICATION' && (
+                        {canSignOff && stage.status === 'PENDING_VERIFICATION' && (
                           verdict
                             ? <button type="button" className="btn-link" style={{ fontSize: '11px', padding: 0, minHeight: '24px' }}
                                       onClick={async () => {

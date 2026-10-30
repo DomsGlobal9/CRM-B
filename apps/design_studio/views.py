@@ -36,7 +36,7 @@ from .models import (
 )
 from .permissions import (
     MASTER, DesignAssignmentPermission, DesignLibraryPermission, DesignStudioPermission,
-    OwnerOnly, visible_assignments, visible_boards,
+    OwnerOnly, visible_assignments, visible_boards, visible_designs,
 )
 from .providers.registry import source_status
 from .serializers import (
@@ -278,7 +278,8 @@ class DesignAssetViewSet(viewsets.ModelViewSet):
     }
 
     def get_queryset(self):
-        queryset = _with_card_relations(DesignAsset.objects.all())
+        queryset = _with_card_relations(
+            visible_designs(DesignAsset.objects.all(), self.request.user))
         params = self.request.query_params
 
         for name, field in self.DIRECT_FILTERS.items():
@@ -466,7 +467,9 @@ class DesignDashboardView(views.APIView):
     permission_classes = [DesignStudioPermission]
 
     def get(self, request):
-        assets = DesignAsset.objects.all()
+        # Below the Designer, a Designer's unfinished designs are not shown:
+        # the counts and lists here are of what this person may read.
+        assets = visible_designs(DesignAsset.objects.all(), request.user)
         active = assets.filter(status=DesignAsset.Status.ACTIVE)
         week_ago = timezone.now() - timedelta(days=7)
         # The four lists below are serialised as cards; the counts stay plain.
@@ -969,7 +972,7 @@ class DesignerViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['GET'])
     def portfolio(self, request, pk=None):
         designer = self.get_object()
-        designs = designer.designs.all().order_by('-created_at')
+        designs = visible_designs(designer.designs.all(), request.user).order_by('-created_at')
         totals = designs.aggregate(
             views=Sum('view_count'), orders=Sum('order_count'))
         return Response({

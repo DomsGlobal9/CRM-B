@@ -892,7 +892,7 @@ const ATTENDANCE_BADGE = {
 };
 const AWAY = new Set(['absent', 'leave', 'off']);
 
-function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, canAttend = isOwner,
+function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner, canPay = isOwner, canAttend = isOwner,
                   portalUrl, onlyDesigners = false, onShowAll = null }) {
   // Edit/delete, pay and today's attendance each follow their own handed
   // task (core/admin_access.py); sign-in credentials stay the owner's alone.
@@ -931,7 +931,7 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
       const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       const [people, designed, profiles, deposited, advanced, present, marked] = await Promise.all([
         canSeeTeam ? api.getTailors().catch(() => []) : Promise.resolve([]),
-        canSeeTeam ? api.getDesigners().catch(() => []) : Promise.resolve([]),
+        canSeeTeam && showDesigners ? api.getDesigners().catch(() => []) : Promise.resolve([]),
         api.getStaffProfiles().catch(() => []),
         canPay ? api.getDeposits().catch(() => []) : Promise.resolve([]),
         canPay ? api.getAdvances({ active: 'true' }).catch(() => []) : Promise.resolve([]),
@@ -952,7 +952,7 @@ function Roster({ isOwner, canSeeTeam, canManage = isOwner, canPay = isOwner, ca
     } finally {
       setLoading(false);
     }
-  }, [canSeeTeam, canPay, canAttend]);
+  }, [canSeeTeam, showDesigners, canPay, canAttend]);
 
 
   useEffect(() => {
@@ -1688,7 +1688,7 @@ export default function StaffPanel({ currentUser, onlyDesigners = false, onShowA
         })}
       </div>
 
-      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={rosterSeesTeam} canManage={can('team.manage')}
+      {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={rosterSeesTeam} showDesigners={!isSupervisor} canManage={can('team.manage')}
                                    canPay={can('team.payroll')} canAttend={canSeeTeamAttendance} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)}
                                    onlyDesigners={onlyDesigners} onShowAll={onShowAllStaff} />}
       {tab === 'tasks' && <TeamTasks currentUser={currentUser} canSeeTeam={canSeeTeam} />}

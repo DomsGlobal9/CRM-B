@@ -57,7 +57,7 @@ class Floor:
         self.now = now
         self.open = _current_stages(list(
             OrderStage.objects.filter(status__in=UNSETTLED_STATUSES)
-            .select_related('order', 'garment_job__template')))
+            .select_related('order', 'garment_job__template', 'performed_by')))
         self.completed = list(OrderStage.objects.filter(
             status='COMPLETED', completed_at__gte=self.start, completed_at__lt=self.end))
 
@@ -234,8 +234,11 @@ def master_summary(tenant, boutique, day, floor, user, tailor, lang=tx.DEFAULT):
     for s in floor.open:
         if s.assigned_to_id is None and s.status != 'PENDING_VERIFICATION':
             unassigned[s.stage_name] = unassigned.get(s.stage_name, 0) + 1
+    from domains.orders.workflow import may_sign_off
     rows_floor = [
-        ('Waiting for your check', sum(1 for s in floor.open if s.status == 'PENDING_VERIFICATION')),
+        # A Master's own submissions wait for the Owner or Designer, not them.
+        ('Waiting for your check', sum(1 for s in floor.open if s.status == 'PENDING_VERIFICATION'
+                                       and may_sign_off('Master', s))),
         ('Ready to assign', sum(unassigned.values())),
         ('Completed today', len(floor.completed)),
         ('Sent back to redo', sum(1 for s in floor.open if floor.returned(s))),

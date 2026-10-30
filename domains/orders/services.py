@@ -768,17 +768,33 @@ class OrderService:
         if order_stage.status == 'COMPLETED' and new_status == 'COMPLETED':
             return order
 
-        # Verification. Anyone below owner/Master does not complete a stage:
-        # they submit it, photo attached, and a supervisor completes it. The
-        # rule sits here, not in the button, so the API cannot be talked past.
+        # The performer a supervisor names, resolved once: it decides whose
+        # work this is (below) and is stamped on the stage further down.
         supervisor = user_role == OWNER or user_role in SUPERVISOR_ROLES
-        if not supervisor:
-            if new_status == 'COMPLETED':
-                new_status = 'PENDING_VERIFICATION'
-            if new_status == 'PENDING_VERIFICATION' and not files:
-                raise ValueError('Add a photo of the finished work before submitting it for verification.')
-            if order_stage.status == 'PENDING_VERIFICATION':
-                raise ValueError('This stage is waiting for the owner or Master to verify it.')
+        named_performer = None
+        if performer_id and supervisor:
+            try:
+                named_performer = Tailor.objects.get(id=int(performer_id))
+            except (Tailor.DoesNotExist, TypeError, ValueError):
+                pass
+
+        # Verification. A worker does not complete a stage: they submit it,
+        # photo attached, and the Owner, Designer or Master completes it. A
+        # Master's own hands-on work is submitted the same way and goes to the
+        # Owner or Designer (workflow.submits_for_sign_off). The rule sits
+        # here, not in the button, so the API cannot be talked past.
+        if order_stage.status == 'PENDING_VERIFICATION':
+            if not workflow.may_sign_off(user_role, order_stage):
+                raise ValueError(workflow.waiting_message(order_stage))
+        else:
+            declared = next((s for s in workflow.ordered_stages(workflow_stages)
+                             if s['key'] == stage_key), None)
+            worker_role = named_performer.role if named_performer is not None else user_role
+            if workflow.submits_for_sign_off(user_role, worker_role, declared):
+                if new_status == 'COMPLETED':
+                    new_status = 'PENDING_VERIFICATION'
+                if new_status == 'PENDING_VERIFICATION' and not files:
+                    raise ValueError('Add a photo of the finished work before submitting it for verification.')
         rejected = order_stage.status == 'PENDING_VERIFICATION' and new_status == 'IN_PROGRESS'
         if rejected and not (comments or '').strip():
             raise ValueError('Say what needs to be redone before sending this back.')
@@ -823,11 +839,9 @@ class OrderService:
         # int() first: only DoesNotExist was caught, so a non-numeric id raised
         # out of IntegerField and surfaced as a 500 carrying the raw exception
         # text back to the caller.
-        if performer_id and (user_role == OWNER or user_role in SUPERVISOR_ROLES):
-            try:
-                order_stage.performed_by = Tailor.objects.get(id=int(performer_id))
-            except (Tailor.DoesNotExist, TypeError, ValueError):
-                pass
+        if performer_id and supervisor:
+            if named_performer is not None:
+                order_stage.performed_by = named_performer
         elif old_status == 'PENDING_VERIFICATION':
             pass  # verifying or rejecting is not doing the work: keep the worker's name on it
         elif user and user.is_authenticated and getattr(user, 'tailor_profile', None):

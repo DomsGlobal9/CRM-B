@@ -114,11 +114,53 @@ class AssignmentTests(AssignmentTestCase):
         self.assertEqual(response.status_code, 403, response.data)
         self.assertFalse(DesignAssignment.objects.exists())
 
-    def test_a_master_still_reads_the_assignment_board(self):
+    def test_a_designers_work_is_not_shown_to_the_master(self):
+        # The Designer ranks above the Master: their assignments are not read,
+        # submitted or reviewed by anybody below them.
         self._assign(self.lehenga_job, self.meera)
-        master = self._staff_client("Master", "reader@assign.test")
-        response = master.get(reverse('design-assignment-list'))
-        self.assertEqual(response.status_code, 200, response.data)
+        assignment = DesignAssignment.objects.get(garment_job=self.lehenga_job)
+        design = self._design_by(self.meera, "Zari border", user=self.meera.user)
+        self._submit(assignment.id, design, self.meera_client)
+
+        for role, who in (("Master", "reader@assign.test"), ("Tailor", "tailor@assign.test")):
+            staff = self._staff_client(role, who)
+            listed = staff.get(reverse('design-assignment-list'))
+            self.assertEqual(listed.status_code, 403, (role, listed.data))
+            reviewed = self._review(assignment.id, 'APPROVED', client=staff)
+            self.assertEqual(reviewed.status_code, 403, (role, reviewed.data))
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.status, DesignAssignment.Status.SUBMITTED)
+
+        # The owner still sees and reviews it.
+        self.assertEqual(self.client.get(reverse('design-assignment-list')).status_code, 200)
+
+        # Nor does the activity feed tell the Master about it.
+        self.assertTrue(UniversalActivity.objects.filter(module='design_studio').exists())
+        master = self._staff_client("Master", "feed@assign.test")
+        feed = master.get(reverse('universal-activity-list'))
+        self.assertEqual(feed.status_code, 200, feed.data)
+        self.assertFalse(any(r['module'] == 'design_studio' for r in self._rows(feed)))
+
+    def test_a_designers_unfinished_designs_are_not_shown_below_them(self):
+        pending = self._design_by(self.meera, "Still sketching", user=self.meera.user)
+        pending.status = DesignAsset.Status.PENDING
+        pending.save(update_fields=['status'])
+        live = self._design_by(self.meera, "In the library", user=self.meera.user)
+        live.status = DesignAsset.Status.ACTIVE
+        live.save(update_fields=['status'])
+
+        master = self._staff_client("Master", "lib@assign.test")
+        titles = {d['title'] for d in self._rows(master.get(reverse('design-asset-list')))}
+        self.assertIn("In the library", titles)
+        self.assertNotIn("Still sketching", titles)
+
+        titles = {d['title'] for d in self._rows(self.client.get(reverse('design-asset-list')))}
+        self.assertIn("Still sketching", titles)
+
+    @staticmethod
+    def _rows(response):
+        data = response.data
+        return data['results'] if isinstance(data, dict) and 'results' in data else data
 
     def test_a_due_date_survives_the_round_trip(self):
         due = date.today() + timedelta(days=5)

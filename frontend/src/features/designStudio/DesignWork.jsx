@@ -379,9 +379,12 @@ export default function DesignWork({ currentUser }) {
   // A role the owner handed design assignment (core/admin_access.py) runs
   // this board as the owner does.
   const handedAssign = (currentUser?.admin_tasks || []).includes('design.assign');
-  const isSupervisor = ['Owner', 'Master'].includes(currentUser?.role) || handedAssign;
+  // Not the Master: a Designer's work is not shown below them, and the
+  // server refuses the Master these assignments (design_studio permissions).
+  const isSupervisor = currentUser?.role === 'Owner' || handedAssign;
   const canAssignDesign = currentUser?.role === 'Owner' || handedAssign;
   const isDesigner = currentUser?.role === 'Designer';
+  const mayRead = isSupervisor || isDesigner;
 
   const [assignments, setAssignments] = useState([]);
   const [designers, setDesigners] = useState([]);
@@ -394,14 +397,15 @@ export default function DesignWork({ currentUser }) {
   const load = useCallback(async () => {
     setError('');
     try {
-      const rows = await api.getDesignAssignments(openOnly ? { open: '1' } : {});
+      // Nobody else may read them, so nobody else asks.
+      const rows = mayRead ? await api.getDesignAssignments(openOnly ? { open: '1' } : {}) : [];
       setAssignments(rows.results || rows || []);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [openOnly]);
+  }, [openOnly, mayRead]);
 
   useEffect(() => { load(); }, [load]);
 

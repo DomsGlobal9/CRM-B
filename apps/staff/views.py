@@ -214,7 +214,9 @@ class StaffProfileViewSet(viewsets.ModelViewSet):
         queryset = StaffProfile.objects.select_related('staff', 'designer')
         role = resolve_user_role(self.request.user)
         if role == OWNER or role in SUPERVISOR_ROLES or holds(self.request.user, *TEAM_TASKS):
-            return queryset
+            if role == 'Master':
+                queryset = queryset.filter(designer__isnull=True)
+            return _hide_designers(self.request.user, queryset)
 
         # Everyone else: their own profile, reached through the Tailor row or
         # the designer record their login is attached to. An account with
@@ -321,6 +323,18 @@ def _can_see_team(user):
     return role == OWNER or role in SUPERVISOR_ROLES
 
 
+def _hide_designers(user, queryset, field='staff__role'):
+    """The Master reads the team without the Designers.
+
+    A Designer ranks above the Master (core.roles.ASSIGNMENT_RANK), and their
+    work, days and numbers are not shown below them. A Designer's roster row
+    is a Tailor row with role Designer. Anybody else gets `queryset` as is.
+    """
+    if resolve_user_role(user) == 'Master':
+        return queryset.exclude(**{field: DESIGNER})
+    return queryset
+
+
 def _log(request, action, session, title, before=None, after=None):
     """Record a staff event on the existing cross-module activity feed.
 
@@ -396,6 +410,8 @@ class AttendanceSessionViewSet(viewsets.ReadOnlyModelViewSet):
             # malformed-narrows-to-nothing rule as `date` above: a bad bound is
             # a probe or a bug, and either way it must not 500 or widen.
             queryset = self._apply_range(queryset)
+            if not holds(self.request.user, 'team.attendance'):
+                queryset = _hide_designers(self.request.user, queryset)
             return queryset
 
         profile = _staff_for(self.request.user)
@@ -904,6 +920,9 @@ class PerformanceView(views.APIView):
             role = request.query_params.get('role')
             if role:
                 profiles = profiles.filter(staff__role=role)
+            if not holds(request.user, 'team.reviews') and resolve_user_role(request.user) == 'Master':
+                # A Designer's numbers are not shown below them.
+                profiles = profiles.exclude(staff__role=DESIGNER).filter(designer__isnull=True)
         else:
             # `staff` is not read on this branch: a tailor's own profile is the
             # only row it can ever name.
@@ -1007,7 +1026,7 @@ class DayMarkViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        qs = DayMark.objects.select_related('staff')
+        qs = _hide_designers(self.request.user, DayMark.objects.select_related('staff'))
         params = self.request.query_params
         if staff_id := params.get('staff'):
             try:

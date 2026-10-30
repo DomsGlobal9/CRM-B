@@ -1,4 +1,5 @@
 
+from django.db.models import Q
 from rest_framework import permissions
 
 from core.admin_access import admin_may, holds
@@ -71,9 +72,7 @@ class DesignAssignmentPermission(ModuleAccess):
 
     message = "Your role does not permit this action on design assignments."
 
-    #: Handing design work to a designer, or taking it back. The assignee is
-    #: always a Designer, so a Master -- below Designer in core.roles -- is
-    #: refused all four; they keep reading, submitting and reviewing.
+    #: Handing design work to a designer, or taking it back.
     ASSIGNMENT_ACTIONS = {'create', 'update', 'partial_update', 'destroy'}
     #: A Designer hands work on through `create`, which also reassigns; the
     #: view limits that to work that is theirs or nobody's yet.
@@ -86,8 +85,9 @@ class DesignAssignmentPermission(ModuleAccess):
         if role == OWNER or admin_may(request, view):
             return True
         action = getattr(view, 'action', None)
-        if role == MASTER:
-            return action not in self.ASSIGNMENT_ACTIONS
+        # A Designer's work is not shown to anybody below them: the Master and
+        # every production role are refused all of it -- reading, submitting
+        # and reviewing included. Reviewing is the Owner's.
         if role == DESIGNER:
             return action in self.DESIGNER_ACTIONS
         return False
@@ -95,7 +95,9 @@ class DesignAssignmentPermission(ModuleAccess):
 
 def visible_assignments(queryset, user):
     role = resolve_user_role(user)
-    if role in (OWNER, MASTER) or holds(user, 'design.assign'):
+    # The Owner, and whoever the owner handed design work to. Not the Master:
+    # the Designer ranks above them (core.roles.ASSIGNMENT_RANK).
+    if role == OWNER or holds(user, 'design.assign'):
         return queryset
     if role == DESIGNER:
         profile = getattr(user, 'designer_profile', None)
@@ -103,3 +105,21 @@ def visible_assignments(queryset, user):
             return queryset.none()
         return queryset.filter(designer_id=profile.id)
     return queryset.none()
+
+
+def visible_designs(queryset, user):
+    """The design library as each role may read it.
+
+    The Owner and Designers see every design. Below them -- the Master and
+    every production role -- a Designer's unfinished work is not shown: no
+    drafts, nothing waiting for the owner's approval, and nothing marked
+    Designer only. People still see what they uploaded themselves. Whoever the
+    owner handed design work to sees it all, as they need to.
+    """
+    role = resolve_user_role(user)
+    if role in (OWNER, DESIGNER) or holds(user, 'design.view', 'design.approve', 'design.upload'):
+        return queryset
+    model = queryset.model
+    unfinished = (Q(status__in=(model.Status.DRAFT, model.Status.PENDING))
+                  | Q(visibility=model.Visibility.DESIGNER_ONLY))
+    return queryset.filter(~unfinished | Q(created_by=user))

@@ -277,7 +277,17 @@ class InvalidTransitionTests(StateMachineTestBase):
         self.advance_to('stitching_in_progress', order=order)
         for user in (self.owner, self.master_user):
             self.move('stitching_in_progress', 'IN_PROGRESS', order=order, user=user)
-        self.move('stitching_in_progress', 'COMPLETED', order=order, user=self.master_user)
+        # The Master's own stitching goes to the Owner or Designer to check
+        # (domains.orders.workflow.submits_for_sign_off); the Owner's settles it.
+        from django.core.files.uploadedfile import SimpleUploadedFile
+        from core.test_images import JPEG
+        OrderService.transition_order_stage(
+            order=order, stage_key='stitching_in_progress', new_status='COMPLETED',
+            user=self.master_user,
+            files=[SimpleUploadedFile('work.jpg', JPEG, content_type='image/jpeg')])
+        self.assertEqual(order.stages.get(stage_key='stitching_in_progress').status,
+                         'PENDING_VERIFICATION')
+        self.move('stitching_in_progress', 'COMPLETED', order=order, user=self.owner)
         self.assertEqual(order.stages.get(stage_key='stitching_in_progress').status, 'COMPLETED')
 
 

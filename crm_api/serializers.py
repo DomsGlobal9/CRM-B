@@ -353,6 +353,9 @@ class OrderStageHistorySerializer(serializers.ModelSerializer):
 class OrderStageSerializer(serializers.ModelSerializer):
     garment_name = serializers.CharField(source='garment_job.display_name', read_only=True, default=None)
     performed_by_name = serializers.CharField(source='performed_by.name', read_only=True)
+    # Whose work a submitted stage holds: a Master's waits for the Owner or
+    # Designer (domains.orders.workflow.may_sign_off), so the screens need it.
+    performed_by_role = serializers.CharField(source='performed_by.role', read_only=True, default=None)
     assigned_to_name = serializers.CharField(source='assigned_to.name', read_only=True)
     assigned_to_role = serializers.CharField(source='assigned_to.role', read_only=True)
 

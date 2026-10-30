@@ -1314,12 +1314,16 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         # A tailor's report is a submission, not a completion: the stitching
         # stage goes to the owner/Master for verification with the photo, and
-        # only their verification settles it. A supervisor filing the report
-        # themselves completes the stage outright.
-        from core.roles import OWNER, resolve_user_role
-        from core.permissions import SUPERVISOR_ROLES
+        # only their verification settles it. A Master's own report goes to
+        # the Owner or Designer the same way (workflow.submits_for_sign_off).
+        # The Owner or Designer filing it completes the stage outright.
+        from core.roles import resolve_user_role
+        from domains.orders import workflow
         role = resolve_user_role(request.user)
-        if role == OWNER or role in SUPERVISOR_ROLES:
+        declared = next((s for s in workflow.ordered_stages(workflow.for_order(
+            BoutiqueSettings.objects.get_or_create(id=1)[0].workflow_config, order))
+            if s['key'] == 'stitching_in_progress'), None)
+        if not workflow.submits_for_sign_off(role, role, declared):
             steps = (
                 ('stitching_in_progress', 'IN_PROGRESS'),
                 ('stitching_in_progress', 'COMPLETED'),
@@ -1405,8 +1409,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             stage = stage_row(order, request.data.get('stage_key'), request.data.get('garment_job'))
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        from domains.orders import workflow
         role = resolve_user_role(request.user)
-        if stage.status != 'PENDING_VERIFICATION' or role not in (OWNER, *SUPERVISOR_ROLES):
+        if stage.status != 'PENDING_VERIFICATION' or not workflow.may_sign_off(role, stage):
             return Response(OrderStageSerializer(stage).data)
         if stage.verification_seen_at is None:
             viewer = request.user.get_full_name() or request.user.username
@@ -1781,6 +1786,14 @@ class OrderViewSet(viewsets.ModelViewSet):
         if stage is None or url not in (stage.attachments or []):
             return Response({'error': 'No such photo on this stage.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        # A Master's own submission is reviewed by the Owner or Designer; a
+        # fellow Master marking its photos would be signing it off sideways.
+        from domains.orders import workflow
+        if (stage.status == 'PENDING_VERIFICATION'
+                and resolve_user_role(request.user) == 'Master'
+                and not workflow.may_sign_off('Master', stage)):
+            return Response({'error': workflow.waiting_message(stage)},
+                            status=status.HTTP_403_FORBIDDEN)
         verdict = request.data.get('status', 'REJECTED')
         reviews = dict(stage.attachment_reviews or {})
         if verdict == 'CLEAR':
@@ -2104,9 +2117,12 @@ class DashboardView(views.APIView):
         except Exception:
             pass
         try:
+            # Designs waiting for review are the Owner's (and whoever they
+            # handed design work to); nobody below the Designer counts them.
             from apps.design_studio.models import DesignAssignment
-            out['pending_designs'] = DesignAssignment.objects.filter(
-                status='SUBMITTED').count()
+            from apps.design_studio.permissions import visible_assignments
+            out['pending_designs'] = visible_assignments(
+                DesignAssignment.objects.filter(status='SUBMITTED'), request.user).count()
         except Exception:
             pass
         return out

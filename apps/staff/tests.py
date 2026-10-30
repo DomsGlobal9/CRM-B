@@ -2048,6 +2048,18 @@ class PerformanceAccessTests(PerformanceTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['staff_count'], 2)
 
+    def test_a_designers_numbers_are_not_shown_to_the_master(self):
+        # The Designer ranks above the Master; the owner still sees them.
+        dia = Tailor.objects.create(name='Dia', specialty='Design', role='Designer')
+        self.profile_for(dia, hourly_rate=Decimal('150.00'))
+        self.worked(dia, 2)
+        period = {'start': '2026-09-01', 'end': '2026-09-30'}
+        owner = self.client_for(self.owner).get(reverse('staff-performance'), period)
+        self.assertEqual(owner.data['staff_count'], 3)
+        master = self.client_for(self.master_user).get(reverse('staff-performance'), period)
+        self.assertEqual(master.data['staff_count'], 2)
+        self.assertNotIn('Dia', master.content.decode())
+
     def test_the_performance_payload_carries_no_financial_field_at_all(self):
         """The guarantee is structural: performance.py cannot see money."""
         for who in (self.owner, self.master_user):

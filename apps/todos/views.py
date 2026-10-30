@@ -134,9 +134,9 @@ class TodoViewSet(viewsets.GenericViewSet):
         if stage is None or stage.status in ('COMPLETED', 'SKIPPED'):
             return
         role = self._role()
-        supervisor = role == OWNER or role in SUPERVISOR_ROLES
-        if stage.status == 'PENDING_VERIFICATION' and not supervisor:
-            return  # already sent for checking
+        from domains.orders import workflow
+        if stage.status == 'PENDING_VERIFICATION' and not workflow.may_sign_off(role, stage):
+            return  # already sent for checking, to somebody else
         from domains.orders.services import OrderService
         photos = []
         for photo in TodoPhoto.objects.filter(update__todo=todo):
@@ -159,8 +159,12 @@ class TodoViewSet(viewsets.GenericViewSet):
         stage.refresh_from_db()
         done_by = (stage.performed_by.name if stage.performed_by_id
                    else services.display_name(self.request.user))
-        outcome = ('sent to the owner or Master to check'
-                   if stage.status == 'PENDING_VERIFICATION' else 'completed in the workflow')
+        if stage.status != 'PENDING_VERIFICATION':
+            outcome = 'completed in the workflow'
+        elif workflow.submitted_by_master(stage):
+            outcome = 'sent to the Owner or Designer to check'
+        else:
+            outcome = 'sent to the owner or Master to check'
         TodoUpdate.objects.create(
             todo=todo, kind=TodoUpdate.KIND_STATUS, author=self.request.user,
             author_name=services.display_name(self.request.user),

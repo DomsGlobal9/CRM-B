@@ -58,7 +58,7 @@ key for readers that only care where the order as a whole stands.
 
 
 from core.permissions import SUPERVISOR_ROLES
-from core.roles import DESIGNER, MASTER
+from core.roles import DESIGNER, MASTER, OWNER
 
 
 def holds_stage_role(role, allowed_roles):
@@ -69,6 +69,78 @@ def holds_stage_role(role, allowed_roles):
     Nobody else gains anything: every other role still has to be listed.
     """
     return role in allowed_roles or (role == DESIGNER and MASTER in allowed_roles)
+
+
+# ---------------------------------------------------------------------------
+# Sign-off: whose finished work goes to whom.
+#
+# Workers (every role below the Master) never complete a stage: they submit
+# it, photo attached, and the Owner, Designer or Master verifies it. The
+# Master's own hands-on work is checked one level up: it goes to the Owner or
+# Designer, and another Master cannot sign it off.
+#
+# "Hands-on" is read from the stage's own roles: a stage that lists a worker
+# role (Tailor, Maggam Karigar, Packaging Staff ...) is production work. The
+# Master's desk stages -- Order taken, Trial, Payment, Delivery -- list only
+# supervisors and stay one tap. The two check stages are the Master's
+# verdict on somebody else's work, so they are not sent up again.
+# ---------------------------------------------------------------------------
+
+#: The approvers above the Master.
+LEAD_APPROVERS = frozenset({OWNER, DESIGNER})
+
+#: Stages that are themselves a check of other people's work.
+CHECK_STAGES = frozenset({'master_quality_check', 'maggam_verification'})
+
+
+def is_hands_on(declared):
+    """Whether a declared stage is production work rather than desk work."""
+    if not declared or declared.get('key') in CHECK_STAGES:
+        return False
+    return any(r not in (OWNER, DESIGNER, MASTER) for r in (declared.get('roles') or ()))
+
+
+def submits_for_sign_off(caller_role, worker_role, declared):
+    """Is finishing this stage a submission for sign-off rather than a completion?
+
+    `caller_role` is the person pressing Done; `worker_role` is whose work it
+    is (the caller, or the performer a supervisor named). The Owner and the
+    Designer are the top approvers, so their Done always completes. A Master
+    recording a worker's job is that job's sign-off; a Master's own hands-on
+    job goes up to the Owner or Designer. Everyone else submits.
+    """
+    if caller_role in LEAD_APPROVERS:
+        return False
+    if caller_role == MASTER:
+        return worker_role == MASTER and is_hands_on(declared)
+    return True
+
+
+def submitted_by_master(stage):
+    """Whether a stage waiting for sign-off holds a Master's own work."""
+    performer = stage.performed_by
+    return performer is not None and performer.role == MASTER
+
+
+def may_sign_off(role, stage):
+    """May someone in `role` verify, or send back, this submitted stage?
+
+    The Owner and the Designer may sign off anything. A Master may sign off a
+    worker's submission but not a Master's: that one waits for the Owner or
+    Designer. Nobody else signs off at all.
+    """
+    if role in LEAD_APPROVERS:
+        return True
+    if role == MASTER:
+        return not submitted_by_master(stage)
+    return False
+
+
+def waiting_message(stage):
+    """What somebody who may not sign off is told about a submitted stage."""
+    if submitted_by_master(stage):
+        return 'This stage is waiting for the Owner or Designer to verify it.'
+    return 'This stage is waiting for the owner or Master to verify it.'
 
 
 def worker_stage_keys(config, role):

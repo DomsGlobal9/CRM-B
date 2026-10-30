@@ -76,11 +76,27 @@ def assignable_people(user, role):
     return list(people.values())
 
 
+#: A Designer's own to-do: given to a Designer, or a Designer's with nobody on it.
+DESIGNER_TODO = (Q(assigned_to__designer_profile__isnull=False)
+                 | Q(assigned_to__isnull=True, created_by__designer_profile__isnull=False))
+
+
 def visible_todos(queryset, user, role):
-    """Owner, Designer and Master see every to-do; everyone else only their own."""
-    if role in (OWNER, DESIGNER, MASTER):
+    """Owner and Designer see every to-do. The Master sees every one except a
+    Designer's -- the Designer ranks above them, so their work is not shown
+    below them -- unless the Master is on it. Everyone else only their own."""
+    if role in (OWNER, DESIGNER):
         return queryset
-    return queryset.filter(Q(assigned_to=user) | Q(created_by=user))
+    mine = Q(assigned_to=user) | Q(created_by=user)
+    if role == MASTER:
+        return queryset.filter(mine | ~DESIGNER_TODO)
+    return queryset.filter(mine)
+
+
+def is_designer_todo(todo):
+    if todo.assigned_to_id:
+        return getattr(todo.assigned_to, 'designer_profile', None) is not None
+    return getattr(todo.created_by, 'designer_profile', None) is not None
 
 
 def _current_stages(stages):
@@ -149,6 +165,9 @@ def order_work(user, role):
             team = [p['id'] for p in assignable_people(user, role)]
         stages = stages.filter(assigned_to__user_id__in=team)
         designs = designs.filter(designer__user_id__in=team)
+    elif role == MASTER:
+        # Design work is a Designer's, and is not shown below them.
+        designs = designs.none()
 
     stages = _current_stages(list(stages))
     # When each row was handed to its person, from the order's assignment log,
@@ -222,7 +241,10 @@ def order_work(user, role):
 
 
 def can_edit(todo, user, role):
-    return role in (OWNER, DESIGNER, MASTER) or todo.created_by_id == user.id
+    if todo.created_by_id == user.id or role in (OWNER, DESIGNER):
+        return True
+    # The Master runs the floor's to-dos, but not a Designer's.
+    return role == MASTER and not is_designer_todo(todo)
 
 
 def can_change_status(todo, user, role):
