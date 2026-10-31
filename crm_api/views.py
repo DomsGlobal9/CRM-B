@@ -2851,7 +2851,10 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 # rather than refusing the whole order as an "unknown field".
                 known = {f.key for sec in template.sections.all() for f in sec.fields.all()}
                 spec = {k: v for k, v in (garment.get('spec') or {}).items() if k in known}
-                measurements = {k: v for k, v in (garment.get('measurements') or {}).items() if k in known}
+                # The hand-added measurements ride along beside the template's.
+                from core.templates import EXTRA_MEASUREMENTS
+                measurements = {k: v for k, v in (garment.get('measurements') or {}).items()
+                                if k in known or k == EXTRA_MEASUREMENTS}
                 serializer = GarmentJobSerializer(data={
                     'order': order.id,
                     'template': str(template.id),

@@ -6905,6 +6905,37 @@ button, input, select, textarea { font-family: inherit; }
 .tf-unit-input { position: relative; }
 .tf-unit-input .form-control { padding-right: 34px; font-variant-numeric: tabular-nums; }
 .tf-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-secondary); pointer-events: none; }
+/* "Add other measurement" (features/catalog/ExtraMeasurements.jsx): rows
+   sized like the measurement boxes above them, filed as chips after Done. */
+.xm { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 16px; width: 100%; }
+.xm-filed { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.xm-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 40px; padding: 4px 6px 4px 14px;
+  border: 1px solid var(--border-color); border-radius: 999px; background: var(--surface-2, var(--surface-color)); font-size: 14px; }
+.xm-chip-name { font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.xm-chip-value { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xm-chip-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex-shrink: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.xm-chip-btn:hover { background: var(--surface-color); color: var(--text-primary); }
+.xm-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.xm-row { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 150px) auto; gap: 10px 14px; align-items: end; justify-content: start; }
+.xm-row .form-group { margin-bottom: 0; min-width: 0; }
+.xm-row .form-label { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xm-row .form-control { min-height: 40px; height: 40px; font-size: 14px; }
+.xm-row .xm-name .form-control { padding: 6px 12px; }
+.xm-row .xm-value .form-control { padding: 6px 34px 6px 12px; }
+.xm-actions { display: flex; align-items: center; gap: 8px; }
+.xm-done { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; white-space: nowrap; }
+.xm-remove { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 10px); background: var(--surface-color); color: var(--text-secondary); cursor: pointer; }
+.xm-remove:hover { color: var(--danger-color, #b42318); border-color: currentColor; }
+.xm-error { font-size: 13px; color: var(--danger-color, #b42318); }
+.xm-add { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 520px) {
+  .xm-row { grid-template-columns: minmax(0, 1fr) auto; width: 100%; }
+  .xm-row .xm-name { grid-column: 1 / -1; }
+  .xm-row .form-control { font-size: 16px; } /* 16px stops iOS zooming into the box */
+  .xm-add { width: 100%; justify-content: center; }
+}
 .wz-measure-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border-color); }
 .wz-measure-title { font-family: var(--font-serif); font-size: 18px; font-weight: 600; color: var(--text-primary); }
 .wz-measure-loaded { font-size: 12px; color: #047857; background: #ecfdf5; padding: 3px 10px; border-radius: 999px; border: 1px solid #a7f3d0; font-weight: 500; white-space: nowrap; }

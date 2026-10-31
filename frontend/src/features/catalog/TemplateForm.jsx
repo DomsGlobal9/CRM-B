@@ -12,6 +12,11 @@ import { UNITS, purchaseError } from './materials';
 import { PurchaseDetails } from './GarmentPurchases';
 
 const BUY_OPTION = '__buy__';
+// Dropdowns the app acts on -- the order's path (hand work), express, where the
+// cloth comes from, which follow-up questions show -- are picked from their
+// list only. Every other dropdown also offers "Other (type it)".
+const NO_OTHER = new Set(['hand_work', 'urgency', 'fabric_source', 'border_source',
+  'hand_work_material_source', 'hand_work_kind_mode']);
 
 function useInventoryOptions(categories) {
   const [byCategory, setByCategory] = useState({});
@@ -129,8 +134,9 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       break;
 
     case 'select': {
-      const other = isTypedOther(value);
-      const typed = other;
+      const typed = isTypedOther(value);
+      // Not where the template lists its own Other (with its own "Specify" box).
+      const other = typed || (!NO_OTHER.has(field.key) && !field.options.some((o) => o.value === 'other'));
       const buying = typed && Boolean(purchase);
       const pick = (chosen) => {
         if (chosen === BUY_OPTION) {
@@ -154,7 +160,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
               </option>
             ))}
             {other && <option value={OTHER_PREFIX}>Other (type it)</option>}
-            {other && <option value={BUY_OPTION}>Not in stock? Buy for this order</option>}
+            {typed && <option value={BUY_OPTION}>Not in stock? Buy for this order</option>}
           </select>
           {typed && !buying && (
             <input className="form-control" type="text" style={{ marginTop: '8px' }} autoFocus

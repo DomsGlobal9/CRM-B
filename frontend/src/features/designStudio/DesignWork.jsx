@@ -11,6 +11,7 @@ import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../.
 import { LIMITS, todayIso } from '../../services/validate';
 import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
+import { EXTRA_MEASUREMENTS, extraMeasurements } from '../../services/templates';
 import Loader from '../../components/ui/Loader';
 
 // The owner's / master's "Assigned Design Work" list (and its "Only work still
@@ -303,7 +304,8 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
 
       {!isSupervisor && (Object.keys(spec).length > 0 || Object.keys(measurements).length > 0) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '10px' }}>
-          {Object.entries({ ...spec, ...measurements })
+          {[...Object.entries({ ...spec, ...measurements }).filter(([key]) => key !== EXTRA_MEASUREMENTS),
+            ...extraMeasurements(measurements).map((row) => [String(row.label ?? '').trim(), `${String(row.value ?? '').trim()} in`])]
             .filter(([, value]) => !/^[0-9a-f]{8}-[0-9a-f]{4}/.test(String(value)))
             .map(([key, value]) => (
             <span key={key} style={{

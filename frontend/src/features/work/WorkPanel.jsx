@@ -10,6 +10,7 @@ import { inventoryImage } from '../../services/inventoryImages';
 import { imageFilesError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { ASSIGN_ONLY_TO } from '../../constants/roles';
+import { extraMeasurements } from '../../services/templates';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
@@ -99,6 +100,10 @@ const noteThread = (order, stage) =>
     (a.event_type === 'STAGE_TRANSITION' || a.event_type === 'STAGE_NOTE') && (a.metadata.comments || a.metadata.voice_note)).slice(0, 20);
 
 const entries = (obj) => Object.entries(obj || {}).filter(([, v]) => v !== '' && v != null && typeof v !== 'object');
+// A garment's measurements with the ones added by hand ("Add other
+// measurement") after the template's, each as [name, value].
+const measureEntries = (m) => [...entries(m),
+  ...extraMeasurements(m).map((row) => [String(row.label ?? '').trim(), String(row.value ?? '').trim()])];
 
 const Listen = ({ text }) => <span className="wk-listen"><SpeakButton text={text} /></span>;
 
@@ -125,7 +130,7 @@ function jobGlance(order, stage) {
     });
   });
   const measurements = jobs.length
-    ? jobs.flatMap((j) => entries(j.measurements))
+    ? jobs.flatMap((j) => measureEntries(j.measurements))
     : [...entries(order.customer_measurements).filter(([k]) => k !== 'id'), ...entries(order.customer_measurements?.additional_measurements)];
   return { image, fabrics, measurements };
 }
@@ -771,7 +776,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
           );
         })()}
         {jobs.map((j) => {
-          const m = entries(j.measurements);
+          const m = measureEntries(j.measurements);
           const s = entries(j.spec);
           return (
             <details key={j.id} className="wk-details">

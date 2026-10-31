@@ -53,6 +53,30 @@ export const OTHER_MAX_LENGTH = 200;
 export const isTypedOther = (raw) => typeof raw === 'string' && raw.startsWith(OTHER_PREFIX);
 export const typedOtherText = (raw) => (isTypedOther(raw) ? raw.slice(OTHER_PREFIX.length) : '');
 
+// Measurements the template does not ask for, added by hand at the counter
+// ("Add other measurement"): [{ label, value }] under one key of the garment's
+// measurements, in inches. Mirrors EXTRA_MEASUREMENTS in core/templates.py.
+export const EXTRA_MEASUREMENTS = 'extra_measurements';
+export const EXTRA_MEASUREMENTS_MAX = 20;
+export const EXTRA_LABEL_MAX = 60;
+
+/** The added measurements that say something (wholly blank rows left out). */
+export const extraMeasurements = (values) => (Array.isArray(values?.[EXTRA_MEASUREMENTS]) ? values[EXTRA_MEASUREMENTS] : [])
+  .filter((row) => row && (String(row.label ?? '').trim() || String(row.value ?? '').trim()));
+
+/** What is wrong with the added measurements, as a sentence, or ''. */
+export function extraMeasurementsError(values) {
+  for (const row of extraMeasurements(values)) {
+    const label = String(row.label ?? '').trim();
+    const value = String(row.value ?? '').trim();
+    if (!label) return 'Give each extra measurement a name.';
+    if (!value) return `Enter a value for ${label}.`;
+    const number = Number(value);
+    if (!Number.isFinite(number) || number <= 0 || number > 999.99) return `${label} must be more than 0 and at most 999.99.`;
+  }
+  return '';
+}
+
 /** Every field of a section that currently applies, in render order. */
 export function visibleFields(section, values) {
   if (!section) return [];
@@ -78,6 +102,9 @@ export function pruneHidden(template, values) {
       }
     });
   });
+  // Not a template question, so kept by name: editing a measurement must not
+  // drop the ones added by hand.
+  if (values?.[EXTRA_MEASUREMENTS] !== undefined) kept[EXTRA_MEASUREMENTS] = values[EXTRA_MEASUREMENTS];
   return kept;
 }
 
@@ -156,6 +183,11 @@ export function validateSpec(template, values, { partial = false, sections = nul
     errors.trial_date = 'Trial date must fall before the delivery date.';
   }
 
+  if (!partial && (!sections || sections.includes('measurements'))) {
+    const extraProblem = extraMeasurementsError(values);
+    if (extraProblem) errors[EXTRA_MEASUREMENTS] = extraProblem;
+  }
+
   return errors;
 }
 
@@ -167,7 +199,7 @@ export function splitSpec(template, values) {
   const spec = {};
   const measurements = {};
   Object.entries(values).forEach(([key, value]) => {
-    (measurementKeys.has(key) ? measurements : spec)[key] = value;
+    (measurementKeys.has(key) || key === EXTRA_MEASUREMENTS ? measurements : spec)[key] = value;
   });
   return { spec, measurements };
 }

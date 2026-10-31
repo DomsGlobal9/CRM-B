@@ -7,6 +7,7 @@ from core.permissions import SUPERVISOR_ROLES
 from core.roles import OWNER, resolve_user_role
 from crm_api.models import Order, OrderStage, OrderActivity, Tailor, BoutiqueSettings
 from core.formatting import format_money
+from core.templates import EXTRA_MEASUREMENTS
 from core.validators import MAX_NOTE, validate_text
 from domains.orders.notifications import create_order_notifications
 from domains.orders import workflow
@@ -288,7 +289,8 @@ def _internal_job(order, template, sequence, garment, user):
         'template': str(template.id),
         'label': garment.get('label') or '',
         'spec': {k: v for k, v in (garment.get('spec') or {}).items() if k in known},
-        'measurements': {k: v for k, v in (garment.get('measurements') or {}).items() if k in known},
+        'measurements': {k: v for k, v in (garment.get('measurements') or {}).items()
+                         if k in known or k == EXTRA_MEASUREMENTS},
         'materials': garment.get('materials') or [],
     })
     if not serializer.is_valid():

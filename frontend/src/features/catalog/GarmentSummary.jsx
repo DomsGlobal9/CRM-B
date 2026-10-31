@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '../../services/api';
-import { isVisible, isTypedOther, typedOtherText } from '../../services/templates';
+import { isVisible, isTypedOther, typedOtherText, extraMeasurements } from '../../services/templates';
 import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 
@@ -206,13 +206,25 @@ export default function GarmentSummary({ jobs, onEdit, inventoryNames: providedN
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {jobs.map((job) => {
-        const sections = job.template.sections
+        // The measurements added by hand ("Add other measurement") read as
+        // rows of the Measurements section, after the template's own.
+        const extras = extraMeasurements(job.values).map((row, i) => ({
+          field: { key: `extra_measurement_${i}`, label: String(row.label ?? '').trim() },
+          text: `${String(row.value ?? '').trim()} Inches`,
+        }));
+        const withExtras = job.template.sections.some((s) => s.key === 'measurements') || !extras.length
+          ? job.template.sections
+          : [...job.template.sections, { key: 'measurements', title: 'Measurements', fields: [] }];
+        const sections = withExtras
           .map((section) => ({
             ...section,
-            answered: section.fields
-              .filter((f) => isVisible(f, job.values))
-              .map((f) => ({ field: f, text: displayValue(f, job.values[f.key], inventoryNames) }))
-              .filter((entry) => entry.text !== null),
+            answered: [
+              ...section.fields
+                .filter((f) => isVisible(f, job.values))
+                .map((f) => ({ field: f, text: displayValue(f, job.values[f.key], inventoryNames) }))
+                .filter((entry) => entry.text !== null),
+              ...(section.key === 'measurements' ? extras : []),
+            ],
           }))
           .filter((section) => section.answered.length > 0);
 

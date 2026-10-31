@@ -82,6 +82,52 @@ def _is_typed_other(raw):
             and 0 < len(raw[len(OTHER_PREFIX):].strip()) <= OTHER_MAX_LENGTH)
 
 
+#: Measurements the template does not ask for, added by hand at the counter
+#: ("Add other measurement"): [{"label": "Bicep", "value": "11.5"}] under this
+#: one key of a garment's measurements, in inches like the rest. Mirrored in
+#: frontend/src/services/templates.js.
+EXTRA_MEASUREMENTS = 'extra_measurements'
+EXTRA_MEASUREMENTS_MAX = 20
+EXTRA_LABEL_MAX = 60
+EXTRA_VALUE_MAX = Decimal('999.99')
+
+
+def clean_extra_measurements(raw):
+    """The added measurements, cleaned: (rows, error sentence or None).
+
+    Rows left wholly blank are dropped; a name needs a value and a value a
+    name; the value is a number of inches above 0, at most 999.99.
+    """
+    if raw in (None, '', []):
+        return [], None
+    if not isinstance(raw, list):
+        return [], 'Extra measurements must be a list.'
+    rows = []
+    for row in raw:
+        if not isinstance(row, dict):
+            return [], 'Each extra measurement needs a name and a value.'
+        label = str(row.get('label') or '').strip()
+        value = str(row.get('value') if row.get('value') is not None else '').strip()
+        if not label and not value:
+            continue
+        if not label:
+            return [], 'Give each extra measurement a name.'
+        if len(label) > EXTRA_LABEL_MAX:
+            return [], f'{label[:20]}...: a measurement name is limited to {EXTRA_LABEL_MAX} characters.'
+        if not value:
+            return [], f'Enter a value for {label}.'
+        try:
+            number = Decimal(value)
+        except (InvalidOperation, ValueError):
+            return [], f'{label} must be a number.'
+        if not number.is_finite() or number <= 0 or number > EXTRA_VALUE_MAX:
+            return [], f'{label} must be more than 0 and at most {EXTRA_VALUE_MAX}.'
+        rows.append({'label': label, 'value': str(number)})
+    if len(rows) > EXTRA_MEASUREMENTS_MAX:
+        return [], f'Add at most {EXTRA_MEASUREMENTS_MAX} extra measurements to a garment.'
+    return rows, None
+
+
 #: An answer whose option has been retired, and what it means now. Saree
 #: "Fall + Pico" was one tick for two services; the two are ticked on their
 #: own since, and an order taken before that still reads as both.

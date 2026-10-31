@@ -200,16 +200,16 @@ class HemmingAssignmentTests(HierarchyTestBase):
             status="Available")
 
     def test_owner_designer_and_master_hand_hemming_to_hemming_staff(self):
-        for user in (self.owner, self.designer_user, self.master_user):
-            order = self.make_order()
+        for i, user in enumerate((self.owner, self.designer_user, self.master_user)):
+            order = self.make_order(customer=self.make_customer(f"98000010{i:02d}"))
             res = self.assign_stage(order, self.hemmer, user, "finishing")
             self.assertEqual(res.status_code, 200, (user.username, res.content))
             self.assertEqual(
                 order.stages.get(stage_key="finishing").assigned_to_id, self.hemmer.id)
 
     def test_hemming_never_goes_to_a_master(self):
-        for user in (self.owner, self.designer_user, self.master_user):
-            order = self.make_order()
+        for i, user in enumerate((self.owner, self.designer_user, self.master_user)):
+            order = self.make_order(customer=self.make_customer(f"98000020{i:02d}"))
             res = self.assign_stage(order, self.master, user, "finishing")
             self.assertEqual(res.status_code, 400, (user.username, res.content))
             self.assertIn("Hemming & Pressing Staff", res.json()["error"])
@@ -233,8 +233,8 @@ class HemmingAssignmentTests(HierarchyTestBase):
         # Nobody to hand it to: the step stays open to the Master and the
         # Designer (and the Owner), who start and finish it themselves.
         self.hemmer.delete()
-        for user in (self.master_user, self.designer_user):
-            order = self.make_order()
+        for i, user in enumerate((self.master_user, self.designer_user)):
+            order = self.make_order(customer=self.make_customer(f"98000030{i:02d}"))
             self.reach(order, "finishing")
             url = reverse("order-transition-stage", args=[order.id])
             for status in ("IN_PROGRESS", "COMPLETED"):

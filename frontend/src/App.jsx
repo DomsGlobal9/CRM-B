@@ -74,6 +74,8 @@ import { hasPageTour } from './components/ui/tourPages';
 import { hasTask } from './components/ui/tourTasks';
 import { SetupPasswordStep, SetupProfileBanner } from './features/staff/StaffFirstSetup';
 import { ASSIGN_ONLY_TO } from './constants/roles';
+import ExtraMeasurements from './features/catalog/ExtraMeasurements';
+import { EXTRA_MEASUREMENTS } from './services/templates';
 
 import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
@@ -9321,7 +9323,23 @@ function App() {
                         values={mergedValues}
                         errors={garmentErrors[job.key] || {}}
                         onChange={(values) => updateGarmentValues(job.key, values)}
+                        only={(f) => f.field_type !== 'textarea'}
                       />
+                      {/* The measurements added by hand sit with the figures, before the notes. */}
+                      <ExtraMeasurements values={mergedValues} error={garmentErrors[job.key]?.[EXTRA_MEASUREMENTS]}
+                                         onChange={(values) => updateGarmentValues(job.key, values)} />
+                      {(section.fields || []).some((f) => f.field_type === 'textarea') && (
+                        <div style={{ marginTop: '14px' }}>
+                          <TemplateForm
+                            template={job.template}
+                            section="measurements"
+                            values={mergedValues}
+                            errors={garmentErrors[job.key] || {}}
+                            onChange={(values) => updateGarmentValues(job.key, values)}
+                            only={(f) => f.field_type === 'textarea'}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
