@@ -6905,6 +6905,17 @@ button, input, select, textarea { font-family: inherit; }
 .tf-unit-input { position: relative; }
 .tf-unit-input .form-control { padding-right: 34px; font-variant-numeric: tabular-nums; }
 .tf-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-secondary); pointer-events: none; }
+/* "+ Add" beside Work On (TemplateForm.jsx AddChoice). */
+.tf-add-choice { display: inline-flex; align-items: center; padding: 3px 12px; border: 1px dashed var(--border-color); border-radius: 999px;
+  background: transparent; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+.tf-add-choice:hover { border-color: var(--accent-border, var(--text-secondary)); background: var(--surface-2, transparent); }
+.tf-add-choice-box { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.tf-add-choice-box .form-control { width: 170px; min-height: 34px; height: 34px; padding: 4px 10px; font-size: 13.5px; }
+.tf-add-choice-go { min-height: 34px; padding: 0 14px; }
+.tf-add-choice-cancel { width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; font-size: 18px; line-height: 1;
+  color: var(--text-secondary); cursor: pointer; }
+.tf-add-choice-error { flex-basis: 100%; font-size: 12px; color: var(--danger-color, #b42318); }
+@media (max-width: 520px) { .tf-add-choice-box .form-control { width: 100%; font-size: 16px; } .tf-add-choice-box { width: 100%; } }
 /* "Add other measurement" (features/catalog/ExtraMeasurements.jsx): rows
    sized like the measurement boxes above them, filed as chips after Done. */
 .xm { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 16px; width: 100%; }

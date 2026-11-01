@@ -46,12 +46,16 @@ export const isVisible = (field, values) => evaluateRule(field.visible_when, val
 // key as "other:<text>". Mirrors OTHER_PREFIX in core/templates.py.
 /** Answers whose option has been retired, and what they mean now. Mirrors
  *  RETIRED_CHOICES in core/templates.py. */
-export const RETIRED_CHOICES = { fall_pico: ['fall', 'pico'] };
+export const RETIRED_CHOICES = { fall_pico: ['fall', 'pico'], hand_design: ['sleeve_design'] };
 
 export const OTHER_PREFIX = 'other:';
 export const OTHER_MAX_LENGTH = 200;
 export const isTypedOther = (raw) => typeof raw === 'string' && raw.startsWith(OTHER_PREFIX);
 export const typedOtherText = (raw) => (isTypedOther(raw) ? raw.slice(OTHER_PREFIX.length) : '');
+// Multiple-choice questions that also take a choice typed at the counter
+// ("+ Add" under Work On), kept in the list as "other:<text>". Mirrors
+// MULTI_TYPED in core/templates.py.
+export const MULTI_TYPED = new Set(['hand_work_parts']);
 
 // Measurements the template does not ask for, added by hand at the counter
 // ("Add other measurement"): [{ label, value }] under one key of the garment's
@@ -168,7 +172,8 @@ export function validateSpec(template, values, { partial = false, sections = nul
         const allowed = new Set((field.options || []).map((o) => o.value));
         // A retired answer counts as what it means now, so a garment already
         // on screen when its option went is not held up.
-        const unknown = asList(raw).filter((v) => !allowed.has(v) && !RETIRED_CHOICES[v]);
+        const typed = (v) => MULTI_TYPED.has(field.key) && isTypedOther(v) && typedOtherText(v).trim();
+        const unknown = asList(raw).filter((v) => !allowed.has(v) && !RETIRED_CHOICES[v] && !typed(v));
         if (unknown.length) {
           errors[field.key] = `${field.label}: unknown option ${unknown.join(', ')}.`;
         }

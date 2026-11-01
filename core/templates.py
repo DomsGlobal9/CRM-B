@@ -131,7 +131,19 @@ def clean_extra_measurements(raw):
 #: An answer whose option has been retired, and what it means now. Saree
 #: "Fall + Pico" was one tick for two services; the two are ticked on their
 #: own since, and an order taken before that still reads as both.
-RETIRED_CHOICES = {'fall_pico': ('fall', 'pico')}
+RETIRED_CHOICES = {'fall_pico': ('fall', 'pico'),
+                   # Work On's Hand was the sleeve under another name.
+                   'hand_design': ('sleeve_design',)}
+
+#: A question that has been retired, and the one that asks it now: an order
+#: taken before reads on, its answer under the new key (unless that has one).
+RETIRED_FIELDS = {'hand_work_kind_hand_design': 'hand_work_kind_sleeve_design'}
+
+
+#: Multiple-choice questions that also take a choice typed at the counter
+#: ("+ Add" under Work On), kept in the list as "other:<text>". Mirrored in
+#: frontend/src/services/templates.js.
+MULTI_TYPED = {'hand_work_parts'}
 
 
 def _clean_choice(field, raw, errors, multi):
@@ -139,11 +151,14 @@ def _clean_choice(field, raw, errors, multi):
         return raw
     allowed = {o.value for o in field.options.all() if o.is_active}
     chosen = _as_list(raw) if multi else [raw]
+    typed = set()
     if multi:
         chosen = [out for c in chosen
                   for out in (RETIRED_CHOICES[c] if c in RETIRED_CHOICES and c not in allowed else (c,))]
         chosen = list(dict.fromkeys(chosen))
-    unknown = [c for c in chosen if c not in allowed]
+        if field.key in MULTI_TYPED:
+            typed = {c for c in chosen if _is_typed_other(c)}
+    unknown = [c for c in chosen if c not in allowed and c not in typed]
     if unknown:
         errors[field.key] = f"{field.label}: unknown option {', '.join(map(str, unknown))}."
         return None
@@ -158,6 +173,26 @@ def validate_spec(template, spec, *, partial=False):
     for section in template.sections.all():
         for field in section.fields.all():
             known[field.key] = field
+
+    # An order taken before a question or a choice was retired reads as what
+    # it means now -- before visibility is worked out, so a question that
+    # hangs off the retired choice (Hand's own design) still applies.
+    if any(old in spec for old in RETIRED_FIELDS) or any(
+            isinstance(v, list) and any(c in RETIRED_CHOICES for c in v if isinstance(c, str))
+            for v in spec.values()):
+        spec = dict(spec)
+        for old, new in RETIRED_FIELDS.items():
+            if old in spec:
+                answer = spec.pop(old)
+                spec.setdefault(new, answer)
+        for key, value in list(spec.items()):
+            field = known.get(key)
+            if field is not None and field.field_type == 'multiselect' and isinstance(value, list):
+                allowed = {o.value for o in field.options.all() if o.is_active}
+                spec[key] = list(dict.fromkeys(
+                    out for c in value
+                    for out in (RETIRED_CHOICES[c] if isinstance(c, str) and c in RETIRED_CHOICES
+                                and c not in allowed else (c,))))
 
     unknown_keys = set(spec) - set(known)
     if unknown_keys:

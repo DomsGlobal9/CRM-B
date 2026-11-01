@@ -47,7 +47,7 @@ function displayValue(field, value, inventoryNames) {
     const chosen = Array.isArray(value) ? value : [value];
     if (!chosen.length) return null;
     return chosen
-      .map((v) => field.options.find((o) => o.value === v)?.label ?? v)
+      .map((v) => (isTypedOther(v) ? typedOtherText(v) : field.options.find((o) => o.value === v)?.label ?? v))
       .join(', ');
   }
 
