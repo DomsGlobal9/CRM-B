@@ -27,7 +27,6 @@ urlpatterns = [
     path('api/finance/', include('apps.finance.urls')),
     path('api/email/', include('apps.email_service.urls')),
     path('api/alterations/', include('apps.alterations.urls')),
-    path('api/todos/', include('apps.todos.urls')),
     path('api/daily-summary/', include('apps.daily_summary.urls')),
 ]
 

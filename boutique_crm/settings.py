@@ -93,7 +93,6 @@ TENANT_APPS = [
     'apps.payroll',
     'apps.finance',
     'apps.alterations',
-    'apps.todos',
     'apps.daily_summary',
 ]
 

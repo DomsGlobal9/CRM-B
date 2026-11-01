@@ -15,7 +15,4 @@ const KINDS = [
 
 const OTHER = { key: 'other', label: 'Other', color: '#64748b' };
 
-/** The to-do tasks on My work. */
-export const TODO_KIND = { key: 'todo', label: 'To-do', color: '#0891b2' };
-
 export const workKind = (stageKey) => KINDS.find((k) => k.stages.includes(stageKey)) || OTHER;

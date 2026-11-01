@@ -3,7 +3,7 @@ import { ArrowLeft, Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseI
 
 import { api } from '../../services/api';
 import { expressLabel, isExpressJob, isExpressOrder } from '../orders/express';
-import { TODO_KIND, workKind } from '../../services/workKind';
+import { workKind } from '../../services/workKind';
 import { orderRef, formatDate, formatDateTime } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { inventoryImage } from '../../services/inventoryImages';
@@ -200,37 +200,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       return next;
     });
   };
-  // My open to-dos (apps/todos), shown under the order work so a task handed
-  // to me is on the screen I work from. Off while the To-do section is
-  // switched off (see App.jsx): `tasks` stays empty, so the Tasks tab and
-  // section never draw.
-  const TODOS_ON = false;
-  const [tasks, setTasks] = useState([]);
-  const [taskBusy, setTaskBusy] = useState(null);
-  const loadTasks = () => (!TODOS_ON ? Promise.resolve() : api.getTodos())
-    .then((rows) => setTasks((Array.isArray(rows) ? rows : rows?.results || [])
-      // A to-do made from an order step is already here as that step's card.
-      .filter((td) => td.status !== 'CLOSED' && td.assigned_to === currentUser?.id && !td.order_stage)))
-    .catch(() => setTasks([]));
-  useEffect(() => {
-    if (view === 'open') loadTasks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, currentUser?.id, orders]);
-  const moveTask = async (task, status) => {
-    setTaskBusy(task.id);
-    try {
-      await api.setTodoStatus(task.id, status);
-      setToast(status === 'CLOSED' ? t('workPage.taskDone', 'Task done') : t('workPage.taskStarted', 'Task started'));
-      await loadTasks();
-    } catch (e) {
-      setToast(e.message || t('workPage.taskFailed', 'Could not update the task'));
-    } finally {
-      setTaskBusy(null);
-    }
-  };
-
-  // To-dos move steps too: reload quietly every minute and on coming back to
-  // the app, but not while a job is open.
+  // Other people move steps too: reload quietly every minute and on coming
+  // back to the app, but not while a job is open.
   const openRef = useRef(null);
   useEffect(() => { openRef.current = open; }, [open]);
   useEffect(() => {
@@ -370,41 +341,6 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
 
   let body;
   if (view === 'open') {
-    // A step picked: tasks are not steps, so they stand aside.
-    const showTasks = tasks.length > 0 && !stepActive;
-    // `list`: the tasks shown (the pager may hold some back); the heading
-    // still counts them all.
-    const taskSection = (list) => showTasks && list.length > 0 && (
-      <section className="wk-group">
-        <h3 className="wk-group-title">{t('workPage.tasks', 'Tasks')} <span className="wk-count">{tasks.length}</span></h3>
-        {list.map((task) => (
-          <div key={`todo-${task.id}`} className="wk-card" data-kind={TODO_KIND.key} style={{ '--wk-kind': TODO_KIND.color }}>
-            <div className="wk-card-head">
-              <div className="wk-card-title">{task.title}</div>
-              <span className={`ui-badge ui-badge--${task.status === 'IN_PROGRESS' ? 'warning' : 'neutral'}`}>
-                {task.status === 'IN_PROGRESS' ? t('workPage.inProgress', 'In progress') : t('workPage.statusTodo', 'To do')}
-              </span>
-            </div>
-            <div className="wk-card-sub">
-              <span className="wk-kind-tag">{TODO_KIND.label}</span>
-              {task.created_by_name && t('workPage.taskFrom', 'From {who}', { who: task.created_by_name })}
-              {task.due_date && <> · {t('workPage.due', 'Due')} {formatDate(task.due_date)}</>}
-            </div>
-            {task.description && <div className="wk-card-note">{String(task.description).split('\n')[0]}</div>}
-            {task.can_change_status !== false && (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                {task.status === 'OPEN' && (
-                  <button type="button" className="btn-secondary at-btn-sm" disabled={taskBusy === task.id}
-                          onClick={() => moveTask(task, 'IN_PROGRESS')}>{t('workPage.startTask', 'Start')}</button>
-                )}
-                <button type="button" className="btn-primary at-btn-sm" disabled={taskBusy === task.id}
-                        onClick={() => moveTask(task, 'CLOSED')}>{t('workPage.markDone', 'Mark done')}</button>
-              </div>
-            )}
-          </div>
-        ))}
-      </section>
-    );
     // Work just handed to me leads the list, latest assignment first: the
     // card highlighted, saying what it was assigned for. Opened once, it
     // goes back to its own place under "Do now" or "Next".
@@ -460,7 +396,6 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       ['assigned', t('workPage.tabAssigned', 'Assigned'), byStatus('next')],
       ['now', t('workPage.inProgress', 'In progress'), byStatus('now')],
       ['waiting', t('workPage.tabWaiting', 'Waiting for check'), byStatus('waiting')],
-      ['todos', t('workPage.tasks', 'Tasks'), stepActive ? [] : tasks],
     ].filter(([key, , list]) => key === 'all' || key === 'assigned' || key === 'now' || list.length > 0);
     const active = tabs.some(([key]) => key === tab) ? tab : 'all';
     // The pager: the first `limit` cards in the order they are listed, then
@@ -494,7 +429,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           <button key={key} type="button" role="tab" aria-selected={active === key}
                   className={`tab-btn${active === key ? ' active' : ''}`} onClick={() => setTab(key)}>
             {label}
-            <span className="wk-count">{key === 'all' ? items.length + (stepActive ? 0 : tasks.length) : list.length}</span>
+            <span className="wk-count">{key === 'all' ? items.length : list.length}</span>
           </button>
         ))}
       </div>
@@ -520,24 +455,22 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           {filterBar}
           {tabList.length === 0
             ? <div className="wk-empty">{t('workPage.emptyTab', 'Nothing here right now.')}</div>
-            : active === 'todos'
-              ? taskSection(tabList.slice(0, limit))
-              : <section className="wk-group">{tabList.slice(0, limit).map((it) => groupCard(active === 'assigned' ? 'next' : active, it))}</section>}
+            : <section className="wk-group">{tabList.slice(0, limit).map((it) => groupCard(active === 'assigned' ? 'next' : active, it))}</section>}
           {pager(tabList.length)}
         </>
       );
     } else {
-    // The All list in its order -- new work, tasks, Do now, Next, Waiting --
+    // The All list in its order -- new work, Do now, Next, Waiting --
     // each section showing what is left of the pager's allowance.
     const groupLists = groups.map(([key, label]) => [key, label,
       items.filter((i) => i.group === key && !((key === 'next' || key === 'now') && isNew(i.order, i.stage)))]);
-    const allTotal = newOnTop.length + (showTasks ? tasks.length : 0)
+    const allTotal = newOnTop.length
       + groupLists.reduce((sum, [, , list]) => sum + list.length, 0);
-    const [visNew, visTasks, ...visLists] = takeAll([newOnTop, showTasks ? tasks : [], ...groupLists.map(([, , list]) => list)]);
+    const [visNew, ...visLists] = takeAll([newOnTop, ...groupLists.map(([, , list]) => list)]);
     const visGroups = groupLists.map(([key, label, list], i) => [key, label, list, visLists[i]]);
     body = stepActive && items.length === 0
       ? <>{filterBar}<div className="wk-empty">{t('workPage.emptyStep', 'No work for this step right now.')}</div></>
-      : items.length === 0 && !showTasks && newOnTop.length === 0
+      : items.length === 0 && newOnTop.length === 0
       ? (
         <div className="wk-empty">
           {later
@@ -549,7 +482,6 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
         <>
           {filterBar}
           {newSection(visNew)}
-          {taskSection(visTasks)}
           {visGroups.map(([key, label, list, shownList]) => {
             if (!shownList.length) return null;
             return (

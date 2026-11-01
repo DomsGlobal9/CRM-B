@@ -366,34 +366,3 @@ class AlterationAssignmentTests(HierarchyTestBase):
         from domains.alterations import services
         with self.assertRaises(PermissionError):
             services.assign_alteration(999999, tailor_id=self.tailor.id, role='Tailor')
-
-
-class TodoAssignmentTests(HierarchyTestBase):
-
-    def people(self, user, role):
-        from apps.todos.services import assignable_people
-        return {p['role'] for p in assignable_people(user, role)
-                if p['id'] != user.id}
-
-    def test_master_cannot_be_offered_a_designer(self):
-        self.assertNotIn(DESIGNER, self.people(self.master_user, MASTER))
-        self.assertNotIn(OWNER, self.people(self.master_user, MASTER))
-
-    def test_designer_is_offered_master_and_workers_not_owner(self):
-        roles = self.people(self.designer_user, DESIGNER)
-        self.assertIn(MASTER, roles)
-        self.assertIn('Tailor', roles)
-        self.assertNotIn(OWNER, roles)
-
-    def test_owner_is_offered_designers(self):
-        self.assertIn(DESIGNER, self.people(self.owner, OWNER))
-
-    def test_a_worker_is_offered_only_themselves(self):
-        self.assertEqual(self.people(self.tailor_user, 'Tailor'), set())
-
-    def test_master_assigning_a_designer_is_refused_by_the_endpoint(self):
-        res = self.client_for(self.master_user).post(
-            reverse('todo-list'),
-            {'title': 'Pick the border', 'assigned_to': self.designer_user.id},
-            format='json')
-        self.assertIn(res.status_code, (400, 403), res.content)

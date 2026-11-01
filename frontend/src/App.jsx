@@ -29,9 +29,6 @@ const SHOW_DESIGN_OVERVIEW_TAB = false;
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
-// The To-do section is switched off for every role (MOM, 2026-10-24). The
-// todos app, its API and its data are kept, so it can come back; its screen is
-// features/todo/TodoPanel.jsx.
 const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
 import TemplateForm from './features/catalog/TemplateForm';
@@ -1592,7 +1589,6 @@ const NAV_MODULE = {
   inventory: 'inventory',
   staff: 'staff',
   finance: 'finance',
-  todo: 'todos',
 };
 
 const hasModule = (user, key) =>
