@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { Compass, Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send } from 'lucide-react';
+import { Compass, Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send, ListTodo } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { notificationKind } from './services/notificationKind';
@@ -31,6 +31,7 @@ const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
+const DailyUpdates = lazy(() => import('./features/todo/DailyUpdates'));
 import TemplateForm from './features/catalog/TemplateForm';
 import PetticoatStylePicker from './features/catalog/PetticoatStylePicker';
 import GarmentPurchases from './features/catalog/GarmentPurchases';
@@ -1580,6 +1581,7 @@ const NAV_MODULE = {
   work: null,
   check: null,
   done: null,
+  todo: null,
   invoices: null,
   analytics: null,
   account: null,
@@ -1626,6 +1628,7 @@ const navSectionsFor = (user, t) => {
       
       { key: 'people', label: t('nav.groups.people', 'Team'), items: [
         { tab: 'staff', icon: Users, label: t('nav.staffManagement') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
       { key: 'business', label: t('nav.groups.business', 'Finance'), items: [
         { tab: 'finance', icon: Wallet, label: t('nav.finance', 'Profit & Costs') },
@@ -1641,6 +1644,7 @@ const navSectionsFor = (user, t) => {
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
@@ -1649,12 +1653,14 @@ const navSectionsFor = (user, t) => {
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ] : [
       { key: 'production', items: [
         { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do'), phone: true },
       ] },
     ];
 
@@ -5194,6 +5200,20 @@ function App() {
                 <Suspense fallback={<ScreenLoading />}>
                   <WorkPanel view={dashboardTab === 'work' ? 'open' : dashboardTab} orders={ordersList} currentUser={currentUser} workflowConfig={boutiqueSettings?.workflow_config || []} tailors={tailors} fabricTaxonomy={fabricTaxonomy} onChanged={fetchDashboardAndConfig}
                               customerMessages={queuedMessages} onMarkMessageSent={handleMarkMessageSent} onRetryMessage={handleRetryMessage} />
+                </Suspense>
+              </>
+            )}
+
+            {dashboardTab === 'todo' && (
+              <>
+                <PageHeader
+                  title={t('nav.todo', 'To-do')}
+                  subtitle={!currentUser?.role || currentUser.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser.role)
+                    ? 'Daily updates from your team'
+                    : 'Your daily updates for the month'}
+                />
+                <Suspense fallback={<ScreenLoading />}>
+                  <DailyUpdates />
                 </Suspense>
               </>
             )}

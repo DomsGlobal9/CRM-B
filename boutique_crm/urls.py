@@ -28,6 +28,7 @@ urlpatterns = [
     path('api/email/', include('apps.email_service.urls')),
     path('api/alterations/', include('apps.alterations.urls')),
     path('api/daily-summary/', include('apps.daily_summary.urls')),
+    path('api/daily-updates/', include('apps.daily_updates.urls')),
 ]
 
 urlpatterns += [

@@ -402,6 +402,9 @@ ALWAYS_ON = (
     # endpoint's own module and role gates decide whether the note lands.
     # Gating the upload separately would only orphan the clip.
     '/api/voice-notes/',
+    # The To-do (daily updates): every role posts or reads them, and who sees
+    # whose is the endpoint's own role rule (apps/daily_updates/views.py).
+    '/api/daily-updates/',
     '/api/superadmin/',
     '/admin/',
     '/media/',
