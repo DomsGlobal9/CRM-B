@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Eye, Image as ImageIcon, Layers, Scissors, Sparkles } from 'lucide-react';
+import { ExternalLink, Eye, Image as ImageIcon, Layers, Link as LinkIcon, Scissors, Sparkles } from 'lucide-react';
 
 import { resolveMediaUrl } from '../../services/media';
 import { inventoryImage } from '../../services/inventoryImages';
@@ -33,6 +33,11 @@ const unitShort = (f) => (
 const FALLBACK =
   'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
+/** A reference's web page, when it has one: the link the customer gave, or
+ *  the page a design kept from a web search came from. */
+const webLink = (ref) => (/^https?:\/\//i.test(ref?.source_url || '') ? ref.source_url : undefined);
+const linkText = (href) => href.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '');
+
 function Thumb({ src, alt, size = 56 }) {
   return (
     <img src={resolveMediaUrl(src, FALLBACK)} alt={alt} loading="lazy"
@@ -52,6 +57,23 @@ function DesignGrid({ rows, onView }) {
       {rows.map((r, i) => (
         <div key={r.key} style={{ border: '1px solid var(--border-color)', borderRadius: '10px',
                                   overflow: 'hidden', background: 'var(--surface, #fff)' }}>
+          {/* A link typed in with no photo behind it: the tile is the link. */}
+          {r.href && r.image_url === r.href ? (
+            <a href={r.href} target="_blank" rel="noopener noreferrer" title={r.href}
+               style={{ aspectRatio: '1 / 1', display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        justifyContent: 'center', gap: '8px', padding: '12px', textAlign: 'center',
+                        background: 'var(--surface-inset, #f3f4f6)', color: 'var(--text-primary)', textDecoration: 'none' }}>
+              <LinkIcon size={22} />
+              <span style={{ fontSize: '12px', fontWeight: 600, overflowWrap: 'anywhere', lineHeight: 1.35,
+                             display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {linkText(r.href)}
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', fontWeight: 600,
+                             color: 'var(--brand-link, #2563eb)' }}>
+                Open link <ExternalLink size={11} />
+              </span>
+            </a>
+          ) : (
           <div style={{ position: 'relative', aspectRatio: '1 / 1', background: 'var(--brand-dark)', cursor: 'zoom-in' }}
                onClick={() => onView(i)}>
             <img src={resolveMediaUrl(r.image_url, FALLBACK)} alt={r.label} loading="lazy"
@@ -64,14 +86,24 @@ function DesignGrid({ rows, onView }) {
               <Eye size={12} /> View
             </button>
           </div>
+          )}
           {/* One line under the photo -- what part it is. The design's name
-              and where it came from show on View, under the full-size photo. */}
+              and where it came from show on View, under the full-size photo;
+              a photo kept from a web page also links to that page. */}
           <div style={{ padding: '7px 9px' }}>
             <div title={[r.label, r.value, r.sub].filter(Boolean).join(' · ')}
                  style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)',
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {r.label}
             </div>
+            {r.href && r.image_url !== r.href && (
+              <a href={r.href} target="_blank" rel="noopener noreferrer" title={r.href}
+                 style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '2px', maxWidth: '100%',
+                          fontSize: '11.5px', fontWeight: 600, color: 'var(--brand-link, #2563eb)', textDecoration: 'none' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{linkText(r.href)}</span>
+                <ExternalLink size={11} style={{ flexShrink: 0 }} />
+              </a>
+            )}
           </div>
         </div>
       ))}
@@ -203,6 +235,7 @@ export default function GarmentSelectionsReview({
               value: ref.design_title || (ref.source === 'customer_link' ? 'Reference link' : 'Reference photo'),
               sub: ref.source === 'customer_link' ? "Customer's link" : "Customer's photo",
               image_url: ref.image_url,
+              href: webLink(ref),
             });
           });
         });

@@ -732,7 +732,7 @@ class OrderService:
 
     @staticmethod
     @transaction.atomic
-    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None, voice_note='', clear_voice_note=False, notify=True, garment_job=None):
+    def transition_order_stage(order, stage_key, new_status, comments='', performer_id=None, user=None, files=None, request=None, voice_note='', clear_voice_note=False, notify=True, garment_job=None, _from_part=False):
         from django.utils import timezone
 
         order_stage = stage_row(order, stage_key, garment_job)
@@ -759,6 +759,14 @@ class OrderService:
                 raise workflow.TransitionError(
                     f'Role {user_role} is not authorized to update {order_stage.stage_name or stage_key}')
             return OrderService._note_stage(order, order_stage, comments, voice_note, user, files, request)
+
+        # A step split between several people moves part by part
+        # (domains/orders/stage_parts.py); the Owner and supervisors may still
+        # approve, send back or settle it as a whole.
+        if (not _from_part and new_status != order_stage.status
+                and not (user_role == OWNER or user_role in SUPERVISOR_ROLES)
+                and order_stage.parts.exists()):
+            raise ValueError('This step is split into parts: start and send your own part.')
 
         workflow.check_transition(
             order, order_stage, new_status,
@@ -848,6 +856,10 @@ class OrderService:
         OrderService._attach_stage_photos(order, order_stage, files, request)
 
         order_stage.save()
+
+        # A split step's parts follow it when it is approved, skipped or sent back.
+        from domains.orders import stage_parts
+        stage_parts.follow_step(order_stage, old_status, new_status, comments)
 
         # Somebody who starts a task without having checked in gets a
         # session opened from this very stamp (apps.staff.attendance). It
@@ -1067,6 +1079,8 @@ def reopen_order_stage(order, stage_key, user, reason, request=None, garment_job
         stage.duration_seconds = 0
         stage.save(update_fields=['status', 'completed_at', 'duration_seconds'])
         _sync_task_status(order, stage_key, stage.status, stage.garment_job_id)
+        from domains.orders import stage_parts
+        stage_parts.follow_reopen(stage, previous)
 
         # Later work goes back to the starting line: it was done on a garment
         # whose earlier state is now unfinished, so it has to be done again.
@@ -1082,6 +1096,7 @@ def reopen_order_stage(order, stage_key, user, reason, request=None, garment_job
             later.duration_seconds = 0
             later.save(update_fields=['status', 'started_at', 'completed_at', 'duration_seconds'])
             _sync_task_status(order, later.stage_key, 'NOT_STARTED', later.garment_job_id)
+            stage_parts.reset(later)
 
         order.current_stage_key = stage_key
         order.production_status = 'IN_PROGRESS'

@@ -26,6 +26,9 @@ ORDER_PREFETCH = (
     # SELECT for the job and one for its template per per-garment stage --
     # 360 of the order list's 399 queries for a boutique with 18 orders.
     'stages__garment_job__template',
+    # Each step's parts when it is split between several people.
+    'stages__parts',
+    'stages__parts__assigned_to',
     'activities',
     'activities__user',
     'stage_histories',
@@ -61,6 +64,7 @@ class OrderRepository:
         ).prefetch_related(
             'stages', 'stages__performed_by', 'stages__assigned_to',
             'stages__garment_job__template',
+            'stages__parts', 'stages__parts__assigned_to',
             'garment_jobs', 'garment_jobs__template',
             'garment_jobs__design_assignment__designer',
         ).order_by('-order_date')

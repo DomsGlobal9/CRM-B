@@ -74,6 +74,7 @@ import { hasPageTour } from './components/ui/tourPages';
 import { hasTask } from './components/ui/tourTasks';
 import { SetupPasswordStep, SetupProfileBanner } from './features/staff/StaffFirstSetup';
 import { ASSIGN_ONLY_TO } from './constants/roles';
+import StageParts from './features/work/StageParts';
 import ExtraMeasurements from './features/catalog/ExtraMeasurements';
 import { EXTRA_MEASUREMENTS } from './services/templates';
 
@@ -1254,9 +1255,9 @@ function DeliveryCard({ order, canEdit, onSaved }) {
   const save = async () => {
     setBusy(true); setError(null);
     try {
-      await api.updateOrder(order.id, courier ? form : { ...form, courier_service: '', tracking_number: '' });
+      const saved = await api.updateOrder(order.id, courier ? form : { ...form, courier_service: '', tracking_number: '' });
       setEditing(false);
-      if (onSaved) onSaved();
+      if (onSaved) onSaved(saved);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -2626,6 +2627,8 @@ function App() {
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   const [expandedCustomerOrderId, setExpandedCustomerOrderId] = useState(null);
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
+  // The order page's "not sent on WhatsApp" panel, opened from its top button (an order id).
+  const [sendErrorsOrderId, setSendErrorsOrderId] = useState(null);
   
   const [openGarmentJob, setOpenGarmentJob] = useState(null);
   const [approvingDesignId, setApprovingDesignId] = useState(null);
@@ -5636,6 +5639,25 @@ function App() {
                     {/* The one thing to do next lives up here: send it to the
                         workshop, or (the owner's shortcut) close every stage. */}
                     <div className="od-topbar-actions">
+                      {/* Customer messages that need staff -- WhatsApp could not send
+                          them, or nothing sends them automatically: opened up here
+                          on a tap (they used to sit at the foot of the page). */}
+                      {(() => {
+                        const pending = queuedMessages.filter(m => m.order === order.id && (m.status === 'FAILED' || m.status === 'QUEUED'));
+                        if (!pending.length) return null;
+                        const allFailed = pending.every(m => m.status === 'FAILED');
+                        const open = sendErrorsOrderId === order.id;
+                        return (
+                          <button type="button" className={`od-send-errors-btn${open ? ' is-open' : ''}${allFailed ? '' : ' od-send-errors-btn--queued'}`} aria-expanded={open}
+                                  onClick={() => setSendErrorsOrderId(open ? null : order.id)}>
+                            <AlertTriangle size={16} />
+                            {allFailed
+                              ? (pending.length === 1 ? t('ordersPage.oneNotSent', '1 WhatsApp message not sent') : t('ordersPage.manyNotSent', '{n} WhatsApp messages not sent', { n: pending.length }))
+                              : (pending.length === 1 ? t('ordersPage.oneToSend', '1 customer message to send') : t('ordersPage.manyToSend', '{n} customer messages to send', { n: pending.length }))}
+                            <ChevronDown size={16} className="od-send-errors-chevron" />
+                          </button>
+                        );
+                      })()}
                       {orderBucket(order) === 'new' && (['Owner', 'Master'].includes(currentUser.role) || adminCan('workshop.assign') || adminCan('workshop.move')) && (
                         <button type="button" className="btn-primary od-send-btn" disabled={sendBusy}
                                 onClick={() => openSendToWorkshop(order)}>
@@ -5659,6 +5681,16 @@ function App() {
                       )}
                     </div>
                   </div>
+
+                  {sendErrorsOrderId === order.id && queuedMessages.some(m => m.order === order.id && (m.status === 'FAILED' || m.status === 'QUEUED')) && (
+                    <div className="od-send-errors">
+                      <CustomerMessageQueue
+                        messages={queuedMessages.filter(m => m.order === order.id)}
+                        onMarkSent={handleMarkMessageSent}
+                        onRetry={handleRetryMessage}
+                      />
+                    </div>
+                  )}
 
                   <header className="od-head">
                     <div className="od-head-left">
@@ -5768,6 +5800,24 @@ function App() {
                         <div className="od-fact-value">{order.estimated_delivery ? fmtDate(order.estimated_delivery) : t('ordersPage.tbd', 'TBD')}</div>
                       </div>
                     </div>
+                    {/* Who the order is for: name and mobile, and the way to their page. */}
+                    <div className="od-fact od-fact--customer">
+                      <IconTile icon={User} tone="green" size={44} iconSize={20} />
+                      <div className="od-fact-body">
+                        <div className="od-fact-label">{t('ordersPage.customerDetails', 'Customer details')}</div>
+                        <div className="od-fact-value" title={order.customer_name}>{order.customer_name}</div>
+                        {order.customer_mobile && (
+                          <div className="od-fact-sub"><Phone size={12} aria-hidden="true" /> {displayMobile(order.customer_mobile)}</div>
+                        )}
+                        <button type="button" className="btn-link od-fact-link"
+                                onClick={() => {
+                                  setDashboardTab('customers');
+                                  openDirectoryCustomer({ id: order.customer, first_name: order.customer_name, last_name: '' });
+                                }}>
+                          {t('ordersPage.viewCustomer', 'View customer')} <ArrowRight size={13} />
+                        </button>
+                      </div>
+                    </div>
                   </section>
 
                   {/* Where the order stands in the workroom; a step opens its panel. */}
@@ -5820,12 +5870,6 @@ function App() {
                         </div>
                         <OrderTaskTable key={`${order.id}-${focusJob?.id || ''}`} focus={focusJob?.id} stages={stages} jobs={order.garment_jobs || []} onSelectStage={(stage) => openStageReview(order, stage)} />
                       </section>
-
-                      <CustomerMessageQueue
-                        messages={queuedMessages.filter(m => m.order === order.id)}
-                        onMarkSent={handleMarkMessageSent}
-                        onRetry={handleRetryMessage}
-                      />
 
                       {/* Raw materials checklist; nothing to gather, no section. */}
                       {hasMaterials(order) && (
@@ -5941,36 +5985,13 @@ function App() {
                             </div>
                           )}
                       </div>
+                      {/* Special instructions: at the foot of the main column. */}
+                      <OrderNotesCard key={order.id} order={order} canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
                     </div>
 
                     <aside className="od-side">
                       <OrderGarmentsCard order={order} focus={focusJob?.id} onSelectStage={(stage) => openStageReview(order, stage)} />
                       <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} role={currentUser?.role} />
-                      {/* Who the order is for, centred and stacked: "Customer
-                          details" as a small label, their initials, the name
-                          and mobile under them, and the way to their page last. */}
-                      <section className="at-section od-customer">
-                        <div className="od-customer-row">
-                          <span className="od-customer-eyebrow">{t('ordersPage.customerDetails', 'Customer details')}</span>
-                          <AvatarInitials name={order.customer_name} size={56} />
-                          <div className="od-customer-info">
-                            <span className="od-customer-name" title={order.customer_name}>{order.customer_name}</span>
-                            {order.customer_mobile && (
-                              <span className="od-customer-meta"><Phone size={12} aria-hidden="true" /> {displayMobile(order.customer_mobile)}</span>
-                            )}
-                          </div>
-                          <button type="button" className="btn-secondary at-btn-sm od-customer-btn"
-                                  onClick={() => {
-                                    // The name to show while openDirectoryCustomer fetches the full record.
-                                    setDashboardTab('customers');
-                                    openDirectoryCustomer({ id: order.customer, first_name: order.customer_name, last_name: '' });
-                                  }}>
-                            {t('ordersPage.viewCustomer', 'View customer')} <ArrowRight size={14} />
-                          </button>
-                        </div>
-                      </section>
-
-                      <OrderNotesCard key={order.id} order={order} canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
                       {/* The Master's checklist, the handover and the tip sit under the
                           notes in the side column, so the two columns share the page. */}
                       <div className="od-side-extra">
@@ -6020,16 +6041,6 @@ function App() {
                           </div>
                         )}
 
-                        {/* Delivery */}
-                        <DeliveryCard key={`${order.id}-${order.delivery_method}-${order.tracking_number}`} order={order}
-                                      canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
-                        <div className="od-tip" role="note">
-                          <IconTile icon={Sparkles} tone="green" size={36} iconSize={16} />
-                          <div>
-                            <strong>{t('ordersPage.tipTitle', 'Keep the quality high!')}</strong>
-                            <span>{t('ordersPage.tipText', 'Check measurements and design notes before moving to the next stage.')}</span>
-                          </div>
-                        </div>
                       </div>
                     </aside>
                   </div>
@@ -10787,12 +10798,38 @@ Complete the Payment stage with this partial payment?`)) return;
               </div>
             )}
 
+            {/* Delivery prep: how the garment leaves the boutique (pickup or courier). */}
+            {stage && stage.stage_key === 'ready_for_delivery' && (
+              <FormSection icon={PackageCheck} tone="green" title={t('ordersPage.handover', 'Handover')}>
+                <DeliveryCard key={`${activeReviewOrder.id}-${activeReviewOrder.delivery_method}-${activeReviewOrder.tracking_number}`}
+                              order={activeReviewOrder} canEdit={!isProductionStaff(currentUser.role)}
+                              onSaved={(saved) => {
+                                if (saved?.id) setActiveReviewOrder((prev) => (prev ? { ...prev, ...saved } : prev));
+                                fetchDashboardAndConfig();
+                              }} />
+              </FormSection>
+            )}
+
+            {/* Split between several people (features/work/StageParts.jsx):
+                who has which part, sending one part back, or the way to split. */}
+            {stage && isSupervisor && (
+              <StageParts order={activeReviewOrder} stage={stage} workflowConfig={boutiqueSettings?.workflow_config || []}
+                          onChanged={(fresh) => {
+                            if (fresh?.stages) {
+                              setActiveReviewOrder(fresh);
+                              setSelectedStageObj(fresh.stages.find((st) => st.id === stage.id) || stage);
+                            }
+                            fetchDashboardAndConfig();
+                          }} />
+            )}
+
             {/* Hand this stage to someone, say who did the work, note what
                 happened, photograph it. assign_stage and the performer field
                 are supervisor calls; the API refuses them from anyone else. */}
             <FormSection icon={RefreshCw} tone="green" title="Manage Stage Transition">
               <div className="at-form-grid">
-                {stage && isSupervisor && (
+                {/* A split step is handed out part by part, above. */}
+                {stage && isSupervisor && !(stage.parts || []).length && (
                   <Field label="Assign this stage to" icon={User}>
                     <select
                       className="form-control"

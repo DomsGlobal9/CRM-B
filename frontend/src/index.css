@@ -5538,6 +5538,24 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 /* Order page top bar: back link left, the one next action right. */
 .od-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .od-topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* "N WhatsApp messages not sent" on the order page's top bar, and the panel it opens. */
+.od-send-errors-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--danger-color, #b42318) 35%, transparent);
+  background: color-mix(in srgb, var(--danger-color, #b42318) 8%, var(--surface-color)); color: var(--danger-color, #b42318);
+  font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.od-send-errors-btn:hover { background: color-mix(in srgb, var(--danger-color, #b42318) 14%, var(--surface-color)); }
+/* Only waiting to be sent by hand, nothing failed: amber, not red. */
+.od-send-errors-btn--queued { border-color: color-mix(in srgb, #b45309 35%, transparent); background: color-mix(in srgb, #b45309 8%, var(--surface-color)); color: #b45309; }
+.od-send-errors-btn--queued:hover { background: color-mix(in srgb, #b45309 14%, var(--surface-color)); }
+.od-send-errors-chevron { transition: transform .15s ease; }
+.od-send-errors-btn.is-open .od-send-errors-chevron { transform: rotate(180deg); }
+.od-send-errors { margin: 0 0 4px; }
+.od-send-errors > * { margin: 0; }
+.od-fact--customer .od-fact-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.od-fact--customer .od-fact-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.od-fact-sub { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: var(--text-secondary); }
+.od-fact-link { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; padding: 2px 0; font-size: 13px; font-weight: 600; }
+@media (max-width: 600px) { .od-send-errors-btn { width: 100%; justify-content: center; } }
 /* Where it stands: previous / current / next in one strip, the live step ringed. */
 .od-strip { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: 8px 12px; }
 .od-strip-col { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; min-width: 0; }
@@ -6905,6 +6923,44 @@ button, input, select, textarea { font-family: inherit; }
 .tf-unit-input { position: relative; }
 .tf-unit-input .form-control { padding-right: 34px; font-variant-numeric: tabular-nums; }
 .tf-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-secondary); pointer-events: none; }
+/* "Split into parts" (features/work/StageParts.jsx). */
+.sp { display: flex; flex-direction: column; gap: 10px; margin: 0 0 14px; padding: 14px; border: 1px solid var(--border-color);
+  border-radius: 14px; background: var(--surface-2, var(--surface-color)); }
+.sp--closed { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; }
+.sp-head { display: flex; flex-direction: column; gap: 2px; }
+.sp-title { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.sp-sub { font-size: 12.5px; color: var(--text-secondary); }
+.sp-open { display: inline-flex; align-items: center; gap: 6px; }
+.sp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: 1px dashed var(--border-color); border-radius: 999px;
+  background: var(--surface-color); font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+.sp-chip:disabled { opacity: .5; cursor: default; }
+.sp-rows { display: flex; flex-direction: column; gap: 8px; }
+.sp-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 36px; gap: 8px; align-items: center; }
+.sp-row .form-control, .sp-item-select { min-height: 38px; height: 38px; font-size: 14px; }
+.sp-remove { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 38px; border: 1px solid var(--border-color);
+  border-radius: 10px; background: var(--surface-color); color: var(--text-secondary); cursor: pointer; }
+.sp-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.sp-actions-end { display: inline-flex; gap: 8px; margin-left: auto; }
+.sp-list { display: flex; flex-direction: column; gap: 8px; }
+.sp-item { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 8px 10px; border-radius: 10px; background: var(--surface-color); }
+.sp-item-name { font-weight: 700; font-size: 14px; min-width: 70px; }
+.sp-item-who { font-size: 13.5px; color: var(--text-secondary); }
+.sp-item .sp-item-select { width: auto; flex: 0 1 220px; min-width: 150px; max-width: 100%; }
+.sp-item-note { flex-basis: 100%; font-size: 12.5px; color: var(--danger-color, #b42318); }
+.sp-thumbs { display: inline-flex; gap: 4px; }
+.sp-thumbs img { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
+.sp-back { margin-left: auto; padding: 4px 10px; border: 1px solid var(--border-color); border-radius: 999px; background: transparent;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--danger-color, #b42318); cursor: pointer; }
+.sp-back-box { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; }
+.sp-note { font-size: 12.5px; color: var(--text-secondary); }
+.sp-error { font-size: 13px; color: var(--danger-color, #b42318); }
+@media (max-width: 520px) {
+  .sp-row { grid-template-columns: minmax(0, 1fr) 36px; }
+  .sp-row select { grid-column: 1 / 2; }
+  .sp-row .form-control { font-size: 16px; }
+  .sp-item .sp-item-select { flex: 1 1 100%; min-width: 0; }
+}
 /* "+ Add" beside Work On (TemplateForm.jsx AddChoice). */
 .tf-add-choice { display: inline-flex; align-items: center; padding: 3px 12px; border: 1px dashed var(--border-color); border-radius: 999px;
   background: transparent; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }

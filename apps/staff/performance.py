@@ -124,6 +124,7 @@ class TeamReadings:
 
     def __init__(self, windows):
         self.stages, self.sessions, self.qc, self.jobs = {}, {}, [], {}
+        self.parts = {}
         if not windows:
             return
         ids = list(windows)
@@ -155,6 +156,10 @@ class TeamReadings:
                                            created_at__date__lte=last)
                    .values_list('created_at', 'inspector_id', 'task__assigned_to_id', 'status')]
 
+        # Parts of split steps, one read for the whole team (_part_share).
+        for part in _parts_query(lo, hi).filter(assigned_to__in=ids):
+            self.parts.setdefault(part.assigned_to_id, []).append(part)
+
         order_ids = {stage.order_id for rows in self.stages.values() for stage in rows}
         if order_ids:
             from apps.catalog.models import GarmentJob
@@ -163,6 +168,9 @@ class TeamReadings:
 
     def stages_for(self, staff):
         return self.stages.get(staff.id, [])
+
+    def parts_for(self, staff):
+        return self.parts.get(staff.id, [])
 
     def sessions_for(self, staff):
         return self.sessions.get(staff.id, [])
@@ -274,6 +282,36 @@ def _garments_in(stages, readings=None):
     return sum(jobs.get(order_id, 1) for order_id in order_ids)
 
 
+def _parts_query(lo, hi):
+    """Parts of split steps worked in a UTC range, each with how many parts its step has."""
+    from crm_api.models import StagePart
+    return (StagePart.objects
+            .filter(Q(completed_at__range=(lo, hi)) | Q(completed_at__isnull=True, started_at__range=(lo, hi)))
+            .select_related('stage')
+            .annotate(siblings=Count('stage__parts')))
+
+
+def _part_share(staff, start, end, stages=(), readings=None):
+    """Garments worked as parts of split steps: a part is 1/N of its garment for
+    a step split N ways (two of three parts are 2/3). A step this person also
+    holds whole is already counted with their stages, so its parts are not."""
+    if readings is not None:
+        candidates = readings.parts_for(staff)
+    else:
+        lo = datetime.combine(start - timedelta(days=1), time.min, tzinfo=utc)
+        hi = datetime.combine(end + timedelta(days=1), time.max, tzinfo=utc)
+        candidates = _parts_query(lo, hi).filter(assigned_to=staff)
+    held = {s.id for s in stages}
+    share = 0.0
+    for part in candidates:
+        moment = part.completed_at or part.started_at
+        if moment is None or part.stage_id in held:
+            continue
+        if start <= to_local(moment).date() <= end:
+            share += 1 / max(part.siblings or 1, 1)
+    return round(share, 2)
+
+
 def productivity_metrics(staff, start, end, stages=None, readings=None):
     """Work touched in the period, and how much of it finished. Source: OrderStage.
 
@@ -285,10 +323,11 @@ def productivity_metrics(staff, start, end, stages=None, readings=None):
     in `reliability_metrics`, which needs no window to be truthful.
     """
     stages = _stages_in_window(staff, start, end) if stages is None else stages
+    part_share = _part_share(staff, start, end, stages, readings)
     if not stages:
         return {
             'in_period': _metric(0),
-            'garments': _metric(0),
+            'garments': _metric(part_share),
             'completed': _metric(0),
             'completion_rate': _unavailable('No work was worked on in this period.'),
             'performed_by_them': _metric(0),
@@ -302,7 +341,7 @@ def productivity_metrics(staff, start, end, stages=None, readings=None):
     counted = [s for s in stages if s.status != 'SKIPPED']
     return {
         'in_period': _metric(len(stages)),
-        'garments': _metric(_garments_in(stages, readings)),
+        'garments': _metric(round(_garments_in(stages, readings) + part_share, 2)),
         'completed': _metric(len(completed)),
         'completion_rate': _ratio(len(completed), len(counted)),
         # Assigned to them AND done by them. The gap between this and

@@ -1548,6 +1548,100 @@ class OrderViewSet(viewsets.ModelViewSet):
 
         return Response(OrderStageSerializer(stage).data, status=status.HTTP_200_OK)
 
+    # A step split between several people (domains/orders/stage_parts.py).
+    def _parts_reply(self, order, request):
+        serializer = OrderSerializer(OrderRepository.get_by_id(order.pk), context={'request': request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def _split_stage_for(self, request, order):
+        """The step a split acts on, with a Master's hand-on rule applied."""
+        stage = stage_row(order, request.data.get('stage_key'), request.data.get('garment_job'))
+        assigner = assigner_role(resolve_user_role(request.user), request_tasks(request))
+        if assigner == MASTER and 'workshop.reassign' not in request_tasks(request):
+            profile = getattr(request.user, 'tailor_profile', None)
+            if stage.assigned_to_id not in (None, getattr(profile, 'id', None)):
+                raise PermissionError('This work is assigned to someone else.')
+        return stage, assigner
+
+    @action(detail=True, methods=['POST'], url_path='split-stage',
+            permission_classes=[_AssignsWork])
+    def split_stage(self, request, pk=None):
+        from domains.orders import stage_parts
+        order = self._order_for_assignment()
+        try:
+            stage, assigner = self._split_stage_for(request, order)
+            stage_parts.split(order, stage, request.data.get('parts'), user=request.user, assigner=assigner)
+        except PermissionError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return self._parts_reply(order, request)
+
+    @action(detail=True, methods=['POST'], url_path='unsplit-stage',
+            permission_classes=[_AssignsWork])
+    def unsplit_stage(self, request, pk=None):
+        from domains.orders import stage_parts
+        order = self._order_for_assignment()
+        try:
+            stage, _assigner = self._split_stage_for(request, order)
+            stage_parts.unsplit(order, stage, user=request.user)
+        except PermissionError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return self._parts_reply(order, request)
+
+    def _part_of(self, order, part_id):
+        from crm_api.models import StagePart
+        try:
+            return StagePart.objects.select_related('stage', 'assigned_to').get(
+                pk=int(part_id), stage__order=order)
+        except (StagePart.DoesNotExist, TypeError, ValueError):
+            return None
+
+    @action(detail=True, methods=['POST'], url_path='assign-part',
+            permission_classes=[_AssignsWork])
+    def assign_part(self, request, pk=None):
+        from domains.orders import stage_parts
+        order = self._order_for_assignment()
+        part = self._part_of(order, request.data.get('part_id'))
+        if part is None:
+            return Response({'error': 'That part no longer exists.'}, status=status.HTTP_404_NOT_FOUND)
+        assigner = assigner_role(resolve_user_role(request.user), request_tasks(request))
+        try:
+            stage_parts.assign_part(order, part, request.data.get('tailor_id'),
+                                    user=request.user, assigner=assigner)
+        except PermissionError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return self._parts_reply(order, request)
+
+    @action(detail=True, methods=['POST'], url_path='part-transition')
+    def part_transition(self, request, pk=None):
+        """One person's part: started, sent for checking (photo attached), or --
+        by the Owner or a supervisor -- marked done or sent back."""
+        from domains.orders import stage_parts
+        order = self.get_object()
+        part = self._part_of(order, request.data.get('part_id'))
+        if part is None:
+            return Response({'error': 'That part no longer exists.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            comments = validate_text(request.data.get('comments', ''), label='Comments', max_length=MAX_NOTE)
+            voice_note = validate_http_url((request.data.get('voice_note') or '').strip(), label='Voice note')
+            validate_image_uploads(request.FILES.getlist('images'), label='Progress photos')
+        except ValidationError as exc:
+            return _refused(exc)
+        try:
+            stage_parts.transition_part(
+                order, part, request.data.get('status'), user=request.user, comments=comments,
+                voice_note=voice_note, files=request.FILES.getlist('images'), request=request)
+        except PermissionError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return self._parts_reply(order, request)
+
     @action(detail=True, methods=['POST'], url_path='transition')
     def transition_stage(self, request, pk=None):
         order = self.get_object()

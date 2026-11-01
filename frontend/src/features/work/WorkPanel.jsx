@@ -11,6 +11,7 @@ import { imageFilesError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { ASSIGN_ONLY_TO } from '../../constants/roles';
 import { extraMeasurements } from '../../services/templates';
+import StageParts from './StageParts';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
@@ -273,6 +274,21 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           if (isOpenOrder(order) && stage.status === 'PENDING_VERIFICATION') out.push({ order, stage, at: submittedAt(order, stage) });
           return;
         }
+        // A step split between several people: a worker's jobs are their own
+        // parts of it (a Master or Designer still sees the step as a whole).
+        if ((stage.parts || []).length && !isSupervisor) {
+          stage.parts.filter((part) => part.assigned_to === me).forEach((part) => {
+            if (view === 'done') { if (part.status === 'COMPLETED') out.push({ order, stage, part, at: part.completed_at || part.started_at }); return; }
+            if (FINISHED.includes(stage.status) || !isOpenOrder(order)) return;
+            if (part.status === 'IN_PROGRESS') out.push({ order, stage, part, group: 'now' });
+            else if (part.status === 'PENDING_VERIFICATION') out.push({ order, stage, part, group: 'waiting' });
+            else if (part.status === 'NOT_STARTED') {
+              if (isReady(order, stage)) out.push({ order, stage, part, group: 'next' });
+              else notReady += 1;
+            }
+          });
+          return;
+        }
         if (!isListed(order, stage)) return;
         const finished = FINISHED.includes(stage.status);
         if (view === 'done') { if (finished) out.push({ order, stage, at: stage.completed_at || stage.started_at }); return; }
@@ -308,10 +324,14 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   const current = open && (() => {
     const order = orders.find((o) => o.id === open.orderId);
     const stage = order?.stages?.find((s) => s.id === open.stageId);
-    return order && stage ? { order, stage } : null;
+    const part = open.partId ? (stage?.parts || []).find((p) => p.id === open.partId) : null;
+    if (open.partId && !part) return null;
+    return order && stage ? { order, stage, part } : null;
   })();
 
   const done = (msg) => { setOpen(null); setToast(msg); onChanged?.(); };
+  // Saved without closing the job (a voice note): the list refreshes behind it.
+  const refreshed = (msg) => { setToast(msg); onChanged?.(); };
 
   // A stage belonging to one garment is Express only when that garment is;
   // an order-wide stage is Express when any garment on the order is.
@@ -319,10 +339,10 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     ? (order.garment_jobs || []).some((j) => j.id === stage.garment_job && isExpressJob(j))
     : isExpressOrder(order));
 
-  const card = ({ order, stage }, extra) => (
-    <button type="button" key={`${order.id}-${stage.id}`} className={`wk-card${stageIsExpress(order, stage) ? ' gh-express' : ''}${isNew(order, stage) ? ' wk-card--new' : ''}`}
+  const card = ({ order, stage, part }, extra) => (
+    <button type="button" key={`${order.id}-${stage.id}${part ? `-${part.id}` : ''}`} className={`wk-card${stageIsExpress(order, stage) ? ' gh-express' : ''}${isNew(order, stage) ? ' wk-card--new' : ''}`}
             data-kind={workKind(stage.stage_key).key} style={{ '--wk-kind': workKind(stage.stage_key).color }}
-            onClick={() => { markOpened(order, stage); setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null }); }}>
+            onClick={() => { markOpened(order, stage); setOpen({ orderId: order.id, stageId: stage.id, stageKey: stage.stage_key, garmentJob: stage.garment_job || null, partId: part?.id || null }); }}>
       <div className="wk-card-head">
         {/* The garment here; the step itself is the coloured tag below, once. */}
         <div className="wk-card-title">{stage.garment_name || garmentLabel(order, t)}
@@ -338,11 +358,12 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       <div className="wk-card-sub">
         {/* The step, by name, in its kind's colour (Pattern cutting, Paper
             cutting and Fabric cutting share the cutting blue). */}
-        <span className="wk-kind-tag">{stage.stage_name || humanise(stage.stage_key)}</span>
+        <span className="wk-kind-tag">{stage.stage_name || humanise(stage.stage_key)}{part ? ` · ${part.label}` : ''}</span>
         {stageRef(order, stage)} · {order.customer_name}
       </div>
       {extra.meta && <div className="wk-card-meta">{extra.meta}</div>}
-      <CardGlance order={order} stage={stage} t={t} />
+      {/* A part's card names the part's person, not the whole step's. */}
+      <CardGlance order={order} stage={part ? { ...stage, assigned_to_name: part.assigned_to_name, assigned_to_role: part.assigned_to_role } : stage} t={t} />
       {extra.body}
     </button>
   );
@@ -415,7 +436,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     ];
     // One card of a Do now / Next / Waiting list (also the status tabs' cards).
     const groupCard = (key, it) => {
-      const sentBack = key === 'now' && it.stage.verification_note;
+      const sentBack = key === 'now' && (it.part ? it.part.verification_note : it.stage.verification_note);
       const chip = key === 'now'
         ? <span className={`ui-badge ui-badge--${sentBack ? 'danger' : 'warning'}`}>{sentBack ? t('workPage.sentBack', 'Sent back') : t('workPage.inProgress', 'In progress')}</span>
         : key === 'next'
@@ -425,7 +446,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       const sent = key === 'waiting' && <span>· {t('workPage.sentAgo', 'sent {n} ago', { n: ago(submittedAt(it.order, it.stage), t) })}</span>;
       return card(it, {
         chip, meta: (due || sent) && <>{due}{sent}</>,
-        body: sentBack && <div className="wk-card-note">{String(it.stage.verification_note).split('\n')[0]}</div>,
+        body: sentBack && <div className="wk-card-note">{String(sentBack).split('\n')[0]}</div>,
       });
     };
     // Status tabs over the same list. A tab shows one status, newest
@@ -592,11 +613,12 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       )}
       {body}
       {current && (
-        <JobScreen key={`${current.order.id}-${current.stage.stage_key}`} order={current.order} stage={current.stage}
+        <JobScreen key={`${current.order.id}-${current.stage.stage_key}${current.part ? `-${current.part.id}` : ''}`} order={current.order} stage={current.stage}
+                   part={current.part} workflowConfig={workflowConfig}
                    mode={view === 'check' ? 'check' : view === 'done' ? 'read' : 'work'}
                    isSupervisor={isSupervisor} me={me} stageRoles={rolesFor(current.stage.stage_key)}
                    tailors={tailors} fabricTaxonomy={fabricTaxonomy}
-                   onClose={() => setOpen(null)} onDone={done} />
+                   onClose={() => setOpen(null)} onDone={done} onSaved={refreshed} />
       )}
       {toast && <div className="wk-toast" role="status">{toast}</div>}
     </div>
@@ -679,7 +701,12 @@ function AssignTo({ order, stage, me, stageRoles, onDone }) {
 
 /* ------------------------------------------------------------------ */
 
-function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTaxonomy, onClose, onDone }) {
+function JobScreen({ order, stage: step, part = null, workflowConfig = [], mode, isSupervisor, me, stageRoles, fabricTaxonomy, onClose, onDone, onSaved }) {
+  // One person's part of a split step: the step as they work it -- their
+  // status, their photos, what was sent back to them.
+  const stage = part
+    ? { ...step, status: part.status, verification_note: part.verification_note, attachments: part.attachments || [], attachment_reviews: {} }
+    : step;
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -697,13 +724,22 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
 
   // `clearVoice` throws the stage's saved voice note away, as the stage
   // review's Delete does.
-  const save = async (status, text, files, blob, okMsg, clearVoice = false) => {
+  // `keepOpen`: a voice note sent or deleted -- the job stays open, so photos
+  // picked and not yet sent stay with it; a failure goes back to the recorder.
+  const save = async (status, text, files, blob, okMsg, clearVoice = false, keepOpen = false) => {
     setBusy(true); setError('');
     try {
       const voiceUrl = blob ? await api.uploadVoiceNote(blob) : null;
-      await api.transitionStage(order.id, stage.stage_key, status, text || '', files || [], null, voiceUrl, clearVoice, stage.garment_job || null);
-      onDone(okMsg);
+      if (part && status !== part.status) {
+        await api.transitionPart(order.id, part.id, status, text || '', files || [], voiceUrl);
+      } else {
+        // A note (the status kept) goes on the step, where its thread is read
+        // -- for a part too.
+        await api.transitionStage(order.id, step.stage_key, part ? step.status : status, text || '', files || [], null, voiceUrl, clearVoice, step.garment_job || null);
+      }
+      if (keepOpen) onSaved?.(okMsg); else onDone(okMsg);
     } catch (e) {
+      if (keepOpen) throw e;
       setError(e?.message || t('workPage.saveFailed', 'Could not save. Please try again.'));
     } finally { setBusy(false); }
   };
@@ -875,7 +911,7 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
     actions = <CheckForm stage={stage} busy={busy} error={error} save={save} />;
   }
 
-  const title = jobTitle(order, stage, t);
+  const title = `${jobTitle(order, stage, t)}${part ? ` · ${part.label}` : ''}`;
   // Where this job came from and where it goes. From: who handed this step
   // to its worker -- the latest Assign on it in the order's log (the server
   // records who pressed it); a step given out with the order or by Send to
@@ -904,8 +940,8 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
             {/* Who holds this step now -- the same words as the job's card. */}
             <small className="wk-sheet-assignee">
               {t('workPage.assigned', 'Assigned')}:{' '}
-              <b>{stage.assigned_to_name
-                ? `${stage.assigned_to_name}${stage.assigned_to_role ? ` · ${stage.assigned_to_role}` : ''}`
+              <b>{(part ? part.assigned_to_name : stage.assigned_to_name)
+                ? `${part ? part.assigned_to_name : stage.assigned_to_name}${(part ? part.assigned_to_role : stage.assigned_to_role) ? ` · ${part ? part.assigned_to_role : stage.assigned_to_role}` : ''}`
                 : t('workPage.notAssigned', 'Not assigned yet')}</b>
             </small>
             {/* From: who handed it over. Send to: who checks it, then the next step. */}
@@ -926,8 +962,13 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
         </div>
         <div className="wk-sheet-body">
           {head}
-          {mode === 'work' && isSupervisor && stage.status !== 'PENDING_VERIFICATION' && (
+          {mode === 'work' && isSupervisor && stage.status !== 'PENDING_VERIFICATION' && !(stage.parts || []).length && (
             <AssignTo order={order} stage={stage} me={me} stageRoles={stageRoles} onDone={onDone} />
+          )}
+          {/* Split between several people: who has which part, and the way to split. */}
+          {isSupervisor && !part && (mode === 'work' || mode === 'check') && (
+            <StageParts order={order} stage={stage} workflowConfig={workflowConfig}
+                        onChanged={() => onDone(t('workPage.saved', 'Saved.'))} />
           )}
           {mode === 'check' ? (
             <>
@@ -978,15 +1019,23 @@ function JobScreen({ order, stage, mode, isSupervisor, me, stageRoles, fabricTax
    (nothing is transcribed into the box), heard back, then Send saves it on the
    stage under the sender's name -- with whatever text is in the box -- or
    Delete throws it away. */
-function StageVoiceNote({ stage, busy, text, save, onRecordingChange }) {
+function StageVoiceNote({ stage, busy, text, save, onRecordingChange, onTextSent }) {
   const { t } = useLanguage();
+  // The job stays open (keepOpen): photos picked and not yet sent are kept,
+  // and the typed note, sent along with the recording, leaves the box.
   return (
     <VoiceRecorder
       disabled={busy}
       onRecordingChange={onRecordingChange}
       sent={stage.voice_note ? { url: stage.voice_note, by: stage.voice_note_by, at: stage.voice_note_at } : null}
-      onSend={(blob) => save(stage.status, text, [], blob, t('workPage.voiceNoteSent', 'Voice note sent.'))}
-      onDelete={() => save(stage.status, text, [], null, t('workPage.voiceNoteDeleted', 'Voice note deleted.'), true)}
+      onSend={async (blob) => {
+        await save(stage.status, text, [], blob, t('workPage.voiceNoteSent', 'Voice note sent.'), false, true);
+        onTextSent?.();
+      }}
+      onDelete={async () => {
+        await save(stage.status, text, [], null, t('workPage.voiceNoteDeleted', 'Voice note deleted.'), true, true);
+        onTextSent?.();
+      }}
     />
   );
 }
@@ -1037,7 +1086,7 @@ function SubmitForm({ stage, busy, error, isSupervisor, save }) {
         <div className="wk-note-box">
           <textarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)}
                     placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} />
-          <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} />
+          <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} onTextSent={() => setText('')} />
         </div>
       </div>
       <ActionBar error={error}>
@@ -1094,7 +1143,7 @@ function StartForm({ stage, busy, error, save }) {
           <div className="wk-note-box">
             <textarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)} autoFocus
                       placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} />
-            <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} />
+            <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} onTextSent={() => setText('')} />
           </div>
         </div>
       )}
@@ -1141,7 +1190,7 @@ function NoteForm({ stage, busy, error, save }) {
           <div className="wk-note-box">
             <textarea className="form-control" rows={2} value={text} onChange={(e) => setText(e.target.value)}
                       placeholder={t('workPage.notePlaceholder', 'Anything the master should know (optional)')} autoFocus />
-            <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} />
+            <StageVoiceNote stage={stage} busy={busy} text={text} save={save} onRecordingChange={setRecording} onTextSent={() => setText('')} />
           </div>
         )}
       </div>
@@ -1179,7 +1228,7 @@ function CheckForm({ stage, busy, error, save }) {
           <div className="wk-note-box">
             <textarea className="form-control" rows={3} value={reason} onChange={(e) => setReason(e.target.value)}
                       placeholder={t('workPage.sendBackReason', 'Say what needs to be redone')} autoFocus />
-            <StageVoiceNote stage={stage} busy={busy} text={reason} save={save} onRecordingChange={setRecording} />
+            <StageVoiceNote stage={stage} busy={busy} text={reason} save={save} onRecordingChange={setRecording} onTextSent={() => setReason('')} />
           </div>
         </div>
       )}

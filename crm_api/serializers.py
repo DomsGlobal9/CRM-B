@@ -14,7 +14,7 @@ from .models import (
     Customer, CustomerMessage, CustomerReferral, GarmentImage, GarmentPhotoReview, GarmentTryOn, Measurement, DesignPreference,
     FabricSelection, Tailor, Order, BoutiqueDesign,
     Notification, OrderStageHistory, BoutiqueSettings, MeasurementHistory,
-    OrderStage, OrderActivity, national_mobile, whatsapp_number
+    OrderStage, OrderActivity, StagePart, national_mobile, whatsapp_number
 )
 
 class BoutiqueSettingsSerializer(serializers.ModelSerializer):
@@ -350,11 +350,26 @@ class OrderStageHistorySerializer(serializers.ModelSerializer):
         model = OrderStageHistory
         fields = '__all__'
 
+class StagePartSerializer(serializers.ModelSerializer):
+    """One person's part of a split step (crm_api.models.StagePart)."""
+    assigned_to_name = serializers.CharField(source='assigned_to.name', read_only=True, default=None)
+    assigned_to_role = serializers.CharField(source='assigned_to.role', read_only=True, default=None)
+
+    class Meta:
+        model = StagePart
+        fields = ['id', 'label', 'assigned_to', 'assigned_to_name', 'assigned_to_role', 'status',
+                  'started_at', 'completed_at', 'duration_seconds', 'attachments', 'comments',
+                  'voice_note', 'verification_note', 'sequence']
+        read_only_fields = fields
+
+
 class OrderStageSerializer(serializers.ModelSerializer):
     garment_name = serializers.CharField(source='garment_job.display_name', read_only=True, default=None)
     performed_by_name = serializers.CharField(source='performed_by.name', read_only=True)
     assigned_to_name = serializers.CharField(source='assigned_to.name', read_only=True)
     assigned_to_role = serializers.CharField(source='assigned_to.role', read_only=True)
+    # A step split between several people: each one's part (empty when not split).
+    parts = StagePartSerializer(many=True, read_only=True)
 
     class Meta:
         model = OrderStage

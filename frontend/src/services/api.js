@@ -616,6 +616,56 @@ export const api = {
     return res.json();
   },
 
+  // A step split between several people (domains/orders/stage_parts.py).
+  // parts: [{ label, tailor_id }]. Each answers the whole order, refreshed.
+  async splitStage(orderId, stageKey, parts, garmentJob = null) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/split-stage/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ stage_key: stageKey, garment_job: garmentJob, parts }),
+    });
+    if (!res.ok) await failWith(res, 'Could not split this step');
+    return res.json();
+  },
+
+  async unsplitStage(orderId, stageKey, garmentJob = null) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/unsplit-stage/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ stage_key: stageKey, garment_job: garmentJob }),
+    });
+    if (!res.ok) await failWith(res, 'Could not undo the split');
+    return res.json();
+  },
+
+  async assignPart(orderId, partId, tailorId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/assign-part/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ part_id: partId, tailor_id: tailorId }),
+    });
+    if (!res.ok) await failWith(res, 'Could not change who does this part');
+    return res.json();
+  },
+
+  async transitionPart(orderId, partId, status, comments = '', imageFiles = [], voiceNote = null) {
+    const formData = new FormData();
+    formData.append('part_id', partId);
+    formData.append('status', status);
+    if (comments) formData.append('comments', comments);
+    if (voiceNote) formData.append('voice_note', voiceNote);
+    if (imageFiles && imageFiles.length > 0) {
+      (await Promise.all(imageFiles.map((file) => shrinkImage(file)))).forEach((file) => formData.append('images', file));
+    }
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/part-transition/`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: formData,
+    });
+    if (!res.ok) await failWith(res, 'Could not update this part');
+    return res.json();
+  },
+
   // Get AI Suggestions for a customer based on style inputs
   async getAISuggestions(customerId) {
     const res = await guardedFetch(`${BASE_URL}/customers/${customerId}/ai-suggestions/`, {

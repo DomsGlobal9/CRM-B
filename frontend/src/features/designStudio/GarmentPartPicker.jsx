@@ -216,6 +216,13 @@ export function Lightbox({ items, index, onIndexChange, onClose, isSelected, onT
         {details && item.sub && (
           <div style={{ fontSize: '12.5px', fontWeight: 400, opacity: 0.75, marginTop: '2px' }}>{item.sub}</div>
         )}
+        {details && item.href && (
+          <a href={item.href} target="_blank" rel="noopener noreferrer"
+             style={{ display: 'inline-block', marginTop: '6px', fontSize: '12.5px', fontWeight: 600, color: '#fff',
+                      textDecoration: 'underline', overflowWrap: 'anywhere' }}>
+            Open the link ↗
+          </a>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}
