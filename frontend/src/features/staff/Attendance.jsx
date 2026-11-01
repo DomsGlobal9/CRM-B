@@ -209,6 +209,9 @@ function MyDay({ onChanged }) {
       onChanged?.();
     } catch (err) {
       setError(err.message || 'That did not work. Please try again.');
+      // The server may have moved on regardless (an old check-in closed by the
+      // 12-hour rule): show where things stand now, with the message above it.
+      load();
     } finally {
       setBusy(false);
     }

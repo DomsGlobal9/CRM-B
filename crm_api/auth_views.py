@@ -422,6 +422,8 @@ class LogoutView(views.APIView):
                 session = attendance.check_out(profile, user=request.user)
                 _log(request, 'CHECKED_OUT', session, f'{profile.name} checked out (signed out)',
                      after={'check_out': str(session.check_out), 'minutes': session.minutes})
+        except attendance.AttendanceError:
+            pass  # an old check-in, closed by the 12-hour rule instead
         except Exception:
             logger.exception('attendance: could not check out at sign-out')
         try:
