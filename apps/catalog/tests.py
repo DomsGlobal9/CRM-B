@@ -158,7 +158,7 @@ class VisibilityTests(CatalogTestCase):
         self.assertFalse(is_visible(colour, {}))
 
     def test_neq_rule_defaults_to_visible_when_unanswered(self):
-        rounding = self._field('blouse', 'hand_rounding')
+        rounding = self._field('gown', 'hand_rounding')
         self.assertTrue(is_visible(rounding, {}))
         self.assertFalse(is_visible(rounding, {'sleeve_length': 'sleeveless'}))
 

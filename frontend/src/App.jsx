@@ -107,6 +107,7 @@ function getCustomerMeasurement(m, key) {
     waist_to_floor: ['floor_length', 'length'],
     neck: ['neck_circumference', 'collar_neck'],
     neck_circumference: ['neck', 'collar_neck'],
+    full_sleeve_length: ['sleeve_length'],
   };
 
   const candidates = ALIASES[key] || [];
