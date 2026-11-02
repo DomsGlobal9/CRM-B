@@ -146,6 +146,16 @@ def stage_row(order, stage_key, garment_job=None):
     return rows[0]
 
 
+#: The two trial steps. A garment whose "Trial Required" answer is No does
+#: not get them; one answered Yes -- or never asked, as on orders placed
+#: before the question was required -- does.
+TRIAL_STAGES = ('trial_scheduled', 'trial_completed')
+
+
+def wants_trial(job):
+    return (job.spec or {}).get('trial_required') is not False
+
+
 def ensure_garment_stages(order):
     """Give every per-garment stage one row (and one task) per garment job.
 
@@ -201,13 +211,18 @@ def ensure_garment_stages(order):
     for s_conf in scoped:
         key = s_conf['key']
         rows = rows_by_key[key]
-        if not rows and s_conf not in plain_extra:
+        # A trial step with no rows left (every garment so far said No) is
+        # still laid for a garment added later that wants a trial.
+        trial_wanted = key in TRIAL_STAGES and any(wants_trial(j) for j in jobs)
+        if not rows and s_conf not in plain_extra and not trial_wanted:
             continue
         placeholder = next((r for r in rows if r.garment_job_id is None), None)
-        # No row yet for a plain-path stage: it sits where the garments' work starts.
+        # No row yet for a plain-path stage: it sits where the garments' work
+        # starts; a trial step at its own place in the workflow.
         seed = placeholder or (rows[0] if rows else OrderStage(
             stage_name=s_conf['name'], sla_hours=s_conf.get('sla_hours', 24),
-            sequence=first_garment_sequence(new_stages) or 1))
+            sequence=(stages.index(s_conf) if s_conf in stages and s_conf not in plain_extra
+                      else first_garment_sequence(new_stages) or 1)))
         task_seed = task_seeds.get(key)
         have = {r.garment_job_id for r in rows}
         made = []
@@ -217,6 +232,8 @@ def ensure_garment_stages(order):
             path = paths.get(job.id)
             if path and s_conf.get('flows') and path not in s_conf['flows']:
                 continue
+            if key in TRIAL_STAGES and not wants_trial(job):
+                continue  # no trial for this garment: no trial steps
             made.append(OrderStage(
                 order=order, garment_job=job, stage_key=key, stage_name=seed.stage_name,
                 status=placeholder.status if placeholder else 'NOT_STARTED',

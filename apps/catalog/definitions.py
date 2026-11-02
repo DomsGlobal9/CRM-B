@@ -61,7 +61,7 @@ def not_one_of(f, values):
 
 
 COMMON_BASIC = [
-    field('trial_required', 'Trial Required', 'boolean'),
+    field('trial_required', 'Trial Required', 'boolean', required=True),
     field('trial_date', 'Trial Date', 'date', when=eq('trial_required', True)),
     field('delivery_date', 'Delivery Date', 'date'),
     field('urgency', 'Urgency', 'select', options=['Normal', 'Express'], default='normal'),
