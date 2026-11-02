@@ -24,6 +24,12 @@ export const STAFF_ROLES = [
 export const PRODUCTION_ROLES = STAFF_ROLES.map((r) => r.value);
 
 /**
+ * Steps handed only to one kind of worker (domains/orders/workflow.py
+ * ASSIGN_ONLY_TO): Hemming & finishing goes to the Hemming & Pressing Staff.
+ */
+export const ASSIGN_ONLY_TO = { finishing: ['Hemming & Pressing Staff'] };
+
+/**
  * Designer sits apart from the list above on purpose.
  *
  * It is not a Tailor.ROLE_CHOICES value and never can be: a designer is a row

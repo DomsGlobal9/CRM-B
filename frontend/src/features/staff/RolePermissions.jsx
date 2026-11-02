@@ -74,7 +74,6 @@ const SECTIONS = [
     ['attendance', 'Manage attendance and timesheets'],
     ['documents', 'Manage staff documents'],
     ['reviews', 'Write performance reviews'],
-    ['todos', 'Assign tasks to the team'],
     ['payroll', "Run payroll (shows everyone's pay)"],
   ] },
   { key: 'finance', label: 'Profit & Costs', icon: Wallet, tasks: [

@@ -5,13 +5,18 @@ import { getSection, isVisible, pruneHidden } from '../../services/templates';
 import VoiceTextarea, { VoiceRecorder } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { cleanAmount } from '../../services/validate';
-import { OTHER_PREFIX, OTHER_MAX_LENGTH, isTypedOther, typedOtherText } from '../../services/templates';
+import { OTHER_PREFIX, OTHER_MAX_LENGTH, MULTI_TYPED, isTypedOther, typedOtherText } from '../../services/templates';
 
 import { CameraButton } from '../../components/ui/Atelier';
 import { UNITS, purchaseError } from './materials';
 import { PurchaseDetails } from './GarmentPurchases';
 
 const BUY_OPTION = '__buy__';
+// Dropdowns the app acts on -- the order's path (hand work), express, where the
+// cloth comes from, which follow-up questions show -- are picked from their
+// list only. Every other dropdown also offers "Other (type it)".
+const NO_OTHER = new Set(['hand_work', 'urgency', 'fabric_source', 'border_source',
+  'hand_work_material_source', 'hand_work_kind_mode']);
 
 function useInventoryOptions(categories) {
   const [byCategory, setByCategory] = useState({});
@@ -45,6 +50,45 @@ const DEFAULT_UNIT = {
   FABRIC: 'METER', BORDER: 'METER', LINING: 'METER', EMBELLISHMENT: 'PIECE',
   STITCHING: 'PIECE', PACKAGING: 'PIECE', MAGGAM: 'PIECE', OTHER: 'UNIT',
 };
+
+/* "+ Add" beside a multiple choice that takes typed choices (Work On): a part
+   the list does not have, ticked like the others and kept as "other:<text>". */
+function AddChoice({ field, chosen, onAdd }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const [problem, setProblem] = useState('');
+  const add = () => {
+    const name = text.trim();
+    if (!name) { setProblem('Type the name first.'); return; }
+    const taken = [...field.options.map((o) => o.label), ...chosen.filter(isTypedOther).map(typedOtherText)]
+      .some((label) => String(label).trim().toLowerCase() === name.toLowerCase());
+    if (taken) { setProblem(`${name} is already in the list.`); return; }
+    onAdd(OTHER_PREFIX + name);
+    setText(''); setProblem(''); setOpen(false);
+  };
+  if (!open) {
+    return (
+      <button type="button" className="tf-add-choice" onClick={() => setOpen(true)}>
+        + Add
+      </button>
+    );
+  }
+  return (
+    <span className="tf-add-choice-box">
+      <input className="form-control" type="text" autoFocus maxLength={40} value={text}
+             placeholder={`Add to ${field.label.toLowerCase()}`} aria-label={`Add to ${field.label}`}
+             onChange={(e) => { setText(e.target.value); setProblem(''); }}
+             onKeyDown={(e) => {
+               if (e.key === 'Enter') { e.preventDefault(); add(); }
+               if (e.key === 'Escape') { setOpen(false); setText(''); setProblem(''); }
+             }} />
+      <button type="button" className="btn-primary tf-add-choice-go" onClick={add}>Add</button>
+      <button type="button" className="tf-add-choice-cancel" aria-label="Cancel"
+              onClick={() => { setOpen(false); setText(''); setProblem(''); }}>×</button>
+      {problem && <span className="tf-add-choice-error" role="alert">{problem}</span>}
+    </span>
+  );
+}
 
 function Field({ field, value, error, onChange, inventory, quantity, quantityError, onQuantityChange,
   source, brought, onSourceChange, onBroughtChange, purchase, onPurchaseChange, plainTextarea = false,
@@ -129,8 +173,9 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
       break;
 
     case 'select': {
-      const other = isTypedOther(value);
-      const typed = other;
+      const typed = isTypedOther(value);
+      // Not where the template lists its own Other (with its own "Specify" box).
+      const other = typed || (!NO_OTHER.has(field.key) && !field.options.some((o) => o.value === 'other'));
       const buying = typed && Boolean(purchase);
       const pick = (chosen) => {
         if (chosen === BUY_OPTION) {
@@ -154,7 +199,7 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
               </option>
             ))}
             {other && <option value={OTHER_PREFIX}>Other (type it)</option>}
-            {other && <option value={BUY_OPTION}>Not in stock? Buy for this order</option>}
+            {typed && <option value={BUY_OPTION}>Not in stock? Buy for this order</option>}
           </select>
           {typed && !buying && (
             <input className="form-control" type="text" style={{ marginTop: '8px' }} autoFocus
@@ -214,6 +259,16 @@ function Field({ field, value, error, onChange, inventory, quantity, quantityErr
               {option.label}
             </label>
           ))}
+          {/* Parts typed in with "+ Add": ticked; untick to take one off. */}
+          {MULTI_TYPED.has(field.key) && chosen.filter(isTypedOther).map((v) => (
+            <label key={v} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', cursor: 'pointer' }}>
+              <input type="checkbox" checked onChange={() => onChange(field.key, chosen.filter((c) => c !== v))} />
+              {typedOtherText(v)}
+            </label>
+          ))}
+          {MULTI_TYPED.has(field.key) && (
+            <AddChoice field={field} chosen={chosen} onAdd={(v) => onChange(field.key, [...chosen, v])} />
+          )}
         </div>
       );
       break;

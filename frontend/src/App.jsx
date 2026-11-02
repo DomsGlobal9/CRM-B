@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send } from 'lucide-react';
+import { Compass, Users, ShoppingBag, Scissors, Upload, Zap, Check, ArrowRight, ArrowLeft, Heart, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, ChevronRight, Lock, Mail, Phone, Calendar, FileText, Printer, Bell, User, MapPin, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, History, Package, Menu, PenTool, Settings, RotateCw, Clock, Wallet, AlertTriangle, Shirt, TrendingUp, CalendarDays, LayoutGrid, List, Receipt, Banknote, PackageCheck, CheckCircle2, Boxes, Crown, ShoppingCart, Coins, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Image as ImageIcon, Save, Play, RefreshCw, Ruler, Target, Leaf, Building2, Globe, Camera, Store, PanelLeftClose, PanelLeftOpen, Contact, ChevronDown, Mic, Filter, Factory, Send, ListTodo } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { notificationKind } from './services/notificationKind';
@@ -30,11 +30,9 @@ const SHOW_DESIGN_OVERVIEW_TAB = false;
 const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
-// The To-do section is switched off for every role (MOM, 2026-10-24). The
-// todos app, its API and its data are kept, so it can come back; its screen is
-// features/todo/TodoPanel.jsx.
 const MAGGAM_NOTE_VOICE = { hand_work_notes: 'hand_work_voice_note' };
 const WorkPanel = lazy(() => import('./features/work/WorkPanel'));
+const DailyUpdates = lazy(() => import('./features/todo/DailyUpdates'));
 import TemplateForm from './features/catalog/TemplateForm';
 import PetticoatStylePicker from './features/catalog/PetticoatStylePicker';
 import GarmentPurchases from './features/catalog/GarmentPurchases';
@@ -69,6 +67,15 @@ import SettingsPage from './components/SettingsPage.jsx';
 import { InvoiceRenderer, normalizeInvoiceData } from './components/invoice/InvoiceTemplates';
 import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from './constants/legal';
 import { BottomNavigation } from './components/ui/BottomNavigation';
+import ProductTour from './components/ui/ProductTour';
+import { markTourSeen, tourSeen } from './components/ui/tourState';
+import { hasPageTour } from './components/ui/tourPages';
+import { hasTask } from './components/ui/tourTasks';
+import { SetupPasswordStep, SetupProfileBanner } from './features/staff/StaffFirstSetup';
+import { ASSIGN_ONLY_TO } from './constants/roles';
+import StageParts from './features/work/StageParts';
+import ExtraMeasurements from './features/catalog/ExtraMeasurements';
+import { EXTRA_MEASUREMENTS } from './services/templates';
 
 import { BottomSheet } from './components/ui/BottomSheet';
 import { ResponsiveCard } from './components/ui/ResponsiveCard';
@@ -1247,9 +1254,9 @@ function DeliveryCard({ order, canEdit, onSaved }) {
   const save = async () => {
     setBusy(true); setError(null);
     try {
-      await api.updateOrder(order.id, courier ? form : { ...form, courier_service: '', tracking_number: '' });
+      const saved = await api.updateOrder(order.id, courier ? form : { ...form, courier_service: '', tracking_number: '' });
       setEditing(false);
-      if (onSaved) onSaved();
+      if (onSaved) onSaved(saved);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1575,6 +1582,7 @@ const NAV_MODULE = {
   work: null,
   check: null,
   done: null,
+  todo: null,
   invoices: null,
   analytics: null,
   account: null,
@@ -1584,7 +1592,6 @@ const NAV_MODULE = {
   inventory: 'inventory',
   staff: 'staff',
   finance: 'finance',
-  todo: 'todos',
 };
 
 const hasModule = (user, key) =>
@@ -1622,6 +1629,7 @@ const navSectionsFor = (user, t) => {
       
       { key: 'people', label: t('nav.groups.people', 'Team'), items: [
         { tab: 'staff', icon: Users, label: t('nav.staffManagement') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
       { key: 'business', label: t('nav.groups.business', 'Finance'), items: [
         { tab: 'finance', icon: Wallet, label: t('nav.finance', 'Profit & Costs') },
@@ -1637,6 +1645,7 @@ const navSectionsFor = (user, t) => {
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'designs', icon: Palette, label: t('nav.manageDesigns') },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ] : role === 'Designer' ? [
       { key: 'designer', items: [
@@ -1645,12 +1654,14 @@ const navSectionsFor = (user, t) => {
         { tab: 'workshop', icon: Scissors, label: t('nav.workshop', 'Production'), phone: true },
         { tab: 'check', icon: ShieldCheck, label: t('nav.toCheck', 'To check'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do') },
       ] },
     ] : [
       { key: 'production', items: [
         { tab: 'work', icon: ClipboardList, label: t('nav.myWork', 'My work'), phone: true },
         { tab: 'done', icon: CheckCircle2, label: t('nav.doneWork', 'Done'), phone: true },
         { tab: 'staff', icon: Clock, label: t('nav.myAttendance') },
+        { tab: 'todo', icon: ListTodo, label: t('nav.todo', 'To-do'), phone: true },
       ] },
     ];
 
@@ -1701,7 +1712,7 @@ function GuidedHighlight({ show, text, children }) {
   );
 }
 
-function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
+function NavItem({ icon: Icon, label, active, onClick, collapsed, hint, tour }) {
   const [flyout, setFlyout] = useState(null);
   const show = (e) => {
     if (!collapsed) return;
@@ -1712,6 +1723,7 @@ function NavItem({ icon: Icon, label, active, onClick, collapsed, hint }) {
   return (
     <a
       className={`portal-menu-item${active ? ' active' : ''}${hint && !collapsed ? ' gh-nav' : ''}`}
+      data-tour={tour}
       role="button"
       tabIndex={0}
       aria-label={collapsed ? label : undefined}
@@ -1743,7 +1755,8 @@ function PortalMenu({ sections, activeTab, onPick, collapsed = false, hints = {}
       {section.items.map(({ tab, icon, label, match }) => (
         <NavItem key={match ? match.join('+') : tab} icon={icon} label={label}
                  active={match ? match.includes(activeTab) : activeTab === tab}
-                 collapsed={collapsed} onClick={() => onPick(tab)} hint={hints[tab]} />
+                 collapsed={collapsed} onClick={() => onPick(tab)} hint={hints[tab]}
+                 tour={match ? 'reports' : tab} />
       ))}
     </React.Fragment>
   ));
@@ -1843,6 +1856,10 @@ function App() {
       key: tab, label: tab === 'account' ? t('nav.account') : t('nav.settings'),
       icon: tab === 'account' ? User : Settings, onClick: () => go(tab),
     })),
+    // One guide entry: this page's own guide, or on the Dashboard (which has
+    // none of its own) the Dashboard tour.
+    { key: 'page-tour', label: t('nav.pageGuide', 'Guide for this page'), icon: Compass,
+      onClick: () => (hasPageTour(dashboardTab, currentUser?.role) ? setPageTour(dashboardTab) : setTourOpen(true)) },
     { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => handleLogout() },
   ];
   // The same account entries on a computer or tablet: the "Hi, <name>" chip at
@@ -2613,6 +2630,8 @@ function App() {
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   const [expandedCustomerOrderId, setExpandedCustomerOrderId] = useState(null);
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
+  // The order page's "not sent on WhatsApp" panel, opened from its top button (an order id).
+  const [sendErrorsOrderId, setSendErrorsOrderId] = useState(null);
   
   const [openGarmentJob, setOpenGarmentJob] = useState(null);
   const [approvingDesignId, setApprovingDesignId] = useState(null);
@@ -2712,6 +2731,72 @@ function App() {
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [invoiceFilter, setInvoiceFilter] = useState('All');
   const [loading, setLoading] = useState(true);
+  // The guided tour: open on a person's first visit to the workspace, once the
+  // page has loaded; "Guide for this page" in the account menu opens it again.
+  const [tourOpen, setTourOpen] = useState(false);
+  // A newly added staff member's first sign-in (StaffFirstSetup.jsx):
+  // 'password', then 'profile', then the workspace. Remembered per user in
+  // this browser so a refresh mid-way picks it up again.
+  const [staffSetup, setStaffSetup] = useState(null);
+  const [setupCurrent, setSetupCurrent] = useState('');
+  const setupKey = (user) => {
+    let tenant = '';
+    try { tenant = localStorage.getItem('tenant_id') || ''; } catch { /* private mode */ }
+    return `scaleezy_staff_setup:${tenant}:${user?.id || user?.email || 'user'}`;
+  };
+  const storeSetup = (user, step) => {
+    try { if (step) localStorage.setItem(setupKey(user), step); else localStorage.removeItem(setupKey(user)); } catch { /* private mode */ }
+  };
+  const storedSetup = (user) => {
+    try { return localStorage.getItem(setupKey(user)); } catch { return null; }
+  };
+  const toProfileStep = (user) => {
+    storeSetup(user, 'profile');
+    setSetupCurrent('');
+    setStaffSetup('profile');
+    setDashboardTab('account');
+  };
+  // Done or skipped: the person's own first page, as a sign-in opens it.
+  const finishStaffSetup = () => {
+    storeSetup(currentUser, null);
+    setStaffSetup(null);
+    if (currentUser?.role === 'Designer') openDesignRequests();
+    else if (isProductionStaff(currentUser?.role)) setDashboardTab('work');
+    else setDashboardTab('overview');
+  };
+  const [pageTour, setPageTour] = useState(null);
+  // Pages whose guide found nothing to point at this session (not retried).
+  const pageTourEmpty = useRef(new Set());
+  // A Getting started item's hands-on guide ({ key, label }), while it runs.
+  const [taskGuide, setTaskGuide] = useState(null);
+  useEffect(() => {
+    // Only on a page without a guide of its own (the Dashboard); every other
+    // page opens its own guide instead.
+    if (view !== 'dashboard' || !currentUser || loading || tourOpen || taskGuide || staffSetup || tourSeen(currentUser)) return undefined;
+    if (hasPageTour(dashboardTab, currentUser.role)) return undefined;
+    const timer = setTimeout(() => setTourOpen(true), 700);
+    return () => clearTimeout(timer);
+    // Only these: reopening it on every render after it is closed would be wrong.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, staffSetup]);
+  // Each page's own tour: the first time the page is opened, once the
+  // workspace tour has been seen (or skipped), and never on top of it.
+  useEffect(() => {
+    // An unfinished guide left behind on another page does not hold this one up.
+    if (view !== 'dashboard' || !currentUser || loading || tourOpen || pageTour === dashboardTab || taskGuide || staffSetup) return undefined;
+    if (!hasPageTour(dashboardTab, currentUser.role) || tourSeen(currentUser, dashboardTab) || pageTourEmpty.current.has(dashboardTab)) return undefined;
+    // A moment for the page to draw its parts before the tour looks for them.
+    const timer = setTimeout(() => setPageTour(dashboardTab), 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, tourOpen, pageTour, taskGuide, staffSetup]);
+  // Step 2 is the My profile page: leaving it for another page ends the setup.
+  useEffect(() => {
+    if (staffSetup !== 'profile' || dashboardTab === 'account') return undefined;
+    const timer = setTimeout(() => { storeSetup(currentUser, null); setStaffSetup(null); }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staffSetup, dashboardTab]);
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false, status: 'disconnected', qrCode: null });
   const [boutiqueSettings, setBoutiqueSettings] = useState(null);
   // The boutique's own tier names, for every screen that shows a tier.
@@ -2868,6 +2953,11 @@ function App() {
     try {
       const user = await api.getMe();
       if (user && enterWorkspace(user)) {
+        const step = storedSetup(user);
+        if (step === 'password' || step === 'profile') {
+          setStaffSetup(step);
+          if (step === 'profile') setDashboardTab('account');
+        }
         await fetchDashboardAndConfig(user);
       }
     } catch (e) {
@@ -3243,6 +3333,14 @@ function App() {
       const res = await api.login(loginEmail, loginPassword, portalSlug);
       // The temporary password is the "current" one the change screen asks for.
       setChangeCurrent(res.user.must_change_password ? loginPassword : '');
+      // A newly added staff member's first sign-in here: the skippable setup,
+      // with the password they signed in with as the one being replaced.
+      setStaffSetup(null);
+      if (res.first_sign_in && res.user?.role && res.user.role !== 'Owner') {
+        setSetupCurrent(loginPassword);
+        storeSetup(res.user, 'password');
+        setStaffSetup('password');
+      }
       setLoginPassword('');  // signed in: the password is not kept in the form
       setJustRegistered(false);
       if (enterWorkspace(res.user)) fetchDashboardAndConfig(res.user);
@@ -4218,6 +4316,9 @@ function App() {
 
 
   const eligibleStaffForStage = (stageKey) => {
+    // Hemming & finishing goes only to the Hemming & Pressing Staff.
+    const only = ASSIGN_ONLY_TO[stageKey];
+    if (only) return tailors.filter(t => only.includes(t.role));
     const stageConf = (boutiqueSettings?.workflow_config || []).find(s => s.key === stageKey);
     const allowed = stageConf?.roles || [];
     if (allowed.length === 0) return tailors;
@@ -4362,8 +4463,22 @@ function App() {
 
   ].filter((step) => !step.tab || canSeeTab(currentUser, step.tab));
   const showOnboarding = !loading && !onboardingDismissed && onboardingSteps.some(step => !step.done);
+  // The guided tour (ProductTour.jsx): the menu this user really has.
+  const tourMenu = sidebarSections.flatMap((section) => section.items)
+    .map(({ tab, label, match }) => ({ tab, label, tour: match ? 'reports' : tab }));
+  // A page's own tour is open only while that page is the one on screen.
+  const pageTourOpen = !!pageTour && pageTour === dashboardTab && !tourOpen;
   return (
     <div className="app-container">
+      {view === 'dashboard' && currentUser && staffSetup === 'password' && (
+        <SetupPasswordStep user={currentUser} knownCurrent={setupCurrent}
+                           onDone={(user) => { if (user) setCurrentUser(user); toProfileStep(user || currentUser); }}
+                           onSkip={() => toProfileStep(currentUser)} />
+      )}
+      {taskGuide && currentUser && (
+        <ProductTour key={taskGuide.key} open task={taskGuide.key} taskLabel={taskGuide.label}
+                     user={currentUser} menu={tourMenu} onMenu={setMobileNavOpen} onClose={() => setTaskGuide(null)} />
+      )}
       {/* 2. SIGN IN SCREEN (Image 2) */}
 
       {view === 'find' && (
@@ -5092,6 +5207,20 @@ function App() {
               </>
             )}
 
+            {dashboardTab === 'todo' && (
+              <>
+                <PageHeader
+                  title={t('nav.todo', 'To-do')}
+                  subtitle={!currentUser?.role || currentUser.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser.role)
+                    ? 'Daily updates from your team'
+                    : 'Your daily updates for the month'}
+                />
+                <Suspense fallback={<ScreenLoading />}>
+                  <DailyUpdates />
+                </Suspense>
+              </>
+            )}
+
             {dashboardTab === 'overview' && (
               <>
                 <PageHeader
@@ -5125,7 +5254,7 @@ function App() {
                 />
 
                 {showOnboarding && (
-                  <section className="content-card" style={{ padding: '20px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
+                  <section className="content-card" data-tour="getting-started" style={{ padding: '20px', marginBottom: '16px', border: '1px solid var(--border-color)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '12px' }}>
                       <div>
                         <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', fontWeight: 500 }}>{t('dashboard.gettingStarted', 'Getting started')}</h2>
@@ -5151,7 +5280,7 @@ function App() {
                           key={step.key}
                           type="button"
                           disabled={step.done || !step.go}
-                          onClick={step.go}
+                          onClick={() => { step.go(); if (hasTask(step.key)) setTaskGuide({ key: step.key, label: step.label }); }}
                           style={{
                             display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
                             background: 'transparent', border: 'none', borderRadius: '6px', textAlign: 'left',
@@ -5529,6 +5658,25 @@ function App() {
                     {/* The one thing to do next lives up here: send it to the
                         workshop, or (the owner's shortcut) close every stage. */}
                     <div className="od-topbar-actions">
+                      {/* Customer messages that need staff -- WhatsApp could not send
+                          them, or nothing sends them automatically: opened up here
+                          on a tap (they used to sit at the foot of the page). */}
+                      {(() => {
+                        const pending = queuedMessages.filter(m => m.order === order.id && (m.status === 'FAILED' || m.status === 'QUEUED'));
+                        if (!pending.length) return null;
+                        const allFailed = pending.every(m => m.status === 'FAILED');
+                        const open = sendErrorsOrderId === order.id;
+                        return (
+                          <button type="button" className={`od-send-errors-btn${open ? ' is-open' : ''}${allFailed ? '' : ' od-send-errors-btn--queued'}`} aria-expanded={open}
+                                  onClick={() => setSendErrorsOrderId(open ? null : order.id)}>
+                            <AlertTriangle size={16} />
+                            {allFailed
+                              ? (pending.length === 1 ? t('ordersPage.oneNotSent', '1 WhatsApp message not sent') : t('ordersPage.manyNotSent', '{n} WhatsApp messages not sent', { n: pending.length }))
+                              : (pending.length === 1 ? t('ordersPage.oneToSend', '1 customer message to send') : t('ordersPage.manyToSend', '{n} customer messages to send', { n: pending.length }))}
+                            <ChevronDown size={16} className="od-send-errors-chevron" />
+                          </button>
+                        );
+                      })()}
                       {orderBucket(order) === 'new' && (['Owner', 'Master'].includes(currentUser.role) || adminCan('workshop.assign') || adminCan('workshop.move')) && (
                         <button type="button" className="btn-primary od-send-btn" disabled={sendBusy}
                                 onClick={() => openSendToWorkshop(order)}>
@@ -5552,6 +5700,16 @@ function App() {
                       )}
                     </div>
                   </div>
+
+                  {sendErrorsOrderId === order.id && queuedMessages.some(m => m.order === order.id && (m.status === 'FAILED' || m.status === 'QUEUED')) && (
+                    <div className="od-send-errors">
+                      <CustomerMessageQueue
+                        messages={queuedMessages.filter(m => m.order === order.id)}
+                        onMarkSent={handleMarkMessageSent}
+                        onRetry={handleRetryMessage}
+                      />
+                    </div>
+                  )}
 
                   <header className="od-head">
                     <div className="od-head-left">
@@ -5661,6 +5819,24 @@ function App() {
                         <div className="od-fact-value">{order.estimated_delivery ? fmtDate(order.estimated_delivery) : t('ordersPage.tbd', 'TBD')}</div>
                       </div>
                     </div>
+                    {/* Who the order is for: name and mobile, and the way to their page. */}
+                    <div className="od-fact od-fact--customer">
+                      <IconTile icon={User} tone="green" size={44} iconSize={20} />
+                      <div className="od-fact-body">
+                        <div className="od-fact-label">{t('ordersPage.customerDetails', 'Customer details')}</div>
+                        <div className="od-fact-value" title={order.customer_name}>{order.customer_name}</div>
+                        {order.customer_mobile && (
+                          <div className="od-fact-sub"><Phone size={12} aria-hidden="true" /> {displayMobile(order.customer_mobile)}</div>
+                        )}
+                        <button type="button" className="btn-link od-fact-link"
+                                onClick={() => {
+                                  setDashboardTab('customers');
+                                  openDirectoryCustomer({ id: order.customer, first_name: order.customer_name, last_name: '' });
+                                }}>
+                          {t('ordersPage.viewCustomer', 'View customer')} <ArrowRight size={13} />
+                        </button>
+                      </div>
+                    </div>
                   </section>
 
                   {/* Where the order stands in the workroom; a step opens its panel. */}
@@ -5713,12 +5889,6 @@ function App() {
                         </div>
                         <OrderTaskTable key={`${order.id}-${focusJob?.id || ''}`} focus={focusJob?.id} stages={stages} jobs={order.garment_jobs || []} onSelectStage={(stage) => openStageReview(order, stage)} />
                       </section>
-
-                      <CustomerMessageQueue
-                        messages={queuedMessages.filter(m => m.order === order.id)}
-                        onMarkSent={handleMarkMessageSent}
-                        onRetry={handleRetryMessage}
-                      />
 
                       {/* Raw materials checklist; nothing to gather, no section. */}
                       {hasMaterials(order) && (
@@ -5836,36 +6006,13 @@ function App() {
                             </div>
                           )}
                       </div>
+                      {/* Special instructions: at the foot of the main column. */}
+                      <OrderNotesCard key={order.id} order={order} canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
                     </div>
 
                     <aside className="od-side">
                       <OrderGarmentsCard order={order} focus={focusJob?.id} onSelectStage={(stage) => openStageReview(order, stage)} />
                       <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} role={currentUser?.role} />
-                      {/* Who the order is for, centred and stacked: "Customer
-                          details" as a small label, their initials, the name
-                          and mobile under them, and the way to their page last. */}
-                      <section className="at-section od-customer">
-                        <div className="od-customer-row">
-                          <span className="od-customer-eyebrow">{t('ordersPage.customerDetails', 'Customer details')}</span>
-                          <AvatarInitials name={order.customer_name} size={56} />
-                          <div className="od-customer-info">
-                            <span className="od-customer-name" title={order.customer_name}>{order.customer_name}</span>
-                            {order.customer_mobile && (
-                              <span className="od-customer-meta"><Phone size={12} aria-hidden="true" /> {displayMobile(order.customer_mobile)}</span>
-                            )}
-                          </div>
-                          <button type="button" className="btn-secondary at-btn-sm od-customer-btn"
-                                  onClick={() => {
-                                    // The name to show while openDirectoryCustomer fetches the full record.
-                                    setDashboardTab('customers');
-                                    openDirectoryCustomer({ id: order.customer, first_name: order.customer_name, last_name: '' });
-                                  }}>
-                            {t('ordersPage.viewCustomer', 'View customer')} <ArrowRight size={14} />
-                          </button>
-                        </div>
-                      </section>
-
-                      <OrderNotesCard key={order.id} order={order} canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
                       {/* The Master's checklist, the handover and the tip sit under the
                           notes in the side column, so the two columns share the page. */}
                       <div className="od-side-extra">
@@ -5915,16 +6062,6 @@ function App() {
                           </div>
                         )}
 
-                        {/* Delivery */}
-                        <DeliveryCard key={`${order.id}-${order.delivery_method}-${order.tracking_number}`} order={order}
-                                      canEdit={!isProductionStaff(currentUser.role)} onSaved={fetchDashboardAndConfig} />
-                        <div className="od-tip" role="note">
-                          <IconTile icon={Sparkles} tone="green" size={36} iconSize={16} />
-                          <div>
-                            <strong>{t('ordersPage.tipTitle', 'Keep the quality high!')}</strong>
-                            <span>{t('ordersPage.tipText', 'Check measurements and design notes before moving to the next stage.')}</span>
-                          </div>
-                        </div>
                       </div>
                     </aside>
                   </div>
@@ -7365,6 +7502,8 @@ function App() {
                 );
               };
 
+              // What people order, Neckline & sleeve trends, Orders by step: hidden.
+              const SHOW_MORE_INSIGHTS = false;
               return (
                 <>
                   {reportsSwitch}
@@ -7385,19 +7524,23 @@ function App() {
                               sub={t('analyticsPage.totalDirectoryProfiles', 'Total boutique directory profiles')} />
                   </section>
 
-                  <div className="at-grid-2">
-                    <div className="at-stack">
-                      <SectionCard icon={Shirt} tone="green" title={t('analyticsPage.popularGarmentTypes', 'Popular Garment Types')}
-                                   subtitle="Most ordered garment categories" action={() => setDashboardTab('orders')}>
-                        {topGarmentsList.length === 0 ? (
-                          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No garments ordered yet.</div>
-                        ) : (
-                          <div className="at-stack" style={{ gap: 'var(--space-3)' }}>
-                            {topGarmentsList.map(([garment, count]) => bar(garment, count, garmentTotal, 'forest'))}
-                          </div>
-                        )}
-                      </SectionCard>
-
+                  {/* Customer tiers and Workshop load side by side, the same height.
+                      What people order, Neckline & sleeve trends and Orders by
+                      step are hidden, not removed: SHOW_MORE_INSIGHTS = true
+                      brings them back. */}
+                  <div className="at-grid-2 insights-grid">
+                    {SHOW_MORE_INSIGHTS && (
+                          <SectionCard icon={Shirt} tone="green" title={t('analyticsPage.popularGarmentTypes', 'Popular Garment Types')}
+                                       subtitle="Most ordered garment categories" action={() => setDashboardTab('orders')}>
+                            {topGarmentsList.length === 0 ? (
+                              <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>No garments ordered yet.</div>
+                            ) : (
+                              <div className="at-stack" style={{ gap: 'var(--space-3)' }}>
+                                {topGarmentsList.map(([garment, count]) => bar(garment, count, garmentTotal, 'forest'))}
+                              </div>
+                            )}
+                          </SectionCard>
+                    )}
                       <SectionCard icon={Users} tone="violet" title={t('analyticsPage.customerSegmentation', 'Customer Segmentation')}
                                    subtitle="Customers grouped by how much they spend" action={() => setDashboardTab('customers')}>
                         <div style={{ display: 'flex', gap: 'var(--space-6)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -7418,35 +7561,6 @@ function App() {
                           </div>
                         </div>
                       </SectionCard>
-
-                      <SectionCard icon={PenTool} tone="amber" title={t('analyticsPage.necklineSleeveTrends', 'Neckline & Sleeve Trends')}
-                                   subtitle="What is being asked for at the counter">
-                        <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                          <div>
-                            <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>{t('analyticsPage.topNecklines', 'Top Necklines')}</div>
-                            {topNecklinesList.length === 0 && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>None recorded yet.</div>}
-                            {topNecklinesList.map(([style, count]) => (
-                              <div key={style} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                <span>{style}</span>
-                                <span className="at-num" style={{ fontWeight: 600 }}>{count}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div>
-                            <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>{t('analyticsPage.topSleeves', 'Top Sleeves')}</div>
-                            {topSleevesList.length === 0 && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>None recorded yet.</div>}
-                            {topSleevesList.map(([style, count]) => (
-                              <div key={style} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                <span>{style}</span>
-                                <span className="at-num" style={{ fontWeight: 600 }}>{count}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </SectionCard>
-                    </div>
-
-                    <div className="at-stack">
                       <SectionCard icon={Scissors} tone="blue" title={t('analyticsPage.staffWorkloadOverview', 'Staff & Workload Overview')}
                                    subtitle="Who is working, and who is free" action={() => setDashboardTab('staff')} actionLabel="Manage team">
                         <div className="wl-tiles" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 'var(--space-3)' }}>
@@ -7464,16 +7578,43 @@ function App() {
                           </div>
                         </div>
                       </SectionCard>
-
-                      <SectionCard icon={FileText} tone="green" title={t('analyticsPage.orderStatusBreakdown', 'Order Status Breakdown')}
-                                   subtitle="Current order distribution" action={() => setDashboardTab('orders')}>
-                        <div className="at-stack" style={{ gap: 'var(--space-3)' }}>
-                          {Object.entries(dashboardData?.stats?.status_distribution || {})
-                            .sort((a, b) => b[1] - a[1])
-                            .map(([status, count]) => bar(t(`status.${status}`, status), count, ordersList.length, 'forest'))}
-                        </div>
-                      </SectionCard>
-                    </div>
+                    {SHOW_MORE_INSIGHTS && (
+                          <SectionCard icon={PenTool} tone="amber" title={t('analyticsPage.necklineSleeveTrends', 'Neckline & Sleeve Trends')}
+                                       subtitle="What is being asked for at the counter">
+                            <div className="mobile-stack-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                              <div>
+                                <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>{t('analyticsPage.topNecklines', 'Top Necklines')}</div>
+                                {topNecklinesList.length === 0 && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>None recorded yet.</div>}
+                                {topNecklinesList.map(([style, count]) => (
+                                  <div key={style} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                    <span>{style}</span>
+                                    <span className="at-num" style={{ fontWeight: 600 }}>{count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div>
+                                <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>{t('analyticsPage.topSleeves', 'Top Sleeves')}</div>
+                                {topSleevesList.length === 0 && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>None recorded yet.</div>}
+                                {topSleevesList.map(([style, count]) => (
+                                  <div key={style} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                    <span>{style}</span>
+                                    <span className="at-num" style={{ fontWeight: 600 }}>{count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </SectionCard>
+                    )}
+                    {SHOW_MORE_INSIGHTS && (
+                          <SectionCard icon={FileText} tone="green" title={t('analyticsPage.orderStatusBreakdown', 'Order Status Breakdown')}
+                                       subtitle="Current order distribution" action={() => setDashboardTab('orders')}>
+                            <div className="at-stack" style={{ gap: 'var(--space-3)' }}>
+                              {Object.entries(dashboardData?.stats?.status_distribution || {})
+                                .sort((a, b) => b[1] - a[1])
+                                .map(([status, count]) => bar(t(`status.${status}`, status), count, ordersList.length, 'forest'))}
+                            </div>
+                          </SectionCard>
+                    )}
                   </div>
                 </>
               );
@@ -7490,6 +7631,7 @@ function App() {
               const copyText = (text) => navigator.clipboard?.writeText(text);
               return (
               <>
+                {staffSetup === 'profile' && <SetupProfileBanner onSkip={finishStaffSetup} onDone={finishStaffSetup} />}
                 <PageHeader
                   title={t('accountPage.title')}
                   subtitle={t('accountPage.subtitle')}
@@ -8047,6 +8189,11 @@ function App() {
             activeTab={dashboardTab}
             onChangeTab={(tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); }}
           />
+          {/* Mounted only while open, so it always starts at the welcome. */}
+          {tourOpen && <ProductTour open user={currentUser} menu={tourMenu} onMenu={setMobileNavOpen}
+                                    onClose={(how) => { if (how?.skipped) markTourSeen(currentUser, dashboardTab); setTourOpen(false); }} />}
+          {pageTourOpen && <ProductTour key={pageTour} open page={pageTour} user={currentUser} menu={tourMenu}
+                                        onClose={(how) => { if (how?.empty) pageTourEmpty.current.add(pageTour); setPageTour(null); }} />}
         </div>
       )}
 
@@ -9208,7 +9355,23 @@ function App() {
                         values={mergedValues}
                         errors={garmentErrors[job.key] || {}}
                         onChange={(values) => updateGarmentValues(job.key, values)}
+                        only={(f) => f.field_type !== 'textarea'}
                       />
+                      {/* The measurements added by hand sit with the figures, before the notes. */}
+                      <ExtraMeasurements values={mergedValues} error={garmentErrors[job.key]?.[EXTRA_MEASUREMENTS]}
+                                         onChange={(values) => updateGarmentValues(job.key, values)} />
+                      {(section.fields || []).some((f) => f.field_type === 'textarea') && (
+                        <div style={{ marginTop: '14px' }}>
+                          <TemplateForm
+                            template={job.template}
+                            section="measurements"
+                            values={mergedValues}
+                            errors={garmentErrors[job.key] || {}}
+                            onChange={(values) => updateGarmentValues(job.key, values)}
+                            only={(f) => f.field_type === 'textarea'}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -10664,12 +10827,38 @@ Complete the Payment stage with this partial payment?`)) return;
               </div>
             )}
 
+            {/* Delivery prep: how the garment leaves the boutique (pickup or courier). */}
+            {stage && stage.stage_key === 'ready_for_delivery' && (
+              <FormSection icon={PackageCheck} tone="green" title={t('ordersPage.handover', 'Handover')}>
+                <DeliveryCard key={`${activeReviewOrder.id}-${activeReviewOrder.delivery_method}-${activeReviewOrder.tracking_number}`}
+                              order={activeReviewOrder} canEdit={!isProductionStaff(currentUser.role)}
+                              onSaved={(saved) => {
+                                if (saved?.id) setActiveReviewOrder((prev) => (prev ? { ...prev, ...saved } : prev));
+                                fetchDashboardAndConfig();
+                              }} />
+              </FormSection>
+            )}
+
+            {/* Split between several people (features/work/StageParts.jsx):
+                who has which part, sending one part back, or the way to split. */}
+            {stage && isSupervisor && (
+              <StageParts order={activeReviewOrder} stage={stage} workflowConfig={boutiqueSettings?.workflow_config || []}
+                          onChanged={(fresh) => {
+                            if (fresh?.stages) {
+                              setActiveReviewOrder(fresh);
+                              setSelectedStageObj(fresh.stages.find((st) => st.id === stage.id) || stage);
+                            }
+                            fetchDashboardAndConfig();
+                          }} />
+            )}
+
             {/* Hand this stage to someone, say who did the work, note what
                 happened, photograph it. assign_stage and the performer field
                 are supervisor calls; the API refuses them from anyone else. */}
             <FormSection icon={RefreshCw} tone="green" title="Manage Stage Transition">
               <div className="at-form-grid">
-                {stage && isSupervisor && (
+                {/* A split step is handed out part by part, above. */}
+                {stage && isSupervisor && !(stage.parts || []).length && (
                   <Field label="Assign this stage to" icon={User}>
                     <select
                       className="form-control"

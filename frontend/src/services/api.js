@@ -616,6 +616,56 @@ export const api = {
     return res.json();
   },
 
+  // A step split between several people (domains/orders/stage_parts.py).
+  // parts: [{ label, tailor_id }]. Each answers the whole order, refreshed.
+  async splitStage(orderId, stageKey, parts, garmentJob = null) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/split-stage/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ stage_key: stageKey, garment_job: garmentJob, parts }),
+    });
+    if (!res.ok) await failWith(res, 'Could not split this step');
+    return res.json();
+  },
+
+  async unsplitStage(orderId, stageKey, garmentJob = null) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/unsplit-stage/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ stage_key: stageKey, garment_job: garmentJob }),
+    });
+    if (!res.ok) await failWith(res, 'Could not undo the split');
+    return res.json();
+  },
+
+  async assignPart(orderId, partId, tailorId) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/assign-part/`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ part_id: partId, tailor_id: tailorId }),
+    });
+    if (!res.ok) await failWith(res, 'Could not change who does this part');
+    return res.json();
+  },
+
+  async transitionPart(orderId, partId, status, comments = '', imageFiles = [], voiceNote = null) {
+    const formData = new FormData();
+    formData.append('part_id', partId);
+    formData.append('status', status);
+    if (comments) formData.append('comments', comments);
+    if (voiceNote) formData.append('voice_note', voiceNote);
+    if (imageFiles && imageFiles.length > 0) {
+      (await Promise.all(imageFiles.map((file) => shrinkImage(file)))).forEach((file) => formData.append('images', file));
+    }
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/part-transition/`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: formData,
+    });
+    if (!res.ok) await failWith(res, 'Could not update this part');
+    return res.json();
+  },
+
   // Get AI Suggestions for a customer based on style inputs
   async getAISuggestions(customerId) {
     const res = await guardedFetch(`${BASE_URL}/customers/${customerId}/ai-suggestions/`, {
@@ -876,6 +926,32 @@ export const api = {
     });
     if (!res.ok) await failWith(res, 'Could not save the recording');
     return (await res.json()).url;
+  },
+
+  // To-do: each staff member's daily updates, a month at a time. The owner,
+  // Masters and Designers get everyone's (and may filter by `person`).
+  async getDailyUpdates({ month = '', person = '' } = {}) {
+    const query = new URLSearchParams();
+    if (month) query.set('month', month);
+    if (person) query.set('person', person);
+    const res = await guardedFetch(`${BASE_URL}/daily-updates/?${query}`, { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Could not load the updates');
+    return res.json();
+  },
+
+  async postDailyUpdate(formData) {
+    const res = await guardedFetch(`${BASE_URL}/daily-updates/`, {
+      method: 'POST', headers: getHeaders(true), body: formData,
+    });
+    if (!res.ok) await failWith(res, 'Could not post the update');
+    return res.json();
+  },
+
+  async deleteDailyUpdate(id) {
+    const res = await guardedFetch(`${BASE_URL}/daily-updates/${id}/`, {
+      method: 'DELETE', headers: getHeaders(),
+    });
+    if (!res.ok) await failWith(res, 'Could not delete the update');
   },
 
   async updateOrder(orderId, orderData) {
@@ -1708,36 +1784,6 @@ export const api = {
   // Owner-only: switches a credited designer on so they can sign in for
   // themselves. Idempotent server-side -- a second call against an
   // already-linked designer is refused rather than silently reissuing.
-  // ---- To-dos -------------------------------------------------------------
-  async todoRequest(path, { method = 'GET', body } = {}) {
-    const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
-    const res = await guardedFetch(`${BASE_URL}/todos/${path}`, {
-      method,
-      headers: getHeaders(isForm),
-      body: body === undefined ? undefined : (isForm ? body : JSON.stringify(body)),
-    });
-    if (res.status === 204) return null;
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(describeApiError(res, data));
-    return data;
-  },
-  getTodos() { return api.todoRequest(''); },
-  // Who the signed-in person may assign a to-do to: { can_assign, people }.
-  getTodoPeople() { return api.todoRequest('people/'); },
-  // Unfinished order stages and designs given to people (read-only).
-  getTodoOrderWork() { return api.todoRequest('order-work/'); },
-  // FormData: title, description, due_date, assigned_to, photos (many), voice_note.
-  createTodo(formData) { return api.todoRequest('', { method: 'POST', body: formData }); },
-  updateTodo(id, body) { return api.todoRequest(`${id}/`, { method: 'PATCH', body }); },
-  deleteTodo(id) { return api.todoRequest(`${id}/`, { method: 'DELETE' }); },
-  setTodoStatus(id, status) {
-    return api.todoRequest(`${id}/status/`, { method: 'POST', body: { status } });
-  },
-  // FormData: text, photos (many), voice_note.
-  addTodoUpdate(id, formData) {
-    return api.todoRequest(`${id}/updates/`, { method: 'POST', body: formData });
-  },
-
   // Owner only: replaces the person's password with a generated one, shown once.
   async resetStaffPassword(id, { isDesigner = false } = {}) {
     const url = isDesigner

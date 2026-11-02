@@ -17,7 +17,6 @@ from apps.catalog.models import GarmentJob, GarmentTemplate
 from apps.design_studio.models import DesignAssignment, Designer
 from apps.finance.models import Payment
 from apps.staff.models import StaffProfile
-from apps.todos.models import Todo
 from crm_api.models import BoutiqueSettings, Customer, Order, OrderStage, Tailor
 from tenants.models import WhatsAppAccount
 
@@ -142,8 +141,6 @@ class DailySummaryTests(TenantTestCase):
                     started_at=at(9), completed_at=at(14))
         redo = self._stage(status='IN_PROGRESS', assigned_to=self.anita, started_at=at(9),
                            verification_note='Hem is uneven', sla_hours=4)
-        Todo.objects.create(title='From the step', assigned_to=self.anita_user, order_stage=redo)
-        Todo.objects.create(title='Buy thread', assigned_to=self.anita_user)
 
         text = self.text_for(self.anita_user, 'Tailor', self.anita)
 
@@ -151,7 +148,6 @@ class DailySummaryTests(TenantTestCase):
         self.assertIn('Sent back to redo: 1', text)
         self.assertIn('Overdue: 1', text)
         self.assertIn('Pending: 1', text)
-        self.assertIn('Open to-dos: 1', text)  # the step's own to-do is not counted again
         self.assertIn('• Stitching · ', text)
         # Ravi was assigned the finished step but did not do it, and has nothing else.
         self.assertIsNone(self.text_for(self.ravi_user, 'Tailor', self.ravi))

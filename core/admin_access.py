@@ -31,7 +31,7 @@ ADMIN_TASKS = {
                   'import', 'delete'),
     'design': ('view', 'upload', 'approve', 'boards', 'assign'),
     'inventory': ('view', 'items', 'stock', 'transfer', 'suppliers', 'reports'),
-    'team': ('view', 'manage', 'attendance', 'documents', 'reviews', 'todos', 'payroll'),
+    'team': ('view', 'manage', 'attendance', 'documents', 'reviews', 'payroll'),
     'finance': ('view', 'expenses'),
     'invoices': ('view', 'template'),
     'analytics': ('view',),
@@ -54,7 +54,7 @@ SECTION_MODULES = {
     'design': ('design_studio', 'design_collections', 'design_designers'),
     'inventory': ('inventory', 'inventory_catalog', 'inventory_suppliers',
                   'inventory_bom', 'inventory_reports'),
-    'team': ('tailors', 'staff', 'staff_attendance', 'staff_documents', 'staff_reviews', 'todos'),
+    'team': ('tailors', 'staff', 'staff_attendance', 'staff_documents', 'staff_reviews'),
     'finance': ('finance', 'finance_pl'),
 }
 #: A task that opens more than its section does.

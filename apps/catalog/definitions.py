@@ -1821,9 +1821,11 @@ def hand_work_fields(definition):
     # The garment's own pieces (pallu, border, sleeves...), not the photo
     # categories that share the list (print, embroidery, the overall shot).
     skip = ('overall', 'print', 'embroidery', 'work', 'tassel', 'latkan')
+    # Hand and Sleeve are one place to work on: Work On keeps Sleeve. The
+    # design photos keep their Hand area (design_parts is unchanged).
     part_options = [(p['key'], re.sub(r'\s+Design$', '', p['label']))
                     for p in definition.get('design_parts', [])
-                    if not any(w in p['key'] for w in skip)]
+                    if not any(w in p['key'] for w in skip) and p['key'] != 'hand_design']
     has_work = one_of('hand_work', HAND_WORK_WANTED)
     # The counter talks about the design on the garment, not the work. Same
     # keys and options, so nothing that reads the answers changes.

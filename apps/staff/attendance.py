@@ -11,23 +11,32 @@ stay a factual record rather than a financial one.
 """
 
 import math
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from core.formatting import to_local
+from core.formatting import tenant_timezone, to_local
 
 from .models import AttendanceSession
 
 
-#: A session left open this long was a forgotten check-out, not a shift. The
-#: sweep below closes it at check_in + this, never at "now": a cleanup that ran
+#: A check-in still open when its day is over was a forgotten check-out, not a
+#: shift. The sweep below closes it at this time on the evening of the
+#: check-in's own day (boutique time) -- never at "now": a cleanup that ran
 #: late would otherwise pay for the hours it was late by, and re-running it
-#: would keep moving the same stamp. Twelve hours is longer than any real day at
-#: the bench and short enough that one forgotten tap does not poison a week.
-MAX_SESSION_HOURS = 12
+#: would keep moving the same stamp. Somebody who checks out keeps exactly the
+#: time they checked out at.
+CLOSE_FORGOTTEN_AT = time(23, 59)
+
+
+def forgotten_close_time(session, tenant=None):
+    """11:59 PM, boutique time, on the day `session` was checked in (never
+    before the check-in itself)."""
+    day = business_date(session.check_in, tenant)
+    closing = datetime.combine(day, CLOSE_FORGOTTEN_AT, tzinfo=tenant_timezone(tenant))
+    return max(closing, session.check_in)
 
 
 class AttendanceError(ValueError):
@@ -152,21 +161,24 @@ def check_in(staff, *, user, source=AttendanceSession.Source.SELF, note='', loca
             f"another session.")
 
 
-def auto_close_stale_sessions(staff=None, now=None):
-    """Close every session left open longer than MAX_SESSION_HOURS.
+def auto_close_stale_sessions(staff=None, now=None, tenant=None):
+    """Close every session still open from a day that is over.
 
-    Returns the sessions it closed. Each is stamped at its OWN
-    `check_in + MAX_SESSION_HOURS`, so the result does not depend on when this
-    ran -- a cleanup at 22:30 closes a 10:00 check-in at 22:00, and running it
-    again changes nothing because the session is no longer open.
+    Returns the sessions it closed. Each is stamped at 11:59 PM on its OWN
+    check-in day (forgotten_close_time), so the result does not depend on when
+    this ran -- a cleanup the next morning closes yesterday's 10:00 check-in at
+    yesterday 23:59, and running it again changes nothing because the session
+    is no longer open. Today's open check-ins are left alone.
 
     `staff` narrows it to one person, which is what the check-in paths use so
     that a forgotten session from last week cannot block today's shift even if
-    the scheduled sweep has not run.
+    the scheduled sweep has not run. `tenant` names the boutique whose clock
+    decides the day (the request's own when left out).
     """
-    cutoff = (now or timezone.now()) - timedelta(hours=MAX_SESSION_HOURS)
+    today = business_date(now or timezone.now(), tenant)
+    start_of_today = datetime.combine(today, time.min, tzinfo=tenant_timezone(tenant))
     queryset = AttendanceSession.objects.filter(
-        check_out__isnull=True, check_in__lte=cutoff)
+        check_out__isnull=True, check_in__lt=start_of_today)
     if staff is not None:
         queryset = queryset.filter(staff=staff)
 
@@ -181,7 +193,7 @@ def auto_close_stale_sessions(staff=None, now=None):
                 pk=session.pk, check_out__isnull=True).first()
             if locked is None:
                 continue
-            locked.check_out = locked.check_in + timedelta(hours=MAX_SESSION_HOURS)
+            locked.check_out = forgotten_close_time(locked, tenant)
             locked.minutes = locked.duration_minutes()
             locked.auto_checked_out = True
             locked.save(update_fields=['check_out', 'minutes', 'auto_checked_out', 'updated_at'])
@@ -189,7 +201,6 @@ def auto_close_stale_sessions(staff=None, now=None):
     return closed
 
 
-@transaction.atomic
 def check_out(staff, *, user):
     """Close the open session and write its duration.
 
@@ -197,16 +208,27 @@ def check_out(staff, *, user):
     would otherwise close the same session twice, the second one recomputing
     minutes against a check_out that had already moved.
     """
-    session = AttendanceSession.objects.select_for_update().filter(
-        staff=staff, check_out__isnull=True).first()
-    if session is None:
+    # A check-in left open from an earlier day was a forgotten check-out: it is
+    # closed at 11:59 PM that day, as the sweep and the next check-in close it
+    # -- never at "now", which counted every day since as worked (a check-out a
+    # fortnight late recorded 300+ hours). Outside the transaction below, which
+    # the refusal would otherwise roll the close back with.
+    stale = auto_close_stale_sessions(staff=staff)
+    with transaction.atomic():
+        session = AttendanceSession.objects.select_for_update().filter(
+            staff=staff, check_out__isnull=True).first()
+        if session is not None:
+            session.check_out = timezone.now()
+            session.minutes = session.duration_minutes()
+            session.save(update_fields=['check_out', 'minutes', 'updated_at'])
+            return session
+    if stale:
+        closed = to_local(stale[-1].check_out)
         raise AttendanceError(
-            f"{staff.name} is not checked in, so there is nothing to check out of.")
-
-    session.check_out = timezone.now()
-    session.minutes = session.duration_minutes()
-    session.save(update_fields=['check_out', 'minutes', 'updated_at'])
-    return session
+            f"You did not check out on {closed:%d %b}, so you were checked out "
+            f"automatically at {closed:%I:%M %p} that night. Check in to start today.")
+    raise AttendanceError(
+        f"{staff.name} is not checked in, so there is nothing to check out of.")
 
 
 def record_for_staff(staff, *, user, check_in_at, check_out_at=None, note=''):

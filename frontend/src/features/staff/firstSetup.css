@@ -1,0 +1,52 @@
+/* A new staff member's first-time setup (StaffFirstSetup.jsx). */
+.fs { position: fixed; inset: 0; z-index: 3900; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(14, 17, 9, .55); overflow-y: auto; }
+.fs-card {
+  position: relative; display: flex; flex-direction: column; gap: 10px; width: min(440px, 100%); padding: 26px 26px 22px;
+  border-radius: 20px; background: #ffffff; color: #14170f; box-shadow: 0 24px 60px -18px rgba(0, 0, 0, .45);
+}
+.fs-step { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #5b7410; }
+.fs-icon { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 14px;
+  background: color-mix(in srgb, var(--primary-color, #b9d53c) 30%, #ffffff); color: #3f5208; }
+.fs-title { margin: 2px 0 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; color: #14170f; }
+.fs-text { margin: 0; font-size: 14px; line-height: 1.5; color: #4b5145; }
+.fs-field { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+.fs-field > span { font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #4b5145; }
+.fs-field > input { min-height: 44px; }
+.fs-show { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none;
+  font: inherit; font-size: 13px; font-weight: 600; color: #5b7410; cursor: pointer; }
+.fs-error { padding: 9px 12px; border-radius: 10px; background: var(--danger-bg, #fdf2f2); color: var(--danger-color, #8a2020); font-size: 13px; }
+.fs-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; padding-top: 14px; border-top: 1px solid #eef0e8; flex-wrap: wrap; }
+.fs-skip { padding: 8px 6px; border: 0; background: none; font: inherit; font-size: 14px; font-weight: 600; color: #7a8073; cursor: pointer; border-radius: 8px; }
+.fs-skip:hover { color: #14170f; background: #f4f5ef; }
+.fs-go { display: inline-flex; align-items: center; gap: 8px; }
+
+.fs-banner {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 18px; padding: 14px 16px; border-radius: 16px;
+  border: 1.5px solid color-mix(in srgb, var(--primary-color, #b9d53c) 70%, var(--border-color));
+  background: color-mix(in srgb, var(--primary-color, #b9d53c) 9%, var(--surface-color, #fff));
+}
+.fs-banner-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 12px;
+  background: color-mix(in srgb, var(--primary-color, #b9d53c) 35%, #ffffff); color: #3f5208; }
+.fs-banner-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 260px; min-width: 0; }
+.fs-banner-text b { font-size: 16px; color: var(--text-primary); }
+.fs-banner-text > span:last-child { font-size: 13.5px; line-height: 1.45; color: var(--text-secondary); }
+.fs-banner-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+@media (max-width: 640px) {
+  .fs-card { padding: 22px 18px 18px; }
+  .fs-actions { flex-direction: column-reverse; align-items: stretch; }
+  .fs-actions .fs-go { justify-content: center; }
+  .fs-banner-actions { width: 100%; margin-left: 0; justify-content: space-between; }
+}
+
+/* My profile pulls the "Hi, <name>" chip down into the page's first row; while
+   the step 2 banner is that first row, the chip keeps a row of its own above
+   it instead of sitting on top of the banner's buttons. */
+@media (min-width: 769px) {
+  .portal-main:has(> .fs-banner) > .portal-account-bar { margin: -8px 0 14px !important; }
+}
+/* Tablets and small laptops: the buttons drop under the text, full width. */
+@media (min-width: 641px) and (max-width: 900px) {
+  .fs-banner-actions { width: 100%; margin-left: 0; justify-content: flex-end; }
+}

@@ -26,10 +26,7 @@ NEW = 'Maggam Karigar'
 def forwards(apps, schema_editor):
     Tailor = apps.get_model('crm_api', 'Tailor')
     BoutiqueSettings = apps.get_model('crm_api', 'BoutiqueSettings')
-    Todo = apps.get_model('todos', 'Todo')
-
     Tailor.objects.filter(role=OLD).update(role=NEW)
-    Todo.objects.filter(assigned_to_role=OLD).update(assigned_to_role=NEW)
 
     for settings in BoutiqueSettings.objects.all():
         fields = []
@@ -76,7 +73,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('crm_api', '0080_hemming_pressing_and_logistics_roles'),
-        ('todos', '0005_todo_location'),
     ]
 
     operations = [

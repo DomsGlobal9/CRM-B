@@ -461,6 +461,35 @@ class OrderStage(models.Model):
     def __str__(self):
         return f"{self.order.order_id} - {self.stage_name} ({self.status})"
 
+
+class StagePart(models.Model):
+    """One person's share of a step split between several people (a rush
+    blouse: Front to one tailor, Back to another, Sleeve to a third). Each part
+    is started and sent for checking on its own; the step goes for checking
+    when every part has been sent, and is approved or sent back as a whole or
+    part by part (domains/orders/stage_parts.py). A step with no parts works
+    as it always has."""
+    stage = models.ForeignKey(OrderStage, on_delete=models.CASCADE, related_name='parts')
+    label = models.CharField(max_length=60)
+    assigned_to = models.ForeignKey(
+        Tailor, on_delete=models.SET_NULL, null=True, blank=True, related_name='stage_parts')
+    status = models.CharField(max_length=50, default='NOT_STARTED')  # NOT_STARTED, IN_PROGRESS, PENDING_VERIFICATION, COMPLETED
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.IntegerField(default=0)
+    attachments = models.JSONField(default=list, blank=True)
+    comments = models.TextField(blank=True, default='')
+    voice_note = models.URLField(max_length=500, blank=True, default='')
+    verification_note = models.TextField(blank=True, default='')
+    sequence = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['sequence', 'id']
+
+    def __str__(self):
+        return f"{self.stage} - {self.label} ({self.status})"
+
+
 class OrderActivity(models.Model):
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='activities')
     event_type = models.CharField(max_length=100) # e.g. STAGE_TRANSITION, ASSIGNMENT, ALTERATION

@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
-from core.templates import SpecValidationError, validate_spec
+from core.templates import (
+    EXTRA_MEASUREMENTS, SpecValidationError, clean_extra_measurements, validate_spec,
+)
 
 from .models import (
     GarmentJob, GarmentTemplate, JobMaterial, TemplateField, TemplateFieldOption,
@@ -150,6 +152,12 @@ class GarmentJobSerializer(serializers.ModelSerializer):
         measurements = attrs.get(
             'measurements', getattr(self.instance, 'measurements', {}) or {}
         )
+        # The hand-added measurements are not template questions: checked on
+        # their own, then kept beside the template's answers.
+        measurements = dict(measurements)
+        extras, extras_error = clean_extra_measurements(measurements.pop(EXTRA_MEASUREMENTS, None))
+        if extras_error:
+            raise serializers.ValidationError({EXTRA_MEASUREMENTS: extras_error})
         combined = {**spec, **measurements}
         partial = bool(self.context.get('draft'))
         try:
@@ -165,6 +173,8 @@ class GarmentJobSerializer(serializers.ModelSerializer):
         attrs['measurements'] = {
             k: v for k, v in cleaned.items() if k in measurement_keys
         }
+        if extras:
+            attrs['measurements'][EXTRA_MEASUREMENTS] = extras
         attrs['spec'] = {k: v for k, v in cleaned.items() if k not in measurement_keys}
         return attrs
 

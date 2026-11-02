@@ -8,12 +8,10 @@ through the function that already computes it where one exists:
   orders      Order, and the 'delivered' step's completed_at (Order has no date
               of its own for delivery)
   floor work  OrderStage, narrowed to the work an order has reached by the work
-              queue's own rule (apps.todos.services._current_stages)
+              queue's own rule (_current_stages below)
   designs     DesignAssignment status and its submitted_at / reviewed_at
-  to-dos      Todo
 
-Nothing is counted twice: ProductionTask only mirrors the stages, and a to-do
-made from an order step is left out because the step itself is counted.
+Nothing is counted twice: ProductionTask only mirrors the stages.
 Completed work is credited to whoever performed it (OrderStage.performed_by),
 falling back to the assignee only when nobody was recorded.
 
@@ -25,13 +23,65 @@ from datetime import datetime, time, timedelta
 
 from django.db.models import Count, Sum
 
-from apps.todos.services import _current_stages
 from core.admin_access import tasks_for
 from core.formatting import format_money
 from core.modules import is_enabled
 from core.permissions import UNSETTLED_STATUSES
 
 from . import text as tx
+
+
+def _current_stages(stages):
+    """Only the stages an order is at now: one already begun, or one whose
+    earlier work is all done -- the rule the Work queue uses
+    (core.permissions.queue_order_ids). Later steps of the flow stay hidden
+    until the order reaches them."""
+    from crm_api.models import BoutiqueSettings, OrderStage
+    from domains.orders.workflow import (
+        SETTLED_STATUSES, for_order, is_per_garment, prerequisites)
+
+    config = BoutiqueSettings.objects.values_list(
+        'workflow_config', flat=True).filter(id=1).first() or []
+    # Each order's own step order, as the transition gate reads it: an older
+    # order keeps the sequence it was placed with even if the settings moved.
+    # ponytail: one query per order with a not-started step; fine for a day's list.
+    flows = {}
+
+    def flow_of(order):
+        if order.pk not in flows:
+            flows[order.pk] = for_order(config, order)
+        return flows[order.pk]
+    unsettled = {}
+    for order_id, key, garment_id in (
+            OrderStage.objects.filter(order_id__in={s.order_id for s in stages})
+            .exclude(status__in=SETTLED_STATUSES)
+            .values_list('order_id', 'stage_key', 'garment_job_id')):
+        unsettled.setdefault(order_id, []).append((key, garment_id))
+
+    def is_current(stage):
+        if stage.status != 'NOT_STARTED':
+            return True
+        mine = flow_of(stage.order)
+        earlier = {s['key'] for s in prerequisites(mine, stage.stage_key)}
+        # A garment's row waits on its own garment's earlier work and on the
+        # order-level stages; an order-level row waits on everything.
+        per_garment = is_per_garment(mine, stage.stage_key)
+        return not any(
+            key in earlier and (not per_garment or garment_id in (None, stage.garment_job_id))
+            for key, garment_id in unsettled.get(stage.order_id, ()))
+
+    return [s for s in stages if is_current(s)]
+
+
+def _owner_users():
+    """The boutique owner's active login(s), by the address it signed up with."""
+    from django.contrib.auth.models import User
+    from django.db import connection
+    owner_email = (getattr(connection.tenant, 'owner_email', '') or '').lower()
+    if not owner_email:
+        return []
+    return list(User.objects.filter(email__iexact=owner_email, is_active=True))
+
 
 WORKING = ('IN_PROGRESS', 'PAUSED')
 #: Pending lines listed by name in a personal summary; the rest are counted.
@@ -97,17 +147,11 @@ def _compose(boutique, day, tenant, sections, lang):
 
 def personal_work(floor, user, tailor, lang):
     """Rows for one person's own work: theirs to do, theirs waiting, theirs done."""
-    from apps.todos.models import Todo
-
     mine = [s for s in floor.open if s.assigned_to_id == tailor.id] if tailor else []
     pending = [s for s in mine if s.status != 'PENDING_VERIFICATION']
     waiting = [s for s in floor.open
                if s.status == 'PENDING_VERIFICATION' and tailor and _worker_id(s) == tailor.id]
     done = [s for s in floor.completed if tailor and _worker_id(s) == tailor.id]
-    todos = Todo.objects.filter(assigned_to=user, order_stage__isnull=True)
-    open_todos = todos.exclude(status=Todo.STATUS_CLOSED).count()
-    closed_todos = todos.filter(status=Todo.STATUS_CLOSED, closed_at__gte=floor.start,
-                                closed_at__lt=floor.end).count()
 
     rows = [
         ('Completed today (checked)', len(done)),
@@ -115,8 +159,6 @@ def personal_work(floor, user, tailor, lang):
         ('Sent back to redo', sum(1 for s in mine if floor.returned(s))),
         ('Overdue', sum(1 for s in mine if floor.overdue(s))),
         ('Pending', len(pending)),
-        ('Open to-dos', open_todos),
-        ('To-dos closed today', closed_todos),
     ]
     listed = [_line(s, lang) for s in pending[:LISTED]]
     if len(pending) > LISTED:

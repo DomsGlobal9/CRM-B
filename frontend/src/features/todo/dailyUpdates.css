@@ -1,0 +1,42 @@
+/* To-do: daily updates (DailyUpdates.jsx). */
+.du { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+
+.du-composer { display: flex; flex-direction: column; gap: 12px; }
+.du-note { width: 100%; box-sizing: border-box; resize: vertical; min-height: 84px; font: inherit; }
+.du-attachments { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.du-video-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-inset); font-size: 13px; color: var(--text-primary); }
+.du-video-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+.du-video-chip button { border: none; background: none; padding: 2px; cursor: pointer; color: var(--text-secondary); display: inline-flex; }
+.du-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.du-post { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.du-error { margin: 0; font-size: 13px; color: var(--danger-color); }
+
+.du-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.du-month { display: inline-flex; align-items: center; gap: 8px; }
+.du-month-label { min-width: 140px; text-align: center; font-weight: 600; color: var(--text-primary); }
+.du-person { min-width: 180px; max-width: 100%; }
+
+.du-empty { margin: 0; padding: 24px 16px; text-align: center; color: var(--text-secondary); border: 1px dashed var(--border-color); border-radius: var(--radius-md); }
+
+.du-day { display: flex; flex-direction: column; gap: 10px; }
+.du-day-title { margin: 6px 0 0; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+.du-card { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--surface-color, #fff); min-width: 0; }
+.du-card-head { display: flex; align-items: center; gap: 10px; }
+.du-card-who { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1; min-width: 0; font-size: 14px; color: var(--text-primary); }
+.du-role { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--surface-inset); color: var(--text-secondary); }
+.du-time { font-size: 12px; color: var(--text-secondary); }
+.du-delete { border: none; background: none; padding: 4px; cursor: pointer; color: var(--text-secondary); display: inline-flex; border-radius: var(--radius-sm, 6px); }
+.du-delete:hover { color: var(--danger-color); background: var(--danger-bg); }
+.du-text { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-primary); font-size: 14px; line-height: 1.5; }
+.du-photos { display: flex; flex-wrap: wrap; gap: 8px; }
+.du-photos a { display: block; width: 96px; height: 96px; border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border-color); }
+.du-photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.du-video { width: 100%; max-width: 420px; max-height: 320px; border-radius: var(--radius-md); background: #000; }
+
+@media (max-width: 560px) {
+  .du-post { margin-left: 0; width: 100%; justify-content: center; }
+  .du-toolbar { flex-direction: column; align-items: stretch; }
+  .du-month { justify-content: space-between; }
+  .du-person { width: 100%; }
+  .du-photos a { width: calc(33.333% - 6px); height: auto; aspect-ratio: 1; }
+}

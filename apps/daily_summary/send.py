@@ -64,7 +64,7 @@ def recipients(tenant):
     mistaken for the boutique's owner.
     """
     from apps.design_studio.models import Designer
-    from apps.todos.services import _owner_users
+    from apps.daily_summary.summary import _owner_users
     from crm_api.models import Tailor
 
     seen = set()

@@ -37,6 +37,25 @@ def record(request, kind, username, ok, boutique=''):
         logger.exception('login attempt not recorded: kind=%s user=%r', kind, username)
 
 
+def first_sign_in(username, boutique):
+    """True when this account has never signed in to this boutique before.
+
+    Read before the sign-in in hand is recorded. The app uses it to offer a
+    newly added staff member a short, skippable first-time setup (their own
+    password, their profile); anyone who has signed in before -- every
+    existing account -- answers False. On any failure: False, so a broken
+    read never puts the setup in front of somebody it is not for.
+    """
+    try:
+        with schema_context(get_public_schema_name()):
+            return not LoginAttempt.objects.filter(
+                kind='login', ok=True, username=(username or '')[:150],
+                boutique=(boutique or '')[:63]).exists()
+    except Exception:
+        logger.exception('first sign-in check failed: user=%r', username)
+        return False
+
+
 def suspicious(now=None):
     """[(key, sentence)]. The key is what the guardian remembers so one run
     is reported once, not every five minutes for an hour."""

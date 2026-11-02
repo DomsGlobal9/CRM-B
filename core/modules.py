@@ -83,11 +83,6 @@ MODULES = {
         ('/api/production/',),
         'Production tasks and QC records. No screen calls this yet.',
     ),
-    'todos': (
-        'To-do',
-        ('/api/todos/',),
-        'To-dos staff take on or are given, with photos, notes and voice notes.',
-    ),
     'activities': (
         'Activity Feed',
         ('/api/activities/',),
@@ -259,7 +254,6 @@ MODULE_GROUP = {
     'scheduling': 'operations',
     'production_api': 'operations',
     'activities': 'operations',
-    'todos': 'operations',
     'notifications': 'operations',
     'order_tracking': 'operations',
     'customer_portal': 'operations',
@@ -282,9 +276,6 @@ INFRASTRUCTURE = frozenset({
     # boutique without it cannot take an order. Employment records, attendance
     # and pay are the sellable part (Team Management), not the names.
     'tailors',
-    # Every boutique gets the to-do list; the owner can still switch it off
-    # per role.
-    'todos',
 })
 
 #: Sold separately from the plan a boutique is on.
@@ -411,6 +402,9 @@ ALWAYS_ON = (
     # endpoint's own module and role gates decide whether the note lands.
     # Gating the upload separately would only orphan the clip.
     '/api/voice-notes/',
+    # The To-do (daily updates): every role posts or reads them, and who sees
+    # whose is the endpoint's own role rule (apps/daily_updates/views.py).
+    '/api/daily-updates/',
     '/api/superadmin/',
     '/admin/',
     '/media/',
@@ -490,7 +484,7 @@ ALL_ROLES = (OWNER, DESIGNER) + PRODUCTION_ROLES
 #:    the module gate is a blunter instrument that was removing the brief along
 #:    with everything else. A tailor who cannot see the design cannot make it.
 _TAILOR = frozenset({'notifications', 'garment_catalog', 'staff',
-                     'order_tracking', 'design_studio', 'alterations', 'todos'})
+                     'order_tracking', 'design_studio', 'alterations'})
 _MASTER = _TAILOR | {'tailors', 'scheduling', 'production_api', 'activities'}
 _DESIGNER = _MASTER | {'staff_attendance'}
 _LOGISTICS = _TAILOR - {'design_studio'}

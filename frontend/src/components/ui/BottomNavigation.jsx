@@ -9,6 +9,7 @@ export function BottomNavigation({ tabs, activeTab, onChangeTab }) {
             key={tab.key}
             type="button"
             className={`mobile-bottom-nav-item ${isActive ? 'active' : ''}`}
+            data-tour={tab.key}
             onClick={() => onChangeTab(tab.key)}
           >
             <Icon size={20} />

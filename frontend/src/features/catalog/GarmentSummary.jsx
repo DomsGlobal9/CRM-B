@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { api } from '../../services/api';
-import { isVisible, isTypedOther, typedOtherText } from '../../services/templates';
+import { isVisible, isTypedOther, typedOtherText, extraMeasurements } from '../../services/templates';
 import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 
@@ -47,7 +47,7 @@ function displayValue(field, value, inventoryNames) {
     const chosen = Array.isArray(value) ? value : [value];
     if (!chosen.length) return null;
     return chosen
-      .map((v) => field.options.find((o) => o.value === v)?.label ?? v)
+      .map((v) => (isTypedOther(v) ? typedOtherText(v) : field.options.find((o) => o.value === v)?.label ?? v))
       .join(', ');
   }
 
@@ -112,13 +112,20 @@ function SectionGroup({ title, entries }) {
 function MeasurementTable({ title, entries }) {
   const cell = { padding: '10px 14px', borderTop: '1px solid var(--border-color)',
                  display: 'flex', alignItems: 'center', minWidth: 0 };
+  // The table holds the figures. Written notes ("Notes on the measurements")
+  // and recorded voice notes go under it at full width: as a row, a long
+  // note forced the value column wide and squeezed every name to one letter.
+  const isNote = ({ field, text }) => field.field_type === 'textarea' || typeof text !== 'string';
+  const rows = entries.filter((entry) => !isNote(entry));
+  const notes = entries.filter(isNote);
   return (
     <div className="garment-section">
       <div className="ui-eyebrow garment-section-title">{title}</div>
       {/* Capped like a job card: on a wide modal a full-width sheet put the
           figure a screen away from its name. Full width on a phone. */}
+      {rows.length > 0 && (
       <div role="table" aria-label={title}
-           style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto',
+           style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) fit-content(55%)',
                     width: '100%', maxWidth: '560px',
                     border: '1px solid var(--border-color)',
                     borderRadius: 'var(--radius-md, 8px)', overflow: 'hidden',
@@ -134,22 +141,41 @@ function MeasurementTable({ title, entries }) {
             Value
           </div>
         </div>
-        {entries.map(({ field, text }) => (
+        {rows.map(({ field, text }) => (
           <div role="row" key={field.key} style={{ display: 'contents' }}>
             <div role="rowheader"
                  style={{ ...cell, fontSize: 'var(--text-sm)', fontWeight: 500,
-                          color: 'var(--text-primary)', overflowWrap: 'anywhere' }}>
+                          color: 'var(--text-primary)', overflowWrap: 'break-word' }}>
               {field.label || formatKey(field.key)}
             </div>
+            {/* A figure stays on one line; a longer answer (a typed "Other")
+                wraps inside its column instead of widening the table. */}
             <div role="cell"
-                 style={{ ...cell, justifyContent: 'flex-end', fontSize: 'var(--text-md, 16px)',
+                 style={{ ...cell, justifyContent: 'flex-end', textAlign: 'right', fontSize: 'var(--text-md, 16px)',
                           fontWeight: 'var(--weight-semibold, 600)', color: 'var(--text-primary)',
-                          fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                          fontVariantNumeric: 'tabular-nums', overflowWrap: 'anywhere' }}>
               {text}
             </div>
           </div>
         ))}
       </div>
+      )}
+      {notes.map(({ field, text }) => (
+        <div key={field.key}
+             style={{ width: '100%', maxWidth: '560px', marginTop: rows.length ? 'var(--space-3, 12px)' : 0,
+                      padding: '10px 14px', border: '1px solid var(--border-color)',
+                      borderRadius: 'var(--radius-md, 8px)', background: 'var(--surface-color)',
+                      boxSizing: 'border-box', minWidth: 0 }}>
+          <div className="ui-eyebrow" style={{ fontWeight: 700, marginBottom: '6px' }}>
+            {field.label || formatKey(field.key)}
+          </div>
+          <div style={{ fontSize: 'var(--text-sm)', lineHeight: 1.5, color: 'var(--text-primary)',
+                        whiteSpace: typeof text === 'string' ? 'pre-wrap' : undefined,
+                        overflowWrap: 'anywhere' }}>
+            {text}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -180,13 +206,25 @@ export default function GarmentSummary({ jobs, onEdit, inventoryNames: providedN
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {jobs.map((job) => {
-        const sections = job.template.sections
+        // The measurements added by hand ("Add other measurement") read as
+        // rows of the Measurements section, after the template's own.
+        const extras = extraMeasurements(job.values).map((row, i) => ({
+          field: { key: `extra_measurement_${i}`, label: String(row.label ?? '').trim() },
+          text: `${String(row.value ?? '').trim()} Inches`,
+        }));
+        const withExtras = job.template.sections.some((s) => s.key === 'measurements') || !extras.length
+          ? job.template.sections
+          : [...job.template.sections, { key: 'measurements', title: 'Measurements', fields: [] }];
+        const sections = withExtras
           .map((section) => ({
             ...section,
-            answered: section.fields
-              .filter((f) => isVisible(f, job.values))
-              .map((f) => ({ field: f, text: displayValue(f, job.values[f.key], inventoryNames) }))
-              .filter((entry) => entry.text !== null),
+            answered: [
+              ...section.fields
+                .filter((f) => isVisible(f, job.values))
+                .map((f) => ({ field: f, text: displayValue(f, job.values[f.key], inventoryNames) }))
+                .filter((entry) => entry.text !== null),
+              ...(section.key === 'measurements' ? extras : []),
+            ],
           }))
           .filter((section) => section.answered.length > 0);
 

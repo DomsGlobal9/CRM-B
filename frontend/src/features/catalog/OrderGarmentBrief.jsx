@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import GarmentSummary from './GarmentSummary';
 import { isExpressJob } from '../orders/express';
+import { EXTRA_MEASUREMENTS } from '../../services/templates';
 import { SpeakButton, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import Loader from '../../components/ui/Loader';
@@ -25,7 +26,8 @@ const fallbackTemplate = (job) => ({
   sections: [
     {
       key: 'measurements', title: 'Measurements',
-      fields: Object.keys(job.measurements || {}).map((key) => ({ key, field_type: 'number', unit: 'in' })),
+      fields: Object.keys(job.measurements || {}).filter((key) => key !== EXTRA_MEASUREMENTS)
+        .map((key) => ({ key, field_type: 'number', unit: 'in' })),
     },
     {
       key: 'details', title: 'Details',

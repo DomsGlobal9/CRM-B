@@ -159,6 +159,8 @@ class RolePermission(ModuleAccess):
         # +QC Staff for fail-qc) live in the services, where a refusal also
         # explains itself.
         'reopen_stage', 'fail_qc',
+        # One person's part of a split step; the service checks it is theirs.
+        'part_transition',
     })
 
     SUPERVISOR_ORDER_ACTIONS = frozenset({
@@ -413,7 +415,9 @@ def visible_orders(queryset, user):
 
     from django.db.models import Q
     match = (Q(tailor=profile) | Q(master=profile)
-             | Q(stages__assigned_to=profile))
+             | Q(stages__assigned_to=profile)
+             # A part of a step split between several people (StagePart).
+             | Q(stages__parts__assigned_to=profile))
     queued = queue_order_ids(queryset, user, role)
     if queued:
         match |= Q(pk__in=queued)
