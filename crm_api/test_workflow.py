@@ -1430,6 +1430,142 @@ class VerificationTests(WorkflowTestBase):
             self._submit(order, "stitching_in_progress", files=[self.work_photo()])
 
 
+class MasterSignOffTests(WorkflowTestBase):
+    """A Master's own hands-on work goes to the Owner or Designer to verify;
+    another Master cannot sign it off. Desk and check stages stay one tap."""
+
+    def setUp(self):
+        super().setUp()
+        from apps.design_studio.models import Designer
+        self.designer_user = User.objects.create_user(
+            username="dee@workflow.test", email="dee@workflow.test", password="x")
+        Designer.objects.create(name="Dee", email="dee@workflow.test", user=self.designer_user)
+        self.other_master_user = User.objects.create_user(
+            username="m2@workflow.test", email="m2@workflow.test", password="x")
+        Tailor.objects.create(name="Second Master", specialty="X", role="Master",
+                              status="Available", user=self.other_master_user)
+
+    def _master_done(self, order, key, files=None, performer=None):
+        return OrderService.transition_order_stage(
+            order=order, stage_key=key, new_status="COMPLETED", user=self.master_user,
+            files=files, performer_id=performer)
+
+    def _client(self, user):
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="Token " + Token.objects.create(user=user).key,
+                           HTTP_X_TENANT_ID=self.tenant.schema_name)
+        return client
+
+    def test_a_masters_own_stitching_is_submitted_not_completed(self):
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+
+        with self.assertRaises(ValueError):
+            self._master_done(order, "stitching_in_progress")  # no photo
+
+        self._master_done(order, "stitching_in_progress", files=[self.work_photo()])
+
+        stage = self.stage(order, "stitching_in_progress")
+        self.assertEqual(stage.status, "PENDING_VERIFICATION")
+        self.assertEqual(stage.performed_by, self.master)
+        verify = Notification.objects.filter(title__startswith="Verify")
+        self.assertEqual(set(verify.values_list("recipient_role", flat=True)), {"Owner", "Designer"})
+
+    def test_no_master_may_sign_off_a_masters_submission(self):
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+        self._master_done(order, "stitching_in_progress", files=[self.work_photo()])
+
+        for user in (self.master_user, self.other_master_user):
+            with self.assertRaisesMessage(ValueError, "Owner or Designer"):
+                OrderService.transition_order_stage(
+                    order=order, stage_key="stitching_in_progress", new_status="COMPLETED", user=user)
+            with self.assertRaises(ValueError):
+                OrderService.transition_order_stage(
+                    order=order, stage_key="stitching_in_progress", new_status="IN_PROGRESS",
+                    user=user, comments="Redo")
+        self.assertEqual(self.stage(order, "stitching_in_progress").status, "PENDING_VERIFICATION")
+
+        # A fellow Master opening it is not its verifier: no tick.
+        url = reverse("order-stage-seen", args=[order.id])
+        r = self._client(self.other_master_user).post(url, {"stage_key": "stitching_in_progress"}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertIsNone(self.stage(order, "stitching_in_progress").verification_seen_at)
+
+    def test_the_designer_verifies_a_masters_work(self):
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+        self._master_done(order, "stitching_in_progress", files=[self.work_photo()])
+
+        OrderService.transition_order_stage(
+            order=order, stage_key="stitching_in_progress", new_status="COMPLETED",
+            user=self.designer_user)
+
+        stage = self.stage(order, "stitching_in_progress")
+        self.assertEqual(stage.status, "COMPLETED")
+        self.assertEqual(stage.performed_by, self.master)  # the Master keeps the credit
+
+    def test_the_owner_sends_a_masters_work_back(self):
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+        self._master_done(order, "stitching_in_progress", files=[self.work_photo()])
+
+        OrderService.transition_order_stage(
+            order=order, stage_key="stitching_in_progress", new_status="IN_PROGRESS",
+            user=self.owner, comments="Lining shows at the neck.")
+
+        stage = self.stage(order, "stitching_in_progress")
+        self.assertEqual(stage.status, "IN_PROGRESS")
+        self.assertTrue(Notification.objects.filter(
+            recipient_role="Master", message__contains="Lining shows").exists())
+
+    def test_a_master_still_signs_off_a_workers_submission(self):
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+        OrderService.transition_order_stage(
+            order=order, stage_key="stitching_in_progress", new_status="COMPLETED",
+            user=self.tailor_user, files=[self.work_photo()])
+
+        self._master_done(order, "stitching_in_progress")
+
+        self.assertEqual(self.stage(order, "stitching_in_progress").status, "COMPLETED")
+
+    def test_a_master_recording_a_tailors_work_completes_it(self):
+        order = self.make_order()
+        self.reach(order, "stitching_in_progress")
+
+        self._master_done(order, "stitching_in_progress", performer=self.tailor.id)
+
+        stage = self.stage(order, "stitching_in_progress")
+        self.assertEqual(stage.status, "COMPLETED")
+        self.assertEqual(stage.performed_by, self.tailor)
+
+    def test_desk_and_check_stages_complete_at_once_for_a_master(self):
+        order = self.make_order()
+        self.reach(order, "master_quality_check")
+        self._master_done(order, "master_quality_check")
+        self.assertEqual(self.stage(order, "master_quality_check").status, "COMPLETED")
+
+        self.reach(order, "trial_scheduled")
+        self._master_done(order, "trial_scheduled")
+        self.assertEqual(self.stage(order, "trial_scheduled").status, "COMPLETED")
+
+    def test_the_rules_read_the_stage_roles(self):
+        from domains.orders import workflow
+        stitching = {"key": "stitching_in_progress", "roles": ["Owner", "Master", "Tailor"]}
+        trial = {"key": "trial_scheduled", "roles": ["Owner", "Master"]}
+        qc = {"key": "master_quality_check", "roles": ["Owner", "Master", "QC Staff"]}
+        self.assertTrue(workflow.submits_for_sign_off("Master", "Master", stitching))
+        self.assertFalse(workflow.submits_for_sign_off("Master", "Tailor", stitching))
+        self.assertFalse(workflow.submits_for_sign_off("Master", "Master", trial))
+        self.assertFalse(workflow.submits_for_sign_off("Master", "Master", qc))
+        self.assertTrue(workflow.submits_for_sign_off("Tailor", "Tailor", stitching))
+        self.assertTrue(workflow.submits_for_sign_off("Maggam Karigar", "Maggam Karigar",
+                                                      {"key": "maggam_handwork", "roles": ["Maggam Karigar"]}))
+        self.assertFalse(workflow.submits_for_sign_off("Designer", "Designer", stitching))
+        self.assertFalse(workflow.submits_for_sign_off("Owner", "Master", stitching))
+
+
 class NotificationBellTests(WorkflowTestBase):
 
 

@@ -8,6 +8,7 @@ import { orderRef, formatDate, formatDateTime } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { inventoryImage } from '../../services/inventoryImages';
 import { imageFilesError } from '../../services/validate';
+import { maySignOff, submitsForSignOff } from '../../services/signOff';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { ASSIGN_ONLY_TO } from '../../constants/roles';
 import { extraMeasurements } from '../../services/templates';
@@ -230,7 +231,10 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     || (rolesFor(s.stage_key).includes(currentUser?.role) && s.assigned_to == null
         && (order.tailor === me || order.master === me || currentUser?.role !== 'Tailor'));
   // On My work a supervisor sees every Workshop order's work, whoever holds it.
-  const isListed = (order, s) => isMine(order, s) || (view === 'open' && isSupervisor && inWorkshop(order));
+  // A Designer's step is not shown to the Master: the Designer ranks above them.
+  const isDesignerStep = (s) => s.assigned_to_role === 'Designer' || s.performed_by_role === 'Designer';
+  const isListed = (order, s) => isMine(order, s) || (view === 'open' && isSupervisor && inWorkshop(order)
+    && !(currentUser?.role === 'Master' && isDesignerStep(s)));
   // Earlier work on this garment (and the order-level stages) must be finished.
   const isReady = (order, s) => (order.stages || []).every((o) => o.sequence >= s.sequence || FINISHED.includes(o.status)
     || (o.garment_job && s.garment_job && o.garment_job !== s.garment_job));
@@ -242,7 +246,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     orders.forEach((order) => {
       (order.stages || []).forEach((stage) => {
         if (view === 'check') {
-          if (isOpenOrder(order) && stage.status === 'PENDING_VERIFICATION') out.push({ order, stage, at: submittedAt(order, stage) });
+          if (isOpenOrder(order) && stage.status === 'PENDING_VERIFICATION' && maySignOff(currentUser?.role, stage)) out.push({ order, stage, at: submittedAt(order, stage) });
           return;
         }
         // A step split between several people: a worker's jobs are their own
@@ -265,7 +269,11 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
         if (view === 'done') { if (finished) out.push({ order, stage, at: stage.completed_at || stage.started_at }); return; }
         if (finished || !isOpenOrder(order)) return;
         if (stage.status === 'IN_PROGRESS') out.push({ order, stage, group: 'now' });
-        else if (stage.status === 'PENDING_VERIFICATION') { if (!isSupervisor) out.push({ order, stage, group: 'waiting' }); }
+        // A Master's own submission waits for the Owner or Designer, so it
+        // sits in their Waiting group like a worker's does.
+        else if (stage.status === 'PENDING_VERIFICATION') {
+          if (!isSupervisor || (stage.performed_by === me && !maySignOff(currentUser?.role, stage))) out.push({ order, stage, group: 'waiting' });
+        }
         else if (isReady(order, stage)) out.push({ order, stage, group: 'next' });
         else notReady += 1;
       });
@@ -549,6 +557,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
                    part={current.part} workflowConfig={workflowConfig}
                    mode={view === 'check' ? 'check' : view === 'done' ? 'read' : 'work'}
                    isSupervisor={isSupervisor} me={me} stageRoles={rolesFor(current.stage.stage_key)}
+                   submits={submitsForSignOff(currentUser?.role, currentUser?.role, current.stage.stage_key, rolesFor(current.stage.stage_key))}
                    tailors={tailors} fabricTaxonomy={fabricTaxonomy}
                    onClose={() => setOpen(null)} onDone={done} onSaved={refreshed} />
       )}
@@ -633,7 +642,7 @@ function AssignTo({ order, stage, me, stageRoles, onDone }) {
 
 /* ------------------------------------------------------------------ */
 
-function JobScreen({ order, stage: step, part = null, workflowConfig = [], mode, isSupervisor, me, stageRoles, fabricTaxonomy, onClose, onDone, onSaved }) {
+function JobScreen({ order, stage: step, part = null, workflowConfig = [], mode, isSupervisor, submits, me, stageRoles, fabricTaxonomy, onClose, onDone, onSaved }) {
   // One person's part of a split step: the step as they work it -- their
   // status, their photos, what was sent back to them.
   const stage = part
@@ -835,7 +844,7 @@ function JobScreen({ order, stage: step, part = null, workflowConfig = [], mode,
     if (['NOT_STARTED', 'PAUSED'].includes(stage.status)) {
       actions = <StartForm stage={stage} busy={busy} error={error} save={save} />;
     } else if (stage.status === 'IN_PROGRESS') {
-      actions = <SubmitForm stage={stage} busy={busy} error={error} isSupervisor={isSupervisor} save={save} />;
+      actions = <SubmitForm stage={stage} busy={busy} error={error} submits={submits} toLeads={isSupervisor} save={save} />;
     } else if (stage.status === 'PENDING_VERIFICATION') {
       actions = <NoteForm busy={busy} error={error} stage={stage} save={save} />;
     }
@@ -881,9 +890,10 @@ function JobScreen({ order, stage: step, part = null, workflowConfig = [], mode,
               {t('workPage.from', 'From')}:{' '}
               <b>{fromName ? `${fromName}${fromRole ? ` · ${fromRole}` : ''}` : t('workPage.theMaster', 'the Master')}</b>
             </small>
-            {/* Send to: only for the worker who sends the step for checking --
-                a Master or Designer marks it done themselves, so they get none. */}
-            {mode === 'work' && !isSupervisor && (
+            {/* Send to: only for whoever sends the step for checking -- a
+                worker to the Master, a Master's own work to the Owner or
+                Designer. Work marked done outright gets none. */}
+            {mode === 'work' && submits && (
               <small className="wk-sheet-assignee wk-sheet-route">
                 {t('workPage.sendTo', 'Send to')}:{' '}
                 <b>{order.master_name || t('workPage.theMaster', 'the Master')} · {t('workPage.master', 'Master')}</b> {t('workPage.toCheck', 'to check')}{nextStep ? ' · ' : ''}
@@ -972,8 +982,9 @@ function StageVoiceNote({ stage, busy, text, save, onRecordingChange, onTextSent
   );
 }
 
-/* Photos + optional note, then "Send for checking" (worker) or "Mark done" (supervisor). */
-function SubmitForm({ stage, busy, error, isSupervisor, save }) {
+/* Photos + optional note, then "Send for checking" (work that is checked:
+   a worker's, or a Master's own) or "Mark done" (everything else). */
+function SubmitForm({ stage, busy, error, submits, toLeads, save }) {
   const { t } = useLanguage();
   const [photos, setPhotos] = useState([]); // File[]
   const [text, setText] = useState('');
@@ -988,14 +999,16 @@ function SubmitForm({ stage, busy, error, isSupervisor, save }) {
     if (!err) setPhotos(all);
   };
 
-  const needPhoto = !isSupervisor && photos.length === 0;
-  const label = isSupervisor ? t('workPage.markDone', 'Mark done')
+  const needPhoto = submits && photos.length === 0;
+  const label = !submits ? t('workPage.markDone', 'Mark done')
     : stage.verification_note ? t('workPage.fixAndSend', 'Fix & send again') : t('workPage.sendForChecking', 'Send for checking');
 
   const submit = () => {
     if (recording) { setProblem(t('workPage.stopRecording', 'Stop the recording first.')); return; }
     save('COMPLETED', text, photos, null,
-      isSupervisor ? t('workPage.doneToast', 'Marked done.') : t('workPage.sentToast', 'Sent for checking.'));
+      !submits ? t('workPage.doneToast', 'Marked done.')
+        : toLeads ? t('workPage.sentToLeadsToast', 'Sent to the Owner or Designer for checking.')
+        : t('workPage.sentToast', 'Sent for checking.'));
   };
 
   return (

@@ -15,6 +15,10 @@ class UniversalActivityViewSet(viewsets.ReadOnlyModelViewSet):
             return UniversalActivity.objects.none()
 
         qs = super().get_queryset()
+        # A Designer's work is not shown below them: the Master reads the
+        # feed without the design studio and without anything a Designer did.
+        if role == 'Master':
+            qs = qs.exclude(module='design_studio').exclude(user__designer_profile__isnull=False)
         module = self.request.query_params.get('module')
         entity_type = self.request.query_params.get('entity_type')
         entity_id = self.request.query_params.get('entity_id')

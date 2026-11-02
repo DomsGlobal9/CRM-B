@@ -288,11 +288,15 @@ def notify_voice_note(order, stage, sender_user, *, sender_name=''):
 
 
 def notify_verification(order, stage, *, submitted):
-    """Submitted: tell the owner, Designer and Master there is work to verify.
-    Sent back: tell the worker who did it, with the supervisor's note."""
+    """Submitted: tell the owner, Designer and Master there is work to verify
+    (only the Owner and Designer for a Master's own work, which another Master
+    cannot sign off). Sent back: tell the worker who did it, with the note."""
     if submitted:
         who = stage.performed_by.name if stage.performed_by else 'A worker'
-        for role in ('Owner', 'Designer', 'Master'):
+        from domains.orders.workflow import submitted_by_master
+        verifiers = (('Owner', 'Designer') if submitted_by_master(stage)
+                     else ('Owner', 'Designer', 'Master'))
+        for role in verifiers:
             Notification.objects.create(
                 title=f"Verify {stage.stage_name}: {order.reference}",
                 message=(f"{who} has submitted {stage.stage_name} on order "
