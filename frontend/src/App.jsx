@@ -92,7 +92,7 @@ function getCustomerMeasurement(m, key) {
   if (flat[key] !== undefined && flat[key] !== null && flat[key] !== '') return flat[key];
 
   const ALIASES = {
-    chest: ['bust', 'upper_chest'],
+    chest: ['bust'],
     bust: ['chest', 'upper_chest'],
     hip: ['hips', 'hip_round'],
     hips: ['hip', 'hip_round'],
@@ -103,8 +103,8 @@ function getCustomerMeasurement(m, key) {
     lehenga_waist: ['waist'],
     pant_waist: ['waist'],
     full_length: ['length', 'bottom_full_length', 'pant_length', 'lehenga_length'],
-    floor_length: ['waist_to_floor', 'length', 'lehenga_length'],
-    waist_to_floor: ['floor_length', 'length'],
+    floor_length: ['waist_to_floor'],
+    waist_to_floor: ['floor_length'],
     neck: ['neck_circumference', 'collar_neck'],
     neck_circumference: ['neck', 'collar_neck'],
     full_sleeve_length: ['sleeve_length'],
@@ -192,6 +192,7 @@ const MEASURE_KEYS = {
   upper_arm: 'upper_arm', bicep: 'upper_arm', elbow: 'elbow', wrist: 'wrist',
   shoulder_to_bust: 'shoulder_to_bust', shoulder_to_waist: 'shoulder_to_waist',
   waist_to_hip: 'waist_to_hip', waist_to_floor: 'waist_to_floor', floor_length: 'waist_to_floor',
+  full_sleeve_length: 'sleeve_length',
   crotch: 'rise', thigh: 'thigh', knee: 'knee', calf: 'calf', ankle: 'ankle',
   inseam: 'inseam', outseam: 'outseam',
 };

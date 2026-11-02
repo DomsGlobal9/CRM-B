@@ -33,6 +33,21 @@ const MORE = {
 };
 const label = (key) => key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
+// The Blouse's and Lehenga Blouse's order-form measurements, in the order
+// form's order and names (apps/catalog/definitions.py). Stored under the keys
+// the order form fills itself from: Chest is the sheet's bust, Full Sleeve
+// Length its sleeve_length.
+const BLOUSE_STEPS = [
+  ['Lengths & chest', ['blouse_length', 'upper_chest', 'bust', 'waist', 'armhole']],
+  ['Shoulders & arm', ['front_shoulder', 'back_shoulder', 'upper_arm', 'elbow_length', 'elbow_round']],
+  ['Sleeve', ['short_sleeve_length', 'short_hand_round', 'sleeve_length', 'full_sleeves_round']],
+  ['Neck', ['collar_neck']],
+];
+const BLOUSE_LABELS = {
+  bust: 'Chest', upper_arm: 'Bicep', short_hand_round: 'Short Sleeve Round',
+  sleeve_length: 'Full Sleeve Length', full_sleeves_round: 'Full Sleeve Round', collar_neck: 'Collar Round',
+};
+
 const MEASUREMENT_ZONES = [
   {
     id: 'core',
@@ -46,10 +61,20 @@ const MEASUREMENT_ZONES = [
               front_neck_depth: 'Front Neck', back_neck_depth: 'Back Neck' },
     other: true,
   },
+  // Blouse and Lehenga Blouse ask the same measurements: one section, with
+  // exactly the order form's.
+  {
+    id: 'blouse',
+    label: 'Blouse & Lehenga Blouse',
+    garments: 'Blouse, Lehenga Blouse',
+    other: true,
+    steps: BLOUSE_STEPS,
+    labels: BLOUSE_LABELS,
+  },
   {
     id: 'upper_body',
-    label: 'Blouse, Kurti & Tops',
-    garments: 'Blouse, Kurti, Suit, Shirt, Sherwani, Jacket',
+    label: 'Kurti & Tops',
+    garments: 'Kurti, Suit, Shirt, Sherwani, Jacket, Anarkali, Gown',
     other: true,
     // In the order a tailor takes them, top to bottom. Every earlier box is
     // still here; four sleeve boxes only carry clearer names, four are new.
@@ -73,8 +98,8 @@ const MEASUREMENT_ZONES = [
   },
   {
     id: 'lehenga_gown',
-    label: 'Lehenga, Skirt & Gown',
-    garments: 'Lehenga, Petticoat, Skirt, Anarkali, Gown',
+    label: 'Lehenga & Skirt',
+    garments: 'Lehenga, Petticoat, Skirt',
     other: true,
     // The lengths down the leg, then the waist (with the hip round -- the
     // same box the Pants section reads), then the flare. Floor length,
