@@ -2921,6 +2921,9 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 'tailoring_charges': component_totals['tailoring'],
                 'packaging_handling': money(prices.get('packaging')),
                 'discount': money(prices.get('discount')),
+                # GST as the counter entered it: a % of the subtotal or an amount.
+                'gst_mode': prices.get('gst_mode') or 'percent',
+                'gst_value': money(prices.get('gst_value')),
                 # Neutral: apply_advance decides once the total is final.
                 'payment_status': 'Pending',
                 'custom_requirements': special_instructions,

@@ -529,10 +529,12 @@ class OrderService:
         del components['discount'], components['packaging_handling']
 
         from . import pricing
+        gst_mode = data.get('gst_mode') or 'percent'
+        gst_value = pricing.to_money(data.get('gst_value'))
         _, taxes_dec, total_dec = pricing.totals_from_amounts(
             {k: pricing.to_money(v) for k, v in components.items()},
             pricing.to_money(packaging_handling),
-            pricing.to_money(discount))
+            pricing.to_money(discount), gst_mode, gst_value)
         taxes = float(taxes_dec)
         total_amount = float(total_dec)
 
@@ -577,6 +579,8 @@ class OrderService:
             tailoring_charges=tailoring_charges,
             packaging_handling=packaging_handling,
             discount=discount,
+            gst_mode=gst_mode,
+            gst_value=gst_value,
             taxes=taxes,
             total_amount=total_amount,
             estimated_delivery=est_delivery,

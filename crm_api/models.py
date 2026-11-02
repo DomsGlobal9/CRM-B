@@ -356,6 +356,10 @@ class Order(models.Model):
     tailoring_charges = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     packaging_handling = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    #: GST as the boutique entered it on the order: a percentage of the
+    #: subtotal, or a fixed amount. 0 unless they add it (domains.orders.pricing).
+    gst_mode = models.CharField(max_length=10, default='percent')
+    gst_value = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     taxes = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     advance_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)

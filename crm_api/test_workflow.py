@@ -456,7 +456,8 @@ class OrderCreationTests(WorkflowTestBase):
         order = OrderService.create_order_for_customer(
             customer,
             {"base_price": 1000, "fabric_price": 500, "embroidery_price": 200,
-             "customization_price": 100, "tailoring_charges": 100, "packaging_handling": 100},
+             "customization_price": 100, "tailoring_charges": 100, "packaging_handling": 100,
+             "gst_value": 5},
             user=self.owner,
         )
         self.assertEqual(float(order.taxes), 100.0)

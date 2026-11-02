@@ -41,8 +41,8 @@ class PricingTestBase(TenantTestCase):
         return api
 
     MINIMAL_SPECS = {
-        'blouse': {'blouse_type': 'princess'},
-        'lehenga': {'lehenga_type': 'a_line'},
+        'blouse': {'blouse_type': 'princess', 'trial_required': False},
+        'lehenga': {'lehenga_type': 'a_line', 'trial_required': False},
     }
     MINIMAL_MEASUREMENTS = {
         'blouse': {'chest': '35', 'waist': '29'},
@@ -83,16 +83,37 @@ class PricingTestBase(TenantTestCase):
 class ArithmeticTests(TenantTestCase):
 
 
-    def test_tax_is_five_percent_after_discount(self):
+    def test_no_gst_unless_the_boutique_adds_it(self):
         subtotal, taxes, total = pricing.totals_from_amounts(
             {'base_price': Decimal('1000')}, Decimal('0'), Decimal('200'))
+        self.assertEqual(subtotal, Decimal('800'))
+        self.assertEqual(taxes, Decimal('0.00'))
+        self.assertEqual(total, Decimal('800'))
+
+    def test_gst_as_an_amount_is_added_as_entered(self):
+        _, taxes, total = pricing.totals_from_amounts(
+            {'base_price': Decimal('1000')}, Decimal('0'), Decimal('0'), 'amount', Decimal('75'))
+        self.assertEqual(taxes, Decimal('75.00'))
+        self.assertEqual(total, Decimal('1075.00'))
+
+    def test_gst_over_a_hundred_percent_or_negative_is_refused(self):
+        with self.assertRaises(ValueError):
+            pricing.totals_from_amounts(
+                {'base_price': Decimal('1000')}, Decimal('0'), Decimal('0'), 'percent', Decimal('101'))
+        with self.assertRaises(ValueError):
+            pricing.totals_from_amounts(
+                {'base_price': Decimal('1000')}, Decimal('0'), Decimal('0'), 'amount', Decimal('-1'))
+
+    def test_tax_is_five_percent_after_discount(self):
+        subtotal, taxes, total = pricing.totals_from_amounts(
+            {'base_price': Decimal('1000')}, Decimal('0'), Decimal('200'), 'percent', Decimal('5'))
         self.assertEqual(subtotal, Decimal('800'))
         self.assertEqual(taxes, Decimal('40.00'))
         self.assertEqual(total, Decimal('840.00'))
 
     def test_tax_rounds_half_up_to_the_paisa(self):
         _, taxes, _ = pricing.totals_from_amounts(
-            {'base_price': Decimal('333.33')}, Decimal('0'), Decimal('0'))
+            {'base_price': Decimal('333.33')}, Decimal('0'), Decimal('0'), 'percent', Decimal('5'))
         self.assertEqual(taxes, Decimal('16.67'))
 
     def test_discount_beyond_the_goods_is_refused(self):
@@ -115,7 +136,7 @@ class MultiGarmentPricingTests(PricingTestBase):
         draft = self.a_draft([
             self.garment(self.blouse, base=4000, tailoring=1500),
             self.garment(self.lehenga, base=32000, embroidery=7500),
-        ])
+        ], prices={'gst_mode': 'percent', 'gst_value': 5})
         response = self.confirm(draft)
         self.assertEqual(response.status_code, 201, response.data)
 
@@ -173,7 +194,7 @@ class MultiGarmentPricingTests(PricingTestBase):
     def test_zero_priced_optional_work_is_a_real_zero(self):
         draft = self.a_draft([
             self.garment(self.blouse, base=3000, embroidery=0),
-        ])
+        ], prices={'gst_mode': 'percent', 'gst_value': 5})
         self.confirm(draft)
         order = Order.objects.get()
         job = order.garment_jobs.get()
@@ -185,7 +206,7 @@ class MultiGarmentPricingTests(PricingTestBase):
         draft = self.a_draft(
             [self.garment(self.blouse, base=4000),
              self.garment(self.lehenga, base=32000)],
-            prices={'packaging': 500, 'discount': 2500})
+            prices={'packaging': 500, 'discount': 2500, 'gst_mode': 'percent', 'gst_value': 5})
         self.confirm(draft)
         order = Order.objects.get()
         self.assertEqual(order.discount, Decimal('2500.00'))
@@ -197,7 +218,7 @@ class MultiGarmentPricingTests(PricingTestBase):
         draft = self.a_draft([
             self.garment(self.blouse, base=1000),
             self.garment(self.lehenga, base=2000),
-        ])
+        ], prices={'gst_mode': 'percent', 'gst_value': 5})
         self.confirm(draft)
         order = Order.objects.get()
         self.assertEqual(order.taxes, Decimal('150.00'))
@@ -339,7 +360,8 @@ class ManipulationTests(PricingTestBase):
     def test_client_supplied_taxes_and_total_are_ignored(self):
         garments = [self.garment(self.blouse, base=4000)]
         draft = self.a_draft(garments,
-                             prices={'taxes': 1, 'total': 1, 'total_amount': 1})
+                             prices={'taxes': 1, 'total': 1, 'total_amount': 1,
+                                     'gst_mode': 'percent', 'gst_value': 5})
         self.confirm(draft)
         order = Order.objects.get()
         self.assertEqual(order.taxes, Decimal('200.00'))

@@ -2112,7 +2112,8 @@ function App() {
   // The wizard's voice notes for the tailor: up to ten, [{ url, by, at }].
   const [measureVoiceNotes, setMeasureVoiceNotes] = useState([]);
 
-  const [quotePrices, setQuotePrices] = useState({ packaging: 500, discount: 0 });
+  // GST: none unless the counter adds it, as a % of the subtotal or an amount.
+  const [quotePrices, setQuotePrices] = useState({ packaging: 500, discount: 0, gst_mode: 'percent', gst_value: 0 });
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   // The invoice's Send on WhatsApp: { orderId, state, error, url } for the
   // order it was pressed on (state: sending | sent | retrying | failed |
@@ -2536,7 +2537,8 @@ function App() {
     if (design.source) setDesignSource(design.source);
     setSelectedDesignTemplates(design.templates || []);
     if (prices) setQuotePrices({ packaging: prices.packaging ?? 500,
-                                 discount: prices.discount ?? 0 });
+                                 discount: prices.discount ?? 0,
+                                 gst_mode: prices.gst_mode || 'percent', gst_value: prices.gst_value ?? 0 });
     if (payment.advance !== undefined) setAdvancePaymentAmount(payment.advance);
     setSpecialInstructions(payload.special_instructions || '');
     // A draft saved before there could be several keeps its one note.
@@ -3480,7 +3482,7 @@ function App() {
     setGarmentErrors({});
     setActiveGarmentKey(null);
     setGarmentsDone([]);
-    setQuotePrices({ packaging: 500, discount: 0 });
+    setQuotePrices({ packaging: 500, discount: 0, gst_mode: 'percent', gst_value: 0 });
     setAdvancePaymentAmount(0);
     setSpecialInstructions('');
     setMeasureVoiceNotes([]);
@@ -4185,8 +4187,11 @@ function App() {
     return garments + packaging - discount;
   };
 
+  // The same sum the server makes (domains/orders/pricing.py gst_amount).
   const getTaxes = () => {
-    return getSubtotal() * 0.05;
+    const value = parseFloat(quotePrices.gst_value || 0);
+    if (!(value > 0)) return 0;
+    return quotePrices.gst_mode === 'amount' ? value : (getSubtotal() * value) / 100;
   };
 
   const getTotalPrice = () => {
@@ -9765,8 +9770,23 @@ function App() {
                                value={quotePrices.discount || ''} placeholder="0" onChange={(e) => setQuotePrices({ ...quotePrices, discount: cleanAmount(e.target.value) })} />
                       </div>
                     </div>
+                    <div className="wz-money-row">
+                      <label htmlFor="wz-gst" className="wz-money-label">{t('wizard.gstInput', 'GST')} <span className="od-hint">({t('common.optional', 'optional')})</span></label>
+                      <div className="wz-money-input">
+                        <select className="form-control" aria-label={t('wizard.gstAs', 'GST as')} style={{ width: '64px', textAlign: 'left' }}
+                                value={quotePrices.gst_mode || 'percent'}
+                                onChange={(e) => setQuotePrices({ ...quotePrices, gst_mode: e.target.value,
+                                  gst_value: cleanAmount(quotePrices.gst_value, { max: e.target.value === 'amount' ? LIMITS.amount : 100 }) })}>
+                          <option value="percent">%</option>
+                          <option value="amount">₹</option>
+                        </select>
+                        <input id="wz-gst" type="number" min="0" max={quotePrices.gst_mode === 'amount' ? LIMITS.amount : 100} step="0.01" inputMode="decimal" className="form-control"
+                               value={quotePrices.gst_value || ''} placeholder="0"
+                               onChange={(e) => setQuotePrices({ ...quotePrices, gst_value: cleanAmount(e.target.value, { max: quotePrices.gst_mode === 'amount' ? LIMITS.amount : 100 }) })} />
+                      </div>
+                    </div>
                     <div className="wz-money-total">
-                      <div><span>{t('wizard.gst', 'GST 5%')}</span><strong>{inr(getTaxes())}</strong></div>
+                      <div><span>{quotePrices.gst_mode !== 'amount' && parseFloat(quotePrices.gst_value || 0) > 0 ? `GST ${parseFloat(quotePrices.gst_value)}%` : 'GST'}</span><strong>{inr(getTaxes())}</strong></div>
                       <div className="wz-money-grand"><span>{t('wizard.total', 'Total')}</span><strong>{inr(getTotalPrice())}</strong></div>
                     </div>
                     <div className="wz-money-row">

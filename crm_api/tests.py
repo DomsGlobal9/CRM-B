@@ -231,7 +231,8 @@ class BoutiqueCRMTests(TenantTestCase):
             "embroidery_price": 200.00,
             "customization_price": 100.00,
             "tailoring_charges": 0.00,
-            "packaging_handling": 0.00
+            "packaging_handling": 0.00,
+            "gst_value": 5,
         }
         response = self.client.post(url, data, format='json')
         

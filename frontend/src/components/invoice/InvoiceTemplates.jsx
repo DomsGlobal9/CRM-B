@@ -122,6 +122,8 @@ export const normalizeInvoiceData = (order, boutiqueSettings, currentUser) => {
     discount: discount,
     subtotal: subtotal,
     taxes: taxes,
+    // "Tax (12%)" for a percentage, "Tax" for an amount the counter entered.
+    taxLabel: order.gst_mode !== 'amount' && Number(order.gst_value) > 0 ? `Tax (${Number(order.gst_value)}%)` : 'Tax',
     totalAmount: totalAmount,
     amountPaid: amountPaid,
     balanceDue: balanceDue,
@@ -236,7 +238,7 @@ export const ClassicInvoiceTemplate = ({ data }) => {
           </div>
           {data.taxes > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#52525b' }}>
-              <span>Tax (5%)</span>
+              <span>{data.taxLabel}</span>
               <span style={{ fontWeight: 600 }}>{formatMoney(data.taxes)}</span>
             </div>
           )}
@@ -405,7 +407,7 @@ export const ModernInvoiceTemplate = ({ data }) => {
           </div>
           {data.taxes > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', padding: '3px 0' }}>
-              <span>Tax (5%)</span>
+              <span>{data.taxLabel}</span>
               <span>{formatMoney(data.taxes)}</span>
             </div>
           )}
