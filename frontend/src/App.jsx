@@ -2771,26 +2771,16 @@ function App() {
   // A Getting started item's hands-on guide ({ key, label }), while it runs.
   const [taskGuide, setTaskGuide] = useState(null);
   useEffect(() => {
-    // Only on a page without a guide of its own (the Dashboard); every other
-    // page opens its own guide instead.
+    // The guide opens by itself once: after the person's first sign-in, on
+    // whichever page they land. It is marked seen as it opens, so leaving it
+    // half way or reloading does not bring it back. Each page's own guide
+    // opens only from "Guide for this page" in the account menu.
     if (view !== 'dashboard' || !currentUser || loading || tourOpen || taskGuide || staffSetup || tourSeen(currentUser)) return undefined;
-    if (hasPageTour(dashboardTab, currentUser.role)) return undefined;
-    const timer = setTimeout(() => setTourOpen(true), 700);
+    const timer = setTimeout(() => { markTourSeen(currentUser); setTourOpen(true); }, 700);
     return () => clearTimeout(timer);
     // Only these: reopening it on every render after it is closed would be wrong.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, staffSetup]);
-  // Each page's own tour: the first time the page is opened, once the
-  // workspace tour has been seen (or skipped), and never on top of it.
-  useEffect(() => {
-    // An unfinished guide left behind on another page does not hold this one up.
-    if (view !== 'dashboard' || !currentUser || loading || tourOpen || pageTour === dashboardTab || taskGuide || staffSetup) return undefined;
-    if (!hasPageTour(dashboardTab, currentUser.role) || tourSeen(currentUser, dashboardTab) || pageTourEmpty.current.has(dashboardTab)) return undefined;
-    // A moment for the page to draw its parts before the tour looks for them.
-    const timer = setTimeout(() => setPageTour(dashboardTab), 900);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, tourOpen, pageTour, taskGuide, staffSetup]);
   // Step 2 is the My profile page: leaving it for another page ends the setup.
   useEffect(() => {
     if (staffSetup !== 'profile' || dashboardTab === 'account') return undefined;
