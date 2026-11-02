@@ -2809,7 +2809,6 @@ function App() {
   const [activeReviewOrder, setActiveReviewOrder] = useState(null);
   const [stageReviewComments, setStageReviewComments] = useState('');
   
-  const [stageReviewMicKick, setStageReviewMicKick] = useState(0);
   
   const [stageReviewImages, setStageReviewImages] = useState([]);
   
@@ -10874,13 +10873,12 @@ Complete the Payment stage with this partial payment?`)) return;
                     which squeezed the textarea to a few characters wide. */}
                 <div className="at-field">
                 <Field label="Comments / Fitting Logs">
-                  <VoiceTextarea
+                  <textarea
                     className="form-control"
                     placeholder="Enter notes, alterations details, or comments..."
                     maxLength={LIMITS.note}
                     value={stageReviewComments}
                     onChange={(e) => setStageReviewComments(e.target.value)}
-                    onMic={() => setStageReviewMicKick((k) => k + 1)}
                   />
                 </Field>
                   {/* The voice note proper: recorded on its own (nothing is
@@ -10889,7 +10887,6 @@ Complete the Payment stage with this partial payment?`)) return;
                       text is in the box -- or Delete throws it away. */}
                   <VoiceRecorder
                     disabled={stageTransitionBusy}
-                    startToken={stageReviewMicKick}
                     onRecordingChange={setStageReviewRecording}
                     sent={stage.voice_note ? { url: stage.voice_note, by: stage.voice_note_by, at: stage.voice_note_at } : null}
                     onSend={async (blob) => {
@@ -10969,7 +10966,7 @@ Complete the Payment stage with this partial payment?`)) return;
                 </div>
               );
             })()}
-            <VoiceTextarea
+            <textarea
               className="form-control"
               rows={3}
               autoFocus
