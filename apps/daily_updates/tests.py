@@ -12,6 +12,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 from PIL import Image
+from rest_framework.test import APIClient
 
 from apps.design_studio.models import Designer
 from apps.staff.attendance import business_date
@@ -110,7 +111,10 @@ class PostingTests(DailyUpdateTestCase):
         self.assertFalse(DailyUpdate.objects.exists())
 
     def test_signed_out_is_refused(self):
-        self.assertIn(self.client.post(URL, {'note': 'x'}).status_code, (401, 403, 404))
+        anonymous = APIClient()
+        anonymous.credentials(HTTP_X_TENANT_ID=self.tenant.schema_name)
+        self.assertIn(anonymous.post(URL, {'note': 'x'}).status_code, (401, 403))
+        self.assertFalse(DailyUpdate.objects.exists())
 
 
 class ReadingTests(DailyUpdateTestCase):
