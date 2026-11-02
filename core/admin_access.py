@@ -140,6 +140,12 @@ ACTION_TASKS = {
     ('customer', 'delete_all'): ('customers.delete',),
 
     # ---- Design Studio -------------------------------------------------------
+    # Photos the order wizard stores the moment they are chosen -- the customer's
+    # fabric, a reference picture, a design kept from the web search -- so the
+    # draft can carry their URLs. Whoever takes orders adds them, not only the
+    # owner: without these, a Designer or Master taking an order was refused.
+    ('ReferenceUploadView', 'POST'): ('orders.create', 'design.upload'),
+    ('WebDesignKeepView', 'POST'): ('orders.create', 'design.upload'),
     **_each('design-asset', ('update', 'partial_update', 'destroy'), ('design.upload',)),
     **_each('boutique-design', _CRUD_WRITES + ('upload_image',), ('design.upload',)),
     ('design-asset', 'review'): ('design.approve',),

@@ -48,6 +48,55 @@ class ReferenceUploadTests(TenantTestCase):
                                     {}, format='multipart')
         self.assertEqual(response.status_code, 400, response.content)
 
+    # ---- who may add a photo while taking an order --------------------------
+
+    def _staff(self, role, email):
+        """A Designer or a Master, signed in."""
+        user = User.objects.create_user(username=email, email=email, password="pw")
+        if role == 'Designer':
+            from apps.design_studio.models import Designer
+            Designer.objects.create(name=email, email=email, user=user)
+        else:
+            from crm_api.models import Tailor
+            Tailor.objects.create(name=email, specialty="x", role=role, user=user)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION='Token ' + Token.objects.create(user=user).key,
+                           HTTP_X_TENANT_ID=self.tenant.schema_name)
+        return client
+
+    def _hand(self, roles):
+        from crm_api.models import BoutiqueSettings
+        config, _ = BoutiqueSettings.objects.get_or_create(id=1)
+        config.admin_access = {'roles': roles}
+        config.save()
+
+    def _upload(self, client):
+        image = SimpleUploadedFile('fabric.png', PNG, content_type='image/png')
+        return client.post('/api/design-studio/reference-upload/', {'image': image}, format='multipart')
+
+    def test_whoever_takes_orders_may_add_the_customers_fabric_photo(self):
+        # The order wizard stores a fabric / reference photo the moment it is
+        # chosen. A Designer or Master the owner lets take orders was refused.
+        self._hand({'Designer': ['orders.create'], 'Master': ['orders.create']})
+        for role, email in (('Designer', 'dee@refs.test'), ('Master', 'mira@refs.test')):
+            response = self._upload(self._staff(role, email))
+            self.assertEqual(response.status_code, 201, (role, response.content))
+            self.assertIn('design_references/', response.data['image_url'])
+
+    def test_a_role_that_takes_no_orders_still_may_not_upload(self):
+        self._hand({})
+        for role, email in (('Designer', 'dee2@refs.test'), ('Master', 'mira2@refs.test')):
+            response = self._upload(self._staff(role, email))
+            self.assertEqual(response.status_code, 403, (role, response.content))
+
+    def test_whoever_takes_orders_reaches_the_web_keep(self):
+        # Keeping a web photo is the same step of the order wizard: past the
+        # permission check (a bad URL is then the view's own 400, not a 403).
+        self._hand({'Designer': ['orders.create']})
+        response = self._staff('Designer', 'dee3@refs.test').post(
+            '/api/design-studio/web-keep/', {}, format='json')
+        self.assertNotEqual(response.status_code, 403, response.content)
+
     def test_draft_parts_keep_garment_part_and_source(self):
         items = _part_items_from_draft({'parts': {
             'overall_saree_design': {'design_id': 'abc', 'image_url': 'http://m/o.jpg',
