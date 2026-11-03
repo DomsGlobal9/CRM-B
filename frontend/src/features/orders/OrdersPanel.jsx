@@ -450,11 +450,10 @@ export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWo
             })}
               </tbody>
             </table>
-            {workshopRows.length > ORDER_PAGE_SIZES[0] && (
-              <Pager page={page} pageCount={pageCount} pageSize={ordersPageSize}
-                     sizes={ORDER_PAGE_SIZES} onPage={goToOrdersPage} onSize={setOrdersPageSize}
-                     label={t('ordersPage.perPage', 'Orders per page')} />
-            )}
+            {/* On every tab, even a short list, so each one reads the same. */}
+            <Pager page={page} pageCount={pageCount} pageSize={ordersPageSize}
+                   sizes={ORDER_PAGE_SIZES} onPage={goToOrdersPage} onSize={setOrdersPageSize}
+                   label={t('ordersPage.perPage', 'Orders per page')} />
             </div>
             );
           })()}
