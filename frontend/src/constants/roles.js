@@ -59,3 +59,7 @@ export const DOCUMENT_KINDS = [
   ['CERTIFICATE', 'Certificate'],
   ['OTHER', 'Other'],
 ];
+
+export const SUPERVISOR_ROLES = ['Master', 'Designer'];
+
+export const isProductionStaff = (role) => PRODUCTION_ROLES.includes(role);

@@ -89,3 +89,11 @@ export function formatInternational(raw) {
   if (dial === '1' && n.length === 10) return `+1 (${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6)}`;
   return `+${dial} ${n}`;
 }
+
+export const waLink = (raw) => `https://wa.me/${String(raw || '').replace(/\D/g, '')}`;
+// Numbers are stored as digits, with the country code when there is one
+// (formatMobile): a dialler needs the + in front of the code.
+export const telLink = (raw) => {
+  const digits = String(raw || '').replace(/\D/g, '');
+  return `tel:${digits.length > 10 ? '+' : ''}${digits}`;
+};
