@@ -139,7 +139,7 @@ export const SettingsPage = ({
           title: t('summarySettings.title', 'Daily Summary Notifications'),
           subtitle: t('summarySettings.subtitle', 'Each person gets a summary of their work at 11 PM. Choose recipients and language.'),
           icon: Clock,
-          maxWidth: '860px',
+          maxWidth: '780px',
         };
       default:
         return null;
@@ -496,15 +496,6 @@ export const SettingsPage = ({
                         </div>
                       );
                     })}
-                  </div>
-
-                  <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--surface-inset)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <SunMoon size={16} color="var(--accent-text)" flexShrink={0} />
-                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                      {mode === 'system'
-                        ? t('settingsPage.modeDefaultHint', 'Follows the light or dark setting of your device.')
-                        : t('settingsPage.savedNotice', 'Preference is saved on this device.')}
-                    </span>
                   </div>
                 </div>
               )}
