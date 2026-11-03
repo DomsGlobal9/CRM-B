@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { isProductionStaff } from '../../constants/roles';
 import { api } from '../../services/api';
 import { WIZARD_DRAFT_KEY } from '../orders/wizard';
@@ -10,6 +10,15 @@ import { WIZARD_DRAFT_KEY } from '../orders/wizard';
  * member's first setup, and logging out.
  */
 export default function useSession({ setView, setDashboardTab, setCurrentUser, currentUser, portalSlug, dashboardTab, setAuthError, setChangeNew, setChangeConfirm, authBusy, setAuthBusy, changeCurrent, setChangeCurrent, changeNew, changeConfirm, loginEmail, loginPassword, setLoginPassword, setLoginEmail, setLoginUnlocked, resetToken, logoutBusy, setLogoutBusy, setJustRegistered, draftAfterReload, openDesignRequests, setLoading, setStaffSetup, staffSetup, setSetupCurrent, hydrateWizard, pendingLoads, fetchDashboardAndConfig }) {
+  // The page the workspace was on when it was reloaded. Every page change is
+  // recorded on the browser's history entry (useAppStateValue), and a reload
+  // keeps that entry, so the restored session can open the same page again.
+  // A page this user may no longer see falls back to their first one there.
+  const [reloadedTab] = useState(() => {
+    const state = window.history.state;
+    return state?.atelier && state.view === 'dashboard' ? state.tab : null;
+  });
+
   const setupKey = (user) => {
     let tenant = '';
     try { tenant = localStorage.getItem('tenant_id') || ''; } catch { /* private mode */ }
@@ -121,6 +130,8 @@ export default function useSession({ setView, setDashboardTab, setCurrentUser, c
         if (step === 'password' || step === 'profile') {
           setStaffSetup(step);
           if (step === 'profile') setDashboardTab('account');
+        } else if (reloadedTab) {
+          setDashboardTab(reloadedTab);
         }
         await fetchDashboardAndConfig(user);
         if (draftAfterReload && step !== 'password' && step !== 'profile') await resumeAfterReload(draftAfterReload);
