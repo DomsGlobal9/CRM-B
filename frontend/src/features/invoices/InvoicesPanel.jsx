@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Banknote, FileText, Receipt, Wallet } from 'lucide-react';
 import { formatDate as fmtDate, formatMoney, orderRef } from '../../services/format';
 import { AvatarInitials, Chips, PageHeader, ProgressBar, SearchBox, StatCard } from '../../components/ui/Atelier';
@@ -5,32 +6,60 @@ import { LIMITS, amountError, cleanAmount } from '../../services/validate';
 import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import { Pager } from '../../components/ui/Pager';
+import Loader from '../../components/ui/Loader';
+
+/** Rows per page; the server offers the same (OrderViewSet.INVOICE_PAGE_SIZES). */
+const INVOICE_PAGE_SIZES = [20, 30, 40, 50];
 
 /**
  * Invoices: every order's bill, what was paid and what is still due.
  * The Total paid box is the one place a part payment is recorded; the
  * payment status badge follows it (the backend derives it).
+ *
+ * The bills come a page at a time from GET /orders/invoices/, filtered and
+ * searched there, with the totals above the table (of every bill) alongside.
  */
-export default function InvoicesPanel({ invoiceFilter, invoiceSearch, ordersList, paymentError, savingPaymentId, setConfirmedOrder, setInvoiceFilter, setInvoiceSearch, setPaymentError, setSavingPaymentId, setShowInvoiceModal }) {
+export default function InvoicesPanel({ invoiceFilter, invoiceSearch, paymentError, savingPaymentId, setConfirmedOrder, setInvoiceFilter, setInvoiceSearch, setPaymentError, setSavingPaymentId, setShowInvoiceModal }) {
   const { t } = useLanguage();
   const { currentUser, adminCan, refresh: fetchDashboardAndConfig } = useApp();
-  const paidTotal = ordersList.reduce((sum, o) => sum + parseFloat(o.amount_paid || 0), 0);
-  const pendingTotal = ordersList.reduce((sum, o) => sum + Math.max(0, parseFloat(o.total_amount || 0) - parseFloat(o.amount_paid || 0)), 0);
-  const grandTotal = ordersList.reduce((sum, o) => sum + parseFloat(o.total_amount), 0);
-  const paidCount = ordersList.filter(o => o.payment_status === 'Paid').length;
-  const pendingCount = ordersList.length - paidCount;
-  const filtered = ordersList.filter(order => {
-    if (invoiceFilter === 'Paid' && order.payment_status !== 'Paid') return false;
-    if (invoiceFilter === 'Pending' && order.payment_status === 'Paid') return false;
-    if (invoiceSearch.trim()) {
-      const query = invoiceSearch.toLowerCase();
-      const matchesId = order.order_id.toLowerCase().includes(query)
-        || orderRef(order).toLowerCase().includes(query);
-      const matchesClient = (order.customer_name || '').toLowerCase().includes(query);
-      return matchesId || matchesClient;
-    }
-    return true;
-  });
+
+  const [pageSize, setPageSize] = useState(INVOICE_PAGE_SIZES[0]);
+  // The page asked for, kept with what it was asked under: a new filter,
+  // search or page size starts again at page 1.
+  const search = invoiceSearch.trim();
+  const filterKey = `${invoiceFilter}|${search}|${pageSize}`;
+  const [pageAt, setPageAt] = useState({ key: filterKey, page: 1 });
+  if (pageAt.key !== filterKey) setPageAt({ key: filterKey, page: 1 });
+  const page = pageAt.key === filterKey ? pageAt.page : 1;
+  // Bumped after a payment is recorded, to fetch the same page again.
+  const [version, setVersion] = useState(0);
+  const request = `${filterKey}|${page}|${version}`;
+  // What came back, with the request it answers: loading until they match.
+  const [loaded, setLoaded] = useState({ request: '', body: null, error: '' });
+
+  useEffect(() => {
+    let live = true;
+    // Typing in the search box waits for a pause before asking.
+    const timer = setTimeout(() => {
+      api.getInvoices({ page, page_size: pageSize, status: invoiceFilter, search })
+        .then((body) => { if (live) setLoaded({ request, body, error: '' }); })
+        .catch((err) => { if (live) setLoaded((prev) => ({ request, body: prev.body, error: err.message || 'Could not load the invoices.' })); });
+    }, search ? 250 : 0);
+    return () => { live = false; clearTimeout(timer); };
+  }, [request, page, pageSize, invoiceFilter, search]);
+
+  const loading = loaded.request !== request;
+  // While the next page loads, the last one stays on screen rather than flashing empty.
+  const body = loaded.body;
+  const invoices = body?.results || [];
+  const summary = body?.summary || { count: 0, paid_count: 0, pending_count: 0, collected: 0, outstanding: 0, invoiced: 0 };
+  const paidTotal = Number(summary.collected) || 0;
+  const pendingTotal = Number(summary.outstanding) || 0;
+  const grandTotal = Number(summary.invoiced) || 0;
+  const paidCount = summary.paid_count;
+  const pendingCount = summary.pending_count;
+  const totalCount = summary.count;
   const statusTone = (st) => st === 'Paid' ? 'success' : st === 'Partially Paid' ? 'warning' : 'danger';
   return (
   <>
@@ -45,12 +74,12 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, ordersList
       <StatCard icon={Wallet} tone="amber" label={t('invoicesPage.outstandingBalance', 'Outstanding Balance')}
                 value={formatMoney(pendingTotal)} sub={`across ${pendingCount} invoice${pendingCount === 1 ? '' : 's'}`} />
       <StatCard icon={Receipt} tone="blue" label={t('invoicesPage.totalInvoicedVolume', 'Total Invoiced Volume')}
-                value={formatMoney(grandTotal)} sub={`${ordersList.length} invoice${ordersList.length === 1 ? '' : 's'}`} />
+                value={formatMoney(grandTotal)} sub={`${totalCount} invoice${totalCount === 1 ? '' : 's'}`} />
     </section>
 
     <div className="at-toolbar bill-toolbar">
       <Chips value={invoiceFilter} onChange={setInvoiceFilter} options={[
-        { key: 'All', label: t('common.all', 'All'), count: ordersList.length },
+        { key: 'All', label: t('common.all', 'All'), count: totalCount },
         { key: 'Paid', label: t('invoicesPage.paid', 'Paid'), count: paidCount },
         { key: 'Pending', label: t('invoicesPage.pending', 'Pending'), count: pendingCount },
       ]} />
@@ -85,15 +114,26 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, ordersList
           </tr>
         </thead>
         <tbody>
-          {filtered.length === 0 ? (
+          {!body && !loaded.error ? (
+            <tr>
+              <td colSpan="8" style={{ padding: '32px' }}><Loader label={t('invoicesPage.loading', 'Loading invoices…')} /></td>
+            </tr>
+          ) : loaded.error && !loading ? (
+            <tr>
+              <td colSpan="8" role="alert" style={{ padding: '32px', textAlign: 'center', color: 'var(--danger-color)' }}>
+                {loaded.error}{' '}
+                <button type="button" className="at-link" onClick={() => setVersion((n) => n + 1)}>{t('common.retry', 'Retry')}</button>
+              </td>
+            </tr>
+          ) : invoices.length === 0 ? (
             <tr>
               <td colSpan="8" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                {ordersList.length === 0
+                {totalCount === 0
                   ? t('invoicesPage.emptyState', 'Invoices appear here once you have created an order.')
                   : t('invoicesPage.noMatchingInvoices', 'No invoices matching the criteria.')}
               </td>
             </tr>
-          ) : filtered.map(order => {
+          ) : invoices.map(order => {
             const total = Number(order.total_amount) || 0;
             const paid = Number(order.amount_paid || 0);
             const balance = Math.max(0, total - paid);
@@ -141,6 +181,7 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, ordersList
                         setSavingPaymentId(order.id);
                         try {
                           await api.updateOrder(order.id, { amount_paid: next });
+                          setVersion((n) => n + 1);
                           await fetchDashboardAndConfig();
                         } catch (err) {
                           e.target.value = current;
@@ -192,6 +233,12 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, ordersList
           })}
         </tbody>
       </table>
+      {/* On every list, even one page long, as on Orders and Workshop. */}
+      {body && (
+        <Pager page={body.page} pageCount={body.pages} pageSize={pageSize}
+               sizes={INVOICE_PAGE_SIZES} onPage={(n) => setPageAt({ key: filterKey, page: n })} onSize={setPageSize}
+               label={t('invoicesPage.perPage', 'Invoices per page')} />
+      )}
     </div>
   </>
   );

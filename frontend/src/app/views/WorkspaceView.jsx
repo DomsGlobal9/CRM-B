@@ -328,7 +328,7 @@ export default function WorkspaceView() {
 
             {dashboardTab === 'invoices' && (
               <Suspense fallback={<ScreenLoading />}>
-                <InvoicesPanel invoiceFilter={invoiceFilter} invoiceSearch={invoiceSearch} ordersList={ordersList} paymentError={paymentError} savingPaymentId={savingPaymentId} setConfirmedOrder={setConfirmedOrder} setInvoiceFilter={setInvoiceFilter} setInvoiceSearch={setInvoiceSearch} setPaymentError={setPaymentError} setSavingPaymentId={setSavingPaymentId} setShowInvoiceModal={setShowInvoiceModal} />
+                <InvoicesPanel invoiceFilter={invoiceFilter} invoiceSearch={invoiceSearch} paymentError={paymentError} savingPaymentId={savingPaymentId} setConfirmedOrder={setConfirmedOrder} setInvoiceFilter={setInvoiceFilter} setInvoiceSearch={setInvoiceSearch} setPaymentError={setPaymentError} setSavingPaymentId={setSavingPaymentId} setShowInvoiceModal={setShowInvoiceModal} />
               </Suspense>
             )}
 

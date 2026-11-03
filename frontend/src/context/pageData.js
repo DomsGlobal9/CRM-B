@@ -15,7 +15,8 @@ export const DATA_FOR_TAB = {
   done: MY_WORK_DATA,
   customers: ['customerStats'],
   leads: ['customerStats'],
-  invoices: ['orders'],
+  // Bills & Payments asks for its own page of bills (GET /orders/invoices/).
+  invoices: [],
   analytics: ['orders', 'tailors', 'customerStats'],
 };
 // The order form: the fabric picker, and our delivered orders for an alteration.

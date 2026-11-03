@@ -413,6 +413,19 @@ export const ordersApi = {
     return res.json();
   },
 
+  // Bills & Payments, a page at a time: { count, page, page_size, pages,
+  // summary, results }. `status` All | Paid | Pending, `search` the order or
+  // customer (crm_api.views.OrderViewSet.invoices).
+  async getInvoices(params = {}) {
+    const url = new URL(`${BASE_URL}/orders/invoices/`);
+    Object.entries({ page: 1, ...params }).forEach(([k, v]) => {
+      if (v !== '' && v !== null && v !== undefined) url.searchParams.append(k, v);
+    });
+    const res = await guardedFetch(url.toString(), { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Failed to fetch invoices');
+    return res.json();
+  },
+
   // Garments the boutique makes for its own stock: the same workroom as a
   // customer's order, with no customer, no price and no payment on it.
   // Every in-house run (garments made for the boutique's own stock).

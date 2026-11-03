@@ -756,6 +756,83 @@ class OrderViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(kind=kind)
         return queryset
 
+    #: Rows per page on Bills & Payments: what the page offers, the first the default.
+    INVOICE_PAGE_SIZES = (20, 30, 40, 50)
+
+    @action(detail=False, methods=['GET'])
+    def invoices(self, request):
+        """Bills & Payments, a page at a time.
+
+        `page` (from 1) and `page_size` pick the rows; `status` is All, Paid or
+        Pending (anything not paid in full); `search` matches the order's id or
+        number and the customer's name. The totals and counts the page draws
+        above the table are of every bill, whatever the filter, so they come
+        back with each page rather than from the full order list.
+        """
+        params = request.query_params
+        orders = self.get_queryset()
+
+        zero = Value(Decimal('0'), output_field=MONEY)
+        figures = orders.aggregate(
+            count=Count('id'),
+            paid_count=Count('id', filter=Q(payment_status='Paid')),
+            collected=Coalesce(Sum('amount_paid'), zero, output_field=MONEY),
+            invoiced=Coalesce(Sum('total_amount'), zero, output_field=MONEY),
+            outstanding=Coalesce(Sum(Greatest(
+                ExpressionWrapper(F('total_amount') - F('amount_paid'), output_field=MONEY), zero,
+                output_field=MONEY)), zero, output_field=MONEY),
+        )
+
+        status_filter = params.get('status') or 'All'
+        if status_filter == 'Paid':
+            orders = orders.filter(payment_status='Paid')
+        elif status_filter == 'Pending':
+            orders = orders.exclude(payment_status='Paid')
+
+        search = (params.get('search') or '').strip()
+        if search:
+            match = (Q(order_id__icontains=search)
+                     | Q(customer__first_name__icontains=search)
+                     | Q(customer__last_name__icontains=search))
+            orders = orders.annotate(_customer_full=Concat(
+                'customer__first_name', Value(' '), 'customer__last_name'))
+            match |= Q(_customer_full__icontains=search)
+            number = search.lstrip('#')
+            if number.isdigit():
+                match |= Q(order_number=int(number))
+            orders = orders.filter(match)
+
+        try:
+            page_size = int(params.get('page_size') or self.INVOICE_PAGE_SIZES[0])
+        except ValueError:
+            page_size = self.INVOICE_PAGE_SIZES[0]
+        page_size = min(max(page_size, 1), 100)
+        matching = orders.count()
+        pages = max(1, -(-matching // page_size))
+        try:
+            page = int(params.get('page') or 1)
+        except ValueError:
+            page = 1
+        page = min(max(page, 1), pages)
+        start = (page - 1) * page_size
+        rows = orders.order_by('-order_date', '-id')[start:start + page_size]
+
+        return Response({
+            'count': matching,
+            'page': page,
+            'page_size': page_size,
+            'pages': pages,
+            'summary': {
+                'count': figures['count'],
+                'paid_count': figures['paid_count'],
+                'pending_count': figures['count'] - figures['paid_count'],
+                'collected': figures['collected'],
+                'outstanding': figures['outstanding'],
+                'invoiced': figures['invoiced'],
+            },
+            'results': OrderSerializer(rows, many=True, context=self.get_serializer_context()).data,
+        })
+
     @action(detail=False, methods=['POST'], url_path='internal-production')
     def internal_production(self, request):
         """Start a production run for the boutique's own stock.

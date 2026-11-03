@@ -8,6 +8,7 @@ from django_tenants.test.cases import TenantTestCase
 from django.conf import settings
 from django.test import override_settings
 import datetime
+from decimal import Decimal
 
 from apps.design_studio.models import DesignAsset
 from .models import Customer, Measurement, DesignPreference, FabricSelection, Tailor, Order, BoutiqueDesign, OrderStage, Notification
@@ -440,6 +441,44 @@ class BoutiqueCRMTests(TenantTestCase):
         item.status = InventoryItem.Status.ACTIVE
         item.save(update_fields=['status'])
         self.assertTrue(started()['has_fabrics'])
+
+    def test_invoices_come_a_page_at_a_time_with_totals_of_every_bill(self):
+        """Bills & Payments: one page of rows, filtered and searched on the
+        server, with the totals above the table over every bill."""
+        self.authenticate_client()
+        url = reverse('order-invoices')
+        for i in range(25):
+            customer = Customer.objects.create(first_name=f"Cust{i:02d}", last_name="Rao",
+                                               mobile_number=f"92000000{i:02d}")
+            Order.objects.create(order_id=f"T2B-INV-{i:02d}", customer=customer,
+                                 total_amount=Decimal('1000'),
+                                 amount_paid=Decimal('1000') if i < 5 else Decimal('400'),
+                                 payment_status='Paid' if i < 5 else 'Partially Paid')
+
+        first = self.client.get(url).json()
+        self.assertEqual((first['count'], first['page'], first['page_size'], first['pages']), (25, 1, 20, 2))
+        self.assertEqual(len(first['results']), 20)
+        self.assertEqual(first['summary'], {
+            'count': 25, 'paid_count': 5, 'pending_count': 20,
+            'collected': 13000.0, 'outstanding': 12000.0, 'invoiced': 25000.0,
+        })
+
+        second = self.client.get(url, {'page': 2}).json()
+        self.assertEqual(len(second['results']), 5)
+        self.assertFalse({r['id'] for r in first['results']} & {r['id'] for r in second['results']})
+        # A page past the end is the last page, not an error.
+        self.assertEqual(self.client.get(url, {'page': 9}).json()['page'], 2)
+
+        paid = self.client.get(url, {'status': 'Paid'}).json()
+        self.assertEqual(paid['count'], 5)
+        self.assertTrue(all(r['payment_status'] == 'Paid' for r in paid['results']))
+        # The totals stay those of every bill, whatever the filter.
+        self.assertEqual(paid['summary']['count'], 25)
+        self.assertEqual(self.client.get(url, {'status': 'Pending', 'page_size': 50}).json()['count'], 20)
+
+        found = self.client.get(url, {'search': 'cust07 rao'}).json()
+        self.assertEqual([r['order_id'] for r in found['results']], ['T2B-INV-07'])
+        self.assertEqual(self.client.get(url, {'search': 'inv-1'}).json()['count'], 10)
 
 
     def test_specialist_role_may_advance_its_own_stage(self):
