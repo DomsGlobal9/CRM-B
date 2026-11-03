@@ -8978,7 +8978,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl, 16px);
   padding: 22px 20px;
-  min-height: 220px;
+  min-height: 260px;
   box-sizing: border-box;
   box-shadow: var(--shadow-card);
   display: flex;
@@ -9071,7 +9071,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   }
 
   .settings-cat-card {
-    min-height: 200px; height: auto;
+    min-height: 230px; height: auto;
   }
 }
 
