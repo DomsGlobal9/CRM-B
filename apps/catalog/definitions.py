@@ -64,7 +64,7 @@ COMMON_BASIC = [
     field('trial_required', 'Trial Required', 'boolean', required=True),
     field('trial_date', 'Trial Date', 'date', when=eq('trial_required', True)),
     field('delivery_date', 'Delivery Date', 'date'),
-    field('urgency', 'Urgency', 'select', options=['Normal', 'Express'], default='normal'),
+    field('urgency', 'Urgency', 'select', options=['Normal', 'Express']),
     # No free-text box here: `special_instructions` (production) is the one
     # note box, so the counter is not asked "anything else" twice.
 ]
@@ -140,6 +140,12 @@ def bottom_materials(extra=()):
         material('elastic', 'Elastic', Inv.STITCHING, when=one_of('waist_finish', ['elastic'])),
         material('dori', 'Dori', Inv.STITCHING, when=one_of('waist_finish', ['dori'])),
     ]
+
+
+#: Dropdowns that open blank rather than on their first option: asked at
+#: the end of the order, with the price, so nothing is shown for them until
+#: the counter picks one. A blank Urgency is a normal order (express.js).
+BLANK_UNTIL_CHOSEN = {'padding', 'urgency'}
 
 
 def grouped(group, *fields, when=None):
@@ -1949,7 +1955,10 @@ def build(definition):
         # Every dropdown opens on a real answer rather than a blank "Select":
         # its first option, unless the question names its own default. The
         # counter changes what does not apply; nothing is left unanswered.
+        # Padding and Urgency are the exceptions (BLANK_UNTIL_CHOSEN).
         for one in fields:
+            if one['key'] in BLANK_UNTIL_CHOSEN:
+                continue
             if one['field_type'] == 'select' and one['default'] is None and one['options']:
                 one['default'] = one['options'][0][0]
         sections.append({
