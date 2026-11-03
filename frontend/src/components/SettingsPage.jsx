@@ -428,7 +428,7 @@ export const SettingsPage = ({
             </div>
 
             {/* Modal Body with Perfectly Aligned Content */}
-            <div className="settings-modal-content">
+            <div className={`settings-modal-content${activeModal === 'invoice' ? ' settings-modal-content--invoice' : ''}`}>
               {/* 1. Language Modal: Interactive Language Cards Grid */}
               {activeModal === 'language' && (
                 <div>

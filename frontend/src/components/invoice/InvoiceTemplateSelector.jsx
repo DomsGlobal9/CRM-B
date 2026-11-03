@@ -267,7 +267,7 @@ export const InvoiceTemplateSelector = ({ currentUser, hideHeader = false }) => 
                   borderRadius: 'var(--radius-md, 8px)',
                   overflow: 'hidden',
                   backgroundColor: '#ffffff',
-                  height: '240px',
+                  height: hideHeader ? '200px' : '240px',
                   position: 'relative',
                   cursor: 'pointer',
                   boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.03)'

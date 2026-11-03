@@ -9612,3 +9612,22 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   border-radius: 12px;
   white-space: nowrap;
 }
+
+
+/* Invoice Modal Content: Perfectly fitted without side scrollbar */
+.settings-modal-content--invoice {
+  padding: 16px 24px 20px 24px;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.settings-modal-content--invoice::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-height: 560px) {
+  .settings-modal-content--invoice {
+    overflow-y: auto;
+  }
+}
