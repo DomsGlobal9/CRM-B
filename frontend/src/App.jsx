@@ -100,6 +100,27 @@ import { ScreenLoading } from './components/ui/ScreenLoading';
 import { StyleProfileCard } from './features/customers/StyleProfileCard';
 import { NetworkActivityBar } from './components/ui/NetworkActivityBar';
 
+// What each page reads from the workspace's data (App's datasetLoaders).
+// Settings, notifications and the customer counts are loaded for every page.
+// (Assigning a stage needs the team too; App adds it while a stage is open.)
+const ORDER_BOOK_DATA = ['orders', 'queuedMessages'];
+const MY_WORK_DATA = ['orders', 'tailors', 'queuedMessages'];
+const DATA_FOR_TAB = {
+  overview: ['dashboard', 'orders', 'appointments'],
+  orders: ORDER_BOOK_DATA,
+  workshop: ORDER_BOOK_DATA,
+  work: MY_WORK_DATA,
+  check: MY_WORK_DATA,
+  done: MY_WORK_DATA,
+  invoices: ['orders'],
+  analytics: ['orders', 'tailors'],
+};
+// The order screens: the fabric picker, and our delivered orders for an alteration.
+const DATA_FOR_VIEW = {
+  'order-selector': ['orders', 'fabrics'],
+  wizard: ['orders', 'fabrics'],
+};
+
 function App() {
   
   const [view, setView] = useState(() => {
@@ -400,7 +421,6 @@ function App() {
   };
   const [activeDesignTab, setActiveDesignTab] = useState({});
 
-  const fabricTaxonomy = useFabricTaxonomy();
 
   const [wizardError, setWizardError] = useState(null);
   const [savingPaymentId, setSavingPaymentId] = useState(null);
@@ -436,12 +456,15 @@ function App() {
     }
   }, []);
 
+  // Only the order screens use the garment list: asked for when one opens (the
+  // order type selector, so it is there by the wizard), and kept.
+  const onOrderScreen = view === 'order-selector' || view === 'wizard';
   useEffect(() => {
     // Not while a temporary password is being replaced: the server refuses
     // everything but the change-password screen until then.
-    if (currentUser?.must_change_password) return;
+    if (!currentUser || currentUser.must_change_password || !onOrderScreen || garmentTemplates.length) return;
     loadGarmentTemplates();
-  }, [currentUser, loadGarmentTemplates]);
+  }, [currentUser, onOrderScreen, garmentTemplates.length, loadGarmentTemplates]);
 
   const addGarment = async (key, skipPairingPrompt = false, allowAnother = false, pairedWith = null) => {
     
@@ -924,7 +947,6 @@ function App() {
   const [editingAppointment, setEditingAppointment] = useState(null);
   const [showAllAppointments, setShowAllAppointments] = useState(false);
   const [fabrics, setFabrics] = useState([]);
-  const [allDesigns, setAllDesigns] = useState([]);
   // The whole book's size and tiers (/customers/stats/). The book itself is no
   // longer downloaded: the Customers page asks for one page at a time, and the
   // pickers search as they are typed into.
@@ -932,6 +954,8 @@ function App() {
   
   const [startingBoutiqueRun, setStartingBoutiqueRun] = useState(false);
   const [ordersList, setOrdersList] = useState([]);
+  // Whether ordersList has been asked for yet: until then its length says nothing.
+  const [ordersLoaded, setOrdersLoaded] = useState(false);
   const [queuedMessages, setQueuedMessages] = useState([]);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
   const [sendBusy, setSendBusy] = useState(false);
@@ -1068,6 +1092,10 @@ function App() {
   
   const [activeReviewStage, setActiveReviewStage] = useState(null);
   const [activeReviewOrder, setActiveReviewOrder] = useState(null);
+  // Fabric kinds and slots: for the order wizard, the floor's own pages and a
+  // stage being reviewed -- asked for when one of those first opens.
+  const fabricTaxonomy = useFabricTaxonomy(view === 'wizard' || !!activeReviewStage
+    || (view === 'dashboard' && ['work', 'check', 'done'].includes(dashboardTab)));
   const [stageReviewComments, setStageReviewComments] = useState('');
   
   
@@ -1191,66 +1219,98 @@ function App() {
     } catch (e) {
       console.log("No saved session");
     } finally {
-      setLoading(false);
+      // The opening page's own data may still be on its way (loadData).
+      if (!pendingLoads.current) setLoading(false);
     }
   };
 
-  const fetchDashboardAndConfig = async (user = currentUser) => {
-    setLoading(true);
-    setLoadErrors([]);
-
-    const load = async (label, request, apply) => {
-      try {
-        const data = await request();
-        if (apply && data !== undefined) apply(data);
-      } catch (err) {
-        console.error(`Failed to load ${label}`, err);
-        setLoadErrors((prev) => (prev.includes(label) ? prev : [...prev, label]));
+  // The workspace's data, one request each. Every page asks only for what it
+  // shows (DATA_FOR_TAB / DATA_FOR_VIEW below); what was fetched once is kept,
+  // and a reload after a save fetches again only what has been fetched.
+  const datasetLoaders = (user) => ({
+    dashboard: () => api.getDashboard().then((data) => {
+      setDashboardData(data);
+      if (data.recent_orders?.length > 0) {
+        setSelectedDashboardOrder((current) => {
+          if (!current) return data.recent_orders[0];
+          return data.recent_orders.find(o => o.id === current.id) || current;
+        });
       }
-    };
+    }),
+    customerStats: () => api.getCustomerStats().then((data) => {
+      setCustomerStats(data);
+      // An open Customers page asks again too, so it shows what just changed.
+      setDirectoryVersion((v) => v + 1);
+    }),
+    orders: () => api.getOrders().then((data) => { setOrdersList(data); setOrdersLoaded(true); }),
+    tailors: hasModule(user, 'tailors') && (() => api.getTailors().then(setTailors)),
+    // Silent on failure: the only cost is no designers in the Design stage's assign list.
+    designerStaff: hasModule(user, 'tailors') && (() => api.getTailors({ forAttendance: true })
+      .then((rows) => setDesignerStaff((rows || []).filter(t => t.role === 'Designer')))
+      .catch(() => {})),
+    appointments: hasModule(user, 'scheduling') && (() => api.getAppointments({ upcoming: 'true' }).then(setAppointments)),
+    fabrics: hasModule(user, 'inventory') && (() => api.getInventoryItems({ picker: 'true' }).then(setFabrics)),
+    settings: () => api.getBoutiqueSettings().then((data) => {
+      setBoutiqueSettings(data);
+      setBoutiqueTimeZone(data?.timezone);
+    }),
+    notifications: hasModule(user, 'notifications') && (() => fetchNotifications(user)),
+    queuedMessages: (!user?.role || ['Owner', 'Master'].includes(user.role) || (user.admin_tasks || []).includes('orders.notify'))
+      && (() => api.getQueuedCustomerMessages().then(setQueuedMessages)),
+  });
+  // Every page needs these: the boutique's settings, and the counts the
+  // header's bell and the sidebar's hints show on every page.
+  const ALWAYS_LOADED = ['settings', 'notifications', 'customerStats'];
+  const loadedData = useRef(new Set());
+  const pendingLoads = useRef(0);
 
-    
-    await Promise.all([
-      load('dashboard', api.getDashboard, (data) => {
-        setDashboardData(data);
-        if (data.recent_orders?.length > 0) {
-          setSelectedDashboardOrder((current) => {
-            if (!current) return data.recent_orders[0];
-            return data.recent_orders.find(o => o.id === current.id) || current;
-          });
+  /** Fetch these datasets now, side by side; `loading` holds while any are on their way. */
+  const loadData = async (keys, user = currentUser) => {
+    const loaders = datasetLoaders(user);
+    keys.forEach((key) => loadedData.current.add(key));
+    pendingLoads.current += 1;
+    setLoading(true);
+    try {
+      await Promise.all(keys.map(async (key) => {
+        if (!loaders[key]) return;
+        try {
+          await loaders[key]();
+        } catch (err) {
+          console.error(`Failed to load ${key}`, err);
+          setLoadErrors((prev) => (prev.includes(key) ? prev : [...prev, key]));
         }
-      }),
-
-      load('customers', api.getCustomerStats, (data) => {
-        setCustomerStats(data);
-        // An open Customers page asks again too, so it shows what just changed.
-        setDirectoryVersion((v) => v + 1);
-      }),
-
-      load('orders', api.getOrders, setOrdersList),
-
-      hasModule(user, 'tailors') && load('tailors', api.getTailors, setTailors),
-      // Silent on failure: the only cost is no designers in the Design stage's assign list.
-      hasModule(user, 'tailors') && api.getTailors({ forAttendance: true })
-        .then((rows) => setDesignerStaff((rows || []).filter(t => t.role === 'Designer')))
-        .catch(() => {}),
-      hasModule(user, 'scheduling') && load('appointments', () => api.getAppointments({ upcoming: 'true' }), setAppointments),
-      hasModule(user, 'inventory') && load('fabrics', () => api.getInventoryItems({ picker: 'true' }), setFabrics),
-      hasModule(user, 'design_studio') && load('designs', api.getAllBoutiqueDesigns, setAllDesigns),
-
-      load('settings', api.getBoutiqueSettings, (data) => {
-        setBoutiqueSettings(data);
-        setBoutiqueTimeZone(data?.timezone);
-      }),
-
-      hasModule(user, 'notifications') && load('notifications', () => fetchNotifications(user), () => {}),
-
-      (!user?.role || ['Owner', 'Master'].includes(user.role) || (user.admin_tasks || []).includes('orders.notify'))
-        && load('customer messages', api.getQueuedCustomerMessages, setQueuedMessages),
-    ]);
-
-    setLoading(false);
+      }));
+    } finally {
+      pendingLoads.current -= 1;
+      if (!pendingLoads.current) setLoading(false);
+    }
   };
+
+  /** After signing in, and after a save: the always-needed data, and again
+   *  whatever the pages opened so far have fetched. */
+  const fetchDashboardAndConfig = async (user = currentUser) => {
+    setLoadErrors([]);
+    await loadData([...new Set([...ALWAYS_LOADED, ...loadedData.current])], user);
+  };
+
+  // Each page's own data, fetched the first time the page -- or a popup that
+  // needs it -- opens.
+  useEffect(() => {
+    if (!currentUser) { loadedData.current.clear(); return; }
+    if (currentUser.must_change_password) return;
+    const needed = [
+      ...(view === 'dashboard' ? DATA_FOR_TAB[dashboardTab] || [] : DATA_FOR_VIEW[view] || []),
+      // Assigning a stage, from whichever page opened it.
+      ...(activeReviewStage ? ['tailors', 'designerStaff'] : []),
+      // The appointment form's "With" list.
+      ...(showAppointmentModal ? ['tailors'] : []),
+      // The Dashboard's Getting started list ticks off staff and fabrics.
+      ...(view === 'dashboard' && dashboardTab === 'overview' && !onboardingDismissed ? ['tailors', 'fabrics'] : []),
+    ].filter((key) => !loadedData.current.has(key));
+    if (needed.length) loadData([...new Set(needed)]);
+    // loadData is a new function every render; these decide what is fetched.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, view, dashboardTab, activeReviewStage, showAppointmentModal, onboardingDismissed]);
 
   const fetchWhatsAppStatus = useCallback(async () => {
     try {
@@ -2622,11 +2682,14 @@ function App() {
   const canDeleteCustomer = isOwnerUser || adminCan('customers.delete');
   const canImportCustomers = isOwnerUser || adminCan('customers.import');
   const guideCustomers = !loading && canAddCustomer && bookTotal < 10;
-  const guideOrders = !loading && ordersList.length < 10;
+  // How many orders there are: the list once it is loaded, else the Dashboard's
+  // count; neither yet (a page that loads no orders), and the hint waits.
+  const orderCount = ordersLoaded ? ordersList.length : dashboardData?.stats?.total_orders ?? null;
+  const guideOrders = !loading && orderCount !== null && orderCount < 10;
   
   const sidebarHint = {
     ...(guideCustomers && dashboardTab !== 'customers' ? { customers: t('onboard.sidebarCustomers', 'Add new customers') } : {}),
-    ...(guideOrders && dashboardTab !== 'orders' ? { orders: ordersList.length ? t('onboard.sidebarOrders', 'Create orders here') : t('onboard.sidebarFirstOrder', 'Create your first order') } : {}),
+    ...(guideOrders && dashboardTab !== 'orders' ? { orders: orderCount ? t('onboard.sidebarOrders', 'Create orders here') : t('onboard.sidebarFirstOrder', 'Create your first order') } : {}),
   };
 
   const onboardingSteps = [
