@@ -11,8 +11,9 @@
  * sitemap. See the "build" script in package.json.
  */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { legalPages } from './site/legal.mjs'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const SITE = join(root, 'site')
@@ -56,7 +57,8 @@ const load = (dir) =>
     .filter((f) => f.endsWith('.html'))
     .map((f) => ({ file: f, ...parse(read(dir, f), `${dir}/${f}`) }))
 
-const pages = load('pages')
+// The two legal pages are built from the sign-up form's own text; see site/legal.mjs.
+const pages = [...load('pages'), ...legalPages()]
 const posts = load('posts').sort((a, b) => (a.meta.date < b.meta.date ? 1 : -1))
 
 const fmtDate = (iso) =>
@@ -88,7 +90,7 @@ const postTeasers = posts
   )
   .join('\n')
 
-function render({ meta, body }, { isPost = false } = {}) {
+export function render({ meta, body }, { isPost = false } = {}) {
   const path = meta.slug === '' ? '/' : isPost ? `/blog/${meta.slug}` : `/${meta.slug}`
   const url = ORIGIN + path
 
@@ -153,6 +155,19 @@ function render({ meta, body }, { isPost = false } = {}) {
     .replaceAll('{{API}}', () => DEMO_ENDPOINT)
 }
 
+/** One page by slug, for the dev server (vite.config.js), which has no dist/. */
+export const renderPage = (slug) => {
+  const page = pages.find((p) => p.meta.slug === slug)
+  return page ? render(page) : null
+}
+
+export const stylesheet = () => read('styles.css')
+
+// Imported by the dev server, this file only renders; run as `node
+// build-site.mjs`, it writes dist/.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) build()
+
+function build() {
 writeFileSync(join(OUT, 'styles.css'), read('styles.css'))
 
 /**
@@ -217,3 +232,4 @@ writeFileSync(
 )
 
 console.log(`site: ${pages.length} pages, ${posts.length} posts, sitemap with ${written.length} URLs`)
+}

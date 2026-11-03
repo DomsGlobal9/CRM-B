@@ -178,6 +178,11 @@ export default function SignupScreen({ auth, setView }) {
                     const text = (legalDoc === 'terms' ? TERMS_AND_CONDITIONS : PRIVACY_POLICY).trim();
                     return text ? (
                       <div style={{ fontSize: '13.5px', lineHeight: 1.6, color: 'var(--text-secondary)', maxHeight: '60vh', overflowY: 'auto' }}>
+                        {/* The same text has its own page (site/legal.mjs), to keep or share. */}
+                        <a href={legalDoc === 'terms' ? '/termcondition' : '/privacypolicy'} target="_blank" rel="noopener noreferrer"
+                           style={{ display: 'inline-block', marginBottom: '12px', fontSize: '12.5px', color: 'var(--accent-text)', fontWeight: 600 }}>
+                          Open as a page
+                        </a>
                         {text.split(/\n\s*\n/).map((para, i) => (
                           // "3. Your data belongs to you" on a line of its own is a section heading.
                           /^\d+\.\s/.test(para) && !para.includes('\n')
