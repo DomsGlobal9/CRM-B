@@ -26,7 +26,7 @@ const TEMPLATE_OPTIONS = [
   }
 ];
 
-export const InvoiceTemplateSelector = ({ currentUser }) => {
+export const InvoiceTemplateSelector = ({ currentUser, hideHeader = false }) => {
   const { t } = useLanguage();
   // The owner, or a role handed the invoice design (core/admin_access.py).
   const isOwner = !currentUser?.role || currentUser?.role === 'Owner'
@@ -69,7 +69,6 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
     }
   };
 
-  
   const previewData = normalizeInvoiceData(null, null, currentUser);
 
   useEffect(() => {
@@ -141,52 +140,67 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
   const currentTplDetails = getTemplateDetails(currentTemplate.id);
   const isSelected = selectedTemplate === currentTemplate.id;
 
+  const cardStyle = hideHeader ? {
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderRadius: 0,
+    padding: 0,
+    boxShadow: 'none',
+    display: 'flex',
+    flexDirection: 'column',
+  } : {
+    backgroundColor: 'var(--surface-color)',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-xl, 16px)',
+    padding: '22px',
+    boxShadow: 'var(--shadow-card)',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+  };
+
   return (
-    <div
-      className="settings-card its-card"
-      style={{
-        backgroundColor: 'var(--surface-color)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '16px',
-        padding: '24px',
-        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.04), 0 2px 4px -2px rgba(0,0,0,0.02)',
-        display: 'flex',
-        flexDirection: 'column',
-        justify: 'space-between'
-      }}
-    >
+    <div className={`settings-card its-card${hideHeader ? ' its-card--embedded' : ' ui-card'}`} style={cardStyle}>
       <div>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ padding: '8px', borderRadius: '10px', backgroundColor: '#EEF2FF', color: '#4F46E5' }}>
-              <Sparkles size={20} />
+        {/* Header - Only shown when not embedded in a modal */}
+        {!hideHeader && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ padding: '8px', borderRadius: '10px', backgroundColor: 'var(--accent-color)', color: 'var(--accent-text)' }}>
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {t('settingsPage.invoiceTemplateTitle', 'Invoice Template Selection')}
+                </h2>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
+                  {t('settingsPage.invoiceTemplateSubtitle', 'Choose your desired template style for customer invoices')}
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary, #0f172a)' }}>
-                {t('settingsPage.invoiceTemplateTitle', 'Invoice Template Selection')}
-              </h2>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.825rem', color: 'var(--text-secondary, #64748b)' }}>
-                {t('settingsPage.invoiceTemplateSubtitle', 'choose template which one you want before generating invoice')}
-              </p>
-            </div>
+            {saving && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                <Loader2 className="spin" size={14} /> {t('settingsPage.saving', 'Saving...')}
+              </div>
+            )}
           </div>
-          {saving && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-              <Loader2 className="spin" size={14} /> {t('settingsPage.saving', 'Saving...')}
-            </div>
-          )}
-        </div>
+        )}
+
+        {saving && hideHeader && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+            <Loader2 className="spin" size={14} /> {t('settingsPage.saving', 'Saving...')}
+          </div>
+        )}
 
         {error && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b', fontSize: '12px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', backgroundColor: 'var(--danger-bg)', border: '1px solid var(--danger-color)', borderRadius: 'var(--radius-md)', color: 'var(--danger-color)', fontSize: '12px', marginBottom: '12px' }}>
             <AlertCircle size={15} />
             <span>{error}</span>
           </div>
         )}
 
         {successMsg && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', color: '#166534', fontSize: '12px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', backgroundColor: 'var(--success-bg)', border: '1px solid var(--success-color)', borderRadius: 'var(--radius-md)', color: 'var(--success-color)', fontSize: '12px', marginBottom: '12px' }}>
             <Check size={15} />
             <span>{successMsg}</span>
           </div>
@@ -195,27 +209,27 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
         {loading ? (
           <Loader page label={t('settingsPage.loadingTemplates', 'Loading template settings...')} />
         ) : (
-          <div style={{ position: 'relative', marginTop: '12px' }}>
+          <div style={{ position: 'relative' }}>
             {/* Single Displayed Template Card */}
             <div
               className="its-tpl"
               style={{
-                border: isSelected ? '2px solid var(--primary-color, #2563eb)' : '1px solid var(--border-color, #e2e8f0)',
-                borderRadius: '14px',
-                padding: '18px',
-                backgroundColor: isSelected ? 'var(--accent-color)' : 'var(--surface-2, var(--surface-color))',
+                border: isSelected ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-lg, 12px)',
+                padding: '16px',
+                backgroundColor: isSelected ? 'var(--accent-color)' : 'var(--surface-2)',
                 position: 'relative',
                 transition: 'all 0.25s ease',
-                boxShadow: isSelected ? '0 4px 12px rgba(37, 99, 235, 0.08)' : 'none'
+                boxShadow: isSelected ? '0 4px 12px color-mix(in srgb, var(--primary-color) 12%, transparent)' : 'none'
               }}
             >
               {/* Header Info */}
-              <div className="its-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', paddingRight: '40px' }}>
+              <div className="its-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', paddingRight: '12px' }}>
                 <div>
-                  <h3 style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 2px 0', color: 'var(--text-primary, #0f172a)' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 2px 0', color: 'var(--text-primary)' }}>
                     {currentTplDetails.name}
                   </h3>
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-text, var(--primary-color))', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--accent-text)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     {currentTplDetails.tagline}
                   </span>
                 </div>
@@ -240,7 +254,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                 )}
               </div>
 
-              <p style={{ fontSize: '12px', color: 'var(--text-secondary, #64748b)', margin: '0 0 12px 0', lineHeight: 1.4 }}>
+              <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 12px 0', lineHeight: 1.4 }}>
                 {currentTplDetails.description}
               </p>
 
@@ -249,8 +263,8 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                 className="its-frame"
                 onClick={() => setPreviewModalTemplate(currentTemplate)}
                 style={{
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md, 8px)',
                   overflow: 'hidden',
                   backgroundColor: '#ffffff',
                   height: '240px',
@@ -289,18 +303,18 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
               </div>
 
               {/* Action Buttons */}
-              {/* Wraps on a narrow phone rather than clipping "Active Template". */}
-              <div className="its-actions" style={{ marginTop: '16px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <div className="its-actions" style={{ marginTop: '14px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   disabled={saving}
                   className={isSelected ? 'btn-primary' : 'btn-secondary'}
                   style={{
-                    flex: '1 1 140px',
+                    flex: '1 1 0',
+                    minWidth: '120px',
                     justifyContent: 'center',
                     fontSize: '13px',
                     padding: '8px 14px',
-                    borderRadius: '8px',
+                    borderRadius: 'var(--radius-md)',
                     backgroundColor: isSelected ? 'var(--primary-color)' : undefined,
                     color: isSelected ? 'var(--primary-foreground)' : undefined,
                     fontWeight: 600,
@@ -326,7 +340,18 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                 <button
                   type="button"
                   className="btn-secondary"
-                  style={{ flex: '1 1 auto', justifyContent: 'center', fontSize: '13px', padding: '8px 14px', display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '8px' }}
+                  style={{
+                    flex: '1 1 0',
+                    minWidth: '120px',
+                    justifyContent: 'center',
+                    fontSize: '13px',
+                    padding: '8px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderRadius: 'var(--radius-md)',
+                    fontWeight: 600
+                  }}
                   onClick={() => setPreviewModalTemplate(currentTemplate)}
                 >
                   <Eye size={14} /> {t('settingsPage.previewWide', 'Preview Wide')}
@@ -342,25 +367,25 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
               style={{
                 position: 'absolute',
                 top: '50%',
-                right: '-16px',
+                right: '8px',
                 transform: 'translateY(-50%)',
-                width: '38px',
-                height: '38px',
+                width: '36px',
+                height: '36px',
                 borderRadius: '50%',
                 backgroundColor: 'var(--surface-color)',
                 border: '1px solid var(--border-strong)',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: '#2563eb',
+                color: 'var(--text-primary)',
                 zIndex: 10,
                 transition: 'all 0.2s ease'
               }}
               title={t('settingsPage.viewNextTemplate', 'View Next Template')}
             >
-              <ChevronRight size={22} />
+              <ChevronRight size={20} />
             </button>
 
             {/* Left Arrow Navigation Button */}
@@ -371,25 +396,25 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
               style={{
                 position: 'absolute',
                 top: '50%',
-                left: '-16px',
+                left: '8px',
                 transform: 'translateY(-50%)',
-                width: '38px',
-                height: '38px',
+                width: '36px',
+                height: '36px',
                 borderRadius: '50%',
                 backgroundColor: 'var(--surface-color)',
                 border: '1px solid var(--border-strong)',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                color: '#2563eb',
+                color: 'var(--text-primary)',
                 zIndex: 10,
                 transition: 'all 0.2s ease'
               }}
               title={t('settingsPage.viewPrevTemplate', 'View Previous Template')}
             >
-              <ChevronLeft size={22} />
+              <ChevronLeft size={20} />
             </button>
           </div>
         )}
@@ -411,8 +436,9 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
             padding: '20px'
           }}>
             <div className="its-modal-box" style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '16px',
+              backgroundColor: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--radius-xl, 16px)',
               width: '100%',
               maxWidth: '860px',
               maxHeight: '90vh',
@@ -424,38 +450,40 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
               {/* Modal Header */}
               <div className="its-modal-head" style={{
                 display: 'flex',
-                justify: 'space-between',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '18px 24px',
-                borderBottom: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc'
+                borderBottom: '1px solid var(--border-color)',
+                backgroundColor: 'var(--surface-2)'
               }}>
                 <div>
-                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {getTemplateDetails(previewModalTemplate.id).name}
                     {selectedTemplate === previewModalTemplate.id && (
-                      <span style={{ fontSize: '11px', fontWeight: 700, backgroundColor: '#2563eb', color: '#fff', padding: '2px 8px', borderRadius: '12px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, backgroundColor: 'var(--primary-color)', color: 'var(--primary-foreground)', padding: '2px 8px', borderRadius: '12px' }}>
                         {t('settingsPage.currentlySelected', 'Currently Selected')}
                       </span>
                     )}
                   </h3>
-                  <span style={{ fontSize: '12px', color: '#64748b' }}>{getTemplateDetails(previewModalTemplate.id).tagline}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{getTemplateDetails(previewModalTemplate.id).tagline}</span>
                 </div>
               </div>
 
               {/* Modal Body - Wide Invoice Display */}
-              <div className="its-modal-body" style={{ padding: '32px 40px', overflowY: 'auto', flex: 1, backgroundColor: '#ffffff' }}>
-                <InvoiceRenderer template={previewModalTemplate.id} data={previewData} />
+              <div className="its-modal-body" style={{ padding: '32px 40px', overflowY: 'auto', flex: 1, backgroundColor: 'var(--surface-inset)' }}>
+                <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+                  <InvoiceRenderer template={previewModalTemplate.id} data={previewData} />
+                </div>
               </div>
 
               {/* Modal Footer Controls */}
               <div className="its-modal-foot" style={{
                 display: 'flex',
-                justify: 'space-between',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '16px 24px',
-                borderTop: '1px solid #e2e8f0',
-                backgroundColor: '#f8fafc'
+                borderTop: '1px solid var(--border-color)',
+                backgroundColor: 'var(--surface-2)'
               }}>
                 <button
                   type="button"
@@ -472,8 +500,7 @@ export const InvoiceTemplateSelector = ({ currentUser }) => {
                   style={{
                     fontSize: '13px',
                     padding: '8px 20px',
-                    backgroundColor: selectedTemplate === previewModalTemplate.id ? '#166534' : '#2563eb',
-                    color: '#ffffff',
+                    color: 'var(--primary-foreground)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px'
