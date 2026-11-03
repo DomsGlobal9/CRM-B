@@ -15,7 +15,7 @@ import { useApp } from '../../context/AppContext';
 /**
  * The owner's Dashboard: the money first, then what is in the workroom,
  * then today's attendance and the appointments still to come. Figures come
- * from GET /dashboard/; the workroom tiles are counted from the order list.
+ * from GET /dashboard/, the workroom tiles too (its `workroom` counts).
  */
 export default function OverviewPanel({ appointments, blankAppointmentForm, bookTiers, currentUserName, dashboardData, guideOrders, justRegistered, loading, onboardingSteps, openAppointment, ordersList, setAppointmentForm, setEditingAppointment, setInvoiceFilter, setOnboardingDismissed, setOrdersFilterTab, setOrdersStageFilter, setShowAppointmentModal, setTaskGuide, setView, showOnboarding }) {
   const { t } = useLanguage();
@@ -23,7 +23,7 @@ export default function OverviewPanel({ appointments, blankAppointmentForm, book
   return (
     <>
       <PageHeader
-        title={justRegistered && dashboardTab === 'overview' && !ordersList.length
+        title={justRegistered && dashboardTab === 'overview' && !ordersList.length && !dashboardData?.stats?.total_orders
           ? t('dashboard.welcomeNewUser', `Welcome ${currentUserName} to Scaleezy! 👋`, { name: currentUserName })
           : t('dashboard.welcomeBackUser', `Welcome back, ${currentUserName}! 👋`, { name: currentUserName })}
         subtitle={t('dashboard.subtitle')}
@@ -133,9 +133,14 @@ export default function OverviewPanel({ appointments, blankAppointmentForm, book
           on right now, in workroom order, plus the two piles either
           side of it. */}
       {(() => {
+        // Counted by GET /dashboard/ (workroom), so the page need not download
+        // every order; counted from the order list only by an older server.
+        const workroom = dashboardData?.workroom;
         const dist = {};
-        let fresh = 0;
-        ordersList.forEach((o) => {
+        let fresh = workroom ? workroom.new : 0;
+        if (workroom) {
+          workroom.stages.forEach((s) => { dist[s.key] = { name: s.name, count: s.count, seq: s.sequence ?? 0 }; });
+        } else ordersList.forEach((o) => {
           const b = orderBucket(o);
           if (b === 'new') fresh += 1;
           if (b !== 'workshop') return;

@@ -27,6 +27,13 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
   const datasetLoaders = (user) => ({
     dashboard: () => api.getDashboard().then((data) => {
       setDashboardData(data);
+      // A server from before `workroom` / `getting_started`: the tiles and the
+      // Getting started ticks are worked out from the lists themselves.
+      const fromLists = [
+        ...(!data.workroom ? ['orders'] : []),
+        ...(!data.getting_started && !onboardingDismissed ? ['orders', 'tailors', 'fabrics'] : []),
+      ].filter((key, i, all) => all.indexOf(key) === i && !loadedData.current.has(key));
+      if (fromLists.length) loadData(fromLists, user);
       if (data.recent_orders?.length > 0) {
         setSelectedDashboardOrder((current) => {
           if (!current) return data.recent_orders[0];
@@ -110,13 +117,11 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
       ...(activeReviewStage ? ['tailors', 'designerStaff'] : []),
       // The appointment form's "With" list.
       ...(showAppointmentModal ? ['tailors'] : []),
-      // The Dashboard's Getting started list ticks off staff and fabrics.
-      ...(view === 'dashboard' && dashboardTab === 'overview' && !onboardingDismissed ? ['tailors', 'fabrics'] : []),
     ].filter((key) => !loadedData.current.has(key));
     if (needed.length) loadData([...new Set(needed)]);
     // loadData is a new function every render; these decide what is fetched.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, view, dashboardTab, activeReviewStage, showAppointmentModal, onboardingDismissed]);
+  }, [currentUser, view, dashboardTab, activeReviewStage, showAppointmentModal]);
 
   const fetchWhatsAppStatus = useCallback(async () => {
     try {

@@ -122,6 +122,9 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
     ...(guideOrders && dashboardTab !== 'orders' ? { orders: orderCount ? t('onboard.sidebarOrders', 'Create orders here') : t('onboard.sidebarFirstOrder', 'Create your first order') } : {}),
   };
 
+  // Whether each step is done: GET /dashboard/ answers (getting_started); only
+  // an older server leaves it to the lists themselves.
+  const started = dashboardData?.getting_started;
   const onboardingSteps = [
     { key: 'boutique', label: 'Create your boutique', done: true },
     // The same New customer form the Customers page's Add Customer leads to.
@@ -129,10 +132,10 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
       setSelectedDirectoryCustomer(null); setEditingCustomer(null);
       setDashboardTab('customers'); setCustomerAddMode('manual');
     } },
-    { key: 'order', label: 'Take your first order', done: ordersList.length > 0, go: () => setView('order-selector') },
-    { key: 'staff', label: 'Add your tailors, masters and designers', done: tailors.length > 0, tab: 'staff', go: () => setDashboardTab('staff') },
-    { key: 'fabrics', label: 'Put your first fabric on the shelf', done: fabrics.length > 0, tab: 'inventory', go: () => setDashboardTab('inventory') },
-    { key: 'production', label: 'Move an order through the workroom', done: ordersList.some(o => o.order_status && o.order_status !== 'Received'), tab: 'orders', go: () => setDashboardTab('orders') },
+    { key: 'order', label: 'Take your first order', done: started ? started.has_orders : ordersList.length > 0, go: () => setView('order-selector') },
+    { key: 'staff', label: 'Add your tailors, masters and designers', done: started ? started.has_staff : tailors.length > 0, tab: 'staff', go: () => setDashboardTab('staff') },
+    { key: 'fabrics', label: 'Put your first fabric on the shelf', done: started ? started.has_fabrics : fabrics.length > 0, tab: 'inventory', go: () => setDashboardTab('inventory') },
+    { key: 'production', label: 'Move an order through the workroom', done: started ? started.order_moved : ordersList.some(o => o.order_status && o.order_status !== 'Received'), tab: 'orders', go: () => setDashboardTab('orders') },
 
   ].filter((step) => !step.tab || canSeeTab(currentUser, step.tab));
 

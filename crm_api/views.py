@@ -2227,10 +2227,90 @@ class DashboardView(views.APIView):
                 'status_distribution': pipeline,
             },
             'today': self._today(request, today),
+            'workroom': self._workroom(request),
+            'getting_started': self._getting_started(request),
             'attention': self._attention(request, orders, today),
             'recent_orders': recent_orders_data,
             'recent_customers': recent_customers_data,
         })
+
+    #: A stage that has begun (orderBucket in the frontend's features/orders/stages.js).
+    _NOT_BEGUN = ('NOT_STARTED', 'SKIPPED')
+    _SETTLED = ('COMPLETED', 'SKIPPED')
+
+    def _workroom(self, request):
+        """The Dashboard's "In the workroom" tiles, counted here so the screen
+        need not download every order to count them.
+
+        The same orders the order list shows (in-house runs included, as
+        GET /orders/ returns them), and the same rules the frontend applies to
+        it (orderBucket and stageNow in frontend/src/features/orders/stages.js):
+
+        * a delivered or cancelled order is done and not counted;
+        * one with no stage begun beyond "created" is new ("Not sent yet");
+        * otherwise it stands on its current stage -- the first waiting for a
+          check, else the first in progress or paused, else the first not yet
+          done -- in the stages' own order (OrderStage.Meta.ordering).
+
+        A stage's tile takes its name and place from the newest order on it,
+        as the list (newest first) did. Two queries, whatever the book's size.
+        """
+        orders = (visible_orders(Order.objects.all(), request.user)
+                  .exclude(order_status__in=self.CLOSED_STATUSES))
+        order_ids = list(dict.fromkeys(orders.order_by('-order_date').values_list('id', flat=True)))
+        stages = {order_id: [] for order_id in order_ids}
+        for row in (OrderStage.objects.filter(order_id__in=order_ids)
+                    .values('order_id', 'stage_key', 'stage_name', 'status', 'sequence')):
+            stages[row['order_id']].append(row)
+
+        new = 0
+        tiles = {}
+        for order_id in order_ids:
+            rows = stages[order_id]
+            if not any(r['stage_key'] != 'created' and r['status'] not in self._NOT_BEGUN for r in rows):
+                new += 1
+                continue
+            current = (next((r for r in rows if r['status'] == 'PENDING_VERIFICATION'), None)
+                       or next((r for r in rows if r['status'] in ('IN_PROGRESS', 'PAUSED')), None)
+                       or next((r for r in rows if r['status'] not in self._SETTLED), None))
+            if current is None:
+                continue
+            tile = tiles.setdefault(current['stage_key'], {
+                'key': current['stage_key'], 'name': current['stage_name'],
+                'sequence': current['sequence'], 'count': 0,
+            })
+            tile['count'] += 1
+        return {'new': new, 'stages': sorted(tiles.values(), key=lambda t: t['sequence'])}
+
+    def _getting_started(self, request):
+        """What the Dashboard's Getting started list ticks off, as yes/no.
+
+        The list only needs to know whether each thing exists, so it is asked
+        here rather than by downloading every order, the whole team and the
+        fabric picker. Each answer is the one the frontend read off those lists
+        (useWorkspaceShell's onboardingSteps): the same orders GET /orders/
+        lists, the same team GET /tailors/ lists, the same items the fabric
+        picker (GET /inventory/items/?picker=true) offers.
+        """
+        orders = visible_orders(Order.objects.all(), request.user)
+        team = (Tailor.objects.exclude(role=DESIGNER)
+                .exclude(role='Tailor', user__isnull=False, designer_profiles__user=F('user')))
+        has_fabrics = False
+        try:
+            from apps.inventory.models import Category, InventoryItem
+            has_fabrics = (InventoryItem.objects.filter(status=InventoryItem.Status.ACTIVE)
+                           .filter(Q(category__in=[Category.FABRIC, Category.LINING, Category.BORDER])
+                                   | ~Q(kind='') | Q(placements__isnull=False))
+                           .exists())
+        except Exception:
+            pass  # the inventory module off or mid-migration: the step stays open
+        return {
+            'has_orders': orders.exists(),
+            # Taken in and moved on: any status but the first (and not blank).
+            'order_moved': orders.exclude(order_status__in=('Received', '')).exclude(order_status__isnull=True).exists(),
+            'has_staff': team.exists(),
+            'has_fabrics': has_fabrics,
+        }
 
     def _today(self, request, today):
         """Appointments booked for today and who is on the floor right now.
