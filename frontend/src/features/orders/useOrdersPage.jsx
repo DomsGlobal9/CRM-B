@@ -4,6 +4,8 @@ import { customerTier } from '../customers/customerBook';
 import { orderGarmentNames, orderRef } from '../../services/format';
 import { api } from '../../services/api';
 
+export const ORDER_PAGE_SIZES = [20, 30, 40, 50];
+
 /**
  * The Orders and Workshop pages' own state: the filters, search and list or
  * kanban view, going back from Workshop, and the per-order actions in progress
@@ -61,7 +63,28 @@ export default function useOrdersPage({ setDashboardTab, lastTabRef, t, navSecti
 
   const [ordersView, setOrdersView] = useState('list');
 
+  // Both pages are split into two tabs, stitching (Maggam included: it is
+  // stitched with embroidery on top) and alterations. The type filter only
+  // narrows the stitching tab, so leaving it clears it.
+  const [ordersKind, setKind] = useState('stitching');
+  const setOrdersKind = (kind) => {
+    setKind(kind);
+    setOrdersPageAt({ key: '', page: 1 });
+    if (kind === 'alteration') setOrdersTypeFilter('All');
+  };
+
+  // The list's page. Any change to what is listed starts it again at page 1;
+  // it is kept here rather than in the list, so coming back from an order
+  // returns to the page it was opened from.
+  const [ordersPageSize, setOrdersPageSize] = useState(ORDER_PAGE_SIZES[0]);
+  const ordersPageKey = [dashboardTab, ordersKind, ordersFilterTab, ordersTypeFilter, ordersTierFilter,
+    ordersGarmentFilter, ordersStageFilter, ordersSearch, ordersPageSize].join('|');
+  const [ordersPageAt, setOrdersPageAt] = useState({ key: '', page: 1 });
+  const ordersListPage = ordersPageAt.key === ordersPageKey ? ordersPageAt.page : 1;
+  const goToOrdersPage = (page) => setOrdersPageAt({ key: ordersPageKey, page });
+
   const orderMatchesFilters = (order) => {
+    if ((order.flow === 'alteration') !== (ordersKind === 'alteration')) return false;
     if (ordersTypeFilter === 'Alteration' && order.flow !== 'alteration') return false;
     if (ordersTypeFilter === 'Maggam' && order.flow !== 'maggam') return false;
     if (ordersTypeFilter === 'Stitching' && order.flow !== 'stitching' && order.flow !== 'legacy') return false;
@@ -158,6 +181,12 @@ export default function useOrdersPage({ setDashboardTab, lastTabRef, t, navSecti
     setOrdersGarmentFilter,
     ordersView,
     setOrdersView,
+    ordersKind,
+    setOrdersKind,
+    ordersPageSize,
+    setOrdersPageSize,
+    ordersListPage,
+    goToOrdersPage,
     orderMatchesFilters,
     savingVerificationOrderId,
     setSavingVerificationOrderId,

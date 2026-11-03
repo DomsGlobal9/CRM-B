@@ -1,8 +1,10 @@
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Scissors, ShoppingCart, User, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, ShoppingCart, User, Zap } from 'lucide-react';
 import React from 'react';
 import { RequestAlterationModal } from '../alterations/OrderAlterations';
 import { PageHeader, SearchBox, Segmented, StatCard } from '../../components/ui/Atelier';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
+import { Pager } from '../../components/ui/Pager';
+import { ORDER_PAGE_SIZES } from './useOrdersPage';
 import { getStageBadgeStyle, orderBucket, sinceLabel, stageNow, stageWho } from './stages';
 import { TIERS } from '../customers/customerBook';
 import { tierName } from '../../services/tierNames';
@@ -16,9 +18,10 @@ import { useApp } from '../../context/AppContext';
 /**
  * Orders and Workshop: the order book as a list or (Workshop) a kanban, with
  * the filters by tab, type, tier, garment and stage. Opening a row shows that
- * order on its own page (OrderDetailPanel).
+ * order on its own page (OrderDetailPanel). Both are split into a Stitching
+ * and an Alteration tab, and the list is shown a page at a time.
  */
-export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWorkshop, openAlteration, openSendToWorkshop, openStageReview, orderMatchesFilters, ordersAlterationOrder, ordersFilterTab, ordersGarmentFilter, ordersList, ordersSearch, ordersStageFilter, ordersTierFilter, ordersTypeFilter, ordersView, previousDashboardTab, queuedMessages, rememberAlteration, sendBusy, setOpenGarmentJob, setOpenOrdersRowId, setOrdersAlterationOrder, setOrdersFilterTab, setOrdersGarmentFilter, setOrdersSearch, setOrdersStageFilter, setOrdersTierFilter, setOrdersTypeFilter, setOrdersView, setView }) {
+export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWorkshop, openAlteration, openSendToWorkshop, openStageReview, orderMatchesFilters, ordersAlterationOrder, ordersFilterTab, ordersGarmentFilter, ordersList, ordersSearch, ordersStageFilter, ordersTierFilter, ordersTypeFilter, ordersView, ordersKind, setOrdersKind, ordersPageSize, setOrdersPageSize, ordersListPage, goToOrdersPage, previousDashboardTab, queuedMessages, rememberAlteration, sendBusy, setOpenGarmentJob, setOpenOrdersRowId, setOrdersAlterationOrder, setOrdersFilterTab, setOrdersGarmentFilter, setOrdersSearch, setOrdersStageFilter, setOrdersTierFilter, setOrdersTypeFilter, setOrdersView, setView }) {
   const { t } = useLanguage();
   const { dashboardTab, currentUser, adminCan, boutiqueSettings, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
   return (
@@ -49,12 +52,23 @@ export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWo
       />
 
       {(() => {
+        const isAlteration = (o) => o.flow === 'alteration';
+        const ofKind = ordersList.filter(o => isAlteration(o) === (ordersKind === 'alteration'));
         // Three piles: still on the counter, being made, out the door.
-        const fresh = ordersList.filter(o => orderBucket(o) === 'new').length;
-        const making = ordersList.filter(o => orderBucket(o) === 'workshop').length;
-        const done = ordersList.filter(o => orderBucket(o) === 'done').length;
+        const fresh = ofKind.filter(o => orderBucket(o) === 'new').length;
+        const making = ofKind.filter(o => orderBucket(o) === 'workshop').length;
+        const done = ofKind.filter(o => orderBucket(o) === 'done').length;
+        // Each tab names how many of its orders are in the pile on show.
+        const inPile = ordersList.filter(o => orderBucket(o) === ordersFilterTab);
+        const alterations = inPile.filter(isAlteration).length;
         return (
           <>
+            <div className="orders-kind-tabs" style={{ marginBottom: 'var(--space-4)' }}>
+              <Segmented ariaLabel={t('ordersPage.orderKind', 'Order type')} value={ordersKind} onChange={setOrdersKind} options={[
+                { key: 'stitching', label: `${t('ordersPage.typeStitching', 'Stitching')} (${inPile.length - alterations})`, icon: Scissors },
+                { key: 'alteration', label: `${t('ordersPage.typeAlteration', 'Alterations')} (${alterations})`, icon: Ruler },
+              ]} />
+            </div>
             {dashboardTab === 'orders' && (
               <section className="at-stat-grid orders-stats">
                 {/* The three cards are the New / In progress / Closed switch
@@ -102,13 +116,14 @@ export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWo
                   the list and the board read the same filter. */}
               <details className="at-toolbar-filters at-filters-fold">
                 <summary className="at-phone-only"><Filter size={14} /> {t('common.filters', 'Filters')}</summary>
-                <select className="form-control at-filter" value={ordersTypeFilter} aria-label="Order type"
-                        onChange={(e) => setOrdersTypeFilter(e.target.value)}>
-                  <option value="All">{t('ordersPage.allTypes', 'All types')}</option>
-                  <option value="Stitching">{t('ordersPage.typeStitching', 'Stitching')}</option>
-                  <option value="Maggam">{t('ordersPage.typeMaggam', 'Maggam')}</option>
-                  <option value="Alteration">{t('ordersPage.typeAlteration', 'Alterations')}</option>
-                </select>
+                {ordersKind === 'stitching' && (
+                  <select className="form-control at-filter" value={ordersTypeFilter} aria-label="Order type"
+                          onChange={(e) => setOrdersTypeFilter(e.target.value)}>
+                    <option value="All">{t('ordersPage.allTypes', 'All types')}</option>
+                    <option value="Stitching">{t('ordersPage.typeStitching', 'Stitching')}</option>
+                    <option value="Maggam">{t('ordersPage.typeMaggam', 'Maggam')}</option>
+                  </select>
+                )}
                 <select className="form-control at-filter" value={ordersTierFilter} aria-label="Customer type"
                         onChange={(e) => setOrdersTierFilter(e.target.value)}>
                   <option value="All">{t('ordersPage.allCustomerTypes', 'All customer types')}</option>
@@ -239,12 +254,19 @@ export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWo
                         {t('ordersPage.createFirstOrder', 'Create your first order')}
                       </button>
                     </div>
-                  ) : t('ordersPage.noOrdersMatching', 'No orders found matching the criteria.')}
+                  ) : !ordersList.some(o => (o.flow === 'alteration') === (ordersKind === 'alteration'))
+                    ? (ordersKind === 'alteration'
+                      ? t('ordersPage.noAlterationsYet', 'No alteration orders yet.')
+                      : t('ordersPage.noStitchingYet', 'No stitching orders yet.'))
+                    : t('ordersPage.noOrdersMatching', 'No orders found matching the criteria.')}
                 </div>
               );
             }
 
             const today = todayIso();
+            const pageCount = Math.max(1, Math.ceil(workshopRows.length / ordersPageSize));
+            const page = Math.min(ordersListPage, pageCount);
+            const pageRows = workshopRows.slice((page - 1) * ordersPageSize, page * ordersPageSize);
 
             return (
             <div className="at-table-wrap">
@@ -261,7 +283,7 @@ export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWo
                 </tr>
               </thead>
               <tbody>
-            {workshopRows.map(({ order, job, n }) => {
+            {pageRows.map(({ order, job, n }) => {
               const isDelivered = order.order_status === 'Delivered';
               const isCancelled = order.order_status === 'Cancelled';
               const bucket = orderBucket(order);
@@ -428,6 +450,11 @@ export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWo
             })}
               </tbody>
             </table>
+            {workshopRows.length > ORDER_PAGE_SIZES[0] && (
+              <Pager page={page} pageCount={pageCount} pageSize={ordersPageSize}
+                     sizes={ORDER_PAGE_SIZES} onPage={goToOrdersPage} onSize={setOrdersPageSize}
+                     label={t('ordersPage.perPage', 'Orders per page')} />
+            )}
             </div>
             );
           })()}

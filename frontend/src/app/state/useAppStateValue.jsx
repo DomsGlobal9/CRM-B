@@ -777,7 +777,7 @@ export default function useAppStateValue() {
   const { assigningStageKey, stageTransitionBusy, setStageTransitionBusy, reversalPrompt, setReversalPrompt, reversalReason, setReversalReason, reversalBusy, setReversalBusy, eligibleStaffForStage, handleAssignStage } = stageReview;
   // The Orders and Workshop pages' own state (features/orders/useOrdersPage.jsx).
   const ordersPage = useOrdersPage({ setDashboardTab, lastTabRef, t, navSections, dashboardTab, ordersTabPick, setOrdersStageFilter, ordersStageFilter, fetchDashboardAndConfig });
-  const { previousDashboardTab, getTabLabel, handleBackFromWorkshop, ordersAlterationOrder, setOrdersAlterationOrder, sendErrorsOrderId, setSendErrorsOrderId, completingAllOrderId, setCompletingAllOrderId, ordersSearch, setOrdersSearch, ordersFilterTab, ordersTierFilter, setOrdersTierFilter, ordersTypeFilter, setOrdersTypeFilter, ordersGarmentFilter, setOrdersGarmentFilter, ordersView, setOrdersView, orderMatchesFilters, savingVerificationOrderId, setSavingVerificationOrderId, assigningWorkflowOrderId, designerInCharge, assignOrderDesigner } = ordersPage;
+  const { previousDashboardTab, getTabLabel, handleBackFromWorkshop, ordersAlterationOrder, setOrdersAlterationOrder, sendErrorsOrderId, setSendErrorsOrderId, completingAllOrderId, setCompletingAllOrderId, ordersSearch, setOrdersSearch, ordersFilterTab, ordersTierFilter, setOrdersTierFilter, ordersTypeFilter, setOrdersTypeFilter, ordersGarmentFilter, setOrdersGarmentFilter, ordersView, setOrdersView, ordersKind, setOrdersKind, ordersPageSize, setOrdersPageSize, ordersListPage, goToOrdersPage, orderMatchesFilters, savingVerificationOrderId, setSavingVerificationOrderId, assigningWorkflowOrderId, designerInCharge, assignOrderDesigner } = ordersPage;
   // The Customers and Leads pages' own state (features/customers/useCustomerBook.jsx).
   const customerBook = useCustomerBook({ currentUser, dashboardTab, setSelectedDirectoryCustomer, selectedDirectoryCustomer, directoryVersion, fetchDashboardAndConfig, startService, setCustomerAddMode, setEditingCustomer, adminCan, isOwnerUser });
   const { styleNotesFor, setStyleNotesFor, alterationOrder, setAlterationOrder, expandedCustomerOrderId, setExpandedCustomerOrderId, approvingDesignId, searchQuery, setSearchQuery, customerView, customerPageSize, setCustomerPageSize, customerFilters, setCustomerFilters, customerDirectory, handleStartNewCustomer, deletingAllCustomers, setDeletingAllCustomers, customerActionId, startEditCustomer, handleDeleteCustomer, handleMarkLeadContacted, orderTypeFor, setOrderTypeFor, handleSelectExistingCustomer, beginOrderForCustomer, customerPhotoBusy, uploadDirectoryCustomerPhoto, handleApproveDesign, isLead, directoryLoading, directoryData, bookSummary, directoryCount, pagedCustomers, customerPageNow, customerPageCount, customerPageFrom, goToCustomerPage, canEditCustomer, canDeleteCustomer, canImportCustomers } = customerBook;
@@ -949,6 +949,12 @@ export default function useAppStateValue() {
     ordersTierFilter,
     ordersTypeFilter,
     ordersView,
+    ordersKind,
+    setOrdersKind,
+    ordersPageSize,
+    setOrdersPageSize,
+    ordersListPage,
+    goToOrdersPage,
     outsideForm,
     outsidePhoto,
     pageTour,
