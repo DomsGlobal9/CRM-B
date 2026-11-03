@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { Compass, Scissors, Upload, Check, ArrowRight, ArrowLeft, MessageSquare, Copy, ShieldCheck, BarChart2, FolderOpen, Sparkles, X, ExternalLink, Lock, Mail, FileText, Printer, Bell, User, Eye, EyeOff, Edit2, Plus, Trash2, LogOut, Package, Menu, PenTool, Settings, Wallet, AlertTriangle, Shirt, CheckCircle2, ClipboardList, Type, Tag, Layers, Palette, IndianRupee, Link as LinkIcon, Save, RefreshCw, Ruler, Camera, PanelLeftClose, PanelLeftOpen, ChevronDown, Factory, Send } from 'lucide-react';
+import { Compass, Scissors, Check, ArrowRight, ArrowLeft, Copy, BarChart2, FolderOpen, Sparkles, X, ExternalLink, Lock, Bell, User, Eye, Edit2, Plus, Trash2, LogOut, Package, Menu, PenTool, Settings, Wallet, AlertTriangle, Shirt, ClipboardList, Layers, Palette, Ruler, Camera, PanelLeftClose, PanelLeftOpen, ChevronDown, Factory } from 'lucide-react';
 import { api } from './services/api';
 import { resolveMediaUrl } from './services/media';
 import { maySignOff } from './services/signOff';
-import { LIMITS, tenDigits, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
+import { LIMITS, cleanMobile, displayMobile, mobileError, phoneError, cleanName, nameError, cleanEmail, emailError, cleanAmount, amountError, isPastDate, imageFilesError } from './services/validate';
 import {
-  formatMoney, formatDate as fmtDate, formatDateTime as fmtDateTime,
+  formatDate as fmtDate, formatDateTime as fmtDateTime,
   formatTime as fmtTime, setBoutiqueTimeZone, orderRef,
 } from './services/format';
 
@@ -18,14 +18,6 @@ const FabricColorFilter = lazy(() => import('./features/fabrics/FabricColorFilte
 import { fabricMatchesColour } from './features/fabrics/colour';
 
 const InventoryPanel = lazy(() => import('./features/inventory/InventoryPanel'));
-const DesignLibrary = lazy(() => import('./features/designStudio/DesignLibrary'));
-const DesignUpload = lazy(() => import('./features/designStudio/DesignUpload'));
-const DesignDashboard = lazy(() => import('./features/designStudio/DesignDashboard'));
-// The Design library's Overview tab is merged into "Boutique designs" (its
-// counts sit with the library's own); hidden, not removed -- set to true to
-// bring the tab back.
-const SHOW_DESIGN_OVERVIEW_TAB = false;
-const DesignWork = lazy(() => import('./features/designStudio/DesignWork'));
 const StaffPanel = lazy(() => import('./features/staff/StaffPanel'));
 const FinancePanel = lazy(() => import('./features/finance/FinancePanel'));
 const InsightsPanel = lazy(() => import('./features/analytics/InsightsPanel'));
@@ -41,12 +33,10 @@ import TemplateForm from './features/catalog/TemplateForm';
 import PetticoatStylePicker from './features/catalog/PetticoatStylePicker';
 import GarmentPurchases from './features/catalog/GarmentPurchases';
 import { purchaseError } from './features/catalog/materials';
-import DesignCataloguePicker from './features/designStudio/DesignCataloguePicker';
 import GarmentSummary from './features/catalog/GarmentSummary';
 import { AddCustomerChooser, CustomerForm, DeleteAllCustomersDialog } from './features/customers/AddCustomer';
 import BoutiqueProductionDialog from './features/production/BoutiqueProduction';
 import { EMPTY_CUSTOMER_FILTERS } from './features/customers/filterRules';
-import CustomerPicker from './features/customers/CustomerPicker';
 import { useCustomerLookup, useDebouncedValue } from './features/customers/useCustomerLookup';
 import { useFabricTaxonomy } from './features/fabrics/taxonomy';
 import useAutosave from './hooks/useAutosave';
@@ -54,16 +44,27 @@ import { followerOf, syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
 import { AccountMenu } from './components/ui/AccountMenu';
-import { PageHeader, AvatarInitials, Segmented, IconTile, FormModal, Field, Dropzone, InfoNote, CameraButton } from './components/ui/Atelier';
+import { PageHeader, AvatarInitials, Segmented, IconTile, FormModal, Field, Dropzone } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
 import { AppContext } from './context/AppContext';
+import FindBoutiqueScreen from './features/auth/FindBoutiqueScreen';
+import BoutiqueNotFound from './features/auth/BoutiqueNotFound';
+import LoginScreen from './features/auth/LoginScreen';
+import ForgotPasswordScreen from './features/auth/ForgotPasswordScreen';
+import ResetPasswordScreen from './features/auth/ResetPasswordScreen';
+import ChangePasswordScreen from './features/auth/ChangePasswordScreen';
+import SignupScreen from './features/auth/SignupScreen';
+import useAuthForms from './features/auth/useAuthForms';
+import DesignsPanel from './features/designStudio/DesignsPanel';
+import AppointmentModal from './features/appointments/AppointmentModal';
+import DesignFormModal from './features/designStudio/DesignFormModal';
+import OrderConfirmedScreen from './features/orders/OrderConfirmedScreen';
+import InvoiceModal from './features/invoices/InvoiceModal';
 import StageReviewModal from './features/orders/StageReviewModal';
 import OverviewPanel from './features/dashboard/OverviewPanel';
 import NotificationsDrawer from './features/notifications/NotificationsDrawer';
 import LanguageSelector from './components/LanguageSelector.jsx';
 import SettingsPage from './components/SettingsPage.jsx';
-import { InvoiceRenderer, normalizeInvoiceData } from './components/invoice/InvoiceTemplates';
-import { TERMS_AND_CONDITIONS, PRIVACY_POLICY } from './constants/legal';
 import { BottomNavigation } from './components/ui/BottomNavigation';
 import ProductTour from './components/ui/ProductTour';
 import { markTourSeen, tourSeen } from './components/ui/tourState';
@@ -81,7 +82,6 @@ import GarmentPairingModal, { getGarmentPairConfig, findMatchingTemplate } from 
 import VoiceTextarea, { VoiceNotePlayer, VoiceRecorder } from './components/ui/VoiceTextarea';
 import { voiceNoteList } from './components/ui/voiceNotes';
 import Loader from './components/ui/Loader';
-import AuthShowcase from './components/auth/AuthShowcase';
 import { setTierNames, tierName } from './services/tierNames';
 import { isVisible, splitSpec, validateSpec, withDefaults } from './services/templates';
 import { portalSlugFromPath } from './navigation/portalSlug';
@@ -95,11 +95,8 @@ import { orderGarmentNames, formatMobile, inr } from './services/format';
 import { isProductionStaff, SUPERVISOR_ROLES } from './constants/roles';
 import { TierBadge } from './features/customers/TierBadge';
 import { sheetGet, MEASURE_KEYS, sheetSet, getCustomerMeasurement } from './services/measurements';
-import { legalLink } from './components/auth/legalLink';
 import { PortalMenu } from './navigation/PortalMenu';
 import { ScreenLoading } from './components/ui/ScreenLoading';
-import { APPOINTMENT_TYPE_LABELS, APPOINTMENT_STATUS_LABELS } from './constants/appointments';
-import { waLink } from './services/phone';
 import { StyleProfileCard } from './features/customers/StyleProfileCard';
 import { NetworkActivityBar } from './components/ui/NetworkActivityBar';
 
@@ -291,25 +288,9 @@ function App() {
     </div>
   );
 
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  // The login boxes stay read-only until touched, so the browser does not
-  // silently fill a saved login (an owner's, on a shared computer) on load;
-  // touching one offers the saved logins to pick from instead.
-  const [loginUnlocked, setLoginUnlocked] = useState(false);
-  const unlockLogin = () => setLoginUnlocked(true);
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
-
-  const [resetEmail, setResetEmail] = useState('');
-  const [resetSent, setResetSent] = useState(false);
-  const [resetToken, setResetToken] = useState(
-    () => new URLSearchParams(window.location.search).get('reset'));
-  const [resetPassword, setResetPassword] = useState('');
-  const [resetConfirm, setResetConfirm] = useState('');
-  const [resetDone, setResetDone] = useState(false);
-
-  const [authError, setAuthError] = useState(null);
-  const [authBusy, setAuthBusy] = useState(false);
+  // The sign-in screens' form state (features/auth/useAuthForms.js).
+  const auth = useAuthForms();
+  const { loginEmail, setLoginEmail, loginPassword, setLoginPassword, setLoginUnlocked, resetToken, setAuthError, authBusy, setAuthBusy, signupStep, changeCurrent, setChangeCurrent, changeNew, setChangeNew, changeConfirm, setChangeConfirm } = auth;
 
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     try {
@@ -318,42 +299,8 @@ function App() {
   });
   const [logoutBusy, setLogoutBusy] = useState(false);
 
-  const [findSlug, setFindSlug] = useState('');
-  const [findError, setFindError] = useState(null);
-  const [findBusy, setFindBusy] = useState(false);
-
-  const [signupStep, setSignupStep] = useState(1);
-
-  const [signupForm, setSignupForm] = useState({
-    first_name: '',
-    last_name: '',
-    email_address: '',
-    mobile_number: '',
-    password: '',
-    confirm_password: '',
-    terms: false
-  });
-  // The sign-up form's terms popup: 'terms', 'privacy', or closed.
-  const [legalDoc, setLegalDoc] = useState(null);
-  const [signupBusy, setSignupBusy] = useState(false);
-
-  const [signupError, setSignupError] = useState(null);
   const [justRegistered, setJustRegistered] = useState(false);
-  const [boutiqueName, setBoutiqueName] = useState('');
-  const [boutiqueAddress, setBoutiqueAddress] = useState('');
   
-  // "Request access": nobody creates their own boutique. The request is
-  // emailed a welcome ("under review"), the platform team is alerted, and the
-  // team emails the login details once the boutique is set up.
-  const signupReady = !!(boutiqueName.trim() && boutiqueAddress.trim()
-    && signupForm.first_name.trim() && signupForm.last_name.trim()
-    && signupForm.email_address.trim() && signupForm.mobile_number
-    && signupForm.terms);
-
-  // First sign-in with the temporary password the platform team sent.
-  const [changeCurrent, setChangeCurrent] = useState('');
-  const [changeNew, setChangeNew] = useState('');
-  const [changeConfirm, setChangeConfirm] = useState('');
 
   const [currentStep, setCurrentStep] = useState(1);
   
@@ -1173,51 +1120,6 @@ function App() {
     checkAuthSession();
   }, []);
 
-  const handleForgotSubmit = async (e) => {
-    if (e) e.preventDefault();
-    const email = resetEmail.trim();
-    if (!email) {
-      setAuthError('Enter the email address you sign in with.');
-      return;
-    }
-    setAuthBusy(true);
-    setAuthError(null);
-    try {
-      await api.requestPasswordReset(email);
-      setResetSent(true);
-    } catch (err) {
-      setAuthError(err.message || 'Could not send the reset email.');
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const handleResetSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (resetPassword.length < 8) {
-      setAuthError('The password needs at least 8 characters.');
-      return;
-    }
-    if (resetPassword !== resetConfirm) {
-      setAuthError('Those two passwords do not match.');
-      return;
-    }
-    setAuthBusy(true);
-    setAuthError(null);
-    try {
-      await api.confirmPasswordReset(resetToken, resetPassword);
-      localStorage.removeItem('token');
-      localStorage.removeItem('tenant_id');
-      setResetDone(true);
-      setResetPassword('');
-      setResetConfirm('');
-    } catch (err) {
-      setAuthError(err.message || 'Could not change your password.');
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
   /** Where a signed-in user goes: the change-password screen while the
    *  account still has the temporary password the platform team emailed,
    *  otherwise their workspace. False when there is nothing to load. */
@@ -1673,59 +1575,6 @@ function App() {
   };
 
   
-  const slugFromTyped = (raw) => {
-    const typed = (raw || '').trim().split(/[?#]/)[0];
-    const tail = typed.split('/').filter(Boolean).pop() || '';
-    return tail.toLowerCase().replace(/[^a-z0-9]/g, '');
-  };
-
-  const handleFindSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (findBusy) return;
-    const slug = slugFromTyped(findSlug);
-    if (!slug) {
-      setFindError('Type your boutique name or the address you sign in at.');
-      return;
-    }
-    setFindBusy(true);
-    setFindError(null);
-    const found = await api.getBoutiqueBySlug(slug);
-    if (!found) {
-      setFindError(`No active boutique signs in at /${slug}. Check the spelling with whoever set it up.`);
-      setFindBusy(false);
-      return;
-    }
-   
-    window.location.href = `/${found.shop_slug}`;
-  };
-
-  const handleSignupSubmit = async (e) => {
-    e.preventDefault();
-    if (!signupReady) return;
-    const bad = nameError(signupForm.first_name, { label: 'First name' })
-      || nameError(signupForm.last_name, { label: 'Last name' })
-      || emailError(signupForm.email_address, { required: true })
-      || mobileError(signupForm.mobile_number);
-    if (bad) { setSignupError(bad); return; }
-    if (signupBusy) return;
-    setSignupBusy(true);
-    setSignupError(null);
-    try {
-      await api.requestAccess({
-        name: `${signupForm.first_name.trim()} ${signupForm.last_name.trim()}`,
-        email: signupForm.email_address.trim(),
-        phone: signupForm.mobile_number,
-        boutique: boutiqueName.trim(),
-        address: boutiqueAddress.trim(),
-        terms_accepted: signupForm.terms === true,
-      });
-      setSignupStep(2);
-    } catch (err) {
-      setSignupError(err.message || 'Your request could not be sent. Please try again.');
-    } finally {
-      setSignupBusy(false);
-    }
-  };
 
   const handleLogout = async () => {
     if (logoutBusy) return;
@@ -2818,590 +2667,27 @@ function App() {
       )}
       {/* 2. SIGN IN SCREEN (Image 2) */}
 
-      {view === 'find' && (
-        <div className="auth-page auth-split" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
-          <AuthShowcase kind="find" />
-          <button
-            onClick={() => { setFindError(null); setView('signup'); }}
-            style={{ position: 'absolute', top: '30px', left: '5%', display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface-color)', border: '1px solid var(--border-color)', padding: '10px 18px', borderRadius: '99px', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: '600', boxShadow: '0 2px 6px rgba(0,0,0,0.03)' }}
-          >
-            <ArrowLeft size={16} />
-            Back
-          </button>
+      {view === 'find' && <FindBoutiqueScreen auth={auth} setView={setView} />}
 
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
+      {boutiqueNotFound && view !== 'find' && <BoutiqueNotFound auth={auth} portalSlug={portalSlug} setView={setView} />}
 
-          <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>Find your boutique</h2>
-            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 28px 0' }}>Every boutique signs in at its own address. Type your boutique's name and we will take you there.</p>
-
-            <form onSubmit={handleFindSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Boutique name or address</label>
-                <div className="auth-slug-box" style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border-color)', borderRadius: '8px', overflow: 'hidden' }}>
-                  <span style={{ padding: '12px 0 12px 14px', fontSize: '14px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{window.location.host}/</span>
-                  <input
-                    type="text"
-                    placeholder="saralaboutique"
-                    value={findSlug}
-                    onChange={(e) => { setFindSlug(e.target.value); setFindError(null); }}
-                    onBlur={() => setFindSlug((raw) => slugFromTyped(raw) || raw)}
-                    style={{ flex: 1, minWidth: 0, padding: '12px 14px 12px 2px', fontSize: '14px', border: 'none', outline: 'none', background: 'transparent', color: 'var(--text-primary)' }}
-                    autoFocus
-                    required
-                  />
-                </div>
-                {findSlug.trim() && slugFromTyped(findSlug) && (
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Goes to {window.location.host}/{slugFromTyped(findSlug)}
-                  </span>
-                )}
-              </div>
-
-              {findError && (
-                <div role="alert" style={{ fontSize: '13px', color: '#b42318', background: 'rgba(180,35,24,0.07)', padding: '10px 12px', borderRadius: '8px' }}>
-                  {findError}
-                </div>
-              )}
-
-              <button type="submit" className="btn-primary" disabled={findBusy} style={{ width: '100%' }}>
-                {findBusy ? 'Checking…' : 'Go to my boutique'}
-              </button>
-            </form>
-
-            <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '32px', paddingTop: '20px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-              Don't have a boutique yet?{' '}
-              <a href="#" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}
-                 onClick={(e) => { e.preventDefault(); setFindError(null); setView('signup'); }}>
-                Request access
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {boutiqueNotFound && view !== 'find' && (
-        <div className="auth-page auth-split" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
-          <AuthShowcase kind="notfound" />
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '32px' }}>YOUR VISION. OUR CRAFT.</div>
-
-          <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 6vw, 40px)', boxShadow: '0 8px 30px rgba(0,0,0,0.02)', textAlign: 'center' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: '0 0 8px 0' }}>Boutique not found</h2>
-            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 28px 0' }}>
-              No active boutique uses the address <strong>/{portalSlug}</strong>. Check the spelling with your boutique, or create a new one.
-            </p>
-            <button type="button" className="btn-primary" style={{ width: '100%' }}
-                    onClick={() => { setFindSlug(portalSlug); setFindError(null); setView('find'); }}>
-              Try another address
-            </button>
-            <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '28px', paddingTop: '20px', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-              <a href="/app?register" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Request access</a>
-              {' · '}
-              <a href="/" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>Back to Home</a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {view === 'login' && !boutiqueNotFound && (
-        <div className="auth-page auth-split" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '76px 16px 20px' }}>
-          <AuthShowcase kind="login" />
-          
-          {/* Back to Home Button */}
-          <button 
-            onClick={() => { window.location.href = '/'; }}
-            style={{
-              position: 'absolute',
-              top: '30px',
-              left: '5%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'var(--surface-color)',
-              border: '1px solid var(--border-color)',
-              padding: '10px 18px',
-              borderRadius: '99px',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              fontSize: '13px',
-              fontWeight: '600',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--accent-text, #b07c40)'; e.currentTarget.style.color = 'var(--accent-text, #b07c40)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-          >
-            <ArrowLeft size={16} />
-            Back to Home
-          </button>
-
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '18px' }}>YOUR VISION. OUR CRAFT.</div>
-
-          <div className="auth-card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: 'clamp(20px, 5vw, 32px)', gap: '16px', boxShadow: '0 8px 30px rgba(0,0,0,0.02)' }}>
-            <h2 className="auth-title" style={{ fontSize: '24px', color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>{justRegistered ? 'Your boutique is ready 🎉' : 'Welcome back 👋'}</h2>
-            <p className="auth-subtitle" style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '-8px 0 8px 0' }}>{justRegistered ? 'Sign in with the email and password you just created.' : 'Log in to your workspace.'}</p>
-            
-            <form onSubmit={handleLoginSubmit} className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Email</label>
-                <div className="input-wrapper" style={{ position: 'relative' }}>
-                  <Mail size={16} className="input-icon-left" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input 
-                    type="text" 
-                    placeholder="Enter your email"
-                    value={loginEmail}
-                    readOnly={!loginUnlocked}
-                    onPointerDown={unlockLogin}
-                    onFocus={unlockLogin}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    style={{ width: '100%', padding: '12px 14px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <label className="form-label" style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Password</label>
-                <div className="input-wrapper" style={{ position: 'relative' }}>
-                  <Lock size={16} className="input-icon-left" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input 
-                    type={showLoginPassword ? "text" : "password"} 
-                    placeholder="Enter your password"
-                    value={loginPassword}
-                    readOnly={!loginUnlocked}
-                    onPointerDown={unlockLogin}
-                    onFocus={unlockLogin}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    style={{ width: '100%', padding: '12px 40px 12px 42px', fontSize: '14px', borderRadius: '8px', border: '1px solid var(--border-color)', outline: 'none' }}
-                    required
-                  />
-                  <button 
-                    type="button"
-                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
-                    onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  >
-                    {showLoginPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="auth-remember-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', margin: '6px 0 10px 0' }}>
-                <span />
-                <button
-                  type="button"
-                  className="forgot-password-link"
-                  onClick={() => { setResetEmail(loginEmail); setResetSent(false); setAuthError(null); setView('forgot'); }}
-                  style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--accent-text, #b07c40)', fontWeight: 600, fontSize: '13px', whiteSpace: 'nowrap' }}
-                >
-                  Forgot password?
-                </button>
-              </div>
-
-              {authError && (
-                <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px' }}>
-                  {authError}
-                </div>
-              )}
-
-              <button type="submit" className="btn-primary" disabled={authBusy} style={{ justifyContent: 'center', padding: '14px', borderRadius: '8px', fontWeight: 600, fontSize: '14px', opacity: authBusy ? 0.6 : 1, cursor: authBusy ? 'wait' : 'pointer' }}>
-                {authBusy ? 'Signing in…' : 'Login to Workspace'}
-              </button>
-            </form>
-
-            <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '4px', paddingTop: '16px', textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-              Don't have a boutique account?{' '}
-              <a href="/app?register" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 600, textDecoration: 'none' }}>
-                Request access
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
+      {view === 'login' && !boutiqueNotFound && <LoginScreen auth={auth} handleLoginSubmit={handleLoginSubmit} justRegistered={justRegistered} setView={setView} />}
 
       {/* 3. SIGN UP SCREEN (Image 3) */}
       {/* Ask for a reset link. Reached from the login screen; leaves back to
           it. Nothing here reveals whether the address is one we know. */}
-      {view === 'forgot' && (
-        <div className="auth-page auth-split" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
-          <AuthShowcase kind="help" />
-          <div className="auth-card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-            <h2 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Reset your password</h2>
-
-            {resetSent ? (
-              <>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.6 }}>
-                  If <strong>{resetEmail}</strong> has an account, a reset link is on its way.
-                  It stops working in an hour. Check your spam folder if it has not arrived
-                  in a few minutes.
-                </p>
-                <button type="button" className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '13px', borderRadius: '8px', fontWeight: 600 }} onClick={() => { setResetSent(false); setView('login'); }}>
-                  Back to sign in
-                </button>
-              </>
-            ) : (
-              <form onSubmit={handleForgotSubmit}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.6, marginTop: 0 }}>
-                  Enter the email address you sign in with and we will send you a link to
-                  choose a new password.
-                </p>
-                <input
-                  type="email"
-                  autoFocus
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="you@yourboutique.com"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
-                />
-                {authError && (
-                  <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px' }}>
-                    {authError}
-                  </div>
-                )}
-                <button type="submit" className="btn-primary" disabled={authBusy} style={{ width: '100%', justifyContent: 'center', padding: '13px', borderRadius: '8px', fontWeight: 600, opacity: authBusy ? 0.6 : 1, cursor: authBusy ? 'wait' : 'pointer' }}>
-                  {authBusy ? 'Sending…' : 'Send reset link'}
-                </button>
-                <button type="button" onClick={() => { setAuthError(null); setView('login'); }} style={{ width: '100%', marginTop: '10px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>
-                  Back to sign in
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      {view === 'forgot' && <ForgotPasswordScreen auth={auth} setView={setView} />}
 
       {/* Choose the new password. Only reachable by following the emailed
           link, which is what put resetToken in state. */}
-      {view === 'reset' && (
-        <div className="auth-page auth-split" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
-          <AuthShowcase kind="help" />
-          <div className="auth-card" style={{ background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: 'clamp(20px, 6vw, 36px)', width: '100%', maxWidth: '420px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
-            <h2 style={{ margin: '0 0 8px 0', fontSize: '22px' }}>Choose a new password</h2>
-
-            {resetDone ? (
-              <>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', lineHeight: 1.6 }}>
-                  Your password has been changed, and every device that was signed in to
-                  this account has been signed out.
-                </p>
-                <button type="button" className="btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '13px', borderRadius: '8px', fontWeight: 600 }} onClick={() => { setResetDone(false); setResetToken(null); setView('login'); }}>
-                  Sign in
-                </button>
-              </>
-            ) : (
-              <form onSubmit={handleResetSubmit}>
-                <input
-                  type="password"
-                  autoFocus
-                  value={resetPassword}
-                  onChange={(e) => setResetPassword(e.target.value)}
-                  minLength={8}
-                  placeholder="New password (min 8 characters)"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '10px', boxSizing: 'border-box' }}
-                />
-                <input
-                  type="password"
-                  value={resetConfirm}
-                  onChange={(e) => setResetConfirm(e.target.value)}
-                  placeholder="Repeat new password"
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '14px', marginBottom: '12px', boxSizing: 'border-box' }}
-                />
-                {authError && (
-                  <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
-                    {authError}
-                  </div>
-                )}
-                <button type="submit" className="btn-primary" disabled={authBusy} style={{ width: '100%', justifyContent: 'center', padding: '13px', borderRadius: '8px', fontWeight: 600, opacity: authBusy ? 0.6 : 1, cursor: authBusy ? 'wait' : 'pointer' }}>
-                  {authBusy ? 'Saving…' : 'Change password'}
-                </button>
-                <button type="button" onClick={() => { setAuthError(null); setResetToken(null); setView('login'); }} style={{ width: '100%', marginTop: '10px', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>
-                  Back to sign in
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+      {view === 'reset' && <ResetPasswordScreen auth={auth} setView={setView} />}
 
       {/* First sign-in on a boutique the platform team created: the owner
           replaces the temporary password before anything else. The server
           refuses every other request from this account until they do. */}
-      {view === 'change-password' && currentUser && (
-        <div className="auth-page auth-split" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)', padding: '88px 16px 40px' }}>
-          <AuthShowcase kind="password" />
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
-          <div className="auth-card" style={{ width: '100%', maxWidth: '440px', marginTop: '24px' }}>
-            <form onSubmit={handleChangePasswordSubmit} className="auth-form" style={{ gap: '12px' }}>
-              <div>
-                <h2 className="auth-title" style={{ fontSize: '22px' }}>Choose your password</h2>
-                <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>
-                  Welcome{currentUser.first_name ? `, ${currentUser.first_name}` : ''}. You signed in with a temporary
-                  password. Choose your own to continue; the temporary one stops working once you save.
-                </p>
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="change-current">Temporary password</label>
-                <input id="change-current" type="password" className="form-control" autoComplete="current-password"
-                       value={changeCurrent} onChange={(e) => setChangeCurrent(e.target.value)}
-                       placeholder="From your login email" />
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="change-new">New password</label>
-                <input id="change-new" type="password" className="form-control" autoComplete="new-password" autoFocus
-                       value={changeNew} minLength={8} onChange={(e) => setChangeNew(e.target.value)}
-                       placeholder="At least 8 characters, not all numbers" />
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="change-confirm">Type it again</label>
-                <input id="change-confirm" type="password" className="form-control" autoComplete="new-password"
-                       value={changeConfirm} onChange={(e) => setChangeConfirm(e.target.value)} />
-              </div>
-              {authError && (
-                <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', whiteSpace: 'pre-wrap' }}>
-                  {authError}
-                </div>
-              )}
-              <button type="submit" className="btn-primary" disabled={authBusy || !changeCurrent || !changeNew || !changeConfirm}
-                      style={{ justifyContent: 'center' }}>
-                {authBusy ? 'Saving…' : 'Save and continue'}
-              </button>
-              <button type="button" className="btn-secondary" disabled={logoutBusy}
-                      onClick={() => { setAuthError(null); handleLogout(); }} style={{ justifyContent: 'center' }}>
-                Sign out
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      {view === 'change-password' && currentUser && <ChangePasswordScreen auth={auth} handleChangePasswordSubmit={handleChangePasswordSubmit} handleLogout={handleLogout} logoutBusy={logoutBusy} />}
 
-      {view === 'signup' && (
-        <div className="auth-page auth-page--signup auth-split auth-split--wide" style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--shell-bg)' }}>
-          <AuthShowcase kind="signup" />
-          
-          {/* Back to Home Button */}
-          <button 
-            onClick={() => { window.location.href = '/'; }}
-            style={{
-              position: 'absolute',
-              top: '30px',
-              left: '5%',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'var(--surface-color)',
-              border: '1px solid var(--border-color)',
-              padding: '10px 18px',
-              borderRadius: '99px',
-              cursor: 'pointer',
-              color: 'var(--text-secondary)',
-              fontSize: '13px',
-              fontWeight: '600',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--accent-text, #b07c40)'; e.currentTarget.style.color = 'var(--accent-text, #b07c40)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
-          >
-            <ArrowLeft size={16} />
-            Back to Home
-          </button>
-
-          <img className="portal-wordmark portal-wordmark--auth" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
-          <div className="auth-logo-sub" style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '16px' }}>YOUR VISION. OUR CRAFT.</div>
-
-          {/* One card, no steps. It used to be a two-tab wizard (owner on
-              tab 1, boutique on tab 2) with a step tracker above it; owners
-              lost their place between the tabs. Everything is on one screen
-              now, sized to fit a laptop viewport without scrolling. */}
-          {signupStep === 1 && <h2 className="auth-title auth-outside-title">Request access</h2>}
-          <div className="auth-card auth-card--signup">
-            {signupStep === 1 && (
-              <form onSubmit={handleSignupSubmit} className="auth-form" style={{ gap: '10px' }}>
-                <div>
-                  <p className="auth-subtitle" style={{ marginTop: '4px', marginBottom: 0 }}>Tell us about your boutique. Our team reviews every request and emails you your login details.</p>
-                </div>
-
-                <div className="signup-section-title"><span className="signup-section-num">1</span>Your boutique</div>
-                <div className="form-grid-2 signup-grid">
-                  <div className="form-group">
-                    <label className="form-label">Boutique name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Aditi's Atelier"
-                      className="form-control"
-                      value={boutiqueName}
-                      maxLength={LIMITS.name}
-                      onChange={(e) => setBoutiqueName(e.target.value)}
-                      required
-                      autoFocus
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Boutique address</label>
-                    <input
-                      type="text"
-                      placeholder="Street, area, city, PIN"
-                      className="form-control"
-                      value={boutiqueAddress}
-                      maxLength={LIMITS.address}
-                      onChange={(e) => setBoutiqueAddress(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="signup-section-title"><span className="signup-section-num">2</span>About you (the owner)</div>
-                <div className="form-grid-2 signup-grid">
-                  <div className="form-group">
-                    <label className="form-label">First name</label>
-                    <input
-                      type="text"
-                      placeholder="Enter first name"
-                      value={signupForm.first_name}
-                      maxLength={LIMITS.name}
-                      onChange={(e) => setSignupForm({...signupForm, first_name: cleanName(e.target.value)})}
-                      required
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Last name</label>
-                    <input
-                      type="text"
-                      placeholder="Enter last name"
-                      value={signupForm.last_name}
-                      maxLength={LIMITS.name}
-                      onChange={(e) => setSignupForm({...signupForm, last_name: cleanName(e.target.value)})}
-                      required
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Email address</label>
-                    <input
-                      type="email"
-                      placeholder="name@example.com"
-                      value={signupForm.email_address}
-                      maxLength={LIMITS.email}
-                      onChange={(e) => setSignupForm({...signupForm, email_address: e.target.value})}
-                      onBlur={(e) => setSignupForm({...signupForm, email_address: cleanEmail(e.target.value)})}
-                      required
-                      className="form-control"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Mobile number</label>
-                    <div className="input-wrapper">
-                      <span className="input-icon-left" style={{ left: '12px', fontSize: '14px' }}>+91</span>
-                      <input
-                        type="tel"
-                        inputMode="numeric"
-                        placeholder="10-digit mobile number"
-                        value={signupForm.mobile_number}
-                        onChange={(e) => setSignupForm({...signupForm, mobile_number: tenDigits(e.target.value)})}
-                        style={{ paddingLeft: '50px' }}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {signupError && (
-                  <div role="alert" style={{ background: '#fdf2f2', border: '1px solid #f5c6c6', color: '#8a2020', borderRadius: '8px', padding: '10px 12px', fontSize: '13px', whiteSpace: 'pre-wrap' }}>
-                    {signupError}
-                  </div>
-                )}
-
-                <div className="mobile-stack-grid signup-footer">
-                  <label className="remember-me-checkbox" style={{ fontSize: '12.5px' }}>
-                    <input type="checkbox" checked={signupForm.terms} required onChange={(e) => setSignupForm({...signupForm, terms: e.target.checked})} />
-                    {/* Each document opens to be read; clicking its name does not tick the box. */}
-                    <span>
-                      I agree to the{' '}
-                      <button type="button" onClick={(e) => { e.preventDefault(); setLegalDoc('terms'); }} style={legalLink}>Terms & Conditions</button>
-                      {' '}and{' '}
-                      <button type="button" onClick={(e) => { e.preventDefault(); setLegalDoc('privacy'); }} style={legalLink}>Privacy Policy</button>
-                    </span>
-                  </label>
-                  {legalDoc && (
-                    <FormModal icon={ShieldCheck} tone="green" width="720px"
-                               title={legalDoc === 'terms' ? 'Terms & Conditions' : 'Privacy Policy'}
-                               onClose={() => setLegalDoc(null)}
-                               footer={(
-                                 <>
-                                   <button type="button" className="btn-secondary" onClick={() => setLegalDoc(null)}>Close</button>
-                                   <button type="button" className="btn-primary"
-                                           onClick={() => { setSignupForm((prev) => ({ ...prev, terms: true })); setLegalDoc(null); }}>
-                                     <Check size={16} /> I agree
-                                   </button>
-                                 </>
-                               )}>
-                      {(() => {
-                        const text = (legalDoc === 'terms' ? TERMS_AND_CONDITIONS : PRIVACY_POLICY).trim();
-                        return text ? (
-                          <div style={{ fontSize: '13.5px', lineHeight: 1.6, color: 'var(--text-secondary)', maxHeight: '60vh', overflowY: 'auto' }}>
-                            {text.split(/\n\s*\n/).map((para, i) => (
-                              // "3. Your data belongs to you" on a line of its own is a section heading.
-                              /^\d+\.\s/.test(para) && !para.includes('\n')
-                                ? <h4 key={i} style={{ margin: '18px 0 6px', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>{para}</h4>
-                                : <p key={i} style={{ margin: '0 0 12px', whiteSpace: 'pre-line' }}>{para}</p>
-                            ))}
-                          </div>
-                        ) : (
-                          <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: 0 }}>
-                            The full text will appear here.
-                          </p>
-                        );
-                      })()}
-                    </FormModal>
-                  )}
-                  <button type="button" className="btn-secondary" style={{ justifyContent: 'center' }}
-                          onClick={() => setView('login')}>
-                    Log in instead
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={!signupReady || signupBusy}
-                    title={signupReady ? undefined : (signupForm.terms ? 'Fill every box above to continue' : 'Fill every box above and accept the Terms & Conditions to continue')}
-                    style={{ justifyContent: 'center', opacity: signupReady ? 1 : 0.5, cursor: signupReady ? 'pointer' : 'not-allowed' }}
-                  >
-                    {signupBusy ? 'Sending your request…' : 'Request access'}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {signupStep === 2 && (
-              <div style={{ textAlign: 'center', padding: '32px' }}>
-                <div className="success-circle" style={{ margin: '0 auto 20px' }}><Check size={36} /></div>
-                <h2 className="auth-title">Request received</h2>
-                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                  Thank you{signupForm.first_name ? `, ${signupForm.first_name.trim()}` : ''}. Your request is under review.
-                  We&apos;ve sent a welcome email to <strong>{signupForm.email_address.trim()}</strong>, and we&apos;ll
-                  share your login credentials there very soon.
-                </p>
-                <button type="button" className="btn-secondary" style={{ marginTop: '12px', justifyContent: 'center' }}
-                        onClick={() => { window.location.href = '/'; }}>
-                  Back to home
-                </button>
-              </div>
-            )}
-
-            {signupStep === 1 && (
-              <div className="auth-card-footer" style={{ borderTop: '1px solid var(--border-color)', marginTop: '24px', paddingTop: '18px', textAlign: 'center', fontSize: '15px', color: 'var(--text-secondary)' }}>
-                Already have a boutique?{' '}
-                <a href="/app" style={{ color: 'var(--accent-text, #b07c40)', fontWeight: 700, fontSize: '16px', textDecoration: 'none' }}
-                   onClick={(e) => { e.preventDefault(); setView('login'); }}>
-                  Log in
-                </a>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {view === 'signup' && <SignupScreen auth={auth} setView={setView} />}
 
       {/* 4. BOUTIQUE PORTAL MAIN WORKSPACE (Image 4) */}
       {view === 'dashboard' && currentUser && (
@@ -3585,109 +2871,7 @@ function App() {
             {/* 4b. DESIGN WORK TAB -- assign, submit, review. One component for
                  both ends of the loop; see features/designStudio/DesignWork. */}
             {/* 4. MANAGE DESIGNS TAB */}
-            {dashboardTab === 'designs' && (
-              <>
-                <PageHeader
-                  title={t('designsPage.title')}
-                  subtitle={t('designsPage.subtitle')}
-                  actions={(!currentUser?.role || currentUser.role === 'Owner' || adminCan('design.upload')) && (
-                      <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setShowDesignUpload(true)}>
-                        <Plus size={16} />
-                        {t('designsPage.addNewDesign')}
-                      </button>
-                  )}
-                />
-                {/* The same upload form the library's "Upload design" button
-                    opens; on save the library refreshes through its token. */}
-                {showDesignUpload && (
-                  <Suspense fallback={<ScreenLoading />}>
-                    <DesignUpload
-                      onClose={() => setShowDesignUpload(false)}
-                      onUploaded={() => {
-                        setShowDesignUpload(false);
-                        setDesignLibraryToken(t => t + 1);
-                        setDesignsView('library');
-                        fetchDashboardAndConfig();
-                      }}
-                    />
-                  </Suspense>
-                )}
-
-                <div className="design-manager-content">
-                  {/* Dashboard first: stats before images, so opening the module
-                      answers "how is the library doing" rather than dropping
-                      straight into a grid. */}
-                  <div className="tabs-header dl-tabs" style={{ marginBottom: '16px' }}>
-                    {SHOW_DESIGN_OVERVIEW_TAB && (
-                    <button className={`tab-btn ${designsView === 'dashboard' ? 'active' : ''}`}
-                            onClick={() => setDesignsView('dashboard')}>
-                      {t('designsPage.overviewTab', 'Overview')}
-                    </button>
-                    )}
-                    <button className={`tab-btn ${designsView === 'library' || (!SHOW_DESIGN_OVERVIEW_TAB && designsView === 'dashboard') ? 'active' : ''}`}
-                            onClick={() => setDesignsView('library')}>
-                      {t('designsPage.boutiqueDesignsTab', 'Boutique designs')}
-                    </button>
-                    <button className={`tab-btn ${designsView === 'requests' ? 'active' : ''}`}
-                            onClick={() => setDesignsView('requests')}>
-                      {currentUser?.role === 'Designer' ? t('nav.myWork') : t('nav.designWork')}
-                    </button>
-                  </div>
-
-                  <Suspense fallback={<div className="content-card"><Loader page /></div>}>
-                    {designsView === 'requests' ? (
-                      <DesignWork currentUser={currentUser} />
-                    ) : designsView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB ? (
-                      <DesignDashboard
-                        onOpenLibrary={() => setDesignsView('library')}
-                        canManageDesigners={!currentUser?.role || currentUser.role === 'Owner' || adminCan('team.manage')}
-                        shopSlug={currentUser?.shop_slug}
-                      />
-                    ) : (
-                      <DesignLibrary
-                        refreshToken={designLibraryToken}
-                        canReview={!currentUser?.role || currentUser.role === 'Owner' || adminCan('design.approve')}
-                        canStock={!currentUser?.role || currentUser.role === 'Owner' || adminCan('inventory.items')}
-                        onOpenRequests={() => setDesignsView('requests')}
-                        onOpenDesigners={navTabs.includes('staff') ? () => {
-                          setStaffDesignersVisit(sectionVisit + 1);
-                          setSectionVisit(n => n + 1);
-                          setDashboardTab('staff');
-                          window.scrollTo(0, 0);
-                        } : null}
-                        onUploaded={() => setDesignsView('library')}
-                        onEditDesign={(design) => {
-                          setEditingDesign({ id: design.id });
-                          setDesignForm({
-                            name: design.title || '',
-                            garment_type: design.garment_type || 'Lehenga',
-                            neckline_style: (design.attributes || {}).neckline_style || '',
-                            sleeve_style: (design.attributes || {}).sleeve_style || '',
-                            image_url: design.image_url || '',
-                            is_boutique: design.source === 'catalogue',
-                            price: String(design.estimated_price ?? 0),
-                            description: design.description || '',
-                            catalogue: design.catalogue?.category ? {
-                              category: design.catalogue.category,
-                              subcategory: design.catalogue.subcategory || undefined,
-                              option: design.catalogue.option || undefined,
-                            } : {},
-                            catalogue_path: design.catalogue?.category ? {
-                              category: design.catalogue.category,
-                              subcategory: design.catalogue.subcategory || '',
-                              option: design.catalogue.option || '',
-                            } : null,
-                          });
-                          setDesignImageFile(null);
-                          setShowDesignModal(true);
-                        }}
-                        onDeleteDesign={(design) => handleDeleteDesign(design.id)}
-                      />
-                    )}
-                  </Suspense>
-                </div>
-              </>
-            )}
+            {dashboardTab === 'designs' && <DesignsPanel designLibraryToken={designLibraryToken} designsView={designsView} handleDeleteDesign={handleDeleteDesign} navTabs={navTabs} sectionVisit={sectionVisit} setDesignForm={setDesignForm} setDesignImageFile={setDesignImageFile} setDesignLibraryToken={setDesignLibraryToken} setDesignsView={setDesignsView} setEditingDesign={setEditingDesign} setSectionVisit={setSectionVisit} setShowDesignModal={setShowDesignModal} setShowDesignUpload={setShowDesignUpload} setStaffDesignersVisit={setStaffDesignersVisit} showDesignUpload={showDesignUpload} />}
 
             {/* Manage Orders Tab */}
             {/* One order on its own page. Everything the row used to unfold
@@ -3795,332 +2979,10 @@ function App() {
           {/* Appointment booking. apps/scheduling has always accepted these and
               the customer's tracking page already renders a trial card from
               them; there was simply no way to create one from the product. */}
-          {showAppointmentModal && (
-            <div className="existing-customer-search-modal apt-modal" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-              <div className="search-modal-card apt-card">
-                <div className="search-modal-header apt-head">
-                  <h3>
-                    {editingAppointment
-                      ? t('dashboard.appointmentDetails', 'Appointment Details')
-                      : t('dashboard.bookAppointment', 'Book an Appointment')}
-                  </h3>
-                  <button className="close-btn" onClick={closeAppointmentModal}><X size={20} /></button>
-                </div>
-                <form onSubmit={handleSaveAppointment} className="apt-form">
-                  <div>
-                    <label className="form-label">Client *</label>
-                    {/* Whose appointment this is cannot be edited -- moving it
-                        to another person is a different booking. So the
-                        existing/new chooser is only on a fresh booking. */}
-                    {!editingAppointment && (
-                      <div className="apt-seg">
-                        {[[false, 'Existing client'], [true, 'New client']].map(([isNew, label]) => (
-                          <button key={label} type="button"
-                                  className={appointmentForm.isNewCustomer === isNew ? 'btn-primary' : 'btn-secondary'}
-                                  onClick={() => setAppointmentForm({
-                                    ...appointmentForm, isNewCustomer: isNew, customer: '' })}>
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {appointmentForm.isNewCustomer && !editingAppointment ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <div className="form-grid-2">
-                          <input className="form-control" placeholder="First name *" required
-                                 maxLength={LIMITS.name} value={appointmentForm.new_first_name}
-                                 onChange={(e) => setAppointmentForm({ ...appointmentForm, new_first_name: cleanName(e.target.value) })} />
-                          <input className="form-control" placeholder="Last name"
-                                 maxLength={LIMITS.name} value={appointmentForm.new_last_name}
-                                 onChange={(e) => setAppointmentForm({ ...appointmentForm, new_last_name: cleanName(e.target.value) })} />
-                        </div>
-                        <div className="form-grid-2">
-                          <input className="form-control" type="tel" inputMode="numeric" placeholder="Mobile number *" required
-                                 value={appointmentForm.new_mobile}
-                                 onChange={(e) => setAppointmentForm({ ...appointmentForm, new_mobile: cleanMobile(e.target.value) })} />
-                          <select className="form-control" value={appointmentForm.new_gender}
-                                  onChange={(e) => setAppointmentForm({ ...appointmentForm, new_gender: e.target.value })}>
-                            <option value="">Gender</option>
-                            <option value="Female">Female</option>
-                            <option value="Male">Male</option>
-                            <option value="Other">Other</option>
-                          </select>
-                        </div>
-                        <span className="od-hint">They are added to your customers, and the confirmation goes to this number.</span>
-                      </div>
-                    ) : (
-                      <CustomerPicker required disabled={!!editingAppointment}
-                                      value={appointmentForm.customer ? String(appointmentForm.customer) : ''}
-                                      onChange={(next) => setAppointmentForm((f) => ({ ...f, customer: next }))}
-                                      placeholder="Search a client by name or mobile" />
-                    )}
-                  </div>
-                  <div>
-                    <label className="form-label">Type</label>
-                    <select className="form-control"
-                            value={appointmentForm.appointment_type}
-                            onChange={(e) => setAppointmentForm({
-                              ...appointmentForm,
-                              appointment_type: e.target.value,
-                              
-                              custom_type: e.target.value === 'OTHER' ? appointmentForm.custom_type : '',
-                            })}>
-                      {Object.entries(APPOINTMENT_TYPE_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                    {appointmentForm.appointment_type === 'OTHER' && (
-                      <input className="form-control apt-custom-type" required
-                             maxLength={50} autoFocus
-                             placeholder={t('dashboard.customTypePlaceholder', 'What kind of appointment?')}
-                             value={appointmentForm.custom_type}
-                             onChange={(e) => setAppointmentForm({ ...appointmentForm, custom_type: e.target.value })} />
-                    )}
-                  </div>
-                  <div>
-                    <label className="form-label">Date & time *</label>
-                    <input className="form-control" type="datetime-local" required
-                           ref={appointmentDateRef}
-                           min={editingAppointment ? undefined : `${todayIso()}T00:00`}
-                           value={appointmentForm.scheduled_time}
-                           onChange={(e) => setAppointmentForm({ ...appointmentForm, scheduled_time: e.target.value })} />
-                    {/* The calendar itself is the browser's, drawn outside the
-                        page, so its Clear/Today row cannot be added to. This
-                        is the page's own confirmation: what has been picked,
-                        in words, and a Done that shuts the calendar. The value
-                        is already committed by then -- the field writes on
-                        every change -- so this confirms, it does not save. */}
-                    <div className="apt-when">
-                      <span className={appointmentForm.scheduled_time ? 'apt-when-set' : ''}>
-                        {appointmentForm.scheduled_time
-                          ? fmtDateTime(appointmentForm.scheduled_time)
-                          : t('dashboard.pickDateTime', 'No date and time chosen yet')}
-                      </span>
-                      <button type="button" className="btn-secondary at-btn-sm"
-                              disabled={!appointmentForm.scheduled_time}
-                              onClick={() => appointmentDateRef.current?.blur()}>
-                        {t('common.done', 'Done')}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="form-label">With</label>
-                    <select className="form-control"
-                            value={appointmentForm.assigned_staff}
-                            onChange={(e) => setAppointmentForm({ ...appointmentForm, assigned_staff: e.target.value })}>
-                      <option value="">Unassigned</option>
-                      {tailors.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                    </select>
-                  </div>
-                  {editingAppointment && (
-                    <div>
-                      <label className="form-label">Status</label>
-                      <select className="form-control"
-                              value={appointmentForm.status}
-                              onChange={(e) => setAppointmentForm({ ...appointmentForm, status: e.target.value })}>
-                        {Object.entries(APPOINTMENT_STATUS_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>{label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <label className="form-label">Notes</label>
-                    <textarea className="form-control" rows={2} maxLength={LIMITS.note}
-                              value={appointmentForm.notes}
-                              onChange={(e) => setAppointmentForm({ ...appointmentForm, notes: e.target.value })} />
-                  </div>
-                  <div className="apt-foot">
-                    {editingAppointment && appointmentForm.status !== 'CANCELLED' && (
-                      <button type="button" className="btn-secondary" disabled={savingAppointment}
-                              style={{ marginRight: 'auto', color: 'var(--danger-color)', borderColor: 'rgba(192,57,43,0.3)' }}
-                              onClick={handleCancelAppointment}>
-                        {t('dashboard.cancelAppointment', 'Cancel appointment')}
-                      </button>
-                    )}
-                    <button type="button" className="btn-secondary" onClick={closeAppointmentModal}>
-                      {t('common.close', 'Close')}
-                    </button>
-                    <button type="submit" className="btn-primary" disabled={savingAppointment}>
-                      {savingAppointment
-                        ? t('common.saving', 'Saving…')
-                        : editingAppointment
-                          ? t('common.saveChanges', 'Save changes')
-                          : t('dashboard.bookAppointmentBtn', 'Book appointment')}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
+          {showAppointmentModal && <AppointmentModal appointmentDateRef={appointmentDateRef} appointmentForm={appointmentForm} closeAppointmentModal={closeAppointmentModal} editingAppointment={editingAppointment} handleCancelAppointment={handleCancelAppointment} handleSaveAppointment={handleSaveAppointment} savingAppointment={savingAppointment} setAppointmentForm={setAppointmentForm} tailors={tailors} />}
 
           {/* Designs CRUD Modal Overlay */}
-          {showDesignModal && (
-            <FormModal
-              icon={Shirt} tone="amber" zIndex={1100} width="720px"
-              title={editingDesign ? t('designsPage.editDesignDetails', 'Edit Design Details') : t('designsPage.addNewDesignTitle', 'Add New Design to Collection')}
-              subtitle="Add garment details to your boutique collection."
-              onClose={() => setShowDesignModal(false)}
-              footer={(
-                <>
-                  <button type="button" className="btn-secondary" onClick={() => setShowDesignModal(false)}>{t('common.cancel', 'Cancel')}</button>
-                  <button type="submit" form="design-form" className="btn-primary" disabled={designSaving}>
-                    <Save size={16} /> {designSaving ? t('common.saving', 'Saving…') : t('designsPage.saveDesign', 'Save Design')}
-                  </button>
-                </>
-              )}
-            >
-              <form id="design-form" onSubmit={handleSaveDesign} className="at-stack">
-                <Field label={t('designsPage.designName', 'Design Name')} required icon={Type}>
-                  <input
-                    type="text"
-                    required
-                    className="form-control"
-                    placeholder="e.g. Royal Maroon Velvet Lehenga"
-                    maxLength={LIMITS.name}
-                    value={designForm.name}
-                    onChange={e => setDesignForm({...designForm, name: e.target.value})}
-                  />
-                </Field>
-
-                <div className="at-form-grid">
-                  <Field label={t('designsPage.garmentCategory', 'Garment Category')} required icon={Shirt}>
-                    <select
-                      className="form-control"
-                      value={designForm.garment_type}
-                      onChange={e => setDesignForm({...designForm, garment_type: e.target.value, catalogue: {}, catalogue_path: null})}
-                    >
-                      <option value="Lehenga">{t('designsPage.lehenga', 'Lehenga')}</option>
-                      <option value="Gown">{t('designsPage.gown', 'Gown')}</option>
-                      <option value="Saree">{t('designsPage.saree', 'Saree')}</option>
-                      <option value="Blouse">{t('designsPage.blouse', 'Blouse')}</option>
-                      <option value="Kurti">{t('designsPage.kurti', 'Kurti')}</option>
-                      <option value="Sherwani">{t('designsPage.sherwani', 'Sherwani')}</option>
-                      <option value="Anarkali">{t('designsPage.anarkali', 'Anarkali')}</option>
-                      <option value="Suit">{t('designsPage.salwarKameez', 'Salwar Kameez')}</option>
-                      <option value="Jacket">{t('designsPage.jacket', 'Jacket')}</option>
-                      {/* Men's wear. Values slug to the template / catalogue
-                          keys the picker below looks up ("Mens Suit" ->
-                          mens_suit), so an apostrophe would break the match. */}
-                      <option value="Shirt">{t('designsPage.mensShirt', "Men's Shirt")}</option>
-                      <option value="T-Shirt">{t('designsPage.tShirt', 'T-Shirt')}</option>
-                      <option value="Kurta">{t('designsPage.mensKurta', "Men's Kurta")}</option>
-                      <option value="Indo-Western">{t('designsPage.indoWestern', 'Indo-Western')}</option>
-                      <option value="Mens Suit">{t('designsPage.mensSuit', "Men's Suit")}</option>
-                      <option value="Trouser">{t('designsPage.trouser', 'Trouser')}</option>
-                      <option value="Jeans">{t('designsPage.jeans', 'Jeans')}</option>
-                      <option value="Shorts">{t('designsPage.shorts', 'Shorts')}</option>
-                      <option value="Mens Bottom Wear">{t('designsPage.mensBottomWear', "Men's Bottom Wear")}</option>
-                      <option value="Coat">{t('designsPage.coat', 'Coat / Overcoat')}</option>
-                      <option value="Casual Wear">{t('designsPage.casualWear', 'Casual Wear')}</option>
-                    </select>
-                  </Field>
-                  <Field label={t('designsPage.designType', 'Design Type')} required icon={Tag}>
-                    <select
-                      className="form-control"
-                      value={designForm.is_boutique}
-                      onChange={e => setDesignForm({...designForm, is_boutique: e.target.value === 'true' || e.target.value === true})}
-                    >
-                      <option value="true">{t('designsPage.boutiqueCatalogCollection', 'Boutique Catalog Collection')}</option>
-                      <option value="false">{t('designsPage.aiSuggestionTemplate', 'AI Suggestion Template')}</option>
-                    </select>
-                  </Field>
-                  {/* Where in the garment's design catalogue this design is
-                      filed. The garment here is a name ("Saree"); the
-                      catalogue is keyed the way templates are, so the name is
-                      slugged the same way the server will slug it. Nothing
-                      renders for a garment without a catalogue. */}
-                  <DesignCataloguePicker
-                    garmentKey={(designForm.garment_type || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')}
-                    value={designForm.catalogue || {}}
-                    onChange={(value, payload) => setDesignForm({ ...designForm, catalogue: value, catalogue_path: payload })}
-                  />
-                  <Field label={t('designsPage.necklineStyleOptional', 'Neckline Style (Optional)')} icon={Sparkles}>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. Sweetheart Neck"
-                      maxLength={LIMITS.name}
-                      value={designForm.neckline_style}
-                      onChange={e => setDesignForm({...designForm, neckline_style: e.target.value})}
-                    />
-                  </Field>
-                  <Field label={t('designsPage.sleeveStyleOptional', 'Sleeve Style (Optional)')} icon={Shirt}>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. Cap Sleeve"
-                      maxLength={LIMITS.name}
-                      value={designForm.sleeve_style}
-                      onChange={e => setDesignForm({...designForm, sleeve_style: e.target.value})}
-                    />
-                  </Field>
-                </div>
-
-                <Field label={t('designsPage.catalogPriceLabel', 'Catalog Price (₹) - Only for Boutique Catalog')} icon={IndianRupee}>
-                  <input
-                    type="number"
-                    min="0"
-                    max={LIMITS.amount}
-                    step="0.01"
-                    inputMode="decimal"
-                    className="form-control"
-                    placeholder="e.g. 45000"
-                    value={designForm.price}
-                    onChange={e => setDesignForm({...designForm, price: cleanAmount(e.target.value)})}
-                    disabled={designForm.is_boutique === false || designForm.is_boutique === 'false'}
-                  />
-                </Field>
-
-                <Field label={t('designsPage.uploadImageOptional', 'Upload Image (Optional)')} icon={Upload}
-                       hint={designImageFile ? `Selected: ${designImageFile.name}` : 'Choose a photo of the garment from this device.'}>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="form-control"
-                    onChange={e => {
-                      const f = e.target.files?.[0] || null;
-                      const bad = f ? imageFilesError([f]) : '';
-                      if (bad) { alert(bad); e.target.value = ''; return; }
-                      setDesignImageFile(f);
-                    }}
-                  />
-                  <div style={{ marginTop: '8px' }}>
-                    <CameraButton onFiles={([f]) => setDesignImageFile(f || null)} />
-                  </div>
-                </Field>
-
-                {/* 255: the width of BoutiqueDesign.image_url on the server. */}
-                <Field label={t('designsPage.imageUrlOptional', 'Image URL (Optional)')} icon={LinkIcon}
-                       hint="Add a link if the image is hosted online.">
-                  <input
-                    type="url"
-                    className="form-control"
-                    placeholder="e.g. https://images.unsplash.com/photo-..."
-                    maxLength={255}
-                    value={designForm.image_url}
-                    onChange={e => setDesignForm({...designForm, image_url: e.target.value})}
-                  />
-                </Field>
-
-                <Field label={t('designsPage.descriptionOptional', 'Description (Optional)')} icon={FileText}>
-                  <textarea
-                    className="form-control"
-                    placeholder="e.g. Hand-embroidered with gold thread, georgette base..."
-                    rows="3"
-                    maxLength={LIMITS.note}
-                    value={designForm.description}
-                    onChange={e => setDesignForm({...designForm, description: e.target.value})}
-                  />
-                </Field>
-                <div className="at-field-counter" style={{ marginTop: '-8px' }}>{(designForm.description || '').length}/{LIMITS.note}</div>
-
-                <InfoNote tone="amber" title="Tip">
-                  High quality images and detailed descriptions help showcase your designs better.
-                </InfoNote>
-              </form>
-            </FormModal>
-          )}
+          {showDesignModal && <DesignFormModal designForm={designForm} designImageFile={designImageFile} designSaving={designSaving} editingDesign={editingDesign} handleSaveDesign={handleSaveDesign} setDesignForm={setDesignForm} setDesignImageFile={setDesignImageFile} setShowDesignModal={setShowDesignModal} />}
 
           {/* Bottom navigation, phones only.
               It belongs to this view, not the order selector it was originally
@@ -6015,125 +4877,7 @@ function App() {
       )}
 
       {/* CONFIRMED VIEW */}
-      {view === 'confirmed' && confirmedOrder && (() => {
-        const confirmedCustomerName = (
-          confirmedOrder.customer_name
-          || `${customerForm.first_name || ''} ${customerForm.last_name || ''}`.trim()
-          || 'the customer');
-        return (
-        <div className="order-confirmed-container">
-          <div className="success-badge-container">
-            <div className="success-circle"><Check size={40} /></div>
-            {/* The owner or a master places this order at the counter, with
-                the customer standing in front of them or not there at all.
-                Addressed to "you", the screen thanked the boutique for its own
-                order and named the customer as the reader. It names the
-                customer as the customer instead. */}
-            <h1 className="success-title">
-              {t('confirmed.title', 'Order created for {name} 🎉', { name: confirmedCustomerName })}
-            </h1>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '15px' }}>
-              {t('confirmed.subtitle',
-                 'It is with the workroom now, and sits on {name}\'s profile with everything recorded here.',
-                 { name: confirmedCustomerName })}
-            </p>
-            <div className="order-id-badge">
-              <span>Order ID: <strong>{orderRef(confirmedOrder)}</strong></span>
-            </div>
-          </div>
-
-          <div className="order-meta-info-grid">
-            <div className="meta-info-block">
-              <span className="meta-info-label">Order Date</span>
-              <span className="meta-info-val">
-                {fmtDate(confirmedOrder.order_date)}
-              </span>
-            </div>
-            <div className="meta-info-block">
-              <span className="meta-info-label">Payment Status</span>
-              {/* Was the literal `Paid • ₹{total_amount}` in success green,
-                  referencing neither payment_status nor amount_paid -- so the
-                  screen staff turn to face the customer announced the order
-                  settled in full the moment it was placed, and contradicted the
-                  invoice one click later. total_amount also arrives as a string
-                  (COERCE_DECIMAL_TO_STRING is unset), and String.toLocaleString
-                  does no grouping, so it printed ₹51502.50 rather than
-                  ₹51,502.50. parseFloat fixes the second half. */}
-              <span className="meta-info-val" style={{ color: confirmedOrder.payment_status === 'Paid' ? 'var(--success-color)' : 'var(--text-primary)' }}>
-                {confirmedOrder.payment_status} • {formatMoney(confirmedOrder.amount_paid)}
-                {confirmedOrder.payment_status !== 'Paid' && (
-                  <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>
-                    {' '}of {formatMoney(confirmedOrder.total_amount)}
-                  </span>
-                )}
-              </span>
-            </div>
-            <div className="meta-info-block">
-              <span className="meta-info-label">Estimated Delivery</span>
-              <span className="meta-info-val">
-                {fmtDate(confirmedOrder.estimated_delivery)}
-              </span>
-            </div>
-          </div>
-
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600 }}>What happens next?</h3>
-            <div className="timeline-tracker">
-              <div className="timeline-line"></div>
-              {[
-                { label: 'Stylist Review', desc: 'A stylist is reviewing the order details.', active: true, completed: true },
-                { label: 'Design & Creation', desc: 'Artisans will cut and assemble the garment.', active: false, completed: false },
-                { label: 'Quality Check', desc: 'Multi-level measurement and stitching validation.', active: false, completed: false },
-                { label: 'Packed & Shipped', desc: 'Packed securely and handed over to the customer.', active: false, completed: false }
-              ].map((node, i) => (
-                <div key={i} className={`timeline-node ${node.completed ? 'completed' : ''} ${node.active ? 'active' : ''}`}>
-                  <div className="timeline-node-circle">
-                    {node.completed ? <Check size={14} /> : (i + 1)}
-                  </div>
-                  <span className="timeline-node-label">{node.label}</span>
-                  <span className="timeline-node-desc">{node.desc}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="whatsapp-action-card">
-            <div className="whatsapp-info">
-              <span className="whatsapp-title">Crafting something just for you ✨</span>
-              <span className="whatsapp-desc">Need changes or have questions? Chat directly with us on WhatsApp.</span>
-            </div>
-            <button className="whatsapp-btn" onClick={() => window.open(waLink(customerForm.mobile_number))}>
-              <MessageSquare size={18} />
-              Chat on WhatsApp
-            </button>
-          </div>
-
-          {/* `flex: 1` alone does not shrink a button below its own text, so at
-              390px these two ran off both edges of the screen -- the last two
-              controls of the whole order flow, on a screen that then scrolled
-              sideways. Wrapping, with a width floor, stacks them instead. */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'center', width: '100%', maxWidth: '450px' }}>
-            {orderBucket(confirmedOrder) === 'workshop' ? (
-              <div className="at-sent-note" role="status" style={{ flex: '1 1 100%' }}>
-                <CheckCircle2 size={18} /> {t('ordersPage.inTheWorkshop', 'In the workshop')}
-                {confirmedOrder.tailor_name ? ` · ${confirmedOrder.tailor_name}` : ''}
-              </div>
-            ) : (
-              <button className="btn-primary" style={{ flex: '1 1 100%', justifyContent: 'center', minHeight: '48px' }} disabled={sendBusy}
-                      onClick={() => openSendToWorkshop(confirmedOrder)}>
-                <Scissors size={18} /> {t('ordersPage.sendToWorkshop', 'Send to workshop')}
-              </button>
-            )}
-            <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => setShowInvoiceModal(true)}>
-              <FileText size={18} /> View & Print Invoice
-            </button>
-            <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => { setView('dashboard'); fetchDashboardAndConfig(); }}>
-              Back to Dashboard
-            </button>
-          </div>
-        </div>
-        );
-      })()}
+      {view === 'confirmed' && confirmedOrder && <OrderConfirmedScreen confirmedOrder={confirmedOrder} customerForm={customerForm} openSendToWorkshop={openSendToWorkshop} sendBusy={sendBusy} setShowInvoiceModal={setShowInvoiceModal} setView={setView} />}
 
       {/* Footer Navigation Bar (Only in Wizard View) */}
       {view === 'wizard' && (
@@ -6162,164 +4906,7 @@ function App() {
       )}
 
       {/* INVOICE MODAL */}
-      {showInvoiceModal && confirmedOrder && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000,
-          padding: '20px'
-        }}>
-          <div className="invoice-modal-content" style={{
-            backgroundColor: 'var(--surface-color)',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '700px',
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            {/* Modal Header */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '16px 24px',
-              borderBottom: '1px solid var(--border-color)'
-            }} className="no-print">
-              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Customer Invoice</h3>
-              <button 
-                aria-label="Close invoice"
-                onClick={() => setShowInvoiceModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {/* Invoice Printable Area */}
-            <div id="invoice-printable" style={{ padding: '40px', color: '#1a1f36', fontSize: '13px', lineHeight: 1.5 }}>
-              {/* Styling for printing */}
-              <style>{`
-                @media print {
-                  body * {
-                    visibility: hidden;
-                  }
-                  #invoice-printable, #invoice-printable * {
-                    visibility: visible;
-                  }
-                  #invoice-printable {
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    width: 100%;
-                    padding: 0;
-                  }
-                  .no-print {
-                    display: none !important;
-                  }
-                  /* Only the invoice and the boxes holding it are laid out:
-                     the page behind would otherwise print as blank pages,
-                     and the dialog's 90vh scroll box would cut the bill. */
-                  body *:not(:has(#invoice-printable)):not(#invoice-printable):not(#invoice-printable *) {
-                    display: none !important;
-                  }
-                  div:has(> .invoice-modal-content), .invoice-modal-content {
-                    position: static !important;
-                    max-height: none !important;
-                    overflow: visible !important;
-                    padding: 0 !important;
-                    background: none !important;
-                    box-shadow: none !important;
-                  }
-                }
-              `}</style>
-
-              {confirmedOrder.price_pending ? (
-                <div className="od-hint" style={{ textAlign: 'center', padding: '24px 0' }}>
-                  The price of this order is not decided yet. Add the prices on the order (Prices) and the invoice is made from them.
-                </div>
-              ) : (
-              <InvoiceRenderer
-                template={confirmedOrder.invoice_template || boutiqueSettings?.invoice_template || 'classic'}
-                data={normalizeInvoiceData(confirmedOrder, boutiqueSettings, currentUser)}
-              />
-              )}
-            </div>
-
-            {/* Modal Footer Controls */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '12px',
-              padding: '16px 24px',
-              borderTop: '1px solid var(--border-color)',
-              backgroundColor: '#fafbfc',
-              borderBottomLeftRadius: '12px',
-              borderBottomRightRadius: '12px'
-            }} className="no-print invoice-modal-foot">
-              {/* How the last Send on WhatsApp for this bill went. A send that
-                  did not go through shows no note: the button turns into
-                  Retry again instead. */}
-              {invoiceSend?.orderId === confirmedOrder.id && !['retrying', 'failed', 'error'].includes(invoiceSend.state) && (
-                <div className={`invoice-send-note invoice-send-note--${invoiceSend.state}`} role="status" aria-live="polite">
-                  {invoiceSend.state === 'sending' && 'Sending the invoice on WhatsApp…'}
-                  {invoiceSend.state === 'sent' && `Invoice sent to ${confirmedOrder.customer_name || 'the customer'} on WhatsApp.`}
-                  {invoiceSend.state === 'retrying' && `Not sent yet${invoiceSend.error ? ` (${invoiceSend.error.replace(/^WhatsApp sending failed:\s*/, '')})` : ''}. It will be tried again automatically.`}
-                  {invoiceSend.state === 'failed' && `Could not send${invoiceSend.error ? `: ${invoiceSend.error.replace(/^WhatsApp sending failed:\s*/, '')}` : '.'}`}
-                  {invoiceSend.state === 'pending' && 'Still sending. If it does not go through, it will be tried again automatically.'}
-                  {invoiceSend.state === 'manual' && (
-                    <>
-                      WhatsApp sending is not set up.{' '}
-                      {invoiceSend.url && <a href={invoiceSend.url} target="_blank" rel="noopener noreferrer">Open WhatsApp</a>}
-                    </>
-                  )}
-                  {invoiceSend.state === 'error' && invoiceSend.error}
-                </div>
-              )}
-              <button
-                className="btn-secondary"
-                onClick={() => setShowInvoiceModal(false)}
-              >
-                Close
-              </button>
-              {/* Owner or Master, on a bill with a customer: the PDF to the
-                  customer's WhatsApp. */}
-              {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && confirmedOrder.customer && !confirmedOrder.price_pending && (
-                <button
-                  type="button"
-                  className="btn-secondary invoice-send-btn"
-                  disabled={invoiceSend?.orderId === confirmedOrder.id && invoiceSend.state === 'sending'}
-                  onClick={() => sendInvoiceToWhatsApp(confirmedOrder)}
-                >
-                  {invoiceSend?.orderId === confirmedOrder.id && ['retrying', 'failed', 'error'].includes(invoiceSend.state)
-                    ? <RefreshCw size={16} /> : <Send size={16} />}
-                  {invoiceSend?.orderId === confirmedOrder.id && invoiceSend.state === 'sending' ? 'Sending…'
-                    : invoiceSend?.orderId === confirmedOrder.id && invoiceSend.state === 'sent' ? 'Send again'
-                    : invoiceSend?.orderId === confirmedOrder.id && ['retrying', 'failed', 'error'].includes(invoiceSend.state) ? 'Retry again'
-                    : 'Send on WhatsApp'}
-                </button>
-              )}
-              {!confirmedOrder.price_pending && (
-              <button 
-                className="btn-primary" 
-                onClick={() => window.print()}
-              >
-                <Printer size={16} /> Print Invoice
-              </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {showInvoiceModal && confirmedOrder && <InvoiceModal confirmedOrder={confirmedOrder} invoiceSend={invoiceSend} sendInvoiceToWhatsApp={sendInvoiceToWhatsApp} setShowInvoiceModal={setShowInvoiceModal} />}
 
       {/* Notifications Drawer */}
       {showNotificationsDrawer && <NotificationsDrawer notifications={notifications} setShowNotificationsDrawer={setShowNotificationsDrawer} />}

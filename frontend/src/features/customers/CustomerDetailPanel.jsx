@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, CalendarDays, ChevronRight, Copy, Edit2, Heart, Image as ImageIcon, Mail, MapPin, Phone, Ruler, Scissors, Shirt, ShoppingBag, Sparkles, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CalendarDays, ChevronRight, Copy, Edit2, Heart, History, Image as ImageIcon, Mail, MapPin, Phone, Ruler, Scissors, Shirt, ShoppingBag, Sparkles, Trash2, Upload } from 'lucide-react';
 import { formatMeasurementLabel, formatMeasurementValue, getVisibleMeasurementFields } from '../../services/measurements';
 import { AvatarInitials, CameraButton, FormModal, IconTile, SectionCard } from '../../components/ui/Atelier';
 import { resolveMediaUrl } from '../../services/media';

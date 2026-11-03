@@ -1,4 +1,4 @@
-import { AlertTriangle, Calendar, Check, CheckCircle2, Clock, Eye, FileText, Layers, MessageSquare, PackageCheck, Play, RefreshCw, Scissors, Shirt, Trash2, User, X } from 'lucide-react';
+import { AlertTriangle, Calendar, Check, CheckCircle2, Clock, Eye, FileText, History, Layers, MessageSquare, PackageCheck, Play, RefreshCw, Scissors, Shirt, Trash2, User, X } from 'lucide-react';
 import React from 'react';
 import { SUPERVISOR_ROLES, isProductionStaff } from '../../constants/roles';
 import { maySignOff, submitsForSignOff, submittedByMaster } from '../../services/signOff';
