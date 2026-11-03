@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Package, Plus, Search } from 'lucide-react';
+import { Check, ChevronRight, Package, Plus, Search } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile } from '../../components/ui/Atelier';
 import Loader from '../../components/ui/Loader';
+import { Crumbs } from '../../components/ui/Breadcrumbs';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -65,16 +66,10 @@ export default function CatalogBrowser({ isOwner, onStock, version }) {
   return (
     <div style={{ marginTop: '20px' }}>
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' }}>
-        {(openSection || search.trim()) && (
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{ fontSize: '12px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '5px', cursor: 'pointer', flexShrink: 0 }}
-            onClick={() => { setOpenSection(null); setSearch(''); }}
-          >
-            <ArrowLeft size={14} /> {t('common.back', 'Back')}
-          </button>
-        )}
+        {/* A section opened, or a search: the trail above names it, and the
+            Materials library crumb before it goes back to every section. */}
+        <Crumbs level={2} items={openSection ? [{ label: openSection.full_name }]
+          : search.trim() ? [{ label: `“${search.trim()}”` }] : []} />
         <div style={{ position: 'relative', flex: '1 1 260px' }}>
           <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
@@ -89,12 +84,6 @@ export default function CatalogBrowser({ isOwner, onStock, version }) {
           <input type="checkbox" checked={stockableOnly} onChange={(e) => setStockableOnly(e.target.checked)} />
           {t('inventoryPage.onlyStockable', 'Only what can be stocked')}
         </label>
-        {openSection && (
-          <button type="button" className="btn-secondary" style={{ fontSize: '12px', padding: '6px 12px' }}
-                  onClick={() => { setOpenSection(null); setSearch(''); }}>
-            {t('inventoryPage.allSections', 'All sections')}
-          </button>
-        )}
       </div>
 
       {error && (

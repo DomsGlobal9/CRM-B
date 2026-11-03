@@ -12,17 +12,22 @@ import OutsideIssueStep from '../../features/orderWizard/OutsideIssueStep';
 import OrderConfirmedScreen from '../../features/orders/OrderConfirmedScreen';
 import WizardFooter from '../../features/orderWizard/WizardFooter';
 import { useAppState } from '../state/appState';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 
 /**
  * Taking an order: what kind of order, the order form with its steps and
  * its Back / Next bar, and the order-taken screen.
  */
 export default function OrderFlowViews() {
-  const { accountBar, advancePaymentAmount, alterOutside, alterationForm, confirmedOrder, ctaBusy, currentStep, customerForm, customerId, customerLocked, customerMatches, customerMatchesLoading, customerName, designRequest, designerChoice, designers, draftSaveState, fabricTaxonomy, fabrics, fetchNotifications, garmentErrors, garmentJobs, garmentTemplates, garmentTemplatesError, garmentsDone, getTaxes, getTotalPrice, headerAccountItems, hydrateWizard, jobExtras, jobMaterialCharges, loadGarmentTemplates, markingNotificationsRead, matchBy, maxStepReached, measureVoiceNotes, mobileNavOpen, navCollapsed, notifications, numberMatched, openGarment, openSendToWorkshop, outsideForm, outsidePhoto, quotePrices, readyBy, resumableDrafts, reviewView, sendBusy, serviceType, setActiveGarmentKey, setAdvancePaymentAmount, setAlterOutside, setAlterationForm, setCustomerAddMode, setCustomerForm, setDesignRequest, setGarmentJobs, setMarkingNotificationsRead, setMeasureVoiceNotes, setMobileNavOpen, setOutsideForm, setOutsidePhoto, setQuotePrices, setReadyBy, setResumableDrafts, setReviewView, setSelectedDirectoryCustomer, setServiceType, setShowInvoiceModal, setShowNotificationsDrawer, setSpecialInstructions, setView, setWizardError, showBell, sidebarSections, specialInstructions, startService, toggleNav, view, wizard, wizardError, wizardStepKey, wizardSteps } = useAppState();
+  const { dashboardTab, getTabLabel, t, accountBar, advancePaymentAmount, alterOutside, alterationForm, confirmedOrder, ctaBusy, currentStep, customerForm, customerId, customerLocked, customerMatches, customerMatchesLoading, customerName, designRequest, designerChoice, designers, draftSaveState, fabricTaxonomy, fabrics, fetchNotifications, garmentErrors, garmentJobs, garmentTemplates, garmentTemplatesError, garmentsDone, getTaxes, getTotalPrice, headerAccountItems, hydrateWizard, jobExtras, jobMaterialCharges, loadGarmentTemplates, markingNotificationsRead, matchBy, maxStepReached, measureVoiceNotes, mobileNavOpen, navCollapsed, notifications, numberMatched, openGarment, openSendToWorkshop, outsideForm, outsidePhoto, quotePrices, readyBy, resumableDrafts, reviewView, sendBusy, serviceType, setActiveGarmentKey, setAdvancePaymentAmount, setAlterOutside, setAlterationForm, setCustomerAddMode, setCustomerForm, setDesignRequest, setGarmentJobs, setMarkingNotificationsRead, setMeasureVoiceNotes, setMobileNavOpen, setOutsideForm, setOutsidePhoto, setQuotePrices, setReadyBy, setResumableDrafts, setReviewView, setSelectedDirectoryCustomer, setServiceType, setShowInvoiceModal, setShowNotificationsDrawer, setSpecialInstructions, setView, setWizardError, showBell, sidebarSections, specialInstructions, startService, toggleNav, view, wizard, wizardError, wizardStepKey, wizardSteps } = useAppState();
+  // The order flow's trail starts at the page New order was opened from;
+  // the workspace keeps it (and a customer page, if one was open) meanwhile.
+  const fromCrumb = { label: getTabLabel(dashboardTab), onClick: () => setView('dashboard') };
+  const newOrder = t('entry.newOrderTitle', 'New order');
   return (
     <>
       {/* 5. ORDER TYPE SELECTOR (Image 5) */}
-      {view === 'order-selector' && <OrderTypeSelector wizard={wizard} accountBar={accountBar} fetchNotifications={fetchNotifications} headerAccountItems={headerAccountItems} hydrateWizard={hydrateWizard} markingNotificationsRead={markingNotificationsRead} mobileNavOpen={mobileNavOpen} navCollapsed={navCollapsed} notifications={notifications} resumableDrafts={resumableDrafts} setCustomerAddMode={setCustomerAddMode} setMarkingNotificationsRead={setMarkingNotificationsRead} setMobileNavOpen={setMobileNavOpen} setResumableDrafts={setResumableDrafts} setSelectedDirectoryCustomer={setSelectedDirectoryCustomer} setShowNotificationsDrawer={setShowNotificationsDrawer} setView={setView} showBell={showBell} sidebarSections={sidebarSections} startService={startService} toggleNav={toggleNav} />}
+      {view === 'order-selector' && <OrderTypeSelector crumbs={[fromCrumb, { label: newOrder }]} wizard={wizard} accountBar={accountBar} fetchNotifications={fetchNotifications} headerAccountItems={headerAccountItems} hydrateWizard={hydrateWizard} markingNotificationsRead={markingNotificationsRead} mobileNavOpen={mobileNavOpen} navCollapsed={navCollapsed} notifications={notifications} resumableDrafts={resumableDrafts} setCustomerAddMode={setCustomerAddMode} setMarkingNotificationsRead={setMarkingNotificationsRead} setMobileNavOpen={setMobileNavOpen} setResumableDrafts={setResumableDrafts} setSelectedDirectoryCustomer={setSelectedDirectoryCustomer} setShowNotificationsDrawer={setShowNotificationsDrawer} setView={setView} showBell={showBell} sidebarSections={sidebarSections} startService={startService} toggleNav={toggleNav} />}
 
       {/* 6. THE ORDER WIZARD: who, what, (designer), measurements, money.
           Every screen is one question a counter can answer with the customer
@@ -35,6 +40,7 @@ export default function OrderFlowViews() {
           <WizardHeader wizard={wizard} currentStep={currentStep} draftSaveState={draftSaveState} garmentJobs={garmentJobs} maxStepReached={maxStepReached} serviceType={serviceType} wizardSteps={wizardSteps} />
 
           <div className="main-content full-width" style={{ padding: '40px 24px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+            <Breadcrumbs items={[fromCrumb, { label: newOrder, onClick: () => setView('order-selector') }, { label: wizardSteps[currentStep - 1]?.label || newOrder }]} />
             <div className="workspace-panel">
 
             {/* WHO: the mobile number finds a customer the boutique already
@@ -75,7 +81,7 @@ export default function OrderFlowViews() {
       )}
 
       {/* CONFIRMED VIEW */}
-      {view === 'confirmed' && confirmedOrder && <OrderConfirmedScreen confirmedOrder={confirmedOrder} customerForm={customerForm} openSendToWorkshop={openSendToWorkshop} sendBusy={sendBusy} setShowInvoiceModal={setShowInvoiceModal} setView={setView} />}
+      {view === 'confirmed' && confirmedOrder && <OrderConfirmedScreen fromLabel={getTabLabel(dashboardTab)} confirmedOrder={confirmedOrder} customerForm={customerForm} openSendToWorkshop={openSendToWorkshop} sendBusy={sendBusy} setShowInvoiceModal={setShowInvoiceModal} setView={setView} />}
 
       {/* Footer Navigation Bar (Only in Wizard View) */}
       {view === 'wizard' && <WizardFooter wizard={wizard} ctaBusy={ctaBusy} serviceType={serviceType} wizardStepKey={wizardStepKey} />}

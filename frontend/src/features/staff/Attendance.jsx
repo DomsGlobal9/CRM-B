@@ -5,6 +5,7 @@ import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar, CalendarDays, Wallet, 
 import { api } from '../../services/api';
 import { LIMITS } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
+import { Crumbs } from '../../components/ui/Breadcrumbs';
 import { currentLocationDetailed, locationProblem } from '../../services/location';
 import { CorrectionForm } from './CorrectionForm';
 import { nowForInput, timesError } from './attendanceTimes';
@@ -1268,6 +1269,8 @@ export default function Attendance({ isOwner, canSeeTeam, showPayroll = false })
   // The roster tab is only for the Owner and the Master; everyone else opens
   // straight onto their monthly log.
   const [activeTab, setActiveTab] = useState(canSeeTeam ? 'today' : 'monthly');
+  // As on the Staff page: the sub-tab's crumb opens it afresh.
+  const [tabVisit, setTabVisit] = useState(0);
   // Payroll runs Monday to Sunday; the timesheet and the pay run share this
   // week so switching between them never loses your place.
   const [week, setWeek] = useState(() => mondayOf(todayISO()));
@@ -1299,6 +1302,7 @@ export default function Attendance({ isOwner, canSeeTeam, showPayroll = false })
 
   return (
     <>
+      <Crumbs level={2} items={[{ label: SUB_TABS.find((item) => item.key === activeTab)?.label || '', onClick: () => setTabVisit((n) => n + 1) }]} />
       {/* Your own check-in card belongs with attendance, not with a pay run. */}
       {activeTab !== 'payroll' && <MyDay onChanged={refresh} />}
 
@@ -1399,7 +1403,7 @@ export default function Attendance({ isOwner, canSeeTeam, showPayroll = false })
       )}
 
       {activeTab === 'payroll' && showPayroll && (
-        <Payroll week={week} onWeekChange={setWeek} onChanged={refresh} />
+        <Payroll key={tabVisit} week={week} onWeekChange={setWeek} onChanged={refresh} />
       )}
 
       {correcting && (

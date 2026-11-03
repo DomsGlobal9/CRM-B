@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseIcon, ChevronDown } from 'lucide-react';
+import { Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseIcon, ChevronDown } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { expressLabel, isExpressJob, isExpressOrder } from '../orders/express';
@@ -876,7 +876,7 @@ function JobScreen({ order, stage: step, part = null, workflowConfig = [], mode,
       <div className="wk-backdrop" onClick={onClose} />
       <div className="wk-sheet" role="dialog" aria-modal="true" aria-label={title}>
         <div className="wk-sheet-head">
-          <button type="button" className="wk-icon-btn" onClick={onClose} aria-label={t('workPage.back', 'Back')}><ArrowLeft size={22} /></button>
+          <button type="button" className="wk-icon-btn" onClick={onClose} aria-label={t('common.close', 'Close')}><CloseIcon size={22} /></button>
           <div className="wk-sheet-title">{title}<small>{stageRef(order, stage)} · {order.customer_name}</small>
             {/* Who holds this step now -- the same words as the job's card. */}
             <small className="wk-sheet-assignee">

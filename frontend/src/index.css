@@ -9488,3 +9488,13 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     padding-left: 26px;
   }
 }
+
+/* Breadcrumbs (components/ui/Breadcrumbs.jsx): one trail at the top of every
+   workspace page, in place of the old Back buttons. */
+.at-crumbs { margin: 0 0 var(--space-3); min-width: 0; }
+.at-crumbs ol { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 0; list-style: none; margin: 0; padding: 0; font-size: var(--text-sm); }
+.at-crumbs li { display: inline-flex; align-items: center; min-width: 0; }
+.at-crumb-sep { color: var(--text-muted); margin: 0 6px; flex-shrink: 0; }
+.at-crumb-link { background: none; border: none; padding: 2px 0; font: inherit; font-weight: 500; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.at-crumb-link:hover { color: var(--primary-color); text-decoration: underline; }
+.at-crumb-here { font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 32ch; }

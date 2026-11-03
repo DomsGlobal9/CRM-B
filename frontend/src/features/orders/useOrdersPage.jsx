@@ -11,7 +11,7 @@ export const ORDER_PAGE_SIZES = [20, 30, 40, 50];
  * kanban view, going back from Workshop, and the per-order actions in progress
  * (sending, verifying, assigning, completing, the designer in charge).
  */
-export default function useOrdersPage({ setDashboardTab, lastTabRef, t, navSections, dashboardTab, ordersTabPick, setOrdersStageFilter, ordersStageFilter, fetchDashboardAndConfig }) {
+export default function useOrdersPage({ lastTabRef, t, navSections, dashboardTab, ordersTabPick, ordersStageFilter, fetchDashboardAndConfig }) {
   const [previousDashboardTab, setPreviousDashboardTab] = useState('overview');
 
   useEffect(() => {
@@ -31,17 +31,6 @@ export default function useOrdersPage({ setDashboardTab, lastTabRef, t, navSecti
     if (tabKey === 'workshop') return t('nav.workshop', 'Workshop');
     if (tabKey === 'orders') return t('nav.orders', 'Orders');
     return tabKey;
-  };
-
-  const handleBackFromWorkshop = () => {
-    setOrdersStageFilter('All');
-    if (previousDashboardTab && previousDashboardTab !== 'workshop') {
-      setDashboardTab(previousDashboardTab);
-    } else if (window.history.state?.tab && window.history.state.tab !== 'workshop') {
-      window.history.back();
-    } else {
-      setDashboardTab('overview');
-    }
   };
 
   const [ordersAlterationOrder, setOrdersAlterationOrder] = useState(null);
@@ -163,7 +152,6 @@ export default function useOrdersPage({ setDashboardTab, lastTabRef, t, navSecti
     previousDashboardTab,
     setPreviousDashboardTab,
     getTabLabel,
-    handleBackFromWorkshop,
     ordersAlterationOrder,
     setOrdersAlterationOrder,
     sendErrorsOrderId,

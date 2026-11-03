@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, CalendarDays, ChevronRight, Copy, Edit2, Heart, History, Image as ImageIcon, Mail, MapPin, Phone, Ruler, Scissors, Shirt, ShoppingBag, Sparkles, Trash2, Upload } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronRight, Copy, Edit2, Heart, History, Image as ImageIcon, Mail, MapPin, Phone, Ruler, Scissors, Shirt, ShoppingBag, Sparkles, Trash2, Upload } from 'lucide-react';
 import { formatMeasurementLabel, formatMeasurementValue, getVisibleMeasurementFields } from '../../services/measurements';
 import { AvatarInitials, CameraButton, FormModal, IconTile, SectionCard } from '../../components/ui/Atelier';
 import { resolveMediaUrl } from '../../services/media';
@@ -18,7 +18,7 @@ import { useApp } from '../../context/AppContext';
  * One customer (or lead) on its own page: contact details, measurements,
  * style profile, referrals and their orders, with the actions on them.
  */
-export default function CustomerDetailPanel({ alterationOrder, approvingDesignId, beginOrderForCustomer, customerActionId, customerPhotoBusy, directoryDetailLoading, expandedCustomerOrderId, handleApproveDesign, handleDeleteCustomer, handleSelectExistingCustomer, isLead, openAlteration, openDirectoryCustomer, openStageReview, orderTypeFor, refreshCustomerBook, rememberAlteration, selectedDirectoryCustomer, setAlterationOrder, setDesignNotes, setExpandedCustomerOrderId, setOrderTypeFor, setQuotePrices, setSelectedDirectoryCustomer, setViewAllCustomerMeasurements, startEditCustomer, uploadDirectoryCustomerPhoto, viewAllCustomerMeasurements }) {
+export default function CustomerDetailPanel({ alterationOrder, approvingDesignId, beginOrderForCustomer, customerActionId, customerPhotoBusy, directoryDetailLoading, expandedCustomerOrderId, handleApproveDesign, handleDeleteCustomer, handleSelectExistingCustomer, isLead, openAlteration, openDirectoryCustomer, openStageReview, orderTypeFor, refreshCustomerBook, rememberAlteration, selectedDirectoryCustomer, setAlterationOrder, setDesignNotes, setExpandedCustomerOrderId, setOrderTypeFor, setQuotePrices, setViewAllCustomerMeasurements, startEditCustomer, uploadDirectoryCustomerPhoto, viewAllCustomerMeasurements }) {
   const { t } = useLanguage();
   const { currentUser, adminCan, setDashboardTab } = useApp();
   const c = selectedDirectoryCustomer;
@@ -110,9 +110,6 @@ export default function CustomerDetailPanel({ alterationOrder, approvingDesignId
       </FormModal>
     )}
     <div className="at-toolbar" style={{ margin: 0 }}>
-      <button type="button" className="at-link" onClick={() => setSelectedDirectoryCustomer(null)}>
-        <ArrowLeft size={16} /> {t('customersPage.backToCustomers', 'Back to Customers')}
-      </button>
       {(isOwner || adminCan('customers.edit') || adminCan('customers.delete') || adminCan('orders.create')) && (
         <div className="at-toolbar-right">
           {/* A lead shows only New order: Edit, Delete and Go with Existing Design are for customers. */}

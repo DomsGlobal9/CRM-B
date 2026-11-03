@@ -17,6 +17,8 @@ import { BottomNavigation } from '../../components/ui/BottomNavigation';
 import ProductTour from '../../components/ui/ProductTour';
 import { markTourSeen } from '../../components/ui/tourState';
 import { useAppState } from '../state/appState';
+import { Crumbs, CrumbsProvider } from '../../components/ui/Breadcrumbs';
+import { orderRef } from '../../services/format';
 
 const WorkPanel = lazy(() => import('../../features/work/WorkPanel'));
 const DailyUpdates = lazy(() => import('../../features/todo/DailyUpdates'));
@@ -37,7 +39,49 @@ const AccountPanel = lazy(() => import('../../features/account/AccountPanel'));
  * bottom navigation and the guided tours.
  */
 export default function WorkspaceView() {
-  const { accountBar, alterationOrder, appointmentDateRef, appointmentForm, appointments, approvingDesignId, assignOrderDesigner, assigningWorkflowOrderId, beginOrderForCustomer, blankAppointmentForm, bookSummary, bookTiers, bookTotal, boutiqueAutosave, boutiqueFormError, boutiqueFormRef, boutiqueSettings, canAddCustomer, canDeleteCustomer, canEditCustomer, canImportCustomers, closeAppointmentModal, completingAllOrderId, currentUser, currentUserName, customerActionId, customerAddMode, customerDirectory, customerFilters, customerPageCount, customerPageFrom, customerPageNow, customerPageSize, customerPhotoBusy, customerView, dashboardData, dashboardTab, deletingAllCustomers, designForm, designImageFile, designLibraryToken, designSaving, designerInCharge, designers, designsView, directoryCount, directoryData, directoryDetailLoading, directoryLoading, editingAppointment, editingCustomer, editingDesign, expandedCustomerOrderId, fabricTaxonomy, fetchDashboardAndConfig, markNotificationsRead, fetchWhatsAppStatus, finishStaffSetup, getTabLabel, goToCustomerPage, guideCustomers, guideOrders, handleApproveDesign, handleBackFromWorkshop, handleCancelAppointment, handleDeleteCustomer, handleDeleteDesign, handleMarkLeadContacted, handleMarkMessageSent, handleRetryMessage, handleSaveAppointment, handleSaveDesign, handleSelectExistingCustomer, handleStartNewCustomer, headerAccountItems, invoiceFilter, invoiceSearch, isLead, justRegistered, loading, logoFile, markingNotificationsRead, mobileNavOpen, navCollapsed, navSections, navTabs, notifications, onboardingSteps, openAlteration, openAppointment, openDirectoryCustomer, openGarmentJob, openOrder, openSendToWorkshop, openStageReview, orderMatchesFilters, orderTypeFor, ordersAlterationOrder, ordersFilterTab, ordersGarmentFilter, ordersList, ordersSearch, ordersStageFilter, ordersTierFilter, ordersTypeFilter, ordersView, ordersKind, setOrdersKind, ordersPageSize, setOrdersPageSize, ordersListPage, goToOrdersPage, pageTour, pageTourEmpty, pageTourOpen, pagedCustomers, paymentError, pickLogo, previousDashboardTab, queuedMessages, refreshCustomerBook, rememberAlteration, reportsSwitch, saveBoutiqueForm, savingAppointment, savingPaymentId, savingVerificationOrderId, searchQuery, sectionVisit, selectedDirectoryCustomer, sendBusy, sendErrorsOrderId, setAlterationOrder, setAppointmentForm, setBoutiqueSettings, setCompletingAllOrderId, setConfirmedOrder, setCurrentUser, setCustomerAddMode, setCustomerFilters, setCustomerPageSize, setDashboardTab, setDeletingAllCustomers, setDesignForm, setDesignImageFile, setDesignLibraryToken, setDesignNotes, setDesignsView, setDirectoryVersion, setEditingAppointment, setEditingCustomer, setEditingDesign, setExpandedCustomerOrderId, setInvoiceFilter, setInvoiceSearch, setLogoFile, setMarkingNotificationsRead, setMobileNavOpen, setOnboardingDismissed, setOpenGarmentJob, setOpenOrdersRowId, setOrderTypeFor, setOrdersAlterationOrder, setOrdersFilterTab, setOrdersGarmentFilter, setOrdersSearch, setOrdersStageFilter, setOrdersTierFilter, setOrdersTypeFilter, setOrdersView, setPageTour, setPaymentError, setQuotePrices, setReviewView, setSavingPaymentId, setSavingVerificationOrderId, setSearchQuery, setSectionVisit, setSelectedDashboardOrder, setSelectedDirectoryCustomer, setSendErrorsOrderId, setSettingsSaving, setShowAppointmentModal, setShowDesignModal, setShowDesignUpload, setShowInvoiceModal, setShowNotificationsDrawer, setStaffDesignersVisit, setStyleNotesFor, setTaskGuide, setTourOpen, setView, setViewAllCustomerMeasurements, settingsSaving, showAppointmentModal, showBell, showDesignModal, showDesignUpload, showOnboarding, sidebarHint, sidebarSections, staffDesignersVisit, staffSetup, startEditCustomer, styleNotesFor, t, tailors, toggleNav, tourMenu, tourOpen, uploadDirectoryCustomerPhoto, view, viewAllCustomerMeasurements, whatsappStatus } = useAppState();
+  const { accountBar, alterationOrder, appointmentDateRef, appointmentForm, appointments, approvingDesignId, assignOrderDesigner, assigningWorkflowOrderId, beginOrderForCustomer, blankAppointmentForm, bookSummary, bookTiers, bookTotal, boutiqueAutosave, boutiqueFormError, boutiqueFormRef, boutiqueSettings, canAddCustomer, canDeleteCustomer, canEditCustomer, canImportCustomers, closeAppointmentModal, completingAllOrderId, currentUser, currentUserName, customerActionId, customerAddMode, customerDirectory, customerFilters, customerPageCount, customerPageFrom, customerPageNow, customerPageSize, customerPhotoBusy, customerView, dashboardData, dashboardTab, deletingAllCustomers, designForm, designImageFile, designLibraryToken, designSaving, designerInCharge, designers, designsView, directoryCount, directoryData, directoryDetailLoading, directoryLoading, editingAppointment, editingCustomer, editingDesign, expandedCustomerOrderId, fabricTaxonomy, fetchDashboardAndConfig, markNotificationsRead, fetchWhatsAppStatus, finishStaffSetup, goToCustomerPage, guideCustomers, guideOrders, handleApproveDesign, handleCancelAppointment, handleDeleteCustomer, handleDeleteDesign, handleMarkLeadContacted, handleMarkMessageSent, handleRetryMessage, handleSaveAppointment, handleSaveDesign, handleSelectExistingCustomer, handleStartNewCustomer, headerAccountItems, invoiceFilter, invoiceSearch, isLead, justRegistered, loading, logoFile, markingNotificationsRead, mobileNavOpen, navCollapsed, navSections, navTabs, notifications, onboardingSteps, openAlteration, openAppointment, openDirectoryCustomer, openGarmentJob, openOrder, openSendToWorkshop, openStageReview, orderMatchesFilters, orderTypeFor, ordersAlterationOrder, ordersFilterTab, ordersGarmentFilter, ordersList, ordersSearch, ordersStageFilter, ordersTierFilter, ordersTypeFilter, ordersView, ordersKind, setOrdersKind, ordersPageSize, setOrdersPageSize, ordersListPage, goToOrdersPage, pageTour, pageTourEmpty, pageTourOpen, pagedCustomers, paymentError, pickLogo, queuedMessages, refreshCustomerBook, rememberAlteration, reportsSwitch, saveBoutiqueForm, savingAppointment, savingPaymentId, savingVerificationOrderId, searchQuery, sectionVisit, selectedDirectoryCustomer, sendBusy, sendErrorsOrderId, setAlterationOrder, setAppointmentForm, setBoutiqueSettings, setCompletingAllOrderId, setConfirmedOrder, setCurrentUser, setCustomerAddMode, setCustomerFilters, setCustomerPageSize, setDashboardTab, setDeletingAllCustomers, setDesignForm, setDesignImageFile, setDesignLibraryToken, setDesignNotes, setDesignsView, setDirectoryVersion, setEditingAppointment, setEditingCustomer, setEditingDesign, setExpandedCustomerOrderId, setInvoiceFilter, setInvoiceSearch, setLogoFile, setMarkingNotificationsRead, setMobileNavOpen, setOnboardingDismissed, setOpenGarmentJob, setOpenOrdersRowId, setOrderTypeFor, setOrdersAlterationOrder, setOrdersFilterTab, setOrdersGarmentFilter, setOrdersSearch, setOrdersStageFilter, setOrdersTierFilter, setOrdersTypeFilter, setOrdersView, setPageTour, setPaymentError, setQuotePrices, setReviewView, setSavingPaymentId, setSavingVerificationOrderId, setSearchQuery, setSectionVisit, setSelectedDashboardOrder, setSelectedDirectoryCustomer, setSendErrorsOrderId, setSettingsSaving, setShowAppointmentModal, setShowDesignModal, setShowDesignUpload, setShowInvoiceModal, setShowNotificationsDrawer, setStaffDesignersVisit, setStyleNotesFor, setTaskGuide, setTourOpen, setView, setViewAllCustomerMeasurements, settingsSaving, showAppointmentModal, showBell, showDesignModal, showDesignUpload, showOnboarding, sidebarHint, sidebarSections, staffDesignersVisit, staffSetup, startEditCustomer, styleNotesFor, t, tailors, toggleNav, tourMenu, tourOpen, uploadDirectoryCustomerPhoto, view, viewAllCustomerMeasurements, whatsappStatus } = useAppState();
+
+  // The page's name: the sidebar's own label first, so the two never disagree
+  // ("To-do" in the menu, "Todo" in the header); the key lookup covers tabs
+  // the sidebar does not list.
+  const pageTitle = navSections.flatMap((s) => s.items).find((i) => i.tab === dashboardTab)?.label || t(
+    dashboardTab === 'overview' ? 'nav.dashboard' :
+    dashboardTab === 'orders' ? 'nav.manageOrders' :
+    dashboardTab === 'workshop' ? 'nav.workshop' :
+    dashboardTab === 'tailors' ? 'nav.manageTailors' :
+    dashboardTab === 'designs' ? 'nav.manageDesigns' :
+    dashboardTab === 'staff' ? 'nav.staffManagement' :
+    dashboardTab === 'work' ? 'nav.myWork' :
+    dashboardTab === 'check' ? 'nav.toCheck' :
+    dashboardTab === 'done' ? 'nav.doneWork' :
+    `nav.${dashboardTab}`,
+    dashboardTab === 'work' ? 'My work' : dashboardTab === 'check' ? 'To check' : dashboardTab === 'done' ? 'Done' :
+    dashboardTab.charAt(0).toUpperCase() + dashboardTab.slice(1)
+  );
+
+  // What a sidebar item does: open that page at its top, with nothing on it
+  // left open. The breadcrumbs go up the same way.
+  const openTab = (tab) => {
+    setDashboardTab(tab);
+    setSelectedDirectoryCustomer(null);
+    setEditingCustomer(null);
+    setCustomerAddMode(null);
+    setOpenOrdersRowId(null);
+    setOpenGarmentJob(null);
+    setSelectedDashboardOrder(null);
+    setSectionVisit(n => n + 1);
+    setMobileNavOpen(false);
+  };
+
+  // Every page's trail starts at the person's own first page (the dashboard
+  // for the owner, My work for a tailor), then the page that is open.
+  const homeItem = navSections[0]?.items?.[0];
+  const customerName = (c) => `${c?.first_name || ''} ${c?.last_name || ''}`.trim() || c?.name || 'Customer';
+  const crumbBase = [
+    ...(homeItem && homeItem.tab !== dashboardTab ? [{ label: homeItem.label, onClick: () => openTab(homeItem.tab) }] : []),
+    { label: pageTitle, onClick: () => openTab(dashboardTab) },
+  ];
+
   return (
     <>
       {/* 4. BOUTIQUE PORTAL MAIN WORKSPACE (Image 4) */}
@@ -45,23 +89,7 @@ export default function WorkspaceView() {
         <div className={`portal-layout${navCollapsed ? ' nav-collapsed' : ''}`}>
           <MobileHeader
             showBell={showBell}
-            // The sidebar's own label first, so the two never disagree
-            // ("To-do" in the menu, "Todo" in the header); the key lookup
-            // covers tabs the sidebar does not list.
-            title={navSections.flatMap((s) => s.items).find((i) => i.tab === dashboardTab)?.label || t(
-              dashboardTab === 'overview' ? 'nav.dashboard' :
-              dashboardTab === 'orders' ? 'nav.manageOrders' :
-              dashboardTab === 'workshop' ? 'nav.workshop' :
-              dashboardTab === 'tailors' ? 'nav.manageTailors' :
-              dashboardTab === 'designs' ? 'nav.manageDesigns' :
-              dashboardTab === 'staff' ? 'nav.staffManagement' :
-              dashboardTab === 'work' ? 'nav.myWork' :
-              dashboardTab === 'check' ? 'nav.toCheck' :
-              dashboardTab === 'done' ? 'nav.doneWork' :
-              `nav.${dashboardTab}`,
-              dashboardTab === 'work' ? 'My work' : dashboardTab === 'check' ? 'To check' : dashboardTab === 'done' ? 'Done' :
-              dashboardTab.charAt(0).toUpperCase() + dashboardTab.slice(1)
-            )}
+            title={pageTitle}
             currentUser={currentUser}
             notificationsCount={notifications.filter(n => !n.is_read).length}
             onOpenMenu={() => setMobileNavOpen(!mobileNavOpen)}
@@ -145,15 +173,7 @@ export default function WorkspaceView() {
                 activeTab={dashboardTab}
                 collapsed={navCollapsed && !mobileNavOpen}
                 hints={sidebarHint}
-                onPick={(tab) => {
-                  setDashboardTab(tab);
-                  setSelectedDirectoryCustomer(null);
-                  setEditingCustomer(null);
-                  setOpenOrdersRowId(null);
-                  setSelectedDashboardOrder(null);
-                  setSectionVisit(n => n + 1);
-                  setMobileNavOpen(false);
-                }}
+                onPick={openTab}
               />
             </nav>
 
@@ -164,6 +184,7 @@ export default function WorkspaceView() {
           <main className={`portal-main${!currentUser?.role || currentUser.role === 'Owner' ? '' : ' portal-main--staff'}`}
                 key={`${dashboardTab}:${sectionVisit}`}>
             {accountBar((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}
+            <CrumbsProvider base={crumbBase}>
             {(dashboardTab === 'work' || dashboardTab === 'done' || dashboardTab === 'check') && (
               <>
                 <PageHeader
@@ -230,18 +251,24 @@ export default function WorkspaceView() {
                 it and when it is due, then where it stands, then the work. */}
             {['orders', 'workshop'].includes(dashboardTab) && openOrder && (
               <Suspense fallback={<ScreenLoading />}>
-                <OrderDetailPanel assignOrderDesigner={assignOrderDesigner} assigningWorkflowOrderId={assigningWorkflowOrderId} completingAllOrderId={completingAllOrderId} designerInCharge={designerInCharge} designers={designers} handleMarkMessageSent={handleMarkMessageSent} handleRetryMessage={handleRetryMessage} openAlteration={openAlteration} openDirectoryCustomer={openDirectoryCustomer} openGarmentJob={openGarmentJob} openOrder={openOrder} openSendToWorkshop={openSendToWorkshop} openStageReview={openStageReview} queuedMessages={queuedMessages} savingVerificationOrderId={savingVerificationOrderId} sendBusy={sendBusy} sendErrorsOrderId={sendErrorsOrderId} setCompletingAllOrderId={setCompletingAllOrderId} setOpenGarmentJob={setOpenGarmentJob} setOpenOrdersRowId={setOpenOrdersRowId} setReviewView={setReviewView} setSavingVerificationOrderId={setSavingVerificationOrderId} setSendErrorsOrderId={setSendErrorsOrderId} />
+                <Crumbs level={3} items={[{ label: orderRef(openOrder) }]} />
+                <OrderDetailPanel assignOrderDesigner={assignOrderDesigner} assigningWorkflowOrderId={assigningWorkflowOrderId} completingAllOrderId={completingAllOrderId} designerInCharge={designerInCharge} designers={designers} handleMarkMessageSent={handleMarkMessageSent} handleRetryMessage={handleRetryMessage} openAlteration={openAlteration} openDirectoryCustomer={openDirectoryCustomer} openGarmentJob={openGarmentJob} openOrder={openOrder} openSendToWorkshop={openSendToWorkshop} openStageReview={openStageReview} queuedMessages={queuedMessages} savingVerificationOrderId={savingVerificationOrderId} sendBusy={sendBusy} sendErrorsOrderId={sendErrorsOrderId} setCompletingAllOrderId={setCompletingAllOrderId} setOpenOrdersRowId={setOpenOrdersRowId} setReviewView={setReviewView} setSavingVerificationOrderId={setSavingVerificationOrderId} setSendErrorsOrderId={setSendErrorsOrderId} />
               </Suspense>
             )}
 
             {['orders', 'workshop'].includes(dashboardTab) && !openOrder && (
               <Suspense fallback={<ScreenLoading />}>
-                <OrdersPanel getTabLabel={getTabLabel} guideOrders={guideOrders} handleBackFromWorkshop={handleBackFromWorkshop} openAlteration={openAlteration} openSendToWorkshop={openSendToWorkshop} openStageReview={openStageReview} orderMatchesFilters={orderMatchesFilters} ordersAlterationOrder={ordersAlterationOrder} ordersFilterTab={ordersFilterTab} ordersGarmentFilter={ordersGarmentFilter} ordersList={ordersList} ordersSearch={ordersSearch} ordersStageFilter={ordersStageFilter} ordersTierFilter={ordersTierFilter} ordersTypeFilter={ordersTypeFilter} ordersView={ordersView} ordersKind={ordersKind} setOrdersKind={setOrdersKind} ordersPageSize={ordersPageSize} setOrdersPageSize={setOrdersPageSize} ordersListPage={ordersListPage} goToOrdersPage={goToOrdersPage} previousDashboardTab={previousDashboardTab} queuedMessages={queuedMessages} rememberAlteration={rememberAlteration} sendBusy={sendBusy} setOpenGarmentJob={setOpenGarmentJob} setOpenOrdersRowId={setOpenOrdersRowId} setOrdersAlterationOrder={setOrdersAlterationOrder} setOrdersFilterTab={setOrdersFilterTab} setOrdersGarmentFilter={setOrdersGarmentFilter} setOrdersSearch={setOrdersSearch} setOrdersStageFilter={setOrdersStageFilter} setOrdersTierFilter={setOrdersTierFilter} setOrdersTypeFilter={setOrdersTypeFilter} setOrdersView={setOrdersView} setView={setView} />
+                <OrdersPanel guideOrders={guideOrders} openAlteration={openAlteration} openSendToWorkshop={openSendToWorkshop} openStageReview={openStageReview} orderMatchesFilters={orderMatchesFilters} ordersAlterationOrder={ordersAlterationOrder} ordersFilterTab={ordersFilterTab} ordersGarmentFilter={ordersGarmentFilter} ordersList={ordersList} ordersSearch={ordersSearch} ordersStageFilter={ordersStageFilter} ordersTierFilter={ordersTierFilter} ordersTypeFilter={ordersTypeFilter} ordersView={ordersView} ordersKind={ordersKind} setOrdersKind={setOrdersKind} ordersPageSize={ordersPageSize} setOrdersPageSize={setOrdersPageSize} ordersListPage={ordersListPage} goToOrdersPage={goToOrdersPage} queuedMessages={queuedMessages} rememberAlteration={rememberAlteration} sendBusy={sendBusy} setOpenGarmentJob={setOpenGarmentJob} setOpenOrdersRowId={setOpenOrdersRowId} setOrdersAlterationOrder={setOrdersAlterationOrder} setOrdersFilterTab={setOrdersFilterTab} setOrdersGarmentFilter={setOrdersGarmentFilter} setOrdersSearch={setOrdersSearch} setOrdersStageFilter={setOrdersStageFilter} setOrdersTierFilter={setOrdersTierFilter} setOrdersTypeFilter={setOrdersTypeFilter} setOrdersView={setOrdersView} setView={setView} />
               </Suspense>
             )}
 
             {/* 5. CUSTOMERS TAB */}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && editingCustomer && (
+              <>
+              {/* Edited from their page, the name above goes back to it. */}
+              {selectedDirectoryCustomer?.id === editingCustomer.id
+                ? <Crumbs level={4} items={[{ label: t('common.edit', 'Edit') }]} />
+                : <Crumbs level={3} items={[{ label: customerName(editingCustomer) }, { label: t('common.edit', 'Edit') }]} />}
               <CustomerForm key={editingCustomer.id} customer={editingCustomer}
                             onBack={() => setEditingCustomer(null)}
                             onSaved={async () => {
@@ -253,6 +280,7 @@ export default function WorkspaceView() {
                                 if (full) setSelectedDirectoryCustomer(full);
                               }
                             }} />
+              </>
             )}
             {deletingAllCustomers && (
               <DeleteAllCustomersDialog total={bookTotal}
@@ -260,12 +288,18 @@ export default function WorkspaceView() {
                                         onDeleted={() => fetchDashboardAndConfig()} />
             )}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'import' && (
+              <>
+              <Crumbs level={3} items={[{ label: 'Import customers' }]} />
               <AddCustomerChooser onBack={() => setCustomerAddMode(null)}
                                   onImported={() => fetchDashboardAndConfig()} />
+              </>
             )}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && customerAddMode === 'manual' && (
+              <>
+              <Crumbs level={3} items={[{ label: 'New customer' }]} />
               <CustomerForm onBack={() => setCustomerAddMode(null)}
                             onSaved={async () => { await fetchDashboardAndConfig(); setCustomerAddMode(null); }} />
+              </>
             )}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && !selectedDirectoryCustomer && !customerAddMode && (
               <Suspense fallback={<ScreenLoading />}>
@@ -285,7 +319,8 @@ export default function WorkspaceView() {
             {/* 5b. CUSTOMER DETAIL VIEW (Image 5/6 extension) */}
             {(dashboardTab === 'customers' || dashboardTab === 'leads') && selectedDirectoryCustomer && (
               <Suspense fallback={<ScreenLoading />}>
-                <CustomerDetailPanel alterationOrder={alterationOrder} approvingDesignId={approvingDesignId} beginOrderForCustomer={beginOrderForCustomer} customerActionId={customerActionId} customerPhotoBusy={customerPhotoBusy} directoryDetailLoading={directoryDetailLoading} expandedCustomerOrderId={expandedCustomerOrderId} handleApproveDesign={handleApproveDesign} handleDeleteCustomer={handleDeleteCustomer} handleSelectExistingCustomer={handleSelectExistingCustomer} isLead={isLead} openAlteration={openAlteration} openDirectoryCustomer={openDirectoryCustomer} openStageReview={openStageReview} orderTypeFor={orderTypeFor} refreshCustomerBook={refreshCustomerBook} rememberAlteration={rememberAlteration} selectedDirectoryCustomer={selectedDirectoryCustomer} setAlterationOrder={setAlterationOrder} setDesignNotes={setDesignNotes} setExpandedCustomerOrderId={setExpandedCustomerOrderId} setOrderTypeFor={setOrderTypeFor} setQuotePrices={setQuotePrices} setSelectedDirectoryCustomer={setSelectedDirectoryCustomer} setViewAllCustomerMeasurements={setViewAllCustomerMeasurements} startEditCustomer={startEditCustomer} uploadDirectoryCustomerPhoto={uploadDirectoryCustomerPhoto} viewAllCustomerMeasurements={viewAllCustomerMeasurements} />
+                <Crumbs level={3} items={[{ label: customerName(selectedDirectoryCustomer), onClick: () => setEditingCustomer(null) }]} />
+                <CustomerDetailPanel alterationOrder={alterationOrder} approvingDesignId={approvingDesignId} beginOrderForCustomer={beginOrderForCustomer} customerActionId={customerActionId} customerPhotoBusy={customerPhotoBusy} directoryDetailLoading={directoryDetailLoading} expandedCustomerOrderId={expandedCustomerOrderId} handleApproveDesign={handleApproveDesign} handleDeleteCustomer={handleDeleteCustomer} handleSelectExistingCustomer={handleSelectExistingCustomer} isLead={isLead} openAlteration={openAlteration} openDirectoryCustomer={openDirectoryCustomer} openStageReview={openStageReview} orderTypeFor={orderTypeFor} refreshCustomerBook={refreshCustomerBook} rememberAlteration={rememberAlteration} selectedDirectoryCustomer={selectedDirectoryCustomer} setAlterationOrder={setAlterationOrder} setDesignNotes={setDesignNotes} setExpandedCustomerOrderId={setExpandedCustomerOrderId} setOrderTypeFor={setOrderTypeFor} setQuotePrices={setQuotePrices} setViewAllCustomerMeasurements={setViewAllCustomerMeasurements} startEditCustomer={startEditCustomer} uploadDirectoryCustomerPhoto={uploadDirectoryCustomerPhoto} viewAllCustomerMeasurements={viewAllCustomerMeasurements} />
               </Suspense>
             )}
 
@@ -325,6 +360,7 @@ export default function WorkspaceView() {
                 fetchWhatsAppStatus={fetchWhatsAppStatus}
               />
             )}
+            </CrumbsProvider>
           </main>
 
           {/* Appointment booking. apps/scheduling has always accepted these and

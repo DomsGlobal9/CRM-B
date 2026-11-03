@@ -8,7 +8,7 @@
    handed the role (move: stock or transfer; set up: items). */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, CheckCircle2, ClipboardCheck, Eye, Layers,
+  AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Camera, CheckCircle2, ClipboardCheck, Eye, Layers,
   MapPin, Minus, Move, PackagePlus, Pencil, Plus, Printer, Search, Trash2, X,
 } from 'lucide-react';
 import QRCode from 'qrcode';
@@ -17,6 +17,7 @@ import { cleanAmount } from '../../services/validate';
 import { inventoryImage } from '../../services/inventoryImages';
 import { Field, Modal, SelectField } from './ItemFormModal';
 import Loader from '../../components/ui/Loader';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 import './shelves.css';
 
 const VIEW_KEY = 'inventory-shelves-view';
@@ -141,7 +142,7 @@ function ShelfSelect({ label = 'Shelf', leaves, value, onChange, suggested = [],
   );
 }
 
-export default function ShelvesTab({ canMove = false, canManage = false, onBack }) {
+export default function ShelvesTab({ canMove = false, canManage = false }) {
   const [locations, setLocations] = useState(null);
   const [locationId, setLocationId] = useState(recall(LOCATION_KEY));
   const [tree, setTree] = useState(null);
@@ -186,11 +187,6 @@ export default function ShelvesTab({ canMove = false, canManage = false, onBack 
     <div className="sh">
       <div className="sh-top">
         <div className="sh-top-left">
-          {onBack && (
-            <button type="button" className="btn-secondary sh-back" onClick={onBack} aria-label="Back to Inventory" title="Back to Inventory">
-              <ArrowLeft size={15} /> <span>Back</span>
-            </button>
-          )}
           <label className="sh-location">
             <span className="sh-location-label">Location</span>
             <MapPin size={15} aria-hidden="true" className="sh-location-icon" />
@@ -754,15 +750,18 @@ function SpotView({ spot, onClose }) {
         {inside === null && <Loader label="Loading…" />}
         {inside && inside.length === 0 && !error && <div className="sh-empty">Nothing here yet.</div>}
         {looking && (
+          <Breadcrumbs items={[
+            { label: spot.address, onClick: () => setLooking(null) },
+            { label: looking.row.item.name },
+          ]} />
+        )}
+        {looking && (
           <div className="sh-look">
             <img className="sh-look-img" src={inventoryImage(looking.row.item)} alt={looking.row.item.name} />
             <div className="sh-look-text">
               <b>{looking.row.item.name}</b>
               <span className="sh-muted">{looking.row.item.item_code}{looking.row.item.color ? ` · ${looking.row.item.color}` : ''}</span>
               <span><b>{looking.row.quantity_text}</b> on <b className="sh-address">{looking.spot.address}</b>{looking.spot.name ? ` · ${looking.spot.name}` : ''}</span>
-            </div>
-            <div className="sh-actions sh-actions--top">
-              <button type="button" className="btn-secondary" onClick={() => setLooking(null)}><ArrowLeft size={15} /> Back to the list</button>
             </div>
           </div>
         )}

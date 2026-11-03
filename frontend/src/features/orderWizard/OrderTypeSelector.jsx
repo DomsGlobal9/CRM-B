@@ -1,4 +1,4 @@
-import { ArrowLeft, Factory, PanelLeftClose, PanelLeftOpen, Ruler, Scissors } from 'lucide-react';
+import { Factory, PanelLeftClose, PanelLeftOpen, Ruler, Scissors } from 'lucide-react';
 import { MobileHeader } from '../../components/ui/MobileHeader';
 import { api } from '../../services/api';
 import { PortalMenu } from '../../navigation/PortalMenu';
@@ -8,13 +8,14 @@ import { formatDateTime as fmtDateTime } from '../../services/format';
 import BoutiqueProductionDialog from '../production/BoutiqueProduction';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 
 /**
  * Before the wizard: what kind of order this is (stitching, an alteration, or
  * in-house work for the boutique's own stock), and the orders in progress that
  * can be picked up again.
  */
-export default function OrderTypeSelector({ wizard, accountBar, fetchNotifications, headerAccountItems, hydrateWizard, markingNotificationsRead, mobileNavOpen, navCollapsed, notifications, resumableDrafts, setCustomerAddMode, setMarkingNotificationsRead, setMobileNavOpen, setResumableDrafts, setSelectedDirectoryCustomer, setShowNotificationsDrawer, setView, showBell, sidebarSections, startService, toggleNav }) {
+export default function OrderTypeSelector({ crumbs, wizard, accountBar, fetchNotifications, headerAccountItems, hydrateWizard, markingNotificationsRead, mobileNavOpen, navCollapsed, notifications, resumableDrafts, setCustomerAddMode, setMarkingNotificationsRead, setMobileNavOpen, setResumableDrafts, setSelectedDirectoryCustomer, setShowNotificationsDrawer, setView, showBell, sidebarSections, startService, toggleNav }) {
   const { deletingDraftId, discardingDraftId, setDeletingDraftId, setDiscardingDraftId, setStartingBoutiqueRun, startingBoutiqueRun } = wizard;
   const { t } = useLanguage();
   const { currentUser, setDashboardTab, dashboardTab, refresh: fetchDashboardAndConfig } = useApp();
@@ -73,14 +74,8 @@ export default function OrderTypeSelector({ wizard, accountBar, fetchNotificatio
       <main className="portal-main">
         {accountBar((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })}
         <div className="selector-container">
-          {/* Back to where New order was opened from. The dashboard keeps
-              the section it was on (and the customer page, if one was
-              open) while this chooser shows, so returning to it is enough. */}
-          <div className="selector-back">
-            <button type="button" className="at-link" onClick={() => setView('dashboard')}>
-              <ArrowLeft size={16} /> {t('entry.back', 'Back')}
-            </button>
-          </div>
+          {/* Back up to where New order was opened from (OrderFlowViews). */}
+          <Breadcrumbs items={crumbs} />
           <div className="selector-header">
             <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{t('entry.newOrderTitle', 'New order')}</h1>
             <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>{t('entry.serviceQuestion', 'What are we doing for this customer today?')}</p>

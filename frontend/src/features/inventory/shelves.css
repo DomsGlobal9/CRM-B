@@ -216,7 +216,7 @@
 .sh-location > select.form-control { height: 40px !important; min-height: 40px !important; }
 
 /* Back and Add material on one row above the tabs (Racks & shelves). */
-.sh-page-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; }
+.sh-page-row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin: 0 0 12px; }
 .sh-page-row > .sh-back--page { margin: 0; height: 44px; min-height: 44px; }
 .sh-page-add { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; min-height: 44px; margin-left: auto; }
 /* No button in the title's row any more: it only keeps clear of the chip. */

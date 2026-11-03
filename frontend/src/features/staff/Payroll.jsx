@@ -1,10 +1,11 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { AlertTriangle, Check, ChevronLeft, CheckCircle2, Lock, Pencil, RefreshCw, X } from 'lucide-react';
+import { AlertTriangle, Check, CheckCircle2, Lock, Pencil, RefreshCw, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { LIMITS } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
+import { Crumbs } from '../../components/ui/Breadcrumbs';
 import { CorrectionForm } from './CorrectionForm';
 
 const panel = {
@@ -296,7 +297,7 @@ function LiveSessions({ record, week, onRecalculate }) {
   );
 }
 
-function RecordDetail({ record, week, onBack, onPaid, onRecalculate }) {
+function RecordDetail({ record, week, onPaid, onRecalculate }) {
   const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -317,11 +318,7 @@ function RecordDetail({ record, week, onBack, onPaid, onRecalculate }) {
 
   return (
     <>
-      <button type="button" className="btn-secondary" onClick={onBack}
-              style={{ marginBottom: '14px', display: 'inline-flex',
-                       alignItems: 'center', gap: '6px', minHeight: '38px' }}>
-        <ChevronLeft size={15} /> Back to payroll
-      </button>
+      <Crumbs level={3} items={[{ label: record.staff_name_snapshot }]} />
 
       <div style={{ ...panel, padding: '18px', marginBottom: '14px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between',
@@ -645,7 +642,6 @@ export default function Payroll({ week, onWeekChange, onChanged }) {
           record={live}
           week={period.period_start}
           onRecalculate={recalculate}
-          onBack={() => setOpenRecord(null)}
           onPaid={(updated) => setPeriod((p) => p && ({
             ...p,
             records: p.records.map((r) => (r.id === updated.id ? updated : r)),

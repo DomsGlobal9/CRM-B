@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownCircle, ArrowLeft, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, Layers, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, Layers, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -20,6 +20,7 @@ import ShelvesTab from './ShelvesTab';
 import ShelfPlace, { NotShelvedReminder } from './ShelfPlace';
 import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';
 import Loader from '../../components/ui/Loader';
+import { Crumbs } from '../../components/ui/Breadcrumbs';
 
 const MOVEMENTS = [
   { key: 'stock-in', label: 'Stock In', help: 'Goods received into the boutique.' },
@@ -157,6 +158,28 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
     return map;
   }, [options.categories]);
 
+
+  // Five tabs shown: Inventory, In-house (garments made for the boutique's own
+  // stock), Materials library (the catalogue of materials, by category, to add
+  // to stock), Shelves & racks and Inventory history (the purchase list).
+  // Material requirements, Suppliers and Reports are hidden, not removed:
+  // `hidden: true`.
+  const inventoryTabs = [
+    { key: 'items', label: t('inventoryPage.items'), icon: Package },
+    { key: 'inhouse', label: t('inventoryPage.inHouse', 'In-house'), icon: Factory },
+    { key: 'catalog', label: t('inventoryPage.materialsLibrary', 'Materials library'), icon: BookOpen },
+    { key: 'locations', label: t('inventoryPage.locations'), icon: MapPin },
+    // Where inside a location the stock sits: racks, shelves, boxes (ShelvesTab).
+    { key: 'shelves', label: t('inventoryPage.racksShelves', 'Racks & shelves'), icon: Layers },
+    { key: 'recipes', label: t('inventoryPage.recipes'), icon: Scissors, hidden: true },
+    { key: 'suppliers', label: t('inventoryPage.suppliers'), icon: ClipboardList, hidden: true },
+    { key: 'purchases', label: t('inventoryPage.inventoryHistory', 'Inventory history'), icon: ShoppingCart },
+    { key: 'reports', label: t('inventoryPage.reports'), icon: BarChart3, hidden: true },
+  ].filter((tabItem) => !tabItem.hidden);
+  // The tab's crumb opens it afresh: a section of the materials library or
+  // a shelf's item closes, as a sidebar item does for a page.
+  const [tabVisit, setTabVisit] = useState(0);
+
   return (
     <>
       <PageHeader
@@ -188,39 +211,21 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
       {/* Tab strip, not pill buttons: these switch a view, so an underline on
           the active one reads as navigation rather than seven call-to-actions. */}
-      {/* Racks & shelves: Back to Inventory, above the tabs. */}
-      {/* Add material moves down beside it, so the two share one row. */}
-      {tab === 'shelves' && (
+      <Crumbs level={1} items={[{
+        label: inventoryTabs.find((tabItem) => tabItem.key === tab)?.label || '',
+        onClick: () => setTabVisit((n) => n + 1),
+      }]} />
+      {/* Racks & shelves: Add material above the tabs. */}
+      {tab === 'shelves' && canItems && (
         <div className="sh-page-row">
-          <button type="button" className="btn-secondary sh-back sh-back--page" onClick={() => setTab('items')} aria-label="Back to Inventory" title="Back to Inventory">
-            <ArrowLeft size={15} /> <span>Back</span>
+          <button type="button" className="btn-primary sh-page-add" style={{ padding: '10px 18px' }} onClick={() => setEditingItem({})}>
+            <Plus size={16} />
+            {t('inventoryPage.newItem')}
           </button>
-          {canItems && (
-            <button type="button" className="btn-primary sh-page-add" style={{ padding: '10px 18px' }} onClick={() => setEditingItem({})}>
-              <Plus size={16} />
-              {t('inventoryPage.newItem')}
-            </button>
-          )}
         </div>
       )}
       <div className="at-scroll-tabs" style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-5)', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
-        {/* Five tabs shown: Inventory, In-house (garments made for the
-            boutique's own stock), Materials library (the catalogue of
-            materials, by category, to add to stock), Shelves & racks and
-            Inventory history (the purchase list). Material requirements,
-            Suppliers and Reports are hidden, not removed: `hidden: true`. */}
-        {[
-          { key: 'items', label: t('inventoryPage.items'), icon: Package },
-          { key: 'inhouse', label: t('inventoryPage.inHouse', 'In-house'), icon: Factory },
-          { key: 'catalog', label: t('inventoryPage.materialsLibrary', 'Materials library'), icon: BookOpen },
-          { key: 'locations', label: t('inventoryPage.locations'), icon: MapPin },
-          // Where inside a location the stock sits: racks, shelves, boxes (ShelvesTab).
-          { key: 'shelves', label: t('inventoryPage.racksShelves', 'Racks & shelves'), icon: Layers },
-          { key: 'recipes', label: t('inventoryPage.recipes'), icon: Scissors, hidden: true },
-          { key: 'suppliers', label: t('inventoryPage.suppliers'), icon: ClipboardList, hidden: true },
-          { key: 'purchases', label: t('inventoryPage.inventoryHistory', 'Inventory history'), icon: ShoppingCart },
-          { key: 'reports', label: t('inventoryPage.reports'), icon: BarChart3, hidden: true },
-        ].filter((tabItem) => !tabItem.hidden).map(({ key, label, icon: Icon }) => {
+        {inventoryTabs.map(({ key, label, icon: Icon }) => {
           const active = tab === key;
           return (
             <button
@@ -286,7 +291,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
       )}
 
       {!loadError && tab === 'catalog' && (
-        <CatalogBrowser isOwner={canItems} onStock={stockFromCatalog} version={catalogVersion} />
+        <CatalogBrowser key={tabVisit} isOwner={canItems} onStock={stockFromCatalog} version={catalogVersion} />
       )}
 
       {!loadError && tab === 'locations' && (
@@ -301,7 +306,7 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
 
       {!loadError && tab === 'inhouse' && <InHouseTab />}
 
-      {!loadError && tab === 'shelves' && <ShelvesTab canMove={canStock || canTransfer} canManage={canItems} />}
+      {!loadError && tab === 'shelves' && <ShelvesTab key={tabVisit} canMove={canStock || canTransfer} canManage={canItems} />}
 
       {!loadError && tab === 'reports' && <ReportsTab />}
 

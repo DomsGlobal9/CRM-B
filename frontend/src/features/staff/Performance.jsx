@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { AlertCircle, Check, ChevronLeft, Lock, Star, X } from 'lucide-react';
+import { AlertCircle, Check, Lock, Star, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, todayIso } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
+import { Crumbs } from '../../components/ui/Breadcrumbs';
 import './performance.css';
 
 const panel = {
@@ -261,7 +262,7 @@ function ReviewForm({ member, period, existing, onCancel, onSaved }) {
   );
 }
 
-function StaffDetail({ member, reviews, isOwner, canReview, onBack, onChanged }) {
+function StaffDetail({ member, reviews, isOwner, canReview, onChanged }) {
   const [editing, setEditing] = useState(null);
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -288,11 +289,7 @@ function StaffDetail({ member, reviews, isOwner, canReview, onBack, onChanged })
 
   return (
     <>
-      <button type="button" className="btn-secondary" onClick={onBack}
-              style={{ marginBottom: '14px', display: 'inline-flex',
-                       alignItems: 'center', gap: '6px', minHeight: '38px' }}>
-        <ChevronLeft size={15} /> Back to team
-      </button>
+      <Crumbs level={2} items={[{ label: member.staff_name }]} />
 
       {error && <Banner tone="error" icon={AlertCircle} text={error} />}
 
@@ -615,7 +612,6 @@ export default function Performance({ isOwner, canReview = isOwner, canSeeTeam }
           reviews={reviewsByStaff.get(String(openStaff)) || []}
           isOwner={isOwner}
           canReview={canReview}
-          onBack={() => setOpenStaff(null)}
           onChanged={() => setReloadKey((n) => n + 1)}
         />
       );

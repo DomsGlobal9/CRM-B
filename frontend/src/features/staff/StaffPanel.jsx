@@ -21,6 +21,7 @@ import {
   cleanDocumentNumber, documentNumberError, todayIso, imageFilesError,
 } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
+import { Crumbs } from '../../components/ui/Breadcrumbs';
 import RowMenu from '../../components/ui/RowMenu';
 
 const panel = {
@@ -1643,6 +1644,9 @@ export default function StaffPanel({ currentUser, onlyDesigners = false, onShowA
     && (!Array.isArray(currentUser?.modules) || currentUser.modules.includes('payroll'));
 
   const [tab, setTab] = useState(isOwner || (onlyDesigners && canSeeTeam) ? 'roster' : 'attendance');
+  // The open tab's crumb opens it afresh: a staff member's payroll or
+  // performance page closes, as a sidebar item does for a page.
+  const [tabVisit, setTabVisit] = useState(0);
 
   return (
     <>
@@ -1653,6 +1657,7 @@ export default function StaffPanel({ currentUser, onlyDesigners = false, onShowA
           : 'Check in and out, and see the hours recorded for you.'}
       />
 
+      <Crumbs level={1} items={[{ label: TABS.find((item) => item.key === tab)?.label || '', onClick: () => setTabVisit((n) => n + 1) }]} />
       {/* Tab strip, not pill buttons: these switch a view, and an underline on
           the active one reads as navigation rather than four call-to-actions. */}
       <div className="at-scroll-tabs" style={{
@@ -1699,10 +1704,10 @@ export default function StaffPanel({ currentUser, onlyDesigners = false, onShowA
           (the server's AttendanceSessionViewSet / DayMarkViewSet): no
           corrections, no pay. */}
       {tab === 'attendance' && (
-        <Attendance isOwner={can('team.attendance')} canSeeTeam={canSeeTeamAttendance} showPayroll={payrollOn} />
+        <Attendance key={tabVisit} isOwner={can('team.attendance')} canSeeTeam={canSeeTeamAttendance} showPayroll={payrollOn} />
       )}
       {tab === 'performance' && (
-        <Performance isOwner={isOwner} canReview={can('team.reviews')} canSeeTeam={canSeeTeam} />
+        <Performance key={tabVisit} isOwner={isOwner} canReview={can('team.reviews')} canSeeTeam={canSeeTeam} />
       )}
       {tab === 'permissions' && isOwner && <RolePermissions />}
     </>

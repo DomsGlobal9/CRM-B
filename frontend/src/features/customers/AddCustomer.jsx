@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, CheckCircle2, ChevronDown, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User, X } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, imageFilesError, nameError } from '../../services/validate';
 import { resolveMediaUrl } from '../../services/media';
@@ -136,9 +136,6 @@ const EMPTY = {
   source: 'Walk In', customer_type: 'Silver', date_of_birth: '', notes: '', measurements: {},
 };
 
-// A bare green link at the top-left, not a stretched button.
-const BACK = { alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: 0, marginTop: -16,
-               background: 'none', border: 0, cursor: 'pointer', font: 'inherit', fontSize: 14, fontWeight: 600, color: 'var(--brand-link)' };
 
 /** One "Full name" box, stored as the customer's first and last name the way
  *  the Excel import splits full_name: the first word, then the rest. */
@@ -308,9 +305,6 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
 
   return (
     <div className="selector-container">
-      <button type="button" onClick={onBack} style={BACK}>
-        <ArrowLeft size={16} /> Customers
-      </button>
       <div className="selector-header">
         <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{onManual ? 'Add customer' : 'Import customers'}</h1>
         <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>
@@ -722,9 +716,6 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
 
   return (
     <form className="selector-container" onSubmit={submit} noValidate>
-      <button type="button" onClick={onBack} style={BACK}>
-        <ArrowLeft size={16} /> {editing ? 'Back' : 'Add customer'}
-      </button>
       <div className="page-title-group">
         <h1 className="page-title">{editing ? 'Edit customer' : 'New customer'}</h1>
         <p className="page-subtitle">

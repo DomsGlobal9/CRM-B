@@ -1,9 +1,10 @@
-import { AlertTriangle, ArrowLeft, CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, ShoppingCart, User, Zap } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, ShoppingCart, User, Zap } from 'lucide-react';
 import React from 'react';
 import { RequestAlterationModal } from '../alterations/OrderAlterations';
 import { PageHeader, SearchBox, Segmented, StatCard } from '../../components/ui/Atelier';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
 import { Pager } from '../../components/ui/Pager';
+import { Crumbs } from '../../components/ui/Breadcrumbs';
 import { ORDER_PAGE_SIZES } from './useOrdersPage';
 import { getStageBadgeStyle, orderBucket, sinceLabel, stageNow, stageWho } from './stages';
 import { TIERS } from '../customers/customerBook';
@@ -21,7 +22,7 @@ import { useApp } from '../../context/AppContext';
  * order on its own page (OrderDetailPanel). Both are split into a Stitching
  * and an Alteration tab, and the list is shown a page at a time.
  */
-export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWorkshop, openAlteration, openSendToWorkshop, openStageReview, orderMatchesFilters, ordersAlterationOrder, ordersFilterTab, ordersGarmentFilter, ordersList, ordersSearch, ordersStageFilter, ordersTierFilter, ordersTypeFilter, ordersView, ordersKind, setOrdersKind, ordersPageSize, setOrdersPageSize, ordersListPage, goToOrdersPage, previousDashboardTab, queuedMessages, rememberAlteration, sendBusy, setOpenGarmentJob, setOpenOrdersRowId, setOrdersAlterationOrder, setOrdersFilterTab, setOrdersGarmentFilter, setOrdersSearch, setOrdersStageFilter, setOrdersTierFilter, setOrdersTypeFilter, setOrdersView, setView }) {
+export default function OrdersPanel({ guideOrders, openAlteration, openSendToWorkshop, openStageReview, orderMatchesFilters, ordersAlterationOrder, ordersFilterTab, ordersGarmentFilter, ordersList, ordersSearch, ordersStageFilter, ordersTierFilter, ordersTypeFilter, ordersView, ordersKind, setOrdersKind, ordersPageSize, setOrdersPageSize, ordersListPage, goToOrdersPage, queuedMessages, rememberAlteration, sendBusy, setOpenGarmentJob, setOpenOrdersRowId, setOrdersAlterationOrder, setOrdersFilterTab, setOrdersGarmentFilter, setOrdersSearch, setOrdersStageFilter, setOrdersTierFilter, setOrdersTypeFilter, setOrdersView, setView }) {
   const { t } = useLanguage();
   const { dashboardTab, currentUser, adminCan, boutiqueSettings, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
   return (
@@ -63,6 +64,7 @@ export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWo
         const alterations = inPile.filter(isAlteration).length;
         return (
           <>
+            <Crumbs level={1} items={[{ label: ordersKind === 'alteration' ? t('ordersPage.typeAlteration', 'Alterations') : t('ordersPage.typeStitching', 'Stitching') }]} />
             <div className="orders-kind-tabs" style={{ marginBottom: 'var(--space-4)' }}>
               <Segmented ariaLabel={t('ordersPage.orderKind', 'Order type')} value={ordersKind} onChange={setOrdersKind} options={[
                 { key: 'stitching', label: `${t('ordersPage.typeStitching', 'Stitching')} (${inPile.length - alterations})`, icon: Scissors },
@@ -81,18 +83,6 @@ export default function OrdersPanel({ getTabLabel, guideOrders, handleBackFromWo
                 <StatCard icon={CheckCircle2} tone="green" label={t('ordersPage.tabDone', 'Closed')} value={done} sub={t('ordersPage.tabDoneSub', 'delivered or cancelled')}
                           onClick={() => setOrdersFilterTab('done')} active={ordersFilterTab === 'done'} />
               </section>
-            )}
-            {dashboardTab === 'workshop' && (
-              <div style={{ marginBottom: '10px' }}>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleBackFromWorkshop}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '13px', fontWeight: 600, borderRadius: 'var(--radius-md)' }}
-                >
-                  <ArrowLeft size={15} /> {previousDashboardTab ? t('common.backTo', `Back to ${getTabLabel(previousDashboardTab)}`, { name: getTabLabel(previousDashboardTab) }) : t('common.back', 'Back')}
-                </button>
-              </div>
             )}
             <div className={`at-toolbar ${dashboardTab === 'workshop' ? 'workshop-toolbar' : ''}`}>
               {dashboardTab === 'workshop' && (

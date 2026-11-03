@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Award, Check, ChevronRight, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
+import { Award, Check, ChevronRight, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
@@ -12,6 +12,7 @@ import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
+import { Crumbs } from '../../components/ui/Breadcrumbs';
 
 
 const CARD_IMAGE_FALLBACK =
@@ -469,10 +470,7 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
   return (
     <div className="content-card dl-page">
       <div className="dl-head" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <button className="btn-secondary dl-back" style={{ padding: '6px 12px', fontSize: '12px' }}
-                onClick={() => { setOpenCategory(null); setDesigns([]); }}>
-          <ArrowLeft size={13} /> All categories
-        </button>
+        <Crumbs level={2} items={[{ label: openCategory.name }]} />
         <h3 className="dl-title" style={{ margin: 0, fontFamily: 'var(--font-serif)', fontSize: 'var(--text-lg)', fontWeight: 500, color: 'var(--text-primary)' }}>{openCategory.name}</h3>
         {/* "N shown" counts the whole designs in the All Designs grid, so it
             shows only there; a part has its own count under the tabs. */}

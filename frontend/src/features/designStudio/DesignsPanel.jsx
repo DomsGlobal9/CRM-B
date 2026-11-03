@@ -1,10 +1,11 @@
 import { Plus } from 'lucide-react';
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { PageHeader } from '../../components/ui/Atelier';
 import { ScreenLoading } from '../../components/ui/ScreenLoading';
 import Loader from '../../components/ui/Loader';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import { Crumbs } from '../../components/ui/Breadcrumbs';
 
 const DesignUpload = lazy(() => import('./DesignUpload'));
 const DesignWork = lazy(() => import('./DesignWork'));
@@ -23,8 +24,16 @@ const SHOW_DESIGN_OVERVIEW_TAB = false;
 export default function DesignsPanel({ designLibraryToken, designsView, handleDeleteDesign, navTabs, sectionVisit, setDesignForm, setDesignImageFile, setDesignLibraryToken, setDesignsView, setEditingDesign, setSectionVisit, setShowDesignModal, setShowDesignUpload, setStaffDesignersVisit, showDesignUpload }) {
   const { t } = useLanguage();
   const { currentUser, adminCan, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
+  // The open tab's crumb opens it afresh, closing a category of the library.
+  const [viewVisit, setViewVisit] = useState(0);
+  const viewLabel = designsView === 'requests'
+    ? (currentUser?.role === 'Designer' ? t('nav.myWork') : t('nav.designWork'))
+    : designsView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB
+      ? t('designsPage.overviewTab', 'Overview')
+      : t('designsPage.boutiqueDesignsTab', 'Boutique designs');
   return (
     <>
+      <Crumbs level={1} items={[{ label: viewLabel, onClick: () => setViewVisit((n) => n + 1) }]} />
       <PageHeader
         title={t('designsPage.title')}
         subtitle={t('designsPage.subtitle')}
@@ -83,6 +92,7 @@ export default function DesignsPanel({ designLibraryToken, designsView, handleDe
             />
           ) : (
             <DesignLibrary
+              key={viewVisit}
               refreshToken={designLibraryToken}
               canReview={!currentUser?.role || currentUser.role === 'Owner' || adminCan('design.approve')}
               canStock={!currentUser?.role || currentUser.role === 'Owner' || adminCan('inventory.items')}

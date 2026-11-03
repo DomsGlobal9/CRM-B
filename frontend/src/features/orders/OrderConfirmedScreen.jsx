@@ -4,12 +4,13 @@ import { waLink } from '../../services/phone';
 import { orderBucket } from './stages';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
 
 /**
  * Shown once an order is placed: its number, what was ordered and paid, and
  * what to do next (the invoice, sending it, another order, the dashboard).
  */
-export default function OrderConfirmedScreen({ confirmedOrder, customerForm, openSendToWorkshop, sendBusy, setShowInvoiceModal, setView }) {
+export default function OrderConfirmedScreen({ fromLabel, confirmedOrder, customerForm, openSendToWorkshop, sendBusy, setShowInvoiceModal, setView }) {
   const { t } = useLanguage();
   const { refresh: fetchDashboardAndConfig } = useApp();
   const confirmedCustomerName = (
@@ -18,6 +19,10 @@ export default function OrderConfirmedScreen({ confirmedOrder, customerForm, ope
     || 'the customer');
   return (
   <div className="order-confirmed-container">
+    <Breadcrumbs items={[
+      { label: fromLabel, onClick: () => { setView('dashboard'); fetchDashboardAndConfig(); } },
+      { label: t('entry.orderPlaced', 'Order placed') },
+    ]} />
     <div className="success-badge-container">
       <div className="success-circle"><Check size={40} /></div>
       {/* The owner or a master places this order at the counter, with
@@ -122,9 +127,6 @@ export default function OrderConfirmedScreen({ confirmedOrder, customerForm, ope
       )}
       <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => setShowInvoiceModal(true)}>
         <FileText size={18} /> View & Print Invoice
-      </button>
-      <button className="btn-secondary" style={{ flex: '1 1 180px', justifyContent: 'center' }} onClick={() => { setView('dashboard'); fetchDashboardAndConfig(); }}>
-        Back to Dashboard
       </button>
     </div>
   </div>

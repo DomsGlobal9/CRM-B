@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, ArrowRight, Calendar, Check, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Clock, Eye, IndianRupee, Layers, PenTool, Phone, Scissors, User, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Calendar, Check, CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Clock, Eye, IndianRupee, Layers, PenTool, Phone, Scissors, User, X } from 'lucide-react';
 import React from 'react';
 import { formatDate as fmtDate, inr, orderGarmentNames, orderRef } from '../../services/format';
 import { orderBucket, stageNow, stageWho } from './stages';
@@ -25,9 +25,9 @@ import { useApp } from '../../context/AppContext';
  * its garments and designs, the journey through the workroom, notes, prices,
  * photos, materials, payments and alterations.
  */
-export default function OrderDetailPanel({ assignOrderDesigner, assigningWorkflowOrderId, completingAllOrderId, designerInCharge, designers, handleMarkMessageSent, handleRetryMessage, openAlteration, openDirectoryCustomer, openGarmentJob, openOrder, openSendToWorkshop, openStageReview, queuedMessages, savingVerificationOrderId, sendBusy, sendErrorsOrderId, setCompletingAllOrderId, setOpenGarmentJob, setOpenOrdersRowId, setReviewView, setSavingVerificationOrderId, setSendErrorsOrderId }) {
+export default function OrderDetailPanel({ assignOrderDesigner, assigningWorkflowOrderId, completingAllOrderId, designerInCharge, designers, handleMarkMessageSent, handleRetryMessage, openAlteration, openDirectoryCustomer, openGarmentJob, openOrder, openSendToWorkshop, openStageReview, queuedMessages, savingVerificationOrderId, sendBusy, sendErrorsOrderId, setCompletingAllOrderId, setOpenOrdersRowId, setReviewView, setSavingVerificationOrderId, setSendErrorsOrderId }) {
   const { t } = useLanguage();
-  const { dashboardTab, currentUser, adminCan, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
+  const { currentUser, adminCan, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
                 const order = openOrder;
                 const stages = order.stages || [];
                 const focusJob = (order.garment_jobs || []).find(j => j.id === openGarmentJob) || null;
@@ -41,9 +41,6 @@ export default function OrderDetailPanel({ assignOrderDesigner, assigningWorkflo
                 return (
                   <div className="od-page">
                     <div className="od-topbar">
-                      <button type="button" className="btn-link od-back" onClick={() => { setOpenOrdersRowId(null); setOpenGarmentJob(null); }}>
-                        <ArrowLeft size={16} /> {dashboardTab === 'workshop' ? t('ordersPage.backToWorkshop', 'Back to workshop') : t('ordersPage.backToOrders', 'Back to orders')}
-                      </button>
                       {/* The one thing to do next lives up here: send it to the
                           workshop, or (the owner's shortcut) close every stage. */}
                       <div className="od-topbar-actions">
