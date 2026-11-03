@@ -1784,6 +1784,10 @@ function portalSlugFromPath() {
   return /^[a-z0-9]+$/.test(only) && only !== 'app' ? only : '';
 }
 
+// The order being written in this tab, so a reload reopens it where it was saved.
+// sessionStorage: one tab only, gone when the tab closes; a reload keeps it.
+const WIZARD_DRAFT_KEY = 'order-wizard-draft';
+
 function App() {
   
   const [view, setView] = useState(() => {
@@ -2086,6 +2090,10 @@ function App() {
   const [pairingQueue, setPairingQueue] = useState([]);
   const [draftId, setDraftId] = useState(null);
   const [draftVersion, setDraftVersion] = useState(null);
+  // The order this tab had open before a reload (read once, at load).
+  const [draftAfterReload] = useState(() => {
+    try { return sessionStorage.getItem(WIZARD_DRAFT_KEY); } catch { return null; }
+  });
   const [draftSaveState, setDraftSaveState] = useState('idle');
   const [resumableDrafts, setResumableDrafts] = useState([]);
   const [discardingDraftId, setDiscardingDraftId] = useState(null);
@@ -2944,6 +2952,17 @@ function App() {
     }
   };
 
+  /** The page was reloaded while an order was open: open the same order again,
+   *  as last saved. One already placed or discarded is simply not reopened. */
+  const resumeAfterReload = async (id) => {
+    try {
+      const draft = await api.getOrderDraft(id);
+      if (draft) await hydrateWizard(draft);
+    } catch {
+      try { sessionStorage.removeItem(WIZARD_DRAFT_KEY); } catch { /* ignore */ }
+    }
+  };
+
   const checkAuthSession = async () => {
     try {
       const user = await api.getMe();
@@ -2954,6 +2973,7 @@ function App() {
           if (step === 'profile') setDashboardTab('account');
         }
         await fetchDashboardAndConfig(user);
+        if (draftAfterReload && step !== 'password' && step !== 'profile') await resumeAfterReload(draftAfterReload);
       }
     } catch (e) {
       console.log("No saved session");
@@ -4094,12 +4114,25 @@ function App() {
   const handleNext = () => runOnce(performNext);
   const handleSaveDraft = () => runOnce(performSaveDraft);
 
+  // Saved within seconds, not once a minute: on a phone a pull-to-refresh comes
+  // easily, and whatever was typed since the last save is lost with it.
   useAutosave({
     getSnapshot: () => JSON.stringify(serialiseWizard()),
     save: () => persistDraft(),
     enabled: view === 'wizard' && serviceType !== 'alter' && draftSaveState !== 'conflict',
     paused: ctaBusy,
+    interval: 5000,
   });
+
+  // While an order is open in the form, this tab remembers which one, so a
+  // reload reopens it (resumeAfterReload). Leaving the form forgets it: that
+  // order is then offered under "orders in progress", never opened by itself.
+  useEffect(() => {
+    try {
+      if (view === 'wizard' && draftId && serviceType !== 'alter') sessionStorage.setItem(WIZARD_DRAFT_KEY, String(draftId));
+      else if (currentUser && view !== 'wizard') sessionStorage.removeItem(WIZARD_DRAFT_KEY);
+    } catch { /* private mode: a reload simply starts on the dashboard */ }
+  }, [view, draftId, serviceType, currentUser]);
 
   const boutiqueFormRef = useRef(null);
   // The appointment dialog's date field, so Done can dismiss the calendar.
