@@ -13,7 +13,7 @@ import { canSeeTab } from './nav';
  * & Costs and Insights) and its hints, the Reports switch, the Getting started
  * steps, and the menu the guided tour walks through.
  */
-export default function useWorkspaceShell({ setView, setDashboardTab, currentUser, t, currentUserName, navSections, navTabs, dashboardTab, showBell, onboardingDismissed, setSelectedDirectoryCustomer, dashboardData, tailors, fabrics, ordersList, ordersLoaded, loading, setTourOpen, tourOpen, setPageTour, pageTour, notifications, setShowNotificationsDrawer, markingNotificationsRead, setMarkingNotificationsRead, fetchNotifications, handleLogout, setCustomerAddMode, setEditingCustomer, bookTotal, adminCan, isOwnerUser }) {
+export default function useWorkspaceShell({ setView, setDashboardTab, currentUser, t, currentUserName, navSections, navTabs, dashboardTab, showBell, onboardingDismissed, setSelectedDirectoryCustomer, dashboardData, tailors, fabrics, ordersList, ordersLoaded, loading, setTourOpen, tourOpen, setPageTour, pageTour, notifications, setShowNotificationsDrawer, markingNotificationsRead, setMarkingNotificationsRead, markNotificationsRead, handleLogout, setCustomerAddMode, setEditingCustomer, bookTotal, adminCan, isOwnerUser }) {
   // The phone header's avatar menu: the Account entries this user's sidebar
   // shows, then Sign out. `go` is how that screen switches tab.
   const headerAccountItems = (go) => [
@@ -45,7 +45,7 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
           if (markingNotificationsRead) return;
           setMarkingNotificationsRead(true);
           api.markNotificationsAsRead(currentUser?.role || 'Owner', currentUser?.email)
-            .then(() => fetchNotifications())
+            .then(() => markNotificationsRead())
             .catch(() => {})
             .finally(() => setMarkingNotificationsRead(false));
         }}

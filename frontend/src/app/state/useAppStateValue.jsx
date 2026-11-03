@@ -225,9 +225,8 @@ export default function useAppStateValue() {
     }
   }, []);
 
-  // Only the order screens use the garment list: asked for when one opens (the
-  // order type selector, so it is there by the wizard), and kept.
-  const onOrderScreen = view === 'order-selector' || view === 'wizard';
+  // Only the order form uses the garment list: asked for when it opens, and kept.
+  const onOrderScreen = view === 'wizard';
   useEffect(() => {
     // Not while a temporary password is being replaced: the server refuses
     // everything but the change-password screen until then.
@@ -368,8 +367,8 @@ export default function useAppStateValue() {
   const [markingNotificationsRead, setMarkingNotificationsRead] = useState(false);
 
   // The workspace's data, one request each (context/useWorkspaceData.jsx).
-  const workspaceData = useWorkspaceData({ view, currentUser, dashboardTab, onboardingDismissed, setSelectedDashboardOrder, setDashboardData, dashboardData, setTailors, setDesignerStaff, setAppointments, showAppointmentModal, setFabrics, setCustomerStats, setOrdersList, setOrdersLoaded, setQueuedMessages, setDirectoryVersion, setLoading, setWhatsappStatus, setBoutiqueSettings, activeReviewStage, setLoadErrors, setNotifications });
-  const { fetchNotifications, pendingLoads, fetchDashboardAndConfig, fetchWhatsAppStatus } = workspaceData;
+  const workspaceData = useWorkspaceData({ view, currentUser, dashboardTab, onboardingDismissed, setSelectedDashboardOrder, setDashboardData, setTailors, setDesignerStaff, setAppointments, showAppointmentModal, setFabrics, setCustomerStats, setOrdersList, setOrdersLoaded, setQueuedMessages, setDirectoryVersion, setLoading, setWhatsappStatus, setBoutiqueSettings, activeReviewStage, setLoadErrors, setNotifications });
+  const { fetchNotifications, markNotificationsRead, pendingLoads, fetchDashboardAndConfig, fetchWhatsAppStatus } = workspaceData;
 
   // Above the order draft (useOrderDraft, just below), which reads both.
   const [customerLocked, setCustomerLocked] = useState(false);
@@ -786,7 +785,7 @@ export default function useAppStateValue() {
   const session = useSession({ setView, setDashboardTab, setCurrentUser, currentUser, portalSlug, dashboardTab, setAuthError, setChangeNew, setChangeConfirm, authBusy, setAuthBusy, changeCurrent, setChangeCurrent, changeNew, changeConfirm, loginEmail, loginPassword, setLoginPassword, setLoginEmail, setLoginUnlocked, resetToken, logoutBusy, setLogoutBusy, setJustRegistered, draftAfterReload, openDesignRequests, setLoading, setStaffSetup, staffSetup, setSetupCurrent, hydrateWizard, pendingLoads, fetchDashboardAndConfig });
   const { toProfileStep, finishStaffSetup, handleChangePasswordSubmit, handleLoginSubmit, handleLogout } = session;
   // What the workspace's frame shows around the pages (navigation/useWorkspaceShell.jsx).
-  const shell = useWorkspaceShell({ setView, setDashboardTab, currentUser, t, currentUserName, navSections, navTabs, dashboardTab, showBell, onboardingDismissed, setSelectedDirectoryCustomer, dashboardData, tailors, fabrics, ordersList, ordersLoaded, loading, setTourOpen, tourOpen, setPageTour, pageTour, notifications, setShowNotificationsDrawer, markingNotificationsRead, setMarkingNotificationsRead, fetchNotifications, handleLogout, setCustomerAddMode, setEditingCustomer, bookTotal, adminCan, isOwnerUser });
+  const shell = useWorkspaceShell({ setView, setDashboardTab, currentUser, t, currentUserName, navSections, navTabs, dashboardTab, showBell, onboardingDismissed, setSelectedDirectoryCustomer, dashboardData, tailors, fabrics, ordersList, ordersLoaded, loading, setTourOpen, tourOpen, setPageTour, pageTour, notifications, setShowNotificationsDrawer, markingNotificationsRead, setMarkingNotificationsRead, markNotificationsRead, handleLogout, setCustomerAddMode, setEditingCustomer, bookTotal, adminCan, isOwnerUser });
   const { headerAccountItems, accountBar, sidebarSections, reportsSwitch, canAddCustomer, guideCustomers, guideOrders, sidebarHint, onboardingSteps, showOnboarding, tourMenu, pageTourOpen } = shell;
   // What every page reads with useApp() (context/AppContext.js).
   const appContext = {
@@ -875,6 +874,7 @@ export default function useAppStateValue() {
     fabrics,
     fetchDashboardAndConfig,
     fetchNotifications,
+    markNotificationsRead,
     fetchWhatsAppStatus,
     finishStaffSetup,
     garmentErrors,
