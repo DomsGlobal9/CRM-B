@@ -8794,13 +8794,60 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
    SETTINGS PAGE - REFERENCE DESIGN (Category Cards with Popup Modals)
    ========================================================================== */
 
+/* Portal Main Adjustment for Settings Tab */
+.portal-main:has(.settings-ref-page) {
+  padding: 44px 40px 48px 40px !important;
+  box-sizing: border-box;
+}
+
+/* Keep portal-account-bar aligned in the exact same horizontal row as the Settings heading */
+.portal-main:has(.settings-ref-page) > .portal-account-bar {
+  margin: 0 0 -54px 0 !important;
+  position: relative;
+  z-index: 25;
+  display: flex;
+  justify-content: flex-end;
+}
+
 .settings-ref-page {
-  max-width: 1260px;
+  max-width: 1240px;
   width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 22px;
+}
+
+.settings-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  margin-bottom: 2px;
+  padding-right: 220px; /* leaves room on right for the profile dropdown */
+}
+
+.settings-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-page-title {
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 2.5vw, 38px);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+.settings-page-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.35;
 }
 
 /* Top Profile / Shop Banner */
@@ -8814,26 +8861,14 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   grid-template-columns: minmax(300px, 340px) 1fr;
 }
 
-@media (max-width: 860px) {
-  .settings-profile-banner {
-    grid-template-columns: 1fr;
-  }
-}
-
 .settings-profile-left {
   background: color-mix(in srgb, var(--accent-color) 70%, var(--surface-color));
-  padding: 24px;
+  padding: 20px 24px;
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-
-@media (max-width: 860px) {
-  .settings-profile-left {
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-  }
+  gap: 14px;
+  justify-content: center;
 }
 
 .settings-profile-header {
@@ -8843,8 +8878,8 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 }
 
 .settings-profile-avatar {
-  width: 58px;
-  height: 58px;
+  width: 50px;
+  height: 50px;
   border-radius: var(--radius-lg, 12px);
   background: var(--surface-color);
   border: 1px solid var(--border-color);
@@ -8864,7 +8899,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 }
 
 .settings-profile-name {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.25;
@@ -8875,27 +8910,11 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   color: var(--text-secondary);
 }
 
-.settings-profile-link {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--brand-link, #166534);
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
-  margin-top: 2px;
-}
-
-.settings-profile-link:hover {
-  text-decoration: underline;
-}
-
 .settings-profile-meta {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-top: 14px;
+  align-items: center;
+  gap: 20px;
+  padding-top: 10px;
   border-top: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
 }
 
@@ -8912,7 +8931,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 }
 
 .settings-profile-meta-value {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 700;
   color: var(--text-primary);
   display: flex;
@@ -8921,24 +8940,16 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 }
 
 .settings-profile-right {
-  padding: 24px 28px;
+  padding: 20px 28px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 16px;
 }
 
 .settings-profile-details-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 24px;
-}
-
-@media (max-width: 600px) {
-  .settings-profile-details-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
+  gap: 12px 28px;
 }
 
 .settings-profile-field {
@@ -8963,39 +8974,21 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   overflow-wrap: anywhere;
 }
 
-/* Category Cards Grid */
-.settings-cats-heading {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 2px;
-}
-
+/* Category Cards Grid - Natural, well-proportioned card sizing */
 .settings-cats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 20px;
+  gap: 18px;
   align-items: stretch;
-}
-
-@media (max-width: 1100px) {
-  .settings-cats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .settings-cats-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
 }
 
 .settings-cat-card {
   background: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-xl, 16px);
-  padding: 24px 20px;
+  padding: 22px 20px;
+  min-height: 220px;
+  box-sizing: border-box;
   box-shadow: var(--shadow-card);
   display: flex;
   flex-direction: column;
@@ -9011,9 +9004,9 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   display: flex;
   align-items: center;
   gap: 12px;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .settings-cat-icon-chip {
@@ -9039,13 +9032,13 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .settings-cat-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .settings-cat-item {
   background: none;
   border: none;
-  padding: 4px 0;
+  padding: 3px 0;
   text-align: left;
   cursor: pointer;
   display: flex;
@@ -9068,6 +9061,106 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .settings-cat-item:hover .settings-cat-item-text {
   color: var(--text-primary);
   text-decoration: underline;
+}
+
+/* ==========================================================================
+   RESPONSIVENESS: Big screens, Desktop, Laptop, Tablet, Mobile
+   ========================================================================== */
+
+/* 1. Laptops & Compact Desktops (Screen width <= 1180px) */
+@media (max-width: 1180px) {
+  .portal-main:has(.settings-ref-page) {
+    padding: 20px 28px 28px 28px !important;
+  }
+
+  .settings-cats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    flex: initial;
+  }
+
+  .settings-cat-card {
+    min-height: 200px; height: auto;
+  }
+}
+
+/* 2. Tablets & Medium Screens (Screen width <= 860px) */
+@media (max-width: 860px) {
+  .settings-profile-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-profile-left {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+    padding: 18px 20px;
+  }
+
+  .settings-profile-right {
+    padding: 18px 20px;
+  }
+
+  .settings-profile-details-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 20px;
+  }
+}
+
+/* 3. Small Tablets & Phones (Screen width <= 768px) */
+@media (max-width: 768px) {
+  .portal-main:has(.settings-ref-page) {
+    padding: 16px 16px 24px 16px !important;
+    min-height: auto;
+  }
+
+  .settings-header-row {
+    padding-right: 0 !important;
+    min-height: auto;
+  }
+
+  .settings-page-title {
+    font-size: 28px;
+    font-weight: 700;
+  }
+
+  .settings-cats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    flex: initial;
+  }
+
+  .settings-cat-card {
+    min-height: auto;
+    padding: 20px 16px;
+    height: auto;
+  }
+}
+
+/* 4. Mobile Devices (Screen width <= 560px) */
+@media (max-width: 560px) {
+  .settings-page-title {
+    font-size: 26px;
+  }
+
+  .settings-profile-meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .settings-profile-details-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .settings-cats-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .settings-cat-card {
+    padding: 18px 16px;
+  }
 }
 
 /* Modal Popup Overlay */
