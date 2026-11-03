@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { Compass, Check, BarChart2, FolderOpen, Sparkles, X, ExternalLink, Bell, User, LogOut, Menu, Settings, Wallet, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { FolderOpen, Sparkles, X, ExternalLink, Bell, Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { api } from './services/api';
 import { maySignOff } from './services/signOff';
 import { displayMobile, phoneError, cleanEmail, emailError, imageFilesError } from './services/validate';
-import {
-  formatTime as fmtTime, setBoutiqueTimeZone,
-} from './services/format';
+import { formatTime as fmtTime } from './services/format';
 
 const ReviewLightbox = lazy(() => import('./features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
 
@@ -28,10 +26,13 @@ import useAutosave from './hooks/useAutosave';
 import { syncFollowers } from './services/garmentCopies';
 import { applyTenantTheme } from './theme';
 import { MobileHeader } from './components/ui/MobileHeader';
-import { AccountMenu } from './components/ui/AccountMenu';
-import { PageHeader, Segmented, FormModal } from './components/ui/Atelier';
+import { PageHeader, FormModal } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
 import { AppContext } from './context/AppContext';
+import WizardHeader from './features/orderWizard/WizardHeader';
+import useWorkspaceData from './context/useWorkspaceData';
+import useSession from './features/auth/useSession';
+import useWorkspaceShell from './navigation/useWorkspaceShell';
 import useOrderDraft from './features/orderWizard/useOrderDraft';
 import ReversalPrompt from './features/orders/ReversalPrompt';
 import useCustomerBook from './features/customers/useCustomerBook';
@@ -72,7 +73,6 @@ import SettingsPage from './components/SettingsPage.jsx';
 import { BottomNavigation } from './components/ui/BottomNavigation';
 import ProductTour from './components/ui/ProductTour';
 import { markTourSeen, tourSeen } from './components/ui/tourState';
-import { hasPageTour } from './components/ui/tourPages';
 import { SetupPasswordStep } from './features/staff/StaffFirstSetup';
 
 import { BottomSheet } from './components/ui/BottomSheet';
@@ -82,37 +82,15 @@ import GarmentPairingModal from './components/ui/GarmentPairingModal';
 import Loader from './components/ui/Loader';
 import { setTierNames } from './services/tierNames';
 import { portalSlugFromPath } from './navigation/portalSlug';
-import { visibleNav, canSeeTab, hasModule } from './navigation/nav';
-import { UserAvatar } from './components/ui/UserAvatar';
+import { visibleNav, canSeeTab } from './navigation/nav';
 import { DEFAULT_CUSTOMER_DATA, SELF_DESIGNER, EMPTY_ALTERATION, WIZARD_DRAFT_KEY, WIZARD_STEPS, EMPTY_OUTSIDE } from './features/orders/wizard';
 import { plusDaysIso } from './services/dates';
 import { NO_TIERS } from './features/customers/customerBook';
-import { isProductionStaff, SUPERVISOR_ROLES } from './constants/roles';
+import { SUPERVISOR_ROLES } from './constants/roles';
 import { PortalMenu } from './navigation/PortalMenu';
 import { ScreenLoading } from './components/ui/ScreenLoading';
 import { StyleProfileCard } from './features/customers/StyleProfileCard';
 import { NetworkActivityBar } from './components/ui/NetworkActivityBar';
-
-// What each page reads from the workspace's data (App's datasetLoaders).
-// Settings, notifications and the customer counts are loaded for every page.
-// (Assigning a stage needs the team too; App adds it while a stage is open.)
-const ORDER_BOOK_DATA = ['orders', 'queuedMessages'];
-const MY_WORK_DATA = ['orders', 'tailors', 'queuedMessages'];
-const DATA_FOR_TAB = {
-  overview: ['dashboard', 'orders', 'appointments'],
-  orders: ORDER_BOOK_DATA,
-  workshop: ORDER_BOOK_DATA,
-  work: MY_WORK_DATA,
-  check: MY_WORK_DATA,
-  done: MY_WORK_DATA,
-  invoices: ['orders'],
-  analytics: ['orders', 'tailors'],
-};
-// The order screens: the fabric picker, and our delivered orders for an alteration.
-const DATA_FOR_VIEW = {
-  'order-selector': ['orders', 'fabrics'],
-  wizard: ['orders', 'fabrics'],
-};
 
 function App() {
   
@@ -179,98 +157,12 @@ function App() {
   const navSections = visibleNav(currentUser, t);
 
   const navTabs = navSections.flatMap((s) => s.items.map((i) => i.tab));
-  // The phone header's avatar menu: the Account entries this user's sidebar
-  // shows, then Sign out. `go` is how that screen switches tab.
-  const headerAccountItems = (go) => [
-    ...['account', 'settings'].filter((tab) => navTabs.includes(tab)).map((tab) => ({
-      key: tab, label: tab === 'account' ? t('nav.account') : t('nav.settings'),
-      icon: tab === 'account' ? User : Settings, onClick: () => go(tab),
-    })),
-    // One guide entry: this page's own guide, or on the Dashboard (which has
-    // none of its own) the Dashboard tour.
-    { key: 'page-tour', label: t('nav.pageGuide', 'Guide for this page'), icon: Compass,
-      onClick: () => (hasPageTour(dashboardTab, currentUser?.role) ? setPageTour(dashboardTab) : setTourOpen(true)) },
-    { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => handleLogout() },
-  ];
-  // The same account entries on a computer or tablet: the "Hi, <name>" chip at
-  // the top of every page opens them (the sidebar no longer lists them). A
-  // phone has MobileHeader's avatar menu instead, so the bar is hidden there.
-  const accountBar = (go) => (
-    <div className="portal-account-bar">
-      {showBell && (
-      <button
-        type="button"
-        className="portal-account-bell-btn"
-        disabled={markingNotificationsRead}
-        title={t('common.inboxAlerts', 'Inbox Alerts')}
-        aria-label={t('common.inboxAlerts', 'Inbox Alerts')}
-        onClick={() => {
-          setShowNotificationsDrawer(true);
-          if (markingNotificationsRead) return;
-          setMarkingNotificationsRead(true);
-          api.markNotificationsAsRead(currentUser?.role || 'Owner', currentUser?.email)
-            .then(() => fetchNotifications())
-            .catch(() => {})
-            .finally(() => setMarkingNotificationsRead(false));
-        }}
-      >
-        <Bell size={18} />
-        {notifications.filter(n => !n.is_read).length > 0 && (
-          <span className="portal-account-bell-badge">
-            {notifications.filter(n => !n.is_read).length}
-          </span>
-        )}
-      </button>
-      )}
-      <AccountMenu avatar={<UserAvatar user={currentUser} />}
-                   label={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
-                   currentUser={currentUser} items={headerAccountItems(go)} />
-    </div>
-  );
   if (canSeeTab(currentUser, 'alterations')) navTabs.push('alterations');
   const dashboardTab = (!navTabs.length || navTabs.includes(requestedTab)) ? requestedTab : navTabs[0];
   // The bell (inbox alerts) shows on the owner's Dashboard page only -- not
   // on any other page, and not for any other role. Read by the top bar, the
   // phone header and the tablet header alike.
   const showBell = (!currentUser?.role || currentUser.role === 'Owner') && view === 'dashboard' && dashboardTab === 'overview';
-
-  // Reports: Profit & Costs and Insights under one sidebar item. Each is still
-  // its own tab and page; the switch at the top of both moves between them,
-  // and the sidebar item opens the one used last on this device. A plan
-  // without Profit & Costs gets Insights alone, with no switch.
-  const REPORT_TABS = ['finance', 'analytics'];
-  const reportTabs = REPORT_TABS.filter((tab) => navTabs.includes(tab));
-  useEffect(() => {
-    if (dashboardTab !== 'finance' && dashboardTab !== 'analytics') return;
-    try { localStorage.setItem('reports_tab', dashboardTab); } catch { /* per-device convenience only */ }
-  }, [dashboardTab]);
-  const reportsTab = REPORT_TABS.includes(dashboardTab) ? dashboardTab : (() => {
-    try { return localStorage.getItem('reports_tab') || 'finance'; } catch { return 'finance'; }
-  })();
-  // The sidebar: no Account group (it is the menu at the top of the page), and
-  // Reports in the place of Profit & Costs and Insights.
-  const sidebarSections = navSections
-    .filter((section) => section.key !== 'session')
-    .map((section) => {
-      const at = section.items.findIndex((item) => REPORT_TABS.includes(item.tab));
-      if (at === -1 || !reportTabs.length) return section;
-      const items = section.items.filter((item) => !REPORT_TABS.includes(item.tab));
-      items.splice(at, 0, {
-        tab: reportTabs.includes(reportsTab) ? reportsTab : reportTabs[0],
-        icon: BarChart2, label: t('nav.reports', 'Reports'), match: reportTabs,
-      });
-      return { ...section, items };
-    });
-  const reportsSwitch = reportTabs.length > 1 && (
-    <div className="reports-switch">
-      <span className="reports-switch-label">{t('nav.reports', 'Reports')}</span>
-      <Segmented ariaLabel={t('nav.reports', 'Reports')} value={dashboardTab}
-                 onChange={(tab) => { setDashboardTab(tab); window.scrollTo(0, 0); }}
-                 options={reportTabs.map((tab) => (tab === 'finance'
-                   ? { key: tab, label: t('nav.finance', 'Profit & Costs'), icon: Wallet }
-                   : { key: tab, label: t('nav.analytics', 'Insights'), icon: BarChart2 }))} />
-    </div>
-  );
 
   // The sign-in screens' form state (features/auth/useAuthForms.js).
   const auth = useAuthForms();
@@ -424,13 +316,6 @@ function App() {
   const [outsidePhoto, setOutsidePhoto] = useState(null); // { file, url }
   useEffect(() => () => { if (outsidePhoto?.url) URL.revokeObjectURL(outsidePhoto.url); }, [outsidePhoto]);
   
-  const openAlteration = (id) => {
-    setSelectedDirectoryCustomer(null);
-    setDashboardTab('orders');
-    setOpenOrdersRowId(id);
-    fetchDashboardAndConfig();
-  };
-  const rememberAlteration = () => {};
   const [directoryDetailLoading, setDirectoryDetailLoading] = useState(false);
   const [openOrdersRowId, setOpenOrdersRowId] = useState(null);
   
@@ -480,31 +365,6 @@ function App() {
   // this browser so a refresh mid-way picks it up again.
   const [staffSetup, setStaffSetup] = useState(null);
   const [setupCurrent, setSetupCurrent] = useState('');
-  const setupKey = (user) => {
-    let tenant = '';
-    try { tenant = localStorage.getItem('tenant_id') || ''; } catch { /* private mode */ }
-    return `scaleezy_staff_setup:${tenant}:${user?.id || user?.email || 'user'}`;
-  };
-  const storeSetup = (user, step) => {
-    try { if (step) localStorage.setItem(setupKey(user), step); else localStorage.removeItem(setupKey(user)); } catch { /* private mode */ }
-  };
-  const storedSetup = (user) => {
-    try { return localStorage.getItem(setupKey(user)); } catch { return null; }
-  };
-  const toProfileStep = (user) => {
-    storeSetup(user, 'profile');
-    setSetupCurrent('');
-    setStaffSetup('profile');
-    setDashboardTab('account');
-  };
-  // Done or skipped: the person's own first page, as a sign-in opens it.
-  const finishStaffSetup = () => {
-    storeSetup(currentUser, null);
-    setStaffSetup(null);
-    if (currentUser?.role === 'Designer') openDesignRequests();
-    else if (isProductionStaff(currentUser?.role)) setDashboardTab('work');
-    else setDashboardTab('overview');
-  };
   const [pageTour, setPageTour] = useState(null);
   // Pages whose guide found nothing to point at this session (not retried).
   const pageTourEmpty = useRef(new Set());
@@ -521,13 +381,6 @@ function App() {
     // Only these: reopening it on every render after it is closed would be wrong.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, dashboardTab, currentUser?.id, currentUser?.email, loading, staffSetup]);
-  // Step 2 is the My profile page: leaving it for another page ends the setup.
-  useEffect(() => {
-    if (staffSetup !== 'profile' || dashboardTab === 'account') return undefined;
-    const timer = setTimeout(() => { storeSetup(currentUser, null); setStaffSetup(null); }, 0);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staffSetup, dashboardTab]);
   const [whatsappStatus, setWhatsappStatus] = useState({ connected: false, status: 'disconnected', qrCode: null });
   const [boutiqueSettings, setBoutiqueSettings] = useState(null);
   // The boutique's own tier names, for every screen that shows a tier.
@@ -571,65 +424,9 @@ function App() {
   const [showNotificationsDrawer, setShowNotificationsDrawer] = useState(false);
   const [markingNotificationsRead, setMarkingNotificationsRead] = useState(false);
 
-  const fetchNotifications = async (user = currentUser) => {
-    if (!user) return;
-    const data = await api.getNotifications(user.role || 'Owner', user.email);
-    setNotifications(data);
-  };
-
-  useEffect(() => {
-    if (resetToken) {
-      window.history.replaceState({}, '', window.location.pathname);
-      setLoading(false);
-      return;
-    }
-    checkAuthSession();
-  }, []);
-
-  /** Where a signed-in user goes: the change-password screen while the
-   *  account still has the temporary password the platform team emailed,
-   *  otherwise their workspace. False when there is nothing to load. */
-  const enterWorkspace = (user) => {
-    setCurrentUser(user);
-    if (user.must_change_password) {
-      setChangeNew('');
-      setChangeConfirm('');
-      setAuthError(null);
-      setView('change-password');
-      return false;
-    }
-    setView('dashboard');
-    if (user.role === 'Designer') {
-      openDesignRequests();
-    } else if (isProductionStaff(user.role)) {
-      setDashboardTab('work');
-    } else {
-      setDashboardTab('overview');
-    }
-    return true;
-  };
-
-  const handleChangePasswordSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (authBusy) return;
-    if (changeNew.length < 8) { setAuthError('The new password needs at least 8 characters.'); return; }
-    if (changeNew !== changeConfirm) { setAuthError('Those two passwords do not match.'); return; }
-    if (changeNew === changeCurrent) { setAuthError('Choose a password different from the temporary one.'); return; }
-    setAuthBusy(true);
-    setAuthError(null);
-    try {
-      const res = await api.changeMyPassword(changeCurrent, changeNew);
-      setChangeCurrent('');
-      setChangeNew('');
-      setChangeConfirm('');
-      setJustRegistered(true);
-      if (res.user && enterWorkspace(res.user)) fetchDashboardAndConfig(res.user);
-    } catch (err) {
-      setAuthError(err.message || 'Could not change your password.');
-    } finally {
-      setAuthBusy(false);
-    }
-  };
+  // The workspace's data, one request each (context/useWorkspaceData.jsx).
+  const workspaceData = useWorkspaceData({ view, currentUser, dashboardTab, onboardingDismissed, setSelectedDashboardOrder, setDashboardData, dashboardData, setTailors, setDesignerStaff, setAppointments, showAppointmentModal, setFabrics, setCustomerStats, setOrdersList, setOrdersLoaded, setQueuedMessages, setDirectoryVersion, setLoading, setWhatsappStatus, setBoutiqueSettings, activeReviewStage, setLoadErrors, setNotifications });
+  const { fetchNotifications, pendingLoads, fetchDashboardAndConfig, fetchWhatsAppStatus } = workspaceData;
 
   // Above the order draft (useOrderDraft, just below), which reads both.
   const [customerLocked, setCustomerLocked] = useState(false);
@@ -639,150 +436,6 @@ function App() {
   // The order being written, as a draft (features/orderWizard/useOrderDraft.jsx).
   const orderDraft = useOrderDraft({ setView, currentStep, setMaxStepReached, reachStep, setActiveGarmentKey, activeGarmentKey, setGarmentsDone, garmentsDone, setCustomerId, customerId, setCustomerForm, customerForm, setServiceType, serviceType, setCustomerName, setReadyBy, readyBy, setDesignRequest, designRequest, designerChoice, garmentJobs, setGarmentJobs, setDraftId, draftId, setDraftVersion, draftVersion, setDraftSaveState, setGarmentErrors, setDesignNotes, designNotes, setSelectedDesignTemplates, selectedDesignTemplates, setDesignSource, designSource, setDesignLinks, designLinks, setAdvancePaymentAmount, advancePaymentAmount, setSpecialInstructions, specialInstructions, setMeasureVoiceNotes, measureVoiceNotes, setQuotePrices, quotePrices, setWizardError, setAlterOutside, fabrics, setCustomerLocked, wizardSteps });
   const { defaultMaterialSource, garmentMaterialFields, serialiseWizard, hydrateWizard, persistDraft, jobExtras, jobMaterialCharges, getSubtotal, getTaxes, getTotalPrice } = orderDraft;
-  /** The page was reloaded while an order was open: open the same order again,
-   *  as last saved. One already placed or discarded is simply not reopened. */
-  const resumeAfterReload = async (id) => {
-    try {
-      const draft = await api.getOrderDraft(id);
-      if (draft) await hydrateWizard(draft);
-    } catch {
-      try { sessionStorage.removeItem(WIZARD_DRAFT_KEY); } catch { /* ignore */ }
-    }
-  };
-
-  const checkAuthSession = async () => {
-    try {
-      const user = await api.getMe();
-      if (user && enterWorkspace(user)) {
-        const step = storedSetup(user);
-        if (step === 'password' || step === 'profile') {
-          setStaffSetup(step);
-          if (step === 'profile') setDashboardTab('account');
-        }
-        await fetchDashboardAndConfig(user);
-        if (draftAfterReload && step !== 'password' && step !== 'profile') await resumeAfterReload(draftAfterReload);
-      }
-    } catch (e) {
-      console.log("No saved session");
-    } finally {
-      // The opening page's own data may still be on its way (loadData).
-      if (!pendingLoads.current) setLoading(false);
-    }
-  };
-
-  // The workspace's data, one request each. Every page asks only for what it
-  // shows (DATA_FOR_TAB / DATA_FOR_VIEW below); what was fetched once is kept,
-  // and a reload after a save fetches again only what has been fetched.
-  const datasetLoaders = (user) => ({
-    dashboard: () => api.getDashboard().then((data) => {
-      setDashboardData(data);
-      if (data.recent_orders?.length > 0) {
-        setSelectedDashboardOrder((current) => {
-          if (!current) return data.recent_orders[0];
-          return data.recent_orders.find(o => o.id === current.id) || current;
-        });
-      }
-    }),
-    customerStats: () => api.getCustomerStats().then((data) => {
-      setCustomerStats(data);
-      // An open Customers page asks again too, so it shows what just changed.
-      setDirectoryVersion((v) => v + 1);
-    }),
-    orders: () => api.getOrders().then((data) => { setOrdersList(data); setOrdersLoaded(true); }),
-    tailors: hasModule(user, 'tailors') && (() => api.getTailors().then(setTailors)),
-    // Silent on failure: the only cost is no designers in the Design stage's assign list.
-    designerStaff: hasModule(user, 'tailors') && (() => api.getTailors({ forAttendance: true })
-      .then((rows) => setDesignerStaff((rows || []).filter(t => t.role === 'Designer')))
-      .catch(() => {})),
-    appointments: hasModule(user, 'scheduling') && (() => api.getAppointments({ upcoming: 'true' }).then(setAppointments)),
-    fabrics: hasModule(user, 'inventory') && (() => api.getInventoryItems({ picker: 'true' }).then(setFabrics)),
-    settings: () => api.getBoutiqueSettings().then((data) => {
-      setBoutiqueSettings(data);
-      setBoutiqueTimeZone(data?.timezone);
-    }),
-    notifications: hasModule(user, 'notifications') && (() => fetchNotifications(user)),
-    queuedMessages: (!user?.role || ['Owner', 'Master'].includes(user.role) || (user.admin_tasks || []).includes('orders.notify'))
-      && (() => api.getQueuedCustomerMessages().then(setQueuedMessages)),
-  });
-  // Every page needs these: the boutique's settings, and the counts the
-  // header's bell and the sidebar's hints show on every page.
-  const ALWAYS_LOADED = ['settings', 'notifications', 'customerStats'];
-  const loadedData = useRef(new Set());
-  const pendingLoads = useRef(0);
-
-  /** Fetch these datasets now, side by side; `loading` holds while any are on their way. */
-  const loadData = async (keys, user = currentUser) => {
-    const loaders = datasetLoaders(user);
-    keys.forEach((key) => loadedData.current.add(key));
-    pendingLoads.current += 1;
-    setLoading(true);
-    try {
-      await Promise.all(keys.map(async (key) => {
-        if (!loaders[key]) return;
-        try {
-          await loaders[key]();
-        } catch (err) {
-          console.error(`Failed to load ${key}`, err);
-          setLoadErrors((prev) => (prev.includes(key) ? prev : [...prev, key]));
-        }
-      }));
-    } finally {
-      pendingLoads.current -= 1;
-      if (!pendingLoads.current) setLoading(false);
-    }
-  };
-
-  /** After signing in, and after a save: the always-needed data, and again
-   *  whatever the pages opened so far have fetched. */
-  const fetchDashboardAndConfig = async (user = currentUser) => {
-    setLoadErrors([]);
-    await loadData([...new Set([...ALWAYS_LOADED, ...loadedData.current])], user);
-  };
-
-  // Each page's own data, fetched the first time the page -- or a popup that
-  // needs it -- opens.
-  useEffect(() => {
-    if (!currentUser) { loadedData.current.clear(); return; }
-    if (currentUser.must_change_password) return;
-    const needed = [
-      ...(view === 'dashboard' ? DATA_FOR_TAB[dashboardTab] || [] : DATA_FOR_VIEW[view] || []),
-      // Assigning a stage, from whichever page opened it.
-      ...(activeReviewStage ? ['tailors', 'designerStaff'] : []),
-      // The appointment form's "With" list.
-      ...(showAppointmentModal ? ['tailors'] : []),
-      // The Dashboard's Getting started list ticks off staff and fabrics.
-      ...(view === 'dashboard' && dashboardTab === 'overview' && !onboardingDismissed ? ['tailors', 'fabrics'] : []),
-    ].filter((key) => !loadedData.current.has(key));
-    if (needed.length) loadData([...new Set(needed)]);
-    // loadData is a new function every render; these decide what is fetched.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, view, dashboardTab, activeReviewStage, showAppointmentModal, onboardingDismissed]);
-
-  const fetchWhatsAppStatus = useCallback(async () => {
-    try {
-      const data = await api.getWhatsAppStatus();
-      setWhatsappStatus({
-        connected: !!data.connected,
-        status: data.status || 'disconnected',
-        qrCode: data.qrCode || null,
-      });
-    } catch {
-      /* ignore silent background error */
-    }
-  }, []);
-
-  useEffect(() => {
-    if (view === 'dashboard' && dashboardTab === 'settings' && (!currentUser?.role || currentUser.role === 'Owner')) {
-      fetchWhatsAppStatus();
-    }
-  }, [view, dashboardTab, currentUser, fetchWhatsAppStatus]);
-
-  useEffect(() => {
-    if (view === 'dashboard' && dashboardTab === 'overview' && dashboardData) {
-      api.getDashboard().then(setDashboardData).catch(() => {});
-    }
-    
-  }, [view, dashboardTab]);
 
   useEffect(() => {
     if (view === 'login' || view === 'signup' || view === 'forgot'
@@ -882,55 +535,8 @@ function App() {
   
 
   
-  const handleLoginSubmit = async (e) => {
-    e.preventDefault();
-    if (authBusy) return;
-    if (!loginEmail || !loginPassword) {
-      alert("Please fill in all credentials.");
-      return;
-    }
-    setAuthError(null);
-    setAuthBusy(true);
-    try {
-      const res = await api.login(loginEmail, loginPassword, portalSlug);
-      // The temporary password is the "current" one the change screen asks for.
-      setChangeCurrent(res.user.must_change_password ? loginPassword : '');
-      // A newly added staff member's first sign-in here: the skippable setup,
-      // with the password they signed in with as the one being replaced.
-      setStaffSetup(null);
-      if (res.first_sign_in && res.user?.role && res.user.role !== 'Owner') {
-        setSetupCurrent(loginPassword);
-        storeSetup(res.user, 'password');
-        setStaffSetup('password');
-      }
-      setLoginPassword('');  // signed in: the password is not kept in the form
-      setJustRegistered(false);
-      if (enterWorkspace(res.user)) fetchDashboardAndConfig(res.user);
-    } catch (err) {
-      setAuthError(err.message || 'Invalid credentials.');
-    } finally {
-      setAuthBusy(false);
-    }
-  };
 
   
-
-  const handleLogout = async () => {
-    if (logoutBusy) return;
-    setLogoutBusy(true);
-    try {
-      await api.logout();
-      setCurrentUser(null);
-      setJustRegistered(false);
-      // The login screen opens empty, not with the last person's details.
-      setLoginEmail('');
-      setLoginPassword('');
-      setLoginUnlocked(false);
-      setView('login');
-    } finally {
-      setLogoutBusy(false);
-    }
-  };
 
   
   const pickCustomer = (cust) => {
@@ -1206,9 +812,18 @@ function App() {
   const adminCan = (task) => (currentUser?.admin_tasks || []).includes(task);
   const isOwnerUser = !currentUser?.role || currentUser.role === 'Owner';
 
+  // Open an order from an alteration (below the data loader, which it reloads).
+  const openAlteration = (id) => {
+    setSelectedDirectoryCustomer(null);
+    setDashboardTab('orders');
+    setOpenOrdersRowId(id);
+    fetchDashboardAndConfig();
+  };
+  const rememberAlteration = () => {};
+
   // The order wizard's own state and logic (features/orderWizard/useOrderWizard.jsx).
   const wizard = useOrderWizard({ setView, currentUser, t, currentStep, maxStepReached, reachStep, setActiveGarmentKey, garmentsDone, setGarmentsDone, customerId, setCustomerId, customerForm, setCustomerForm, serviceType, setCustomerName, readyBy, designerChoice, alterationForm, garmentTemplates, garmentJobs, setGarmentJobs, draftId, setDraftId, setDraftVersion, setDraftSaveState, setGarmentErrors, advancePaymentAmount, setAdvancePaymentAmount, quotePrices, setQuotePrices, setWizardError, defaultMaterialSource, garmentMaterialFields, persistDraft, alterOutside, outsideForm, outsidePhoto, openAlteration, rememberAlteration, fabrics, ordersList, setConfirmedOrder, fetchDashboardAndConfig, pickCustomer, customerLocked, matchDigits, matchName, matchBy, customerMatches, setNumberMatched, wizardSteps, wizardStepKey, openGarment, setCtaBusy, getSubtotal, getTotalPrice, refreshCustomerBook });
-  const { activePairingGarment, setActivePairingGarment, pairingQueue, setPairingQueue, handleAddPairedGarments, leaveWizard, canJumpAhead, jumpToStep, needsMeasurements, customerBlank } = wizard;
+  const { activePairingGarment, setActivePairingGarment, pairingQueue, setPairingQueue, handleAddPairedGarments } = wizard;
   // The Designs page's own state (features/designStudio/useDesignManager.jsx).
   const designManager = useDesignManager({ fetchDashboardAndConfig });
   const { designLibraryToken, setDesignLibraryToken, showDesignModal, setShowDesignModal, editingDesign, setEditingDesign, designSaving, designImageFile, setDesignImageFile, showDesignUpload, setShowDesignUpload, designForm, setDesignForm, handleSaveDesign, handleDeleteDesign } = designManager;
@@ -1224,6 +839,12 @@ function App() {
   // The Customers and Leads pages' own state (features/customers/useCustomerBook.jsx).
   const customerBook = useCustomerBook({ currentUser, dashboardTab, setSelectedDirectoryCustomer, selectedDirectoryCustomer, directoryVersion, fetchDashboardAndConfig, startService, setCustomerAddMode, setEditingCustomer, adminCan, isOwnerUser });
   const { styleNotesFor, setStyleNotesFor, alterationOrder, setAlterationOrder, expandedCustomerOrderId, setExpandedCustomerOrderId, approvingDesignId, searchQuery, setSearchQuery, customerView, customerPageSize, setCustomerPageSize, customerFilters, setCustomerFilters, customerDirectory, handleStartNewCustomer, deletingAllCustomers, setDeletingAllCustomers, customerActionId, startEditCustomer, handleDeleteCustomer, handleMarkLeadContacted, orderTypeFor, setOrderTypeFor, handleSelectExistingCustomer, beginOrderForCustomer, customerPhotoBusy, uploadDirectoryCustomerPhoto, handleApproveDesign, isLead, directoryLoading, directoryData, bookSummary, directoryCount, pagedCustomers, customerPageNow, customerPageCount, customerPageFrom, goToCustomerPage, canEditCustomer, canDeleteCustomer, canImportCustomers } = customerBook;
+  // Signing in and out (features/auth/useSession.jsx).
+  const session = useSession({ setView, setDashboardTab, setCurrentUser, currentUser, portalSlug, dashboardTab, setAuthError, setChangeNew, setChangeConfirm, authBusy, setAuthBusy, changeCurrent, setChangeCurrent, changeNew, changeConfirm, loginEmail, loginPassword, setLoginPassword, setLoginEmail, setLoginUnlocked, resetToken, logoutBusy, setLogoutBusy, setJustRegistered, draftAfterReload, openDesignRequests, setLoading, setStaffSetup, staffSetup, setSetupCurrent, hydrateWizard, pendingLoads, fetchDashboardAndConfig });
+  const { toProfileStep, finishStaffSetup, handleChangePasswordSubmit, handleLoginSubmit, handleLogout } = session;
+  // What the workspace's frame shows around the pages (navigation/useWorkspaceShell.jsx).
+  const shell = useWorkspaceShell({ setView, setDashboardTab, currentUser, t, currentUserName, navSections, navTabs, dashboardTab, showBell, onboardingDismissed, setSelectedDirectoryCustomer, dashboardData, tailors, fabrics, ordersList, ordersLoaded, loading, setTourOpen, tourOpen, setPageTour, pageTour, notifications, setShowNotificationsDrawer, markingNotificationsRead, setMarkingNotificationsRead, fetchNotifications, handleLogout, setCustomerAddMode, setEditingCustomer, bookTotal, adminCan, isOwnerUser });
+  const { headerAccountItems, accountBar, sidebarSections, reportsSwitch, canAddCustomer, guideCustomers, guideOrders, sidebarHint, onboardingSteps, showOnboarding, tourMenu, pageTourOpen } = shell;
   if (globalError) {
     return (
       <div style={{ padding: '24px', background: '#7f1d1d', color: '#fef2f2', height: '100vh', fontFamily: 'monospace', overflowY: 'auto' }}>
@@ -1250,37 +871,8 @@ function App() {
     );
   }
 
-  const canAddCustomer = isOwnerUser || adminCan('customers.add');
-  const guideCustomers = !loading && canAddCustomer && bookTotal < 10;
-  // How many orders there are: the list once it is loaded, else the Dashboard's
-  // count; neither yet (a page that loads no orders), and the hint waits.
-  const orderCount = ordersLoaded ? ordersList.length : dashboardData?.stats?.total_orders ?? null;
-  const guideOrders = !loading && orderCount !== null && orderCount < 10;
   
-  const sidebarHint = {
-    ...(guideCustomers && dashboardTab !== 'customers' ? { customers: t('onboard.sidebarCustomers', 'Add new customers') } : {}),
-    ...(guideOrders && dashboardTab !== 'orders' ? { orders: orderCount ? t('onboard.sidebarOrders', 'Create orders here') : t('onboard.sidebarFirstOrder', 'Create your first order') } : {}),
-  };
 
-  const onboardingSteps = [
-    { key: 'boutique', label: 'Create your boutique', done: true },
-    // The same New customer form the Customers page's Add Customer leads to.
-    { key: 'customer', label: 'Add your first customer', done: bookTotal > 0, go: () => {
-      setSelectedDirectoryCustomer(null); setEditingCustomer(null);
-      setDashboardTab('customers'); setCustomerAddMode('manual');
-    } },
-    { key: 'order', label: 'Take your first order', done: ordersList.length > 0, go: () => setView('order-selector') },
-    { key: 'staff', label: 'Add your tailors, masters and designers', done: tailors.length > 0, tab: 'staff', go: () => setDashboardTab('staff') },
-    { key: 'fabrics', label: 'Put your first fabric on the shelf', done: fabrics.length > 0, tab: 'inventory', go: () => setDashboardTab('inventory') },
-    { key: 'production', label: 'Move an order through the workroom', done: ordersList.some(o => o.order_status && o.order_status !== 'Received'), tab: 'orders', go: () => setDashboardTab('orders') },
-
-  ].filter((step) => !step.tab || canSeeTab(currentUser, step.tab));
-  const showOnboarding = !loading && !onboardingDismissed && onboardingSteps.some(step => !step.done);
-  // The guided tour (ProductTour.jsx): the menu this user really has.
-  const tourMenu = sidebarSections.flatMap((section) => section.items)
-    .map(({ tab, label, match }) => ({ tab, label, tour: match ? 'reports' : tab }));
-  // A page's own tour is open only while that page is the one on screen.
-  const pageTourOpen = !!pageTour && pageTour === dashboardTab && !tourOpen;
   // What every page reads with useApp() (context/AppContext.js).
   const appContext = {
     currentUser, boutiqueSettings, dashboardTab, setDashboardTab,
@@ -1647,76 +1239,7 @@ function App() {
         // wizard takes what is left above it and a short step does not scroll.
         <div className="wizard-outer-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', flex: '1 0 auto', backgroundColor: 'var(--bg-color)' }}>
           {/* Brand header & stepper */}
-          <div className="wizard-header-container" style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--surface-color)', padding: '16px 24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', maxWidth: '1280px', margin: '0 auto 16px' }}>
-              <img className="portal-wordmark portal-wordmark--ink" src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" style={{ height: 28 }} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                {serviceType !== 'alter' && (
-                  <span style={{ fontSize: '12.5px',
-                                 color: draftSaveState === 'conflict' || draftSaveState === 'failed'
-                                        ? 'var(--danger-color)' : 'var(--text-secondary)' }}>
-                    {draftSaveState === 'idle' && t('wizard.autosaveOn', 'Autosaves every minute')}
-                    {draftSaveState === 'saving' && t('wizard.saving')}
-                    {draftSaveState === 'saved' && <>{t('wizard.saved')} · {t('wizard.autosaveOn', 'Autosaves every minute')}</>}
-                    {draftSaveState === 'failed' && t('wizard.couldNotSave')}
-                    {draftSaveState === 'conflict' && t('wizard.conflict')}
-                  </span>
-                )}
-                <button type="button" className="btn-ghost" aria-label={t('common.close', 'Close')} onClick={leaveWizard}
-                        style={{ color: 'var(--text-secondary)' }}>
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            {/* Stepper progress bar */}
-            <div className="stepper-progress-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1000px', margin: '0 auto', padding: '0 20px' }}>
-              {wizardSteps.map((step, index) => {
-                const stepNum = index + 1;
-                const skipped = step.key === 'measure' && garmentJobs.length > 0 && !needsMeasurements();
-                const isCompleted = currentStep > stepNum;
-                const isActive = currentStep === stepNum;
-                const canJump = !skipped && stepNum !== currentStep && (stepNum <= maxStepReached || canJumpAhead);
-                return (
-                  <React.Fragment key={step.key}>
-                    <div className={canJump ? 'stepper-step stepper-step--link' : 'stepper-step'}
-                         role={canJump ? 'button' : undefined}
-                         tabIndex={canJump ? 0 : undefined}
-                         aria-current={isActive ? 'step' : undefined}
-                         title={canJump ? `Go to ${t(`wizard.step.${step.key}`, step.label)}` : undefined}
-                         onClick={canJump ? () => jumpToStep(stepNum) : undefined}
-                         onKeyDown={canJump ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpToStep(stepNum); } } : undefined}
-                         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', flex: 1, position: 'relative', zIndex: 2,
-                                  cursor: canJump ? 'pointer' : 'default', opacity: skipped ? 0.55 : 1 }}>
-                      <div style={{
-                        width: '28px', height: '28px', borderRadius: '50%',
-                        backgroundColor: isCompleted ? 'var(--primary-color)' : (isActive ? 'var(--selected-bg)' : 'var(--surface-inset)'),
-                        color: isCompleted ? 'var(--primary-foreground)' : isActive ? 'var(--selected-fg)' : 'var(--text-secondary)',
-                        border: isActive ? '2px solid var(--primary-color)' : 'none',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '12px', fontWeight: 600, marginBottom: '8px',
-                      }}>
-                        {isCompleted ? <Check size={14} /> : stepNum}
-                      </div>
-                      <span style={{ fontSize: '11px', fontWeight: isActive || isCompleted ? 600 : 500, color: isActive || isCompleted ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                        {t(`wizard.step.${step.key}`, step.label)}
-                      </span>
-                      <span style={{ fontSize: '9px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        {skipped ? t('wizard.notNeeded', 'Not needed')
-                          : isCompleted && step.key === 'who' && serviceType !== 'alter' && customerBlank() ? t('wizard.customerLater', 'Fill before completing')
-                          : isCompleted ? t('wizard.completed', 'Done') : t(`wizard.stepSub.${step.key}`, step.sub)}
-                      </span>
-                    </div>
-                    {index < wizardSteps.length - 1 && (
-                      <div style={{ height: '2px', flex: 1, backgroundColor: currentStep > stepNum ? 'var(--primary-color)' : 'var(--border-color)', margin: '0 -20px', transform: 'translateY(-20px)', zIndex: 1 }}></div>
-                    )}
-                  </React.Fragment>
-                );
-              })}
-            </div>
-            {/* Phones only (CSS): the strip scrolls, so say where in it we are. */}
-            <div className="stepper-count">{t('entry.stepXofY', 'Step {step} of {total}', { step: currentStep, total: wizardSteps.length })}</div>
-          </div>
+          <WizardHeader wizard={wizard} currentStep={currentStep} draftSaveState={draftSaveState} garmentJobs={garmentJobs} maxStepReached={maxStepReached} serviceType={serviceType} wizardSteps={wizardSteps} />
 
           <div className="main-content full-width" style={{ padding: '40px 24px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
             <div className="workspace-panel">
