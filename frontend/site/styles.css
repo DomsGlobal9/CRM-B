@@ -33,7 +33,9 @@ section{padding:clamp(64px,8vw,116px) 0}
 .logo{font-weight:700;font-size:17px;letter-spacing:.14em;color:var(--cream);transition:color .3s;white-space:nowrap}
 .logo b{color:var(--lime);font-weight:700}
 .nav.solid .logo{color:var(--forest)}
-.nav-links{display:flex;gap:26px;list-style:none;font-size:14px;font-weight:500}
+.nav-links{display:flex;align-items:center;gap:26px;list-style:none;font-size:14px;font-weight:500}
+/* A block box, like the About Us button's, so every item's text sits on the same line. */
+.nav-links>li>a{display:inline-block}
 .nav-only-mobile{display:none}
 .nav-links a{color:rgba(245,242,236,.82);transition:color .2s;padding:4px 0;border-bottom:2px solid transparent;white-space:nowrap}
 .nav-links a:hover{color:var(--lime)}
