@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CUSTOMER_PAGE_SIZES, NO_TIERS } from './customerBook';
 import { EMPTY_CUSTOMER_FILTERS } from './filterRules';
 import { useDebouncedValue } from './useCustomerLookup';
@@ -167,12 +167,20 @@ export default function useCustomerBook({ currentUser, dashboardTab, setSelected
   // Which question the page on screen answers; a newer one makes it "loading".
   const directoryKey = `${JSON.stringify(directoryParams)}|${directoryVersion}`;
 
+  // The page of the book last fetched, for this user: coming back to the
+  // Customers page shows it again without asking for it again. A new search,
+  // filter, page, or a change to the book (directoryVersion) is a new key.
+  const fetchedDirectory = useRef(null);
   useEffect(() => {
     if (!onCustomerBook || !currentUser) return undefined;
+    const fetchKey = `${currentUser.id || currentUser.email}|${directoryKey}`;
+    if (fetchedDirectory.current === fetchKey) return undefined;
     let cancelled = false;
     api.getCustomerDirectory(directoryParams)
       .then((data) => {
-        if (!cancelled) setCustomerDirectory({ key: directoryKey, forView: directoryParams.view, data, error: false });
+        if (cancelled) return;
+        fetchedDirectory.current = fetchKey;
+        setCustomerDirectory({ key: directoryKey, forView: directoryParams.view, data, error: false });
       })
       .catch(() => { if (!cancelled) setCustomerDirectory((d) => ({ ...d, key: directoryKey, error: true })); });
     return () => { cancelled = true; };

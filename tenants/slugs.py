@@ -25,7 +25,7 @@ RESERVED = frozenset({
     # The marketing site's pages, which frontend/build-site.mjs emits as
     # <slug>/index.html, plus what vite build copies in beside them.
     'blog', 'demo', 'faq', 'for-customers', 'lifecycle', 'modules',
-    'what-it-is', 'your-floor',
+    'what-it-is', 'your-floor', 'termcondition', 'privacypolicy', 'terms',
     'assets', 'garment-base', 'robots.txt', 'sitemap.xml', 'styles.css',
     'favicon.ico', 'apple-touch-icon.png', 'icon-512.png', 'icons.svg',
     'og.png',

@@ -11,6 +11,11 @@ import { fileURLToPath } from 'node:url'
 // only when it is not one of the reserved names. Anything else falls through
 // to Vite, so /assets/*, /favicon.ico and a genuinely wrong path behave here
 // the way they do on Vercel, where the filesystem is consulted first.
+//
+// The marketing site exists only after a build, but these two are linked from
+// the sign-up form, so the dev server renders them too (build-site.mjs).
+const LEGAL_PAGES = ['termcondition', 'privacypolicy']
+
 const RESERVED_DEV_PATHS = new Set([
   'api', 'admin', 'track', 'media', 'static', 'assets',
   'blog', 'demo', 'faq', 'for-customers', 'lifecycle', 'modules',
@@ -22,7 +27,7 @@ function portalDevRewrites() {
     name: 'portal-dev-rewrites',
     apply: 'serve',
     configureServer(server) {
-      server.middlewares.use((req, _res, next) => {
+      server.middlewares.use((req, res, next) => {
         const [pathname, query = ''] = (req.url || '/').split('?')
         const search = query ? `?${query}` : ''
         const segments = pathname.split('/').filter(Boolean)
@@ -35,6 +40,16 @@ function portalDevRewrites() {
         if (segments[0] === 'superadmin') {
           req.url = `/superadmin.html${search}`
           return next()
+        }
+
+        if (pathname === '/styles.css' || (segments.length === 1 && LEGAL_PAGES.includes(segments[0]))) {
+          // Loaded through Vite so an edit to the text shows on the next reload.
+          server.ssrLoadModule('/build-site.mjs').then(({ renderPage, stylesheet }) => {
+            const css = pathname === '/styles.css'
+            res.setHeader('Content-Type', css ? 'text/css' : 'text/html; charset=utf-8')
+            res.end(css ? stylesheet() : renderPage(segments[0]))
+          }, next)
+          return
         }
 
         if (segments.length !== 1) return next()

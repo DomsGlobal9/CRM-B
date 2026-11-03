@@ -4,6 +4,9 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/terms", "destination": "/termcondition", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/app/:path*", "destination": "/app.html" },
     { "source": "/superadmin/:path*", "destination": "/superadmin.html" },

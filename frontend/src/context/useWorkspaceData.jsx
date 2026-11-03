@@ -4,13 +4,17 @@ import { hasModule } from '../navigation/nav';
 import { setBoutiqueTimeZone } from '../services/format';
 import { DATA_FOR_TAB, DATA_FOR_VIEW } from './pageData';
 
+const isOwner = (user) => !user?.role || user.role === 'Owner';
+/** Who may add customers (App's canAddCustomer): the owner, or an Admin handed customers.add. */
+const mayAddCustomers = (user) => isOwner(user) || (user?.admin_tasks || []).includes('customers.add');
+
 /**
  * The workspace's data, one request each: every page asks only for what it
  * shows (DATA_FOR_TAB / DATA_FOR_VIEW in context/pageData.js), what was fetched
  * once is kept, and a reload after a save fetches again only what has been
  * fetched. Also the bell's notifications and the WhatsApp connection status.
  */
-export default function useWorkspaceData({ view, currentUser, dashboardTab, onboardingDismissed, setSelectedDashboardOrder, setDashboardData, dashboardData, setTailors, setDesignerStaff, setAppointments, showAppointmentModal, setFabrics, setCustomerStats, setOrdersList, setOrdersLoaded, setQueuedMessages, setDirectoryVersion, setLoading, setWhatsappStatus, setBoutiqueSettings, activeReviewStage, setLoadErrors, setNotifications }) {
+export default function useWorkspaceData({ view, currentUser, dashboardTab, onboardingDismissed, setSelectedDashboardOrder, setDashboardData, setTailors, setDesignerStaff, setAppointments, showAppointmentModal, setFabrics, setCustomerStats, setOrdersList, setOrdersLoaded, setQueuedMessages, setDirectoryVersion, setLoading, setWhatsappStatus, setBoutiqueSettings, activeReviewStage, setLoadErrors, setNotifications }) {
   const fetchNotifications = async (user = currentUser) => {
     if (!user) return;
     const data = await api.getNotifications(user.role || 'Owner', user.email);
@@ -23,6 +27,13 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
   const datasetLoaders = (user) => ({
     dashboard: () => api.getDashboard().then((data) => {
       setDashboardData(data);
+      // A server from before `workroom` / `getting_started`: the tiles and the
+      // Getting started ticks are worked out from the lists themselves.
+      const fromLists = [
+        ...(!data.workroom ? ['orders'] : []),
+        ...(!data.getting_started && !onboardingDismissed ? ['orders', 'tailors', 'fabrics'] : []),
+      ].filter((key, i, all) => all.indexOf(key) === i && !loadedData.current.has(key));
+      if (fromLists.length) loadData(fromLists, user);
       if (data.recent_orders?.length > 0) {
         setSelectedDashboardOrder((current) => {
           if (!current) return data.recent_orders[0];
@@ -47,14 +58,17 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
       setBoutiqueSettings(data);
       setBoutiqueTimeZone(data?.timezone);
     }),
-    notifications: hasModule(user, 'notifications') && (() => fetchNotifications(user)),
+    // Only the owner has the bell (useWorkspaceShell's showBell).
+    notifications: hasModule(user, 'notifications') && isOwner(user) && (() => fetchNotifications(user)),
     queuedMessages: (!user?.role || ['Owner', 'Master'].includes(user.role) || (user.admin_tasks || []).includes('orders.notify'))
       && (() => api.getQueuedCustomerMessages().then(setQueuedMessages)),
   });
 
-  // Every page needs these: the boutique's settings, and the counts the
-  // header's bell and the sidebar's hints show on every page.
-  const ALWAYS_LOADED = ['settings', 'notifications', 'customerStats'];
+  // What every page needs: the boutique's settings, and -- for whoever may add
+  // customers -- the customer count behind the sidebar's "Add new customers"
+  // hint, which shows on every page. The bell's alerts are the Dashboard's
+  // (DATA_FOR_TAB.overview).
+  const alwaysLoaded = (user) => ['settings', ...(mayAddCustomers(user) ? ['customerStats'] : [])];
 
   const loadedData = useRef(new Set());
 
@@ -86,8 +100,11 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
    *  whatever the pages opened so far have fetched. */
   const fetchDashboardAndConfig = async (user = currentUser) => {
     setLoadErrors([]);
-    await loadData([...new Set([...ALWAYS_LOADED, ...loadedData.current])], user);
+    await loadData([...new Set([...alwaysLoaded(user), ...loadedData.current])], user);
   };
+
+  /** The bell was opened and the server marked every alert read: show them read. */
+  const markNotificationsRead = () => setNotifications((list) => list.map((n) => (n.is_read ? n : { ...n, is_read: true })));
 
   // Each page's own data, fetched the first time the page -- or a popup that
   // needs it -- opens.
@@ -100,13 +117,11 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
       ...(activeReviewStage ? ['tailors', 'designerStaff'] : []),
       // The appointment form's "With" list.
       ...(showAppointmentModal ? ['tailors'] : []),
-      // The Dashboard's Getting started list ticks off staff and fabrics.
-      ...(view === 'dashboard' && dashboardTab === 'overview' && !onboardingDismissed ? ['tailors', 'fabrics'] : []),
     ].filter((key) => !loadedData.current.has(key));
     if (needed.length) loadData([...new Set(needed)]);
     // loadData is a new function every render; these decide what is fetched.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, view, dashboardTab, activeReviewStage, showAppointmentModal, onboardingDismissed]);
+  }, [currentUser, view, dashboardTab, activeReviewStage, showAppointmentModal]);
 
   const fetchWhatsAppStatus = useCallback(async () => {
     try {
@@ -128,17 +143,10 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
     }
   }, [view, dashboardTab, currentUser, fetchWhatsAppStatus]);
 
-  useEffect(() => {
-    if (view === 'dashboard' && dashboardTab === 'overview' && dashboardData) {
-      api.getDashboard().then(setDashboardData).catch(() => {});
-    }
-    
-  }, [view, dashboardTab]);
-
   return {
     fetchNotifications,
+    markNotificationsRead,
     datasetLoaders,
-    ALWAYS_LOADED,
     loadedData,
     pendingLoads,
     loadData,

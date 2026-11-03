@@ -33,7 +33,9 @@ section{padding:clamp(64px,8vw,116px) 0}
 .logo{font-weight:700;font-size:17px;letter-spacing:.14em;color:var(--cream);transition:color .3s;white-space:nowrap}
 .logo b{color:var(--lime);font-weight:700}
 .nav.solid .logo{color:var(--forest)}
-.nav-links{display:flex;gap:26px;list-style:none;font-size:14px;font-weight:500}
+.nav-links{display:flex;align-items:center;gap:26px;list-style:none;font-size:14px;font-weight:500}
+/* A block box, like the About Us button's, so every item's text sits on the same line. */
+.nav-links>li>a{display:inline-block}
 .nav-only-mobile{display:none}
 .nav-links a{color:rgba(245,242,236,.82);transition:color .2s;padding:4px 0;border-bottom:2px solid transparent;white-space:nowrap}
 .nav-links a:hover{color:var(--lime)}
@@ -333,3 +335,9 @@ footer{background:var(--forest-deep);color:rgba(245,242,236,.6);padding:70px 0 3
   .nav-cta{gap:8px}
   .nav-cta .btn-sm{padding:10px 12px;font-size:12px}
 }
+
+/* /termcondition and /privacypolicy (site/legal.mjs): a dozen sections read as
+   a document, so their headings sit well below the marketing h2 size. */
+.legal-doc h2{font-size:clamp(22px,2.6vw,28px);margin:36px 0 10px}
+.legal-doc h2:first-child{margin-top:0}
+.legal-doc .lede{font-size:16px;max-width:none;margin-bottom:14px}

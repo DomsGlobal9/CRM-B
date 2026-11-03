@@ -380,6 +380,67 @@ class BoutiqueCRMTests(TenantTestCase):
             "dashboard query count grew with the number of orders (N+1)",
         )
 
+    def test_dashboard_workroom_counts_match_the_order_list_rules(self):
+        """The "In the workroom" tiles, as the frontend counted them from GET
+        /orders/ (orderBucket and stageNow in features/orders/stages.js)."""
+        self.authenticate_client()
+
+        def order(mobile, *stages, status_='Received'):
+            customer = self._customer_with_order(mobile=mobile)
+            o = Order.objects.get(customer=customer)
+            o.order_status = status_
+            o.save(update_fields=['order_status'])
+            for seq, (key, name, st, *at) in enumerate(stages):
+                OrderStage.objects.create(order=o, stage_key=key, stage_name=name, status=st,
+                                          sequence=at[0] if at else seq)
+            return o
+
+        created = ('created', 'Created', 'COMPLETED')
+        # Nothing begun beyond "created": new. No stages at all: new too.
+        order('9100000001', created, ('pattern_cutting', 'Pattern Cutting', 'NOT_STARTED'))
+        order('9100000002')
+        # Two standing on stitching (one in progress, one paused).
+        order('9100000003', created, ('pattern_cutting', 'Pattern Cutting', 'COMPLETED'),
+              ('stitching_in_progress', 'Stitching', 'IN_PROGRESS'))
+        order('9100000004', created, ('pattern_cutting', 'Pattern Cutting', 'COMPLETED'),
+              ('stitching_in_progress', 'Stitching', 'PAUSED'))
+        # Waiting for a check beats an earlier stage that is merely unfinished.
+        order('9100000005', created, ('pattern_cutting', 'Pattern Cutting', 'NOT_STARTED'),
+              ('master_quality_check', 'Master QC', 'PENDING_VERIFICATION', 7))
+        # Delivered: done, not on the floor.
+        order('9100000006', created, ('stitching_in_progress', 'Stitching', 'IN_PROGRESS'), status_='Delivered')
+
+        workroom = self.client.get(reverse('dashboard')).json()['workroom']
+
+        self.assertEqual(workroom['new'], 2)
+        self.assertEqual(
+            [(t['key'], t['name'], t['count']) for t in workroom['stages']],
+            [('stitching_in_progress', 'Stitching', 2), ('master_quality_check', 'Master QC', 1)],
+        )
+
+    def test_dashboard_getting_started_answers_what_the_lists_did(self):
+        """The Getting started ticks, without downloading the lists they came from."""
+        from apps.inventory.models import Category, InventoryItem
+        self.authenticate_client()
+        started = lambda: self.client.get(reverse('dashboard')).json()['getting_started']
+
+        # setUp's tailor is on the team; nothing else exists yet.
+        self.assertEqual(started(), {'has_orders': False, 'order_moved': False, 'has_staff': True, 'has_fabrics': False})
+
+        order = Order.objects.get(customer=self._customer_with_order())
+        self.assertEqual((started()['has_orders'], started()['order_moved']), (True, False))  # taken in: "Received"
+        order.order_status = 'Stylist Review'
+        order.save(update_fields=['order_status'])
+        self.assertTrue(started()['order_moved'])
+
+        # An inactive fabric is not in the picker; an active one is.
+        item = InventoryItem.objects.create(item_code='FAB-1', name='Silk', category=Category.FABRIC,
+                                            status=InventoryItem.Status.INACTIVE)
+        self.assertFalse(started()['has_fabrics'])
+        item.status = InventoryItem.Status.ACTIVE
+        item.save(update_fields=['status'])
+        self.assertTrue(started()['has_fabrics'])
+
 
     def test_specialist_role_may_advance_its_own_stage(self):
         self.authenticate_client()
