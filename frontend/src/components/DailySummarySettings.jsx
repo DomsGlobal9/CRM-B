@@ -101,7 +101,7 @@ export default function DailySummarySettings({ iconChip, hideHeader = false }) {
                         </span>
                       </label>
                     </td>
-                    <td className="dss-lang">
+                    <td className="dss-lang" data-label={t('summarySettings.language', 'Language')}>
                       <select
                         className="form-control dss-lang-select"
                         value={row.language}
