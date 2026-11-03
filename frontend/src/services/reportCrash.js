@@ -10,7 +10,7 @@
  * caller is an error boundary that has already failed once.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+import { BASE_URL } from '../api/config';
 
 /** Matches core.exceptions and crm_api.client_errors, which cap again server-side. */
 const LIMITS = { name: 200, message: 2000, stack: 4000, route: 300 };

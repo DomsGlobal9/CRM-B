@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { applyTheme, watchSystemMode } from './theme'
-import App from './App.jsx'
+import App from './app/App.jsx'
 import ErrorBoundary from './ErrorBoundary.jsx'
 import { LanguageProvider } from './i18n/LanguageContext.jsx'
 

@@ -11,7 +11,7 @@
  * of both. Separate key, separate client, no interference in either direction.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+import { BASE_URL } from '../api/config';
 const CONSOLE_URL = `${BASE_URL}/superadmin`;
 
 export const TOKEN_KEY = 'superadmin_token';
