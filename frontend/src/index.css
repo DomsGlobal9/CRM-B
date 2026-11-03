@@ -3834,20 +3834,9 @@ table.data-table tbody tr:hover {
     background: rgba(0,0,0,0.02);
   }
 
-  /* Mobile Bottom Navigation */
+  /* Mobile Bottom Navigation - Removed as options are available in side navbar */
   .mobile-bottom-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    background: var(--surface-color);
-    border-top: 1px solid var(--border-color);
-    z-index: 998;
-    justify-content: space-around;
-    align-items: center;
-    box-shadow: 0 -4px 12px rgba(0,0,0,0.05);
+    display: none !important;
   }
 
   .mobile-bottom-nav-item {
@@ -8800,13 +8789,15 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   box-sizing: border-box;
 }
 
-/* Keep portal-account-bar aligned in the exact same horizontal row as the Settings heading */
-.portal-main:has(.settings-ref-page) > .portal-account-bar {
-  margin: 0 0 -54px 0 !important;
-  position: relative;
-  z-index: 25;
-  display: flex;
-  justify-content: flex-end;
+/* Keep portal-account-bar aligned in the exact same horizontal row as the Settings heading (desktop/tablet only) */
+@media (min-width: 769px) {
+  .portal-main:has(.settings-ref-page) > .portal-account-bar {
+    margin: 0 0 -54px 0 !important;
+    position: relative;
+    z-index: 25;
+    display: flex;
+    justify-content: flex-end;
+  }
 }
 
 .settings-ref-page {
@@ -9113,14 +9104,17 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     min-height: auto;
   }
 
-  .settings-header-row {
-    padding-right: 0 !important;
-    min-height: auto;
+  /* Black top bar already displays "Settings" and profile button, so hide duplicated in-page header and account bar */
+  .portal-main:has(.settings-ref-page) > .portal-account-bar {
+    display: none !important;
   }
 
-  .settings-page-title {
-    font-size: 28px;
-    font-weight: 700;
+  .settings-header-row {
+    display: none !important;
+  }
+
+  .settings-ref-page {
+    gap: 16px;
   }
 
   .settings-cats-grid {
