@@ -1009,6 +1009,16 @@ export const api = {
     return res.json();
   },
 
+  // An order taken with "Price not decided yet": its prices, added later
+  // (or changed while it is open). The server works out the total.
+  async setOrderPrices(orderId, body) {
+    const res = await guardedFetch(`${BASE_URL}/orders/${orderId}/set-prices/`, {
+      method: 'POST', headers: getHeaders(), body: JSON.stringify(body),
+    });
+    if (!res.ok) await failWith(res, 'Could not save the prices');
+    return res.json();
+  },
+
   // The order's invoice as a PDF to the customer's WhatsApp. Resolves to
   // { outcome: 'sent' | 'retrying' | 'failed' | 'manual' | 'sending', message }.
   async sendInvoice(orderId) {

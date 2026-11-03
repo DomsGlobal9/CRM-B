@@ -360,6 +360,10 @@ class Order(models.Model):
     #: subtotal, or a fixed amount. 0 unless they add it (domains.orders.pricing).
     gst_mode = models.CharField(max_length=10, default='percent')
     gst_value = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    #: Taken with "Price not decided yet": the prices are added on the order
+    #: later (OrderViewSet.set_prices). Until then there is no invoice, and
+    #: Payment and Delivery wait (domains.orders.workflow).
+    price_pending = models.BooleanField(default=False)
     taxes = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     advance_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)

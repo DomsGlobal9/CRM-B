@@ -468,7 +468,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'tailor', 'tailor_name', 'master', 'master_name',
             'payment_status', 'order_status', 'order_status_display', 'base_price', 'fabric_price',
             'embroidery_price', 'customization_price', 'tailoring_charges',
-            'packaging_handling', 'discount', 'gst_mode', 'gst_value', 'taxes', 'total_amount', 'order_date', 'estimated_delivery',
+            'packaging_handling', 'discount', 'gst_mode', 'gst_value', 'price_pending', 'taxes', 'total_amount', 'order_date', 'estimated_delivery',
             'delivery_method', 'delivery_method_display', 'courier_service', 'tracking_number', 'delivery_address',
             'advance_paid', 'amount_paid', 'tailor_comments', 'completed_garment_image',
             'special_instructions', 'instructions_voice_note',
@@ -491,6 +491,8 @@ class OrderSerializer(serializers.ModelSerializer):
             # Set when the order is placed, with the total it produced.
             'gst_mode': {'read_only': True},
             'gst_value': {'read_only': True},
+            # Cleared only by adding the prices (set-prices).
+            'price_pending': {'read_only': True},
         }
 
     #: Every rupee column a PATCH can set: not negative, not absurd.

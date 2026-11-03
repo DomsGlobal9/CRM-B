@@ -22,8 +22,10 @@ def trial_confirmation(order):
              .exclude(status='CANCELLED').order_by('-scheduled_time').first())
     when = (f" for {format_datetime(trial.scheduled_time)}" if trial
             else '; we will confirm the exact time with you')
+    # No price yet, no invoice: it is sent once the prices are added.
+    invoice = '' if order.price_pending else ' Your invoice is attached below.'
     return (f"Your trial for order {order.reference} has been scheduled{when}. "
-            f"Please visit {boutique} for your fitting. Your invoice is attached below.")
+            f"Please visit {boutique} for your fitting.{invoice}")
 
 
 def create_order_notifications(order, created=False, status_changed=True, stage_name=None, stage_key=None,
@@ -179,14 +181,14 @@ def create_order_notifications(order, created=False, status_changed=True, stage_
             f"Dear {order.customer.first_name}, {cust_msg}\nTrack your order: {tracking_url(order)}",
             garment_job=garment_job,
         )
-        if msg_template == 'trial_scheduled':
+        if msg_template == 'trial_scheduled' and not order.price_pending:
             send_customer_invoice(order)
         send_stage_update_email(
             order,
             stage_name=display_stage,
             custom_message=cust_msg,
             # The trial-booking email says the invoice is attached: attach it.
-            attach_invoice=(msg_template == 'trial_scheduled'),
+            attach_invoice=(msg_template == 'trial_scheduled' and not order.price_pending),
         )
 
         if status == 'Design & Creation' and order.tailor:

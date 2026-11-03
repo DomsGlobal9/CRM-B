@@ -107,6 +107,14 @@ def apply_advance(order, advance):
     why create_order_for_customer is handed a neutral status by callers that
     price per garment.
     """
+    if order.price_pending:
+        # No price yet: the advance is kept as given, and the order is paid
+        # in full only once its prices are added (OrderViewSet.set_prices).
+        paid = max(float(advance or 0), 0.0)
+        order.payment_status = 'Partially Paid' if paid > 0 else 'Pending'
+        order.advance_paid = order.amount_paid = paid
+        order.save(update_fields=['payment_status', 'advance_paid', 'amount_paid'])
+        return order
     total = float(order.total_amount or 0)
     paid = min(max(float(advance or 0), 0.0), total)
     if paid <= 0:
@@ -581,6 +589,7 @@ class OrderService:
             discount=discount,
             gst_mode=gst_mode,
             gst_value=gst_value,
+            price_pending=bool(data.get('price_pending')),
             taxes=taxes,
             total_amount=total_amount,
             estimated_delivery=est_delivery,

@@ -60,6 +60,7 @@ import { MobileHeader } from './components/ui/MobileHeader';
 import { AccountMenu } from './components/ui/AccountMenu';
 import RowMenu from './components/ui/RowMenu';
 import CustomerMessageQueue from './features/orders/CustomerMessageQueue';
+import OrderPricesCard from './features/orders/OrderPricesCard';
 import { PageHeader, StatCard, SectionCard, Chips, AvatarInitials, ProgressBar, SearchBox, Segmented, IconTile, FormModal, Field, Dropzone, PhotoTile, InfoNote, FormSection, AddPhotoButton, CameraButton } from './components/ui/Atelier';
 import { useLanguage } from './i18n/LanguageContext.jsx';
 import LanguageSelector from './components/LanguageSelector.jsx';
@@ -2465,7 +2466,7 @@ function App() {
       staff: { tailor_id: null, master_id: null },
       prices: quotePrices,
       delivery: { method: 'Direct Pickup' },
-      payment: { option: total > 0 && advance >= total ? 'full' : 'partial', advance },
+      payment: { option: !quotePrices.price_later && total > 0 && advance >= total ? 'full' : 'partial', advance },
       special_instructions: specialInstructions,
       instructions_voice_note: measureVoiceNotes[0]?.url || '',
       instructions_voice_note_by: measureVoiceNotes[0]?.by || '',
@@ -2538,7 +2539,8 @@ function App() {
     setSelectedDesignTemplates(design.templates || []);
     if (prices) setQuotePrices({ packaging: prices.packaging ?? 500,
                                  discount: prices.discount ?? 0,
-                                 gst_mode: prices.gst_mode || 'percent', gst_value: prices.gst_value ?? 0 });
+                                 gst_mode: prices.gst_mode || 'percent', gst_value: prices.gst_value ?? 0,
+                                 price_later: Boolean(prices.price_later) });
     if (payment.advance !== undefined) setAdvancePaymentAmount(payment.advance);
     setSpecialInstructions(payload.special_instructions || '');
     // A draft saved before there could be several keeps its one note.
@@ -4000,13 +4002,13 @@ function App() {
         }
         
         const goods = getSubtotal() + parseFloat(quotePrices.discount || 0);
-        if (parseFloat(quotePrices.discount || 0) > goods) {
+        if (!quotePrices.price_later && parseFloat(quotePrices.discount || 0) > goods) {
           setQuotePrices({ ...quotePrices, discount: String(goods) });
           alert(`The discount cannot be more than the order subtotal, so it was set to ${inr(goods)}.`);
           return;
         }
         const total = getTotalPrice();
-        if (Number(advancePaymentAmount || 0) > total) {
+        if (!quotePrices.price_later && Number(advancePaymentAmount || 0) > total) {
           setAdvancePaymentAmount(String(total));
           alert(`The advance cannot be more than the order total, so it was set to ${inr(total)}.`);
           return;
@@ -6008,6 +6010,10 @@ function App() {
 
                     <aside className="od-side">
                       <OrderGarmentsCard order={order} focus={focusJob?.id} onSelectStage={(stage) => openStageReview(order, stage)} />
+                      {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role))
+                        && order.kind !== 'internal' && order.flow !== 'alteration' && (order.garment_jobs || []).length > 0 && (
+                        <OrderPricesCard key={`${order.id}-${order.total_amount}-${order.price_pending}`} order={order} onSaved={fetchDashboardAndConfig} />
+                      )}
                       <GarmentGallery order={order} onChanged={fetchDashboardAndConfig} role={currentUser?.role} />
                       {/* The Master's checklist, the handover and the tip sit under the
                           notes in the side column, so the two columns share the page. */}
@@ -7141,7 +7147,7 @@ function App() {
                                   </div>
                                 )}
                                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '12px' }}>
-                                  <span>Payment: <strong style={{ color: 'var(--text-primary)' }}>{order.payment_status}</strong></span>
+                                  <span>Payment: <strong style={{ color: 'var(--text-primary)' }}>{order.price_pending ? 'Price pending' : order.payment_status}</strong></span>
                                   <span>Delivery: <strong style={{ color: 'var(--text-primary)' }}>{order.delivery_method}</strong></span>
                                   {order.estimated_delivery && (
                                     <span>Expected: <strong style={{ color: 'var(--text-primary)' }}>{fmtDate(order.estimated_delivery)}</strong></span>
@@ -7350,7 +7356,7 @@ function App() {
                               </span>
                             </td>
                             <td data-label={t('common.date', 'Date')} style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{fmtDate(order.order_date)}</td>
-                            <td data-label={t('invoicesPage.totalPrice', 'Total Price')} className="at-num" style={{ fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{formatMoney(order.total_amount)}</td>
+                            <td data-label={t('invoicesPage.totalPrice', 'Total Price')} className="at-num" style={{ fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{order.price_pending ? <span className="od-hint">Price pending</span> : formatMoney(order.total_amount)}</td>
                             {/* Editable: the one place a part payment is recorded. The
                                 backend derives the label, clamps to the total and caps
                                 the advance -- only the input lives here. */}
@@ -9694,7 +9700,20 @@ function App() {
                     );
                   })}
 
+                  {/* "Price not decided yet": the order is placed without
+                      prices, which are added on the order page later. */}
+                  <label className="wz-price-later" style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0 12px', fontSize: '14px', cursor: 'pointer' }}>
+                    <input type="checkbox" checked={Boolean(quotePrices.price_later)}
+                           onChange={(e) => setQuotePrices({ ...quotePrices, price_later: e.target.checked })} />
+                    {t('wizard.priceLater', 'Price not decided yet')}
+                  </label>
                   <div className="wz-money">
+                    {quotePrices.price_later ? (
+                      <div className="od-hint" style={{ marginBottom: '4px' }}>
+                        {t('wizard.priceLaterHint', 'The prices are added on the order later (Prices). No invoice is sent to the customer until then.')}
+                      </div>
+                    ) : (
+                    <>
                     {garmentJobs.map((job) => (
                       <div key={job.key} className="wz-money-row">
                         <label htmlFor={`wz-price-${job.key}`} className="wz-money-label">{job.template.name}</label>
@@ -9789,6 +9808,8 @@ function App() {
                       <div><span>{quotePrices.gst_mode !== 'amount' && parseFloat(quotePrices.gst_value || 0) > 0 ? `GST ${parseFloat(quotePrices.gst_value)}%` : 'GST'}</span><strong>{inr(getTaxes())}</strong></div>
                       <div className="wz-money-grand"><span>{t('wizard.total', 'Total')}</span><strong>{inr(getTotalPrice())}</strong></div>
                     </div>
+                    </>
+                    )}
                     <div className="wz-money-row">
                       <label htmlFor="wz-advance" className="wz-money-label">{t('wizard.advanceNow', 'Advance paid now')}</label>
                       <div className="wz-money-input">
@@ -9799,7 +9820,9 @@ function App() {
                       </div>
                     </div>
                     <div className="od-hint" style={{ textAlign: 'right' }}>
-                      {Number(advancePaymentAmount) >= getTotalPrice() && getTotalPrice() > 0
+                      {quotePrices.price_later
+                        ? t('wizard.balanceWhenPriced', 'The balance is worked out when the prices are added.')
+                        : Number(advancePaymentAmount) >= getTotalPrice() && getTotalPrice() > 0
                         ? t('wizard.paidInFull', 'Paid in full')
                         : `${t('wizard.balanceAtDelivery', 'Balance at delivery')}: ${inr(Math.max(0, getTotalPrice() - Number(advancePaymentAmount || 0)))}`}
                     </div>
@@ -10281,10 +10304,16 @@ function App() {
                 }
               `}</style>
 
+              {confirmedOrder.price_pending ? (
+                <div className="od-hint" style={{ textAlign: 'center', padding: '24px 0' }}>
+                  The price of this order is not decided yet. Add the prices on the order (Prices) and the invoice is made from them.
+                </div>
+              ) : (
               <InvoiceRenderer
                 template={confirmedOrder.invoice_template || boutiqueSettings?.invoice_template || 'classic'}
                 data={normalizeInvoiceData(confirmedOrder, boutiqueSettings, currentUser)}
               />
+              )}
             </div>
 
             {/* Modal Footer Controls */}
@@ -10325,7 +10354,7 @@ function App() {
               </button>
               {/* Owner or Master, on a bill with a customer: the PDF to the
                   customer's WhatsApp. */}
-              {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && confirmedOrder.customer && (
+              {(!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)) && confirmedOrder.customer && !confirmedOrder.price_pending && (
                 <button
                   type="button"
                   className="btn-secondary invoice-send-btn"
@@ -10340,12 +10369,14 @@ function App() {
                     : 'Send on WhatsApp'}
                 </button>
               )}
+              {!confirmedOrder.price_pending && (
               <button 
                 className="btn-primary" 
                 onClick={() => window.print()}
               >
                 <Printer size={16} /> Print Invoice
               </button>
+              )}
             </div>
           </div>
         </div>

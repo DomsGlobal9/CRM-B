@@ -124,7 +124,7 @@ class ArithmeticTests(TenantTestCase):
     def test_the_column_ceiling_is_refused_with_words(self):
         with self.assertRaises(ValueError):
             pricing.totals_from_amounts(
-                {'base_price': Decimal('99999999')}, Decimal('0'), Decimal('0'))
+                {'base_price': Decimal('99999999')}, Decimal('1'), Decimal('0'))
 
     def test_negative_components_are_refused(self):
         with self.assertRaises(ValueError):
@@ -230,7 +230,7 @@ class PaymentAgainstCanonicalTotalTests(PricingTestBase):
         return self.a_draft(
             [self.garment(self.blouse, base=4000),
              self.garment(self.lehenga, base=32000)],
-            payment=payment)
+            prices={'gst_mode': 'percent', 'gst_value': 5}, payment=payment)
 
     def test_partial_payment_records_the_advance_and_the_balance(self):
         draft = self._two_garment_draft({'option': 'partial', 'advance': 10000})
@@ -336,7 +336,7 @@ class DraftPricingLifecycleTests(PricingTestBase):
         self.assertEqual(Order.objects.count(), 0)
 
     def test_confirm_uses_the_drafts_numbers_not_the_sessions(self):
-        draft = self.a_draft([self.garment(self.blouse, base=4000)])
+        draft = self.a_draft([self.garment(self.blouse, base=4000)], prices={'gst_mode': 'percent', 'gst_value': 5})
         other_client = self.client_for(self.owner)
         response = other_client.post(reverse('order-draft-confirm', args=[draft]))
         self.assertEqual(response.status_code, 201)
@@ -385,7 +385,7 @@ class ManipulationTests(PricingTestBase):
         payload_garments = [{'template': str(self.blouse.id),
                              'spec': dict(self.MINIMAL_SPECS['blouse']),
                              'measurements': dict(self.MINIMAL_MEASUREMENTS['blouse'])}]
-        draft = self.a_draft(payload_garments, prices={'base': 5000})
+        draft = self.a_draft(payload_garments, prices={'base': 5000, 'gst_mode': 'percent', 'gst_value': 5})
         response = self.confirm(draft)
         self.assertEqual(response.status_code, 201, response.data)
         order = Order.objects.get()

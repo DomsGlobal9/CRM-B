@@ -205,8 +205,16 @@ def _requires_a_tailor(order, stage, *, supervisor):
 
 
 
+def _requires_a_price(order, stage, *, supervisor):
+    if getattr(order, 'price_pending', False):
+        return 'Add the prices to this order first (the order page, Prices).'
+    return None
+
+
 REQUIRED_DATA = {
     'stitching_in_progress': (_requires_measurements, _requires_a_tailor),
+    'payment': (_requires_a_price,),
+    'delivered': (_requires_a_price,),
 }
 
 

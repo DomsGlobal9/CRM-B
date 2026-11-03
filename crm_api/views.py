@@ -857,6 +857,19 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     @staticmethod
     def _reconcile_payment(order, changed):
+        if order.price_pending:
+            # No price yet: what was paid stands as an advance, not capped at
+            # a total of 0; Paid waits for the prices.
+            if 'amount_paid' in changed or 'advance_paid' in changed:
+                paid = order.amount_paid if 'amount_paid' in changed else order.advance_paid
+            else:
+                paid = order.amount_paid
+            paid = max(Decimal(paid or 0), Decimal('0'))
+            order.amount_paid = paid
+            order.advance_paid = min(order.advance_paid or Decimal('0'), paid)
+            order.payment_status = 'Partially Paid' if paid > 0 else 'Pending'
+            order.save(update_fields=['amount_paid', 'advance_paid', 'payment_status'])
+            return
         total = order.total_amount or Decimal('0')
 
         if 'amount_paid' in changed or 'advance_paid' in changed:
@@ -1185,6 +1198,9 @@ class OrderViewSet(viewsets.ModelViewSet):
         from domains.orders import messaging
 
         order = self.get_object()
+        if order.price_pending:
+            return Response({'error': 'Add the prices to this order first; the invoice is made from them.'},
+                            status=status.HTTP_400_BAD_REQUEST)
         if order.customer_id is None:
             return Response({'error': 'This order has no customer to send the invoice to.'},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -1222,6 +1238,74 @@ class OrderViewSet(viewsets.ModelViewSet):
             else:
                 outcome = 'sending'
         return Response({'outcome': outcome, 'message': CustomerMessageSerializer(message).data})
+
+    @action(detail=True, methods=['POST'], url_path='set-prices',
+            permission_classes=[OwnerOrMaster])
+    def set_prices(self, request, pk=None):
+        """Add an order's prices after it was placed (taken with "Price not
+        decided yet"), or change them while it is open: each garment's price
+        parts, packaging, discount and GST. The server works out the total,
+        the balance and the payment status; the invoice is made from these.
+        """
+        from core.formatting import format_money
+        from domains.orders import pricing
+
+        order = self.get_object()
+        if order.order_status in ('Delivered', 'Cancelled'):
+            return Response({'error': 'Prices cannot be changed on a delivered or cancelled order.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        data = request.data or {}
+        jobs = list(order.garment_jobs.all())
+        by_id = {str(job.pk): job for job in jobs}
+        labels = {'base_price': 'Price', 'fabric_price': 'Fabric', 'embroidery_price': 'Embroidery',
+                  'customization_price': 'Customization', 'tailoring_charges': 'Tailoring'}
+        try:
+            for row in data.get('garments') or []:
+                job = by_id.get(str(row.get('id')))
+                if job is None:
+                    raise ValueError('A garment in these prices is not on this order.')
+                for field in pricing.JOB_COMPONENTS:
+                    if field in row:
+                        setattr(job, field, validate_amount(row.get(field), label=labels[field]))
+            packaging = validate_amount(data.get('packaging_handling', order.packaging_handling),
+                                        label='Packaging')
+            discount = validate_amount(data.get('discount', order.discount), label='Discount')
+            gst_mode = data.get('gst_mode') or order.gst_mode or 'percent'
+            gst_value = validate_amount(data.get('gst_value', order.gst_value), label='GST')
+            sums = {field: sum((pricing.to_money(getattr(job, field)) for job in jobs), Decimal('0.00'))
+                    for field in pricing.JOB_COMPONENTS}
+            _, _, total = pricing.totals_from_amounts(
+                sums, pricing.to_money(packaging), pricing.to_money(discount), gst_mode, gst_value)
+            if (order.amount_paid or Decimal('0')) > total:
+                raise ValueError(f'{format_money(order.amount_paid)} is already paid, which is more '
+                                 f'than these prices come to ({format_money(total)}).')
+        except ValidationError as exc:
+            detail = exc.detail[0] if isinstance(exc.detail, list) and exc.detail else exc.detail
+            return Response({'error': str(detail)}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        was_pending = order.price_pending
+        with transaction.atomic():
+            for job in jobs:
+                job.save(update_fields=[*pricing.JOB_COMPONENTS, 'updated_at'])
+            order.packaging_handling = packaging
+            order.discount = discount
+            order.gst_mode = gst_mode
+            order.gst_value = gst_value
+            order.price_pending = False
+            order.save(update_fields=['packaging_handling', 'discount', 'gst_mode', 'gst_value',
+                                      'price_pending'])
+            pricing.recompute_order_totals(order, jobs)
+            # What was paid stands; the status follows it against the new total.
+            self._reconcile_payment(order, {'amount_paid': order.amount_paid})
+            OrderActivity.objects.create(
+                order=order, event_type='PRICES_SET', user=request.user,
+                metadata={'message': f"Prices {'added' if was_pending else 'changed'}: "
+                                     f"total {format_money(order.total_amount)}.",
+                          'total': str(order.total_amount)})
+        return Response(OrderSerializer(OrderRepository.get_by_id(order.pk),
+                                        context={'request': request}).data)
 
     @action(detail=False, methods=['GET'], url_path='customer-messages',
             permission_classes=[OwnerOrMaster])
@@ -2852,6 +2936,12 @@ class OrderDraftViewSet(viewsets.ViewSet):
             delivery = payload.get('delivery') or {}
             payment = payload.get('payment') or {}
             garments = payload.get('garments') or []
+            # "Price not decided yet": placed without prices, which are added
+            # on the order later (set_prices). Anything typed is left out.
+            price_later = bool(prices.get('price_later'))
+            if price_later:
+                prices = {}
+                garments = [{**g, 'pricing': {}} for g in garments]
 
             def money(value):
                 try:
@@ -2924,6 +3014,7 @@ class OrderDraftViewSet(viewsets.ViewSet):
                 # GST as the counter entered it: a % of the subtotal or an amount.
                 'gst_mode': prices.get('gst_mode') or 'percent',
                 'gst_value': money(prices.get('gst_value')),
+                'price_pending': price_later,
                 # Neutral: apply_advance decides once the total is final.
                 'payment_status': 'Pending',
                 'custom_requirements': special_instructions,
