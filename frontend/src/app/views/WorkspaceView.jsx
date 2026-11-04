@@ -317,7 +317,7 @@ export default function WorkspaceView() {
             )}
 
             {/* 5b. CUSTOMER DETAIL VIEW (Image 5/6 extension) */}
-            {(dashboardTab === 'customers' || dashboardTab === 'leads') && selectedDirectoryCustomer && (
+            {(dashboardTab === 'customers' || dashboardTab === 'leads') && !editingCustomer && selectedDirectoryCustomer && (
               <Suspense fallback={<ScreenLoading />}>
                 <Crumbs level={3} items={[{ label: customerName(selectedDirectoryCustomer), onClick: () => setEditingCustomer(null) }]} />
                 <CustomerDetailPanel alterationOrder={alterationOrder} approvingDesignId={approvingDesignId} beginOrderForCustomer={beginOrderForCustomer} customerActionId={customerActionId} customerPhotoBusy={customerPhotoBusy} directoryDetailLoading={directoryDetailLoading} expandedCustomerOrderId={expandedCustomerOrderId} handleApproveDesign={handleApproveDesign} handleDeleteCustomer={handleDeleteCustomer} handleSelectExistingCustomer={handleSelectExistingCustomer} isLead={isLead} openAlteration={openAlteration} openDirectoryCustomer={openDirectoryCustomer} openStageReview={openStageReview} orderTypeFor={orderTypeFor} refreshCustomerBook={refreshCustomerBook} rememberAlteration={rememberAlteration} selectedDirectoryCustomer={selectedDirectoryCustomer} setAlterationOrder={setAlterationOrder} setDesignNotes={setDesignNotes} setExpandedCustomerOrderId={setExpandedCustomerOrderId} setOrderTypeFor={setOrderTypeFor} setQuotePrices={setQuotePrices} setViewAllCustomerMeasurements={setViewAllCustomerMeasurements} startEditCustomer={startEditCustomer} uploadDirectoryCustomerPhoto={uploadDirectoryCustomerPhoto} viewAllCustomerMeasurements={viewAllCustomerMeasurements} />
