@@ -32,7 +32,7 @@ export default function OrderFlowViews() {
         // wizard takes what is left above it and a short step does not scroll.
         <div className="wizard-outer-wrapper">
           {/* Brand header & stepper */}
-          <WizardHeader wizard={wizard} currentStep={currentStep} draftSaveState={draftSaveState} garmentJobs={garmentJobs} maxStepReached={maxStepReached} serviceType={serviceType} wizardSteps={wizardSteps} />
+          <WizardHeader wizard={wizard} currentStep={currentStep} draftSaveState={draftSaveState} garmentJobs={garmentJobs} maxStepReached={maxStepReached} serviceType={serviceType} wizardSteps={wizardSteps} ctaBusy={ctaBusy} wizardStepKey={wizardStepKey} />
 
           <div className="main-content full-width">
             <div className="workspace-panel">

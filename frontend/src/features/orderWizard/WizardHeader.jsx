@@ -1,4 +1,4 @@
-import { Check, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react';
 import React from 'react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
@@ -7,7 +7,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
  * - Left sidebar contains the Scaleezy logo and the vertical steps.
  * - Top-right actions contain autosave state and the close button (without a full-width top bar).
  */
-export default function WizardHeader({ wizard, currentStep, draftSaveState, garmentJobs, maxStepReached, serviceType, wizardSteps }) {
+export default function WizardHeader({ wizard, currentStep, draftSaveState, garmentJobs, maxStepReached, serviceType, wizardSteps, ctaBusy, wizardStepKey }) {
   const { canJumpAhead, customerBlank, jumpToStep, leaveWizard, needsMeasurements } = wizard;
   const { t } = useLanguage();
 
@@ -89,6 +89,45 @@ export default function WizardHeader({ wizard, currentStep, draftSaveState, garm
         </div>
         {/* Phones only (CSS): the strip scrolls, so say where in it we are. */}
         <div className="stepper-count">{t('entry.stepXofY', 'Step {step} of {total}', { step: currentStep, total: wizardSteps.length })}</div>
+        {/* Sidebar Actions for Desktop / Laptop / Tablet */}
+        <div className="wizard-sidebar-actions">
+          {serviceType !== 'alter' && wizardStepKey !== 'money' && (
+            <button
+              type="button"
+              className="btn-secondary wizard-sidebar-save-btn"
+              onClick={wizard.handleSaveDraft}
+              disabled={ctaBusy}
+            >
+              {t('wizard.saveAsDraft', 'Save for later')}
+            </button>
+          )}
+
+          <div className="wizard-sidebar-nav-row">
+            <button
+              type="button"
+              className="btn-secondary wizard-sidebar-back-btn"
+              onClick={wizard.handleBack}
+              disabled={ctaBusy}
+            >
+              <ArrowLeft size={16} />
+              {t('common.back', 'Back')}
+            </button>
+
+            <button
+              type="button"
+              className="btn-primary wizard-sidebar-next-btn"
+              onClick={wizard.handleNext}
+              disabled={ctaBusy}
+              style={{ opacity: ctaBusy ? 0.6 : 1 }}
+            >
+              {ctaBusy ? t('wizard.working', 'Working…')
+                : wizardStepKey === 'money' ? <>{t('wizard.completeOrder', 'Complete the order')} <Check size={16} /></>
+                : wizardStepKey === 'issue' ? <>{t('wizard.createAlteration', 'Create alteration')} <Check size={16} /></>
+                : wizardStepKey === 'outIssue' ? <>{t('wizard.takeItIn', 'Take it in')} <Check size={16} /></>
+                : <>{t('common.next', 'Next')} <ArrowRight size={16} /></>}
+            </button>
+          </div>
+        </div>
       </aside>
     </>
   );
