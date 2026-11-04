@@ -9906,7 +9906,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 
 
 /* ==========================================================================
-   Order Wizard Layout: Full-Height Left Sidebar with Logo & No Top Bar
+   Order Wizard Layout: Fixed Left Sidebar with Logo & Scrollable Inside Page
    (Tablet, Laptop, Desktop, Big Screen)
    ========================================================================== */
 
@@ -9918,14 +9918,9 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   box-sizing: border-box;
 }
 
-/* Base Top Actions (Floating in Top-Right on Desktop/Tablet/Laptop) */
+/* Remove / Hide Top Actions (Autosave text & Close cross) */
 .wizard-top-actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 16px;
-  background: transparent;
-  z-index: 30;
+  display: none !important;
 }
 
 .wizard-autosave-text {
@@ -9967,7 +9962,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 20px;
-  padding-left: 12px;
+  padding-left: 14px;
 }
 
 /* Stepper Text Group (Title + Subtitle) */
@@ -9978,20 +9973,49 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   text-align: left;
 }
 
-/* Desktop, Laptop, Tablet, Big Screen (>= 769px): Left-Side Vertical Sidebar (No Top Bar!) */
+/* Container Lock for >= 769px: Fix outer page so only the inside form scrolls */
 @media (min-width: 769px) {
+  html:has(.wizard-outer-wrapper),
+  body:has(.wizard-outer-wrapper) {
+    height: 100% !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+  }
+
+  .app-container:has(.wizard-outer-wrapper) {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .app-container:has(.wizard-outer-wrapper) .wizard-outer-wrapper {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+  }
+
+  .app-container:has(.wizard-outer-wrapper) .footer-actions-bar {
+    flex-shrink: 0 !important;
+    position: relative !important;
+    bottom: 0 !important;
+    z-index: 50 !important;
+  }
+
   .wizard-outer-wrapper {
     display: grid !important;
     grid-template-columns: 290px minmax(0, 1fr) !important;
-    grid-template-rows: auto 1fr !important;
-    grid-template-areas:
-      "sidebar topactions"
-      "sidebar content" !important;
-    min-height: calc(100vh - 65px) !important;
+    grid-template-rows: 1fr !important;
+    grid-template-areas: "sidebar content" !important;
+    height: calc(100vh - 82px) !important;
+    max-height: calc(100vh - 82px) !important;
+    overflow: hidden !important;
     background-color: var(--bg-color) !important;
   }
 
-  /* Left-Side Full-Height Sidebar (Goes directly to top: 0!) */
+  /* Fixed Left Sidebar (Full height of wizard area, stationary) */
   .wizard-sidebar {
     grid-area: sidebar !important;
     background: var(--surface-color) !important;
@@ -9999,17 +10023,19 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     padding: 28px 18px 40px 22px !important;
     display: flex !important;
     flex-direction: column !important;
-    position: sticky !important;
+    position: relative !important;
     top: 0 !important;
-    height: calc(100vh - 65px) !important;
+    height: 100% !important;
+    max-height: 100% !important;
     overflow-y: auto !important;
     box-sizing: border-box !important;
     z-index: 40 !important;
+    flex-shrink: 0 !important;
   }
 
   /* Sidebar Header (Contains Logo) */
   .wizard-sidebar-head {
-    margin-bottom: 28px !important;
+    margin-bottom: 26px !important;
     padding-left: 6px !important;
   }
 
@@ -10018,37 +10044,30 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     display: none !important;
   }
 
-  /* Stepper Progress Bar inside Sidebar */
+  /* Stepper Progress Bar inside Sidebar: Takes available height dynamically */
   .wizard-sidebar .stepper-progress-bar {
     display: flex !important;
     flex-direction: column !important;
+    flex: 1 1 auto !important;
     padding: 0 !important;
     margin: 0 !important;
     width: 100% !important;
     overflow: visible !important;
   }
 
-  /* Top Actions Float Quietly in Top-Right Corner of Content */
-  .wizard-top-actions {
-    grid-area: topactions !important;
-    display: flex !important;
-    justify-content: flex-end !important;
-    align-items: center !important;
-    gap: 16px !important;
-    padding: 20px 36px 0 !important;
-    background: transparent !important;
-    border: none !important;
-    border-bottom: none !important;
-  }
-
-  /* Right-Side Form Content */
+  /* Right-Side Form Content: ONLY this area is scrollable */
   .wizard-outer-wrapper > .main-content {
     grid-area: content !important;
-    padding: 16px 48px 48px !important;
-    max-width: 1060px !important;
-    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
     box-sizing: border-box !important;
+    padding: 32px 48px 48px !important;
     margin: 0 !important;
+    min-width: 0 !important;
+    width: 100% !important;
   }
 
   /* Individual Step Card in Left Sidebar */
@@ -10058,7 +10077,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     align-items: center !important;
     gap: 14px !important;
     text-align: left !important;
-    padding: 10px 14px !important;
+    padding: 11px 14px !important;
     border-radius: 12px !important;
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
     cursor: default !important;
@@ -10176,10 +10195,12 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     font-weight: 600 !important;
   }
 
-  /* Vertical Connecting Track Line */
+  /* Vertical Connecting Track Line: Flexibly expands to balance vertical space */
   .wizard-sidebar .stepper-line {
     width: 2.5px !important;
-    height: 20px !important;
+    flex: 1 1 auto !important;
+    min-height: 30px !important;
+    max-height: 56px !important;
     margin: 0 0 0 31.75px !important;
     background-color: var(--border-color) !important;
     border-radius: 999px !important;
@@ -10194,6 +10215,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 
 /* ==========================================================================
    Screen Size Specific Customizations for Left Stepper
+   (Big Screen, Desktop, Laptop, Tablet)
    ========================================================================== */
 
 /* Big Screen (1920px+ and 2K/4K monitors) */
@@ -10202,11 +10224,14 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     grid-template-columns: 320px minmax(0, 1fr) !important;
   }
   .wizard-sidebar {
-    padding: 32px 20px 48px 28px !important;
+    padding: 36px 20px 48px 28px !important;
   }
   .wizard-outer-wrapper > .main-content {
-    padding: 24px 64px 60px !important;
-    max-width: 1200px !important;
+    padding: 36px 64px 60px !important;
+  }
+  .wizard-sidebar .stepper-step {
+    padding: 14px 18px !important;
+    gap: 16px !important;
   }
   .wizard-sidebar .stepper-circle {
     width: 42px !important;
@@ -10215,11 +10240,12 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     font-size: 15px !important;
   }
   .wizard-sidebar .stepper-line {
-    margin: 0 0 0 33.75px !important;
-    height: 24px !important;
+    margin: 0 0 0 37.75px !important;
+    min-height: 40px !important;
+    max-height: 72px !important;
   }
   .wizard-sidebar .stepper-title {
-    font-size: 15px !important;
+    font-size: 15.5px !important;
   }
   .wizard-sidebar .stepper-subtitle {
     font-size: 12.5px !important;
@@ -10232,10 +10258,19 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     grid-template-columns: 290px minmax(0, 1fr) !important;
   }
   .wizard-sidebar {
-    padding: 28px 18px 40px 24px !important;
+    padding: 30px 18px 44px 24px !important;
   }
   .wizard-outer-wrapper > .main-content {
-    padding: 16px 48px 48px !important;
+    padding: 32px 48px 48px !important;
+  }
+  .wizard-sidebar .stepper-step {
+    padding: 12px 16px !important;
+    gap: 14px !important;
+  }
+  .wizard-sidebar .stepper-line {
+    margin: 0 0 0 33.75px !important;
+    min-height: 34px !important;
+    max-height: 62px !important;
   }
 }
 
@@ -10245,47 +10280,101 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     grid-template-columns: 270px minmax(0, 1fr) !important;
   }
   .wizard-sidebar {
-    padding: 24px 14px 36px 18px !important;
+    padding: 26px 16px 38px 20px !important;
   }
   .wizard-outer-wrapper > .main-content {
-    padding: 16px 36px 40px !important;
-  }
-}
-
-/* Tablet (769px - 1024px) */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .wizard-outer-wrapper {
-    grid-template-columns: 240px minmax(0, 1fr) !important;
-  }
-  .wizard-sidebar {
-    padding: 20px 10px 30px 14px !important;
-  }
-  .wizard-outer-wrapper > .main-content {
-    padding: 16px 24px 32px !important;
+    padding: 28px 36px 40px !important;
   }
   .wizard-sidebar .stepper-step {
-    padding: 8px 10px !important;
-    gap: 10px !important;
-  }
-  .wizard-sidebar .stepper-circle {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-    font-size: 12.5px !important;
+    padding: 11px 14px !important;
+    gap: 13px !important;
   }
   .wizard-sidebar .stepper-line {
-    margin: 0 0 0 25px !important;
-    height: 16px !important;
-  }
-  .wizard-sidebar .stepper-title {
-    font-size: 13px !important;
-  }
-  .wizard-sidebar .stepper-subtitle {
-    font-size: 10.5px !important;
+    margin: 0 0 0 31.75px !important;
+    min-height: 28px !important;
+    max-height: 52px !important;
   }
 }
 
-/* Mobile (<= 768px): Gracefully sits at the top with horizontal scroll */
+/* Tablet (769px - 1024px): Well-proportioned, fills vertical height naturally */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .wizard-outer-wrapper {
+    grid-template-columns: 255px minmax(0, 1fr) !important;
+  }
+  .wizard-sidebar {
+    padding: 26px 14px 38px 18px !important;
+  }
+  .wizard-outer-wrapper > .main-content {
+    padding: 26px 28px 36px !important;
+  }
+  .wizard-sidebar .stepper-step {
+    padding: 11px 14px !important;
+    gap: 12px !important;
+  }
+  .wizard-sidebar .stepper-circle {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    font-size: 13.5px !important;
+  }
+  .wizard-sidebar .stepper-line {
+    margin: 0 0 0 31.75px !important;
+    min-height: 34px !important;
+    max-height: 64px !important;
+  }
+  .wizard-sidebar .stepper-title {
+    font-size: 13.5px !important;
+  }
+  .wizard-sidebar .stepper-subtitle {
+    font-size: 11px !important;
+  }
+}
+
+/* Tall Viewports (Portrait Tablets, Fold Devices, 1080p+ Screens):
+   Expands vertical spacing so the sidebar does not have excessive bottom gap */
+@media (min-width: 769px) and (min-height: 850px) {
+  .wizard-sidebar {
+    padding-top: 32px !important;
+    padding-bottom: 40px !important;
+  }
+  .wizard-sidebar-head {
+    margin-bottom: 30px !important;
+  }
+  .stepper-sidebar-heading {
+    margin-bottom: 24px !important;
+  }
+  .wizard-sidebar .stepper-step {
+    padding-top: 13px !important;
+    padding-bottom: 13px !important;
+  }
+  .wizard-sidebar .stepper-line {
+    min-height: 42px !important;
+    max-height: 75px !important;
+  }
+}
+
+@media (min-width: 769px) and (min-height: 1050px) {
+  .wizard-sidebar {
+    padding-top: 38px !important;
+    padding-bottom: 48px !important;
+  }
+  .wizard-sidebar-head {
+    margin-bottom: 36px !important;
+  }
+  .stepper-sidebar-heading {
+    margin-bottom: 28px !important;
+  }
+  .wizard-sidebar .stepper-step {
+    padding-top: 15px !important;
+    padding-bottom: 15px !important;
+  }
+  .wizard-sidebar .stepper-line {
+    min-height: 56px !important;
+    max-height: 92px !important;
+  }
+}
+
+/* Mobile (<= 768px): Sits gracefully at the top with horizontal scroll */
 @media (max-width: 768px) {
   .wizard-outer-wrapper {
     display: flex !important;
@@ -10360,4 +10449,3 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     display: none !important;
   }
 }
-

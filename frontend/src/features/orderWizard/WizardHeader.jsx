@@ -90,12 +90,6 @@ export default function WizardHeader({ wizard, currentStep, draftSaveState, garm
         {/* Phones only (CSS): the strip scrolls, so say where in it we are. */}
         <div className="stepper-count">{t('entry.stepXofY', 'Step {step} of {total}', { step: currentStep, total: wizardSteps.length })}</div>
       </aside>
-
-      {/* Top-Right Floating Utility Actions for Desktop/Laptop/Tablet (No horizontal top bar) */}
-      <div className="wizard-top-actions">
-        {autosaveElement}
-        {closeButtonElement}
-      </div>
     </>
   );
 }
