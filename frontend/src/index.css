@@ -7002,37 +7002,267 @@ button, input, select, textarea { font-family: inherit; }
 .page-title-group:has(+ .wz-measure-card) { margin-left: auto; margin-right: auto; }
 .page-title-group:has(+ .wz-measure-card) { width: 100%; max-width: 784px; box-sizing: border-box; }
 
-/* Review step: smaller cards in one centred column -- the title, every card
-   and "See it on a model" line up -- with tighter garment details inside.
-   Below the cap they fill the page as before. The card's padding is inline,
-   so the phone padding needs !important. */
-.wz-review-card.content-card,
-.wz-review-card ~ .wz-review-preview,
-.page-title-group:has(~ .wz-review-card) {
-  width: 100%; max-width: 880px; margin-left: auto; margin-right: auto; box-sizing: border-box;
+/* ==========================================================================
+   Order Wizard: Review Step Tight, Compact & Balanced Layout
+   (Tablet, Laptop, Desktop, Big Screen)
+   ========================================================================== */
+
+.wz-review-layout {
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
 }
-.wz-review-card .garment-card { padding: 12px 16px; gap: 12px; }
-.wz-review-card .garment-card-head { padding-bottom: 10px; }
-.wz-review-card .garment-section-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px 16px; }
-.wz-review-card .ui-badge { max-width: 100%; height: auto; white-space: normal; line-height: 1.4; }
-/* The review's garment answers as even tiles: a small label over its value,
-   every tile the same height in its row, so a long answer ("Round Neck with
-   V-Slit") wraps inside its own tile instead of pushing the rows apart. */
-.wz-review-card .garment-card { padding: 16px; gap: 16px; border-radius: var(--radius-lg, 12px); }
-.wz-review-card .garment-card-head { flex-wrap: wrap; row-gap: 8px; }
-.wz-review-card .garment-card-name { font-size: var(--text-lg, 18px); min-width: 0; overflow-wrap: anywhere; }
-.wz-review-card .garment-section { gap: 10px; }
-.wz-review-card .garment-section-title { display: flex; align-items: center; gap: 10px; font-size: var(--text-2xs, 11px); font-weight: 700; letter-spacing: .08em; }
-.wz-review-card .garment-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
-.wz-review-card .garment-section-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; align-items: stretch; }
-.wz-review-card .garment-detail { padding: 10px 12px; gap: 4px; background: var(--surface-inset, #f6f6f4); border: 1px solid var(--border-color); border-radius: var(--radius-md, 8px); justify-content: flex-start; }
-.wz-review-card .garment-detail-label { font-size: var(--text-2xs, 11px); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted, var(--text-secondary)); line-height: 1.3; }
-.wz-review-card .garment-detail-value { font-size: var(--text-sm, 14px); line-height: 1.35; overflow-wrap: break-word; word-break: normal; hyphens: auto; }
-/* "Plain stitching order -- cut, then stitch": a quiet note, not a pill. */
-.wz-review-card--main > .ui-badge { display: block; width: 100%; box-sizing: border-box; padding: 8px 12px; margin-bottom: 14px !important; border-radius: var(--radius-md, 8px); font-size: var(--text-xs, 12px); font-weight: 500; text-align: left; }
-/* Complete the order & invoice: one compact card in a centred column (the
-   title and any error ride in it too), the price list filling the card so
-   every amount lines up on its right edge, like an invoice. */
+
+.wz-review-layout .page-title-group {
+  margin-bottom: 2px;
+  max-width: 100%;
+}
+.wz-review-layout h1.page-title {
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+.wz-review-layout .page-subtitle {
+  font-size: 13.5px;
+}
+
+/* 2-Column Balanced Symmetrical Grid on Laptop, Desktop, Big Screen */
+.wz-review-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.wz-review-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Garments card in left column: sized naturally by its managed texts and tiles, zero bottom void */
+.wz-review-col--main .wz-review-card--main {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+}
+
+.wz-review-col--main .wz-review-card--main .garment-card {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+}
+
+.wz-review-card--last {
+  flex-shrink: 0 !important;
+}
+
+/* Card Styling: Elegant, clean, zero unwanted margins */
+.wz-review-layout .wz-review-card {
+  margin: 0 !important;
+  padding: 16px 18px !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  border-radius: 12px !important;
+}
+
+/* Garment Tile Grid: Managed text and tiles with balanced padding, legible labels, no bottom space */
+.wz-review-card .garment-card {
+  padding: 14px 16px !important;
+  gap: 14px !important;
+  border-radius: 10px !important;
+  box-sizing: border-box !important;
+}
+.wz-review-card .garment-card-head {
+  padding-bottom: 8px !important;
+  flex-wrap: wrap;
+  row-gap: 6px;
+  align-items: center;
+}
+.wz-review-card .garment-card-name {
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wz-review-card .garment-section {
+  gap: 8px !important;
+}
+.wz-review-card .garment-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px !important;
+  font-weight: 700;
+  letter-spacing: .07em;
+  margin-bottom: 2px !important;
+  color: var(--accent-text, #96642d);
+}
+.wz-review-card .garment-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+.wz-review-card .garment-section-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px 10px !important;
+  align-items: stretch;
+}
+.wz-review-card .garment-detail {
+  padding: 9px 12px !important;
+  gap: 3px !important;
+  background: var(--surface-inset, #f7f7f5);
+  border: 1px solid var(--border-color);
+  border-radius: 7px !important;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 0 !important;
+  box-sizing: border-box;
+}
+.wz-review-card .garment-detail-label {
+  font-size: 10.5px !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted, var(--text-secondary));
+  line-height: 1.25 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  word-break: break-word;
+}
+.wz-review-card .garment-detail-value {
+  font-size: 13.5px !important;
+  line-height: 1.3 !important;
+  font-weight: 600 !important;
+  color: var(--text-primary);
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
+.wz-review-card--main > .ui-badge {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px !important;
+  margin-bottom: 10px !important;
+  border-radius: var(--radius-md, 8px);
+  font-size: var(--text-xs, 12px);
+  font-weight: 500;
+  text-align: left;
+}
+
+/* Customer Card inside Right Column: Neat and compact */
+.wz-review-card--customer {
+  flex-shrink: 0 !important;
+}
+
+/* "See it on a model" inside Right Column: Compact, elegant preview studio */
+.wz-review-layout .wz-review-preview {
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+.wz-review-layout .wz-review-preview .sidebar-card {
+  position: static !important;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 16px !important;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.wz-review-layout .wz-review-preview fieldset {
+  padding: 8px 10px !important;
+  margin: 0 0 10px !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+}
+
+.wz-review-layout .wz-review-preview img {
+  max-height: 260px;
+  object-fit: cover;
+}
+
+/* Desktop Screens (1367px - 1799px) */
+@media (min-width: 1367px) {
+  .wz-review-layout {
+    max-width: 1240px;
+    gap: 16px;
+  }
+  .wz-review-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+  }
+  .wz-review-col {
+    gap: 16px;
+  }
+}
+
+/* Big Screen (>= 1800px) */
+@media (min-width: 1800px) {
+  .wz-review-layout {
+    max-width: 1360px;
+    gap: 18px;
+  }
+  .wz-review-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px;
+  }
+  .wz-review-col {
+    gap: 18px;
+  }
+}
+
+/* Tablet & Mobile Screens (<= 1024px) */
+@media (max-width: 1024px) {
+  .wz-review-layout {
+    max-width: 800px;
+    gap: 12px;
+  }
+  .wz-review-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .wz-review-col {
+    display: contents;
+  }
+  .wz-review-card--customer {
+    order: 1;
+  }
+  .wz-review-card--main {
+    order: 2;
+  }
+  .wz-review-card--photos {
+    order: 3;
+  }
+  .wz-review-preview {
+    order: 4;
+  }
+  .wz-review-card--last {
+    order: 5;
+  }
+  .wz-review-extra {
+    order: 6;
+  }
+}
+
+/* Money Step */
 .wz-money-card.content-card,
 .page-title-group:has(~ .wz-money-card),
 .wz-error:has(~ .wz-money-card) {
@@ -7052,28 +7282,6 @@ button, input, select, textarea { font-family: inherit; }
   .wz-money-card .wz-money-input .form-control { width: 116px; font-size: 16px; } /* 16px: no iOS zoom */
   .wz-money-card .form-group { max-width: none !important; }
   .wz-money-card #wz-ready { font-size: 16px; }
-}
-
-/* A laptop and wider: the review is a two-column sheet, so it fits the screen
-   instead of one tall column. Garments (the long card) on the left; the
-   customer and every shorter card stacked on the right, in their order; the
-   title across the top. The page is as tall as the longer column, not the
-   sum of every card. The fixed rows let Garments span the right column's
-   height with a set number of gaps; the last row takes whatever is left. */
-@media (min-width: 1100px) {
-  .workspace-panel:has(> .wz-review-card--main) {
-    display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-    grid-template-rows: auto repeat(8, auto) 1fr;
-    gap: 0 20px; /* rows spaced by margins: an empty row adds no gap */
-    align-items: start;
-    max-width: 1180px; width: 100%; margin: 0 auto;
-  }
-  .main-content.full-width:has(.wz-review-card--main) { padding-top: 24px !important; }
-  .workspace-panel:has(> .wz-review-card--main) > * { grid-column: 2; margin: 0 0 16px !important; max-width: none !important; width: auto !important; }
-  .workspace-panel:has(> .wz-review-card--main) > .page-title-group { grid-column: 1 / -1; margin-bottom: 20px !important; }
-  .workspace-panel:has(> .wz-review-card--main) > div:not([class]) { display: none; }
-  .workspace-panel:has(> .wz-review-card--main) > .wz-review-card--main { grid-column: 1; grid-row: 2 / -1; }
 }
 @media (max-width: 640px) {
   .wz-review-card.content-card { padding: 14px !important; }
