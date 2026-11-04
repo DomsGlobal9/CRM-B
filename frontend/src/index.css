@@ -9899,3 +9899,465 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     overflow-y: auto;
   }
 }
+
+
+
+
+
+
+/* ==========================================================================
+   Order Wizard Layout: Full-Height Left Sidebar with Logo & No Top Bar
+   (Tablet, Laptop, Desktop, Big Screen)
+   ========================================================================== */
+
+/* Outer Wizard Wrapper */
+.wizard-outer-wrapper {
+  width: 100%;
+  flex: 1 0 auto;
+  background-color: var(--bg-color);
+  box-sizing: border-box;
+}
+
+/* Base Top Actions (Floating in Top-Right on Desktop/Tablet/Laptop) */
+.wizard-top-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  background: transparent;
+  z-index: 30;
+}
+
+.wizard-autosave-text {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.wizard-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.wizard-close-btn:hover {
+  background: var(--surface-inset);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+/* Sidebar Logo */
+.wizard-sidebar-logo {
+  display: flex;
+  align-items: center;
+}
+
+/* Stepper Heading in Sidebar */
+.stepper-sidebar-heading {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  padding-left: 12px;
+}
+
+/* Stepper Text Group (Title + Subtitle) */
+.stepper-text-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+}
+
+/* Desktop, Laptop, Tablet, Big Screen (>= 769px): Left-Side Vertical Sidebar (No Top Bar!) */
+@media (min-width: 769px) {
+  .wizard-outer-wrapper {
+    display: grid !important;
+    grid-template-columns: 290px minmax(0, 1fr) !important;
+    grid-template-rows: auto 1fr !important;
+    grid-template-areas:
+      "sidebar topactions"
+      "sidebar content" !important;
+    min-height: calc(100vh - 65px) !important;
+    background-color: var(--bg-color) !important;
+  }
+
+  /* Left-Side Full-Height Sidebar (Goes directly to top: 0!) */
+  .wizard-sidebar {
+    grid-area: sidebar !important;
+    background: var(--surface-color) !important;
+    border-right: 1px solid var(--border-color) !important;
+    padding: 28px 18px 40px 22px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    position: sticky !important;
+    top: 0 !important;
+    height: calc(100vh - 65px) !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    z-index: 40 !important;
+  }
+
+  /* Sidebar Header (Contains Logo) */
+  .wizard-sidebar-head {
+    margin-bottom: 28px !important;
+    padding-left: 6px !important;
+  }
+
+  /* Hide Mobile Actions on Desktop */
+  .wizard-mobile-actions {
+    display: none !important;
+  }
+
+  /* Stepper Progress Bar inside Sidebar */
+  .wizard-sidebar .stepper-progress-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  /* Top Actions Float Quietly in Top-Right Corner of Content */
+  .wizard-top-actions {
+    grid-area: topactions !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    gap: 16px !important;
+    padding: 20px 36px 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: none !important;
+  }
+
+  /* Right-Side Form Content */
+  .wizard-outer-wrapper > .main-content {
+    grid-area: content !important;
+    padding: 16px 48px 48px !important;
+    max-width: 1060px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+  }
+
+  /* Individual Step Card in Left Sidebar */
+  .wizard-sidebar .stepper-step {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 14px !important;
+    text-align: left !important;
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    cursor: default !important;
+    user-select: none !important;
+    position: relative !important;
+    z-index: 2 !important;
+    flex: none !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Clickable Step Interaction */
+  .wizard-sidebar .stepper-step--link {
+    cursor: pointer !important;
+  }
+
+  .wizard-sidebar .stepper-step--link:hover {
+    background: var(--surface-inset) !important;
+  }
+
+  .wizard-sidebar .stepper-step--link:hover .stepper-circle {
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary-color) 25%, transparent) !important;
+  }
+
+  .wizard-sidebar .stepper-step--link:hover .stepper-title {
+    color: var(--primary-color) !important;
+  }
+
+  /* Active Step Card: Light Green Pill Background */
+  .wizard-sidebar .stepper-step--active {
+    background: color-mix(in srgb, var(--primary-color) 12%, var(--surface-color)) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  /* Step Circle in Left Sidebar */
+  .wizard-sidebar .stepper-circle {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    margin-bottom: 0 !important;
+    flex-shrink: 0 !important;
+    transition: all 0.2s ease !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Completed Step */
+  .wizard-sidebar .stepper-step--completed .stepper-circle {
+    background-color: var(--primary-color) !important;
+    color: var(--primary-foreground, #ffffff) !important;
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--primary-color) 28%, transparent) !important;
+  }
+
+  /* Active Step Circle */
+  .wizard-sidebar .stepper-step--active .stepper-circle {
+    background-color: var(--primary-color) !important;
+    color: var(--primary-foreground, #ffffff) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 25%, transparent), 0 3px 10px color-mix(in srgb, var(--primary-color) 20%, transparent) !important;
+    transform: scale(1.05) !important;
+  }
+
+  /* Pending Step Circle */
+  .wizard-sidebar .stepper-step--pending .stepper-circle {
+    background-color: var(--surface-color) !important;
+    border: 2px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    font-weight: 600 !important;
+  }
+
+  /* Step Title */
+  .wizard-sidebar .stepper-title {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--text-secondary) !important;
+    line-height: 1.25 !important;
+    transition: color 0.15s ease !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .wizard-sidebar .stepper-step--completed .stepper-title {
+    color: var(--text-primary) !important;
+  }
+
+  .wizard-sidebar .stepper-step--active .stepper-title {
+    color: var(--text-primary) !important;
+    font-weight: 700 !important;
+  }
+
+  /* Step Subtitle */
+  .wizard-sidebar .stepper-subtitle {
+    font-size: 11.5px !important;
+    color: var(--text-muted) !important;
+    margin-top: 2px !important;
+    line-height: 1.3 !important;
+    transition: color 0.15s ease !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .wizard-sidebar .stepper-step--completed .stepper-subtitle {
+    color: var(--success-color, #166534) !important;
+    font-weight: 500 !important;
+  }
+
+  .wizard-sidebar .stepper-step--active .stepper-subtitle {
+    color: var(--primary-color) !important;
+    font-weight: 600 !important;
+  }
+
+  /* Vertical Connecting Track Line */
+  .wizard-sidebar .stepper-line {
+    width: 2.5px !important;
+    height: 20px !important;
+    margin: 0 0 0 31.75px !important;
+    background-color: var(--border-color) !important;
+    border-radius: 999px !important;
+    flex-shrink: 0 !important;
+    transition: background-color 0.25s ease !important;
+  }
+
+  .wizard-sidebar .stepper-line--completed {
+    background-color: var(--primary-color) !important;
+  }
+}
+
+/* ==========================================================================
+   Screen Size Specific Customizations for Left Stepper
+   ========================================================================== */
+
+/* Big Screen (1920px+ and 2K/4K monitors) */
+@media (min-width: 1920px) {
+  .wizard-outer-wrapper {
+    grid-template-columns: 320px minmax(0, 1fr) !important;
+  }
+  .wizard-sidebar {
+    padding: 32px 20px 48px 28px !important;
+  }
+  .wizard-outer-wrapper > .main-content {
+    padding: 24px 64px 60px !important;
+    max-width: 1200px !important;
+  }
+  .wizard-sidebar .stepper-circle {
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    font-size: 15px !important;
+  }
+  .wizard-sidebar .stepper-line {
+    margin: 0 0 0 33.75px !important;
+    height: 24px !important;
+  }
+  .wizard-sidebar .stepper-title {
+    font-size: 15px !important;
+  }
+  .wizard-sidebar .stepper-subtitle {
+    font-size: 12.5px !important;
+  }
+}
+
+/* Desktop (1367px - 1919px) */
+@media (min-width: 1367px) and (max-width: 1919px) {
+  .wizard-outer-wrapper {
+    grid-template-columns: 290px minmax(0, 1fr) !important;
+  }
+  .wizard-sidebar {
+    padding: 28px 18px 40px 24px !important;
+  }
+  .wizard-outer-wrapper > .main-content {
+    padding: 16px 48px 48px !important;
+  }
+}
+
+/* Laptop (1025px - 1366px) */
+@media (min-width: 1025px) and (max-width: 1366px) {
+  .wizard-outer-wrapper {
+    grid-template-columns: 270px minmax(0, 1fr) !important;
+  }
+  .wizard-sidebar {
+    padding: 24px 14px 36px 18px !important;
+  }
+  .wizard-outer-wrapper > .main-content {
+    padding: 16px 36px 40px !important;
+  }
+}
+
+/* Tablet (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .wizard-outer-wrapper {
+    grid-template-columns: 240px minmax(0, 1fr) !important;
+  }
+  .wizard-sidebar {
+    padding: 20px 10px 30px 14px !important;
+  }
+  .wizard-outer-wrapper > .main-content {
+    padding: 16px 24px 32px !important;
+  }
+  .wizard-sidebar .stepper-step {
+    padding: 8px 10px !important;
+    gap: 10px !important;
+  }
+  .wizard-sidebar .stepper-circle {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    font-size: 12.5px !important;
+  }
+  .wizard-sidebar .stepper-line {
+    margin: 0 0 0 25px !important;
+    height: 16px !important;
+  }
+  .wizard-sidebar .stepper-title {
+    font-size: 13px !important;
+  }
+  .wizard-sidebar .stepper-subtitle {
+    font-size: 10.5px !important;
+  }
+}
+
+/* Mobile (<= 768px): Gracefully sits at the top with horizontal scroll */
+@media (max-width: 768px) {
+  .wizard-outer-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .wizard-sidebar {
+    display: block !important;
+    padding: 12px 16px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    background: var(--surface-color) !important;
+    height: auto !important;
+    position: static !important;
+  }
+  .wizard-sidebar-head {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    width: 100% !important;
+    margin-bottom: 12px !important;
+  }
+  .wizard-mobile-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 16px !important;
+  }
+  .wizard-top-actions {
+    display: none !important;
+  }
+  .stepper-sidebar-heading {
+    display: none !important;
+  }
+  .wizard-sidebar .stepper-progress-bar {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+    gap: 16px !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    height: auto !important;
+    position: static !important;
+    border-right: none !important;
+    padding: 8px 0 !important;
+  }
+  .wizard-sidebar .stepper-step {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    width: 90px !important;
+    min-width: 90px !important;
+    padding: 4px 6px !important;
+    gap: 6px !important;
+  }
+  .wizard-sidebar .stepper-circle {
+    width: 30px !important;
+    height: 30px !important;
+    min-width: 30px !important;
+    font-size: 12px !important;
+  }
+  .stepper-text-group {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+  }
+  .wizard-sidebar .stepper-title {
+    font-size: 11.5px !important;
+  }
+  .wizard-sidebar .stepper-subtitle {
+    font-size: 9.5px !important;
+  }
+  .wizard-sidebar .stepper-line {
+    display: none !important;
+  }
+}
+
