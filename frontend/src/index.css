@@ -6383,7 +6383,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
     display: flex !important; flex-direction: column; gap: 10px;
     padding: 14px 16px !important; background: var(--row-status-bg, var(--surface-color));
     border: 1px solid var(--border-color) !important; border-radius: 12px;
-    box-shadow: inset 4px 0 0 var(--row-status-border, transparent), var(--shadow-card);
+    box-shadow: var(--shadow-card);
   }
   .orders-book > tbody > tr:last-child { border-bottom: 1px solid var(--border-color) !important; }
   .orders-book > tbody > tr > td { padding: 0 !important; }
@@ -6391,11 +6391,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .orders-book > tbody > tr.gh-express {
     background: var(--row-status-bg, var(--surface-color)) !important;
     border-color: color-mix(in srgb, var(--danger-color) 30%, var(--border-color)) !important;
-    box-shadow: inset 4px 0 0 var(--danger-color), var(--shadow-card) !important;
+    box-shadow: var(--shadow-card) !important;
   }
   .orders-book > tbody > tr.at-row-stuck:not(.gh-express):not(.at-row-late) {
     background: var(--row-status-bg, var(--surface-color)) !important;
-    box-shadow: inset 4px 0 0 var(--warning-color, #d97706), var(--shadow-card) !important;
+    box-shadow: var(--shadow-card) !important;
   }
   .orders-book > tbody > tr.gh-express > td:first-child { box-shadow: none; }
   /* "Promised by" and its date on one line, under a hairline. */
@@ -7625,18 +7625,13 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   background-color: var(--row-status-bg, inherit) !important;
 }
 
-/* Left accent bar on first cell: status border with express/stuck/late indicators taking precedence */
-.orders-book > tbody > tr > td:first-child {
-  box-shadow: inset 4px 0 0 var(--row-status-border, transparent);
-}
-.orders-book > tbody > tr.gh-express > td:first-child {
-  box-shadow: inset 3.5px 0 0 var(--danger-color) !important;
-}
-.orders-book > tbody > tr.at-row-stuck:not(.gh-express):not(.at-row-late) > td:first-child {
-  box-shadow: inset 3.5px 0 0 var(--warning-color, #d97706) !important;
-}
-.orders-book > tbody > tr.at-row-late > td:first-child {
-  box-shadow: inset 4px 0 0 var(--danger-color) !important;
+/* In orders-book: remove left indicator lines (status border, express red line, stuck amber line, late red line) */
+.orders-book > tbody > tr > td:first-child,
+.orders-book > tbody > tr.gh-express > td:first-child,
+.orders-book > tbody > tr.at-row-stuck > td:first-child,
+.orders-book > tbody > tr.at-row-late > td:first-child,
+.orders-book > tbody > tr.gh-express.at-row-stuck > td:first-child {
+  box-shadow: none !important;
 }
 
 /* Orders / Workshop list: "Assigned to", the person who has the current step. */

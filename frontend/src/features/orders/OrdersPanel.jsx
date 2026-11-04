@@ -325,7 +325,6 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
                   style={{
                     backgroundColor: rowStyle.rowBg,
                     '--row-status-bg': rowStyle.rowBg,
-                    '--row-status-border': rowStyle.border,
                     ...(isCancelled ? { opacity: 0.55 } : {}),
                   }}>
                 <td className="order-id-cell">

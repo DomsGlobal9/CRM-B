@@ -42,81 +42,117 @@ export const sinceLabel = (iso) => {
 };
 
 export const STEP_COLORS = {
-  // Cutting: Sky Blue
-  pattern_cutting: { rowBg: '#dbeafe', bg: '#bfdbfe', border: '#3b82f6', text: '#1d4ed8' },
-  cutting:         { rowBg: '#dbeafe', bg: '#bfdbfe', border: '#3b82f6', text: '#1d4ed8' },
-  // Paper Cutting: Vivid Turquoise Teal
-  paper_cutting:   { rowBg: '#ccfbf1', bg: '#99f6e4', border: '#14b8a6', text: '#0f766e' },
-  // Fabric Cutting: Indigo / Royal Periwinkle
-  fabric_cutting:  { rowBg: '#e0e7ff', bg: '#c7d2fe', border: '#6366f1', text: '#4338ca' },
-  // Maggam / Embroidery: Deep Orchid Purple
-  maggam:              { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
-  maggam_work:         { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
-  maggam_handwork:     { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
-  maggam_verification: { rowBg: '#fae8ff', bg: '#f5d0fe', border: '#d946ef', text: '#a21caf' },
-  embroidery:          { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' },
-  // Stitching: Warm Golden Amber
-  stitching:             { rowBg: '#fef3c7', bg: '#fde68a', border: '#f59e0b', text: '#b45309' },
-  stitching_in_progress: { rowBg: '#fef3c7', bg: '#fde68a', border: '#f59e0b', text: '#b45309' },
-  // Finishing: Fresh Lime Chartreuse
-  finishing: { rowBg: '#ecfccb', bg: '#d9f99d', border: '#84cc16', text: '#3f6212' },
-  // Pressing & Packaging: Electric Cyan / Aqua
-  pressing:  { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' },
-  ironing:   { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' },
-  packaging: { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' },
-  // Quality Check: Vivid Rose Pink
-  master_quality_check: { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' },
-  quality_check:        { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' },
-  qc:                   { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' },
-  // Trial: Lavender Iris
-  trial:           { rowBg: '#ede9fe', bg: '#ddd6fe', border: '#8b5cf6', text: '#6d28d9' },
-  trial_scheduled: { rowBg: '#ede9fe', bg: '#ddd6fe', border: '#8b5cf6', text: '#6d28d9' },
-  trial_completed: { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
-  // Alteration: Tangerine Orange
+  // 1. Order taken (Pill 1: #E3EED4)
+  created:     { rowBg: '#F4F8EE', bg: '#E3EED4', border: '#B1BAA5', text: '#132216' },
+  order_taken: { rowBg: '#F4F8EE', bg: '#E3EED4', border: '#B1BAA5', text: '#132216' },
+  new:         { rowBg: '#F4F8EE', bg: '#E3EED4', border: '#B1BAA5', text: '#132216' },
+  not_sent:    { rowBg: '#F4F8EE', bg: '#E3EED4', border: '#B1BAA5', text: '#132216' },
+
+  // 2. Design
+  design:          { rowBg: '#EEF5E7', bg: '#D1E0C8', border: '#A3AE9C', text: '#132216' },
+  pattern_cutting: { rowBg: '#EEF5E7', bg: '#D1E0C8', border: '#A3AE9C', text: '#132216' },
+
+  // 3. Paper cutting
+  paper_cutting: { rowBg: '#E8F1DF', bg: '#C0D1BC', border: '#96A393', text: '#132216' },
+
+  // 4. Maggam design (Pill 2: #AEC3B0)
+  maggam_work:   { rowBg: '#E2EDD7', bg: '#AEC3B0', border: '#889889', text: '#132216' },
+  maggam_design: { rowBg: '#E2EDD7', bg: '#AEC3B0', border: '#889889', text: '#132216' },
+  maggam:        { rowBg: '#E2EDD7', bg: '#AEC3B0', border: '#889889', text: '#132216' },
+  embroidery:    { rowBg: '#E2EDD7', bg: '#AEC3B0', border: '#889889', text: '#132216' },
+
+  // 5. Maggam handwork
+  maggam_handwork: { rowBg: '#DCE9D0', bg: '#98B29B', border: '#768B79', text: '#132216' },
+
+  // 6. Maggam verification
+  maggam_verification: { rowBg: '#D6E5C8', bg: '#81A186', border: '#657E69', text: '#132216' },
+
+  // 7. Fabric cutting (Pill 3: #6B9071)
+  fabric_cutting: { rowBg: '#D0E1C1', bg: '#6B9071', border: '#537058', text: '#132216' },
+  cutting:        { rowBg: '#D0E1C1', bg: '#6B9071', border: '#537058', text: '#132216' },
+
+  // 8. Stitching
+  stitching:             { rowBg: '#CADDBC', bg: '#5A7C5D', border: '#466148', text: '#FFFFFF' },
+  stitching_in_progress: { rowBg: '#CADDBC', bg: '#5A7C5D', border: '#466148', text: '#FFFFFF' },
+
+  // 9. Hemming & finishing
+  finishing:         { rowBg: '#C4D9B7', bg: '#486948', border: '#385238', text: '#FFFFFF' },
+  hemming:           { rowBg: '#C4D9B7', bg: '#486948', border: '#385238', text: '#FFFFFF' },
+  hemming_finishing: { rowBg: '#C4D9B7', bg: '#486948', border: '#385238', text: '#FFFFFF' },
+
+  // 10. Pressing (Pill 4: #375534)
+  pressing:           { rowBg: '#BED5B1', bg: '#375534', border: '#2B4229', text: '#FFFFFF' },
+  ironing:            { rowBg: '#BED5B1', bg: '#375534', border: '#2B4229', text: '#FFFFFF' },
+  packaging:          { rowBg: '#BED5B1', bg: '#375534', border: '#2B4229', text: '#FFFFFF' },
+  pressing_packaging: { rowBg: '#BED5B1', bg: '#375534', border: '#2B4229', text: '#FFFFFF' },
+
+  // 11. Master quality check
+  master_quality_check: { rowBg: '#B8D1AC', bg: '#2A472C', border: '#203723', text: '#FFFFFF' },
+  quality_check:        { rowBg: '#B8D1AC', bg: '#2A472C', border: '#203723', text: '#FFFFFF' },
+  qc:                   { rowBg: '#B8D1AC', bg: '#2A472C', border: '#203723', text: '#FFFFFF' },
+
+  // 12. Trial booking
+  trial_scheduled: { rowBg: '#B2CDA6', bg: '#1C3825', border: '#162C1D', text: '#FFFFFF' },
+  trial_booking:   { rowBg: '#B2CDA6', bg: '#1C3825', border: '#162C1D', text: '#FFFFFF' },
+
+  // 13. Trial (Pill 5: #0F2A1D)
+  trial_completed: { rowBg: '#ACC9A1', bg: '#0F2A1D', border: '#0C2117', text: '#FFFFFF' },
+  trial:           { rowBg: '#ACC9A1', bg: '#0F2A1D', border: '#0C2117', text: '#FFFFFF' },
+
+  // 14. Delivery prep
+  ready_for_delivery: { rowBg: '#D0D9B8', bg: '#535A3A', border: '#41462D', text: '#FFFFFF' },
+  delivery_prep:      { rowBg: '#D0D9B8', bg: '#535A3A', border: '#41462D', text: '#FFFFFF' },
+
+  // 15. Payment
+  payment: { rowBg: '#DFDDC4', bg: '#7C774B', border: '#615D3A', text: '#FFFFFF' },
+
+  // 16. Delivery (Sand: #978A56)
+  delivery:  { rowBg: '#EEE8D2', bg: '#978A56', border: '#766C43', text: '#132216' },
+  delivered: { rowBg: '#EEE8D2', bg: '#978A56', border: '#766C43', text: '#132216' },
+
+  // Alteration & Status
   alteration:      { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' },
   alteration_work: { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' },
-  // Delivery: Fresh Emerald Green
-  ready_for_delivery: { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
-  delivery:           { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
-  delivered:          { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' },
-  // Payment: Fuchsia Berry
-  payment: { rowBg: '#fae8ff', bg: '#f5d0fe', border: '#d946ef', text: '#a21caf' },
-  // New / Created / Not sent: Canary Yellow
-  new:      { rowBg: '#fef9c3', bg: '#fef08a', border: '#eab308', text: '#854d0e' },
-  not_sent: { rowBg: '#fef9c3', bg: '#fef08a', border: '#eab308', text: '#854d0e' },
-  // Cancelled: Cool Slate Gray
-  cancelled: { rowBg: '#e2e8f0', bg: '#cbd5e1', border: '#64748b', text: '#475569' },
+  cancelled:       { rowBg: '#e2e8f0', bg: '#cbd5e1', border: '#64748b', text: '#475569' },
 };
 
 export const getStageBadgeStyle = (stageKey, stageName = '') => {
   if (stageKey && STEP_COLORS[stageKey]) return STEP_COLORS[stageKey];
   const name = (stageName || stageKey || '').toLowerCase();
+
+  if (name.includes('order taken') || name.includes('not sent') || name.includes('new') || name.includes('create')) return STEP_COLORS.created;
+  if (name.includes('design') && !name.includes('maggam')) return STEP_COLORS.design;
   if (name.includes('paper')) return STEP_COLORS.paper_cutting;
+  if (name.includes('maggam verification') || name.includes('maggam verify')) return STEP_COLORS.maggam_verification;
+  if (name.includes('maggam handwork') || name.includes('maggam hand')) return STEP_COLORS.maggam_handwork;
+  if (name.includes('maggam') || name.includes('embroid') || name.includes('zari')) return STEP_COLORS.maggam_work;
   if (name.includes('fabric')) return STEP_COLORS.fabric_cutting;
   if (name.includes('cut')) return STEP_COLORS.pattern_cutting;
-  if (name.includes('maggam') || name.includes('embroid') || name.includes('zari')) return STEP_COLORS.maggam_work;
   if (name.includes('stitch') || name.includes('sew')) return STEP_COLORS.stitching_in_progress;
   if (name.includes('finish') || name.includes('hem')) return STEP_COLORS.finishing;
   if (name.includes('press') || name.includes('iron') || name.includes('pack')) return STEP_COLORS.pressing;
   if (name.includes('qc') || name.includes('quality') || name.includes('check')) return STEP_COLORS.master_quality_check;
-  if (name.includes('trial') || name.includes('fit')) return STEP_COLORS.trial_scheduled;
-  if (name.includes('alter')) return STEP_COLORS.alteration_work;
-  if (name.includes('deliver') || name.includes('ready')) return STEP_COLORS.delivered;
+  if (name.includes('trial book') || name.includes('trial schedule')) return STEP_COLORS.trial_scheduled;
+  if (name.includes('trial') || name.includes('fit')) return STEP_COLORS.trial_completed;
+  if (name.includes('prep') || name.includes('ready')) return STEP_COLORS.ready_for_delivery;
   if (name.includes('pay') || name.includes('bill')) return STEP_COLORS.payment;
+  if (name.includes('deliver')) return STEP_COLORS.delivered;
+  if (name.includes('alter')) return STEP_COLORS.alteration_work;
   if (name.includes('cancel')) return STEP_COLORS.cancelled;
-  if (name.includes('not sent') || name.includes('new') || name.includes('create')) return STEP_COLORS.new;
 
   const PALETTE = [
-    { rowBg: '#dbeafe', bg: '#bfdbfe', border: '#3b82f6', text: '#1d4ed8' }, // Blue
-    { rowBg: '#f3e8ff', bg: '#e9d5ff', border: '#a855f7', text: '#7e22ce' }, // Purple
-    { rowBg: '#fef3c7', bg: '#fde68a', border: '#f59e0b', text: '#b45309' }, // Amber
-    { rowBg: '#ccfbf1', bg: '#99f6e4', border: '#14b8a6', text: '#0f766e' }, // Teal
-    { rowBg: '#fce7f3', bg: '#fbcfe8', border: '#ec4899', text: '#be185d' }, // Rose Pink
-    { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' }, // Orange
-    { rowBg: '#ecfccb', bg: '#d9f99d', border: '#84cc16', text: '#3f6212' }, // Lime
-    { rowBg: '#cffafe', bg: '#a5f3fc', border: '#06b6d4', text: '#0e7490' }, // Cyan
-    { rowBg: '#e0e7ff', bg: '#c7d2fe', border: '#6366f1', text: '#4338ca' }, // Indigo
-    { rowBg: '#dcfce7', bg: '#bbf7d0', border: '#22c55e', text: '#15803d' }, // Emerald
+    STEP_COLORS.created,
+    STEP_COLORS.design,
+    STEP_COLORS.paper_cutting,
+    STEP_COLORS.maggam_work,
+    STEP_COLORS.fabric_cutting,
+    STEP_COLORS.stitching,
+    STEP_COLORS.finishing,
+    STEP_COLORS.pressing,
+    STEP_COLORS.master_quality_check,
+    STEP_COLORS.trial_completed,
+    STEP_COLORS.ready_for_delivery,
+    STEP_COLORS.delivered,
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash << 5) - hash + name.charCodeAt(i);
