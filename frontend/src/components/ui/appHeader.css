@@ -183,3 +183,13 @@
   .portal-layout.nav-collapsed .portal-menu { padding: 0; }
   .portal-layout.nav-collapsed .portal-menu-item { width: 44px; height: 44px; min-height: 44px; padding: 0; margin-left: auto; margin-right: auto; border-radius: 12px; justify-content: center; gap: 0; }
 }
+
+/* The header stays at the top while the page scrolls under it. The window does
+   the scrolling, so .portal-main must not be a scroll box of its own or the header
+   would stick to a box that never moves. min-width: 0 keeps a wide table from
+   stretching the page's column. A phone has its own fixed bar above. */
+@media (min-width: 769px) {
+  .portal-main:has(> .at-topbar) { overflow: visible; min-width: 0; }
+  .portal-main > .at-topbar { position: sticky; top: 0; }
+  html:has(.portal-main > .at-topbar) { scroll-padding-top: 66px; }
+}
