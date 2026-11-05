@@ -1,0 +1,27 @@
+/* =====================================================================
+   How wide a page of the workspace may grow. One place, so no screen invents
+   its own: a page fills the room the sidebar leaves, and only a very wide
+   monitor sees any margin.
+
+   Reach for these instead of a pixel max-width on a page:
+     --page-max-width    a whole page or list
+     --page-form-width   a form with sections, or a row of large choices
+     --page-step-width   one short question, such as a few fields in a card
+     --page-card-min     the narrowest a card may be in a grid of cards
+
+   Forms grow with the screen but less than lists do: a field stretched across
+   a monitor is harder to use, not easier. Up to a 1366px laptop they hold
+   their smallest size. Dialogs and filter rows keep their own sizes.
+   ===================================================================== */
+:root {
+  --page-max-width: 2200px;
+  --page-form-width: clamp(1000px, 72vw, 1400px);
+  --page-step-width: clamp(760px, 55vw, 1100px);
+  --page-card-min: 420px;
+}
+
+/* The platform console shares these stylesheets and keeps its own width. */
+.sa-shell { --page-max-width: 1400px; }
+
+/* The order form's body sits beside its fixed step list. */
+.wizard-outer-wrapper > .main-content { max-width: var(--page-max-width); }

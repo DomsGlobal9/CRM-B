@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
 @import './themes.css';
 @import './color-tokens.css';
+@import './page-layout.css';
 
 :root {
   /* ---- Scaleezy: lime on Cloud Dancer, a deep-olive shell ---------------
@@ -2247,7 +2248,7 @@ table.data-table tbody tr:hover {
 .portal-main {
   padding: 40px;
   overflow-y: auto;
-  max-width: 1400px;
+  max-width: var(--page-max-width);
   width: 100%;
   margin: 0 auto;
 }
@@ -2636,7 +2637,7 @@ table.data-table tbody tr:hover {
    ORDER TYPE SELECTOR (Image 5)
    ========================================== */
 .selector-container {
-  max-width: 1000px;
+  max-width: var(--page-form-width);
   margin: 40px auto;
   width: 100%;
   display: flex;
@@ -6468,7 +6469,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
    screen, one under the other on a phone; then "More about the customer".
    Even spacing between them, rather than labels pressed against the box
    above. */
-.wz-who-wrap { width: 100%; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.wz-who-wrap { width: 100%; max-width: var(--page-step-width); margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 .wz-who-wrap > .page-title-group { margin-bottom: 0; }
 .wz-card.wz-who { gap: 20px; padding: 28px; }
 .wz-who .form-group { margin: 0; min-width: 0; }
@@ -6498,7 +6499,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
    a box inside a box. Once a garment is on the order the wrapper steps aside
    (display: contents) and the step keeps its full-width layout. */
 .wz-type-wrap { display: contents; }
-.wz-type-wrap--empty { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: 760px; margin: 0 auto; }
+.wz-type-wrap--empty { display: flex; flex-direction: column; gap: 20px; width: 100%; max-width: var(--page-step-width); margin: 0 auto; }
 .wz-type-wrap--empty > .page-title-group { margin-bottom: 0; }
 .wz-type-wrap--empty > .wz-card { padding: 28px; }
 .wz-type-wrap--empty > .wz-card > div:first-child {
@@ -6552,7 +6553,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
    (wider than the Customer step's, for the design and fabric pickers). On
    the Review step the model preview is a card like the others: in the flow,
    not pinned as it was in the side column. */
-.wz-type-wrap { display: flex; flex-direction: column; gap: 32px; width: 100%; max-width: 1040px; margin: 0 auto; }
+.wz-type-wrap { display: flex; flex-direction: column; gap: 32px; width: 100%; max-width: calc(var(--page-form-width) + 40px); margin: 0 auto; }
 .wz-review-preview { margin-top: -16px; }
 .wz-review-preview .sidebar-card { position: static !important; padding: 16px 20px; }
 @media (max-width: 640px) {
@@ -6560,7 +6561,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   .wz-review-preview .sidebar-card { padding: 14px; }
 }
 /* Before the first garment, the step keeps its narrower column. */
-.wz-type-wrap.wz-type-wrap--empty { max-width: 760px; gap: 20px; }
+.wz-type-wrap.wz-type-wrap--empty { max-width: var(--page-step-width); gap: 20px; }
 @media (max-width: 640px) { .wz-type-wrap.wz-type-wrap--empty { gap: 14px; } }
 
 /* ---- New order > Garments step, with garments on the order --------------
@@ -6793,7 +6794,7 @@ button, input, select, textarea { font-family: inherit; }
 /* ---- New order redesign (MOM, 2026-10-24) ------------------------------ */
 
 /* Three doors: Stitching, Alteration, In-house. */
-.wz-services--three { max-width: 980px; margin-inline: auto; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.wz-services--three { max-width: calc(var(--page-form-width) - 20px); margin-inline: auto; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 .wz-services--three .wz-service { min-height: 190px; }
 /* In the page's flex column the auto side margins shrink-wrap the grid to one
    row of cards; a full width (still capped at 980px) lets them wrap. Three
@@ -8366,7 +8367,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
    straight under it, the three doors close below -- no band of empty page
    above. Back sits on the left edge of the doors. Phones (no chip row) start
    with Back at the top of the page. */
-.selector-back { display: flex; align-items: center; min-height: 42px; width: 100%; max-width: 980px; margin-inline: auto; }
+.selector-back { display: flex; align-items: center; min-height: 42px; width: 100%; max-width: calc(var(--page-form-width) - 20px); margin-inline: auto; }
 .selector-back .at-link { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 .portal-main > .selector-container { margin: 0 auto 32px; gap: 14px; }
 .portal-main > .selector-container > .selector-header { gap: 6px; }
@@ -8933,7 +8934,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
    ========================================================================== */
 
 .settings-ref-page {
-  max-width: 1240px;
+  max-width: var(--page-max-width);
   width: 100%;
   margin: 0 auto;
   display: flex;

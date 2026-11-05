@@ -139,8 +139,8 @@ function BusinessChart({ orders, ordersReady, reloadKey, t }) {
             <svg viewBox="0 0 1000 180" preserveAspectRatio="none" aria-hidden="true">
               <defs>
                 <linearGradient id="dsh-area" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#B7F34A" stopOpacity=".26" />
-                  <stop offset="100%" stopColor="#B7F34A" stopOpacity="0" />
+                  <stop offset="0%" style={{ stopColor: 'var(--primary-700)' }} stopOpacity=".26" />
+                  <stop offset="100%" style={{ stopColor: 'var(--primary-700)' }} stopOpacity="0" />
                 </linearGradient>
               </defs>
               <line x1="0" x2="1000" y1="16" y2="16" className="dsh-grid-line" />

@@ -1,6 +1,13 @@
 /* Work screens for the floor: phone first, one thing at a time. Nothing under 14px. */
 
 .wk { padding: 0 0 var(--space-4); max-width: 720px; margin: 0 auto; font-size: 15px; color: var(--text-primary); }
+/* On a desktop the cards share the width; everything else in the list spans it. */
+@media (min-width: 1025px) {
+  .wk { max-width: var(--page-max-width); }
+  .wk, .wk-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--page-card-min), 1fr)); gap: 10px; align-items: start; }
+  .wk > :not(.wk-card), .wk-group > :not(.wk-card) { grid-column: 1 / -1; }
+  .wk > .wk-card, .wk-group > .wk-card { margin-bottom: 0; }
+}
 .wk .ui-badge { font-size: var(--text-base); }
 .wk-group { margin-bottom: var(--space-5); }
 .wk-group-title { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-base); font-weight: 600; text-transform: uppercase;

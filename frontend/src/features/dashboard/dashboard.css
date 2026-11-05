@@ -1,34 +1,7 @@
-/* The owner's Dashboard (OverviewPanel.jsx): its own premium dark look, set here
-   as the theme's tokens on the page only, so every other page and popup keeps
-   its theme. Lime is the one accent and marks only what matters; red only what
-   is late. The layout follows the room the page really has (container queries),
-   so the sidebar counts as well as the screen's size. */
-.portal-layout:has(.dsh) { background: #141817; --shell-bg: #091A14; }
-body:has(.dsh) { background: #141817; }
-.portal-main:has(.dsh) {
-  --bg-color: #141817;
-  --surface-color: #202522;
-  --surface-2: #272D29;
-  --surface-inset: #2A302C;
-  --surface-1: #202522;
-  --border-color: rgba(245, 245, 240, .09);
-  --border-strong: rgba(245, 245, 240, .2);
-  --text-primary: #F5F5F0;
-  --text-secondary: #A5ADA7;
-  --text-muted: #8D9590;
-  --primary-color: #B7F34A;
-  --accent-color: rgba(183, 243, 74, .14);
-  --accent-text: #B7F34A;
-  --accent-border: rgba(183, 243, 74, .4);
-  --danger-color: #F28B82;
-  --danger-bg: rgba(242, 139, 130, .14);
-  --warning-color: #F2B45A;
-  --warning-bg: rgba(242, 180, 90, .14);
-  --success-color: #7FD99A;
-  --success-bg: rgba(127, 217, 154, .14);
-  --shadow-card: none;
-  color: var(--text-primary);
-}
+/* The owner's Dashboard (OverviewPanel.jsx). It follows the theme like every other
+   page, so every colour here is a theme token. Primary is the one accent and marks
+   only what matters; danger only what is late. The layout follows the room the page
+   really has (container queries), so the sidebar counts as well as the screen's size. */
 
 /* ---- The page's top row ------------------------------------------------------ */
 .portal-main:has(.dsh) > .at-page-head { align-items: center; margin-bottom: 18px; }
@@ -46,10 +19,8 @@ body:has(.dsh) { background: #141817; }
 .dsh-search input::placeholder { color: var(--text-muted); }
 .portal-main:has(.dsh) .btn-primary.btn-gold.dsh-new-order {
   display: inline-flex; align-items: center; gap: 8px; height: 42px; min-height: 42px; padding: 0 18px; white-space: nowrap;
-  background: #B7F34A; border-color: #B7F34A; color: #141817; border-radius: 12px; font-weight: 600;
-  box-shadow: 0 0 22px rgba(183, 243, 74, .16); transition: box-shadow .15s ease, filter .15s ease;
+  border-radius: 12px; font-weight: 600;
 }
-.portal-main:has(.dsh) .btn-primary.btn-gold.dsh-new-order:hover:not(:disabled) { background: #B7F34A; border-color: #B7F34A; color: #141817; filter: brightness(1.05); box-shadow: 0 0 28px rgba(183, 243, 74, .26); }
 .portal-main:has(.dsh) .portal-account-bell-btn { background: var(--surface-color); border-color: var(--border-color); color: var(--text-primary); }
 .portal-main:has(.dsh) .portal-account-bell-btn:hover:not(:disabled) { background: var(--surface-2); border-color: var(--border-strong); color: var(--text-primary); }
 
@@ -69,8 +40,8 @@ body:has(.dsh) { background: #141817; }
 .dsh-refresh:hover:not(:disabled) { border-color: var(--border-strong); }
 
 .dsh-card, .dsh-figure {
-  background: linear-gradient(180deg, rgba(245, 245, 240, .025), transparent 60%), var(--surface-color);
-  border: 1px solid var(--border-color); border-radius: 14px; box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  background: var(--surface-color);
+  border: 1px solid var(--border-color); border-radius: 14px; box-shadow: var(--shadow-card);
 }
 .dsh-card { display: flex; flex-direction: column; gap: 14px; min-width: 0; padding: 18px 20px; }
 .dsh-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
@@ -101,8 +72,8 @@ body:has(.dsh) { background: #141817; }
 .dsh-figure-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 .dsh-figure-sub { font-size: 12px; line-height: 1.4; color: var(--text-muted); }
 .dsh-figure--lead {
-  border-color: rgba(183, 243, 74, .28);
-  background: radial-gradient(120% 130% at 100% 0%, rgba(183, 243, 74, .13), transparent 60%), var(--surface-color);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  background: radial-gradient(120% 130% at 100% 0%, color-mix(in srgb, var(--primary-color) 13%, transparent), transparent 60%), var(--surface-color);
 }
 .dsh-figure--lead .dsh-icon { background: var(--accent-color); color: var(--accent-text); }
 .dsh-figure--danger .dsh-figure-value, .dsh-figure--danger .dsh-figure-sub { color: var(--danger-color); }
@@ -119,8 +90,8 @@ body:has(.dsh) { background: #141817; }
 .dsh-legend li { display: inline-flex; align-items: center; gap: 6px; }
 .dsh-legend strong { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
 .dsh-key { display: inline-block; flex-shrink: 0; }
-.dsh-key--line { width: 12px; height: 2px; border-radius: 2px; background: #B7F34A; }
-.dsh-key--bar { width: 8px; height: 10px; border-radius: 2px; background: rgba(245, 245, 240, .42); }
+.dsh-key--line { width: 12px; height: 2px; border-radius: 2px; background: var(--primary-700); }
+.dsh-key--bar { width: 8px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--text-primary) 42%, transparent); }
 .dsh-seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface-inset); border-radius: 10px; }
 .dsh-seg button { min-height: 0; height: auto; padding: 5px 10px; background: none; border: none; border-radius: 8px; box-shadow: none; font: inherit; font-size: 12px; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: background .15s ease, color .15s ease; }
 .dsh-seg button:hover { color: var(--text-primary); }
@@ -131,23 +102,23 @@ body:has(.dsh) { background: #141817; }
 .dsh-plot { position: relative; }
 .dsh-plot--line { flex: 1 1 auto; min-height: 150px; }
 .dsh-plot--line svg { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-.dsh-grid-line { stroke: rgba(245, 245, 240, .07); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.dsh-line { fill: none; stroke: #B7F34A; stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.dsh-grid-line { stroke: color-mix(in srgb, var(--text-primary) 9%, transparent); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.dsh-line { fill: none; stroke: var(--primary-700); stroke-width: 2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .dsh-y { position: absolute; left: 0; z-index: 1; font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--text-muted); pointer-events: none; }
 .dsh-y--top { top: 2px; }
 .dsh-y--mid { top: calc(53% - 13px); }
 .dsh-plot--bars { display: flex; align-items: flex-end; height: 40px; margin-top: 8px; }
 .dsh-bar-slot { display: flex; align-items: flex-end; justify-content: center; flex: 1 1 0; height: 100%; min-width: 0; }
-.dsh-bar { width: min(60%, 18px); min-width: 2px; border-radius: 2px 2px 0 0; background: rgba(245, 245, 240, .28); transition: background .12s ease; }
-.dsh-bar--on { background: rgba(245, 245, 240, .7); }
+.dsh-bar { width: min(60%, 18px); min-width: 2px; border-radius: 2px 2px 0 0; background: color-mix(in srgb, var(--text-primary) 28%, transparent); transition: background .12s ease; }
+.dsh-bar--on { background: color-mix(in srgb, var(--text-primary) 70%, transparent); }
 .dsh-x { display: flex; margin-top: 6px; }
 .dsh-x span { flex: 1 1 0; min-width: 0; overflow: visible; white-space: nowrap; text-align: center; font-size: 11px; color: var(--text-muted); }
 .dsh-hits { position: absolute; inset: 0; display: flex; z-index: 2; }
 .dsh-hits span { flex: 1 1 0; }
-.dsh-cross { position: absolute; top: 0; bottom: 22px; width: 1px; background: rgba(245, 245, 240, .25); pointer-events: none; }
+.dsh-cross { position: absolute; top: 0; bottom: 22px; width: 1px; background: color-mix(in srgb, var(--text-primary) 25%, transparent); pointer-events: none; }
 .dsh-tip {
   position: absolute; top: 4px; z-index: 3; min-width: 136px; padding: 8px 10px; transform: translateX(-50%);
-  background: #0F1311; border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, .4); pointer-events: none;
+  background: var(--surface-color); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: var(--shadow-lg); pointer-events: none;
 }
 .dsh-tip-day { margin-bottom: 4px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
 .dsh-tip-row { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
@@ -206,7 +177,7 @@ button.dsh-agenda-cell:hover { border-color: var(--border-strong); }
 .dsh-appt-who span { margin-left: 6px; font-size: 12px; color: var(--text-muted); }
 
 .dsh-figure:focus-visible, .dsh-attn-row:focus-visible, .dsh-step:focus-visible, .dsh-appt:focus-visible, .dsh-agenda-cell:focus-visible, .dsh-refresh:focus-visible, .dsh-seg button:focus-visible, .dsh-link:focus-visible, .dsh-more:focus-visible {
-  outline: 2px solid #B7F34A; outline-offset: 2px;
+  outline: 2px solid var(--ring); outline-offset: 2px;
 }
 
 /* ---- By the room the page has ------------------------------------------------- */
