@@ -232,13 +232,6 @@ export const SettingsPage = ({
 
   return (
     <div className="settings-ref-page">
-      {/* 1. Header Row: Title on Left, [A] Hi, Aditi v on Right in same row */}
-      <div className="settings-header-row">
-        <div className="settings-header-text">
-          <p className="settings-page-subtitle">{t('settingsPage.subtitle', 'Language, appearance, WhatsApp and the look of your invoices.')}</p>
-        </div>
-      </div>
-
       {/* 2. Boutique Overview Banner */}
       <div className="settings-profile-banner">
         {/* Left Green Block */}

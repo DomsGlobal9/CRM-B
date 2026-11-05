@@ -303,7 +303,6 @@ export default function OverviewPanel({ appointments, blankAppointmentForm, curr
               ? t('dashboard.welcomeNewUser', `Welcome ${currentUserName} to Scaleezy! 👋`, { name: currentUserName })
               : t('dashboard.welcomeBackUser', `Welcome back, ${currentUserName}! 👋`, { name: currentUserName })}
           </h2>
-          <p className="dsh-welcome-sub">{t('dashboard.subtitle')}</p>
         </div>
         <div className="dsh-welcome-side">
           <HeaderClock />

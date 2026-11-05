@@ -351,16 +351,18 @@ export function EmptyState({ icon, title, detail, action, tone, error = false, c
 }
 
 export function PageHeader({ icon: Icon, tone = 'neutral', title, subtitle, actions, aside, meta }) {
-  // In the workspace the top bar names the page, so the title is not drawn
-  // twice. The admin console has no such bar and keeps its own.
+  // In the workspace the top bar names the page, so the title and the line
+  // describing it are not drawn; a header with nothing else takes no room. The
+  // admin console has no such bar and keeps its own.
   const titledByTopBar = useContext(CrumbsContext) !== null;
+  if (titledByTopBar && !Icon && !actions && !aside && !meta) return null;
   return (
     <header className="at-page-head">
       <div className="at-page-head-left">
         {Icon && <span className={`at-page-icon at-tile at-tile--${tone}`}><Icon size={26} strokeWidth={1.6} /></span>}
         <div className="at-page-head-text">
           {!titledByTopBar && <h1 className="at-page-title">{title}</h1>}
-          {subtitle && <p className="at-page-sub">{subtitle}</p>}
+          {!titledByTopBar && subtitle && <p className="at-page-sub">{subtitle}</p>}
           {meta && <div className="at-page-meta">{meta}</div>}
         </div>
       </div>
