@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Banknote, FileText, Receipt, Wallet } from 'lucide-react';
+import { AlertTriangle, Banknote, FileText, Receipt, Wallet } from 'lucide-react';
 import { formatDate as fmtDate, formatMoney, orderRef } from '../../services/format';
-import { AvatarInitials, Chips, PageHeader, ProgressBar, SearchBox, StatCard } from '../../components/ui/Atelier';
+import { AvatarInitials, Button, Chips, ClampedText, InfoNote, PageHeader, ProgressBar, SearchBox, StatCard, StatusBadge } from '../../components/ui/Atelier';
 import { LIMITS, amountError, cleanAmount } from '../../services/validate';
 import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
-import { Pager } from '../../components/ui/Pager';
-import Loader from '../../components/ui/Loader';
+import { DataTable } from '../../components/ui/DataTable';
 
 /** Rows per page; the server offers the same (OrderViewSet.INVOICE_PAGE_SIZES). */
 const INVOICE_PAGE_SIZES = [20, 30, 40, 50];
@@ -61,6 +60,130 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, paymentErr
   const pendingCount = summary.pending_count;
   const totalCount = summary.count;
   const statusTone = (st) => st === 'Paid' ? 'success' : st === 'Partially Paid' ? 'warning' : 'danger';
+
+  // The eight columns stay in this order: the bill cards on smaller screens
+  // place each cell by its position (.invoices-content in index.css).
+  const columns = [
+    {
+      key: 'id', header: t('invoicesPage.invoiceId', 'Invoice ID'), width: '7%', cellClassName: 'bill-cell-id',
+      render: (order) => orderRef(order),
+    },
+    {
+      key: 'client', header: t('invoicesPage.billingClient', 'Billing Client'), width: '19%', cellClassName: 'bill-cell-clip',
+      render: (order) => (
+        <span className="at-cell-person">
+          <AvatarInitials name={order.customer_name} size={32} />
+          <ClampedText className="bill-client">{order.customer_name}</ClampedText>
+        </span>
+      ),
+    },
+    {
+      key: 'date', header: t('common.date', 'Date'), width: '11%', cellClassName: 'bill-cell-date',
+      render: (order) => fmtDate(order.order_date),
+    },
+    {
+      key: 'total', header: t('invoicesPage.totalPrice', 'Total Price'), width: '10%', numeric: true, cellClassName: 'at-num bill-cell-money',
+      render: (order) => (order.price_pending ? <span className="od-hint">Price pending</span> : formatMoney(order.total_amount)),
+    },
+    {
+      key: 'paid', header: t('invoicesPage.totalPaid', 'Total Paid'), width: '20%',
+      // Editable: the one place a part payment is recorded. The backend derives
+      // the label, clamps to the total and caps the advance -- only the input
+      // lives here.
+      render: (order) => {
+        const total = Number(order.total_amount) || 0;
+        const paid = Number(order.amount_paid || 0);
+        const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
+        return (
+          <>
+            <div className="bill-paid">
+              <div className="bill-paid-box">
+                <span>₹</span>
+                <input
+                  className="bill-paid-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  max={order.total_amount}
+                  inputMode="decimal"
+                  defaultValue={parseFloat(order.amount_paid || 0)}
+                  disabled={savingPaymentId === order.id
+                    || !(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.edit'))}
+                  aria-label={`Amount paid for invoice ${orderRef(order)}`}
+                  onChange={(e) => { e.target.value = cleanAmount(e.target.value); }}
+                  onBlur={async (e) => {
+                    const next = parseFloat(e.target.value);
+                    const current = parseFloat(order.amount_paid || 0);
+
+                    if (isNaN(next) || next === current) {
+                      e.target.value = current;
+                      return;
+                    }
+                    const bad = amountError(next, { label: 'Amount paid', max: Number(order.total_amount) || LIMITS.amount });
+                    if (bad) { alert(bad); e.target.value = current; return; }
+                    setSavingPaymentId(order.id);
+                    try {
+                      await api.updateOrder(order.id, { amount_paid: next });
+                      setVersion((n) => n + 1);
+                      await fetchDashboardAndConfig();
+                    } catch (err) {
+                      e.target.value = current;
+                      setPaymentError(`Could not record that payment for ${orderRef(order)} — ${err.message}`);
+                    } finally {
+                      setSavingPaymentId(null);
+                    }
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
+                />
+              </div>
+              <span className="at-num bill-paid-note"
+                    title={Number(order.advance_paid) > 0 ? t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) }) : undefined}>
+                <strong className={pct >= 100 ? 'bill-paid-pct--full' : 'bill-paid-pct'}>{pct}%</strong>
+                {Number(order.advance_paid) > 0 && (
+                  <span className="bill-paid-advance"> · {t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) })}</span>
+                )}
+              </span>
+            </div>
+            <div className="bill-paid-bar"><ProgressBar pct={pct} tone="green" /></div>
+          </>
+        );
+      },
+    },
+    {
+      key: 'balance', header: t('invoicesPage.balanceDue', 'Balance Due'), width: '10%', numeric: true,
+      cellClassName: 'at-num bill-cell-money bill-cell-balance',
+      render: (order) => {
+        const balance = Math.max(0, (Number(order.total_amount) || 0) - Number(order.amount_paid || 0));
+        return <span className={balance > 0 ? 'bill-balance--due' : undefined}>{formatMoney(balance)}</span>;
+      },
+    },
+    {
+      key: 'status', header: t('common.status', 'Payment Status'), width: '12%', cellClassName: 'bill-cell-clip',
+      // Read-only: the status follows the amount in Paid so far (the backend
+      // derives it), so it is shown as a badge, not a choice -- a bill paid in
+      // full cannot be set back to Unpaid by hand.
+      render: (order) => (
+        <StatusBadge tone={statusTone(order.payment_status)} title={t('invoicesPage.statusFromPayment', 'Set by the amount paid')}>
+          {order.payment_status === 'Paid' ? t('invoicesPage.paid', 'Paid')
+            : order.payment_status === 'Partially Paid' ? t('invoicesPage.partiallyPaid', 'Partially Paid')
+            : order.payment_status === 'Pending' ? t('invoicesPage.pending', 'Pending')
+            : order.payment_status}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'action', header: t('common.actions', 'Action'), width: '11%', align: 'right', label: false, cellClassName: 'bill-cell-action',
+      render: (order) => (
+        <Button variant="secondary" size="sm" icon={FileText} title={t('invoicesPage.viewInvoice', 'View Invoice')} onClick={() => {
+          setConfirmedOrder(order);
+          setShowInvoiceModal(true);
+        }}>
+          {t('invoicesPage.viewInvoice', 'View Invoice')}
+        </Button>
+      ),
+    },
+  ];
+
   return (
   <>
     <PageHeader
@@ -90,156 +213,39 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, paymentErr
     </div>
 
     {paymentError && (
-      <div role="alert" style={{ marginBottom: '16px', background: 'var(--danger-bg)', border: '1px solid var(--danger-color)', color: 'var(--danger-color)', borderRadius: 'var(--radius-md)', padding: '12px 14px', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-        <span>{paymentError}</span>
-        <button type="button" onClick={() => setPaymentError(null)} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 700 }}>Dismiss</button>
+      <div role="alert" className="bill-alert">
+        <InfoNote icon={AlertTriangle} tone="danger" onDismiss={() => setPaymentError(null)}>{paymentError}</InfoNote>
       </div>
     )}
 
-    {/* Fixed column widths and one-line cells, so every row is the
-        same height and the money columns line up down the page;
-        below 1024px the rows stack into labelled cards. */}
-    <div className="invoices-content at-table-wrap">
-      <table className="at-table at-table--fit at-table--pairs" style={{ tableLayout: 'fixed' }}>
-        <thead>
-          <tr>
-            <th style={{ width: '7%' }}>{t('invoicesPage.invoiceId', 'Invoice ID')}</th>
-            <th style={{ width: '19%' }}>{t('invoicesPage.billingClient', 'Billing Client')}</th>
-            <th style={{ width: '11%' }}>{t('common.date', 'Date')}</th>
-            <th style={{ width: '10%', textAlign: 'right' }}>{t('invoicesPage.totalPrice', 'Total Price')}</th>
-            <th style={{ width: '20%' }}>{t('invoicesPage.totalPaid', 'Total Paid')}</th>
-            <th style={{ width: '10%', textAlign: 'right' }}>{t('invoicesPage.balanceDue', 'Balance Due')}</th>
-            <th style={{ width: '12%' }}>{t('common.status', 'Payment Status')}</th>
-            <th style={{ width: '11%', textAlign: 'right' }}>{t('common.actions', 'Action')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {!body && !loaded.error ? (
-            <tr>
-              <td colSpan="8" style={{ padding: '32px' }}><Loader label={t('invoicesPage.loading', 'Loading invoices…')} /></td>
-            </tr>
-          ) : loaded.error && !loading ? (
-            <tr>
-              <td colSpan="8" role="alert" style={{ padding: '32px', textAlign: 'center', color: 'var(--danger-color)' }}>
-                {loaded.error}{' '}
-                <button type="button" className="at-link" onClick={() => setVersion((n) => n + 1)}>{t('common.retry', 'Retry')}</button>
-              </td>
-            </tr>
-          ) : invoices.length === 0 ? (
-            <tr>
-              <td colSpan="8" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                {totalCount === 0
-                  ? t('invoicesPage.emptyState', 'Invoices appear here once you have created an order.')
-                  : t('invoicesPage.noMatchingInvoices', 'No invoices matching the criteria.')}
-              </td>
-            </tr>
-          ) : invoices.map(order => {
-            const total = Number(order.total_amount) || 0;
-            const paid = Number(order.amount_paid || 0);
-            const balance = Math.max(0, total - paid);
-            const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
-            return (
-              <tr key={order.id} className="bill-row">
-                <td data-label={t('invoicesPage.invoiceId', 'Invoice ID')} style={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{orderRef(order)}</td>
-                <td data-label={t('invoicesPage.billingClient', 'Billing Client')} style={{ overflow: 'hidden' }}>
-                  <span className="at-cell-person">
-                    <AvatarInitials name={order.customer_name} size={32} />
-                    <span style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={order.customer_name}>{order.customer_name}</span>
-                  </span>
-                </td>
-                <td data-label={t('common.date', 'Date')} style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{fmtDate(order.order_date)}</td>
-                <td data-label={t('invoicesPage.totalPrice', 'Total Price')} className="at-num" style={{ fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>{order.price_pending ? <span className="od-hint">Price pending</span> : formatMoney(order.total_amount)}</td>
-                {/* Editable: the one place a part payment is recorded. The
-                    backend derives the label, clamps to the total and caps
-                    the advance -- only the input lives here. */}
-                <td data-label={t('invoicesPage.totalPaid', 'Total Paid')}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--success-text)', fontWeight: 600, height: '32px',
-                                border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 0 0 8px', background: 'var(--surface-color)', flex: '0 1 120px', minWidth: '90px' }}>
-                    <span>₹</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      max={order.total_amount}
-                      inputMode="decimal"
-                      defaultValue={parseFloat(order.amount_paid || 0)}
-                      disabled={savingPaymentId === order.id
-                        || !(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.edit'))}
-                      aria-label={`Amount paid for invoice ${orderRef(order)}`}
-                      onChange={(e) => { e.target.value = cleanAmount(e.target.value); }}
-                      onBlur={async (e) => {
-                        const next = parseFloat(e.target.value);
-                        const current = parseFloat(order.amount_paid || 0);
-
-                        if (isNaN(next) || next === current) {
-                          e.target.value = current;
-                          return;
-                        }
-                        const bad = amountError(next, { label: 'Amount paid', max: Number(order.total_amount) || LIMITS.amount });
-                        if (bad) { alert(bad); e.target.value = current; return; }
-                        setSavingPaymentId(order.id);
-                        try {
-                          await api.updateOrder(order.id, { amount_paid: next });
-                          setVersion((n) => n + 1);
-                          await fetchDashboardAndConfig();
-                        } catch (err) {
-                          e.target.value = current;
-                          setPaymentError(`Could not record that payment for ${orderRef(order)} — ${err.message}`);
-                        } finally {
-                          setSavingPaymentId(null);
-                        }
-                      }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                      style={{ width: '100%', minWidth: 0, minHeight: 0, height: '30px', padding: '0 6px', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--success-text)', border: 'none', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
-                    />
-                  </div>
-                    <span className="at-num" style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
-                          title={Number(order.advance_paid) > 0 ? t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) }) : undefined}>
-                      <strong style={{ color: pct >= 100 ? 'var(--success-text)' : 'var(--text-primary)' }}>{pct}%</strong>
-                      {Number(order.advance_paid) > 0 && (
-                        <span style={{ color: 'var(--text-muted)' }}> · {t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) })}</span>
-                      )}
-                    </span>
-                  </div>
-                  <div style={{ marginTop: '6px', maxWidth: '220px' }}><ProgressBar pct={pct} tone="green" /></div>
-                </td>
-                <td data-label={t('invoicesPage.balanceDue', 'Balance Due')} className="at-num" style={{ color: balance > 0 ? 'var(--danger-color)' : 'var(--text-secondary)', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  {formatMoney(balance)}
-                </td>
-                <td data-label={t('common.status', 'Payment Status')} style={{ overflow: 'hidden' }}>
-                  {/* Read-only: the status follows the amount in Paid so far (the
-                      backend derives it), so it is shown as a badge, not a choice --
-                      a bill paid in full cannot be set back to Unpaid by hand. */}
-                  <span className={`ui-badge ui-badge--${statusTone(order.payment_status)}`}
-                        title={t('invoicesPage.statusFromPayment', 'Set by the amount paid')}
-                        style={{ display: 'inline-flex', alignItems: 'center', height: '30px', padding: '0 14px', fontSize: '12px', fontWeight: 600, maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {order.payment_status === 'Paid' ? t('invoicesPage.paid', 'Paid')
-                      : order.payment_status === 'Partially Paid' ? t('invoicesPage.partiallyPaid', 'Partially Paid')
-                      : order.payment_status === 'Pending' ? t('invoicesPage.pending', 'Pending')
-                      : order.payment_status}
-                  </span>
-                </td>
-                <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  <button className="btn-secondary at-btn-sm" title={t('invoicesPage.viewInvoice', 'View Invoice')} onClick={() => {
-                    setConfirmedOrder(order);
-                    setShowInvoiceModal(true);
-                  }}>
-                    <FileText size={12} /> {t('invoicesPage.viewInvoice', 'View Invoice')}
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {/* On every list, even one page long, as on Orders and Workshop. */}
-      {body && (
-        <Pager page={body.page} pageCount={body.pages} pageSize={pageSize}
-               sizes={INVOICE_PAGE_SIZES} onPage={(n) => setPageAt({ key: filterKey, page: n })} onSize={setPageSize}
-               label={t('invoicesPage.perPage', 'Invoices per page')} />
-      )}
-    </div>
+    {/* Fixed column widths and one-line cells, so every row is the same height
+        and the money columns line up down the page; on smaller screens the rows
+        become labelled cards. The server pages, filters and searches, so the
+        list keeps its own order rather than sorting one page of it here. */}
+    <DataTable
+      caption={t('invoicesPage.title', 'Invoices & Billing')}
+      columns={columns}
+      rows={invoices}
+      wrapClassName="invoices-content"
+      tableClassName="at-table--pairs at-table--fixed"
+      rowClassName={() => 'bill-row'}
+      loading={loading}
+      labels={{ loading: t('invoicesPage.loading', 'Loading invoices…') }}
+      error={loaded.error && !loading ? loaded.error : undefined}
+      errorAction={<button type="button" className="at-link" onClick={() => setVersion((n) => n + 1)}>{t('common.retry', 'Retry')}</button>}
+      empty={{
+        title: totalCount === 0
+          ? t('invoicesPage.emptyState', 'Invoices appear here once you have created an order.')
+          : t('invoicesPage.noMatchingInvoices', 'No invoices matching the criteria.'),
+      }}
+      // On every list, even one page long, as on Orders and Workshop.
+      pager={body ? {
+        page: body.page, pageCount: body.pages, pageSize, sizes: INVOICE_PAGE_SIZES,
+        onPage: (n) => setPageAt({ key: filterKey, page: n }), onSize: setPageSize,
+        label: t('invoicesPage.perPage', 'Invoices per page'), total: body.count,
+        totalLabel: ({ from, to, total }) => t('invoicesPage.showing', 'Showing {from}–{to} of {total}', { from, to, total }),
+      } : undefined}
+    />
   </>
   );
 }

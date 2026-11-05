@@ -227,6 +227,8 @@ class CustomerMessageTests(TrackingTestBase):
 
     def test_repeated_stages_with_one_customer_status_send_one_message(self):
         owner = self._owner()
+        # The workflow will not hand the garment to a tailor without measurements.
+        Measurement.objects.create(customer=self.order.customer, bust=36, waist=28, hips=38)
         for stage in ['pattern_cutting', 'stitching_in_progress']:
             OrderService.transition_order_stage(self.order, stage, 'COMPLETED', user=owner)
 
