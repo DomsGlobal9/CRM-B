@@ -599,7 +599,7 @@
 }
 
 /* Customer import: the wait while a spreadsheet is checked or saved
-   (features/customers/AddCustomer.jsx, ImportProgress). */
+   (features/customers/ImportCustomers.jsx, ImportProgress). */
 .imp-progress { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); padding: var(--space-2) 0 var(--space-3); }
 .imp-sheet { position: relative; width: 88px; height: 88px; border-radius: var(--radius-xl); display: flex; align-items: center; justify-content: center; background: var(--accent-color); color: var(--brand-link); overflow: hidden; animation: imp-float 1.8s ease-in-out infinite; }
 .imp-scan { position: absolute; left: 10px; right: 10px; height: 3px; border-radius: 3px; background: var(--primary-color); box-shadow: 0 0 10px var(--primary-color); animation: imp-scan 1.6s ease-in-out infinite; }
