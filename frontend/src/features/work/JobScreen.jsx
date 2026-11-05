@@ -9,7 +9,7 @@ import { VoiceNotePlayer, SpeakButton } from '../../components/ui/VoiceTextarea'
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { PhotoTile, InfoNote } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
-import { Lightbox } from '../designStudio/GarmentPartPicker';
+import { Lightbox } from '../../components/ui/Lightbox';
 import AssignTo from './AssignTo';
 import { CheckForm, NoteForm, StartForm, SubmitForm } from './JobForms';
 import { entries, garmentLabel, humanise, jobTitle, measureEntries, noteThread, stageRef, workerNote } from './workHelpers';

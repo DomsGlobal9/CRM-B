@@ -7,7 +7,7 @@ import ReversalPrompt from '../../features/orders/ReversalPrompt';
 import GarmentPairingModal from '../../features/orderWizard/GarmentPairingModal';
 import { useAppState } from '../state/appState';
 
-const ReviewLightbox = lazy(() => import('../../features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
+const ReviewLightbox = lazy(() => import('../../components/ui/Lightbox').then(m => ({ default: m.Lightbox })));
 
 /**
  * Above every screen: the invoice, the bell's alerts, a stage under review and

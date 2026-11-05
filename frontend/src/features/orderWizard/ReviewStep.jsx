@@ -11,7 +11,7 @@ import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
-const ReviewLightbox = lazy(() => import('../designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
+const ReviewLightbox = lazy(() => import('../../components/ui/Lightbox').then(m => ({ default: m.Lightbox })));
 const GarmentPreviews = lazy(() => import('../designStudio/GarmentPreview'));
 
 const secondaryCell = () => ({ style: { color: 'var(--text-secondary)' } });
