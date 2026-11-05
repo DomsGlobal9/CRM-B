@@ -4,7 +4,7 @@ from unittest import mock
 
 from django.contrib.auth.models import User
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from django_tenants.test.cases import TenantTestCase
 from rest_framework.authtoken.models import Token
@@ -105,12 +105,19 @@ class NewCustomerBookingTests(BookingTestCase):
         self.assertEqual(Appointment.objects.get().customer, existing)
 
 
+@override_settings(WHATSAPP_SENDING_ENABLED=True)
 class BookingWhatsAppTests(BookingTestCase):
-    """The message goes out for both kinds of booking, and never breaks one."""
+    """The message goes out for both kinds of booking, and never breaks one.
+
+    The send waits for the booking to commit, which a TestCase never does on its
+    own, so each request runs the callbacks it queued. The platform switch is
+    fixed on, so the result does not depend on this machine's .env.
+    """
 
     def send_calls(self, **body):
         with mock.patch('crm_api.whatsapp_service.send_whatsapp_message',
-                        return_value={'success': True, 'data': {'messageId': 'x'}}) as send:
+                        return_value={'success': True, 'data': {'messageId': 'x'}}) as send, \
+             self.captureOnCommitCallbacks(execute=True):
             response = self.book(**body)
         return response, send
 
@@ -140,10 +147,13 @@ class BookingWhatsAppTests(BookingTestCase):
             first_name='Meera', last_name='Nair', mobile_number='919845012345')
 
         with mock.patch('crm_api.whatsapp_service.send_whatsapp_message',
-                        side_effect=RuntimeError('session dropped')):
+                        side_effect=RuntimeError('session dropped')) as send, \
+             mock.patch('apps.scheduling.notifications.time.sleep'), \
+             self.captureOnCommitCallbacks(execute=True):
             response = self.book(customer=str(existing.id))
 
         self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(send.call_count, 3, 'three tries before giving up')
         self.assertTrue(Appointment.objects.exists(), 'the booking is still in the book')
 
     def test_nothing_is_sent_when_the_boutique_has_messaging_off(self):

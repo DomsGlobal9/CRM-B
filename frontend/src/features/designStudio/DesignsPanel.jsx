@@ -26,9 +26,11 @@ export default function DesignsPanel({ designLibraryToken, designsView, handleDe
   const { currentUser, adminCan, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
   // The open tab's crumb opens it afresh, closing a category of the library.
   const [viewVisit, setViewVisit] = useState(0);
-  // Design requests is gone from the library, except for a Designer: it is
-  // their "My work", where assigned designs arrive and are submitted.
-  const showRequests = currentUser?.role === 'Designer';
+  // Design requests shows only to the people DesignWork serves: a Designer, for
+  // whom it is "My work", and the owner or a role handed design assignment, who
+  // assign the work and review what comes back. It is the only place a submitted
+  // design can be approved, so those roles must always be able to reach it.
+  const showRequests = ['Designer', 'Owner'].includes(currentUser?.role) || adminCan('design.assign');
   const activeView = designsView === 'requests' && !showRequests ? 'library' : designsView;
   const viewLabel = activeView === 'requests'
     ? (currentUser?.role === 'Designer' ? t('nav.myWork') : t('nav.designWork'))
