@@ -5181,6 +5181,19 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
 
+/* The global network-activity bar's sweep, and the small spinner rotation. */
+@keyframes apiActivitySweep {
+  0% { left: -38%; }
+  100% { left: 100%; }
+}
+.spin {
+  animation: spinRotate 0.9s linear infinite;
+}
+@keyframes spinRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 1024px) {
   /* The generic mobile rule turns every <table> into a nowrap scrolling block;
      .at-table already has its own scrolling wrapper. */
