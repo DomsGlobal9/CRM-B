@@ -1,15 +1,15 @@
 import { SearchBar } from '../../components/ui/SearchBar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, CheckCircle2, ChevronDown, Contact, FileSpreadsheet, Ruler, Trash2, Upload, User, X } from 'lucide-react';
-import { api } from '../../services/api';
-import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, imageFilesError, nameError } from '../../services/validate';
+import { api } from '../../api';
+import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, imageFilesError, nameError } from '../../utils/validate';
 import { resolveMediaUrl } from '../../services/media';
-import { formatMobile } from '../../services/format';
+import { formatMobile } from '../../utils/format';
 import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
-import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../services/phone';
+import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } from '../../utils/phone';
 import { CameraButton, FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
 import { useCustomerLookup } from './useCustomerLookup';
-import { tierName } from '../../services/tierNames';
+import { tierName } from './tierNames';
 import { DataTable } from '../../components/ui/DataTable';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same

@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, ClipboardList, Clock, Star } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { fmtDate, orderRef, orderGarmentNames } from '../../services/format';
+import { api } from '../../api';
+import { fmtDate, orderRef, orderGarmentNames } from '../../utils/format';
 import { AvatarInitials, StatCard } from '../../components/ui/Atelier';
 import { DataTable } from '../../components/ui/DataTable';
 import Loader from '../../components/ui/Loader';

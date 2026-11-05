@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { cleanAmount } from '../../services/validate';
+import { cleanAmount } from '../../utils/validate';
 
 /** The dialog and labelled inputs every inventory form shares. */
 export function Modal({ title, onClose, children, width = '520px' }) {

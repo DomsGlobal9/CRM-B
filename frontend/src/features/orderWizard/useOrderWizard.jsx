@@ -1,16 +1,16 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { api } from '../../services/api';
-import { isVisible, validateSpec, withDefaults } from '../../services/templates';
+import { api } from '../../api';
+import { isVisible, validateSpec, withDefaults } from '../catalog/templates';
 import { DEFAULT_CUSTOMER_DATA, GARMENT_PRICES } from './wizard';
 import { findMatchingTemplate, getGarmentPairConfig } from './GarmentPairingModal';
 import { purchaseError } from '../catalog/materials';
 import { AvatarInitials } from '../../components/ui/Atelier';
-import { formatMobile, inr } from '../../services/format';
+import { formatMobile, inr } from '../../utils/format';
 import { TierBadge } from '../customers/TierBadge';
 import { customerTier } from '../customers/customerBook';
-import { followerOf } from '../../services/garmentCopies';
-import { MEASURE_KEYS, sheetGet, sheetSet } from '../../services/measurements';
-import { amountError, emailError, isPastDate, mobileError, nameError } from '../../services/validate';
+import { followerOf } from './garmentCopies';
+import { MEASURE_KEYS, sheetGet, sheetSet } from '../catalog/measurements';
+import { amountError, emailError, isPastDate, mobileError, nameError } from '../../utils/validate';
 import { fabricMatchesColour } from '../fabrics/colour';
 
 /**

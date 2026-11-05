@@ -1,4 +1,4 @@
-// node src/services/garmentCopies.check.mjs -- fails loudly if the follower rules break.
+// node src/features/orderWizard/garmentCopies.check.mjs -- fails loudly if the follower rules break.
 import assert from 'node:assert/strict';
 import { followerOf, syncFollowers } from './garmentCopies.js';
 

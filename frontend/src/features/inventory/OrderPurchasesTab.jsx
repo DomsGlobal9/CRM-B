@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { Field, Modal, SelectField } from './inventoryForm';
 import Loader from '../../components/ui/Loader';
 

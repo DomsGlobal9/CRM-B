@@ -2,7 +2,7 @@ import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Award, Check, ChevronRight, ClipboardList, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, ShoppingBag, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
 import DesignUpload from './DesignUpload';
 import GarmentPartTabs from './GarmentPartTabs';
@@ -11,7 +11,7 @@ import DesignCatalogueBrowser from './DesignCatalogueBrowser';
 import ItemFormModal from '../inventory/ItemFormModal';
 import { IconTile, SectionCard, StatCard, Tabs } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
-import { LIMITS, cleanAmount } from '../../services/validate';
+import { LIMITS, cleanAmount } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
 

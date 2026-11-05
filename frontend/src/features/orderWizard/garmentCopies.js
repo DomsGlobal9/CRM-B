@@ -4,7 +4,7 @@
    filled in from it while the staff fill that garment, so "three sarees, the
    same" is said once and filled once. Changing the follower itself makes it
    its own design. `syncedFrom` is the snapshot it was last copied from.
-   Self-check: node src/services/garmentCopies.check.mjs */
+   Self-check: node src/features/orderWizard/garmentCopies.check.mjs */
 
 /** What a same-design copy shares with the garment it follows. */
 const SHARED = ['values', 'quantities', 'sources', 'brought', 'pricing', 'design',

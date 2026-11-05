@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { amountError } from '../../services/validate';
-import { api } from '../../services/api';
+import { amountError } from '../../utils/validate';
+import { api } from '../../api';
 
 /**
  * The Designs page's own state: the add or edit form and its photo, saving and

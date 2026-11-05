@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { Dropzone, PhotoTile } from '../../components/ui/Atelier';
 import { resolveMediaUrl } from '../../services/media';
 import FabricPlacements from '../fabrics/FabricPlacements';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
-import { LIMITS, amountError } from '../../services/validate';
+import { LIMITS, amountError } from '../../utils/validate';
 import { Field, Modal, SelectField } from './inventoryForm';
 import ShelfPlace from './ShelfPlace';
 import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';

@@ -1,6 +1,6 @@
 /* What kind of work a My work card is, from its stage key (crm_api/models.py
    default workflow), with the colour its card is marked in. A to-do task is
-   its own kind. Self-check: node src/services/workKind.check.mjs */
+   its own kind. Self-check: node src/features/work/workKind.check.mjs */
 
 const KINDS = [
   { key: 'cutting', label: 'Cutting', color: 'var(--info-500)', stages: ['pattern_cutting', 'paper_cutting', 'fabric_cutting'] },

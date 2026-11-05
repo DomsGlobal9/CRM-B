@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Banknote, FileText, Receipt, Wallet } from 'lucide-react';
-import { formatDate as fmtDate, formatMoney, orderRef } from '../../services/format';
+import { formatDate as fmtDate, formatMoney, orderRef } from '../../utils/format';
 import { AvatarInitials, Button, Chips, ClampedText, InfoNote, PageHeader, ProgressBar, SearchBar, StatCard, StatusBadge } from '../../components/ui/Atelier';
-import { LIMITS, amountError, cleanAmount } from '../../services/validate';
-import { api } from '../../services/api';
+import { LIMITS, amountError, cleanAmount } from '../../utils/validate';
+import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import { DataTable } from '../../components/ui/DataTable';

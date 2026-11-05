@@ -1,12 +1,12 @@
 import { AlertTriangle, Calendar, Check, CheckCircle2, Clock, Eye, FileText, History, Layers, MessageSquare, PackageCheck, Play, RefreshCw, Scissors, Shirt, Trash2, User, X } from 'lucide-react';
 import React from 'react';
 import { SUPERVISOR_ROLES, isProductionStaff } from '../../constants/roles';
-import { maySignOff, submitsForSignOff, submittedByMaster } from '../../services/signOff';
-import { formatDate as fmtDate, formatDateTime as fmtDateTime, inr, orderGarmentLabel, orderRef } from '../../services/format';
-import { api } from '../../services/api';
+import { maySignOff, submitsForSignOff, submittedByMaster } from './signOff';
+import { formatDate as fmtDate, formatDateTime as fmtDateTime, inr, orderGarmentLabel, orderRef } from '../../utils/format';
+import { api } from '../../api';
 import { STEP_LABEL, STEP_STATE, STEP_TONE } from './stages';
 import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
-import { LIMITS, imageFilesError } from '../../services/validate';
+import { LIMITS, imageFilesError } from '../../utils/validate';
 import OrderGarmentBrief from '../catalog/OrderGarmentBrief';
 import { SpeakButton, VoiceNotePlayer, VoiceRecorder } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
@@ -38,7 +38,7 @@ export default function StageReviewModal({ activeReviewOrder, activeReviewStage,
           const isSupervisor = !currentUser.role || currentUser.role === 'Owner'
             || SUPERVISOR_ROLES.includes(currentUser.role);
           // Whose work this is decides whether Done completes it or sends it
-          // for checking (services/signOff.js; the server holds the same rule).
+          // for checking (features/orders/signOff.js; the server holds the same rule).
           // A supervisor's Done is recorded for the stage's assignee, below.
           const stageRoles = (boutiqueSettings?.workflow_config || []).find((s) => s.key === stage?.stage_key)?.roles || [];
           const workerRole = isSupervisor && stage?.assigned_to ? stage.assigned_to_role : currentUser.role;

@@ -1,12 +1,12 @@
 import { Ruler } from 'lucide-react';
-import { getCustomerMeasurement } from '../../services/measurements';
+import { getCustomerMeasurement } from '../catalog/measurements';
 import { Field, IconTile } from '../../components/ui/Atelier';
 import TemplateForm from '../catalog/TemplateForm';
 import ExtraMeasurements from '../catalog/ExtraMeasurements';
-import { EXTRA_MEASUREMENTS } from '../../services/templates';
+import { EXTRA_MEASUREMENTS } from '../catalog/templates';
 import VoiceTextarea, { VoiceRecorder } from '../../components/ui/VoiceTextarea';
-import { LIMITS } from '../../services/validate';
-import { api } from '../../services/api';
+import { LIMITS } from '../../utils/validate';
+import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 

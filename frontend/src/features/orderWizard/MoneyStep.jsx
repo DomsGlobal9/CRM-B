@@ -1,8 +1,8 @@
 import { X } from 'lucide-react';
-import { todayIso } from '../../services/dates';
+import { todayIso } from '../../utils/dates';
 import TemplateForm from '../catalog/TemplateForm';
-import { LIMITS, cleanAmount } from '../../services/validate';
-import { inr } from '../../services/format';
+import { LIMITS, cleanAmount } from '../../utils/validate';
+import { inr } from '../../utils/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
 /**

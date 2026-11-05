@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown } from 'lucide-react';
-import { orderRef } from '../../services/format';
+import { orderRef } from '../../utils/format';
 import './failedMessagesMenu.css';
 
 /**

@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Camera, Plus, ArrowRight, Send } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile, AddPhotoButton, PhotoTile } from '../../components/ui/Atelier';
-import { imageFilesError } from '../../services/validate';
-import { api } from '../../services/api';
+import { imageFilesError } from '../../utils/validate';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
-import { formatDateTime as fmtDateTime } from '../../services/format';
+import { formatDateTime as fmtDateTime } from '../../utils/format';
 
 const GARMENT_VIEWS = [
   ['FRONT', 'Front view'], ['BACK', 'Back view'],

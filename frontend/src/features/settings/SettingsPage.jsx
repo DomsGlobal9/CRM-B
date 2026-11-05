@@ -14,8 +14,8 @@ import {
   Store, FileText, Crown, X, Copy, Check, ChevronRight, AlertCircle, Smartphone, Camera, KeyRound, Pencil
 } from 'lucide-react';
 import { getColorMode, setColorMode, subscribeTheme } from '../../theme.js';
-import { api } from '../../services/api.js';
-import { imageFilesError } from '../../services/validate.js';
+import { api } from '../../api';
+import { imageFilesError } from '../../utils/validate.js';
 
 const iconChip = {
   width: '40px', height: '40px', borderRadius: 'var(--radius-md)', flexShrink: 0,

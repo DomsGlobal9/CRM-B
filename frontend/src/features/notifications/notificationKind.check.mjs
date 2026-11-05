@@ -1,4 +1,4 @@
-// node src/services/notificationKind.check.mjs -- every title the server writes lands in its kind.
+// node src/features/notifications/notificationKind.check.mjs -- every title the server writes lands in its kind.
 import assert from 'node:assert/strict';
 import { notificationKind } from './notificationKind.js';
 

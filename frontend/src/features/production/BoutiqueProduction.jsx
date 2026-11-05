@@ -8,9 +8,9 @@
    what a customer's order records. */
 import { useEffect, useState } from 'react';
 import { Factory } from 'lucide-react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { FormModal } from '../../components/ui/Atelier';
-import { splitSpec } from '../../services/templates';
+import { splitSpec } from '../catalog/templates';
 import GarmentConfigurator from './GarmentConfigurator';
 
 const PRIORITIES = [['MEDIUM', 'Normal'], ['HIGH', 'Soon'], ['URGENT', 'Rush'], ['LOW', 'Whenever there is time']];

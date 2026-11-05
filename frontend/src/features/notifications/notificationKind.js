@@ -4,7 +4,7 @@
    apps/production, apps/scheduling). First match wins, so the
    specific kinds come before the broad ones.
    shortcut: a new title pattern on the server falls to "Update" (grey) until it is added here.
-   Self-check: node src/services/notificationKind.check.mjs */
+   Self-check: node src/features/notifications/notificationKind.check.mjs */
 
 const KINDS = [
   { key: 'birthday', label: 'Birthday', color: '#e11d48', test: /^birthday (today|in )/i },

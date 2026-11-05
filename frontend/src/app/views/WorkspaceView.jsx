@@ -1,7 +1,7 @@
 import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Sparkles, X } from 'lucide-react';
 import { Suspense, lazy } from 'react';
 import { MobileHeader } from '../../navigation/MobileHeader';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { PortalMenu } from '../../navigation/PortalMenu';
 import { FormModal, PageHeader, ShellWordmark } from '../../components/ui/Atelier';
 import { ScreenLoading } from '../../components/ui/ScreenLoading';
@@ -18,7 +18,7 @@ import ProductTour from '../../features/tour/ProductTour';
 import { markTourSeen } from '../../features/tour/tourState';
 import { useAppState } from '../state/appState';
 import { Crumbs, CrumbsProvider } from '../../components/ui/Breadcrumbs';
-import { orderRef } from '../../services/format';
+import { orderRef } from '../../utils/format';
 
 const WorkPanel = lazy(() => import('../../features/work/WorkPanel'));
 const DailyUpdates = lazy(() => import('../../features/todo/DailyUpdates'));

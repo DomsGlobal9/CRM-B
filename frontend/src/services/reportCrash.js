@@ -1,7 +1,7 @@
 /**
  * Tell the server this browser crashed.
  *
- * Deliberately not routed through services/api.js. That module retries, unpacks
+ * Deliberately not routed through api/index.js. That module retries, unpacks
  * DRF error shapes, and signs the user out on a confirmed 401 -- all correct for
  * a request the user is waiting on, and all wrong here. A crash reporter that
  * can log someone out because reporting failed is worse than no crash reporter.

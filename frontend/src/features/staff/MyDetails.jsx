@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Check, Eye, EyeOff, KeyRound, Lock, Save, ShieldCheck, Upload, User } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { LIMITS, cleanName, imageFilesError, nameError } from '../../services/validate';
+import { api } from '../../api';
+import { LIMITS, cleanName, imageFilesError, nameError } from '../../utils/validate';
 import { CameraButton, Field, SectionCard } from '../../components/ui/Atelier';
 
 /* My Profile -> My details: the signed-in person's own photo, name and

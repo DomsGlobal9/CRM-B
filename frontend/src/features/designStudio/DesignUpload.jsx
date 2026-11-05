@@ -4,14 +4,14 @@ import {
   PlayCircle, Plus, Save, Shirt, Sparkles, Type, User,
 } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import TemplateForm from '../catalog/TemplateForm';
 import DesignCataloguePicker from './DesignCataloguePicker';
 import { cataloguePayload as toCataloguePayload, describePath, useDesignCatalogue } from './designCatalogue';
 import { visibleCategories } from './catalogueVisibility';
-import { getSection, pruneHidden } from '../../services/templates';
+import { getSection, pruneHidden } from '../catalog/templates';
 import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
-import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import { LIMITS, cleanAmount, amountError } from '../../utils/validate';
 import { libraryDesignParts } from './libraryParts';
 
 const MAX_STITCH_HOURS = 1000;

@@ -4,10 +4,10 @@
    customer list is only used for an early hint while typing. */
 import { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Plus, UserPlus, Users } from 'lucide-react';
-import { api } from '../../services/api';
-import { formatMobile } from '../../services/format';
-import { LIMITS, cleanName, nameError } from '../../services/validate';
-import { DEFAULT_COUNTRY, composeMobile, phoneNumberError } from '../../services/phone';
+import { api } from '../../api';
+import { formatMobile } from '../../utils/format';
+import { LIMITS, cleanName, nameError } from '../../utils/validate';
+import { DEFAULT_COUNTRY, composeMobile, phoneNumberError } from '../../utils/phone';
 import CountryPhoneInput from '../../components/ui/CountryPhoneInput';
 import { FormModal, SectionCard } from '../../components/ui/Atelier';
 import { useCustomerLookup } from './useCustomerLookup';

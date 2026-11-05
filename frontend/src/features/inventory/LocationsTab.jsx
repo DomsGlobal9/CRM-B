@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, MapPin, Plus, Trash2 } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import { api } from '../../api';
+import { LIMITS, cleanAmount, amountError } from '../../utils/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { Field, Modal, SelectField } from './inventoryForm';
 import Loader from '../../components/ui/Loader';

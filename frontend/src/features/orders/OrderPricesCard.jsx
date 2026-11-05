@@ -7,8 +7,8 @@
  */
 import { useState } from 'react';
 import { IndianRupee } from 'lucide-react';
-import { api } from '../../services/api';
-import { cleanAmount, LIMITS } from '../../services/validate';
+import { api } from '../../api';
+import { cleanAmount, LIMITS } from '../../utils/validate';
 import { IconTile } from '../../components/ui/Atelier';
 
 const PARTS = [

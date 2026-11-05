@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ImageOff } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
 import Loader from '../../components/ui/Loader';
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { InvoiceRenderer, normalizeInvoiceData } from './InvoiceTemplates';
 import { Check, Sparkles, AlertCircle, Loader2, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';

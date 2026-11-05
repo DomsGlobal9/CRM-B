@@ -1,6 +1,6 @@
 import { Bell } from 'lucide-react';
-import { notificationKind } from '../../services/notificationKind';
-import { formatDateTime as fmtDateTime } from '../../services/format';
+import { notificationKind } from './notificationKind';
+import { formatDateTime as fmtDateTime } from '../../utils/format';
 
 /**
  * The owner's inbox alerts, opened from the bell on the Dashboard.

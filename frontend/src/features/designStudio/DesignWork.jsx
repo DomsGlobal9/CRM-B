@@ -3,16 +3,16 @@ import {
   AlertCircle, Calendar, Check, ChevronRight, ClipboardList, Clock, FileText, RotateCcw, Send, Shirt, User,
 } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { orderRef } from '../../services/format';
+import { api } from '../../api';
+import { orderRef } from '../../utils/format';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormModal, SearchBar, SectionCard, StatusBadge } from '../../components/ui/Atelier';
 import { DataTable } from '../../components/ui/DataTable';
-import { LIMITS, todayIso } from '../../services/validate';
+import { LIMITS, todayIso } from '../../utils/validate';
 import { VoiceNotePlayer, VoiceRecorder } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
-import { EXTRA_MEASUREMENTS, extraMeasurements } from '../../services/templates';
+import { EXTRA_MEASUREMENTS, extraMeasurements } from '../catalog/templates';
 import Loader from '../../components/ui/Loader';
 
 const STATUS_STYLE = {

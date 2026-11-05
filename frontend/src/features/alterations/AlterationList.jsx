@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Scissors } from 'lucide-react';
-import { api } from '../../services/api';
-import { formatDate as fmtDate, formatMoney } from '../../services/format';
+import { api } from '../../api';
+import { formatDate as fmtDate, formatMoney } from '../../utils/format';
 
 /**
  * A short read-only list of alterations, fetched with whatever filter it is

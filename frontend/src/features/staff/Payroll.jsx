@@ -2,8 +2,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlertTriangle, Check, CheckCircle2, Lock, Pencil, RefreshCw, X } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { LIMITS } from '../../services/validate';
+import { api } from '../../api';
+import { LIMITS } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
 import { CorrectionForm } from './CorrectionForm';

@@ -8,7 +8,7 @@
    what the filter bar still uses; keep the two in step when a rule changes. */
 import {
   COUNTRY_CODES, DEFAULT_COUNTRY, countryOf, splitInternational, splitStoredMobile,
-} from '../../services/phone';
+} from '../../utils/phone';
 
 export const EMPTY_CUSTOMER_FILTERS = {
   country: '', letter: '', orders: '', added: '', birthday: '',

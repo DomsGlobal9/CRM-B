@@ -133,7 +133,7 @@
 }
 
 /* The kind of work (Cutting, Maggam, Stitching...): a stripe and a tag in its
-   colour (services/workKind.js). A NEW card keeps its own lime stripe. */
+   colour (features/work/workKind.js). A NEW card keeps its own lime stripe. */
 .wk-card[data-kind]:not(.wk-card--new) { border-left: 4px solid var(--wk-kind); }
 .wk-kind-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   padding: 1px 8px; border-radius: 999px; margin-right: 6px; vertical-align: 1px;

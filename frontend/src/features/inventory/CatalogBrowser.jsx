@@ -2,7 +2,7 @@ import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, ChevronRight, Package, Plus } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile } from '../../components/ui/Atelier';
 import Loader from '../../components/ui/Loader';

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { inventoryImage } from '../../services/inventoryImages';
-import { LIMITS, amountError, imageFilesError } from '../../services/validate';
+import { inventoryImage } from './inventoryImages';
+import { LIMITS, amountError, imageFilesError } from '../../utils/validate';
 import { Field, Modal, SelectField } from './inventoryForm';
 import ShelfPlace from './ShelfPlace';
 import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';

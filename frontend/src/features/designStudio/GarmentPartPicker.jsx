@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Upload, X } from 'lucide-react';
 import { AddPhotoButton } from '../../components/ui/Atelier';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
 import { PartTabStrip } from './GarmentPartTabs';
 import DesignCatalogueFilter from './DesignCatalogueFilter';

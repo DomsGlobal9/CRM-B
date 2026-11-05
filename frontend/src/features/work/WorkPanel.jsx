@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Image as ImageIcon, AlertTriangle, CheckCircle2, X as CloseIcon, ChevronDown } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { expressLabel, isExpressJob, isExpressOrder } from '../orders/express';
-import { workKind } from '../../services/workKind';
-import { orderRef, formatDate, formatDateTime } from '../../services/format';
+import { workKind } from './workKind';
+import { orderRef, formatDate, formatDateTime } from '../../utils/format';
 import { resolveMediaUrl } from '../../services/media';
-import { inventoryImage } from '../../services/inventoryImages';
-import { imageFilesError } from '../../services/validate';
-import { maySignOff, submitsForSignOff } from '../../services/signOff';
+import { inventoryImage } from '../inventory/inventoryImages';
+import { imageFilesError } from '../../utils/validate';
+import { maySignOff, submitsForSignOff } from '../orders/signOff';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { ASSIGN_ONLY_TO } from '../../constants/roles';
-import { extraMeasurements } from '../../services/templates';
+import { extraMeasurements } from '../catalog/templates';
 import StageParts from '../orders/StageParts';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';

@@ -4,12 +4,12 @@ import {
   AlertTriangle, ArrowLeft, CheckCircle2, ClipboardList, History, IndianRupee,
   Package, RotateCw, Scissors, User, X,
 } from 'lucide-react';
-import { api } from '../../services/api';
-import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMoney } from '../../services/format';
+import { api } from '../../api';
+import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMoney } from '../../utils/format';
 import { formatAdjustments, parseAdjustments } from './adjustments';
 import AdjustmentsTable from './AdjustmentsTable';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
-import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import { LIMITS, cleanAmount, amountError } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { DataTable } from '../../components/ui/DataTable';
 

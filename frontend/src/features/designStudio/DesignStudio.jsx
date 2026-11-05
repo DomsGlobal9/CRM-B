@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, FolderOpen, Search, Sparkles, X } from 'lucide-react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl as resolveImage } from '../../services/media';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Award, Clock, Eye, Image as ImageIcon, Key, LayoutGrid, ShoppingCart, Upload, UserPlus, Users } from 'lucide-react';
 
-import { boutiqueLoginUrl } from '../../services/format';
-import { api } from '../../services/api';
+import { boutiqueLoginUrl } from '../../utils/format';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';

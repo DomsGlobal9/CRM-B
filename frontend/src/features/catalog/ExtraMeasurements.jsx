@@ -1,13 +1,13 @@
 /* "Add other measurement": measurements a garment's template does not ask for,
    named and measured at the counter. Kept as [{ label, value }] under one key
-   of the garment's values (EXTRA_MEASUREMENTS, services/templates.js), in
+   of the garment's values (EXTRA_MEASUREMENTS, features/catalog/templates.js), in
    inches like the template's own. A row is typed in, then Done files it as a
    compact line that can be opened again (pencil) or removed. */
 import { useState } from 'react';
 import { Check, Pencil, Plus, X } from 'lucide-react';
 
-import { cleanAmount } from '../../services/validate';
-import { EXTRA_LABEL_MAX, EXTRA_MEASUREMENTS, EXTRA_MEASUREMENTS_MAX } from '../../services/templates';
+import { cleanAmount } from '../../utils/validate';
+import { EXTRA_LABEL_MAX, EXTRA_MEASUREMENTS, EXTRA_MEASUREMENTS_MAX } from './templates';
 
 const filled = (row) => Boolean(String(row?.label ?? '').trim() && String(row?.value ?? '').trim());
 

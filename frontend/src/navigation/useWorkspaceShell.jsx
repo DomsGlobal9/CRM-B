@@ -1,7 +1,7 @@
 import { BarChart2, Bell, Compass, LogOut, Settings, Wallet } from 'lucide-react';
 import { useEffect } from 'react';
 import { hasPageTour } from '../features/tour/tourPages';
-import { api } from '../services/api';
+import { api } from '../api';
 import { AccountMenu } from './AccountMenu';
 import { UserAvatar } from '../components/ui/UserAvatar';
 import { AppHeader } from './AppHeader';

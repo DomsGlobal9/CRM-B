@@ -6,7 +6,7 @@ import {
 
 import { InfoNote } from '../../components/ui/Atelier';
 import { ASSIGNABLE_ROLES } from '../../constants/roles';
-import { api } from '../../services/api';
+import { api } from '../../api';
 
 const panel = {
   background: 'var(--surface-color)',

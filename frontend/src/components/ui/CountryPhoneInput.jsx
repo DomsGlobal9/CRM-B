@@ -1,8 +1,8 @@
 import { ChevronDown } from 'lucide-react';
-import { BY_ISO, COMMON, COUNTRY_CODES, DEFAULT_COUNTRY, cleanNational, countryOf, splitInternational } from '../../services/phone';
+import { BY_ISO, COMMON, COUNTRY_CODES, DEFAULT_COUNTRY, cleanNational, countryOf, splitInternational } from '../../utils/phone';
 
 /* A mobile number with its country: a country-code picker beside the number
-   box. The rules (what is sent, what is refused) live in services/phone.js. */
+   box. The rules (what is sent, what is refused) live in utils/phone.js. */
 export default function CountryPhoneInput({ id, country = DEFAULT_COUNTRY, onCountryChange, value, onChange, placeholder }) {
   const current = countryOf(country);
   const change = (raw) => {

@@ -1,6 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
-import { LIMITS } from '../../services/validate';
-import { api } from '../../services/api';
+import { LIMITS } from '../../utils/validate';
+import { api } from '../../api';
 import { useApp } from '../../context/AppContext';
 
 /**

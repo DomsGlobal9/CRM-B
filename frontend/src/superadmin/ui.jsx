@@ -28,7 +28,7 @@ import {
 } from '../components/ui/Atelier.jsx';
 import Loader, { LoaderRows } from '../components/ui/Loader.jsx';
 import RowMenu from '../components/ui/RowMenu.jsx';
-import { LIMITS } from '../services/validate';
+import { LIMITS } from '../utils/validate';
 
 // The workspace components screens use directly. Importing them from here
 // keeps one import line per screen and one place to see what the console uses.

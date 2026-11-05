@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { orderBucket, orderStageKey, stageNow, stageWho } from './stages';
 import { customerTier } from '../customers/customerBook';
-import { orderGarmentNames, orderRef } from '../../services/format';
-import { api } from '../../services/api';
+import { orderGarmentNames, orderRef } from '../../utils/format';
+import { api } from '../../api';
 
 export const ORDER_PAGE_SIZES = [20, 30, 40, 50];
 

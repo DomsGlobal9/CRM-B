@@ -5,11 +5,11 @@ import { DataTable } from '../../components/ui/DataTable';
 import { useState, useEffect, useCallback } from 'react';
 import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar, CalendarDays, Wallet, ArrowRight, MapPin } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { LIMITS } from '../../services/validate';
+import { api } from '../../api';
+import { LIMITS } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
-import { currentLocationDetailed, locationProblem } from '../../services/location';
+import { currentLocationDetailed, locationProblem } from './location';
 import { CorrectionForm } from './CorrectionForm';
 import { nowForInput, timesError } from './attendanceTimes';
 import Payroll from './Payroll';

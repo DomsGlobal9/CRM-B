@@ -5,7 +5,7 @@ import {
   Lightbulb as LightbulbIcon, CheckCircle2 as CheckIcon,
   AlertTriangle, ChevronDown, ChevronUp, Inbox,
 } from 'lucide-react';
-import { imageFilesError } from '../../services/validate';
+import { imageFilesError } from '../../utils/validate';
 import { CrumbsContext } from './crumbs';
 
 

@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Edit2 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { api } from '../../services/api';
-import { LIMITS } from '../../services/validate';
+import { api } from '../../api';
+import { LIMITS } from '../../utils/validate';
 
 /**
  * How the order leaves the boutique: pickup, or a courier with its details.

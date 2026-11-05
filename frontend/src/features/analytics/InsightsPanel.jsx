@@ -3,8 +3,8 @@ import { ArrowDownRight, ArrowUpRight, BarChart2, CircleDot, Coins, FileText, Pe
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import { PageHeader, ProgressBar, SectionCard, StatCard } from '../../components/ui/Atelier';
-import { inr, orderGarmentNames } from '../../services/format';
-import { tierName } from '../../services/tierNames';
+import { inr, orderGarmentNames } from '../../utils/format';
+import { tierName } from '../customers/tierNames';
 import { TIERS } from '../customers/customerBook';
 import { humaniseSpecKey } from '../orders/orderHelpers';
 import './insightsPage.css';

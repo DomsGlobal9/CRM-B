@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { api } from '../../services/api';
-import { emailError, mobileError, nameError } from '../../services/validate';
+import { api } from '../../api';
+import { emailError, mobileError, nameError } from '../../utils/validate';
 
 /**
  * The sign-in screens' own state: what is typed into login, find your

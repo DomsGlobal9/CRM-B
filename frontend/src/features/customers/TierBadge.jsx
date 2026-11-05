@@ -1,5 +1,5 @@
 import { TIER_COLORS } from './customerBook';
-import { tierName } from '../../services/tierNames';
+import { tierName } from './tierNames';
 
 export const TierBadge = ({ tier }) => {
   const t = tier || 'Silver';

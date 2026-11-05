@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BellRing } from 'lucide-react';
-import { api } from '../../services/api.js';
+import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { LoaderRows } from '../../components/ui/Loader';
 import { DataTable } from '../../components/ui/DataTable';

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ExternalLink, Eye, Image as ImageIcon, Layers, Link as LinkIcon, Scissors, Sparkles } from 'lucide-react';
 
 import { resolveMediaUrl } from '../../services/media';
-import { inventoryImage } from '../../services/inventoryImages';
+import { inventoryImage } from '../inventory/inventoryImages';
 import { Lightbox } from '../designStudio/GarmentPartPicker';
 import { ALL_ACCESSORY_OPTIONS } from './accessories';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';

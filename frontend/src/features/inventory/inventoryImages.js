@@ -12,7 +12,7 @@
  * name it in PHOTOS; everything else stays as it is.
  */
 
-import { resolveMediaUrl } from './media';
+import { resolveMediaUrl } from '../../services/media';
 
 /** Real photographs by tile key, when the boutique (or we) have them. */
 const PHOTOS = {};

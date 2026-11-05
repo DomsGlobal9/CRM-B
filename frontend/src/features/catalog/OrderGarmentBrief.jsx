@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import GarmentSummary from './GarmentSummary';
 import { isExpressJob } from '../orders/express';
-import { EXTRA_MEASUREMENTS } from '../../services/templates';
+import { EXTRA_MEASUREMENTS } from './templates';
 import { SpeakButton, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import Loader from '../../components/ui/Loader';

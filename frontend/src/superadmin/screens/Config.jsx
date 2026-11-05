@@ -19,7 +19,7 @@ import { useCallback, useState } from 'react';
 import { Lock, Power, Server } from 'lucide-react';
 
 import { consoleApi } from '../api';
-import { LIMITS } from '../../services/validate';
+import { LIMITS } from '../../utils/validate';
 import {
   Async, Card, Confirm, Empty, Field, KeyValue, Note, PageHeader, Pill, SectionHead, Table, moment,
   useApi, useToast,

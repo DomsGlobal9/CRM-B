@@ -2,8 +2,8 @@ import { Building2, Camera, Copy, Globe, Mail, MapPin, Phone, Save, Settings, Sh
 import { SetupProfileBanner } from '../staff/StaffFirstSetup';
 import { Dropzone, Field, IconTile, InfoNote, PageHeader, SectionCard } from '../../components/ui/Atelier';
 import { UserAvatar } from '../../components/ui/UserAvatar';
-import { LIMITS, cleanEmail, imageFilesError } from '../../services/validate';
-import { api } from '../../services/api';
+import { LIMITS, cleanEmail, imageFilesError } from '../../utils/validate';
+import { api } from '../../api';
 import MyDetails from '../staff/MyDetails';
 import { ShopPin } from '../settings/ShopPin';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';

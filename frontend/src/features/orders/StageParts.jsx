@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Scissors, X } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
 import { ASSIGN_ONLY_TO } from '../../constants/roles';
 

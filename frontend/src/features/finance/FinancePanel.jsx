@@ -13,9 +13,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Calendar, FileText, IndianRupee, LayoutGrid, Lightbulb, PieChart, Plus, Receipt, Shield, Trash2, TrendingUp, User, Wallet, X } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { Dropzone, Field, FormModal, IconTile, InfoNote, PageHeader, SectionCard, Segmented, StatCard } from '../../components/ui/Atelier';
-import { LIMITS, cleanAmount, amountError, todayIso } from '../../services/validate';
+import { LIMITS, cleanAmount, amountError, todayIso } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { DataTable } from '../../components/ui/DataTable';
 

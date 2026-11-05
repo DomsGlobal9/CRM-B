@@ -1,14 +1,14 @@
 import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, Layers, MapPin, Package, Pencil, Plus, Scissors, ShoppingCart, X } from 'lucide-react';
-import { api } from '../../services/api';
-import { orderRef } from '../../services/format';
+import { api } from '../../api';
+import { orderRef } from '../../utils/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { PageHeader, StatCard, Tabs } from '../../components/ui/Atelier';
-import { inventoryImage } from '../../services/inventoryImages';
+import { inventoryImage } from './inventoryImages';
 import {
   LIMITS, cleanAmount, amountError, phoneError, emailError, cleanUpper, isGstin,
-} from '../../services/validate';
+} from '../../utils/validate';
 import CatalogBrowser from './CatalogBrowser';
 import ItemFormModal from './ItemFormModal';
 import { Field, Modal } from './inventoryForm';

@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
-import { LIMITS, cleanAmount, imageFilesError } from '../../services/validate';
+import { LIMITS, cleanAmount, imageFilesError } from '../../utils/validate';
 import { Dropzone } from '../../components/ui/Atelier';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 

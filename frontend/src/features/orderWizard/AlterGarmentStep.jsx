@@ -1,6 +1,6 @@
 import { Check, Shirt } from 'lucide-react';
 import { IconTile } from '../../components/ui/Atelier';
-import { formatDate as fmtDate, orderRef } from '../../services/format';
+import { formatDate as fmtDate, orderRef } from '../../utils/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
 /**

@@ -1,6 +1,6 @@
 /* The non-visual half of ShelfPlace.jsx: turning the chosen places into
    put-away lines, putting the stock on them, and the recent-places memory. */
-import { api } from '../../services/api';
+import { api } from '../../api';
 
 const RECENT_KEY = 'inventory-recent-places';
 const RECENT_MAX = 4;

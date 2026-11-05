@@ -1,4 +1,4 @@
-// node src/services/workKind.check.mjs -- every workroom stage has its own kind and colour.
+// node src/features/work/workKind.check.mjs -- every workroom stage has its own kind and colour.
 import assert from 'node:assert/strict';
 import { TODO_KIND, workKind } from './workKind.js';
 

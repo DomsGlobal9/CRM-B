@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Scissors, X } from 'lucide-react';
 import { Dropzone } from '../../components/ui/Atelier';
-import { api } from '../../services/api';
-import { formatDate as fmtDate, formatMoney } from '../../services/format';
+import { api } from '../../api';
+import { formatDate as fmtDate, formatMoney } from '../../utils/format';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
-import { LIMITS, cleanAmount, amountError, imageFilesError } from '../../services/validate';
+import { LIMITS, cleanAmount, amountError, imageFilesError } from '../../utils/validate';
 
 /**
  * A delivered garment back for changes. An alteration is an order on the

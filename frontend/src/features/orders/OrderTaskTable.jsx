@@ -2,7 +2,7 @@ import React from 'react';
 import { Mic } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { isLive, isSettled, rollupStages, currentRow, stageWords, rowToOpen, anyVoiceNote } from './stages';
-import { formatDate as fmtDate } from '../../services/format';
+import { formatDate as fmtDate } from '../../utils/format';
 import { DataTable } from '../../components/ui/DataTable';
 
 /** The order's journey as one table: a numbered step per stage (a per-garment

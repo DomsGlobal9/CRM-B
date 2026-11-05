@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { isProductionStaff } from '../../constants/roles';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { WIZARD_DRAFT_KEY } from '../orderWizard/wizard';
 
 /**

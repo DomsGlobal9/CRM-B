@@ -13,9 +13,9 @@ import { Search,
   MapPin, Minus, Move, PackagePlus, Pencil, Plus, Printer, Trash2, X,
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { api } from '../../services/api';
-import { cleanAmount } from '../../services/validate';
-import { inventoryImage } from '../../services/inventoryImages';
+import { api } from '../../api';
+import { cleanAmount } from '../../utils/validate';
+import { inventoryImage } from './inventoryImages';
 import { Field, Modal, SelectField } from './inventoryForm';
 import { CameraScan } from './CameraScan';
 import Loader from '../../components/ui/Loader';

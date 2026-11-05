@@ -5,8 +5,8 @@ import { Check,
   User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil, ChevronDown, ChevronUp, KeyRound, X,
 } from 'lucide-react';
 
-import { boutiqueLoginUrl } from '../../services/format';
-import { api } from '../../services/api';
+import { boutiqueLoginUrl } from '../../utils/format';
+import { api } from '../../api';
 import {
   AvatarInitials, PageHeader, SearchBar, StatCard, FormModal, Field, Dropzone, InfoNote, FormSection, IconTile, CameraButton, Tabs,
 } from '../../components/ui/Atelier';
@@ -19,7 +19,7 @@ import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import {
   LIMITS, tenDigits, mobileError, emailError, nameError, cleanAmount, amountError,
   cleanDocumentNumber, documentNumberError, todayIso, imageFilesError,
-} from '../../services/validate';
+} from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
 import RowMenu from '../../components/ui/RowMenu';

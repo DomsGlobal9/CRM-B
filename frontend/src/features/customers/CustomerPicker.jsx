@@ -7,7 +7,7 @@
    like -- whose value the caller recognises. */
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { formatMobile } from '../../services/format';
+import { formatMobile } from '../../utils/format';
 import { useCustomerById, useCustomerLookup } from './useCustomerLookup';
 
 const nameOf = (c) => `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.mobile_number || 'Customer';

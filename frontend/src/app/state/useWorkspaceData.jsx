@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { hasModule } from '../../navigation/nav';
-import { setBoutiqueTimeZone } from '../../services/format';
+import { setBoutiqueTimeZone } from '../../utils/format';
 import { DATA_FOR_TAB, DATA_FOR_VIEW } from './pageData';
 
 const isOwner = (user) => !user?.role || user.role === 'Owner';

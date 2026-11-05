@@ -3,10 +3,10 @@ import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, Check, Calenda
 import { HeaderClock } from './HeaderClock';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
 import { hasTask } from '../tour/tourTasks';
-import { api } from '../../services/api';
-import { formatDate as fmtDate, inr } from '../../services/format';
+import { api } from '../../api';
+import { formatDate as fmtDate, inr } from '../../utils/format';
 import { orderBucket, stageNow } from '../orders/stages';
-import { isoDay, plusDaysIso, todayIso } from '../../services/dates';
+import { isoDay, plusDaysIso, todayIso } from '../../utils/dates';
 import { APPOINTMENT_TYPE_LABELS } from '../appointments/appointments';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';

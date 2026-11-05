@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { api } from '../../services/api';
-import { isVisible, isTypedOther, typedOtherText, extraMeasurements } from '../../services/templates';
+import { api } from '../../api';
+import { isVisible, isTypedOther, typedOtherText, extraMeasurements } from './templates';
 import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 

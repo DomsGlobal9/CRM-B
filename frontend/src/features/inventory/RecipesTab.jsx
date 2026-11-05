@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Calculator, Pencil, Plus, Trash2, X } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { LIMITS, cleanAmount, amountError } from '../../services/validate';
-import { inventoryImage } from '../../services/inventoryImages';
+import { api } from '../../api';
+import { LIMITS, cleanAmount, amountError } from '../../utils/validate';
+import { inventoryImage } from './inventoryImages';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { Field, Modal } from './inventoryForm';
 import { DataTable } from '../../components/ui/DataTable';

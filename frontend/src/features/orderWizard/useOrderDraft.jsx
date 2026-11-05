@@ -1,8 +1,8 @@
 import { SELF_DESIGNER, WIZARD_STEPS } from './wizard';
-import { splitSpec, withDefaults } from '../../services/templates';
+import { splitSpec, withDefaults } from '../catalog/templates';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
-import { plusDaysIso } from '../../services/dates';
-import { api } from '../../services/api';
+import { plusDaysIso } from '../../utils/dates';
+import { api } from '../../api';
 
 /**
  * The order being written, as a draft: turning the form into what is saved

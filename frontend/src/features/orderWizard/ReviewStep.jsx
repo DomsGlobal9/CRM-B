@@ -4,7 +4,7 @@ import { ALL_ACCESSORY_OPTIONS } from '../catalog/accessories';
 import { resolveMediaUrl } from '../../services/media';
 import { AvatarInitials } from '../../components/ui/Atelier';
 import { DataTable } from '../../components/ui/DataTable';
-import { formatMobile, inr } from '../../services/format';
+import { formatMobile, inr } from '../../utils/format';
 import GarmentSummary from '../catalog/GarmentSummary';
 import { SELF_DESIGNER } from './wizard';
 import { voiceNoteList } from '../../components/ui/voiceNotes';

@@ -6,7 +6,7 @@
    typing pauses, and an answer is kept only for the question it answers, so the
    list never shows matches for something already erased. */
 import { useEffect, useState } from 'react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 
 const WAIT_MS = 250;
 

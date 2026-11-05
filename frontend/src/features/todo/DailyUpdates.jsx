@@ -5,9 +5,9 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight, Film, Send, Trash2, X } from 'lucide-react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl, shrinkImage } from '../../services/media';
-import { LIMITS } from '../../services/validate';
+import { LIMITS } from '../../utils/validate';
 import { AddPhotoButton, PhotoTile, SectionCard, InfoNote } from '../../components/ui/Atelier';
 import { VoiceRecorder, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import Loader from '../../components/ui/Loader';

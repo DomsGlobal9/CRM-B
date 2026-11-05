@@ -1,6 +1,6 @@
 import React from 'react';
-import { orderRef } from '../../services/format';
-import { fmtDate, formatMoney, formatMobile, orderGarmentNames, orderGarmentLabel } from '../../services/format';
+import { orderRef } from '../../utils/format';
+import { fmtDate, formatMoney, formatMobile, orderGarmentNames, orderGarmentLabel } from '../../utils/format';
 import { resolveMediaUrl } from '../../services/media';
 
 /**

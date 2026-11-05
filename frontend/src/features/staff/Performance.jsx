@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlertCircle, Check, Lock, Star, X } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
-import { LIMITS, todayIso } from '../../services/validate';
+import { LIMITS, todayIso } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
 import './performance.css';
