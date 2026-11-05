@@ -6,6 +6,7 @@ import { inventoryImage } from '../inventory/inventoryImages';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { ALL_ACCESSORY_OPTIONS } from './accessories';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
+import { unitShort } from '../fabrics/taxonomy';
 
 /**
  * Everything chosen for an order, dress by dress, before it is placed.
@@ -25,10 +26,6 @@ import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 const formatKey = (key) => (key || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 const ACCESSORY_LABELS = Object.fromEntries(ALL_ACCESSORY_OPTIONS.map((o) => [o.key, o.label]));
-
-// "m" for cloth, "pcs" for anything counted; the ledger's own unit otherwise.
-const unitShort = (f) => (
-  !f?.unit || f.unit === 'METER' ? 'm' : f.unit === 'PIECE' ? 'pcs' : String(f.unit).toLowerCase());
 
 const FALLBACK =
   'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';

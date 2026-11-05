@@ -18,7 +18,7 @@ const sel = {
   reports: `${M} .reports-switch`,
 };
 
-const isOwner = (role) => !role || role === 'Owner';
+export const isOwner = (role) => !role || role === 'Owner';
 const supervisor = (role) => role === 'Master' || role === 'Designer';
 
 /** [{ part, key, title, text }] for a page; `key` names its target in `sel`. */

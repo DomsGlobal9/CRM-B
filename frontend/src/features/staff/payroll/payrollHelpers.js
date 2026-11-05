@@ -13,19 +13,7 @@ export const money = (value) =>
     ? '—'
     : `₹${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export const hoursText = (minutes) => {
-  const total = Number(minutes || 0);
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  if (!h) return `${m}m`;
-  return m ? `${h}h ${m}m` : `${h}h`;
-};
-
-export const dayText = (iso) =>
-  iso ? new Date(iso).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : '—';
-
-export const clockText = (iso) =>
-  iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+export { clockText, dayText, hoursText } from '../attendance/attendanceHelpers';
 
 export const mondayOf = (value) => {
   const d = new Date(value);

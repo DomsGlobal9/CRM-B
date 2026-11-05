@@ -9,18 +9,10 @@ import { LIMITS, amountError } from '../../utils/validate';
 import { Field, Modal, SelectField } from './inventoryForm';
 import ShelfPlace from './shelves/ShelfPlace';
 import { placePlan, putOnShelves, shelfFailedText } from './shelves/shelfPlacing';
+import { errorBox } from './inventoryShared';
 
 
 const EMPTY_OPTIONS = { categories: [], units: [], default_unit_by_category: {} };
-
-const errorBox = {
-  fontSize: 'var(--text-sm)',
-  color: 'var(--danger-color)',
-  background: 'var(--danger-bg)',
-  border: '1px solid var(--danger-color)',
-  padding: '10px 12px',
-  borderRadius: 'var(--radius-md)',
-};
 
 export default function ItemFormModal({ item = {}, options, suppliers, onClose, onSaved }) {
   const { t } = useLanguage();

@@ -2,20 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
+import { money, panel, qty } from './inventoryShared';
 
 /**
  * The sixteen figures the inventory can state.
  */
 
-const panel = {
-  background: 'var(--surface-color)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-lg)',
-  boxShadow: 'var(--shadow-sm)',
-};
-
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const qty = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
 const rate = (n) => (n === null || n === undefined ? null : `${Number(n).toFixed(2)}%`);
 
 export default function ReportsTab() {

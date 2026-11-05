@@ -7,16 +7,8 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { Field, Modal, SelectField } from './inventoryForm';
 import Loader from '../../components/ui/Loader';
 import { DataTable } from '../../components/ui/DataTable';
+import { panel, qty } from './inventoryShared';
 
-
-const panel = {
-  background: 'var(--surface-color)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-lg)',
-  boxShadow: 'var(--shadow-sm)',
-};
-
-const qty = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
 
 export default function LocationsTab({ items, isOwner, onMoved }) {
   const { t } = useLanguage();

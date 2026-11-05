@@ -20,7 +20,7 @@ import { DataTable } from '../../components/ui/DataTable';
 import ItemsTab from './ItemsTab';
 import MovementModal from './MovementModal';
 import { SupplierFormModal, SuppliersTab } from './Suppliers';
-import { panel, qty } from './inventoryShared';
+import { panel, qty, money } from './inventoryShared';
 
 const MOVEMENT_TONE = {
   PURCHASE: 'var(--success-text)', STOCK_IN: 'var(--success-text)', RETURN: 'var(--success-text)',
@@ -29,8 +29,6 @@ const MOVEMENT_TONE = {
   DAMAGE: 'var(--danger-color)', SCRAP: 'var(--danger-color)',
   ADJUSTMENT: 'var(--info-500)', TRANSFER: 'var(--text-muted)',
 };
-
-const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 export default function InventoryPanel({ currentUser, restockItem = null, onRestockDone }) {
   const { t } = useLanguage();

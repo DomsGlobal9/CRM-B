@@ -1,5 +1,7 @@
 /** Small things the inventory screens share: quantity text, and the panel and error looks. */
 
+export { inr as money } from '../../utils/format';
+
 export const qty = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
 
 export const panel = {

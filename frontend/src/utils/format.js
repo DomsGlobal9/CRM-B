@@ -123,3 +123,6 @@ export function orderGarmentLabel(order) {
 }
 
 export const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
+/** Rupees with paise when there are any. */
+export const inrPaise = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;

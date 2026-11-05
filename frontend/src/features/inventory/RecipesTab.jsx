@@ -7,6 +7,7 @@ import { inventoryImage } from './inventoryImages';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { Field, Modal } from './inventoryForm';
 import { DataTable } from '../../components/ui/DataTable';
+import { panel, qty } from './inventoryShared';
 
 /**
  * The boutique's cookbook: what goes into each garment they make.
@@ -18,15 +19,6 @@ import { DataTable } from '../../components/ui/DataTable';
  * from the earlier line-by-line editor; those are kept and shown, and
  * "Try it" still evaluates them, but the sheet asks for none of it.
  */
-
-const panel = {
-  background: 'var(--surface-color)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-lg)',
-  boxShadow: 'var(--shadow-sm)',
-};
-
-const qty = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
 
 // What a material is for, read off what it is: the recipe never asks.
 const ROLE_BY_CATEGORY = {

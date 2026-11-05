@@ -18,6 +18,7 @@ import { Dropzone, Field, FormModal, IconTile, InfoNote, PageHeader, SectionCard
 import { LIMITS, cleanAmount, amountError, todayIso } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { DataTable } from '../../components/ui/DataTable';
+import { inrPaise as money } from '../../utils/format';
 
 const errorBox = {
   background: 'var(--danger-bg)',
@@ -28,9 +29,6 @@ const errorBox = {
   fontSize: 'var(--text-sm)',
   marginBottom: '12px',
 };
-
-const money = (n) =>
-  `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 // Manual categories only. Inventory and salaries are auto-fed and must never be
 // offered here, or the same rupee would be counted twice. Mirrors

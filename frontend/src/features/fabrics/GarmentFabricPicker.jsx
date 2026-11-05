@@ -6,9 +6,7 @@ import { LIMITS, cleanAmount } from '../../utils/validate';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 import { ACCESSORY_OPTIONS, OTHER_SUBTYPE, SELF_SUBTYPE, accessoryOptionsFor, isAccessorySlot } from '../catalog/accessories';
 import Loader from '../../components/ui/Loader';
-
-const unitShort = (f) => (
-  !f?.unit || f.unit === 'METER' ? 'm' : f.unit === 'PIECE' ? 'pcs' : String(f.unit).toLowerCase());
+import { unitShort } from './taxonomy';
 
 
 

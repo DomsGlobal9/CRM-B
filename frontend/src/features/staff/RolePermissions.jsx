@@ -7,13 +7,7 @@ import {
 import { InfoNote } from '../../components/ui/Atelier';
 import { ASSIGNABLE_ROLES } from '../../constants/roles';
 import { api } from '../../api';
-
-const panel = {
-  background: 'var(--surface-color)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-lg)',
-  boxShadow: 'var(--shadow-sm)',
-};
+import { panel } from './staffShared';
 
 // The work the owner can hand to a role, per section of the app.
 // Must match core/admin_access.py (ADMIN_TASKS).

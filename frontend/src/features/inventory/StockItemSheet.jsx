@@ -6,6 +6,7 @@ import { LIMITS, amountError, imageFilesError } from '../../utils/validate';
 import { Field, Modal, SelectField } from './inventoryForm';
 import ShelfPlace from './shelves/ShelfPlace';
 import { placePlan, putOnShelves, shelfFailedText } from './shelves/shelfPlacing';
+import { errorBox } from './inventoryShared';
 
 /**
  * The fast way to put stock on the shelf: what it is (a catalogue row, or a
@@ -19,10 +20,6 @@ let lastRack = '';
 let lastPlaces = [];
 const placesFrom = (spots) => spots.map((spot) => ({ spot, quantity: '' }));
 
-const errorBox = {
-  fontSize: 'var(--text-sm)', color: 'var(--danger-color)', background: 'var(--danger-bg)',
-  border: '1px solid var(--danger-color)', padding: '10px 12px', borderRadius: 'var(--radius-md)',
-};
 const linkBtn = { background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--primary-color)', fontSize: '12px', textDecoration: 'underline' };
 
 const blank = () => ({

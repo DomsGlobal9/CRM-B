@@ -7,13 +7,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile } from '../../components/ui/Atelier';
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
-
-const panel = {
-  background: 'var(--surface-color)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-lg)',
-  boxShadow: 'var(--shadow-sm)',
-};
+import { panel } from './inventoryShared';
 
 const TYPE_LABEL = {
   MATERIAL: 'Material', CONSUMABLE: 'Consumable', TOOL: 'Tool', MACHINE: 'Machine',

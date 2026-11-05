@@ -13,11 +13,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import { markTourSeen } from './tourState';
-import { pageTourSteps } from './tourPages';
+import { pageTourSteps, isOwner } from './tourPages';
 import { taskSteps } from './tourTasks';
 import './tour.css';
-
-const isOwner = (role) => !role || role === 'Owner';
 
 /* What each menu item is for, in a sentence or two. The title is the label
    the user's own menu shows, so the two always match. */

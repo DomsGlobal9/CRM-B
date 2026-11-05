@@ -7,11 +7,8 @@ import { fmtDate, orderRef, orderGarmentNames } from '../../utils/format';
 import { AvatarInitials, StatCard } from '../../components/ui/Atelier';
 import { DataTable } from '../../components/ui/DataTable';
 import Loader from '../../components/ui/Loader';
+import { todayIso } from '../../utils/validate';
 
-const todayIso = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
 const localDay = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);

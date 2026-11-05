@@ -3,6 +3,8 @@ import { ShoppingCart } from 'lucide-react';
 import { api } from '../../api';
 import { Field, Modal, SelectField } from './inventoryForm';
 import Loader from '../../components/ui/Loader';
+import { panel, qty } from './inventoryShared';
+import { inr } from '../../utils/format';
 
 /**
  * Things to buy for particular orders: the pink zari a customer asked for
@@ -11,12 +13,6 @@ import Loader from '../../components/ui/Loader';
  */
 
 const TONE = { TO_PURCHASE: 'warning', PURCHASED: 'info', RECEIVED: 'success', USED: 'neutral', CANCELLED: 'neutral' };
-const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const qty = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
-const panel = {
-  background: 'var(--surface-color)', border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)',
-};
 
 export default function OrderPurchasesTab({ suppliers = [], isOwner }) {
   const [rows, setRows] = useState([]);

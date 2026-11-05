@@ -17,8 +17,7 @@ export const errorBox = {
   marginBottom: 'var(--space-3)',
 };
 
-export const money = (n) =>
-  `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+export { inrPaise as money } from '../../utils/format';
 
 export const showsPay = (terms) => terms?.hourly_rate !== undefined;
 
