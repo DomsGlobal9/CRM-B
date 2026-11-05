@@ -4,6 +4,8 @@
    the search -- and a step whose part is not on the page is left out. Parts
    (`part`) are what Skip jumps over: the top of the page, then what is
    under it. */
+import { roleIsOwner as isOwner } from '../../constants/roles';
+
 
 const M = '.portal-main';
 const sel = {
@@ -18,7 +20,7 @@ const sel = {
   reports: `${M} .reports-switch`,
 };
 
-export const isOwner = (role) => !role || role === 'Owner';
+export { isOwner };
 const supervisor = (role) => role === 'Master' || role === 'Designer';
 
 /** [{ part, key, title, text }] for a page; `key` names its target in `sel`. */

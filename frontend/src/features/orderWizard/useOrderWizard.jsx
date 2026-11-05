@@ -12,6 +12,7 @@ import { followerOf } from './garmentCopies';
 import { MEASURE_KEYS, sheetGet, sheetSet } from '../catalog/measurements';
 import { amountError, emailError, isPastDate, mobileError, nameError } from '../../utils/validate';
 import { fabricMatchesColour } from '../fabrics/colour';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * The order wizard's own state and logic: the garments being added and paired,
@@ -26,7 +27,7 @@ export default function useOrderWizard({ setView, currentUser, t, currentStep, m
   // garments are on the order, so the list does not stay open under them.
   const addMoreGarmentsRef = useRef(null);
 
-  const selfDesignerLabel = currentUser?.role && currentUser.role !== 'Owner' ? 'Me' : 'Me (owner)';
+  const selfDesignerLabel = !userIsOwner(currentUser) ? 'Me' : 'Me (owner)';
 
   const [activePairingGarment, setActivePairingGarment] = useState(null);
 

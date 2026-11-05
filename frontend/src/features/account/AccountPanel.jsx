@@ -9,6 +9,7 @@ import { ShopPin } from '../settings/ShopPin';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import { TENANT_ID_KEY } from '../../constants/storageKeys';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * My account: the signed-in person's photo and details and, for the owner
@@ -18,7 +19,7 @@ import { TENANT_ID_KEY } from '../../constants/storageKeys';
 export default function AccountPanel({ boutiqueAutosave, boutiqueFormError, boutiqueFormRef, finishStaffSetup, logoFile, pickLogo, saveBoutiqueForm, setBoutiqueSettings, setCurrentUser, setLogoFile, setSettingsSaving, settingsSaving, staffSetup }) {
   const { t } = useLanguage();
   const { currentUser, adminCan, boutiqueSettings } = useApp();
-  const isOwner = !currentUser?.role || currentUser.role === 'Owner';
+  const isOwner = userIsOwner(currentUser);
   // The address a customer or staff member opens: the shop's own
   // page, not the schema name (which is internal).
   const tenant = currentUser?.shop_slug

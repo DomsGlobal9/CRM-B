@@ -13,6 +13,7 @@ import WhatsAppPanel from './WhatsAppPanel.jsx';
 import { getModalConfig } from './settingsModalConfig.js';
 import { useWhatsAppControls } from './useWhatsAppControls.js';
 import { getColorMode, subscribeTheme } from '../../styles/theme.js';
+import { userIsOwner } from '../../constants/roles';
 
 /** Settings: the banner, the category cards, and whichever popup is open. */
 
@@ -51,7 +52,7 @@ export const SettingsPage = ({
     }
   };
 
-  const isOwner = !currentUser?.role || currentUser?.role === 'Owner';
+  const isOwner = userIsOwner(currentUser);
   const hasInvoiceAccess = isOwner || (currentUser?.admin_tasks || []).includes('invoices.template');
   const hasTierAccess = isOwner || (currentUser?.admin_tasks || []).includes('settings.edit');
 

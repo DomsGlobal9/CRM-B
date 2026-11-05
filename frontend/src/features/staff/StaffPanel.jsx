@@ -8,6 +8,7 @@ import RolePermissions from './RolePermissions';
 import TeamTasks from './TeamTasks';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
 import Roster from './Roster';
+import { userIsOwner } from '../../constants/roles';
 
 /** Staff: the tabs, and which of them each role sees. */
 
@@ -20,7 +21,7 @@ const TABS = [
 ];
 
 export default function StaffPanel({ currentUser, onlyDesigners = false, onShowAllStaff = null }) {
-  const isOwner = !currentUser?.role || currentUser.role === 'Owner';
+  const isOwner = userIsOwner(currentUser);
   const isSupervisor = currentUser?.role === 'Master';
   // Team work the owner handed this role (core/admin_access.py, team.*).
   const handed = (currentUser?.admin_tasks || []).filter((task) => task.startsWith('team.'));

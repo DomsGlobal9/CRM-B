@@ -4,6 +4,7 @@ import { InvoiceRenderer, normalizeInvoiceData } from './InvoiceTemplates';
 import { Check, Sparkles, AlertCircle, Loader2, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import Loader from '../../components/ui/Loader';
+import { userIsOwner } from '../../constants/roles';
 
 const TEMPLATE_OPTIONS = [
   {
@@ -29,7 +30,7 @@ const TEMPLATE_OPTIONS = [
 export const InvoiceTemplateSelector = ({ currentUser, hideHeader = false }) => {
   const { t } = useLanguage();
   // The owner, or a role handed the invoice design (core/admin_access.py).
-  const isOwner = !currentUser?.role || currentUser?.role === 'Owner'
+  const isOwner = userIsOwner(currentUser)
     || (currentUser?.admin_tasks || []).includes('invoices.template');
   const [selectedTemplate, setSelectedTemplate] = useState('classic');
   const [availableTemplates, setAvailableTemplates] = useState(TEMPLATE_OPTIONS);

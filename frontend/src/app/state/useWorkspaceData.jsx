@@ -3,10 +3,10 @@ import { api } from '../../api';
 import { hasModule } from '../../navigation/nav';
 import { setBoutiqueTimeZone } from '../../utils/format';
 import { DATA_FOR_TAB, DATA_FOR_VIEW } from './pageData';
+import { userIsOwner } from '../../constants/roles';
 
-const isOwner = (user) => !user?.role || user.role === 'Owner';
 /** Who may add customers (App's canAddCustomer): the owner, or an Admin handed customers.add. */
-const mayAddCustomers = (user) => isOwner(user) || (user?.admin_tasks || []).includes('customers.add');
+const mayAddCustomers = (user) => userIsOwner(user) || (user?.admin_tasks || []).includes('customers.add');
 
 /**
  * The workspace's data, one request each: every page asks only for what it
@@ -59,7 +59,7 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
       setBoutiqueTimeZone(data?.timezone);
     }),
     // Only the owner has the bell (useWorkspaceShell's showBell).
-    notifications: hasModule(user, 'notifications') && isOwner(user) && (() => fetchNotifications(user)),
+    notifications: hasModule(user, 'notifications') && userIsOwner(user) && (() => fetchNotifications(user)),
     queuedMessages: (!user?.role || ['Owner', 'Master'].includes(user.role) || (user.admin_tasks || []).includes('orders.notify'))
       && (() => api.getQueuedCustomerMessages().then(setQueuedMessages)),
   });
@@ -140,7 +140,7 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
   }, [setWhatsappStatus]);
 
   useEffect(() => {
-    if (view === 'dashboard' && dashboardTab === 'settings' && (!currentUser?.role || currentUser.role === 'Owner')) {
+    if (view === 'dashboard' && dashboardTab === 'settings' && userIsOwner(currentUser)) {
       fetchWhatsAppStatus();
     }
   }, [view, dashboardTab, currentUser, fetchWhatsAppStatus]);

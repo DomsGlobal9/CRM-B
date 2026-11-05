@@ -9,6 +9,7 @@ import BoutiqueProductionDialog from '../production/BoutiqueProduction';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import { PageTopBar } from '../../components/ui/Breadcrumbs';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * Before the wizard: what kind of order this is (stitching, an alteration, or
@@ -99,7 +100,7 @@ export default function OrderTypeSelector({ crumbs, wizard, accountBar, fetchNot
               <span className="wz-service-title">{t('entry.serviceAlteration', 'Alteration')}</span>
               <span className="wz-service-desc">{t('entry.serviceAlterationDesc', 'Fix or adjust a garment \u2014 one we made, or one stitched elsewhere.')}</span>
             </button>
-            {(!currentUser?.role || currentUser.role === 'Owner') && (
+            {userIsOwner(currentUser) && (
               <button type="button" className="wz-service" onClick={() => setStartingBoutiqueRun(true)}>
                 <IconTile icon={Factory} tone="violet" size={48} iconSize={22} />
                 <span className="wz-service-title">{t('entry.serviceInHouse', 'In-house')}</span>

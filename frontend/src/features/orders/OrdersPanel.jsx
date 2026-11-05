@@ -15,6 +15,7 @@ import { todayIso } from '../../utils/dates';
 import { expressLabel, isExpressJob, isExpressOrder } from './express';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * Orders and Workshop: the order book as a list or (Workshop) a kanban, with
@@ -58,7 +59,7 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
         aside={dashboardTab === 'workshop' ? null : <><SearchBar value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />{failedMenu}</>}
         actions={dashboardTab === 'workshop' ? null : (
           <>
-            {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
+            {(userIsOwner(currentUser) || adminCan('orders.create')) && (
               <GuidedHighlight show={guideOrders}>
                 <button className="btn-primary btn-gold" style={{ padding: '10px 18px' }} onClick={() => setView('order-selector')}>
                   <Plus size={16} /> {t('ordersPage.newOrder')}

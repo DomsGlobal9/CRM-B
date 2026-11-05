@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { isProductionStaff } from '../../constants/roles';
+import { isProductionStaff, userIsOwner } from '../../constants/roles';
 import { api } from '../../api';
 import { STAFF_SETUP_PREFIX, TENANT_ID_KEY, WIZARD_DRAFT_KEY } from '../../constants/storageKeys';
 
@@ -160,7 +160,7 @@ export default function useSession({ setView, setDashboardTab, setCurrentUser, c
       // A newly added staff member's first sign-in here: the skippable setup,
       // with the password they signed in with as the one being replaced.
       setStaffSetup(null);
-      if (res.first_sign_in && res.user?.role && res.user.role !== 'Owner') {
+      if (res.first_sign_in && !userIsOwner(res.user)) {
         setSetupCurrent(loginPassword);
         storeSetup(res.user, 'password');
         setStaffSetup('password');

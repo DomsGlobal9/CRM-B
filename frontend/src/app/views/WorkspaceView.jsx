@@ -5,7 +5,7 @@ import { api } from '../../api';
 import { PortalMenu } from '../../navigation/PortalMenu';
 import { FormModal, PageHeader, ShellWordmark } from '../../components/ui/Atelier';
 import { ScreenLoading } from '../../components/ui/ScreenLoading';
-import { SUPERVISOR_ROLES } from '../../constants/roles';
+import { SUPERVISOR_ROLES, userIsOwner } from '../../constants/roles';
 import OverviewPanel from '../../features/dashboard/OverviewPanel';
 import DesignsPanel from '../../features/designStudio/DesignsPanel';
 import { AddCustomerChooser } from '../../features/customers/AddCustomerChooser';
@@ -186,7 +186,7 @@ export default function WorkspaceView() {
 
           {/* Main Content Area */}
           {/* Every role but the owner gets a tighter top (portal-main--staff). */}
-          <main className={`portal-main${!currentUser?.role || currentUser.role === 'Owner' ? '' : ' portal-main--staff'}`}
+          <main className={`portal-main${userIsOwner(currentUser) ? '' : ' portal-main--staff'}`}
                 key={`${dashboardTab}:${sectionVisit}`}>
             <CrumbsProvider base={crumbBase} account={accountBar((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}>
             {(dashboardTab === 'work' || dashboardTab === 'done' || dashboardTab === 'check') && (
@@ -206,7 +206,7 @@ export default function WorkspaceView() {
               <>
                 <PageHeader
                   title={t('nav.todo', 'To-do')}
-                  subtitle={!currentUser?.role || currentUser.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser.role)
+                  subtitle={userIsOwner(currentUser) || SUPERVISOR_ROLES.includes(currentUser.role)
                     ? 'Daily updates from your team'
                     : 'Your daily updates for the month'}
                 />

@@ -27,6 +27,7 @@ import useCustomerBook from '../../features/customers/useCustomerBook';
 import useSession from '../../features/auth/useSession';
 import useWorkspaceShell from '../../navigation/useWorkspaceShell';
 import { NAV_COLLAPSED_KEY, TENANT_ID_KEY, TOKEN_KEY, WIZARD_DRAFT_KEY, onboardingDismissedKey } from '../../constants/storageKeys';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * Everything the app holds while it runs, in one place: the signed-in user and
@@ -106,7 +107,7 @@ export default function useAppStateValue() {
   // The bell (inbox alerts) shows on the owner's Dashboard page only -- not
   // on any other page, and not for any other role. Read by the top bar, the
   // phone header and the tablet header alike.
-  const showBell = (!currentUser?.role || currentUser.role === 'Owner') && view === 'dashboard' && dashboardTab === 'overview';
+  const showBell = userIsOwner(currentUser) && view === 'dashboard' && dashboardTab === 'overview';
 
   // The sign-in screens' form state (features/auth/useAuthForms.js).
   const auth = useAuthForms();
@@ -753,7 +754,7 @@ export default function useAppStateValue() {
   /** Whether the owner handed this user `task` as Admin (core/admin_access.py).
    *  Declared before the area hooks below: they are handed both. */
   const adminCan = (task) => (currentUser?.admin_tasks || []).includes(task);
-  const isOwnerUser = !currentUser?.role || currentUser.role === 'Owner';
+  const isOwnerUser = userIsOwner(currentUser);
 
   // Open an order from an alteration (below the data loader, which it reloads).
   const openAlteration = (id) => {

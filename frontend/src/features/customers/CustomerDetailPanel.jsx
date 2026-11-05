@@ -13,6 +13,7 @@ import { StyleProfileCard } from './StyleProfileCard';
 import CustomerReferrals from './CustomerReferrals';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * One customer (or lead) on its own page: contact details, measurements,
@@ -22,7 +23,7 @@ export default function CustomerDetailPanel({ alterationOrder, approvingDesignId
   const { t } = useLanguage();
   const { currentUser, adminCan, setDashboardTab } = useApp();
   const c = selectedDirectoryCustomer;
-  const isOwner = !currentUser?.role || currentUser.role === 'Owner';
+  const isOwner = userIsOwner(currentUser);
   const parts = c.measurements?.additional_measurements?.stitch_parts || [];
   const visible = c.measurements ? getVisibleMeasurementFields(parts) : [];
   const FIELDS = [['bust', 'Bust'], ['waist', 'Waist'], ['hips', 'Hips'], ['shoulder', 'Shoulder'],

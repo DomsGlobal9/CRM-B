@@ -6,6 +6,7 @@ import Loader from '../../components/ui/Loader';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
+import { userIsOwner } from '../../constants/roles';
 
 const DesignUpload = lazy(() => import('./DesignUpload'));
 const DesignWork = lazy(() => import('./DesignWork'));
@@ -32,7 +33,7 @@ export default function DesignsPanel({ designLibraryToken, designsView, handleDe
   const showRequests = ['Designer', 'Owner'].includes(currentUser?.role) || adminCan('design.assign');
   // Only those who hand out the work get the button; a Designer just has the list.
   const canRequest = currentUser?.role === 'Owner' || adminCan('design.assign');
-  const canUpload = !currentUser?.role || currentUser.role === 'Owner' || adminCan('design.upload');
+  const canUpload = userIsOwner(currentUser) || adminCan('design.upload');
   const [requesting, setRequesting] = useState(false);
   const [requestsToken, setRequestsToken] = useState(0);
   const [requestsWaiting, setRequestsWaiting] = useState(0);
@@ -111,15 +112,15 @@ export default function DesignsPanel({ designLibraryToken, designsView, handleDe
           {designsView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB ? (
             <DesignDashboard
               onOpenLibrary={() => setDesignsView('library')}
-              canManageDesigners={!currentUser?.role || currentUser.role === 'Owner' || adminCan('team.manage')}
+              canManageDesigners={userIsOwner(currentUser) || adminCan('team.manage')}
               shopSlug={currentUser?.shop_slug}
             />
           ) : (
             <DesignLibrary
               key={viewVisit}
               refreshToken={designLibraryToken}
-              canReview={!currentUser?.role || currentUser.role === 'Owner' || adminCan('design.approve')}
-              canStock={!currentUser?.role || currentUser.role === 'Owner' || adminCan('inventory.items')}
+              canReview={userIsOwner(currentUser) || adminCan('design.approve')}
+              canStock={userIsOwner(currentUser) || adminCan('inventory.items')}
               requests={showRequests && (
                 <Suspense fallback={<Loader section />}>
                   <DesignWork currentUser={currentUser} refreshToken={requestsToken}

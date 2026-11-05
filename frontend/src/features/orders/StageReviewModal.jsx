@@ -1,6 +1,6 @@
 import { AlertTriangle, Calendar, Check, CheckCircle2, Clock, Eye, FileText, History, Layers, MessageSquare, PackageCheck, Play, RefreshCw, Scissors, Shirt, Trash2, User, X } from 'lucide-react';
 import React from 'react';
-import { SUPERVISOR_ROLES, isProductionStaff } from '../../constants/roles';
+import { SUPERVISOR_ROLES, isProductionStaff, userIsOwner } from '../../constants/roles';
 import { maySignOff, submitsForSignOff, submittedByMaster } from './signOff';
 import { formatDate as fmtDate, formatDateTime as fmtDateTime, inr, orderGarmentLabel, orderRef } from '../../utils/format';
 import { api } from '../../api';
@@ -35,7 +35,7 @@ export default function StageReviewModal({ activeReviewOrder, activeReviewStage,
             setActiveReviewOrder(null);
             setSelectedStageObj(null);
           };
-          const isSupervisor = !currentUser.role || currentUser.role === 'Owner'
+          const isSupervisor = userIsOwner(currentUser)
             || SUPERVISOR_ROLES.includes(currentUser.role);
           // Whose work this is decides whether Done completes it or sends it
           // for checking (features/orders/signOff.js; the server holds the same rule).
