@@ -1,0 +1,42 @@
+/* A customer's page on a phone. Actions: New order and Go with Existing Design on
+   one row, Edit and Delete on the next. Profile: a short card, with the photo, the
+   name and contact, and the photo buttons as icons in one row, and the three facts
+   in a slim strip under them. Larger screens never reach these rules. */
+@media (max-width: 640px) {
+  .app-container .customer-detail-view-container > .at-toolbar .at-toolbar-right { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .app-container .customer-detail-view-container > .at-toolbar .at-toolbar-right > button {
+    grid-column: span 6; gap: 6px; height: 44px; padding: 0 8px !important; font-size: 13px; line-height: 1.15; white-space: normal;
+  }
+  .app-container .customer-detail-view-container > .at-toolbar .at-toolbar-right > .btn-primary { grid-column: span 5; }
+  .app-container .customer-detail-view-container > .at-toolbar .at-toolbar-right > .btn-secondary:has(+ .btn-primary) { grid-column: span 7; }
+  .app-container .customer-detail-view-container > .at-toolbar .at-toolbar-right > button:only-child { grid-column: 1 / -1; }
+  .app-container .customer-detail-view-container > .at-toolbar .at-toolbar-right > button svg { flex-shrink: 0; }
+
+  .app-container .customer-detail-view-container .at-profile-head { align-items: stretch; gap: 10px; padding: 12px; }
+  .app-container .customer-detail-view-container .at-profile-id {
+    display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; column-gap: 10px; align-items: start; text-align: left;
+  }
+  .app-container .customer-detail-view-container .at-profile-id > div:first-child { display: contents !important; }
+  .app-container .customer-detail-view-container .at-profile-id .at-avatar { grid-column: 1; grid-row: 1; width: 56px !important; height: 56px !important; font-size: 20px !important; }
+  .app-container .customer-detail-view-container .at-profile-id > div:first-child > div { grid-column: 3; grid-row: 1; flex-wrap: nowrap; gap: 6px; }
+  .app-container .customer-detail-view-container .at-profile-id > div:first-child > div > button {
+    width: 36px; min-width: 0; height: 36px; min-height: 36px !important; padding: 0 !important; gap: 0; font-size: 0 !important; justify-content: center; border-radius: 10px;
+  }
+  .app-container .customer-detail-view-container .at-profile-id > div:last-child { grid-column: 2; grid-row: 1; width: auto; }
+  .app-container .customer-detail-view-container .at-profile-id > div:last-child > div:first-child { justify-content: flex-start; gap: 6px; }
+  .app-container .customer-detail-view-container .at-profile-id h2 { font-size: 17px !important; line-height: 1.25; overflow-wrap: anywhere; }
+  .app-container .customer-detail-view-container .at-profile-id .at-page-sub { margin: 0; font-size: 12px; line-height: 1.3; }
+  .app-container .customer-detail-view-container .at-profile-id .at-contact { align-items: flex-start; gap: 2px; margin-top: 2px !important; font-size: 12.5px !important; }
+  .app-container .customer-detail-view-container .at-profile-id .at-contact span { justify-content: flex-start; }
+
+  .app-container .customer-detail-view-container .at-profile-stats {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, .85fr) minmax(0, 1fr); gap: 0; border-radius: 10px; background: var(--surface-inset);
+  }
+  .app-container .customer-detail-view-container .at-profile-stat {
+    align-items: flex-start; gap: 0; padding: 5px 8px; border: 0; border-radius: 0; background: transparent; text-align: left;
+  }
+  .app-container .customer-detail-view-container .at-profile-stat + .at-profile-stat { border-left: 1px solid var(--border-color); }
+  .app-container .customer-detail-view-container .at-profile-stat .at-tile { display: none; }
+  .app-container .customer-detail-view-container .at-profile-stat .at-measure-label { font-size: 11px; line-height: 1.3; white-space: nowrap; }
+  .app-container .customer-detail-view-container .at-profile-stat .at-measure-value { font-size: 13px; line-height: 1.3; }
+}

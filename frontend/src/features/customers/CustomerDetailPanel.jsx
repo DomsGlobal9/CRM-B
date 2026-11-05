@@ -13,6 +13,7 @@ import { StyleProfileCard } from './StyleProfileCard';
 import CustomerReferrals from './CustomerReferrals';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import './customerProfilePhone.css';
 
 /**
  * One customer (or lead) on its own page: contact details, measurements,
