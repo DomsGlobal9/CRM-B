@@ -198,6 +198,11 @@ button.dsh-agenda-cell:hover { border-color: var(--border-strong); }
 }
 @media (max-width: 768px) {
   .dsh { gap: 12px; }
+  .dsh-welcome-side { flex: 1 1 100%; flex-wrap: nowrap; gap: 8px; }
+  .dsh-welcome-side > span:first-child { flex: 1 1 auto; min-width: 0; line-height: 1.35; }
+  .dsh-welcome-side > :not(:first-child) { flex-shrink: 0; }
+  .dsh-refresh { width: 40px; height: 40px; min-width: 40px; min-height: 40px; }
+  .portal-main:has(.dsh) .btn-primary.btn-gold.dsh-new-order { height: 40px; min-height: 40px; padding: 0 12px; gap: 6px; }
   .portal-main:has(.dsh) > .at-page-head { margin-bottom: 12px; }
   .dsh-attn-row, .dsh-appt { min-height: 44px; } /* easy to tap */
 }

@@ -193,3 +193,16 @@
   .portal-main > .at-topbar { position: sticky; top: 0; }
   html:has(.portal-main > .at-topbar) { scroll-padding-top: 66px; }
 }
+
+/* The phone header's logo, between the menu button and the page's name. */
+.mobile-header-logo { flex-shrink: 0; width: 30px; height: 30px; margin-right: 8px; border-radius: 8px; }
+/* A long page name shortens with "..." so the header never runs past the screen. */
+.mobile-app-header { min-width: 0; }
+.mobile-app-header .mobile-header-brand-group { flex: 1 1 auto; min-width: 0; }
+.mobile-app-header .mobile-header-title { flex: 0 1 auto; min-width: 0; }
+.mobile-app-header .mobile-header-actions { flex-shrink: 0; }
+
+/* The sidebar that slides open on a small screen carries the logo too. */
+@media (max-width: 1024px) {
+  .portal-sidebar .portal-sidebar-header-desktop { display: block; }
+}

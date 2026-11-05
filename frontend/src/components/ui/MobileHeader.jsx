@@ -63,6 +63,7 @@ export function MobileHeader({ title, currentUser, notificationsCount, onOpenNot
                 <Menu size={22} />
               </button>
             )}
+            <img className="mobile-header-logo" src="/icon-512.png" alt="Scaleezy" />
             <h2 className="mobile-header-title">{title || 'Scaleezy'}</h2>
           </div>
 
