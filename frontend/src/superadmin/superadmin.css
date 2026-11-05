@@ -7,6 +7,9 @@
  * pinned to Scaleezy light -- plain :root, no data-theme -- so a boutique's
  * theme or dark mode left in shared localStorage never reaches it.
  *
+ * The one exception to sharing is the fonts below: the console keeps DM Sans
+ * while the workspace reads in Inter.
+ *
  * This file only adds what the workspace has no recipe for: the drill-in
  * split, key/value lists, code and machine-value cells, sticky and suspended
  * table rows, the global-search dropdown, the console's sign-in and shell
@@ -16,6 +19,11 @@
  *     class from inside one), so nothing here can restyle a bare element;
  *   - text on --primary-color is always --primary-foreground, never white.
  */
+
+:root {
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: 'DM Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 
 /* --- Type ------------------------------------------------------------- */
 

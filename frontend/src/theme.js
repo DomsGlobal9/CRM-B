@@ -48,7 +48,7 @@ export function setColorMode(mode) {
 }
 
 const darkMedia = () =>
-  (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null);
+(typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null);
 
 export const resolveTheme = ({ system, mode }) => {
   const dark = mode === 'dark' || (mode === 'system' && Boolean(darkMedia()?.matches));

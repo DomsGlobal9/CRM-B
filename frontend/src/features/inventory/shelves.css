@@ -33,7 +33,7 @@
 
 .sh-card { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--radius-md); border: 1px solid var(--border-color); background: var(--surface-2, var(--surface-color)); min-width: 0; }
 .sh-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; }
-.sh-address { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; }
+.sh-address { font-family: var(--font-mono); letter-spacing: .02em; }
 .sh-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .sh-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 4px 10px; border-radius: 999px; font-size: 13px;
   border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary); overflow-wrap: anywhere; }
@@ -110,7 +110,7 @@
 .sp-all { flex-shrink: 0; font-size: 12.5px; color: var(--success-text); font-weight: 600; }
 .sp-qty { width: 96px; flex-shrink: 0; min-height: 34px; text-align: center; }
 .sp-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.sp-recent { cursor: pointer; font: inherit; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.sp-recent { cursor: pointer; font: inherit; font-size: 12.5px; font-family: var(--font-mono); }
 .sp-recent:hover { border-color: var(--border-strong, var(--text-muted)); }
 .sp-link { display: inline-flex; align-items: center; gap: 4px; padding: 4px 2px; border: 0; background: none; color: var(--primary-color); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .sp-chooser { display: flex; flex-direction: column; gap: 8px; }
