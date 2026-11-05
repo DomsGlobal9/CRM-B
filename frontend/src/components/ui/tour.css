@@ -40,7 +40,7 @@
 .pt-card--intro .pt-actions { margin-top: 20px; padding-top: 16px; border-top: 1px solid #eef0e8; }
 .pt-spacer { flex: 1 1 auto; }
 .pt-link {
-  padding: 8px 8px; border: 0; background: none; color: #7a8073; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px;
+  padding: 8px 8px; border: 0; background: none; color: #5a5f55; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 8px;
 }
 .pt-link:hover { color: #14170f; background: #f4f5ef; }
 .pt-btn {

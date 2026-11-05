@@ -7,6 +7,7 @@
 
 /* ---- Scaleezy, dark: the same lime on near-black, text a step lighter --- */
 html[data-theme="scaleezy-dark"] {
+  --stage-row-mix: 14%;
   --bg-color: var(--neutral-50);
   --surface-color: var(--neutral-100);
   --surface-2: var(--neutral-200);
@@ -158,6 +159,7 @@ html[data-theme="atelier"] {
 
 /* ---- Atelier, dark ----------------------------------------------------- */
 html[data-theme="atelier-dark"] {
+  --stage-row-mix: 14%;
   --bg-color: var(--neutral-50);
   --surface-color: var(--neutral-100);
   --surface-2: var(--neutral-200);
@@ -188,7 +190,7 @@ html[data-theme="atelier-dark"] {
   --info-color: var(--info-500);
   --info-bg: var(--info-100);
   --success-text: var(--success-500);
-  --warning-text: var(--warning-500);
+  --warning-text: var(--warning-700);
   --radius-sm: 6px;
   --radius-md: 10px;
   --radius-lg: 14px;

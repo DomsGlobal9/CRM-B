@@ -922,7 +922,7 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
                       cursor: 'pointer', textAlign: 'left', width: '100%',
                       border: isActive ? '1.5px solid var(--brand-primary, #047857)' : '1px solid var(--border-color, #cbd5e1)',
                       background: isActive ? 'var(--brand-surface, #ecfdf5)' : 'var(--surface-1, #ffffff)',
-                      color: isActive ? 'var(--brand-primary, #047857)' : '#0f172a',
+                      color: isActive ? 'var(--brand-primary, #047857)' : 'var(--text-primary)',
                       boxShadow: isActive ? '0 2px 6px rgba(4, 120, 87, 0.15)' : '0 1px 2px rgba(0,0,0,0.03)',
                       transition: 'all 0.15s ease',
                       // A tapped section scrolls to the top: clear of the phone's 66px header bar.
@@ -930,14 +930,14 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, width: '100%' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: isActive ? 'var(--brand-primary, #047857)' : '#0f172a' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: isActive ? 'var(--brand-primary, #047857)' : 'var(--text-primary)' }}>
                         {zone.label}
                       </span>
                       {count > 0 && (
                         <span style={{
                           fontSize: '11px', fontWeight: 700, padding: '1px 6px', borderRadius: '10px',
-                          background: isActive ? 'var(--brand-primary, #047857)' : '#e2e8f0',
-                          color: isActive ? '#ffffff' : '#334155',
+                          background: isActive ? 'var(--brand-primary, #047857)' : 'var(--surface-inset)',
+                          color: isActive ? 'var(--surface-color)' : 'var(--text-primary)',
                           flexShrink: 0,
                           marginLeft: isPhone ? 'auto' : undefined,
                         }}>
@@ -953,7 +953,7 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
                     <span style={{
                       fontSize: '11px',
                       fontWeight: 500,
-                      color: isActive ? 'var(--brand-primary, #047857)' : '#475569',
+                      color: isActive ? 'var(--brand-primary, #047857)' : 'var(--text-secondary)',
                       lineHeight: '1.3',
                     }}>
                       {zone.garments}

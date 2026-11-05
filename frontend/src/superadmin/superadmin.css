@@ -7,8 +7,8 @@
  * pinned to Scaleezy light -- plain :root, no data-theme -- so a boutique's
  * theme or dark mode left in shared localStorage never reaches it.
  *
- * The one exception to sharing is the fonts below: the console keeps DM Sans
- * while the workspace reads in Inter.
+ * The one exception to sharing is the tokens below: the console keeps DM Sans,
+ * its warm greys and its dark sidebar, while the workspace has moved on.
  *
  * This file only adds what the workspace has no recipe for: the drill-in
  * split, key/value lists, code and machine-value cells, sticky and suspended
@@ -23,6 +23,17 @@
 :root {
   --font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: 'DM Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --neutral-50: #F7F5F1;
+  --neutral-100: #F0EEE9;
+  --neutral-200: #ECE9E2;
+  --shell-bg: #0C0F00;
+  --shell-fg: var(--neutral-100);
+  --shell-logo: var(--primary-500);
+  --shell-active-bg: var(--neutral-100);
+  --shell-active-fg: var(--neutral-900);
+  --shell-accent: var(--primary-500);
+  --shell-muted: #9FCBA8;
+  --warning-text: var(--warning-500);
 }
 
 /* --- Type ------------------------------------------------------------- */
