@@ -50,6 +50,9 @@ def whatsapp_session(tenant):
 
     if not is_enabled(tenant.plan, tenant.enabled_modules, 'whatsapp'):
         return None
+    # Either switch off: the summary still goes, by email.
+    if not whatsapp_service.sending_enabled() or not whatsapp_service.boutique_sending_enabled():
+        return None
     account = WhatsAppAccount.objects.filter(tenant=tenant).first()
     session = account.session_id if account else 'default'
     status = whatsapp_service.get_whatsapp_status(session_id=session)
@@ -125,7 +128,7 @@ def deliver(text, subject, mobile, email, session):
     number = whatsapp_number(mobile)
     if session and number:
         result = whatsapp_service.send_whatsapp_message(
-            phone=number, message_text=text, session_id=session)
+            phone=number, message_text=text, session_id=session, purpose='daily_summary')
         if result.get('success'):
             return 'whatsapp', number, ''
         data = result.get('data') or {}

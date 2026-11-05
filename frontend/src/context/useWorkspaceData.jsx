@@ -130,6 +130,8 @@ export default function useWorkspaceData({ view, currentUser, dashboardTab, onbo
         connected: !!data.connected,
         status: data.status || 'disconnected',
         qrCode: data.qrCode || null,
+        sendingEnabled: data.sendingEnabled,
+        boutiqueSendingEnabled: data.boutiqueSendingEnabled,
       });
     } catch {
       /* ignore silent background error */

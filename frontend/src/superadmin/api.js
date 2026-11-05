@@ -199,6 +199,7 @@ export const consoleApi = {
 
   audit: (filters = {}) => request(`/audit/?${qs(filters)}`),
   signins: () => request('/signins/'),
+  outboundMessages: (filters = {}) => request(`/outbound-messages/?${qs(filters)}`),
 
   ordersMonitor: () => request('/orders/'),
   ordersFor: (schema) => request(`/orders/${schema}/`),

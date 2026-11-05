@@ -298,6 +298,7 @@ class VerifyRequestView(PortalView):
                 message_text=(f'{code} is your verification code for '
                               f'{tenant.name}. It expires in 5 minutes.'),
                 tenant=tenant,
+                purpose='portal_code',
             )
         except Exception:  # noqa: BLE001 - provider down, timeout, bad config
             logger.exception('customer portal could not send a code for %s',
@@ -770,7 +771,9 @@ class RequirementView(PortalView):
         try:
             if not portal_otp.confirmation_due(tenant.schema_name, mobile):
                 return
-            from crm_api.whatsapp_service import send_whatsapp_message
+            from crm_api.whatsapp_service import boutique_sending_enabled, send_whatsapp_message
+            if not boutique_sending_enabled(tenant):
+                return
             greeting = f'Hi {first_name}, thank you' if first_name else 'Thank you'
             what = f'your {product} requirement' if product else 'your requirement'
             result = send_whatsapp_message(
@@ -778,6 +781,7 @@ class RequirementView(PortalView):
                 message_text=(f'{greeting} for your enquiry with {tenant.name}. '
                               f'We have received {what}. Our team will contact you shortly.'),
                 tenant=tenant,
+                purpose='enquiry',
             )
             if not result or not result.get('success'):
                 logger.error('customer portal enquiry confirmation refused for %s',

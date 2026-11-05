@@ -38,6 +38,7 @@ import Config from './screens/Config.jsx';
 import OrdersMonitor from './screens/OrdersMonitor.jsx';
 import Integrations from './screens/Integrations.jsx';
 import Messaging from './screens/Messaging.jsx';
+import SentMessages from './screens/SentMessages.jsx';
 import Errors from './screens/Errors.jsx';
 import ErrorHandling from './screens/ErrorHandling.jsx';
 import Health from './screens/Health.jsx';
@@ -63,6 +64,7 @@ const SCREENS = {
   orders: OrdersMonitor,
   integrations: Integrations,
   messaging: Messaging,
+  sent: SentMessages,
   errors: Errors,
   handling: ErrorHandling,
   jobs: NotMeasured,

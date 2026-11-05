@@ -657,6 +657,41 @@ class SigninsView(ConsoleView):
             return Response(signins.summary())
 
 
+class OutboundMessagesView(ConsoleView):
+    """Who the product has messaged. Customers' numbers and addresses, so each
+    look is audited, as the staff directory is."""
+
+    def get(self, request):
+        from django.conf import settings as django_settings
+
+        from . import outbound
+        from .models import OutboundMessage
+
+        params = request.query_params
+        channel = params.get('channel', '')
+        state = params.get('status', '')
+        boutique = params.get('boutique', '')
+        term = params.get('q', '').strip()
+        if channel and channel not in dict(OutboundMessage.CHANNELS):
+            return Response({'error': f"Unknown channel '{channel}'."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if state and state not in dict(OutboundMessage.STATUSES):
+            return Response({'error': f"Unknown status '{state}'."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        with public_scope():
+            page = outbound.listing(
+                channel=channel, status=state, boutique=boutique, term=term,
+                page=_int(params.get('page'), 1),
+                page_size=_int(params.get('page_size'), 50, high=200))
+        page['sending_enabled'] = getattr(django_settings, 'WHATSAPP_SENDING_ENABLED', True)
+        audit.record(request, 'data.view', target='outbound-messages', boutique=boutique,
+                     after={'access': 'outbound_messages', 'returned': len(page['entries']),
+                            'matching': page['count'],
+                            **({'search': term[:120]} if term else {})})
+        return Response(page)
+
+
 class LeadApproveView(ConsoleView):
     """Approve an access request: create the boutique and its owner.
 

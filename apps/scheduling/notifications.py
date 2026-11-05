@@ -65,8 +65,12 @@ def send_appointment_booked(appointment):
     for an appointment that a later error rolled back -- the same rule
     domains.orders.messaging follows.
     """
+    from crm_api.whatsapp_service import sending_enabled
+
     config, _ = BoutiqueSettings.objects.get_or_create(id=1)
-    if not config.customer_messaging_enabled:
+    # The platform switch too: otherwise deliver() below would sit through its
+    # retries waiting for a send that is refused every time.
+    if not config.customer_messaging_enabled or not sending_enabled():
         return None
 
     number = (appointment.customer.mobile_number or '').strip()
@@ -87,7 +91,8 @@ def send_appointment_booked(appointment):
         # confirmation still reads as immediate.
         for attempt, wait in enumerate((4, 10, 0), start=1):
             try:
-                result = send_whatsapp_message(phone=number, message_text=body, tenant=tenant)
+                result = send_whatsapp_message(phone=number, message_text=body, tenant=tenant,
+                                               purpose='appointment')
                 if result.get('success'):
                     return
                 reason = result.get('error') or result.get('message') or result.get('data')

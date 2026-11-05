@@ -10,6 +10,8 @@ from django.utils import timezone
 from django.utils.module_loading import import_string
 
 from crm_api.models import BoutiqueSettings, CustomerMessage
+from crm_api.whatsapp_service import (BOUTIQUE_SENDING_OFF, SENDING_OFF, boutique_sending_enabled,
+                                      sending_enabled)
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,7 @@ def whatsapp_backend(message):
         phone=message.to_number,
         message_text=message.body,
         tenant=tenant,
+        purpose=message.template_key,
     )
     if not res.get('success'):
         err = res.get('error') or res.get('data') or 'WhatsApp delivery failed'
@@ -59,6 +62,10 @@ def whatsapp_backend(message):
 
 
 def get_backend():
+    # Switched off at the platform: messages wait for staff to send by hand,
+    # exactly as they do with no sender configured.
+    if not sending_enabled():
+        return None
 
     path = getattr(settings, 'CUSTOMER_MESSAGE_BACKEND', '') or ''
     if not path:
@@ -158,8 +165,20 @@ def give_up_stale():
     ).update(status='FAILED', next_attempt_at=None)
 
 
+def hold_scheduled():
+    """Take every waiting message off the automatic schedule, leaving it for
+    staff to send by hand. Done when sending is switched off, so switching it
+    back on does not fire a backlog at customers."""
+    return CustomerMessage.objects.filter(
+        status='QUEUED', next_attempt_at__isnull=False,
+    ).update(next_attempt_at=None)
+
+
 def send_due(limit=100):
     """Every message in this schema whose next try is due: {'SENT': n, ...}."""
+    if not sending_enabled() or not boutique_sending_enabled():
+        hold_scheduled()
+        return {}
     if get_backend() is None:
         return {}
     due = list(CustomerMessage.objects.filter(
@@ -176,6 +195,12 @@ def send_due(limit=100):
 
 def _send(message):
     """Hand the message to the configured sender; raises when it is not sent."""
+    # Checked at the moment of sending too: a message queued before the switch
+    # went off must not leave after it.
+    if not sending_enabled():
+        raise RuntimeError(SENDING_OFF)
+    if not boutique_sending_enabled():
+        raise RuntimeError(BOUTIQUE_SENDING_OFF)
     backend = get_backend()
     if backend is None:
         raise RuntimeError('No WhatsApp sender is set up for this boutique.')
@@ -224,7 +249,7 @@ def _whatsapp_invoice(message):
     res = send_whatsapp_document(
         phone=message.to_number, content=build_invoice_pdf(message.order, config),
         filename=invoice_filename(message.order), caption=message.body,
-        tenant=getattr(connection, 'tenant', None))
+        tenant=getattr(connection, 'tenant', None), purpose=message.template_key)
     if not res.get('success'):
         err = res.get('error') or res.get('data') or 'WhatsApp delivery failed'
         raise RuntimeError(f"WhatsApp sending failed: {err}")
@@ -260,7 +285,8 @@ def _whatsapp_photos(message):
     from crm_api.models import GarmentImage
     from crm_api.whatsapp_service import send_whatsapp_document, send_whatsapp_message
     tenant = getattr(connection, 'tenant', None)
-    sent = send_whatsapp_message(phone=message.to_number, message_text=message.body, tenant=tenant)
+    sent = send_whatsapp_message(phone=message.to_number, message_text=message.body, tenant=tenant,
+                                 purpose=message.template_key)
     if not sent.get('success'):
         raise RuntimeError(f"WhatsApp sending failed: {sent.get('error') or sent.get('data')}")
     for image in GarmentImage.objects.filter(pk__in=message.image_ids):
@@ -269,7 +295,8 @@ def _whatsapp_photos(message):
         mime = mimetypes.guess_type(image.image.name)[0] or 'image/jpeg'
         res = send_whatsapp_document(
             phone=message.to_number, content=content, filename=image.image.name.rsplit('/', 1)[-1],
-            caption=image.get_view_display(), mime_type=mime, media_type='image', tenant=tenant)
+            caption=image.get_view_display(), mime_type=mime, media_type='image', tenant=tenant,
+            purpose=message.template_key)
         if not res.get('success'):
             raise RuntimeError(f"WhatsApp photo failed: {res.get('error') or res.get('data')}")
     return 'whatsapp_sent'

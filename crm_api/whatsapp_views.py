@@ -5,7 +5,8 @@ from rest_framework import status
 from django.conf import settings
 from django_tenants.utils import schema_context
 from tenants.models import WhatsAppAccount
-from .whatsapp_service import send_whatsapp_message, get_whatsapp_status, reset_whatsapp_session
+from .whatsapp_service import (BOUTIQUE_SENDING_OFF, boutique_sending_enabled, get_whatsapp_status,
+                               reset_whatsapp_session, send_whatsapp_message, sending_enabled)
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,10 @@ class WhatsAppSendMessageView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        if not boutique_sending_enabled():
+            return Response({"success": False, "error": BOUTIQUE_SENDING_OFF},
+                            status=status.HTTP_403_FORBIDDEN)
+
         # Resolve current tenant from request
         current_tenant = getattr(request, 'tenant', None)
         session_id = None
@@ -99,11 +104,15 @@ class WhatsAppSendMessageView(APIView):
             phone=str(phone),
             message_text=str(message_text),
             session_id=session_id,
-            tenant=current_tenant
+            tenant=current_tenant,
+            purpose='api',
         )
 
         if result.get('success'):
             return Response(result.get('data', {}), status=status.HTTP_200_OK)
+        elif result.get('blocked'):
+            return Response({"success": False, "error": result['error']},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
         else:
             return Response(
                 {
@@ -126,7 +135,11 @@ class WhatsAppStatusView(APIView):
             session_id = current_tenant.whatsapp_account.session_id
 
         result = get_whatsapp_status(session_id=session_id, tenant=current_tenant)
-        return Response(result, status=status.HTTP_200_OK)
+        # Connected and allowed to send are separate questions; the Settings
+        # panel shows both.
+        return Response({**result, 'sendingEnabled': sending_enabled(),
+                         'boutiqueSendingEnabled': boutique_sending_enabled()},
+                        status=status.HTTP_200_OK)
 
 
 class WhatsAppResetView(APIView):

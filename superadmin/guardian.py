@@ -45,7 +45,7 @@ def send_whatsapp(text):
     number = settings.GUARDIAN_WHATSAPP_NUMBER
     if not number:
         return 'GUARDIAN_WHATSAPP_NUMBER is not set.'
-    res = send_whatsapp_message(phone=number, message_text=text,
+    res = send_whatsapp_message(phone=number, message_text=text, purpose='guardian',
                                 session_id=settings.GUARDIAN_WHATSAPP_SESSION)
     if res.get('success'):
         return None

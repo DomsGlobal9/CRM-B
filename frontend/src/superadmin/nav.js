@@ -16,7 +16,7 @@
 
 import {
   Activity, Building2, FileWarning, Fingerprint, HeartPulse,
-  KeyRound, LayoutDashboard, Mail, Plug, PackageSearch, ScrollText, Settings,
+  KeyRound, LayoutDashboard, Mail, Plug, PackageSearch, ScrollText, Send, Settings,
   ShieldAlert, ShoppingBag, Sparkles, Users, Wrench,
 } from 'lucide-react';
 
@@ -67,6 +67,7 @@ export const NAV = [
     group: 'Activity',
     items: [
       { key: 'orders', label: 'Orders across boutiques', icon: ShoppingBag },
+      { key: 'sent', label: 'Messages sent', icon: Send },
       { key: 'messaging', label: 'WhatsApp backlog', icon: Activity },
       { key: 'integrations', label: 'Connected services', icon: Plug },
     ],

@@ -56,15 +56,15 @@ def _name(customer):
 def _wish(customer, config, tenant):
     """Send the wish; returns (status, error)."""
     from apps.scheduling.notifications import compose
-    from crm_api.whatsapp_service import send_whatsapp_message
+    from crm_api.whatsapp_service import send_whatsapp_message, sending_enabled
 
-    if not config.customer_messaging_enabled:
+    if not config.customer_messaging_enabled or not sending_enabled():
         return 'SKIPPED', 'Customer messaging is switched off.'
     number = (customer.mobile_number or '').strip()
     if not number:
         return 'SKIPPED', 'No mobile number.'
     try:
-        result = send_whatsapp_message(phone=number, tenant=tenant,
+        result = send_whatsapp_message(phone=number, tenant=tenant, purpose='birthday',
                                        message_text=compose(customer.first_name, config.name, WISH_BODY))
     except Exception as exc:  # noqa: BLE001 - one failed send is not a failed run
         return 'FAILED', str(exc)

@@ -191,6 +191,45 @@ class LoginAttempt(models.Model):
         return f'{self.kind} {self.username} {"ok" if self.ok else "failed"}'
 
 
+class OutboundMessage(models.Model):
+    """
+    One WhatsApp message or email the product tried to send, and to whom.
+
+    Written from the two places everything leaves through
+    (crm_api.whatsapp_service and apps.email_service.backends), so no sender can
+    be left out. There is deliberately no body column: message text carries
+    sign-in codes, password-reset links and customers' order details, and this
+    table answers "who did we contact", not "what did we say".
+    """
+    WHATSAPP = 'whatsapp'
+    EMAIL = 'email'
+    CHANNELS = [(WHATSAPP, 'WhatsApp'), (EMAIL, 'Email')]
+
+    SENT = 'sent'
+    FAILED = 'failed'
+    BLOCKED = 'blocked'
+    STATUSES = [(SENT, 'Sent'), (FAILED, 'Failed'), (BLOCKED, 'Blocked by the switch')]
+
+    channel = models.CharField(max_length=10, choices=CHANNELS, db_index=True)
+    recipient = models.CharField(max_length=254, db_index=True)
+    status = models.CharField(max_length=10, choices=STATUSES, db_index=True)
+    # Schema name; blank for what the platform itself sends (guardian alerts,
+    # access-request emails).
+    boutique = models.CharField(max_length=63, blank=True, db_index=True)
+    purpose = models.CharField(max_length=100, blank=True)
+    subject = models.CharField(max_length=255, blank=True)
+    session = models.CharField(max_length=100, blank=True)
+    error = models.CharField(max_length=300, blank=True)
+    at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-at', '-id']
+        indexes = [models.Index(fields=['channel', '-at'])]
+
+    def __str__(self):
+        return f'{self.channel} to {self.recipient}: {self.status}'
+
+
 class PlatformNotification(models.Model):
     """Something the platform administrators should know about, shown on the
     console's bell until someone marks it read.

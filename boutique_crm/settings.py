@@ -263,10 +263,13 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
-EMAIL_BACKEND = (
+# What actually delivers mail. EMAIL_BACKEND wraps it so every email the product
+# sends lands in the console's outbound log, whichever code path sent it.
+EMAIL_DELIVERY_BACKEND = (
     'django.core.mail.backends.smtp.EmailBackend' if EMAIL_HOST
     else 'django.core.mail.backends.console.EmailBackend'
 )
+EMAIL_BACKEND = 'apps.email_service.backends.LoggingEmailBackend'
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'no-reply@scaleezy.com')
 
 # Who hears about every new access request and demo request, with the
@@ -443,6 +446,16 @@ CUSTOMER_MESSAGE_BACKEND = os.environ.get(
 CUSTOMER_MESSAGES_IN_BACKGROUND = not _running_tests
 
 WHATSAPP_COUNTRY_CODE = os.environ.get('WHATSAPP_COUNTRY_CODE', '91')
+
+# The platform's master switch for outgoing WhatsApp. Off, nothing leaves
+# through crm_api.whatsapp_service: no boutique's own switch can override it,
+# and sign-in codes and guardian alerts stop too. Being connected to WhatsApp
+# never sends anything by itself; this decides whether sends are allowed at all.
+# Anything but an explicit yes is off, so a typo stops messages, not starts them.
+WHATSAPP_SENDING_ENABLED = (
+    os.environ.get('WHATSAPP_SENDING_ENABLED', 'true').strip().lower()
+    in ('1', 'true', 'yes', 'on')
+)
 
 
 DESIGN_STUDIO_INTELLIGENCE = os.environ.get(

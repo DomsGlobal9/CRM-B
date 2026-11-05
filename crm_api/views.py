@@ -2614,6 +2614,26 @@ class BoutiqueSettingsViewSet(viewsets.ViewSet):
         config.save(update_fields=['tier_names'])
         return Response({'tier_names': names})
 
+    # The boutique's own on/off for WhatsApp, in Settings. The Owner's alone, as
+    # the panel it sits in is. Going off also stands down whatever is waiting to
+    # be retried, so coming back on later does not send a backlog.
+    @action(detail=False, methods=['put'], url_path='whatsapp-sending',
+            permission_classes=[OwnerOnly])
+    def whatsapp_sending(self, request):
+        from domains.orders.messaging import hold_scheduled
+        from .whatsapp_service import sending_enabled
+
+        enabled = request.data.get('enabled')
+        if not isinstance(enabled, bool):
+            return Response({'error': "'enabled' must be true or false."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        config, _ = BoutiqueSettings.objects.get_or_create(id=1)
+        config.customer_messaging_enabled = enabled
+        config.save(update_fields=['customer_messaging_enabled'])
+        if not enabled:
+            hold_scheduled()
+        return Response({'boutiqueSendingEnabled': enabled, 'sendingEnabled': sending_enabled()})
+
     @action(detail=False, methods=['get', 'patch'], url_path='role-modules',
             permission_classes=[OwnerOnly])
     def role_modules(self, request):

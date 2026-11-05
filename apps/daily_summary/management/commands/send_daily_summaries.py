@@ -33,7 +33,7 @@ class Command(BaseCommand):
         if options['schema'] and not BoutiqueTenant.objects.filter(
                 schema_name=options['schema'], is_active=True).exists():
             raise CommandError(f"No active boutique with schema '{options['schema']}'.")
-        if settings.EMAIL_BACKEND.endswith('console.EmailBackend'):
+        if settings.EMAIL_DELIVERY_BACKEND.endswith('console.EmailBackend'):
             self.stderr.write('EMAIL_HOST is not set: emails are printed here, not sent.')
         interval = options['test_every']
         if interval is None:

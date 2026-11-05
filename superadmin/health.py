@@ -129,6 +129,11 @@ def _whatsapp():
 
     unread_note = (f' {unreadable} boutique(s) could not be read, so the real '
                    f'backlog may be higher.' if unreadable else '')
+    if not getattr(settings, 'WHATSAPP_SENDING_ENABLED', True):
+        return 'not_configured', (
+            f'WhatsApp sending is turned off for the whole platform '
+            f'(WHATSAPP_SENDING_ENABLED): nothing goes out, sign-in codes and alerts '
+            f'included. {queued} message(s) waiting to be sent by hand.{unread_note}')
     backend = getattr(settings, 'CUSTOMER_MESSAGE_BACKEND', '')
     if backend:
         return 'healthy', (f'Customer WhatsApp messages are sent automatically. '

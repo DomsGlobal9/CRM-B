@@ -42,6 +42,9 @@ export const SettingsPage = ({
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const [resetting, setResetting] = useState(false);
+  const [sendingSaving, setSendingSaving] = useState(false);
+  const [sendingError, setSendingError] = useState('');
+  const [savedBoutiqueSending, setSavedBoutiqueSending] = useState(null);
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState(getColorMode);
   const [activeModal, setActiveModal] = useState(null); // 'language' | 'appearance' | 'workspace' | 'whatsapp' | 'invoice' | 'tiers' | 'summary'
@@ -87,6 +90,28 @@ export const SettingsPage = ({
       console.error('Failed to reset WhatsApp session:', err);
     } finally {
       setResetting(false);
+    }
+  };
+
+  // Undefined until the first status answer: the switch waits rather than
+  // showing a position nobody has read yet. What the owner just saved wins over
+  // the status poll, which goes through the WhatsApp service, can take seconds,
+  // and may have set out before the save.
+  const platformSendingOn = whatsappStatus.sendingEnabled;
+  const boutiqueSendingOn = savedBoutiqueSending ?? whatsappStatus.boutiqueSendingEnabled;
+  const sendingKnown = typeof boutiqueSendingOn === 'boolean';
+  const sendingOff = platformSendingOn === false || boutiqueSendingOn === false;
+
+  const handleSendingToggle = async (enabled) => {
+    setSendingSaving(true);
+    setSendingError('');
+    try {
+      const saved = await api.setWhatsAppSending(enabled);
+      setSavedBoutiqueSending(saved.boutiqueSendingEnabled);
+    } catch (err) {
+      setSendingError(err?.message || t('settingsPage.whatsappSwitchFailed', 'Could not change the WhatsApp switch.'));
+    } finally {
+      setSendingSaving(false);
     }
   };
 
@@ -597,20 +622,57 @@ export const SettingsPage = ({
                     </button>
                   </div>
 
+                  {/* Connected and allowed to send are separate: this decides
+                      whether anything goes out, whatever the connection says. */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '16px', padding: '14px 16px', background: 'var(--surface-inset)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)' }}>
+                    <label htmlFor="whatsapp-sending-switch" style={{ margin: 0, cursor: platformSendingOn === false ? 'default' : 'pointer' }}>
+                      <span style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        {t('settingsPage.whatsappSendingLabel', 'Send WhatsApp messages')}
+                      </span>
+                      <span style={{ display: 'block', fontSize: '12.5px', fontWeight: 400, color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+                        {!sendingKnown
+                          ? t('settingsPage.whatsappSendingChecking', 'Checking whether messages are on...')
+                          : platformSendingOn === false
+                          ? t('settingsPage.whatsappSendingPlatformOff', 'Turned off for the whole platform by the administrator, so nothing is sent and this switch cannot override it.')
+                          : boutiqueSendingOn === false
+                            ? t('settingsPage.whatsappSendingOff', 'Off: order updates, invoices, birthday wishes and appointment confirmations are not sent, even while WhatsApp is connected. Turning this on does not send what was missed. Website sign-in codes still go out.')
+                            : t('settingsPage.whatsappSendingOn', 'On: order updates, invoices, birthday wishes and appointment confirmations go out automatically while WhatsApp is connected.')}
+                      </span>
+                    </label>
+                    <input
+                      id="whatsapp-sending-switch"
+                      type="checkbox"
+                      role="switch"
+                      checked={sendingKnown && platformSendingOn !== false && boutiqueSendingOn}
+                      disabled={!sendingKnown || sendingSaving || platformSendingOn === false}
+                      onChange={(e) => handleSendingToggle(e.target.checked)}
+                      style={{ width: '18px', height: '18px', flexShrink: 0, marginTop: '2px', accentColor: 'var(--primary-color)', cursor: platformSendingOn === false ? 'not-allowed' : 'pointer' }}
+                    />
+                  </div>
+                  {sendingError && (
+                    <div role="alert" style={{ marginBottom: '16px', fontSize: '12.5px', color: 'var(--danger-color)' }}>{sendingError}</div>
+                  )}
+
                   {whatsappStatus.connected ? (
                     <div style={{ padding: '20px', background: 'var(--success-bg)', border: '1px solid color-mix(in srgb, var(--success-color) 40%, transparent)', borderRadius: 'var(--radius-lg)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                         <CheckCircle2 size={20} color="var(--success-color)" />
                         <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--success-color)' }}>
-                          {t('settingsPage.connectedTitle', 'WhatsApp Connected & Active')}
+                          {sendingOff
+                            ? t('settingsPage.connectedNotSendingTitle', 'WhatsApp Connected, Sending Off')
+                            : t('settingsPage.connectedTitle', 'WhatsApp Connected & Active')}
                         </span>
                       </div>
                       <div style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                        {t('settingsPage.connectedDesc', 'Automated customer order receipts, stage progress updates, and delivery alerts are actively delivering.')}
+                        {sendingOff
+                          ? t('settingsPage.connectedNotSendingDesc', 'This number is linked, but customers are not being messaged.')
+                          : t('settingsPage.connectedDesc', 'Automated customer order receipts, stage progress updates, and delivery alerts are actively delivering.')}
                       </div>
                       <div style={{ marginTop: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid color-mix(in srgb, var(--success-color) 25%, transparent)' }}>
                         <span className="ui-badge" style={{ background: 'var(--surface-color)', color: 'var(--success-color)', border: '1px solid color-mix(in srgb, var(--success-color) 30%, transparent)', fontWeight: 600 }}>
-                          {t('settingsPage.connectedBadge', 'Active & Connected')}
+                          {sendingOff
+                            ? t('settingsPage.connectedNotSendingBadge', 'Connected, Not Sending')
+                            : t('settingsPage.connectedBadge', 'Active & Connected')}
                         </span>
                         <button
                           type="button"

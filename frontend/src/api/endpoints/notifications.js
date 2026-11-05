@@ -20,6 +20,16 @@ export const notificationsApi = {
     return res.json();
   },
 
+  async setWhatsAppSending(enabled) {
+    const res = await guardedFetch(`${BASE_URL}/boutique-settings/whatsapp-sending/`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) await failWith(res, 'Could not change the WhatsApp switch');
+    return res.json();
+  },
+
   async getNotifications(role = 'Owner', email = '') {
     const url = new URL(`${BASE_URL}/notifications/`);
     url.searchParams.append('role', role);
