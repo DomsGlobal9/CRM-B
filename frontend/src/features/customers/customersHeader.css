@@ -46,3 +46,47 @@
   .portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions > * { flex: 1 1 auto; }
   .portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions button { width: 100%; justify-content: center; }
 }
+
+/* On a phone: the search and the three buttons on one row. The buttons show
+   their icons only, so the search keeps the rest of the row. */
+@media (max-width: 768px) {
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-head-right { flex-wrap: nowrap; gap: 8px; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-aside { flex: 1 1 0; min-width: 0; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-search { width: 100%; min-width: 0; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions { display: flex; flex: 0 0 auto; flex-direction: row; flex-wrap: nowrap; width: auto; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions > * { flex: 0 0 auto; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions button {
+    width: 40px; min-width: 40px; padding: 0 !important; gap: 0; font-size: 0; justify-content: center;
+  }
+}
+
+/* The filter bar on a phone: the count on top, with Clear beside it when it shows;
+   Sort and More filters sharing the next row. Opened, the filters sit two by two. */
+@media (max-width: 768px) {
+  .portal-main .cf-bar { padding: 12px; border-radius: 14px; }
+  .portal-main .cf-bar .cf-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+  .portal-main .cf-bar .cf-top-leading { grid-column: 1 / -1; grid-row: 1; width: auto; min-width: 0; min-height: 24px; }
+  .portal-main .cf-bar .cf-showing { font-size: 13px; }
+  .portal-main .cf-bar .cf-top-end { display: contents; }
+  .portal-main .cf-bar .cf-inline { grid-column: 1; grid-row: 2; display: flex; min-width: 0; gap: 8px; }
+  .portal-main .cf-bar .cf-top-end .cf-inline select.cf-select {
+    flex: 1 1 0; width: 100% !important; min-width: 0 !important; height: 40px !important; min-height: 40px !important; padding: 0 22px 0 8px !important;
+  }
+  .portal-main .cf-bar .cf-btn { grid-column: 2; grid-row: 2; justify-content: center; height: 40px; min-height: 40px; padding: 0 10px; font-size: 13px; }
+  /* Clear is the button after More filters. */
+  .portal-main .cf-bar .cf-btn ~ .cf-btn { grid-column: 1 / -1; grid-row: 1; justify-self: end; height: 28px; min-height: 28px; padding: 0 8px; font-size: 12.5px; }
+  .portal-main .cf-bar .cf-filters-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; margin-top: 10px; padding-top: 10px; }
+  .portal-main .cf-bar .cf-filters-grid > .cf-field:last-child { grid-column: 1 / -1; }
+  .portal-main .cf-bar .cf-filters-grid select.cf-select { height: 40px; min-height: 40px; padding: 0 22px 0 8px; text-overflow: ellipsis; }
+}
+/* Tighter: the select's words say what it does, so the Sort label steps aside. */
+@media (max-width: 374px) {
+  .portal-main .cf-bar .cf-inline .cf-label { display: none; }
+}
+@media (max-width: 480px) {
+  .portal-main .cf-bar .cf-top:has(.cf-count) .cf-inline .cf-label { display: none; }
+}
+/* The narrowest phones: More filters keeps its icons, so the select can be read. */
+@media (max-width: 359px) {
+  .portal-main .cf-bar .cf-btn:not(.cf-btn ~ .cf-btn) { gap: 4px; font-size: 0; }
+}
