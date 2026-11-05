@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowRight, Search, X as CloseIcon, Upload as UploadIcon, Camera as CameraIcon,
@@ -6,6 +6,7 @@ import {
   AlertTriangle, ChevronDown, ChevronUp, Inbox,
 } from 'lucide-react';
 import { imageFilesError } from '../../services/validate';
+import { CrumbsContext } from './crumbs';
 
 
 export function IconTile({ icon: Icon, tone = 'neutral', size = 44, iconSize = 20, className = '' }) {
@@ -338,12 +339,15 @@ export function EmptyState({ icon, title, detail, action, tone, error = false, c
 }
 
 export function PageHeader({ icon: Icon, tone = 'neutral', title, subtitle, actions, aside, meta }) {
+  // In the workspace the top bar names the page, so the title is not drawn
+  // twice. The admin console has no such bar and keeps its own.
+  const titledByTopBar = useContext(CrumbsContext) !== null;
   return (
     <header className="at-page-head">
       <div className="at-page-head-left">
         {Icon && <span className={`at-page-icon at-tile at-tile--${tone}`}><Icon size={26} strokeWidth={1.6} /></span>}
         <div className="at-page-head-text">
-          <h1 className="at-page-title">{title}</h1>
+          {!titledByTopBar && <h1 className="at-page-title">{title}</h1>}
           {subtitle && <p className="at-page-sub">{subtitle}</p>}
           {meta && <div className="at-page-meta">{meta}</div>}
         </div>

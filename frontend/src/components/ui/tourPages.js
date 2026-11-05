@@ -7,7 +7,7 @@
 
 const M = '.portal-main';
 const sel = {
-  title: `${M} .at-page-head .at-page-title`,
+  title: [`${M} .at-topbar .at-crumb-here[aria-current="page"]`, '.mobile-app-header .mobile-header-title'],
   actions: `${M} .at-page-head .at-page-actions`,
   stats: `${M} .at-stat-grid`,
   tabs: `${M} .at-scroll-tabs`,
@@ -111,5 +111,5 @@ export const hasPageTour = (page, role) => !!stepsFor(page, role);
 
 /** The page's steps, each with the selector of the part it points at. */
 export function pageTourSteps(page, role) {
-  return (stepsFor(page, role) || []).map((s) => ({ ...s, targets: [sel[s.key]] }));
+  return (stepsFor(page, role) || []).map((s) => ({ ...s, targets: [].concat(sel[s.key]) }));
 }

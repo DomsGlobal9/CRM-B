@@ -12,8 +12,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px 20px;
-  margin: -12px 0 20px;
-  padding: 10px 0 12px;
+  margin: -16px 0 18px;
+  padding: 6px 0 8px;
   float: none;
 }
 .portal-main .at-topbar::before {
@@ -47,53 +47,6 @@
   gap: 8px 10px;
   margin-left: auto;
 }
-.app-header-search {
-  position: relative;
-  flex: 0 1 300px;
-  min-width: 170px;
-}
-.app-header-search svg {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--text-muted);
-  pointer-events: none;
-}
-.app-header-search input {
-  width: 100%;
-  height: 40px;
-  padding: 0 14px 0 38px;
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: var(--surface-inset);
-  color: var(--text-primary);
-  font: inherit;
-  font-size: 13.5px;
-}
-.app-header-search input:focus {
-  outline: none;
-  border-color: var(--border-focus, var(--border-strong));
-  background: var(--surface-color);
-}
-.app-header-plus {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  min-height: 40px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--primary-color);
-  color: var(--primary-foreground, #020202);
-  cursor: pointer;
-  transition: background-color .15s ease;
-}
-.app-header-plus:hover { background: var(--primary-hover, var(--primary-color)); }
-
 .app-header-icons { display: inline-flex; align-items: center; gap: 2px; }
 /* The plain icons of the header: no fill and no border until hovered. */
 .app-header .app-header-icon,
@@ -123,7 +76,6 @@
   color: var(--text-primary);
 }
 .app-header .app-header-icon:focus-visible,
-.app-header-plus:focus-visible,
 .app-header-setup:focus-visible {
   outline: 3px solid var(--accent-border);
   outline-offset: 2px;
@@ -175,31 +127,33 @@
   box-shadow: none;
   background: var(--surface-inset);
 }
-.app-header .user-avatar-circle { width: 36px; height: 36px; }
+.app-header .user-avatar-circle { width: 34px; height: 34px; }
 .acct-menu-who { display: flex; flex-direction: column; min-width: 0; text-align: left; line-height: 1.25; }
 .acct-menu-who-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .acct-menu-who-role { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 500; color: var(--text-secondary); }
 
-/* Narrower screens: first the name, then what the account menu also offers. */
+/* The chip shows the name and role, so the open menu does not repeat them.
+   Below 1100px the chip is only the photo, and the menu is where they are. */
+@media (min-width: 1101px) {
+  .acct-menu-list .mobile-account-who { display: none; }
+  /* Only Sign out is left, so the menu is only as big as that. */
+  .acct-menu-list { min-width: 0; width: max-content; padding: 4px; }
+  .acct-menu-list .mobile-account-item { min-height: 34px; padding: 0 10px; gap: 8px; font-size: 13px; }
+  .acct-menu-list .mobile-account-item svg { width: 14px; height: 14px; }
+}
+
+/* Narrower screens: the name folds into the photo. */
 @media (max-width: 1100px) {
   .acct-menu-who { display: none; }
   .app-header .acct-menu-btn { gap: 4px; }
-  .app-header-search { flex-basis: 220px; }
-}
-@media (max-width: 960px) {
-  .app-header .app-header-icon--foldable { display: none; }
 }
 
-/* A phone: the dark header bar above already has the title, bell, theme and
-   account menu, so this row keeps the trail (when there is one), search and New order. */
+/* A phone: the dark header bar above has the title and these actions, so this
+   row only keeps a trail back up, when there is one. */
 @media (max-width: 768px) {
-  .portal-main .at-topbar { margin: -12px 0 12px; padding: 8px 0 10px; }
-  .portal-main .at-topbar--single .at-crumbs { display: none; }
+  .portal-main .at-topbar { margin: -12px 0 12px; padding: 6px 0 8px; }
+  .portal-main .at-topbar--single { display: none; }
   .portal-main .at-topbar .at-crumbs { flex: 1 1 100%; }
   .portal-main .at-topbar .at-crumb-here[aria-current="page"] { font-size: 15px; }
-  .app-header.portal-account-bar { display: flex; flex: 1 1 100%; flex-wrap: nowrap; }
-  .app-header > :not(.app-header-search):not(.app-header-plus) { display: none; }
-  .app-header-search { flex: 1 1 auto; min-width: 0; }
-  /* A role with neither has nothing to draw here. */
-  .portal-main .at-topbar--single:not(:has(.app-header-search, .app-header-plus)) { display: none; }
+  .app-header.portal-account-bar { display: none; }
 }

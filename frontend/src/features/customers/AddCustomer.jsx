@@ -306,7 +306,7 @@ export function AddCustomerChooser({ onBack, onManual, onImported }) {
   return (
     <div className="selector-container">
       <div className="selector-header">
-        <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{onManual ? 'Add customer' : 'Import customers'}</h1>
+        {onManual && <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>Add customer</h1>}
         <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>
           {onManual ? 'How would you like to add them?' : 'Bring an existing customer list in from a spreadsheet. A single new customer is added when you take their order.'}
         </p>
@@ -717,7 +717,6 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
   return (
     <form className="selector-container" onSubmit={submit} noValidate>
       <div className="page-title-group">
-        <h1 className="page-title">{editing ? 'Edit customer' : 'New customer'}</h1>
         <p className="page-subtitle">
           {editing ? 'Change their details and measurements. Only what you change is saved.'
             : 'Their details and measurements. Only the name and mobile are needed to start.'}

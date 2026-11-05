@@ -845,7 +845,6 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
       <header className="portal-header">
         <div className="portal-header-left">
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h1 className="at-page-title">Alterations</h1>
             <p className="at-page-sub">
               Garments that came back after delivery. Each one is its own job — the original order stays as it was.
             </p>

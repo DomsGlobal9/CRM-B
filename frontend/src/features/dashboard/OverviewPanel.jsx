@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, Check, CalendarClock, ChevronRight, ClipboardCheck, ClipboardList, Clock, MessageSquareWarning, PackageCheck, Plus, RotateCw, Ruler, Scissors, Search, ShieldCheck, Shirt, Truck, TrendingUp, Users, Wallet } from 'lucide-react';
-import { PageHeader } from '../../components/ui/Atelier';
+import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, Check, CalendarClock, ChevronRight, ClipboardCheck, ClipboardList, Clock, MessageSquareWarning, PackageCheck, Plus, RotateCw, Ruler, Scissors, ShieldCheck, Shirt, Truck, TrendingUp, Users, Wallet } from 'lucide-react';
 import { HeaderClock } from '../../components/ui/HeaderClock';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
 import { hasTask } from '../../components/ui/tourTasks';
@@ -208,10 +207,9 @@ const STEPS = [
  * finance trend, and the order list for what only the orders can say (those
  * counts fill in a moment after the page draws).
  */
-export default function OverviewPanel({ appointments, blankAppointmentForm, currentUserName, dashboardData, guideOrders, justRegistered, loading, onboardingSteps, openAppointment, ordersList, queuedMessages = [], setAppointmentForm, setEditingAppointment, setInvoiceFilter, setOnboardingDismissed, setOrdersFilterTab, setOrdersSearch, setOrdersStageFilter, setShowAppointmentModal, setTaskGuide, setView, showOnboarding }) {
+export default function OverviewPanel({ appointments, blankAppointmentForm, currentUserName, dashboardData, guideOrders, justRegistered, loading, onboardingSteps, openAppointment, ordersList, queuedMessages = [], setAppointmentForm, setEditingAppointment, setInvoiceFilter, setOnboardingDismissed, setOrdersFilterTab, setOrdersStageFilter, setShowAppointmentModal, setTaskGuide, setView, showOnboarding }) {
   const { t } = useLanguage();
   const { dashboardTab, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
-  const [query, setQuery] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
   const [showUpcoming, setShowUpcoming] = useState(false);
   const growth = useGrowth(reloadKey);
@@ -297,36 +295,6 @@ export default function OverviewPanel({ appointments, blankAppointmentForm, curr
 
   return (
     <>
-      <PageHeader
-        title={t('nav.dashboard', 'Dashboard')}
-        actions={(
-          <>
-            <form className="dsh-search" role="search" onSubmit={(e) => {
-              e.preventDefault();
-              const text = query.trim().toLowerCase();
-              if (!text) return;
-              // The Orders page searches one pile at a time: open the first match's.
-              const hit = ordersList.find((o) => [o.customer_name, o.order_id, o.customer_phone]
-                .some((field) => (field || '').toLowerCase().includes(text)));
-              setOrdersSearch(query.trim());
-              setOrdersFilterTab(hit ? orderBucket(hit) : null);
-              setDashboardTab('orders');
-            }}>
-              <Search size={16} aria-hidden="true" />
-              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)}
-                     placeholder={t('dashboard.searchOrders', 'Search orders…')} aria-label={t('dashboard.searchOrders', 'Search orders…')} />
-            </form>
-            {/* The dashboard's New order: highlighted, without the callout. */}
-            <GuidedHighlight show={guideOrders}>
-              <button className="btn-primary btn-gold dsh-new-order" onClick={() => setView('order-selector')}>
-                <Plus size={16} />
-                {t('dashboard.newOrder')}
-              </button>
-            </GuidedHighlight>
-          </>
-        )}
-      />
-
       <div className="dsh">
       <section className="dsh-welcome">
         <div>
@@ -343,6 +311,13 @@ export default function OverviewPanel({ appointments, blankAppointmentForm, curr
                   title={t('common.refresh', 'Refresh')} aria-label={t('common.refresh', 'Refresh')}>
             <RotateCw size={15} className={loading ? 'spin' : ''} />
           </button>
+          {/* The dashboard's New order: highlighted, without the callout. */}
+          <GuidedHighlight show={guideOrders}>
+            <button className="btn-primary btn-gold dsh-new-order" onClick={() => setView('order-selector')}>
+              <Plus size={16} />
+              {t('dashboard.newOrder')}
+            </button>
+          </GuidedHighlight>
         </div>
       </section>
 

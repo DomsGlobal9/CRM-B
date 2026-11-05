@@ -76,7 +76,6 @@ export default function OrderTypeSelector({ crumbs, wizard, accountBar, fetchNot
         <PageTopBar crumbs={crumbs} account={accountBar((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })} />
         <div className="selector-container">
           <div className="selector-header">
-            <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{t('entry.newOrderTitle', 'New order')}</h1>
             <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>{t('entry.serviceQuestion', 'What are we doing for this customer today?')}</p>
           </div>
 

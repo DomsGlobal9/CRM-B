@@ -65,7 +65,7 @@ function buildSteps({ user }) {
   if (owner) {
     steps.push({
       part: 'dash', title: 'Your Dashboard', text: describe('overview', role),
-      targets: ['.portal-main .at-page-head .at-page-title'], optional: true,
+      targets: ['.portal-main .dsh-welcome-title'], optional: true,
     });
     steps.push({
       part: 'dash', title: 'Your numbers',
@@ -80,7 +80,7 @@ function buildSteps({ user }) {
     steps.push({
       part: 'dash', title: 'Take a new order',
       text: 'Start here when a customer walks in: pick the garment, take measurements and the design, and the order goes to your workshop.',
-      targets: ['.portal-main .at-page-head .btn-gold'], optional: true,
+      targets: ['.portal-main .dsh-new-order'], optional: true,
     });
     steps.push({
       part: 'dash', title: 'Alerts',
@@ -90,15 +90,15 @@ function buildSteps({ user }) {
   }
   steps.push({
     part: 'account', title: 'Your account',
-    text: 'Your settings, and signing out. You will also find "Guide for this page" here, to see the guide for whichever page you are on again.',
+    text: 'Sign out from here. The question mark at the top shows the guide for whichever page you are on, and the gear opens Settings. On a phone, both are in this menu.',
     targets: ['.portal-account-bar .acct-menu-btn', '.mobile-app-header .mobile-account-btn'],
   });
   steps.push({
     part: 'end', center: true,
     title: 'You are all set! 🎉',
     text: owner
-      ? 'That is your Dashboard. Open any page from the menu, and it shows you around the first time. You can replay this from your account menu whenever you like.'
-      : 'Next, a short guide to your page. Every page you open shows you around the first time. You can replay this from your account menu whenever you like.',
+      ? 'That is your Dashboard. Open any page from the menu, and it shows you around the first time. You can replay this from the question mark at the top whenever you like (on a phone, from your account menu).'
+      : 'Next, a short guide to your page. Every page you open shows you around the first time. You can replay this from the question mark at the top whenever you like (on a phone, from your account menu).',
   });
   return steps;
 }

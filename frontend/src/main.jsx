@@ -2,7 +2,6 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { applyTheme, watchSystemMode } from './theme'
-import { watchPageScrollbar } from './services/pageScrollbar'
 import App from './app/App.jsx'
 import ErrorBoundary from './ErrorBoundary.jsx'
 import { LanguageProvider } from './i18n/LanguageContext.jsx'
@@ -11,7 +10,6 @@ import { LanguageProvider } from './i18n/LanguageContext.jsx'
 // first render, so there is no flash of the wrong theme.
 applyTheme()
 watchSystemMode()
-watchPageScrollbar()
 
 // Outside LanguageProvider on purpose: if the provider is what threw, a
 // boundary inside it goes down with it and the user is back to a white page.

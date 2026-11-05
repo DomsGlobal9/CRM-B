@@ -5,7 +5,6 @@ import { api } from '../services/api';
 import { AccountMenu } from '../components/ui/AccountMenu';
 import { UserAvatar } from '../components/ui/UserAvatar';
 import { AppHeader } from '../components/ui/AppHeader';
-import { orderBucket } from '../features/orders/stages';
 import { Segmented } from '../components/ui/Atelier';
 import { canSeeTab } from './nav';
 
@@ -15,9 +14,10 @@ import { canSeeTab } from './nav';
  * & Costs and Insights) and its hints, the Reports switch, the Getting started
  * steps, and the menu the guided tour walks through.
  */
-export default function useWorkspaceShell({ setView, setDashboardTab, currentUser, t, navSections, navTabs, dashboardTab, showBell, onboardingDismissed, setSelectedDirectoryCustomer, dashboardData, tailors, fabrics, ordersList, ordersLoaded, loading, setTourOpen, tourOpen, setPageTour, pageTour, notifications, setShowNotificationsDrawer, markingNotificationsRead, setMarkingNotificationsRead, markNotificationsRead, handleLogout, setCustomerAddMode, setEditingCustomer, bookTotal, adminCan, isOwnerUser, setOrdersSearch, setOrdersFilterTab }) {
-  // The phone header's avatar menu: the Account entries this user's sidebar
-  // shows, then Sign out. `go` is how that screen switches tab.
+export default function useWorkspaceShell({ setView, setDashboardTab, currentUser, t, navSections, navTabs, dashboardTab, showBell, onboardingDismissed, setSelectedDirectoryCustomer, dashboardData, tailors, fabrics, ordersList, ordersLoaded, loading, setTourOpen, tourOpen, setPageTour, pageTour, notifications, setShowNotificationsDrawer, markingNotificationsRead, setMarkingNotificationsRead, markNotificationsRead, handleLogout, setCustomerAddMode, setEditingCustomer, bookTotal, adminCan, isOwnerUser }) {
+  // The phone header's avatar menu: Settings, the guide, then Sign out (a phone
+  // has no icons for them). A computer's menu keeps only Sign out; the icons
+  // beside it are the way to the others. `go` is how that screen switches tab.
   const headerAccountItems = (go) => [
     ...['settings'].filter((tab) => navTabs.includes(tab)).map((tab) => ({
       key: tab, label: t('nav.settings'), icon: Settings, onClick: () => go(tab),
@@ -31,27 +31,10 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
   // The same account entries on a computer or tablet: the "Hi, <name>" chip at
   // the top of every page opens them (the sidebar no longer lists them). A
   // phone has MobileHeader's avatar menu instead, so the bar is hidden there.
-  // The header's search is the Dashboard's order search: the Orders page shows
-  // one pile at a time, so it opens the pile of the first match.
-  const searchOrders = async (go, text) => {
-    const list = ordersLoaded ? ordersList : await api.getOrders().catch(() => []);
-    const needle = text.toLowerCase();
-    const hit = list.find((o) => [o.customer_name, o.order_id, o.customer_phone]
-      .some((field) => (field || '').toLowerCase().includes(needle)));
-    setOrdersSearch(text);
-    setOrdersFilterTab(hit ? orderBucket(hit) : null);
-    go('orders');
-  };
   const openPageGuide = () => (hasPageTour(dashboardTab, currentUser?.role) ? setPageTour(dashboardTab) : setTourOpen(true));
 
   const accountBar = (go) => (
     <AppHeader
-      search={navTabs.includes('orders')
-        ? { placeholder: t('dashboard.searchOrders', 'Search orders…'), onSubmit: (text) => searchOrders(go, text) }
-        : null}
-      newOrder={isOwnerUser || adminCan('orders.create')
-        ? { label: t('dashboard.newOrder', 'New order'), onClick: () => setView('order-selector') }
-        : null}
       help={{ label: t('nav.pageGuide', 'Guide for this page'), onClick: openPageGuide }}
       settings={navTabs.includes('settings') ? { label: t('nav.settings'), onClick: () => go('settings') } : null}
       setup={showOnboarding && navTabs.includes('overview')
@@ -87,7 +70,7 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
         )}
       </button>
       )}
-      account={<AccountMenu avatar={<UserAvatar user={currentUser} />} currentUser={currentUser} items={headerAccountItems(go)} />}
+      account={<AccountMenu avatar={<UserAvatar user={currentUser} />} currentUser={currentUser} items={headerAccountItems(go).filter((item) => item.key === 'logout')} />}
     />
   );
 

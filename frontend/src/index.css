@@ -11040,16 +11040,12 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 }
 
 /* ==========================================================================
-   SCROLLBARS: out of sight until wanted
-   Everything still scrolls, and the space they take is kept, so nothing shifts
-   when one appears. A scrolling area shows a thin bar while the mouse is over
-   it; the page's own at the window's edge (services/pageScrollbar.js), since
-   the mouse is always over the page. Rows that hide theirs keep doing so.
+   SCROLLBARS: none anywhere, including the sidebar
+   Everything still scrolls (wheel, trackpad, touch, keyboard); only the bar
+   itself is gone. !important so the rules for single areas cannot bring one back.
    ========================================================================== */
-* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
-.portal-menu, .apt-form { scrollbar-color: transparent transparent; }
-*:not(html, body):hover { scrollbar-color: var(--text-muted) transparent; }
-html.page-scrollbar-on { scrollbar-color: var(--text-muted) transparent; }
+html, body, * { scrollbar-width: none !important; }
+html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
 
 /* ==========================================================================
    Shared components: Atelier.jsx, DataTable.jsx and Pager.jsx.
