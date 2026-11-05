@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal } from './inventoryForm';
+import { Modal } from '../inventoryForm';
 
 /** The phone's camera reading a shelf QR (the browser's own BarcodeDetector). */
 export function CameraScan({ onCode, onClose }) {

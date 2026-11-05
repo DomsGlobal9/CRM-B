@@ -7,8 +7,8 @@
    racks set up the picker renders nothing and the form is unchanged. */
 import { useEffect, useMemo, useState } from 'react';
 import { Camera, ChevronRight, MapPin, PackagePlus, Plus, X } from 'lucide-react';
-import { api } from '../../api';
-import { cleanAmount, LIMITS } from '../../utils/validate';
+import { api } from '../../../api';
+import { cleanAmount, LIMITS } from '../../../utils/validate';
 import { recentIds } from './shelfPlacing';
 import { CameraScan } from './CameraScan';
 import './shelves.css';

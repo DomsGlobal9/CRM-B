@@ -4,8 +4,8 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { inventoryImage } from './inventoryImages';
 import { LIMITS, amountError, imageFilesError } from '../../utils/validate';
 import { Field, Modal, SelectField } from './inventoryForm';
-import ShelfPlace from './ShelfPlace';
-import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';
+import ShelfPlace from './shelves/ShelfPlace';
+import { placePlan, putOnShelves, shelfFailedText } from './shelves/shelfPlacing';
 
 /**
  * The fast way to put stock on the shelf: what it is (a catalogue row, or a

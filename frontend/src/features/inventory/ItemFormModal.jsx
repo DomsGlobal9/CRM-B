@@ -7,8 +7,8 @@ import FabricPlacements from '../fabrics/FabricPlacements';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
 import { LIMITS, amountError } from '../../utils/validate';
 import { Field, Modal, SelectField } from './inventoryForm';
-import ShelfPlace from './ShelfPlace';
-import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';
+import ShelfPlace from './shelves/ShelfPlace';
+import { placePlan, putOnShelves, shelfFailedText } from './shelves/shelfPlacing';
 
 
 const EMPTY_OPTIONS = { categories: [], units: [], default_unit_by_category: {} };
