@@ -21,7 +21,9 @@ function Notice({ tone, children }) {
   );
 }
 
-export default function MyDetails({ user, onUser }) {
+// `only` ('name' or 'password') draws just that form, without the card, for a
+// dialog that has its own heading (Settings). Left out, everything shows as before.
+export default function MyDetails({ user, onUser, only }) {
   // Photo
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoMsg, setPhotoMsg] = useState({ tone: '', text: '' });
@@ -95,11 +97,10 @@ export default function MyDetails({ user, onUser }) {
     }
   };
 
-  return (
-    <SectionCard icon={User} tone="green" title="My details"
-                 subtitle="Your own photo, name and password.">
+  const separated = only ? undefined : { borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-4)' };
+  const form = (
       <div className="at-stack">
-        <div className="at-field">
+        {!only && <div className="at-field">
           <span className="at-field-label">Profile photo</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <button type="button" className="btn-secondary at-btn-sm" disabled={photoBusy}
@@ -111,10 +112,10 @@ export default function MyDetails({ user, onUser }) {
                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; uploadPhoto(f); }} />
           </div>
           <Notice tone={photoMsg.tone}>{photoMsg.text}</Notice>
-        </div>
+        </div>}
 
-        <form className="at-stack" onSubmit={saveName} noValidate
-              style={{ borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-4)' }}>
+        {only !== 'password' && <form className="at-stack" onSubmit={saveName} noValidate
+              style={separated}>
           <div className="at-form-grid">
             <Field label="First name" required htmlFor="my-first-name">
               <input id="my-first-name" type="text" className="form-control" autoComplete="given-name"
@@ -131,16 +132,16 @@ export default function MyDetails({ user, onUser }) {
               <Save size={16} /> {nameBusy ? 'Saving…' : 'Save name'}
             </button>
           </div>
-        </form>
+        </form>}
 
         {/* Change password: a heading of its own, the three boxes alike
             (icon, one height, labels on one line), live hints under the new
             ones, and one switch to show what was typed. */}
-        <form className="at-stack my-pw-form" onSubmit={changePassword} noValidate
-              style={{ borderTop: '1px solid var(--border-color)', paddingTop: 'var(--space-4)' }}>
+        {only !== 'name' && <form className="at-stack my-pw-form" onSubmit={changePassword} noValidate
+              style={separated}>
           <div className="my-pw-head">
-            <span className="my-pw-title"><KeyRound size={15} /> Change password</span>
-            <button type="button" className="my-pw-toggle" onClick={() => setShowPw((v) => !v)} aria-pressed={showPw}>
+            {!only && <span className="my-pw-title"><KeyRound size={15} /> Change password</span>}
+            <button type="button" className="my-pw-toggle" style={only ? { marginLeft: 'auto' } : undefined} onClick={() => setShowPw((v) => !v)} aria-pressed={showPw}>
               {showPw ? <EyeOff size={14} /> : <Eye size={14} />} {showPw ? 'Hide passwords' : 'Show passwords'}
             </button>
           </div>
@@ -172,8 +173,14 @@ export default function MyDetails({ user, onUser }) {
               <Lock size={16} /> {pwBusy ? 'Changing…' : 'Change password'}
             </button>
           </div>
-        </form>
+        </form>}
       </div>
+  );
+  if (only) return form;
+  return (
+    <SectionCard icon={User} tone="green" title="My details"
+                 subtitle="Your own photo, name and password.">
+      {form}
     </SectionCard>
   );
 }

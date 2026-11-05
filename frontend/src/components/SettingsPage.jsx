@@ -6,10 +6,11 @@ import { InvoiceTemplateSelector } from './invoice/InvoiceTemplateSelector.jsx';
 import DailySummarySettings from './DailySummarySettings.jsx';
 import TierNamesSettings from './TierNamesSettings.jsx';
 import { UserAvatar } from './ui/UserAvatar.jsx';
+import MyDetails from '../features/staff/MyDetails.jsx';
 import {
   Globe, ShieldCheck, CheckCircle2, Building, Link2, User, Clock,
   MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor,
-  Store, FileText, Crown, X, Copy, Check, ChevronRight, AlertCircle, Smartphone, Camera
+  Store, FileText, Crown, X, Copy, Check, ChevronRight, AlertCircle, Smartphone, Camera, KeyRound, Pencil
 } from 'lucide-react';
 import { getColorMode, setColorMode } from '../theme.js';
 import { api } from '../services/api.js';
@@ -154,6 +155,20 @@ export const SettingsPage = ({
 
   const getModalConfig = () => {
     switch (activeModal) {
+      case 'name':
+        return {
+          title: t('settingsPage.editNameTitle', 'Edit name'),
+          subtitle: t('settingsPage.editNameDesc', 'The name shown on your account.'),
+          icon: User,
+          maxWidth: '520px',
+        };
+      case 'password':
+        return {
+          title: t('settingsPage.changePasswordTitle', 'Change password'),
+          subtitle: t('settingsPage.changePasswordDesc', 'Enter your current password, then choose a new one.'),
+          icon: KeyRound,
+          maxWidth: '520px',
+        };
       case 'language':
         return {
           title: t('settingsPage.languageSectionTitle', 'Language & Regional'),
@@ -240,6 +255,12 @@ export const SettingsPage = ({
             <div className="settings-profile-info">
               <span className="settings-profile-name">
                 {currentUser?.first_name ? currentUser.first_name + ' ' + (currentUser.last_name || '') : (currentUser?.email || 'Boutique Owner')}
+                {onUserUpdated && (
+                  <button type="button" className="settings-profile-edit" onClick={() => setActiveModal('name')}
+                          title={t('settingsPage.editNameTitle', 'Edit name')} aria-label={t('settingsPage.editNameTitle', 'Edit name')}>
+                    <Pencil size={13} />
+                  </button>
+                )}
               </span>
               <span className="settings-profile-role">
                 {currentUser?.role || 'Owner'}
@@ -275,7 +296,7 @@ export const SettingsPage = ({
         {/* Right Details Block */}
         <div className="settings-profile-right">
           <div className="settings-profile-details-grid">
-            <div className="settings-profile-field settings-profile-field--wide">
+            <div className="settings-profile-field">
               <span className="settings-profile-field-label">{t('accountPage.tenantDomain', 'Boutique web address')}</span>
               <span className="settings-profile-field-value">
                 <span>{webAddress}</span>
@@ -326,6 +347,23 @@ export const SettingsPage = ({
                 </span>
               </span>
             </div>
+
+            {onUserUpdated && (
+              <div className="settings-profile-field">
+                <span className="settings-profile-field-label">{t('settingsPage.passwordLabel', 'Password')}</span>
+                <span className="settings-profile-field-value">
+                  <span aria-hidden="true">••••••••</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('password')}
+                    aria-label={t('settingsPage.changePasswordTitle', 'Change password')}
+                    style={{ background: 'none', border: 'none', padding: 0, color: 'var(--brand-link, #166534)', fontWeight: 600, fontSize: '12px', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Change
+                  </button>
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -513,6 +551,11 @@ export const SettingsPage = ({
 
             {/* Modal Body with Perfectly Aligned Content */}
             <div className={`settings-modal-content${activeModal === 'invoice' ? ' settings-modal-content--invoice' : ''}`}>
+              {/* Own name and password: the same forms as the My profile page. */}
+              {(activeModal === 'name' || activeModal === 'password') && currentUser && (
+                <MyDetails key={activeModal} user={currentUser} onUser={onUserUpdated} only={activeModal} />
+              )}
+
               {/* 1. Language Modal: Interactive Language Cards Grid */}
               {activeModal === 'language' && (
                 <div>
