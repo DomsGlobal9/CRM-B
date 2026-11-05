@@ -1,0 +1,48 @@
+/* Customers: search on the left, Delete all, Import and Add Customer on the
+   right, all on one row at one height. */
+.portal-main:has(> .customers-list-container) > .at-page-head {
+  flex-wrap: nowrap;
+  margin-bottom: 16px;
+}
+.portal-main:has(> .customers-list-container) > .at-page-head .at-page-head-left { display: none; }
+.portal-main:has(> .customers-list-container) > .at-page-head .at-page-head-right {
+  flex: 1 1 100%;
+  min-width: 0;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.portal-main:has(> .customers-list-container) > .at-page-head .at-page-aside {
+  flex: 1 1 auto;
+  min-width: 200px;
+  justify-content: flex-start;
+}
+.portal-main:has(> .customers-list-container) > .at-page-head .at-search { flex: 1 1 auto; max-width: 420px; }
+.portal-main:has(> .customers-list-container) > .at-page-head .at-search input { height: 40px; min-height: 40px; padding-top: 8px; padding-bottom: 8px; }
+.portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+.portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions button {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 14px !important;
+  gap: 7px;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+/* Too narrow for one row: search above, the three buttons sharing the row below. */
+@media (max-width: 860px) {
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-head-right { flex-wrap: wrap; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-aside { flex: 1 1 100%; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-search { max-width: none; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions { flex: 1 1 100%; }
+}
+@media (max-width: 480px) {
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions { flex-wrap: wrap; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions > * { flex: 1 1 auto; }
+  .portal-main:has(> .customers-list-container) > .at-page-head .at-page-actions button { width: 100%; justify-content: center; }
+}

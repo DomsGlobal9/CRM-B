@@ -1,3 +1,4 @@
+import './customersHeader.css';
 import { CalendarDays, CheckCircle2, ChevronRight, Crown, Edit2, Eye, Mail, MessageSquare, Phone, Plus, ShoppingBag, Trash2, Upload, Users } from 'lucide-react';
 import { AvatarInitials, PageHeader, SearchBar, StatCard } from '../../components/ui/Atelier';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
