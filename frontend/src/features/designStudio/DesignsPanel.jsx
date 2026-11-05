@@ -26,9 +26,13 @@ export default function DesignsPanel({ designLibraryToken, designsView, handleDe
   const { currentUser, adminCan, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
   // The open tab's crumb opens it afresh, closing a category of the library.
   const [viewVisit, setViewVisit] = useState(0);
-  const viewLabel = designsView === 'requests'
+  // Design requests is gone from the library, except for a Designer: it is
+  // their "My work", where assigned designs arrive and are submitted.
+  const showRequests = currentUser?.role === 'Designer';
+  const activeView = designsView === 'requests' && !showRequests ? 'library' : designsView;
+  const viewLabel = activeView === 'requests'
     ? (currentUser?.role === 'Designer' ? t('nav.myWork') : t('nav.designWork'))
-    : designsView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB
+    : activeView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB
       ? t('designsPage.overviewTab', 'Overview')
       : t('designsPage.boutiqueDesignsTab', 'Boutique designs');
   return (
@@ -64,27 +68,31 @@ export default function DesignsPanel({ designLibraryToken, designsView, handleDe
         {/* Dashboard first: stats before images, so opening the module
             answers "how is the library doing" rather than dropping
             straight into a grid. */}
+        {(showRequests || SHOW_DESIGN_OVERVIEW_TAB) && (
         <div className="tabs-header dl-tabs" style={{ marginBottom: '16px' }}>
           {SHOW_DESIGN_OVERVIEW_TAB && (
-          <button className={`tab-btn ${designsView === 'dashboard' ? 'active' : ''}`}
+          <button className={`tab-btn ${activeView === 'dashboard' ? 'active' : ''}`}
                   onClick={() => setDesignsView('dashboard')}>
             {t('designsPage.overviewTab', 'Overview')}
           </button>
           )}
-          <button className={`tab-btn ${designsView === 'library' || (!SHOW_DESIGN_OVERVIEW_TAB && designsView === 'dashboard') ? 'active' : ''}`}
+          <button className={`tab-btn ${activeView === 'library' || (!SHOW_DESIGN_OVERVIEW_TAB && activeView === 'dashboard') ? 'active' : ''}`}
                   onClick={() => setDesignsView('library')}>
             {t('designsPage.boutiqueDesignsTab', 'Boutique designs')}
           </button>
-          <button className={`tab-btn ${designsView === 'requests' ? 'active' : ''}`}
+          {showRequests && (
+          <button className={`tab-btn ${activeView === 'requests' ? 'active' : ''}`}
                   onClick={() => setDesignsView('requests')}>
             {currentUser?.role === 'Designer' ? t('nav.myWork') : t('nav.designWork')}
           </button>
+          )}
         </div>
+        )}
 
         <Suspense fallback={<div className="content-card"><Loader page /></div>}>
-          {designsView === 'requests' ? (
+          {activeView === 'requests' ? (
             <DesignWork currentUser={currentUser} />
-          ) : designsView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB ? (
+          ) : activeView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB ? (
             <DesignDashboard
               onOpenLibrary={() => setDesignsView('library')}
               canManageDesigners={!currentUser?.role || currentUser.role === 'Owner' || adminCan('team.manage')}
@@ -96,7 +104,7 @@ export default function DesignsPanel({ designLibraryToken, designsView, handleDe
               refreshToken={designLibraryToken}
               canReview={!currentUser?.role || currentUser.role === 'Owner' || adminCan('design.approve')}
               canStock={!currentUser?.role || currentUser.role === 'Owner' || adminCan('inventory.items')}
-              onOpenRequests={() => setDesignsView('requests')}
+              onOpenRequests={showRequests ? () => setDesignsView('requests') : null}
               onOpenDesigners={navTabs.includes('staff') ? () => {
                 setStaffDesignersVisit(sectionVisit + 1);
                 setSectionVisit(n => n + 1);
