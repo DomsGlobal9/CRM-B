@@ -72,7 +72,9 @@ export const guardedFetch = (url, options = {}) => {
     const key = `GET ${url}`;
     const running = inFlightReads.get(key);
     if (running) return running.then((res) => res.clone());
-    const read = trackRequest(fetch(url, options));
+    // `background`: a repeating check nobody is waiting on stays off the activity
+    // bar, which would otherwise flicker for as long as the page is open.
+    const read = options.background ? fetch(url, options) : trackRequest(fetch(url, options));
     inFlightReads.set(key, read);
     read.then(() => inFlightReads.delete(key),
               () => inFlightReads.delete(key));

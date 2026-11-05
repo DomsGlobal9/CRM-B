@@ -6,6 +6,7 @@ export const notificationsApi = {
   async getWhatsAppStatus() {
     const res = await guardedFetch(`${BASE_URL}/whatsapp/status/`, {
       headers: getHeaders(),
+      background: true,
     });
     if (!res.ok) await failWith(res, 'Failed to fetch WhatsApp status');
     return res.json();
