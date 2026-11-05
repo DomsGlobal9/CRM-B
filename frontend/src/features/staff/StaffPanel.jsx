@@ -8,7 +8,7 @@ import { Check,
 import { boutiqueLoginUrl } from '../../services/format';
 import { api } from '../../services/api';
 import {
-  AvatarInitials, PageHeader, SearchBox, StatCard, FormModal, Field, Dropzone, InfoNote, FormSection, IconTile, CameraButton,
+  AvatarInitials, PageHeader, SearchBox, StatCard, FormModal, Field, Dropzone, InfoNote, FormSection, IconTile, CameraButton, Tabs,
 } from '../../components/ui/Atelier';
 import { ASSIGNABLE_ROLES, DOCUMENT_KINDS } from '../../constants/roles';
 import Attendance from './Attendance';
@@ -1660,38 +1660,18 @@ export default function StaffPanel({ currentUser, onlyDesigners = false, onShowA
       <Crumbs level={1} items={[{ label: TABS.find((item) => item.key === tab)?.label || '', onClick: () => setTabVisit((n) => n + 1) }]} />
       {/* Tab strip, not pill buttons: these switch a view, and an underline on
           the active one reads as navigation rather than four call-to-actions. */}
-      <div className="at-scroll-tabs" style={{
-        display: 'flex', gap: 'var(--space-1)', flexWrap: 'wrap', margin: 'var(--space-5) 0 var(--space-6)',
-        borderBottom: '1px solid var(--border-color)',
-      }}>
-        {(isOwner
-            ? TABS
-            : canSeeTeam
-              ? TABS.filter((t) => t.key !== 'permissions')
-              : TABS.filter((t) => ['attendance', 'roster', 'tasks', 'performance'].includes(t.key)))
-          .map(({ key, label, icon: Icon }) => {
-          const active = tab === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '6px',
-                background: 'none', border: 'none', cursor: 'pointer',
-                padding: '10px 14px', marginBottom: '-1px',
-                fontSize: 'var(--text-base)',
-                fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-medium)',
-                color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                borderBottom: `2px solid ${active ? 'var(--primary-color)' : 'transparent'}`,
-              }}
-            >
-              <Icon size={15} /> {!rosterSeesTeam && key === 'roster' ? 'My details'
-                : key === 'attendance' && !payrollOn ? 'Attendance' : label}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs ariaLabel="Staff sections" value={tab} onChange={setTab}
+            style={{ margin: 'var(--space-5) 0 var(--space-6)' }}
+            tabs={(isOwner
+              ? TABS
+              : canSeeTeam
+                ? TABS.filter((t) => t.key !== 'permissions')
+                : TABS.filter((t) => ['attendance', 'roster', 'tasks', 'performance'].includes(t.key)))
+              .map((item) => ({
+                ...item,
+                label: !rosterSeesTeam && item.key === 'roster' ? 'My details'
+                  : item.key === 'attendance' && !payrollOn ? 'Attendance' : item.label,
+              }))} />
 
       {tab === 'roster' && <Roster isOwner={isOwner} canSeeTeam={rosterSeesTeam} showDesigners={!isSupervisor} canManage={can('team.manage')}
                                    canPay={can('team.payroll')} canAttend={canSeeTeamAttendance} portalUrl={boutiqueLoginUrl(currentUser?.shop_slug)}

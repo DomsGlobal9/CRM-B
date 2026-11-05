@@ -149,13 +149,14 @@ export function Segmented({ options, value, onChange, ariaLabel }) {
 }
 
 /**
- * Tabs that switch what a page shows. Same look as the .tab-btn row, with the
- * keyboard behaviour screen readers expect: arrow keys, Home and End move
+ * Tabs that switch what a page shows, the same on every page: an underline under
+ * the open one. The look lives in .at-tabs / .at-tab, so no page draws its own.
+ * With the keyboard behaviour screen readers expect: arrow keys, Home and End move
  * between tabs and Tab leaves the row. Use Segmented for a small either/or
  * choice inside a form or toolbar. `panelId` points at the element the tabs
  * control, when there is one.
  */
-export function Tabs({ tabs, value, onChange, ariaLabel, panelId, className = '' }) {
+export function Tabs({ tabs, value, onChange, ariaLabel, panelId, className = '', style }) {
   const onKeyDown = (e) => {
     const live = tabs.filter((tab) => !tab.disabled);
     const at = live.findIndex((tab) => tab.key === value);
@@ -172,12 +173,12 @@ export function Tabs({ tabs, value, onChange, ariaLabel, panelId, className = ''
     e.currentTarget.querySelector(`[data-tab="${next.key}"]`)?.focus();
   };
   return (
-    <div className={`tabs-header at-tabs ${className}`} role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
+    <div className={`at-tabs at-scroll-tabs ${className}`} style={style} role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
       {tabs.map(({ key, label, icon: Icon, count, disabled }) => (
         <button key={key} type="button" role="tab" data-tab={key} aria-selected={value === key} aria-controls={panelId}
                 tabIndex={value === key ? 0 : -1} disabled={disabled}
-                className={`tab-btn at-tab${value === key ? ' active' : ''}`} onClick={() => onChange(key)}>
-          {Icon && <Icon size={14} />}{label}
+                className={`at-tab${value === key ? ' at-tab--active' : ''}`} onClick={() => onChange(key)}>
+          {Icon && <Icon size={15} />}{label}
           {count != null && <span className="at-count">{count}</span>}
         </button>
       ))}

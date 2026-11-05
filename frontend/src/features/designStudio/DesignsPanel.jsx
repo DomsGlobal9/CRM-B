@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { ClipboardList, Plus } from 'lucide-react';
 import { Suspense, lazy, useState } from 'react';
 import { PageHeader } from '../../components/ui/Atelier';
 import { ScreenLoading } from '../../components/ui/ScreenLoading';
@@ -9,6 +9,7 @@ import { Crumbs } from '../../components/ui/Breadcrumbs';
 
 const DesignUpload = lazy(() => import('./DesignUpload'));
 const DesignWork = lazy(() => import('./DesignWork'));
+const DesignRequestForm = lazy(() => import('./DesignWork').then((m) => ({ default: m.DesignRequestForm })));
 const DesignDashboard = lazy(() => import('./DesignDashboard'));
 const DesignLibrary = lazy(() => import('./DesignLibrary'));
 
@@ -18,38 +19,61 @@ const DesignLibrary = lazy(() => import('./DesignLibrary'));
 const SHOW_DESIGN_OVERVIEW_TAB = false;
 
 /**
- * Designs: the boutique's design library, the design requests and work in
- * progress, and the upload form. Each part is its own lazily loaded screen.
+ * Designs: the boutique's design library with its design requests list, the
+ * Design Request form and the upload form. Each part is lazily loaded.
  */
 export default function DesignsPanel({ designLibraryToken, designsView, handleDeleteDesign, navTabs, sectionVisit, setDesignForm, setDesignImageFile, setDesignLibraryToken, setDesignsView, setEditingDesign, setSectionVisit, setShowDesignModal, setShowDesignUpload, setStaffDesignersVisit, showDesignUpload }) {
   const { t } = useLanguage();
   const { currentUser, adminCan, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
   // The open tab's crumb opens it afresh, closing a category of the library.
   const [viewVisit, setViewVisit] = useState(0);
-  // Design requests shows only to the people DesignWork serves: a Designer, for
-  // whom it is "My work", and the owner or a role handed design assignment, who
-  // assign the work and review what comes back. It is the only place a submitted
-  // design can be approved, so those roles must always be able to reach it.
+  // Design requests shows only to the people DesignWork serves: a Designer, and
+  // the owner or a role handed design assignment.
   const showRequests = ['Designer', 'Owner'].includes(currentUser?.role) || adminCan('design.assign');
-  const activeView = designsView === 'requests' && !showRequests ? 'library' : designsView;
-  const viewLabel = activeView === 'requests'
-    ? (currentUser?.role === 'Designer' ? t('nav.myWork') : t('nav.designWork'))
-    : activeView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB
-      ? t('designsPage.overviewTab', 'Overview')
-      : t('designsPage.boutiqueDesignsTab', 'Boutique designs');
+  // Only those who hand out the work get the button; a Designer just has the list.
+  const canRequest = currentUser?.role === 'Owner' || adminCan('design.assign');
+  const canUpload = !currentUser?.role || currentUser.role === 'Owner' || adminCan('design.upload');
+  const [requesting, setRequesting] = useState(false);
+  const [requestsToken, setRequestsToken] = useState(0);
+  const [requestsWaiting, setRequestsWaiting] = useState(0);
+  // The library's two tabs. A Designer starts on their own work.
+  const isDesigner = currentUser?.role === 'Designer';
+  const libraryTab = designsView === 'requests' || (isDesigner && designsView !== 'library') ? 'requests' : 'categories';
+  const viewLabel = designsView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB
+    ? t('designsPage.overviewTab', 'Overview')
+    : t('designsPage.boutiqueDesignsTab', 'Boutique designs');
   return (
     <>
       <Crumbs level={1} items={[{ label: viewLabel, onClick: () => setViewVisit((n) => n + 1) }]} />
       <PageHeader
         title={t('designsPage.title')}
         subtitle={t('designsPage.subtitle')}
-        actions={(!currentUser?.role || currentUser.role === 'Owner' || adminCan('design.upload')) && (
-            <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setShowDesignUpload(true)}>
-              <Plus size={16} />
-              {t('designsPage.addNewDesign')}
-            </button>
+        actions={(canRequest || canUpload) && (
+          <>
+            {canRequest && (
+              <button className="btn-secondary" style={{ padding: '9px 18px', minHeight: 0, alignSelf: 'stretch' }} onClick={() => setRequesting(true)}>
+                <ClipboardList size={16} />
+                {t('designsPage.designRequestBtn', 'Design Request')}
+              </button>
+            )}
+            {canUpload && (
+              <button className="btn-primary" style={{ padding: '10px 18px' }} onClick={() => setShowDesignUpload(true)}>
+                <Plus size={16} />
+                {t('designsPage.addNewDesign')}
+              </button>
+            )}
+          </>
         )}
       />
+      {requesting && (
+        <Suspense fallback={<ScreenLoading />}>
+          <DesignRequestForm
+            currentUser={currentUser}
+            onClose={() => setRequesting(false)}
+            onSent={() => { setRequesting(false); setRequestsToken((n) => n + 1); setDesignsView('requests'); }}
+          />
+        </Suspense>
+      )}
       {/* The same upload form the library's "Upload design" button
           opens; on save the library refreshes through its token. */}
       {showDesignUpload && (
@@ -70,31 +94,21 @@ export default function DesignsPanel({ designLibraryToken, designsView, handleDe
         {/* Dashboard first: stats before images, so opening the module
             answers "how is the library doing" rather than dropping
             straight into a grid. */}
-        {(showRequests || SHOW_DESIGN_OVERVIEW_TAB) && (
+        {SHOW_DESIGN_OVERVIEW_TAB && (
         <div className="tabs-header dl-tabs" style={{ marginBottom: '16px' }}>
-          {SHOW_DESIGN_OVERVIEW_TAB && (
-          <button className={`tab-btn ${activeView === 'dashboard' ? 'active' : ''}`}
+          <button className={`tab-btn ${designsView === 'dashboard' ? 'active' : ''}`}
                   onClick={() => setDesignsView('dashboard')}>
             {t('designsPage.overviewTab', 'Overview')}
           </button>
-          )}
-          <button className={`tab-btn ${activeView === 'library' || (!SHOW_DESIGN_OVERVIEW_TAB && activeView === 'dashboard') ? 'active' : ''}`}
+          <button className={`tab-btn ${designsView !== 'dashboard' ? 'active' : ''}`}
                   onClick={() => setDesignsView('library')}>
             {t('designsPage.boutiqueDesignsTab', 'Boutique designs')}
           </button>
-          {showRequests && (
-          <button className={`tab-btn ${activeView === 'requests' ? 'active' : ''}`}
-                  onClick={() => setDesignsView('requests')}>
-            {currentUser?.role === 'Designer' ? t('nav.myWork') : t('nav.designWork')}
-          </button>
-          )}
         </div>
         )}
 
         <Suspense fallback={<div className="content-card"><Loader page /></div>}>
-          {activeView === 'requests' ? (
-            <DesignWork currentUser={currentUser} />
-          ) : activeView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB ? (
+          {designsView === 'dashboard' && SHOW_DESIGN_OVERVIEW_TAB ? (
             <DesignDashboard
               onOpenLibrary={() => setDesignsView('library')}
               canManageDesigners={!currentUser?.role || currentUser.role === 'Owner' || adminCan('team.manage')}
@@ -106,7 +120,16 @@ export default function DesignsPanel({ designLibraryToken, designsView, handleDe
               refreshToken={designLibraryToken}
               canReview={!currentUser?.role || currentUser.role === 'Owner' || adminCan('design.approve')}
               canStock={!currentUser?.role || currentUser.role === 'Owner' || adminCan('inventory.items')}
-              onOpenRequests={showRequests ? () => setDesignsView('requests') : null}
+              requests={showRequests && (
+                <Suspense fallback={<Loader section />}>
+                  <DesignWork currentUser={currentUser} refreshToken={requestsToken}
+                              onWaiting={setRequestsWaiting} />
+                </Suspense>
+              )}
+              requestsLabel={isDesigner ? t('nav.designWork', 'Design requests') : 'Assigned Design Work'}
+              requestsWaiting={requestsWaiting}
+              tab={libraryTab}
+              onTabChange={(key) => setDesignsView(key === 'requests' ? 'requests' : 'library')}
               onOpenDesigners={navTabs.includes('staff') ? () => {
                 setStaffDesignersVisit(sectionVisit + 1);
                 setSectionVisit(n => n + 1);

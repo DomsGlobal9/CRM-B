@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { AccountMenu } from '../components/ui/AccountMenu';
 import { UserAvatar } from '../components/ui/UserAvatar';
 import { AppHeader } from '../components/ui/AppHeader';
-import { Segmented } from '../components/ui/Atelier';
+import { Tabs } from '../components/ui/Atelier';
 import { canSeeTab } from './nav';
 
 /**
@@ -109,11 +109,11 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
   const reportsSwitch = reportTabs.length > 1 && (
     <div className="reports-switch">
       <span className="reports-switch-label">{t('nav.reports', 'Reports')}</span>
-      <Segmented ariaLabel={t('nav.reports', 'Reports')} value={dashboardTab}
-                 onChange={(tab) => { setDashboardTab(tab); window.scrollTo(0, 0); }}
-                 options={reportTabs.map((tab) => (tab === 'finance'
-                   ? { key: tab, label: t('nav.finance', 'Profit & Costs'), icon: Wallet }
-                   : { key: tab, label: t('nav.analytics', 'Insights'), icon: BarChart2 }))} />
+      <Tabs ariaLabel={t('nav.reports', 'Reports')} value={dashboardTab}
+            onChange={(tab) => { setDashboardTab(tab); window.scrollTo(0, 0); }}
+            tabs={reportTabs.map((tab) => (tab === 'finance'
+              ? { key: tab, label: t('nav.finance', 'Profit & Costs'), icon: Wallet }
+              : { key: tab, label: t('nav.analytics', 'Insights'), icon: BarChart2 }))} />
     </div>
   );
 

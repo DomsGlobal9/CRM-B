@@ -15,7 +15,7 @@ import { extraMeasurements } from '../../services/templates';
 import StageParts from './StageParts';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
-import { PhotoTile, CameraButton, InfoNote } from '../../components/ui/Atelier';
+import { PhotoTile, CameraButton, InfoNote, Tabs } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
 import CustomerMessageQueue from '../orders/CustomerMessageQueue';
 import { Lightbox } from '../designStudio/GarmentPartPicker';
@@ -432,15 +432,8 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       </div>
     );
     const tabBar = (
-      <div className="wk-tabs" role="tablist" aria-label={t('workPage.byStatus', 'Work by status')}>
-        {tabs.map(([key, label, list]) => (
-          <button key={key} type="button" role="tab" aria-selected={active === key}
-                  className={`tab-btn${active === key ? ' active' : ''}`} onClick={() => setTab(key)}>
-            {label}
-            <span className="wk-count">{key === 'all' ? items.length : list.length}</span>
-          </button>
-        ))}
-      </div>
+      <Tabs className="wk-tabs" ariaLabel={t('workPage.byStatus', 'Work by status')} value={active} onChange={setTab}
+            tabs={tabs.map(([key, label, list]) => ({ key, label, count: key === 'all' ? items.length : list.length }))} />
     );
     // The status tabs, and beside them the step filter (Master / Designer).
     const filterBar = canFilterSteps && steps.length > 0 ? (

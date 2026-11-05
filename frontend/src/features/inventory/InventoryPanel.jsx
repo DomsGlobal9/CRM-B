@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { PageHeader, StatCard } from '../../components/ui/Atelier';
+import { PageHeader, StatCard, Tabs } from '../../components/ui/Atelier';
 import { inventoryImage } from '../../services/inventoryImages';
 import {
   LIMITS, cleanAmount, amountError, phoneError, emailError, cleanUpper, isGstin,
@@ -224,29 +224,8 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
           </button>
         </div>
       )}
-      <div className="at-scroll-tabs" style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-5)', borderBottom: '1px solid var(--border-color)', flexWrap: 'wrap' }}>
-        {inventoryTabs.map(({ key, label, icon: Icon }) => {
-          const active = tab === key;
-          return (
-            <button
-              key={key}
-              type="button"
-              aria-current={active ? 'page' : undefined}
-              onClick={() => setTab(key)}
-              style={{
-                padding: '10px 14px', marginBottom: '-1px',
-                fontSize: 'var(--text-base)', fontWeight: active ? 'var(--weight-semibold)' : 'var(--weight-medium)',
-                background: 'none', border: 'none', cursor: 'pointer',
-                display: 'flex', alignItems: 'center', gap: '6px',
-                color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                borderBottom: `2px solid ${active ? 'var(--primary-color)' : 'transparent'}`,
-              }}
-            >
-              <Icon size={15} /> {label}
-            </button>
-          );
-        })}
-      </div>
+      <Tabs ariaLabel={t('nav.inventory', 'Inventory')} tabs={inventoryTabs} value={tab} onChange={setTab}
+            style={{ marginTop: 'var(--space-5)' }} />
 
 
       {!loadError && tab === 'items' && (canStock || canTransfer) && (

@@ -1,24 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  AlertCircle, Calendar, Check, ChevronRight, ClipboardList, Clock, FileText, RotateCcw, Send, Shirt, User, UserPlus,
+  AlertCircle, Calendar, Check, ChevronRight, ClipboardList, Clock, FileText, RotateCcw, Send, Shirt, User,
 } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { AvatarInitials, Field, FormSection, SearchBox, SectionCard } from '../../components/ui/Atelier';
+import { AvatarInitials, Field, FormModal, SearchBox, SectionCard, StatusBadge } from '../../components/ui/Atelier';
 import { LIMITS, todayIso } from '../../services/validate';
-import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
+import { VoiceNotePlayer, VoiceRecorder } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { EXTRA_MEASUREMENTS, extraMeasurements } from '../../services/templates';
 import Loader from '../../components/ui/Loader';
-
-// The owner's / master's "Assigned Design Work" list (and its "Only work still
-// open" switch) is hidden for now, not removed: set this to true to bring it
-// back. While hidden, a designer's submitted work cannot be reviewed here.
-// A designer's own "My design work" is not affected.
-const SHOW_ASSIGNED_WORK = false;
 
 const STATUS_STYLE = {
   ASSIGNED: { label: 'Assigned', tone: 'neutral', icon: ClipboardList },
@@ -52,88 +46,121 @@ function formatDate(value) {
   return parsed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-/** The supervisor's assign form: pick a garment, pick a designer, send it. */
-function AssignPanel({ orders, designers, onAssigned, onError }) {
+/**
+ * The Design Request form, in its own popup: pick a garment and a designer, then
+ * say what is wanted in words, by voice, or both. The voice notes reach the
+ * designer with the brief.
+ */
+export function DesignRequestForm({ currentUser, onClose, onSent }) {
   const { t } = useLanguage();
+  const [orders, setOrders] = useState([]);
+  const [designers, setDesigners] = useState([]);
   const [jobId, setJobId] = useState('');
   const [designerId, setDesignerId] = useState('');
   const [brief, setBrief] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [voiceNotes, setVoiceNotes] = useState([]);
+  // A clip being recorded, or recorded and not yet added, would be lost by sending.
+  const [clipPending, setClipPending] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  
-  const garmentOptions = (orders || []).flatMap(order =>
+  useEffect(() => {
+    api.getDesigners().then(d => setDesigners(d.results || d || [])).catch(() => {});
+    api.getOrders().then(o => setOrders(o.results || o || [])).catch(() => {});
+  }, []);
+
+  const garmentOptions = orders.flatMap(order =>
     (order.garment_jobs || []).map(job => ({
       id: job.id,
       label: `${orderRef(order)} · ${job.display_name || job.template_name || 'Custom garment'}`,
     })));
 
-  const submit = async (event) => {
-    event.preventDefault();
+  const addVoiceNote = async (blob) => {
+    const url = await api.uploadVoiceNote(blob);
+    const by = [currentUser?.first_name, currentUser?.last_name].filter(Boolean).join(' ') || currentUser?.name || currentUser?.email || '';
+    setVoiceNotes((notes) => [...notes, { url, by, at: new Date().toISOString() }]);
+  };
+
+  const submit = async () => {
     if (!jobId || !designerId) return;
-    if (dueDate && dueDate < todayIso()) { onError('The due date cannot be in the past.'); return; }
+    if (dueDate && dueDate < todayIso()) { setError('The due date cannot be in the past.'); return; }
     setBusy(true);
+    setError('');
     try {
       await api.assignDesignWork({
         garment_job: jobId,
         designer: designerId,
         brief,
         ...(dueDate ? { due_date: dueDate } : {}),
+        ...(voiceNotes.length ? { voice_notes: voiceNotes } : {}),
       });
-      setJobId(''); setDesignerId(''); setBrief(''); setDueDate('');
-      onAssigned();
-    } catch (error) {
-      onError(error.message);
-    } finally {
+      onSent();
+    } catch (err) {
+      setError(err.message);
       setBusy(false);
     }
   };
 
-  const reset = () => { setJobId(''); setDesignerId(''); setBrief(''); setDueDate(''); };
-
   return (
-    <form onSubmit={submit} style={{ marginBottom: 'var(--space-4)' }}>
-      <FormSection icon={UserPlus} tone="green" title={t('designWorkPage.assignDesignWork', 'Assign Design Work')}
-                   subtitle="Select a garment, assign a designer, set a due date and add any notes."
-                   style={{ background: 'var(--tone-green-bg)', borderColor: 'var(--tone-green-line)' }}>
-        <div className="at-form-grid at-form-grid--3">
-          <Field label={t('designWorkPage.garment', 'Garment')} required icon={Shirt}>
-            <select className="form-input" value={jobId} required onChange={(e) => setJobId(e.target.value)}>
-              <option value="">{t('designWorkPage.chooseGarment', 'Choose a garment…')}</option>
-              {garmentOptions.map(option => (
-                <option key={option.id} value={option.id}>{option.label}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label={t('designWorkPage.designer', 'Designer')} required icon={User}>
-            <select className="form-input" value={designerId} required onChange={(e) => setDesignerId(e.target.value)}>
-              <option value="">{t('designWorkPage.chooseDesigner', 'Choose a designer…')}</option>
-              {(designers || []).map(designer => (
-                <option key={designer.id} value={designer.id}>{designer.name}</option>
-              ))}
-            </select>
-          </Field>
-          <Field label={t('designWorkPage.dueDate', 'Due date')} icon={Calendar}>
-            <input type="date" className="form-input" min={todayIso()} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </Field>
-        </div>
-        <Field label={t('designWorkPage.briefOptional', 'Brief / Notes (optional)')} icon={FileText}>
-          {/* A plain text box: the brief has no dictation mic. Kept at the
-              height the voice box had (the field's 88px, not the 96px every
-              bare textarea gets). */}
-          <textarea className="form-input" rows={3} value={brief} maxLength={LIMITS.note} style={{ minHeight: '88px' }}
-                    placeholder={t('designWorkPage.briefPlaceholder', 'What are you asking for, beyond the spec?')}
-                    onChange={(e) => setBrief(e.target.value)} />
-        </Field>
-        <div className="at-field-counter" style={{ marginTop: '-8px' }}>{brief.length} / {LIMITS.note} characters</div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-          <button type="button" className="btn-secondary" onClick={reset} disabled={busy}>Reset</button>
-          <button type="submit" className="btn-primary" disabled={busy || !jobId || !designerId}>
+    <FormModal
+      icon={ClipboardList} tone="green" width="760px"
+      title={t('designsPage.designRequestBtn', 'Design Request')}
+      subtitle="Select a garment, assign a designer, set a due date and add any notes."
+      onClose={onClose}
+      footer={(
+        <>
+          {clipPending && (
+            <span className="at-field-hint" style={{ marginRight: 'auto' }}>
+              {t('designWorkPage.finishVoiceNote', 'Add or delete the voice note before sending.')}
+            </span>
+          )}
+          <button type="button" className="btn-secondary" onClick={onClose} disabled={busy}>
+            {t('common.cancel', 'Cancel')}
+          </button>
+          <button type="button" className="btn-primary" onClick={submit}
+                  disabled={busy || clipPending || !jobId || !designerId}>
             <Send size={15} /> {busy ? t('designWorkPage.assigningBtn', 'Assigning…') : t('designWorkPage.assignBtn', 'Assign Work')}
           </button>
+        </>
+      )}
+    >
+      {error && (
+        <div role="alert" style={{ color: 'var(--danger-color)', marginBottom: 'var(--space-3)' }}>
+          <AlertCircle size={14} style={{ verticalAlign: '-2px' }} /> {error}
         </div>
-      </FormSection>
-    </form>
+      )}
+      <div className="at-form-grid at-form-grid--3">
+        <Field label={t('designWorkPage.garment', 'Garment')} required icon={Shirt}>
+          <select className="form-input" value={jobId} required onChange={(e) => setJobId(e.target.value)}>
+            <option value="">{t('designWorkPage.chooseGarment', 'Choose a garment…')}</option>
+            {garmentOptions.map(option => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t('designWorkPage.designer', 'Designer')} required icon={User}>
+          <select className="form-input" value={designerId} required onChange={(e) => setDesignerId(e.target.value)}>
+            <option value="">{t('designWorkPage.chooseDesigner', 'Choose a designer…')}</option>
+            {designers.map(designer => (
+              <option key={designer.id} value={designer.id}>{designer.name}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label={t('designWorkPage.dueDate', 'Due date')} icon={Calendar}>
+          <input type="date" className="form-input" min={todayIso()} value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        </Field>
+      </div>
+      <Field label={t('designWorkPage.briefOptional', 'Brief / Notes (optional)')} icon={FileText}>
+        <textarea className="form-input" rows={3} value={brief} maxLength={LIMITS.note} style={{ minHeight: '88px' }}
+                  placeholder={t('designWorkPage.briefPlaceholder', 'What are you asking for, beyond the spec?')}
+                  onChange={(e) => setBrief(e.target.value)} />
+      </Field>
+      <div className="at-field-counter" style={{ marginTop: '-8px' }}>{brief.length} / {LIMITS.note} characters</div>
+      <VoiceRecorder notes={voiceNotes} disabled={busy} sendLabel="Add" onPendingChange={setClipPending}
+                     onSend={addVoiceNote}
+                     onDelete={(index) => setVoiceNotes((notes) => notes.filter((_, i) => i !== index))} />
+    </FormModal>
   );
 }
 
@@ -377,20 +404,17 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
   );
 }
 
-export default function DesignWork({ currentUser }) {
+export default function DesignWork({ currentUser, refreshToken = 0, onWaiting }) {
   // A role the owner handed design assignment (core/admin_access.py) runs
   // this board as the owner does.
   const handedAssign = (currentUser?.admin_tasks || []).includes('design.assign');
   // Not the Master: a Designer's work is not shown below them, and the
   // server refuses the Master these assignments (design_studio permissions).
   const isSupervisor = currentUser?.role === 'Owner' || handedAssign;
-  const canAssignDesign = currentUser?.role === 'Owner' || handedAssign;
   const isDesigner = currentUser?.role === 'Designer';
   const mayRead = isSupervisor || isDesigner;
 
   const [assignments, setAssignments] = useState([]);
-  const [designers, setDesigners] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [myDesigns, setMyDesigns] = useState([]);
   const [openOnly, setOpenOnly] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -409,13 +433,10 @@ export default function DesignWork({ currentUser }) {
     }
   }, [openOnly, mayRead]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, refreshToken]);
 
-  useEffect(() => {
-    if (!canAssignDesign) return;
-    api.getDesigners().then(d => setDesigners(d.results || d || [])).catch(() => {});
-    api.getOrders().then(o => setOrders(o.results || o || [])).catch(() => {});
-  }, [canAssignDesign]);
+  const waiting = assignments.filter((a) => a.status === 'SUBMITTED').length;
+  useEffect(() => { onWaiting?.(waiting); }, [waiting, onWaiting]);
 
   const myDesignerId = assignments[0]?.designer || null;
   useEffect(() => {
@@ -435,39 +456,38 @@ export default function DesignWork({ currentUser }) {
         .some((v) => (v || '').toLowerCase().includes(needle)))
     : assignments;
 
+  const openFilter = (
+    <label className="at-check-pill">
+      <Clock size={14} style={{ color: 'var(--text-secondary)' }} />
+      <input type="checkbox" checked={openOnly} onChange={(e) => setOpenOnly(e.target.checked)} />
+      {t('designWorkPage.onlyOpen', 'Only work still open')}
+    </label>
+  );
+
   return (
     <div className="at-stack">
-      {/* The page title + role-specific subtitle live in the page head (App
-          renders them for this tab), so this row carries only the filter. */}
-      {(!isSupervisor || SHOW_ASSIGNED_WORK) && (
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: 'calc(-1 * var(--space-4))' }}>
-        <label className="at-check-pill">
-          <Clock size={14} style={{ color: 'var(--text-secondary)' }} />
-          <input type="checkbox" checked={openOnly} onChange={(e) => setOpenOnly(e.target.checked)} />
-          {t('designWorkPage.onlyOpen', 'Only work still open')}
-        </label>
-      </div>
-      )}
-
       {error && (
         <div className="ui-card" style={{ color: 'var(--danger-color)', padding: 'var(--space-3) var(--space-4)' }}>
           <AlertCircle size={14} style={{ verticalAlign: '-2px' }} /> {error}
         </div>
       )}
 
-      {canAssignDesign && (
-        <AssignPanel orders={orders} designers={designers}
-                     onAssigned={load} onError={setError} />
-      )}
-
       {loading ? (
-        <Loader page label={t('common.loading', 'Loading…')} />
-      ) : isSupervisor ? (SHOW_ASSIGNED_WORK && (
-        <SectionCard icon={ClipboardList} tone="green" title="Assigned Design Work"
-                     subtitle="Track all design assignments and their status.">
+        <Loader section label={t('common.loading', 'Loading…')} />
+      ) : isSupervisor ? (
+        <SectionCard className="dl-requests" icon={ClipboardList} tone="green" title="Assigned Design Work"
+                     subtitle="Track all design assignments and approve what designers submit."
+                     actions={waiting > 0 && (
+                       <StatusBadge tone="warning" dot>
+                         {t('designsPage.requestsWaiting', '{count} to review', { count: waiting })}
+                       </StatusBadge>
+                     )}>
           <div className="at-toolbar" style={{ margin: '0 0 var(--space-3)' }}>
             <SearchBox value={search} onChange={setSearch} placeholder="Search by garment, designer or customer…" style={{ maxWidth: '420px' }} />
-            <span className="at-row-sub">{shown.length} of {assignments.length}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+              {openFilter}
+              <span className="at-row-sub">{shown.length} of {assignments.length}</span>
+            </span>
           </div>
           {shown.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 'var(--space-6)' }}>
@@ -479,7 +499,7 @@ export default function DesignWork({ currentUser }) {
               </p>
             </div>
           ) : (
-            <div className="at-table-wrap">
+            <div className="at-table-wrap dw-table-wrap">
               <table className="at-table">
                 <thead>
                   <tr>
@@ -494,9 +514,13 @@ export default function DesignWork({ currentUser }) {
                 </thead>
                 <tbody>
                   {shown.map((assignment) => {
-                    const isOpen = openRow === assignment.id;
+                    // The first design waiting for review opens by itself, so its
+                    // Approve button is on screen; '' means someone closed it.
+                    const firstWaiting = openRow === null
+                      && shown.find((a) => a.status === 'SUBMITTED')?.id === assignment.id;
+                    const isOpen = openRow === assignment.id || firstWaiting;
                     const design = assignment.design_detail;
-                    const toggle = () => setOpenRow(isOpen ? null : assignment.id);
+                    const toggle = () => setOpenRow(isOpen ? '' : assignment.id);
                     return (
                       <React.Fragment key={assignment.id}>
                         <tr onClick={toggle} style={{ cursor: 'pointer' }}
@@ -537,9 +561,11 @@ export default function DesignWork({ currentUser }) {
                         </tr>
                         {isOpen && (
                           <tr>
-                            <td colSpan={7} style={{ background: 'var(--surface-2)' }}>
-                              <AssignmentCard assignment={assignment} isSupervisor designs={myDesigns}
-                                              onChanged={load} onError={setError} embedded />
+                            <td colSpan={7} className="dw-row-detail-cell" style={{ background: 'var(--surface-2)' }}>
+                              <div className="dw-row-detail">
+                                <AssignmentCard assignment={assignment} isSupervisor designs={myDesigns}
+                                                onChanged={load} onError={setError} embedded />
+                              </div>
                             </td>
                           </tr>
                         )}
@@ -551,19 +577,26 @@ export default function DesignWork({ currentUser }) {
             </div>
           )}
         </SectionCard>
-      )) : assignments.length === 0 ? (
-        <div className="ui-card" style={{ textAlign: 'center', padding: '32px' }}>
-          <ClipboardList size={28} style={{ color: 'var(--text-secondary)' }} />
-          <p style={{ marginTop: '10px', color: 'var(--text-secondary)' }}>
-            {t('designWorkPage.noWorkDesigner', 'Nothing on your desk right now.')}
-          </p>
-        </div>
       ) : (
-        assignments.map(assignment => (
-          <AssignmentCard key={assignment.id} assignment={assignment}
-                          isSupervisor={isSupervisor} canHandOver={isDesigner} designs={myDesigns}
-                          onChanged={load} onError={setError} />
-        ))
+        <SectionCard className="dl-requests" icon={ClipboardList} tone="green"
+                     title={t('nav.designWork', 'Design requests')}
+                     subtitle={t('designsPage.requestsSubDesigner', 'The designs assigned to you, to work on and submit.')}
+                     actions={openFilter}>
+          {assignments.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 'var(--space-6)' }}>
+              <ClipboardList size={28} style={{ color: 'var(--text-secondary)' }} />
+              <p style={{ marginTop: '10px', color: 'var(--text-secondary)' }}>
+                {t('designWorkPage.noWorkDesigner', 'Nothing on your desk right now.')}
+              </p>
+            </div>
+          ) : (
+            assignments.map(assignment => (
+              <AssignmentCard key={assignment.id} assignment={assignment}
+                              isSupervisor={isSupervisor} canHandOver={isDesigner} designs={myDesigns}
+                              onChanged={load} onError={setError} />
+            ))
+          )}
+        </SectionCard>
       )}
     </div>
   );

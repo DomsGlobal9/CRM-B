@@ -1,4 +1,5 @@
 
+import { Tabs } from '../../components/ui/Atelier';
 import { useState, useEffect, useCallback } from 'react';
 import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar, CalendarDays, Wallet, ArrowRight, MapPin } from 'lucide-react';
 
@@ -1306,35 +1307,9 @@ export default function Attendance({ isOwner, canSeeTeam, showPayroll = false })
       {/* Your own check-in card belongs with attendance, not with a pay run. */}
       {activeTab !== 'payroll' && <MyDay onChanged={refresh} />}
 
-      <div className="at-scroll-tabs" style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', margin: '20px 0 18px', gap: '8px' }}>
-        {SUB_TABS
-          .filter(({ key }) => (key === 'monthly' || (key === 'payroll' ? showPayroll : canSeeTeam)))
-          .map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setActiveTab(key)}
-              style={{
-                padding: '10px 18px',
-                fontSize: '14px',
-                fontWeight: activeTab === key ? 600 : 500,
-                color: activeTab === key ? 'var(--accent-text)' : 'var(--text-secondary)',
-                borderBottom: activeTab === key ? '2px solid var(--primary-color)' : '2px solid transparent',
-                background: 'none',
-                borderLeft: 'none',
-                borderRight: 'none',
-                borderTop: 'none',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Icon size={16} /> {label}
-            </button>
-          ))}
-      </div>
+      <Tabs ariaLabel="Attendance sections" value={activeTab} onChange={setActiveTab}
+            style={{ margin: '20px 0 18px' }}
+            tabs={SUB_TABS.filter(({ key }) => (key === 'monthly' || (key === 'payroll' ? showPayroll : canSeeTeam)))} />
 
       {activeTab === 'today' && canSeeTeam && (
         <>
