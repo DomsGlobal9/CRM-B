@@ -446,7 +446,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [], port
           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Email</div>
           <div style={{ fontWeight: 600, marginBottom: '10px' }}>{created.email}</div>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Password</div>
-          <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: '15px' }}>
+          <div style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '15px' }}>
             {created.bootstrap_password}
           </div>
         </div>
@@ -802,7 +802,7 @@ function CredentialsDialog({ member, onClose, portalUrl = window.location.origin
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Email</div>
             <div style={{ fontWeight: 600, marginBottom: '10px' }}>{email || '—'}</div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Password</div>
-            <div style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: '15px' }}>
+            <div style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', fontSize: '15px' }}>
               {issued ? issued.bootstrap_password : '••••••••'}
             </div>
           </div>

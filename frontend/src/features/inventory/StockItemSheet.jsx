@@ -285,7 +285,7 @@ export default function StockItemSheet({ catalogItem = null, options, suppliers,
                 <input type="color" aria-label="Colour wheel" value={/^#[0-9a-fA-F]{6}$/.test(form.color_hex) ? form.color_hex : '#c8a97e'}
                        onChange={(e) => set('color_hex', e.target.value)}
                        style={{ width: '38px', height: '38px', padding: 0, border: '1px solid var(--border-color)', borderRadius: '8px', background: 'none' }} />
-                <input className="form-control" placeholder="#c8a97e" maxLength={7} value={form.color_hex} style={{ fontFamily: 'monospace' }}
+                <input className="form-control" placeholder="#c8a97e" maxLength={7} value={form.color_hex} style={{ fontFamily: 'var(--font-mono)' }}
                        onChange={(e) => { const v = e.target.value.trim(); set('color_hex', v && !v.startsWith('#') ? `#${v}` : v); }} />
               </div>
             </div>

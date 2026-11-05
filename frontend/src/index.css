@@ -118,9 +118,18 @@
   --secondary-hover-border: var(--primary-500);
   --overlay: rgba(20, 18, 20, 0.7);
 
-  /* DM Sans for everything, display included. */
-  --font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-serif: 'DM Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* One font per job. --font-sans is everything people read: body text, tables,
+     forms, buttons, menus, labels. Inter, because its numbers honour tabular-nums
+     (money columns line up; DM Sans ignores it) and its lowercase is taller at
+     small sizes. --font-serif is the heading font, whatever the name says: every
+     title already reads it. --font-mono is for codes, where 0 and O must differ.
+     Inter and DM Sans have no Indian scripts or Arabic, so --font-scripts catches
+     those letters instead of leaving them to each device. app.html loads them
+     with unicode-range, so a browser fetches one only when its letters appear. */
+  --font-scripts: 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Kannada', 'Noto Sans Malayalam', 'Noto Sans Gujarati', 'Noto Sans Arabic';
+  --font-sans: 'Inter', var(--font-scripts), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: 'DM Sans', var(--font-scripts), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 * {

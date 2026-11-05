@@ -228,7 +228,7 @@ function DesignerRoster({ portalUrl }) {
             Login link: <strong style={{ overflowWrap: 'anywhere' }}>{portalUrl}</strong> &nbsp;·&nbsp;
             Email: <strong>{issued.email}</strong>
             {issued.password ? (
-              <> &nbsp;·&nbsp; Password: <strong style={{ fontFamily: 'ui-monospace, monospace' }}>{issued.password}</strong></>
+              <> &nbsp;·&nbsp; Password: <strong style={{ fontFamily: 'var(--font-mono)' }}>{issued.password}</strong></>
             ) : (
               <> &nbsp;·&nbsp; They already had an account — their existing password still works.</>
             )}
