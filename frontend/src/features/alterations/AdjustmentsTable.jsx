@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { MAX_LINES, MAX_LINE_LENGTH } from './adjustments';
+import { DataTable } from '../../components/ui/DataTable';
 
 /**
  * Measurement changes as a table: one row per measurement, a column for the
@@ -38,41 +39,43 @@ export default function AdjustmentsTable({ value, onChange, measurementPlacehold
   const remove = (i) => update(rows.length === 1 ? [{ ...BLANK }] : rows.filter((_, j) => j !== i));
   const add = () => { if (rows.length < MAX_LINES) update([...rows, { ...BLANK }]); };
 
-  const cell = { padding: '4px 6px 4px 0' };
   const input = { width: '100%', margin: 0, padding: '7px 10px', fontSize: '13px', minHeight: 0 };
 
   return (
-    <div style={{ border: '1px solid var(--border-color)', borderRadius: '8px', padding: '8px 10px 6px', background: 'var(--surface-2, transparent)' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-        <thead>
-          <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            <th style={{ ...cell, width: '38%', fontWeight: 600 }}>Measurement</th>
-            <th style={{ ...cell, fontWeight: 600 }}>Change</th>
-            <th style={{ ...cell, width: '32px' }} aria-label="Remove" />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i}>
-              <td style={cell}>
-                <input className="form-control" style={input} placeholder={measurementPlaceholder} maxLength={60}
-                       value={row.measurement} onChange={edit(i, 'measurement')} aria-label={`Measurement ${i + 1}`} />
-              </td>
-              <td style={cell}>
-                <input className="form-control" style={input} placeholder={changePlaceholder} maxLength={MAX_LINE_LENGTH}
-                       value={row.change} onChange={edit(i, 'change')} aria-label={`Change ${i + 1}`}
-                       onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (i === rows.length - 1) add(); } }} />
-              </td>
-              <td style={{ ...cell, paddingRight: 0, textAlign: 'right' }}>
-                <button type="button" onClick={() => remove(i)} title="Remove row" aria-label={`Remove row ${i + 1}`}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}>
-                  <Trash2 size={14} />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      {/* Rows have no id of their own, so each is keyed by its place, as it was. */}
+      <DataTable
+        fit={false}
+        tableStyle={{ minWidth: 0 }}
+        rows={rows}
+        rowKey={(row) => rows.indexOf(row)}
+        columns={[
+          {
+            key: 'measurement', header: 'Measurement', width: '38%',
+            render: (row, i) => (
+              <input className="form-control" style={input} placeholder={measurementPlaceholder} maxLength={60}
+                     value={row.measurement} onChange={edit(i, 'measurement')} aria-label={`Measurement ${i + 1}`} />
+            ),
+          },
+          {
+            key: 'change', header: 'Change',
+            render: (row, i) => (
+              <input className="form-control" style={input} placeholder={changePlaceholder} maxLength={MAX_LINE_LENGTH}
+                     value={row.change} onChange={edit(i, 'change')} aria-label={`Change ${i + 1}`}
+                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (i === rows.length - 1) add(); } }} />
+            ),
+          },
+          {
+            key: 'remove', header: <span className="ld-sr">Remove</span>, width: '32px', align: 'right', label: false,
+            render: (row, i) => (
+              <button type="button" onClick={() => remove(i)} title="Remove row" aria-label={`Remove row ${i + 1}`}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '4px' }}>
+                <Trash2 size={14} />
+              </button>
+            ),
+          },
+        ]}
+      />
       <button type="button" onClick={add} disabled={rows.length >= MAX_LINES}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px', padding: '4px 8px',
                        fontSize: '12px', fontWeight: 600, color: 'var(--primary-color, #107c41)', background: 'none',

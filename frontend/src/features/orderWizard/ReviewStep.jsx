@@ -3,6 +3,7 @@ import { Suspense, lazy } from 'react';
 import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
 import { resolveMediaUrl } from '../../services/media';
 import { AvatarInitials } from '../../components/ui/Atelier';
+import { DataTable } from '../../components/ui/DataTable';
 import { formatMobile, inr } from '../../services/format';
 import GarmentSummary from '../catalog/GarmentSummary';
 import { SELF_DESIGNER } from '../orders/wizard';
@@ -12,6 +13,10 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
 const ReviewLightbox = lazy(() => import('../designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
 const GarmentPreviews = lazy(() => import('../designStudio/GarmentPreview'));
+
+const secondaryCell = () => ({ style: { color: 'var(--text-secondary)' } });
+const boldCell = () => ({ style: { fontWeight: 600 } });
+const lastCell = () => ({ style: { paddingRight: 0 } });
 
 /**
  * Review: everything the order will say, on one page, before it is placed.
@@ -122,49 +127,48 @@ export default function ReviewStep({ wizard, customerForm, customerId, customerN
 
           {/* Last Card(s) kept on left side: Fabric from stock, purchases, accessories, designer */}
           {fabricLines.length > 0 && card(t('wizard.sheetFabric', 'Fabric from our stock'), 'fabric', (
-            <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
-              <tbody>
-                {fabricLines.map(line => (
-                  <tr key={line.key} style={{ borderTop: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{line.garment} · {line.part}</td>
-                    <td style={{ padding: '8px 0', fontWeight: 600 }}>{line.name}</td>
-                    <td style={{ padding: '8px 0', textAlign: 'right' }}>{line.qty ? `${line.qty} m` : <span className="od-hint">no quantity</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DataTable
+              lines
+              rows={fabricLines}
+              rowKey="key"
+              columns={[
+                { key: 'garment', cellProps: secondaryCell, render: line => <>{line.garment} · {line.part}</> },
+                { key: 'name', cellProps: boldCell, render: line => line.name },
+                { key: 'qty', align: 'right', cellProps: lastCell, render: line => (line.qty ? `${line.qty} m` : <span className="od-hint">no quantity</span>) },
+              ]}
+            />
           ), 'wz-review-card--last')}
 
           {garmentJobs.some(job => (job.purchases || []).length) && card(t('wizard.sheetPurchases', 'To buy for this order'), 'fabric', (
-            <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
-              <tbody>
-                {garmentJobs.flatMap(job => (job.purchases || []).map((row, i) => (
-                  <tr key={`${job.key}:${i}`} style={{ borderTop: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>{garmentLabel(job)}</td>
-                    <td style={{ padding: '8px 0', fontWeight: 600 }}>🛒 {row.name}</td>
-                    <td style={{ padding: '8px 0', textAlign: 'right' }}>{row.quantity} {(row.unit || 'METER').toLowerCase()} · {inr(row.estimated_cost)} est.</td>
-                  </tr>
-                )))}
-              </tbody>
-            </table>
+            <DataTable
+              lines
+              rows={garmentJobs.flatMap(job => (job.purchases || []).map((row, i) => ({ key: `${job.key}:${i}`, job, row })))}
+              rowKey="key"
+              columns={[
+                { key: 'garment', cellProps: secondaryCell, render: ({ job }) => garmentLabel(job) },
+                { key: 'name', cellProps: boldCell, render: ({ row }) => <>🛒 {row.name}</> },
+                { key: 'quantity', align: 'right', cellProps: lastCell, render: ({ row }) => <>{row.quantity} {(row.unit || 'METER').toLowerCase()} · {inr(row.estimated_cost)} est.</> },
+              ]}
+            />
           ), 'wz-review-card--last')}
 
           {garmentJobs.some(job => Object.keys(job.accessories || {}).length) && card(t('wizard.sheetAccessories', 'Accessories'), 'design', (
-            <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
-              <tbody>
-                {garmentJobs.flatMap(job => Object.entries(job.accessories || {}).map(([key, d]) => (
-                  <tr key={`${job.key}:${key}`} style={{ borderTop: '1px solid var(--border-color)' }}>
-                    <td style={{ padding: '8px 0', color: 'var(--text-secondary)' }}>
-                      {garmentLabel(job)} · {ALL_ACCESSORY_OPTIONS.find(o => o.key === key)?.label || key}
-                    </td>
-                    <td style={{ padding: '8px 0', fontWeight: 600 }}>
-                      {d?.style === 'Other' ? (d.other ? `Other: ${d.other}` : 'Other') : (d?.style || '—')}
-                    </td>
-                    <td style={{ padding: '8px 0', textAlign: 'right' }}>{d?.measure || <span className="od-hint">no measurement</span>}</td>
-                  </tr>
-                )))}
-              </tbody>
-            </table>
+            <DataTable
+              lines
+              rows={garmentJobs.flatMap(job => Object.entries(job.accessories || {}).map(([key, d]) => ({ rowId: `${job.key}:${key}`, job, key, d })))}
+              rowKey="rowId"
+              columns={[
+                {
+                  key: 'garment', cellProps: secondaryCell,
+                  render: ({ job, key }) => <>{garmentLabel(job)} · {ALL_ACCESSORY_OPTIONS.find(o => o.key === key)?.label || key}</>,
+                },
+                {
+                  key: 'style', cellProps: boldCell,
+                  render: ({ d }) => (d?.style === 'Other' ? (d.other ? `Other: ${d.other}` : 'Other') : (d?.style || '—')),
+                },
+                { key: 'measure', align: 'right', cellProps: lastCell, render: ({ d }) => d?.measure || <span className="od-hint">no measurement</span> },
+              ]}
+            />
           ), 'wz-review-card--last')}
 
           {serviceType === 'design' && card(t('wizard.designerTitle', 'Who will design it?'), 'design', (

@@ -10,6 +10,7 @@ import { DEFAULT_COUNTRY, composeMobile, phoneNumberError, splitStoredMobile } f
 import { CameraButton, FormModal, IconTile, InfoNote } from '../../components/ui/Atelier';
 import { useCustomerLookup } from './useCustomerLookup';
 import { tierName } from '../../services/tierNames';
+import { DataTable } from '../../components/ui/DataTable';
 
 /* Customers -> Add Customer: two doors, the spreadsheet or the form. Same
    card design as the order chooser (.wz-services), rendered inside the
@@ -147,6 +148,22 @@ const splitFullName = (raw) => {
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+// The bulk-import preview. Bare tables in the dialog: --lines takes off the frame.
+const IMPORT_ERROR_COLUMNS = [
+  { key: 'row', header: 'Row', width: 70, label: false },
+  { key: 'error', header: 'Problem', label: false, cellProps: () => ({ style: { color: 'var(--danger-color)' } }) },
+];
+const IMPORT_VALID_COLUMNS = [
+  { key: 'rows', header: 'Row', width: 70, label: false, render: (v) => v.rows.join(', ') },
+  { key: 'name', header: 'Customer', label: false },
+  { key: 'mobile', header: 'Mobile', label: false, render: (v) => displayMobile(v.mobile) },
+  {
+    key: 'action', header: '', label: false,
+    cellProps: () => ({ style: { fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' } }),
+    render: (v) => `${v.action === 'update' ? 'Existing: blanks filled in' : 'New'}${v.notes.length ? ` · ${v.notes.join(' ')}` : ''}`,
+  },
+];
+
 export function ImportCustomersDialog({ state, onClose, onConfirm }) {
   const { preview, result, busy } = state;
   const valid = preview.valid.length;
@@ -173,31 +190,12 @@ export function ImportCustomersDialog({ state, onClose, onConfirm }) {
         <InfoNote>Ignored columns: {preview.ignored_columns.join(', ')}</InfoNote>
       )}
       {bad > 0 && (
-        <table className="at-table at-table--fit" style={{ marginBottom: 16 }}>
-          <thead><tr><th style={{ width: 70 }}>Row</th><th>Problem</th></tr></thead>
-          <tbody>
-            {preview.errors.map((e) => (
-              <tr key={e.row}><td>{e.row}</td><td style={{ color: 'var(--danger, #b42318)' }}>{e.error}</td></tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable columns={IMPORT_ERROR_COLUMNS} rows={preview.errors} rowKey="row"
+                   wrapClassName="at-table-wrap--lines" tableStyle={{ marginBottom: 16 }} />
       )}
       {valid > 0 && (
-        <table className="at-table at-table--fit">
-          <thead><tr><th style={{ width: 70 }}>Row</th><th>Customer</th><th>Mobile</th><th></th></tr></thead>
-          <tbody>
-            {preview.valid.map((v) => (
-              <tr key={v.mobile}>
-                <td>{v.rows.join(', ')}</td>
-                <td>{v.name}</td>
-                <td>{displayMobile(v.mobile)}</td>
-                <td style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
-                  {v.action === 'update' ? 'Existing: blanks filled in' : 'New'}{v.notes.length ? ` · ${v.notes.join(' ')}` : ''}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <DataTable columns={IMPORT_VALID_COLUMNS} rows={preview.valid} rowKey="mobile"
+                   wrapClassName="at-table-wrap--lines" />
       )}
     </FormModal>
   );

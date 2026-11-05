@@ -1,5 +1,5 @@
 
-import { Fragment, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Check,
   Plus, Clock, TrendingUp, Users, FileText, ClipboardList, Trash2, Phone, Calendar, Briefcase, UserCheck,
   User, UserPlus, Smartphone, Mail, Sparkles, Scissors, Shield, Coins, MapPin, Hash, Tag, FilePlus, Upload, Eye, IndianRupee, Pencil, ChevronDown, ChevronUp, KeyRound, X,
@@ -23,6 +23,7 @@ import {
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
 import RowMenu from '../../components/ui/RowMenu';
+import { DataTable } from '../../components/ui/DataTable';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -1217,7 +1218,6 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
         
         (() => {
           const showPay = canPay && shownRows.some(({ terms }) => terms && showsPay(terms));
-          const cols = 4 + (showPay ? 2 : 0) + (canAct ? 1 : 0);
           const toggle = (id) => setExpanded((prev) => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id); else next.add(id);
@@ -1227,63 +1227,171 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
           const sub = { fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: '2px' };
           const muted = <span style={{ color: 'var(--text-muted)' }}>—</span>;
           return (
-        <div className="at-table-wrap staff-table-wrap">
-          <table className="at-table staff-table">
-            <thead>
-              <tr>
-                <th>Team member</th>
-                <th>{canSeeTeam && canAttend && statusView === 'attendance' ? 'Attendance today' : 'Status'}</th>
-                <th>Contact</th>
-                <th>Work type</th>
-                {showPay && <th>Pay</th>}
-                {showPay && <th>Advances</th>}
-                {canAct && <th style={{ textAlign: 'right' }}>Action</th>}
-              </tr>
-            </thead>
-            <tbody>
-          {shownRows.length === 0 && (
-            <tr><td colSpan={cols} style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+        <DataTable
+          fit={false}
+          rows={shownRows}
+          rowKey={({ member }) => member.id}
+          wrapClassName="staff-table-wrap"
+          tableClassName="staff-table"
+          rowClassName={({ member }) => `staff-row${expanded.has(member.id) ? ' staff-row--open' : ''}`}
+          rowProps={({ member }) => ({ style: expanded.has(member.id) ? { background: 'var(--surface-2)' } : undefined })}
+          empty={(
+            <div style={{ padding: 'calc(var(--space-6) - var(--cell-y)) 0', textAlign: 'center', color: 'var(--text-secondary)' }}>
               Nobody here for “{CARD_LABEL[cardFilter]}” right now.
-            </td></tr>
+            </div>
           )}
-          {shownRows.map(({ member, terms: t }) => {
-            const hasDetail = Boolean(t && showsPay(t));
-            const open = expanded.has(member.id);
-            const deposit = depositByStaff.get(String(member.id));
-            const advances = advancesByStaff.get(String(member.id)) || [];
-            const outstanding = advances.reduce((n, a) => n + Number(a.outstanding || 0), 0);
-            return (
-            <Fragment key={member.id}>
-              <tr className={`staff-row${open ? ' staff-row--open' : ''}`} style={open ? { background: 'var(--surface-2)' } : undefined}>
-                <td className="staff-cell-member">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
-                    <AvatarInitials name={member.name} size={36} />
-                    <div style={{ minWidth: 0 }}>
-                      {canManage ? (
-                        <button
-                          type="button"
-                          onClick={() => setPerson(member)}
-                          title="Edit details, employment and documents"
-                          style={{
-                            fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-sm)',
-                            background: 'none', border: 'none', padding: 0, cursor: 'pointer', minHeight: '32px',
-                            color: 'var(--text-primary)', textAlign: 'left', fontFamily: 'inherit',
-                          }}
-                        >{member.name}</button>
-                      ) : (
-                        <div style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-sm)',
-                                      color: 'var(--text-primary)' }}>{member.name}</div>
-                      )}
-                      <div style={sub}>
-                        {member.role}
-                        {member.isDesigner && ` · ${member.design_count ?? 0} design(s)${member.has_login ? '' : ' · no login yet'}`}
-                      </div>
-                    </div>
+          rowDetail={({ member, terms: t }) => Boolean(t && showsPay(t)) && expanded.has(member.id) && (
+            <>
+              {t && showsPay(t) && (
+                <div
+                  className="mobile-stack-grid"
+                  style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px',
+                    marginTop: '12px', paddingTop: '12px',
+                    borderTop: '1px solid var(--border-color)',
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hourly rate</div>
+                    <div style={{ fontWeight: 600 }}>{money(t.hourly_rate)}</div>
                   </div>
-                </td>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Deposit</div>
+                    <div style={{ fontWeight: 600 }}>{money(t.deposit_total)}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Weekly deduction</div>
+                    <div style={{ fontWeight: 600 }}>{money(t.deposit_weekly)}</div>
+                  </div>
+                </div>
+              )}
 
-                <td data-label={canSeeTeam && canAttend && statusView === 'attendance' ? 'Attendance' : 'Status'}
-                    className="staff-cell-status">
+              {t && showsPay(t) && depositByStaff.get(String(member.id)) && (
+                (() => {
+                  const d = depositByStaff.get(String(member.id));
+                  return (
+                    <div style={{
+                      marginTop: '12px', paddingTop: '12px',
+                      borderTop: '1px solid var(--border-color)',
+                    }}>
+                      <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>
+                        Security deposit
+                      </div>
+                      <div
+                        className="mobile-stack-grid"
+                        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+                                 gap: '10px' }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Agreed</div>
+                          <div style={{ fontWeight: 600 }}>{money(d.agreed)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Recovered</div>
+                          <div style={{ fontWeight: 600 }}>{money(d.recovered)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Remaining</div>
+                          <div style={{ fontWeight: 600 }}>{money(d.remaining)}</div>
+                        </div>
+                      </div>
+                      {d.fully_recovered && (
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-text)', marginTop: '8px' }}>
+                          Security deposit fully recovered.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
+              )}
+
+              {/* Advances are paid back out of payroll, which covers the
+                  roster only, so a designer has no advances section. */}
+              {canPay && t && showsPay(t) && !member.isDesigner && (
+                <div style={{
+                  marginTop: '12px', paddingTop: '12px',
+                  borderTop: '1px solid var(--border-color)',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between',
+                                alignItems: 'center', marginBottom: '8px' }}>
+                    <div className="ui-eyebrow">
+                      Advances
+                    </div>
+                    <button type="button" className="btn-secondary"
+                            onClick={() => setIssuingFor(member)}
+                            style={{ minHeight: '34px', fontSize: '12px',
+                                     display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Plus size={12} /> Issue advance
+                    </button>
+                  </div>
+                  {(advancesByStaff.get(String(member.id)) || []).length === 0 ? (
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                      No outstanding advance.
+                    </div>
+                  ) : (
+                    (advancesByStaff.get(String(member.id)) || []).map((a) => (
+                      <div key={a.id}
+                           className="mobile-stack-grid"
+                           style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+                                    gap: '10px', marginBottom: '6px' }}>
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            Issued {new Date(a.issued_on).toLocaleDateString([], { day: 'numeric', month: 'short' })}
+                          </div>
+                          <div style={{ fontWeight: 600 }}>{money(a.issued)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Recovered</div>
+                          <div style={{ fontWeight: 600 }}>{money(a.recovered)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                            Outstanding · {money(a.weekly_recovery)}/wk
+                          </div>
+                          <div style={{ fontWeight: 600 }}>{money(a.outstanding)}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </>
+          )}
+          columns={[
+            { key: 'member', header: 'Team member', label: false, cellClassName: 'staff-cell-member', render: ({ member }) => (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', minWidth: 0 }}>
+                <AvatarInitials name={member.name} size={36} />
+                <div style={{ minWidth: 0 }}>
+                  {canManage ? (
+                    <button
+                      type="button"
+                      onClick={() => setPerson(member)}
+                      title="Edit details, employment and documents"
+                      style={{
+                        fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-sm)',
+                        background: 'none', border: 'none', padding: 0, cursor: 'pointer', minHeight: '32px',
+                        color: 'var(--text-primary)', textAlign: 'left', fontFamily: 'inherit',
+                      }}
+                    >{member.name}</button>
+                  ) : (
+                    <div style={{ fontWeight: 'var(--weight-semibold)', fontSize: 'var(--text-sm)',
+                                  color: 'var(--text-primary)' }}>{member.name}</div>
+                  )}
+                  <div style={sub}>
+                    {member.role}
+                    {member.isDesigner && ` · ${member.design_count ?? 0} design(s)${member.has_login ? '' : ' · no login yet'}`}
+                  </div>
+                </div>
+              </div>
+            ) },
+            {
+              key: 'status',
+              header: canSeeTeam && canAttend && statusView === 'attendance' ? 'Attendance today' : 'Status',
+              label: canSeeTeam && canAttend && statusView === 'attendance' ? 'Attendance' : 'Status',
+              cellClassName: 'staff-cell-status',
+              // In a fragment, so a cell with no status stays empty: DataTable draws a dash for null.
+              render: ({ member }) => (
+                <>
                   {(() => {
                     if (!canSeeTeam || (member.isDesigner && !(canAttend && statusView === 'attendance'))) return null;
                     const att = canAttend ? attendanceOf(member, attendanceToday, dayMarksToday) : null;
@@ -1338,216 +1446,95 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
                   ) : member.isDesigner ? (
                     <span className="ui-badge ui-badge--neutral">Designer</span>
                   ) : null)}
-                </td>
-
-                <td style={cell} data-label="Contact">
-                  {member.phone
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Phone size={12} /> {member.phone}</span>
-                    : muted}
-                </td>
-
-                <td style={cell} data-label="Work type">
-                  {t ? (
-                    <>
-                      <div>{employmentLabel(t.employment_type)}</div>
-                    </>
-                  ) : member.isDesigner ? muted : (
-                    
-                    <span style={{ color: 'var(--text-muted)' }}
-                          title="No employment details yet — this person works exactly as before.">
-                      Not added
-                    </span>
-                  )}
-                </td>
-
-                {showPay && (
-                  <td style={cell} data-label="Pay">
-                    {t && showsPay(t) ? (
-                      <>
-                        <div>{money(t.hourly_rate)}<span style={{ color: 'var(--text-muted)' }}>/hr</span></div>
-                        <div style={sub}>
-                          {deposit
-                            ? (deposit.fully_recovered ? 'Deposit recovered' : `Deposit ${money(deposit.remaining)} left`)
-                            : `Deposit ${money(t.deposit_total)}`}
-                        </div>
-                      </>
-                    ) : muted}
-                  </td>
-                )}
-
-                {showPay && (
-                  <td style={cell} data-label="Advances">
-                    {t && showsPay(t) && !member.isDesigner ? (
-                      <>
-                        <div>{outstanding > 0 ? money(outstanding) : <span style={{ color: 'var(--text-muted)' }}>None</span>}</div>
-                        {outstanding > 0 && <div style={sub}>{advances.length} outstanding</div>}
-                      </>
-                    ) : muted}
-                  </td>
-                )}
-
-                {canAct && (
-                  <td className="staff-cell-actions" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
-                      {canPay && t && showsPay(t) && !member.isDesigner && (
-                        <button type="button" className="btn-secondary at-btn-sm"
-                                onClick={() => setIssuingFor(member)} title="Issue an advance">
-                          <Plus size={14} /> Advance
-                        </button>
-                      )}
-                      {/* Edit (details, employment and documents) and
-                          Delete, behind one ⋯ button. */}
-                      {canManage && (
-                        <RowMenu
-                          label={`Actions for ${member.name}`}
-                          items={[
-                            { label: 'Edit', icon: <Pencil size={14} />, onClick: () => setPerson(member) },
-                            ...(isOwner ? [{ label: 'Credentials', icon: <KeyRound size={14} />, onClick: () => setCredentialsFor(member) }] : []),
-                            { label: 'Delete', icon: <Trash2 size={14} />, danger: true,
-                              onClick: () => setRemoving({ member, busy: false, error: null }) },
-                          ]}
-                        />
-                      )}
-                      {hasDetail && (
-                        <button type="button" className="btn-secondary at-btn-sm"
-                                onClick={() => toggle(member.id)}
-                                aria-expanded={open}
-                                title={open ? 'Hide pay and advances' : 'Show pay and advances'}
-                                style={{ padding: '0 8px' }}>
-                          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                )}
-              </tr>
-
-              {hasDetail && open && (
-              <tr className="staff-detail">
-              <td colSpan={cols} style={{ paddingTop: 0, background: 'var(--surface-2)' }}>
-              {t && showsPay(t) && (
-                <div
-                  className="mobile-stack-grid"
-                  style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px',
-                    marginTop: '12px', paddingTop: '12px',
-                    borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hourly rate</div>
-                    <div style={{ fontWeight: 600 }}>{money(t.hourly_rate)}</div>
+                </>
+              ),
+            },
+            { key: 'contact', header: 'Contact', cellProps: () => ({ style: cell }), render: ({ member }) => (
+              member.phone
+                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}><Phone size={12} /> {member.phone}</span>
+                : muted
+            ) },
+            { key: 'work', header: 'Work type', cellProps: () => ({ style: cell }), render: ({ member, terms: t }) => (
+              t ? (
+                <>
+                  <div>{employmentLabel(t.employment_type)}</div>
+                </>
+              ) : member.isDesigner ? muted : (
+                <span style={{ color: 'var(--text-muted)' }}
+                      title="No employment details yet — this person works exactly as before.">
+                  Not added
+                </span>
+              )
+            ) },
+            showPay && { key: 'pay', header: 'Pay', cellProps: () => ({ style: cell }), render: ({ member, terms: t }) => {
+              const deposit = depositByStaff.get(String(member.id));
+              return t && showsPay(t) ? (
+                <>
+                  <div>{money(t.hourly_rate)}<span style={{ color: 'var(--text-muted)' }}>/hr</span></div>
+                  <div style={sub}>
+                    {deposit
+                      ? (deposit.fully_recovered ? 'Deposit recovered' : `Deposit ${money(deposit.remaining)} left`)
+                      : `Deposit ${money(t.deposit_total)}`}
                   </div>
-                  <div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Deposit</div>
-                    <div style={{ fontWeight: 600 }}>{money(t.deposit_total)}</div>
+                </>
+              ) : muted;
+            } },
+            showPay && { key: 'advances', header: 'Advances', cellProps: () => ({ style: cell }), render: ({ member, terms: t }) => {
+              const advances = advancesByStaff.get(String(member.id)) || [];
+              const outstanding = advances.reduce((n, a) => n + Number(a.outstanding || 0), 0);
+              return t && showsPay(t) && !member.isDesigner ? (
+                <>
+                  <div>{outstanding > 0 ? money(outstanding) : <span style={{ color: 'var(--text-muted)' }}>None</span>}</div>
+                  {outstanding > 0 && <div style={sub}>{advances.length} outstanding</div>}
+                </>
+              ) : muted;
+            } },
+            canAct && {
+              key: 'action',
+              header: 'Action',
+              label: false,
+              align: 'right',
+              cellClassName: 'staff-cell-actions',
+              cellProps: () => ({ style: { whiteSpace: 'nowrap' } }),
+              render: ({ member, terms: t }) => {
+                const hasDetail = Boolean(t && showsPay(t));
+                const open = expanded.has(member.id);
+                return (
+                  <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+                    {canPay && t && showsPay(t) && !member.isDesigner && (
+                      <button type="button" className="btn-secondary at-btn-sm"
+                              onClick={() => setIssuingFor(member)} title="Issue an advance">
+                        <Plus size={14} /> Advance
+                      </button>
+                    )}
+                    {/* Edit (details, employment and documents) and
+                        Delete, behind one ⋯ button. */}
+                    {canManage && (
+                      <RowMenu
+                        label={`Actions for ${member.name}`}
+                        items={[
+                          { label: 'Edit', icon: <Pencil size={14} />, onClick: () => setPerson(member) },
+                          ...(isOwner ? [{ label: 'Credentials', icon: <KeyRound size={14} />, onClick: () => setCredentialsFor(member) }] : []),
+                          { label: 'Delete', icon: <Trash2 size={14} />, danger: true,
+                            onClick: () => setRemoving({ member, busy: false, error: null }) },
+                        ]}
+                      />
+                    )}
+                    {hasDetail && (
+                      <button type="button" className="btn-secondary at-btn-sm"
+                              onClick={() => toggle(member.id)}
+                              aria-expanded={open}
+                              title={open ? 'Hide pay and advances' : 'Show pay and advances'}
+                              style={{ padding: '0 8px' }}>
+                        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                    )}
                   </div>
-                  <div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Weekly deduction</div>
-                    <div style={{ fontWeight: 600 }}>{money(t.deposit_weekly)}</div>
-                  </div>
-                </div>
-              )}
-
-              {t && showsPay(t) && depositByStaff.get(String(member.id)) && (
-                (() => {
-                  const d = depositByStaff.get(String(member.id));
-                  return (
-                    <div style={{
-                      marginTop: '12px', paddingTop: '12px',
-                      borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))',
-                    }}>
-                      <div className="ui-eyebrow" style={{ marginBottom: '8px' }}>
-                        Security deposit
-                      </div>
-                      <div
-                        className="mobile-stack-grid"
-                        style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-                                 gap: '10px' }}
-                      >
-                        <div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Agreed</div>
-                          <div style={{ fontWeight: 600 }}>{money(d.agreed)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Recovered</div>
-                          <div style={{ fontWeight: 600 }}>{money(d.recovered)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Remaining</div>
-                          <div style={{ fontWeight: 600 }}>{money(d.remaining)}</div>
-                        </div>
-                      </div>
-                      {d.fully_recovered && (
-                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-text)', marginTop: '8px' }}>
-                          Security deposit fully recovered.
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()
-              )}
-
-              {/* Advances are paid back out of payroll, which covers the
-                  roster only, so a designer has no advances section. */}
-              {canPay && t && showsPay(t) && !member.isDesigner && (
-                <div style={{
-                  marginTop: '12px', paddingTop: '12px',
-                  borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between',
-                                alignItems: 'center', marginBottom: '8px' }}>
-                    <div className="ui-eyebrow">
-                      Advances
-                    </div>
-                    <button type="button" className="btn-secondary"
-                            onClick={() => setIssuingFor(member)}
-                            style={{ minHeight: '34px', fontSize: '12px',
-                                     display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Plus size={12} /> Issue advance
-                    </button>
-                  </div>
-                  {(advancesByStaff.get(String(member.id)) || []).length === 0 ? (
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      No outstanding advance.
-                    </div>
-                  ) : (
-                    (advancesByStaff.get(String(member.id)) || []).map((a) => (
-                      <div key={a.id}
-                           className="mobile-stack-grid"
-                           style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-                                    gap: '10px', marginBottom: '6px' }}>
-                        <div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            Issued {new Date(a.issued_on).toLocaleDateString([], { day: 'numeric', month: 'short' })}
-                          </div>
-                          <div style={{ fontWeight: 600 }}>{money(a.issued)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Recovered</div>
-                          <div style={{ fontWeight: 600 }}>{money(a.recovered)}</div>
-                        </div>
-                        <div>
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            Outstanding · {money(a.weekly_recovery)}/wk
-                          </div>
-                          <div style={{ fontWeight: 600 }}>{money(a.outstanding)}</div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              </td>
-              </tr>
-              )}
-            </Fragment>
-            );
-          })}
-            </tbody>
-          </table>
-        </div>
+                );
+              },
+            },
+          ]}
+        />
           );
         })()
       )}

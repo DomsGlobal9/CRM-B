@@ -78,5 +78,5 @@
 }
 
 /* Workshop: the alert stays on the search bar's row, and the bar gives up the room. */
-.portal-main .workshop-toolbar .workshop-search-wrap:has(.msg-failed-menu) { flex-wrap: nowrap; max-width: 600px; }
-.portal-main .workshop-toolbar .workshop-search-wrap:has(.msg-failed-menu) .at-search { flex: 1 1 auto; width: auto; min-width: 0; max-width: none; }
+.portal-main .workshop-tabs-row .workshop-search-wrap:has(.msg-failed-menu) { flex-wrap: nowrap; max-width: 600px; }
+.portal-main .workshop-tabs-row .workshop-search-wrap:has(.msg-failed-menu) .at-search { flex: 1 1 auto; width: auto; min-width: 0; max-width: none; }

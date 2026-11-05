@@ -22,6 +22,7 @@ import ShelfPlace, { NotShelvedReminder } from './ShelfPlace';
 import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
+import { DataTable } from '../../components/ui/DataTable';
 
 const MOVEMENTS = [
   { key: 'stock-in', label: 'Stock In', help: 'Goods received into the boutique.' },
@@ -305,41 +306,39 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
           ) : ledger.length === 0 ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>No movements recorded yet.</p>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px', minWidth: '560px' }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', color: 'var(--text-muted)' }}>
-                    <th style={{ padding: '6px 10px 6px 0' }}>When</th>
-                    <th style={{ padding: '6px 10px 6px 0' }}>Movement</th>
-                    <th style={{ padding: '6px 10px 6px 0', textAlign: 'right' }}>Qty</th>
-                    <th style={{ padding: '6px 10px 6px 0', textAlign: 'right' }}>Balance</th>
-                    <th style={{ padding: '6px 0' }}>By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ledger.map((m) => (
-                    <tr key={m.id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '8px 10px 8px 0', whiteSpace: 'nowrap' }}>
-                        {new Date(m.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                      </td>
-                      <td style={{ padding: '8px 10px 8px 0' }}>
-                        <span style={{ color: MOVEMENT_TONE[m.movement_type] || 'var(--text-primary)', fontWeight: 600 }}>
-                          {m.movement_type_display}
-                        </span>
-                        {m.order_reference && (
-                          <span style={{ color: 'var(--text-muted)' }}> · {m.order_reference}</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px 10px 8px 0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{qty(m.quantity)}</td>
-                      <td style={{ padding: '8px 10px 8px 0', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                        {qty(m.previous_stock)} → <strong>{qty(m.new_stock)}</strong>
-                      </td>
-                      <td style={{ padding: '8px 0', color: 'var(--text-muted)' }}>{m.user_name_snapshot || 'System'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              fit={false}
+              tableStyle={{ minWidth: '560px' }}
+              rows={ledger}
+              columns={[
+                {
+                  key: 'when', header: 'When', cellProps: () => ({ style: { whiteSpace: 'nowrap' } }),
+                  render: (m) => new Date(m.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }),
+                },
+                {
+                  key: 'movement', header: 'Movement',
+                  render: (m) => (
+                    <>
+                      <span style={{ color: MOVEMENT_TONE[m.movement_type] || 'var(--text-primary)', fontWeight: 600 }}>
+                        {m.movement_type_display}
+                      </span>
+                      {m.order_reference && (
+                        <span style={{ color: 'var(--text-muted)' }}> · {m.order_reference}</span>
+                      )}
+                    </>
+                  ),
+                },
+                { key: 'qty', header: 'Qty', numeric: true, render: (m) => qty(m.quantity) },
+                {
+                  key: 'balance', header: 'Balance', numeric: true,
+                  render: (m) => <>{qty(m.previous_stock)} → <strong>{qty(m.new_stock)}</strong></>,
+                },
+                {
+                  key: 'by', header: 'By', cellProps: () => ({ style: { color: 'var(--text-muted)' } }),
+                  render: (m) => m.user_name_snapshot || 'System',
+                },
+              ]}
+            />
           )}
         </Modal>
       )}

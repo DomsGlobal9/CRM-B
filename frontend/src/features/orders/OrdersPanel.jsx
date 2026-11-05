@@ -1,9 +1,8 @@
 import { CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, ShoppingCart, User, Zap } from 'lucide-react';
-import React from 'react';
 import { RequestAlterationModal } from '../alterations/OrderAlterations';
 import { PageHeader, SearchBar, Segmented, StatCard, Tabs } from '../../components/ui/Atelier';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
-import { Pager } from '../../components/ui/Pager';
+import { DataTable } from '../../components/ui/DataTable';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
 import { ORDER_PAGE_SIZES } from './useOrdersPage';
 import { getStageBadgeStyle, orderBucket, sinceLabel, stageNow, stageWho } from './stages';
@@ -80,7 +79,19 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
         return (
           <>
             <Crumbs level={1} items={[{ label: ordersKind === 'alteration' ? t('ordersPage.typeAlteration', 'Alterations') : t('ordersPage.typeStitching', 'Stitching') }]} />
-            {dashboardTab === 'workshop' && <div style={{ marginBottom: 'var(--space-4)' }}>{kindTabs}</div>}
+            {dashboardTab === 'workshop' && (
+              <div className="workshop-tabs-row">
+                {kindTabs}
+                <div className="at-toolbar-right workshop-search-wrap">
+                  <SearchBar
+                    value={ordersSearch}
+                    onChange={setOrdersSearch}
+                    placeholder={t('ordersPage.workshopSearchPlaceholder', 'Search by order, customer, status, or worker...')}
+                  />
+                  {failedMenu}
+                </div>
+              </div>
+            )}
             {dashboardTab === 'orders' && (
               <section className="at-stat-grid orders-stats">
                 {/* The three cards are the New / In progress / Closed switch
@@ -101,16 +112,6 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
                     { key: 'kanban', label: 'Board', icon: LayoutGrid },
                     { key: 'list', label: 'List', icon: List },
                   ]} />
-                </div>
-              )}
-              {dashboardTab === 'workshop' && (
-                <div className="at-toolbar-right workshop-search-wrap">
-                  <SearchBar
-                    value={ordersSearch}
-                    onChange={setOrdersSearch}
-                    placeholder={t('ordersPage.workshopSearchPlaceholder', 'Search by order, customer, status, or worker...')}
-                  />
-                  {failedMenu}
                 </div>
               )}
               {/* Narrow by who it is for, what it is, and where it stands;
@@ -245,24 +246,7 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
             const today = todayIso();
             const pageCount = Math.max(1, Math.ceil(workshopRows.length / ordersPageSize));
             const page = Math.min(ordersListPage, pageCount);
-            const pageRows = workshopRows.slice((page - 1) * ordersPageSize, page * ordersPageSize);
-
-            return (
-            <div className="at-table-wrap">
-            <table className="at-table at-table--fit orders-book">
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Type</th>
-                  <th>Customer Name</th>
-                  <th>Est. Delivery Date</th>
-                  <th>Status</th>
-                  <th>{t('ordersPage.assignedTo', 'Assigned to')}</th>
-                  <th style={{ textAlign: 'right' }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-            {pageRows.map(({ order, job, n }) => {
+            const pageRows = workshopRows.slice((page - 1) * ordersPageSize, page * ordersPageSize).map(({ order, job, n }) => {
               const isDelivered = order.order_status === 'Delivered';
               const isCancelled = order.order_status === 'Cancelled';
               const bucket = orderBucket(order);
@@ -278,8 +262,9 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
               const stepDays = stage?.current?.started_at
                 ? Math.max(0, Math.floor((Date.now() - new Date(stage.current.started_at).getTime()) / 864e5)) : null;
               const stuck = stepDays !== null && stepDays > 10;
+              const express = (job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled;
               const rowClass = [
-                (job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled ? 'gh-express' : '',
+                express ? 'gh-express' : '',
                 stuck ? 'at-row-stuck' : '',
                 // Past its delivery date and still in work: the whole row.
                 late ? 'at-row-late' : '',
@@ -307,20 +292,29 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
               }
               const rowStyle = getStageBadgeStyle(rowStatusKey, rowStatusName);
 
-              return (
-              <React.Fragment key={job ? `${order.id}-${job.id}` : order.id}>
-              <tr className={rowClass}
-                  data-status={rowStatusKey}
-                  style={{
-                    backgroundColor: rowStyle.rowBg,
-                    '--row-status-bg': rowStyle.rowBg,
-                    ...(isCancelled ? { opacity: 0.55 } : {}),
-                  }}>
-                <td className="order-id-cell">
+              return { order, job, n, isDelivered, isCancelled, bucket, stage, jobMaggam, late, deliveredOn, stepDays, stuck, express, rowClass, rowStatusKey, rowStyle };
+            });
+
+            return (
+            <DataTable
+              tableClassName="orders-book"
+              rows={pageRows}
+              rowKey={({ order, job }) => (job ? `${order.id}-${job.id}` : order.id)}
+              rowClassName={({ rowClass }) => rowClass}
+              rowProps={({ isCancelled, rowStatusKey, rowStyle }) => ({
+                'data-status': rowStatusKey,
+                style: {
+                  backgroundColor: rowStyle.rowBg,
+                  '--row-status-bg': rowStyle.rowBg,
+                  ...(isCancelled ? { opacity: 0.55 } : {}),
+                },
+              })}
+              columns={[
+                { key: 'order', header: 'Order ID', label: false, cellClassName: 'order-id-cell', render: ({ order, job, n, express, stage, stepDays, stuck }) => (
                   <div className="order-id-content">
                     <div className="order-id-header">
                       <span className="order-id-ref">{orderRef(order)}{job ? `-${n}` : ''}</span>
-                      {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
+                      {express && (
                         <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
                       )}
                     </div>
@@ -340,58 +334,64 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
                       <User size={12} aria-hidden="true" /> {order.customer_name}
                     </span>
                   </div>
-                </td>
-                <td className="at-desk-only">{job ? (jobMaggam ? 'Maggam' : 'Stitching') : order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching'}</td>
-                <td className="at-desk-only">
-                  {order.customer_name}
-                  {order.kind === 'internal' && (
-                    <span className="ui-badge ui-badge--neutral" style={{ marginLeft: 6 }}>Boutique stock</span>
-                  )}
-                </td>
-                <td data-label={t('ordersPage.estDelivery', 'Delivery')}>{order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—'}</td>
-                <td data-label={t('ordersPage.whereItStands', 'Where it stands')}>
-                  {bucket === 'done' && (
-                    <div className="at-stage-strip">
-                      <span className={`ui-badge ui-badge--${statusTone(order.order_status)}`}>{isDelivered ? 'Delivered' : 'Cancelled'}</span>
-                      {deliveredOn && <span className="at-stage-strip-muted">{fmtDate(deliveredOn)}</span>}
-                      <span className="at-stage-strip-muted">{inr(order.total_amount)}</span>
-                    </div>
-                  )}
-                  {bucket === 'new' && (
-                    <span className="ui-badge ui-badge--warning">{t('ordersPage.notSentYet', 'Not sent yet')}</span>
-                  )}
-                  {/* A garment handed over while others on the order are still in work. */}
-                  {bucket === 'workshop' && job && !stage && (
-                    <span className="ui-badge ui-badge--success">{t('ordersPage.garmentDelivered', 'Delivered')}</span>
-                  )}
-                  {/* Where it stands: the step it is on (who has it is
-                      the next column; how long, under the order number). */}
-                  {stage && (() => {
-                    const badgeStyle = getStageBadgeStyle(stage.current.stage_key, stage.current.stage_name);
-                    return (
+                ) },
+                { key: 'type', header: 'Type', label: false, cellClassName: 'at-desk-only',
+                  render: ({ order, job, jobMaggam }) => (job ? (jobMaggam ? 'Maggam' : 'Stitching') : order.flow === 'alteration' ? 'Alteration' : order.flow === 'maggam' ? 'Maggam' : 'Stitching') },
+                { key: 'customer', header: 'Customer Name', label: false, cellClassName: 'at-desk-only', render: ({ order }) => (
+                  <>
+                    {order.customer_name}
+                    {order.kind === 'internal' && (
+                      <span className="ui-badge ui-badge--neutral" style={{ marginLeft: 6 }}>Boutique stock</span>
+                    )}
+                  </>
+                ) },
+                { key: 'delivery', header: 'Est. Delivery Date', label: t('ordersPage.estDelivery', 'Delivery'),
+                  render: ({ order }) => (order.estimated_delivery ? fmtDate(order.estimated_delivery) : '—') },
+                { key: 'status', header: 'Status', label: t('ordersPage.whereItStands', 'Where it stands'), render: ({ order, job, isDelivered, bucket, stage, late, deliveredOn }) => (
+                  <>
+                    {bucket === 'done' && (
                       <div className="at-stage-strip">
-                        <span
-                          className="ui-badge stage-step-badge"
-                          style={{
-                            backgroundColor: badgeStyle.bg,
-                            borderColor: badgeStyle.border,
-                            color: badgeStyle.text,
-                          }}
-                        >
-                          {stage.current.stage_name}
-                        </span>
-                        {late && <span className="ui-badge ui-badge--danger">{t('ordersPage.late', 'Late')}</span>}
+                        <span className={`ui-badge ui-badge--${statusTone(order.order_status)}`}>{isDelivered ? 'Delivered' : 'Cancelled'}</span>
+                        {deliveredOn && <span className="at-stage-strip-muted">{fmtDate(deliveredOn)}</span>}
+                        <span className="at-stage-strip-muted">{inr(order.total_amount)}</span>
                       </div>
-                    );
-                  })()}
-                </td>
-                {/* Who has the step it is on. */}
-                <td data-label={t('ordersPage.assignedTo', 'Assigned to')} className="at-assignee-cell">
-                  {stage && stageWho(stage.current)
+                    )}
+                    {bucket === 'new' && (
+                      <span className="ui-badge ui-badge--warning">{t('ordersPage.notSentYet', 'Not sent yet')}</span>
+                    )}
+                    {/* A garment handed over while others on the order are still in work. */}
+                    {bucket === 'workshop' && job && !stage && (
+                      <span className="ui-badge ui-badge--success">{t('ordersPage.garmentDelivered', 'Delivered')}</span>
+                    )}
+                    {/* Where it stands: the step it is on (who has it is
+                        the next column; how long, under the order number). */}
+                    {stage && (() => {
+                      const badgeStyle = getStageBadgeStyle(stage.current.stage_key, stage.current.stage_name);
+                      return (
+                        <div className="at-stage-strip">
+                          <span
+                            className="ui-badge stage-step-badge"
+                            style={{
+                              backgroundColor: badgeStyle.bg,
+                              borderColor: badgeStyle.border,
+                              color: badgeStyle.text,
+                            }}
+                          >
+                            {stage.current.stage_name}
+                          </span>
+                          {late && <span className="ui-badge ui-badge--danger">{t('ordersPage.late', 'Late')}</span>}
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) },
+                /* Who has the step it is on. */
+                { key: 'assigned', header: t('ordersPage.assignedTo', 'Assigned to'), cellClassName: 'at-assignee-cell', render: ({ stage }) => (
+                  stage && stageWho(stage.current)
                     ? <span className="at-assignee"><User size={13} aria-hidden="true" /> {stageWho(stage.current)}</span>
-                    : <span className="at-assignee-none">—</span>}
-                </td>
-                <td style={{ whiteSpace: 'nowrap' }}>
+                    : <span className="at-assignee-none">—</span>
+                ) },
+                { key: 'action', header: 'Action', label: false, align: 'right', cellProps: () => ({ style: { whiteSpace: 'nowrap' } }), render: ({ order, job, n, isDelivered, bucket }) => (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
                     {bucket === 'new' && (!currentUser?.role || ['Owner', 'Master'].includes(currentUser.role)
                       || adminCan('workshop.assign') || adminCan('workshop.move')) && (
@@ -421,18 +421,16 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
                       <Eye size={16} />
                     </button>
                   </div>
-                </td>
-              </tr>
-              </React.Fragment>
-              );
-            })}
-              </tbody>
-            </table>
-            {/* On every tab, even a short list, so each one reads the same. */}
-            <Pager page={page} pageCount={pageCount} pageSize={ordersPageSize}
-                   sizes={ORDER_PAGE_SIZES} onPage={goToOrdersPage} onSize={setOrdersPageSize}
-                   label={t('ordersPage.perPage', 'Orders per page')} />
-            </div>
+                ) },
+              ]}
+              /* On every tab, even a short list, so each one reads the same. */
+              pager={{
+                page, pageCount, pageSize: ordersPageSize, sizes: ORDER_PAGE_SIZES,
+                onPage: goToOrdersPage, onSize: setOrdersPageSize,
+                label: t('ordersPage.perPage', 'Orders per page'), total: workshopRows.length,
+                totalLabel: ({ from, to, total }) => t('ordersPage.showing', 'Showing {from}–{to} of {total}', { from, to, total }),
+              }}
+            />
             );
           })()}
         </div>

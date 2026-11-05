@@ -3,6 +3,7 @@ import { BellRing } from 'lucide-react';
 import { api } from '../services/api.js';
 import { useLanguage } from '../i18n/LanguageContext.jsx';
 import { LoaderRows } from './ui/Loader';
+import { DataTable } from './ui/DataTable';
 
 // The languages the 11 PM summary is written in (apps/daily_summary/text.py).
 const LANGUAGES = [['en', 'English'], ['hi', 'हिंदी (Hindi)'], ['te', 'తెలుగు (Telugu)']];
@@ -68,59 +69,68 @@ export default function DailySummarySettings({ iconChip, hideHeader = false }) {
         {!rows && !error && <LoaderRows rows={3} />}
 
         {rows && (
-          <div className="settings-summary-wrap dss-wrap" style={{ marginTop: hideHeader ? '0' : '14px' }}>
-            <table className="settings-summary-table dss-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '32%' }}>{t('summarySettings.person', 'Person')}</th>
-                  <th style={{ width: '22%' }}>{t('summarySettings.receive', 'Receive summary')}</th>
-                  <th style={{ width: '24%' }}>{t('summarySettings.language', 'Language')}</th>
-                  <th style={{ width: '22%' }}>{t('summarySettings.channel', 'Sent by')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.user_id} className="dss-row">
-                    <td className="dss-person">
+          <div className="dss-wrap" style={{ marginTop: hideHeader ? '0' : '14px' }}>
+            <DataTable
+              fit={false}
+              wrapClassName="settings-summary-wrap"
+              tableClassName="settings-summary-table dss-table"
+              tableStyle={{ minWidth: 0 }}
+              rows={rows}
+              rowKey="user_id"
+              rowClassName={() => 'dss-row'}
+              columns={[
+                {
+                  key: 'person', header: t('summarySettings.person', 'Person'), width: '32%', label: false, cellClassName: 'dss-person',
+                  render: (row) => (
+                    <>
                       <div className="dss-person-name">
                         {row.name}{row.role === 'Owner' ? ' (' + t('summarySettings.you', 'you') + ')' : ''}
                       </div>
                       <div className="dss-person-role">{row.role}</div>
-                    </td>
-                    <td className="dss-receive">
-                      <label className="dss-toggle-label">
-                        <input
-                          type="checkbox"
-                          checked={row.enabled}
-                          disabled={saving === row.user_id}
-                          style={{ width: '16px', height: '16px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
-                          onChange={(e) => save(row, { enabled: e.target.checked })}
-                        />
-                        <span className={'dss-status-badge ' + (row.enabled ? 'dss-status-badge--on' : 'dss-status-badge--off')}>
-                          {row.enabled ? t('summarySettings.on', 'On') : t('summarySettings.off', 'Off')}
-                        </span>
-                      </label>
-                    </td>
-                    <td className="dss-lang" data-label={t('summarySettings.language', 'Language')}>
-                      <select
-                        className="form-control dss-lang-select"
-                        value={row.language}
+                    </>
+                  ),
+                },
+                {
+                  key: 'receive', header: t('summarySettings.receive', 'Receive summary'), width: '22%', label: false, cellClassName: 'dss-receive',
+                  render: (row) => (
+                    <label className="dss-toggle-label">
+                      <input
+                        type="checkbox"
+                        checked={row.enabled}
                         disabled={saving === row.user_id}
-                        aria-label={t('summarySettings.language', 'Language') + ': ' + row.name}
-                        onChange={(e) => save(row, { language: e.target.value })}
-                      >
-                        {LANGUAGES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-                      </select>
-                    </td>
-                    <td className="dss-chan" data-label={t('summarySettings.channel', 'Sent by')}>
-                      <span className="ui-badge dss-channel-badge">
-                        {channel[row.channel]}
+                        style={{ width: '16px', height: '16px', accentColor: 'var(--primary-color)', cursor: 'pointer' }}
+                        onChange={(e) => save(row, { enabled: e.target.checked })}
+                      />
+                      <span className={'dss-status-badge ' + (row.enabled ? 'dss-status-badge--on' : 'dss-status-badge--off')}>
+                        {row.enabled ? t('summarySettings.on', 'On') : t('summarySettings.off', 'Off')}
                       </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </label>
+                  ),
+                },
+                {
+                  key: 'language', header: t('summarySettings.language', 'Language'), width: '24%', cellClassName: 'dss-lang',
+                  render: (row) => (
+                    <select
+                      className="form-control dss-lang-select"
+                      value={row.language}
+                      disabled={saving === row.user_id}
+                      aria-label={t('summarySettings.language', 'Language') + ': ' + row.name}
+                      onChange={(e) => save(row, { language: e.target.value })}
+                    >
+                      {LANGUAGES.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+                    </select>
+                  ),
+                },
+                {
+                  key: 'channel', header: t('summarySettings.channel', 'Sent by'), width: '22%', cellClassName: 'dss-chan',
+                  render: (row) => (
+                    <span className="ui-badge dss-channel-badge">
+                      {channel[row.channel]}
+                    </span>
+                  ),
+                },
+              ]}
+            />
           </div>
         )}
       </div>

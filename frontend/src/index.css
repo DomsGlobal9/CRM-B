@@ -4520,6 +4520,11 @@ table.data-table tbody tr:hover {
    except the first (avatar and name), which reads best from the left. */
 .at-table--center th, .at-table--center td { text-align: center; }
 .at-table--center th:first-child, .at-table--center td:first-child { text-align: left; }
+/* Attendance's muster grid: a narrow column per day, the names held in view. */
+.att-muster th, .att-muster td { padding-left: 2px; padding-right: 2px; }
+.att-muster .att-muster-name { position: sticky; left: 0; z-index: 1; padding-left: var(--cell-x); padding-right: var(--cell-x); background: var(--surface-color); box-shadow: inset -1px 0 0 var(--border-color), inset 0 -1px 0 var(--border-color); }
+.att-muster th.att-muster-name { background: var(--surface-2); }
+.att-muster tbody tr:last-child .att-muster-name { box-shadow: inset -1px 0 0 var(--border-color); }
 .at-table tr:last-child td { border-bottom: none; }
 .at-table tbody tr:hover td { background: var(--surface-2); }
 /* A roster that fits the page instead of scrolling sideways: no floor on its
@@ -6131,20 +6136,23 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
   }
   .staff-table td[data-label] .ui-badge { font-size: 11px; padding: 1px 7px; }
   .staff-table tr.staff-row--open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-  .staff-table tr.staff-detail {
+  .staff-table tr.at-row--detail {
     display: block; margin-top: -10px; padding: 0 14px 14px;
     background: var(--surface-2); border: 1px solid var(--border-color); border-top: none;
     border-radius: 0 0 14px 14px;
   }
-  .staff-table tr.staff-detail > td { display: block; padding: 0 !important; border: none !important; background: transparent !important; }
+  .staff-table tr.at-row--detail > td { display: block; padding: 0 !important; border: none !important; background: transparent !important; }
+  .staff-table tr.at-row--detail .at-row-detail { position: static; width: auto; padding: 0; }
 }
 /* A tablet has the width for all five details on one line (four 12px gaps),
    and a little more room in the card. */
 @media (min-width: 601px) and (max-width: 1099px) {
   .staff-table tr.staff-row { padding: 12px 16px; gap: 10px 12px; }
   .staff-table td[data-label] { flex: 0 0 calc((100% - 48px) / 5); font-size: 13px !important; }
-  .staff-table tr.staff-detail { padding: 0 16px 16px; }
+  .staff-table tr.at-row--detail { padding: 0 16px 16px; }
 }
+/* An opened row's first block draws its own space and rule at the top. */
+.staff-table .at-row-detail { padding-top: 0; }
 
 /* ---- Bills & payments on a phone ---------------------------------------
    Below 1024px the bill rows already stack (.at-table--fit); on a phone each
@@ -6781,8 +6789,8 @@ button, input, select, textarea { font-family: inherit; }
   /* Attendance history: five columns scrolled sideways on a phone, so only
      the date, status and entry time showed. Each day is now a compact row --
      date and status on top, entry and exit labelled under them, remarks
-     below only when there are any. The cells' padding is inline, hence
-     !important. The loading and empty rows keep their own layout. */
+     below only when there are any. The padding !important outranks
+     .at-table td. The loading and empty rows keep their own layout. */
   .att-log thead { display: none; }
   .att-log, .att-log > tbody { display: block; width: 100%; }
   .att-log tr.att-row {
@@ -6790,7 +6798,8 @@ button, input, select, textarea { font-family: inherit; }
     grid-template-areas: "date status" "in out" "remarks remarks";
     align-items: center; gap: 8px 12px; padding: 12px 16px;
   }
-  .att-log tr.att-row > td { padding: 0 !important; min-width: 0; }
+  .att-log tr.att-row > td { padding: 0 !important; min-width: 0; border-bottom: none; }
+  .att-log tbody tr.att-row:hover td { background: transparent; }
   .att-log tr.att-row > .att-date { grid-area: date; }
   .att-log tr.att-row > .att-status { grid-area: status; justify-self: end; }
   .att-log tr.att-row > .att-in { grid-area: in; }
@@ -6803,7 +6812,8 @@ button, input, select, textarea { font-family: inherit; }
      pattern_cutting on T2B-260911-7082") has long unbroken words that
      stretched the row past the screen and set the list scrolling sideways. */
   .att-log tr.att-row > .att-remarks { grid-area: remarks; white-space: normal; overflow-wrap: anywhere; word-break: break-word; line-height: 1.45; }
-  .att-log tr.att-row { width: 100%; box-sizing: border-box; }
+  .att-log tr.att-row { width: 100%; box-sizing: border-box; border-bottom: 1px solid var(--border-color); }
+  .att-log tr.att-row:last-child { border-bottom: none; }
   .att-log tr.att-row > .att-remarks:empty { display: none; }
   .att-log > tbody > tr:not(.att-row) { display: block; }
   .att-log > tbody > tr:not(.att-row) > td { display: block; }
@@ -8224,13 +8234,36 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 /* ---- Workshop: the same tighter top as Orders -----------------------------
    The Board / List switch and the WhatsApp notice closer. A phone keeps its layout. */
 @media (min-width: 769px) {
-  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head { margin-bottom: 10px; }
-  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-right:empty { display: none; padding-top: 0; }
-  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-toolbar { margin: 4px 0 10px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head,
+  .portal-main:has(> .workshop-tabs-row) > .at-page-head { margin-bottom: 10px; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-right:empty,
+  .portal-main:has(> .workshop-tabs-row) > .at-page-head .at-page-head-right:empty { display: none; padding-top: 0; }
+  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-toolbar,
+  .portal-main:has(> .workshop-tabs-row) > .at-toolbar { margin: 4px 0 10px; }
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .msg-failed-banner { margin: 10px 0; padding-top: 10px; padding-bottom: 10px; }
 }
 
-/* ---- Workshop toolbar: Board/List toggle and search bar on the same row ---- */
+/* ---- Workshop: the tabs with Search and the WhatsApp button on their right ----
+   The line under the tabs runs under the whole row. Where there is not the room
+   for all of it, Search and the button take the line below the tabs. */
+.workshop-tabs-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+.workshop-tabs-row .orders-kind-tabs { flex: 0 0 auto; }
+.workshop-tabs-row .at-tabs { border-bottom: none; }
+.workshop-tabs-row .workshop-search-wrap { padding-bottom: var(--space-2); }
+@media (max-width: 1024px) {
+  .workshop-tabs-row { display: block; border-bottom: none; }
+  .workshop-tabs-row .at-tabs { border-bottom: 1px solid var(--border-color); }
+  .portal-main .workshop-tabs-row .workshop-search-wrap { margin-top: var(--space-3); padding-bottom: 0; max-width: none; }
+}
+
+/* ---- Workshop toolbar: the Board/List toggle ---- */
 .workshop-toolbar {
   display: flex !important;
   align-items: center !important;
@@ -8245,7 +8278,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   flex: 0 0 auto;
 }
 
-.workshop-toolbar .workshop-search-wrap {
+.workshop-tabs-row .workshop-search-wrap {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -8255,7 +8288,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   margin-left: auto;
 }
 
-.workshop-toolbar .workshop-search-wrap .at-search {
+.workshop-tabs-row .workshop-search-wrap .at-search {
   width: 100%;
   max-width: 380px;
 }
@@ -8265,22 +8298,22 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     gap: 8px;
     margin: 8px 0;
   }
-  .app-container .workshop-toolbar .workshop-search-wrap {
+  .app-container .workshop-tabs-row .workshop-search-wrap {
     flex: 1 1 auto !important;
     width: auto !important;
     min-width: 130px;
     margin-left: 0;
   }
-  .app-container .workshop-toolbar .workshop-search-wrap .at-search {
+  .app-container .workshop-tabs-row .workshop-search-wrap .at-search {
     max-width: none;
   }
-  .app-container .workshop-toolbar .workshop-search-wrap .at-search input {
+  .app-container .workshop-tabs-row .workshop-search-wrap .at-search input {
     padding-top: 8px;
     padding-bottom: 8px;
     padding-left: 32px;
     font-size: 13px;
   }
-  .app-container .workshop-toolbar .workshop-search-wrap .at-search svg {
+  .app-container .workshop-tabs-row .workshop-search-wrap .at-search svg {
     left: 10px;
     width: 14px;
     height: 14px;
@@ -8454,7 +8487,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .fin-costs-grid { align-items: stretch; }
 .fin-costs-grid > .at-section { display: flex; flex-direction: column; }
 .fin-costs-grid > .at-section > .fin-costs-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.fin-costs-grid > .at-section > .at-table-wrap { max-width: 100%; overflow-x: auto; }
+.fin-costs-grid > .at-section > .at-table-block > .at-table-wrap { max-width: 100%; overflow-x: auto; }
 @media (max-width: 480px) {
   .fin-costs-grid > .at-section .at-table th, .fin-costs-grid > .at-section .at-table td { padding-left: 10px; padding-right: 10px; }
   .fin-costs-grid > .at-section > .fin-costs-empty .btn-primary { width: 100%; justify-content: center; }
@@ -11171,11 +11204,17 @@ th[aria-sort="ascending"] .at-sort svg, th[aria-sort="descending"] .at-sort svg 
 html[data-theme$="-dark"] .portal-wordmark--on-light { display: none; }
 html:not([data-theme$="-dark"]) .portal-wordmark--on-dark { display: none; }
 
-/* Design requests, an opened row: on a phone the table scrolls sideways, but the
-   row's contents stay the width of the screen, so Approve is in view. */
-.dw-table-wrap { container-type: inline-size; }
-.at-table td.dw-row-detail-cell { padding: 0; }
-.dw-row-detail { position: sticky; left: 0; width: 100cqw; box-sizing: border-box; padding: var(--cell-y) var(--cell-x); }
+/* A small list inside a card: no headings or frame, rows split by a line. */
+.at-table-wrap--lines { border: 0; border-radius: 0; background: none; }
+.at-table--lines { min-width: 0; }
+.at-table--lines td { padding: var(--space-2) var(--space-2) var(--space-2) 0; border-top: 1px solid var(--border-color); border-bottom: 0; }
+.at-table--lines tbody tr:hover td { background: transparent; }
+
+/* A row that opens up: when the table scrolls sideways its contents stay the width
+   of the screen, so the buttons in it are in view. */
+.at-table-wrap--details { container-type: inline-size; }
+.at-table td.at-row-detail-cell { padding: 0; background: var(--surface-2); }
+.at-row-detail { position: sticky; left: 0; width: 100cqw; box-sizing: border-box; padding: var(--cell-y) var(--cell-x); }
 
 /* Pager: total records */
 .at-pager-left { display: inline-flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }

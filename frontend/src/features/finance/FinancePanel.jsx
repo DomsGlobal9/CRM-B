@@ -17,6 +17,7 @@ import { api } from '../../services/api';
 import { Dropzone, Field, FormModal, IconTile, InfoNote, PageHeader, SectionCard, Segmented, StatCard } from '../../components/ui/Atelier';
 import { LIMITS, cleanAmount, amountError, todayIso } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
+import { DataTable } from '../../components/ui/DataTable';
 
 const errorBox = {
   background: 'var(--danger-bg)',
@@ -202,18 +203,6 @@ function AddExpenseForm({ onCancel, onSaved }) {
   );
 }
 
-function CostRow({ label, amount, auto }) {
-  return (
-    <tr>
-      {/* No "auto" badge beside the label: the Mode column already says so,
-          and the badge pushed this table wider than a phone. */}
-      <td>{label}</td>
-      <td className="at-num" style={{ fontWeight: 600, textAlign: 'right' }}>{money(amount)}</td>
-      <td style={{ color: 'var(--text-secondary)' }}>{auto ? 'Automatic' : 'Entered'}</td>
-    </tr>
-  );
-}
-
 export default function FinancePanel() {
   const [period, setPeriod] = useState('month');
   const [win, setWin] = useState(monthWindow);
@@ -301,25 +290,40 @@ export default function FinancePanel() {
           <div className="at-grid-2 fin-costs-grid">
             <SectionCard icon={Wallet} tone="neutral" title="Expenses & Costs" subtitle="All costs recorded for this period."
                          action={() => setAdding(true)} actionLabel="Add a cost">
-              <div className="at-table-wrap">
-                <table className="at-table" style={{ minWidth: 0 }}>
-                  <thead>
-                    <tr><th>Category</th><th style={{ textAlign: 'right' }}>Amount</th><th>Mode</th></tr>
-                  </thead>
-                  <tbody>
-                    <CostRow label="Salaries (payroll)" amount={pnl.costs.salaries} auto />
-                    <CostRow label="Inventory (purchase orders)" amount={pnl.costs.inventory} auto />
-                    {pnl.costs.manual.map((m) => (
-                      <CostRow key={m.category} label={m.label} amount={m.amount} />
-                    ))}
-                    <tr style={{ background: 'var(--surface-2)' }}>
-                      <td style={{ fontWeight: 700 }}>Total Costs</td>
-                      <td className="at-num" style={{ fontWeight: 700, textAlign: 'right' }}>{money(pnl.costs.total)}</td>
-                      <td />
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                fit={false}
+                tableStyle={{ minWidth: 0 }}
+                rowKey="key"
+                rows={[
+                  { key: 'auto:salaries', label: 'Salaries (payroll)', amount: pnl.costs.salaries, auto: true },
+                  { key: 'auto:inventory', label: 'Inventory (purchase orders)', amount: pnl.costs.inventory, auto: true },
+                  ...pnl.costs.manual.map((m) => ({ key: m.category, label: m.label, amount: m.amount })),
+                  { key: 'total', label: 'Total Costs', amount: pnl.costs.total, total: true },
+                ]}
+                rowProps={(row) => (row.total ? { style: { background: 'var(--surface-2)' } } : undefined)}
+                columns={[
+                  // No "auto" badge beside the label: the Mode column already says so,
+                  // and the badge pushed this table wider than a phone.
+                  {
+                    key: 'category', header: 'Category',
+                    cellProps: (row) => (row.total ? { style: { fontWeight: 700 } } : undefined),
+                    render: (row) => row.label,
+                  },
+                  {
+                    key: 'amount', header: 'Amount', numeric: true, cellClassName: 'at-num',
+                    cellProps: (row) => ({ style: { fontWeight: row.total ? 700 : 600 } }),
+                    render: (row) => money(row.amount),
+                  },
+                  {
+                    key: 'mode', header: 'Mode',
+                    cellProps: () => ({ style: { color: 'var(--text-secondary)' } }),
+                    render: (row) => {
+                      if (row.total) return '';
+                      return row.auto ? 'Automatic' : 'Entered';
+                    },
+                  },
+                ]}
+              />
             </SectionCard>
 
             <SectionCard icon={PieChart} tone="neutral" title="Costs you entered" subtitle="Rent, utilities and the rest — with receipts.">

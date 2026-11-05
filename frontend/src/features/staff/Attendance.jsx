@@ -1,6 +1,7 @@
 
 import { SearchBar } from '../../components/ui/SearchBar';
 import { Tabs } from '../../components/ui/Atelier';
+import { DataTable } from '../../components/ui/DataTable';
 import { useState, useEffect, useCallback } from 'react';
 import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar, CalendarDays, Wallet, ArrowRight, MapPin } from 'lucide-react';
 
@@ -495,29 +496,14 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
       ) : (
         // One row per person: a table reads down a column (who is late, who has
         // the fewest hours) in a way a wall of cards does not.
-        <div className="at-table-wrap">
-          <table className="at-table at-table--fit at-table--center">
-            <thead>
-              <tr>
-                <th>Team member</th>
-                <th>Status</th>
-                {ranged ? (
-                  <>
-                    <th>Days</th>
-                    <th>Sessions</th>
-                  </>
-                ) : (
-                  <>
-                    <th>Check in</th>
-                    <th>Check out</th>
-                  </>
-                )}
-                <th>{ranged ? 'Total hours' : 'Hours'}</th>
-                {isOwner && <th>Action</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ person, open, minutes, days, own, status, latest }) => {
+        <DataTable
+          tableClassName="at-table--center"
+          rows={rows}
+          rowKey={(row) => row.person.id}
+          columns={[
+            {
+              key: 'person', header: 'Team member', label: false,
+              render: ({ person }) => {
                 const initials = (person.name || 'U')
                   .split(' ')
                   .map((n) => n[0])
@@ -525,64 +511,66 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
                   .toUpperCase()
                   .slice(0, 2);
                 return (
-                  <tr key={person.id}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                        <div style={{
-                          width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-                          background: 'linear-gradient(135deg, var(--surface-2, #F4F2EC) 0%, var(--border-color, #E2DFD8) 100%)',
-                          color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {initials}
-                        </div>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ fontWeight: 600 }}>{person.name}</div>
-                          <div style={sub}>{person.role}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td data-label="Status">
-                      <span className={`ui-badge ui-badge--${badgeTone(status)}`}>
-                        ● {ranged
-                          ? (status === 'Working' ? 'Working now' : own.length ? `${days} day${days === 1 ? '' : 's'}` : 'No hours')
-                          : status}
-                      </span>
-                    </td>
-                    {ranged ? (
-                      <>
-                        <td data-label="Days">{days || '—'}</td>
-                        <td data-label="Sessions">{own.length || '—'}</td>
-                      </>
-                    ) : (
-                      <>
-                        <td data-label="Check in">
-                          <div>{clockText(latest?.check_in)}</div>
-                          {latest && <div style={sub}><WhereTag session={latest} /></div>}
-                        </td>
-                        <td data-label="Check out">{open ? '—' : clockText(latest?.check_out)}</td>
-                      </>
-                    )}
-                    <td data-label={ranged ? 'Total hours' : 'Hours'} style={{ fontWeight: 600 }}>
-                      {minutes ? hoursText(minutes) : '—'}
-                    </td>
-                    {isOwner && (
-                      <td data-label="Action">
-                        {latest && (
-                          <button type="button" className="btn-secondary" onClick={() => onCorrect(latest)}
-                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px',
-                                           minHeight: '34px', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
-                            <Pencil size={13} /> Correct entry
-                          </button>
-                        )}
-                      </td>
-                    )}
-                  </tr>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                      background: 'linear-gradient(135deg, var(--surface-2) 0%, var(--border-color) 100%)',
+                      color: 'var(--text-primary)', fontWeight: 700, fontSize: '13px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {initials}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 600 }}>{person.name}</div>
+                      <div style={sub}>{person.role}</div>
+                    </div>
+                  </div>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              },
+            },
+            {
+              key: 'status', header: 'Status',
+              render: ({ status, own, days }) => (
+                <span className={`ui-badge ui-badge--${badgeTone(status)}`}>
+                  ● {ranged
+                    ? (status === 'Working' ? 'Working now' : own.length ? `${days} day${days === 1 ? '' : 's'}` : 'No hours')
+                    : status}
+                </span>
+              ),
+            },
+            ranged && { key: 'days', header: 'Days', render: ({ days }) => days || '—' },
+            ranged && { key: 'sessions', header: 'Sessions', render: ({ own }) => own.length || '—' },
+            !ranged && {
+              key: 'checkIn', header: 'Check in',
+              render: ({ latest }) => (
+                <>
+                  <div>{clockText(latest?.check_in)}</div>
+                  {latest && <div style={sub}><WhereTag session={latest} /></div>}
+                </>
+              ),
+            },
+            !ranged && {
+              key: 'checkOut', header: 'Check out',
+              render: ({ open, latest }) => (open ? '—' : clockText(latest?.check_out)),
+            },
+            {
+              key: 'hours', header: ranged ? 'Total hours' : 'Hours',
+              cellProps: () => ({ style: { fontWeight: 600 } }),
+              render: ({ minutes }) => (minutes ? hoursText(minutes) : '—'),
+            },
+            isOwner && {
+              key: 'action', header: 'Action',
+              // '' keeps the cell blank for someone with no entry; null would draw a dash.
+              render: ({ latest }) => (latest ? (
+                <button type="button" className="btn-secondary" onClick={() => onCorrect(latest)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                 minHeight: '34px', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
+                  <Pencil size={13} /> Correct entry
+                </button>
+              ) : ''),
+            },
+          ]}
+        />
       )}
     </>
   );
@@ -748,10 +736,10 @@ function Timesheet({ canSeeTeam, isOwner, roster, onCorrect, week, onWeekChange,
 
 
 const STATUS_STYLE = {
-  P: { bg: 'rgba(46,196,182,0.18)', fg: '#1e8a5c' },
-  L: { bg: 'rgba(240,136,62,0.18)', fg: '#c0864b' },
-  WO: { bg: 'rgba(120,120,140,0.18)', fg: 'var(--text-secondary)' },
-  A: { bg: 'rgba(220,80,60,0.12)', fg: 'var(--danger-color)' },
+  P: { bg: 'var(--success-100)', fg: 'var(--success-700)' },
+  L: { bg: 'var(--warning-100)', fg: 'var(--warning-700)' },
+  WO: { bg: 'var(--surface-inset)', fg: 'var(--text-secondary)' },
+  A: { bg: 'var(--danger-100)', fg: 'var(--danger-color)' },
   '': { bg: 'transparent', fg: 'var(--text-muted)' },
 };
 
@@ -809,17 +797,6 @@ function MusterGrid({ isOwner, roster, sessions, dayMarks, since, until, onChang
     } catch { /* a failed mark just leaves the cell as it was */ }
   };
 
-  const th = {
-    position: 'sticky', top: 0, background: 'var(--surface-color, #fff)',
-    padding: '6px 4px', fontSize: '11px', color: 'var(--text-muted)',
-    fontWeight: 600, textAlign: 'center', zIndex: 1,
-  };
-  const nameCell = {
-    position: 'sticky', left: 0, background: 'var(--surface-color, #fff)',
-    padding: '8px 12px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap',
-    borderRight: '1px solid var(--border-color, rgba(255,255,255,0.12))', zIndex: 1,
-  };
-
   const legend = [['P', 'Present'], ['L', 'Leave'], ['WO', 'Weekly off'], ['A', 'Absent']];
 
   return (
@@ -847,56 +824,55 @@ function MusterGrid({ isOwner, roster, sessions, dayMarks, since, until, onChang
           No staff on the roster yet.
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={{ ...nameCell, ...th, textAlign: 'left' }}>Staff</th>
-                {dates.map((d) => (
-                  <th key={d.iso} style={{ ...th, color: d.weekend ? 'var(--text-secondary)' : 'var(--text-muted)' }}
-                      title={d.iso}>{d.day}</th>
-                ))}
-                <th style={{ ...th }}>P</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roster.map((person) => {
-                const present = presentByStaff.get(String(person.id))?.size || 0;
+        <DataTable
+          fit={false}
+          tableClassName="att-muster"
+          rows={roster}
+          columns={[
+            {
+              key: 'name', header: 'Staff', label: false, className: 'att-muster-name',
+              cellProps: () => ({ style: { fontWeight: 600, whiteSpace: 'nowrap' } }),
+              render: (person) => (
+                <>
+                  {person.name}
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>
+                    {person.role}
+                  </div>
+                </>
+              ),
+            },
+            ...dates.map((d) => ({
+              key: d.iso,
+              label: false,
+              align: 'center',
+              header: d.day,
+              headerProps: { title: d.iso, style: { color: d.weekend ? 'var(--text-secondary)' : 'var(--text-muted)' } },
+              render: (person) => {
+                const status = statusFor(person.id, d.iso);
+                const mark = markByKey.get(`${person.id}|${d.iso}`);
+                const clickable = isOwner && status !== 'P' && d.iso <= today;
                 return (
-                  <tr key={person.id}>
-                    <td style={nameCell}>
-                      {person.name}
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>
-                        {person.role}
-                      </div>
-                    </td>
-                    {dates.map((d) => {
-                      const status = statusFor(person.id, d.iso);
-                      const mark = markByKey.get(`${person.id}|${d.iso}`);
-                      const clickable = isOwner && status !== 'P' && d.iso <= today;
-                      return (
-                        <td key={d.iso} style={{ padding: '2px', textAlign: 'center' }}>
-                          <button type="button" disabled={!clickable}
-                                  onClick={() => cycle(person.id, d.iso, status, mark)}
-                                  title={`${person.name} · ${d.iso}`}
-                                  style={{
-                                    width: '26px', height: '26px', borderRadius: '4px', border: 'none',
-                                    fontSize: '10px', fontWeight: 700,
-                                    cursor: clickable ? 'pointer' : 'default',
-                                    background: STATUS_STYLE[status].bg, color: STATUS_STYLE[status].fg,
-                                  }}>
-                            {status}
-                          </button>
-                        </td>
-                      );
-                    })}
-                    <td style={{ textAlign: 'center', fontWeight: 600, fontSize: '13px' }}>{present}</td>
-                  </tr>
+                  <button type="button" disabled={!clickable}
+                          onClick={() => cycle(person.id, d.iso, status, mark)}
+                          title={`${person.name} · ${d.iso}`}
+                          style={{
+                            width: '26px', height: '26px', borderRadius: '4px', border: 'none',
+                            fontSize: '10px', fontWeight: 700,
+                            cursor: clickable ? 'pointer' : 'default',
+                            background: STATUS_STYLE[status].bg, color: STATUS_STYLE[status].fg,
+                          }}>
+                    {status}
+                  </button>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              },
+            })),
+            {
+              key: 'present', header: 'P', label: false, align: 'center',
+              cellProps: () => ({ style: { fontWeight: 600 } }),
+              render: (person) => presentByStaff.get(String(person.id))?.size || 0,
+            },
+          ]}
+        />
       )}
     </div>
   );
@@ -1110,105 +1086,82 @@ function MonthlyAttendanceLogs({ reloadKey }) {
         </div>
       </div>
 
-      {/* Table Container */}
-      <div
-        style={{
-          ...panel,
-          overflow: 'hidden',
-          borderRadius: '14px',
-          border: '1px solid var(--border-color)',
-          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)',
-          padding: 0,
-        }}
-      >
-        <div style={{ overflowX: 'auto' }}>
-          {/* att-log: on a phone each day stacks into a compact row (index.css). */}
-          <table className="att-log" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: 'var(--surface-2, #F8F7F4)', borderBottom: '1px solid var(--border-color)' }}>
-                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>DATE</th>
-                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>STATUS</th>
-                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>ENTRY TIME</th>
-                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>EXIT TIME</th>
-                <th style={{ padding: '14px 18px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-secondary)' }}>REMARKS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                    Loading monthly logs…
-                  </td>
-                </tr>
-              ) : filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                    No logs found for this period.
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map((row, idx) => {
-                  const isPres = row.status === 'Present';
-                  const isWfh = row.status === 'WFH';
-                  const chipBg = isPres ? '#ecfdf5' : isWfh ? 'var(--info-100)' : '#fef2f2';
-                  const chipColor = isPres ? '#047857' : isWfh ? 'var(--info-700)' : '#b91c1c';
-                  const chipBorder = isPres ? '#a7f3d0' : isWfh ? 'var(--info-200)' : '#fecaca';
+      {/* att-log: on a phone each day stacks into a compact row (index.css). */}
+      <DataTable
+        fit={false}
+        tableClassName="att-log"
+        tableStyle={{ minWidth: 0 }}
+        rows={loading ? [] : filteredLogs}
+        loading={loading}
+        labels={{ loading: 'Loading monthly logs…' }}
+        empty={{ title: 'No logs found for this period.' }}
+        rowClassName={() => 'att-row'}
+        columns={[
+          {
+            key: 'date', header: 'Date', label: false, cellClassName: 'att-date',
+            cellProps: () => ({ style: { fontWeight: 600 } }),
+          },
+          {
+            key: 'status', header: 'Status', label: false, cellClassName: 'att-status',
+            render: (row) => {
+              const isPres = row.status === 'Present';
+              const isWfh = row.status === 'WFH';
+              const chipBg = isPres ? 'var(--success-100)' : isWfh ? 'var(--info-100)' : 'var(--danger-100)';
+              const chipColor = isPres ? 'var(--success-700)' : isWfh ? 'var(--info-700)' : 'var(--danger-700)';
+              const chipBorder = isPres ? 'var(--success-200)' : isWfh ? 'var(--info-200)' : 'var(--danger-200)';
 
-                  return (
-                    <tr
-                      key={row.id}
-                      className="att-row"
-                      style={{
-                        background: idx % 2 === 1 ? 'var(--surface-2, rgba(0,0,0,0.012))' : 'transparent',
-                        borderBottom: '1px solid var(--border-color)',
-                      }}
-                    >
-                      <td className="att-date" style={{ padding: '14px 18px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-primary)' }}>{row.date}</td>
-                      <td className="att-status" style={{ padding: '14px 18px' }}>
-                        <span
-                          style={{
-                            padding: '4px 12px',
-                            borderRadius: '20px',
-                            fontSize: '12px',
-                            fontWeight: 600,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            background: chipBg,
-                            color: chipColor,
-                            border: `1px solid ${chipBorder}`,
-                          }}
-                        >
-                          <span
-                            style={{
-                              width: '5px',
-                              height: '5px',
-                              borderRadius: '50%',
-                              background: isPres ? '#10b981' : isWfh ? 'var(--info-500)' : '#ef4444',
-                            }}
-                          />
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="att-in" style={{ padding: '14px 18px', fontSize: '13px', fontWeight: row.entry ? 600 : 400, color: row.entry ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                        {row.entry || '—'}
-                      </td>
-                      <td className="att-out" style={{ padding: '14px 18px', fontSize: '13px', fontWeight: row.exit ? 600 : 400, color: row.exit ? 'var(--text-primary)' : 'var(--text-muted)' }}>
-                        {row.exit || '—'}
-                      </td>
-                      <td className="att-remarks" style={{ padding: '14px 18px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-                        {row.remarks || ''}
-                        {row.session && (row.remarks ? ' · ' : '')}
-                        {row.session && <WhereTag session={row.session} />}
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              return (
+                <span
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    background: chipBg,
+                    color: chipColor,
+                    border: `1px solid ${chipBorder}`,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: isPres ? 'var(--success-500)' : isWfh ? 'var(--info-500)' : 'var(--danger-500)',
+                    }}
+                  />
+                  {row.status}
+                </span>
+              );
+            },
+          },
+          {
+            key: 'entry', header: 'Entry time', label: false, cellClassName: 'att-in',
+            cellProps: (row) => ({ style: { fontWeight: row.entry ? 600 : 400, color: row.entry ? 'var(--text-primary)' : 'var(--text-muted)' } }),
+            render: (row) => row.entry || '—',
+          },
+          {
+            key: 'exit', header: 'Exit time', label: false, cellClassName: 'att-out',
+            cellProps: (row) => ({ style: { fontWeight: row.exit ? 600 : 400, color: row.exit ? 'var(--text-primary)' : 'var(--text-muted)' } }),
+            render: (row) => row.exit || '—',
+          },
+          {
+            key: 'remarks', header: 'Remarks', label: false, cellClassName: 'att-remarks',
+            cellProps: () => ({ style: { color: 'var(--text-secondary)' } }),
+            // Always a fragment: an empty cell stays :empty, which hides it on a phone.
+            render: (row) => (
+              <>
+                {row.remarks || ''}
+                {row.session && (row.remarks ? ' · ' : '')}
+                {row.session && <WhereTag session={row.session} />}
+              </>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }
