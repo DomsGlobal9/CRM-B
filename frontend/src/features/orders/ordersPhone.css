@@ -1,0 +1,86 @@
+/* The Orders page on a phone. Larger screens and Workshop never reach these rules.
+   Search, Filters, the WhatsApp alert and New order live in different parts of the
+   page, so their wrappers step aside (display: contents) and all four join one
+   grid row, with the three cards in a single row under them. */
+@media (max-width: 768px) {
+  .portal-main:has(> .orders-stats) {
+    position: relative;
+    display: grid;
+    grid-template-columns: 40px 40px auto minmax(0, 1fr);
+    column-gap: 8px;
+    align-items: start;
+  }
+  .portal-main:has(> .orders-stats) > * { grid-column: 1 / -1; min-width: 0; }
+  .portal-main:has(> .orders-stats) > .at-topbar { grid-row: 1; }
+
+  .portal-main:has(> .orders-stats) > .at-page-head,
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-left,
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-text,
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-right,
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-aside,
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-actions,
+  .portal-main:has(> .orders-stats) > .at-toolbar { display: contents; }
+
+  /* Tabs on their own row above. */
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-meta { grid-column: 1 / -1; grid-row: 2; margin: 0 0 10px; min-width: 0; }
+
+  /* Search: a magnifying glass. Tapping it opens the bar over the row; it folds
+     away again when it loses focus with nothing typed. */
+  .portal-main:has(> .orders-stats) > .at-page-head .at-search {
+    grid-column: 1; grid-row: 3; z-index: 6; flex: none; width: 40px; min-width: 0; max-width: none; height: 40px; margin-bottom: 10px;
+  }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-search input { height: 40px; min-height: 40px; padding: 0 30px 0 36px; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-search > svg { left: 12px; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-search:not(:focus-within):has(input:placeholder-shown) input {
+    padding: 0; color: transparent; cursor: pointer; background: var(--surface-color);
+  }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-search:not(:focus-within):has(input:placeholder-shown) input::placeholder { color: transparent; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-search:is(:focus-within, :has(input:not(:placeholder-shown))) {
+    grid-column: 1 / -1; width: 100%;
+  }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-search:is(:focus-within, :has(input:not(:placeholder-shown))) input { background: var(--surface-color); }
+
+  /* Filters: an icon. Open, it spans the page so the dropdowns sit under the row,
+     while its icon stays in the same spot and the row's other buttons stay usable. */
+  .portal-main:has(> .orders-stats) .at-filters-fold { grid-column: 2; grid-row: 3; min-width: 0; margin-bottom: 10px; flex-basis: auto; order: 0; }
+  .portal-main:has(> .orders-stats) .at-filters-fold > summary {
+    display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 40px; height: 40px; padding: 0;
+    border: 1px solid var(--border-color); border-radius: var(--radius-md, 10px); background: var(--surface-color);
+    color: var(--text-primary); font-size: 0; gap: 0;
+  }
+  .portal-main:has(> .orders-stats) .at-filters-fold > summary svg { width: 16px; height: 16px; }
+  .portal-main:has(> .orders-stats) .at-filters-fold[open] { grid-column: 1 / -1; display: block; pointer-events: none; }
+  .portal-main:has(> .orders-stats) .at-filters-fold[open] > * { pointer-events: auto; }
+  .portal-main:has(> .orders-stats) .at-filters-fold[open] > summary { margin: 0 0 8px 48px; border-color: var(--border-strong); background: var(--surface-inset); }
+  .portal-main:has(> .orders-stats) .at-filters-fold[open] > select { display: inline-block; vertical-align: top; width: calc(50% - 4px); max-width: none; min-width: 0; margin: 0 0 8px; }
+  .portal-main:has(> .orders-stats) .at-filters-fold[open] > select:nth-of-type(odd) { margin-right: 8px; }
+
+  /* The WhatsApp alert: icon and count. Its list opens across the page. */
+  .portal-main:has(> .orders-stats) .msg-failed-menu { position: static; grid-column: 3; grid-row: 3; z-index: 5; }
+  .portal-main:has(> .orders-stats) .msg-failed-btn { padding: 0 9px; gap: 5px; }
+  .portal-main:has(> .orders-stats) .msg-failed-btn-label,
+  .portal-main:has(> .orders-stats) .msg-failed-chev { display: none; }
+  .portal-main:has(> .orders-stats) .msg-failed-panel { top: auto; left: 16px; right: 16px; width: auto; margin-top: 6px; }
+
+  /* New order: smaller, at the row's end. */
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-actions > * {
+    grid-column: 4; grid-row: 3; justify-self: end; width: auto; z-index: 5; margin-bottom: 10px;
+  }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-actions .btn-primary {
+    width: auto; height: 40px; min-height: 40px; padding: 0 10px !important; gap: 4px; font-size: 12.5px; white-space: nowrap;
+  }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-actions .btn-primary svg { width: 14px; height: 14px; }
+
+  /* The three cards in one row. */
+  .portal-main:has(> .orders-stats) > .orders-stats {
+    grid-row: 4; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px; margin-bottom: 12px;
+  }
+  .portal-main:has(> .orders-stats) > .orders-stats > .at-stat:last-child { grid-column: auto; }
+  .portal-main:has(> .orders-stats) > .orders-stats .at-stat { flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; padding: 10px !important; }
+  .portal-main:has(> .orders-stats) > .orders-stats .at-stat-body { width: 100%; min-width: 0; align-items: flex-start; text-align: left; }
+  .portal-main:has(> .orders-stats) > .orders-stats .at-tile { width: 30px !important; height: 30px !important; border-radius: 8px; }
+  .portal-main:has(> .orders-stats) > .orders-stats .at-tile svg { width: 15px; height: 15px; }
+  .portal-main:has(> .orders-stats) > .orders-stats .at-stat-label { font-size: 10px; letter-spacing: .03em; line-height: 1.25; white-space: normal; }
+  .portal-main:has(> .orders-stats) > .orders-stats .at-stat-value { font-size: 20px; line-height: 1.15; margin-top: 2px; }
+  .portal-main:has(> .orders-stats) > .orders-stats .at-stat-sub { font-size: 11px; line-height: 1.25; margin-top: 2px; }
+}

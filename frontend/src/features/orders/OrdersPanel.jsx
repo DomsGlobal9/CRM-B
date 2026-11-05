@@ -12,6 +12,7 @@ import { tierName } from '../../services/tierNames';
 import { formatDate as fmtDate, inr, orderGarmentNames, orderRef } from '../../services/format';
 import OrderKanban from './OrderKanban';
 import FailedMessagesMenu from './FailedMessagesMenu';
+import './ordersPhone.css';
 import { todayIso } from '../../services/dates';
 import { expressLabel, isExpressJob, isExpressOrder } from './express';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
