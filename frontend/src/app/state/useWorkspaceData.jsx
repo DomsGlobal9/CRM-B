@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { api } from '../services/api';
-import { hasModule } from '../navigation/nav';
-import { setBoutiqueTimeZone } from '../services/format';
+import { api } from '../../services/api';
+import { hasModule } from '../../navigation/nav';
+import { setBoutiqueTimeZone } from '../../services/format';
 import { DATA_FOR_TAB, DATA_FOR_VIEW } from './pageData';
 
 const isOwner = (user) => !user?.role || user.role === 'Owner';
@@ -10,7 +10,7 @@ const mayAddCustomers = (user) => isOwner(user) || (user?.admin_tasks || []).inc
 
 /**
  * The workspace's data, one request each: every page asks only for what it
- * shows (DATA_FOR_TAB / DATA_FOR_VIEW in context/pageData.js), what was fetched
+ * shows (DATA_FOR_TAB / DATA_FOR_VIEW in app/state/pageData.js), what was fetched
  * once is kept, and a reload after a save fetches again only what has been
  * fetched. Also the bell's notifications and the WhatsApp connection status.
  */

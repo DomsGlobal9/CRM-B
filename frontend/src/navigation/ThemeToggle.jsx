@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { Moon, Sun } from 'lucide-react';
-import { setColorMode, subscribeTheme } from '../../theme';
+import { setColorMode, subscribeTheme } from '../theme';
 
 const currentTheme = () => document.documentElement.dataset.theme || '';
 

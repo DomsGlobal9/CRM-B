@@ -5,7 +5,7 @@ import { UserAvatar } from '../../components/ui/UserAvatar';
 import { LIMITS, cleanEmail, imageFilesError } from '../../services/validate';
 import { api } from '../../services/api';
 import MyDetails from '../staff/MyDetails';
-import { ShopPin } from '../../components/ShopPin';
+import { ShopPin } from '../settings/ShopPin';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 

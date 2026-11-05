@@ -3,7 +3,7 @@ import { api } from '../../services/api';
 import { InvoiceRenderer, normalizeInvoiceData } from './InvoiceTemplates';
 import { Check, Sparkles, AlertCircle, Loader2, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import Loader from '../ui/Loader';
+import Loader from '../../components/ui/Loader';
 
 const TEMPLATE_OPTIONS = [
   {

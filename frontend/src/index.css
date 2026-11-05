@@ -6975,7 +6975,7 @@ button, input, select, textarea { font-family: inherit; }
 .tf-unit-input { position: relative; }
 .tf-unit-input .form-control { padding-right: 34px; font-variant-numeric: tabular-nums; }
 .tf-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-secondary); pointer-events: none; }
-/* "Split into parts" (features/work/StageParts.jsx). */
+/* "Split into parts" (features/orders/StageParts.jsx). */
 .sp { display: flex; flex-direction: column; gap: 10px; margin: 0 0 14px; padding: 14px; border: 1px solid var(--border-color);
   border-radius: 14px; background: var(--surface-2, var(--surface-color)); }
 .sp--closed { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; }

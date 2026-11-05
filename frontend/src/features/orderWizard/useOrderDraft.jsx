@@ -1,4 +1,4 @@
-import { SELF_DESIGNER, WIZARD_STEPS } from '../orders/wizard';
+import { SELF_DESIGNER, WIZARD_STEPS } from './wizard';
 import { splitSpec, withDefaults } from '../../services/templates';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { plusDaysIso } from '../../services/dates';

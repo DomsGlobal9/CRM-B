@@ -1,4 +1,4 @@
-import AuthShowcase from '../../components/auth/AuthShowcase';
+import AuthShowcase from './AuthShowcase';
 import { useApp } from '../../context/AppContext';
 
 /**

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { BellRing } from 'lucide-react';
-import { api } from '../services/api.js';
-import { useLanguage } from '../i18n/LanguageContext.jsx';
-import { LoaderRows } from './ui/Loader';
-import { DataTable } from './ui/DataTable';
+import { api } from '../../services/api.js';
+import { useLanguage } from '../../i18n/LanguageContext.jsx';
+import { LoaderRows } from '../../components/ui/Loader';
+import { DataTable } from '../../components/ui/DataTable';
 
 // The languages the 11 PM summary is written in (apps/daily_summary/text.py).
 const LANGUAGES = [['en', 'English'], ['hi', 'हिंदी (Hindi)'], ['te', 'తెలుగు (Telugu)']];

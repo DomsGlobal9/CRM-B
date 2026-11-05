@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MapPin } from 'lucide-react';
-import { api } from '../services/api';
+import { api } from '../../services/api';
 
 /**
  * The attendance pin. Saved on its own tap rather than with the form's autosave:

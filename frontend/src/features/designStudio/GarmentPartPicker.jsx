@@ -9,7 +9,7 @@ import { PartTabStrip } from './GarmentPartTabs';
 import DesignCatalogueFilter from './DesignCatalogueFilter';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
 import Loader from '../../components/ui/Loader';
-import { ACCESSORY_OPTIONS, accessoryOptionsFor, isAccessorySlot } from './accessories';
+import { ACCESSORY_OPTIONS, accessoryOptionsFor, isAccessorySlot } from '../catalog/accessories';
 
 
 const FALLBACK =

@@ -3,7 +3,7 @@ import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { inventoryImage } from '../../services/inventoryImages';
 import { LIMITS, amountError, imageFilesError } from '../../services/validate';
-import { Field, Modal, SelectField } from './ItemFormModal';
+import { Field, Modal, SelectField } from './inventoryForm';
 import ShelfPlace from './ShelfPlace';
 import { placePlan, putOnShelves, shelfFailedText } from './shelfPlacing';
 

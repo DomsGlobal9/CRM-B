@@ -4,7 +4,7 @@ import { Check, ChevronDown, Inbox, X } from 'lucide-react';
 import { inventoryImage, inventoryTile } from '../../services/inventoryImages';
 import { LIMITS, cleanAmount } from '../../services/validate';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
-import { ACCESSORY_OPTIONS, OTHER_SUBTYPE, SELF_SUBTYPE, accessoryOptionsFor, isAccessorySlot } from '../designStudio/accessories';
+import { ACCESSORY_OPTIONS, OTHER_SUBTYPE, SELF_SUBTYPE, accessoryOptionsFor, isAccessorySlot } from '../catalog/accessories';
 import Loader from '../../components/ui/Loader';
 
 const unitShort = (f) => (

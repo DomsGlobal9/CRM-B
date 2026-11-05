@@ -13,7 +13,7 @@ import { voiceNoteList } from '../../components/ui/voiceNotes';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
 import { CuttingUsage } from './CuttingUsage';
 import { DeliveryCard } from './DeliveryCard';
-import StageParts from '../work/StageParts';
+import StageParts from './StageParts';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 
@@ -444,7 +444,7 @@ export default function StageReviewModal({ activeReviewOrder, activeReviewStage,
                 </FormSection>
               )}
 
-              {/* Split between several people (features/work/StageParts.jsx):
+              {/* Split between several people (features/orders/StageParts.jsx):
                   who has which part, sending one part back, or the way to split. */}
               {stage && isSupervisor && (
                 <StageParts order={activeReviewOrder} stage={stage} workflowConfig={boutiqueSettings?.workflow_config || []}

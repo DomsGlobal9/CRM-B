@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isProductionStaff } from '../../constants/roles';
 import { api } from '../../services/api';
-import { WIZARD_DRAFT_KEY } from '../orders/wizard';
+import { WIZARD_DRAFT_KEY } from '../orderWizard/wizard';
 
 /**
  * Signing in and out: the saved session checked when the page opens (and an

@@ -10,7 +10,7 @@ import { Camera, ChevronRight, MapPin, PackagePlus, Plus, X } from 'lucide-react
 import { api } from '../../services/api';
 import { cleanAmount, LIMITS } from '../../services/validate';
 import { recentIds } from './shelfPlacing';
-import { CameraScan } from './ShelvesTab';
+import { CameraScan } from './CameraScan';
 import './shelves.css';
 
 /** The default location and its shelves; null while loading or when there are none. */

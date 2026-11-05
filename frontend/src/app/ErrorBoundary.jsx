@@ -20,7 +20,7 @@
 
 import { Component } from 'react';
 
-import { reportCrash } from './services/reportCrash';
+import { reportCrash } from '../services/reportCrash';
 
 export default class ErrorBoundary extends Component {
   state = { error: null };

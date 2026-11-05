@@ -10,7 +10,8 @@ import {
   LIMITS, cleanAmount, amountError, phoneError, emailError, cleanUpper, isGstin,
 } from '../../services/validate';
 import CatalogBrowser from './CatalogBrowser';
-import ItemFormModal, { Field, Modal } from './ItemFormModal';
+import ItemFormModal from './ItemFormModal';
+import { Field, Modal } from './inventoryForm';
 import StockItemSheet from './StockItemSheet';
 import LocationsTab from './LocationsTab';
 import RecipesTab from './RecipesTab';

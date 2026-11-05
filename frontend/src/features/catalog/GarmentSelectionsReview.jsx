@@ -4,7 +4,7 @@ import { ExternalLink, Eye, Image as ImageIcon, Layers, Link as LinkIcon, Scisso
 import { resolveMediaUrl } from '../../services/media';
 import { inventoryImage } from '../../services/inventoryImages';
 import { Lightbox } from '../designStudio/GarmentPartPicker';
-import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
+import { ALL_ACCESSORY_OPTIONS } from './accessories';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 
 /**

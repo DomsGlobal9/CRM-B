@@ -5,7 +5,7 @@ import { api } from '../../services/api';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 import { inventoryImage } from '../../services/inventoryImages';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { Field, Modal } from './ItemFormModal';
+import { Field, Modal } from './inventoryForm';
 import { DataTable } from '../../components/ui/DataTable';
 
 /**

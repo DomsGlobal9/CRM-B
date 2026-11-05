@@ -1,5 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
-import AuthShowcase from '../../components/auth/AuthShowcase';
+import AuthShowcase from './AuthShowcase';
 
 /**
  * Find your boutique: type its name or the address you sign in at, and go there.

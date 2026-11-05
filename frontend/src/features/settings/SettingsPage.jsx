@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
-import { useLanguage } from '../i18n/LanguageContext.jsx';
+import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import LanguageSelector from './LanguageSelector.jsx';
-import { PageHeader } from './ui/Atelier.jsx';
-import { InvoiceTemplateSelector } from './invoice/InvoiceTemplateSelector.jsx';
+import { PageHeader } from '../../components/ui/Atelier.jsx';
+import { InvoiceTemplateSelector } from '../invoices/InvoiceTemplateSelector.jsx';
 import DailySummarySettings from './DailySummarySettings.jsx';
 import TierNamesSettings from './TierNamesSettings.jsx';
-import { UserAvatar } from './ui/UserAvatar.jsx';
-import MyDetails from '../features/staff/MyDetails.jsx';
+import { UserAvatar } from '../../components/ui/UserAvatar.jsx';
+import MyDetails from '../staff/MyDetails.jsx';
 import BoutiqueDetailsCard from './BoutiqueDetailsCard.jsx';
 import {
   Globe, ShieldCheck, CheckCircle2, Building, Link2, User, Clock,
   MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor,
   Store, FileText, Crown, X, Copy, Check, ChevronRight, AlertCircle, Smartphone, Camera, KeyRound, Pencil
 } from 'lucide-react';
-import { getColorMode, setColorMode, subscribeTheme } from '../theme.js';
-import { api } from '../services/api.js';
-import { imageFilesError } from '../services/validate.js';
+import { getColorMode, setColorMode, subscribeTheme } from '../../theme.js';
+import { api } from '../../services/api.js';
+import { imageFilesError } from '../../services/validate.js';
 
 const iconChip = {
   width: '40px', height: '40px', borderRadius: 'var(--radius-md)', flexShrink: 0,

@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { ArrowLeft, ArrowRight, Camera, Check, ChevronDown, ClipboardList, Copy, Edit2, Layers, Package, Palette, PenTool, Plus, Sparkles, Trash2 } from 'lucide-react';
-import DressesDropdown from '../../components/ui/DressesDropdown';
-import { MAGGAM_NOTE_VOICE, SELF_DESIGNER, garmentsForGender } from '../orders/wizard';
+import DressesDropdown from './DressesDropdown';
+import { MAGGAM_NOTE_VOICE, SELF_DESIGNER, garmentsForGender } from './wizard';
 import { validateSpec } from '../../services/templates';
 import TemplateForm from '../catalog/TemplateForm';
 import { VoiceRecorder } from '../../components/ui/VoiceTextarea';

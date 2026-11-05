@@ -4,7 +4,7 @@ import { ArrowRight, MapPin, Plus, Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
 import { LIMITS, cleanAmount, amountError } from '../../services/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { Field, Modal, SelectField } from './ItemFormModal';
+import { Field, Modal, SelectField } from './inventoryForm';
 import Loader from '../../components/ui/Loader';
 import { DataTable } from '../../components/ui/DataTable';
 

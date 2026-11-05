@@ -1,5 +1,5 @@
 import { Shirt } from 'lucide-react';
-import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
+import { ALL_ACCESSORY_OPTIONS } from '../catalog/accessories';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile } from '../../components/ui/Atelier';
 import { resolveMediaUrl } from '../../services/media';

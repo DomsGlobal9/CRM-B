@@ -1,4 +1,4 @@
-import { SearchBar } from './SearchBar';
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useMemo, useState } from 'react';
 import { Check, Plus, Shirt } from 'lucide-react';
 

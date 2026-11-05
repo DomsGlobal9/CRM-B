@@ -1,12 +1,12 @@
 import { Edit2, Eye } from 'lucide-react';
 import { Suspense, lazy } from 'react';
-import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
+import { ALL_ACCESSORY_OPTIONS } from '../catalog/accessories';
 import { resolveMediaUrl } from '../../services/media';
 import { AvatarInitials } from '../../components/ui/Atelier';
 import { DataTable } from '../../components/ui/DataTable';
 import { formatMobile, inr } from '../../services/format';
 import GarmentSummary from '../catalog/GarmentSummary';
-import { SELF_DESIGNER } from '../orders/wizard';
+import { SELF_DESIGNER } from './wizard';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { VoiceNotePlayer } from '../../components/ui/VoiceTextarea';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';

@@ -5,13 +5,13 @@ import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { canSeeTab, visibleNav } from '../../navigation/nav';
 import useAuthForms from '../../features/auth/useAuthForms';
-import { DEFAULT_CUSTOMER_DATA, EMPTY_ALTERATION, EMPTY_OUTSIDE, SELF_DESIGNER, WIZARD_DRAFT_KEY, WIZARD_STEPS } from '../../features/orders/wizard';
+import { DEFAULT_CUSTOMER_DATA, EMPTY_ALTERATION, EMPTY_OUTSIDE, SELF_DESIGNER, WIZARD_DRAFT_KEY, WIZARD_STEPS } from '../../features/orderWizard/wizard';
 import { plusDaysIso } from '../../services/dates';
 import { syncFollowers } from '../../services/garmentCopies';
-import { markTourSeen, tourSeen } from '../../components/ui/tourState';
+import { markTourSeen, tourSeen } from '../../features/tour/tourState';
 import { setTierNames } from '../../services/tierNames';
 import { useFabricTaxonomy } from '../../features/fabrics/taxonomy';
-import useWorkspaceData from '../../context/useWorkspaceData';
+import useWorkspaceData from './useWorkspaceData';
 import useOrderDraft from '../../features/orderWizard/useOrderDraft';
 import { cleanEmail, displayMobile, emailError, imageFilesError, phoneError } from '../../services/validate';
 import { useCustomerLookup } from '../../features/customers/useCustomerLookup';
@@ -366,7 +366,7 @@ export default function useAppStateValue() {
   const [showNotificationsDrawer, setShowNotificationsDrawer] = useState(false);
   const [markingNotificationsRead, setMarkingNotificationsRead] = useState(false);
 
-  // The workspace's data, one request each (context/useWorkspaceData.jsx).
+  // The workspace's data, one request each (app/state/useWorkspaceData.jsx).
   const workspaceData = useWorkspaceData({ view, currentUser, dashboardTab, onboardingDismissed, setSelectedDashboardOrder, setDashboardData, setTailors, setDesignerStaff, setAppointments, showAppointmentModal, setFabrics, setCustomerStats, setOrdersList, setOrdersLoaded, setQueuedMessages, setDirectoryVersion, setLoading, setWhatsappStatus, setBoutiqueSettings, activeReviewStage, setLoadErrors, setNotifications });
   const { fetchNotifications, markNotificationsRead, pendingLoads, fetchDashboardAndConfig, fetchWhatsAppStatus } = workspaceData;
 

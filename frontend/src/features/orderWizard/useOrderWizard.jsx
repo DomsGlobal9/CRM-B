@@ -1,8 +1,8 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { api } from '../../services/api';
 import { isVisible, validateSpec, withDefaults } from '../../services/templates';
-import { DEFAULT_CUSTOMER_DATA, GARMENT_PRICES } from '../orders/wizard';
-import { findMatchingTemplate, getGarmentPairConfig } from '../../components/ui/GarmentPairingModal';
+import { DEFAULT_CUSTOMER_DATA, GARMENT_PRICES } from './wizard';
+import { findMatchingTemplate, getGarmentPairConfig } from './GarmentPairingModal';
 import { purchaseError } from '../catalog/materials';
 import { AvatarInitials } from '../../components/ui/Atelier';
 import { formatMobile, inr } from '../../services/format';

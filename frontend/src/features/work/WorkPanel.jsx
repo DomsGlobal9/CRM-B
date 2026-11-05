@@ -12,14 +12,14 @@ import { maySignOff, submitsForSignOff } from '../../services/signOff';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { ASSIGN_ONLY_TO } from '../../constants/roles';
 import { extraMeasurements } from '../../services/templates';
-import StageParts from './StageParts';
+import StageParts from '../orders/StageParts';
 import { VoiceNotePlayer, VoiceRecorder, SpeakButton } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import { PhotoTile, CameraButton, InfoNote, Tabs } from '../../components/ui/Atelier';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
 import CustomerMessageQueue from '../orders/CustomerMessageQueue';
 import { Lightbox } from '../designStudio/GarmentPartPicker';
-import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
+import { ALL_ACCESSORY_OPTIONS } from '../catalog/accessories';
 import './work.css';
 
 // The "Customer messages not sent" box at the top of My work: hidden, not

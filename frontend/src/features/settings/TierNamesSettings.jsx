@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Crown, RotateCcw, Save } from 'lucide-react';
-import { api } from '../services/api.js';
+import { api } from '../../services/api.js';
 
 /* Settings > Customer tiers: the owner's own names for Silver, Gold and
    Platinum. Only the names shown change -- every customer keeps the tier

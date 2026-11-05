@@ -1,9 +1,9 @@
 import { Factory, PanelLeftClose, PanelLeftOpen, Ruler, Scissors } from 'lucide-react';
-import { MobileHeader } from '../../components/ui/MobileHeader';
+import { MobileHeader } from '../../navigation/MobileHeader';
 import { api } from '../../services/api';
 import { PortalMenu } from '../../navigation/PortalMenu';
 import { IconTile, ShellWordmark } from '../../components/ui/Atelier';
-import { WIZARD_STEPS } from '../orders/wizard';
+import { WIZARD_STEPS } from './wizard';
 import { formatDateTime as fmtDateTime } from '../../services/format';
 import BoutiqueProductionDialog from '../production/BoutiqueProduction';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';

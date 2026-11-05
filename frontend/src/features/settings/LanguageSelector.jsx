@@ -1,4 +1,4 @@
-import { useLanguage } from '../i18n/LanguageContext.jsx';
+import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { Globe } from 'lucide-react';
 
 export const LanguageSelector = () => {

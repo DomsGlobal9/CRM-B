@@ -1,4 +1,4 @@
-import AuthShowcase from '../../components/auth/AuthShowcase';
+import AuthShowcase from './AuthShowcase';
 
 /**
  * Ask for a password reset link by email. Reached from the login screen.

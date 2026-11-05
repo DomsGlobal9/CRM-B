@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Building2, Circle, Image as ImageIcon, LocateFixed, Mail, MapPin, Pencil, Phone, Save, ShieldCheck, X } from 'lucide-react';
-import { useLanguage } from '../i18n/LanguageContext.jsx';
-import { api } from '../services/api.js';
-import { LIMITS, cleanEmail, emailError, imageFilesError, phoneError } from '../services/validate.js';
-import { Dropzone, Field } from './ui/Atelier.jsx';
+import { useLanguage } from '../../i18n/LanguageContext.jsx';
+import { api } from '../../services/api.js';
+import { LIMITS, cleanEmail, emailError, imageFilesError, phoneError } from '../../services/validate.js';
+import { Dropzone, Field } from '../../components/ui/Atelier.jsx';
 import { ShopPin } from './ShopPin.jsx';
 
 const MIN_RADIUS = 20;

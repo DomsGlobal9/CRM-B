@@ -1,4 +1,4 @@
-import AuthShowcase from '../../components/auth/AuthShowcase';
+import AuthShowcase from './AuthShowcase';
 
 /**
  * The address names no active boutique: say so, and offer to find the right one.
