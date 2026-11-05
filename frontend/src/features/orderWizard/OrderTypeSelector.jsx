@@ -8,7 +8,7 @@ import { formatDateTime as fmtDateTime } from '../../services/format';
 import BoutiqueProductionDialog from '../production/BoutiqueProduction';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
-import { Breadcrumbs } from '../../components/ui/Breadcrumbs';
+import { PageTopBar } from '../../components/ui/Breadcrumbs';
 
 /**
  * Before the wizard: what kind of order this is (stitching, an alteration, or
@@ -72,10 +72,9 @@ export default function OrderTypeSelector({ crumbs, wizard, accountBar, fetchNot
       </aside>
 
       <main className="portal-main">
-        {accountBar((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })}
+        {/* The trail goes back up to where New order was opened from (OrderFlowViews). */}
+        <PageTopBar crumbs={crumbs} account={accountBar((tab) => { setView('dashboard'); setDashboardTab(tab); setSelectedDirectoryCustomer(null); setCustomerAddMode(null); setMobileNavOpen(false); })} />
         <div className="selector-container">
-          {/* Back up to where New order was opened from (OrderFlowViews). */}
-          <Breadcrumbs items={crumbs} />
           <div className="selector-header">
             <h1 className="selector-title" style={{ fontFamily: 'var(--font-serif)', fontSize: '32px' }}>{t('entry.newOrderTitle', 'New order')}</h1>
             <p className="selector-subtitle" style={{ color: 'var(--text-secondary)' }}>{t('entry.serviceQuestion', 'What are we doing for this customer today?')}</p>

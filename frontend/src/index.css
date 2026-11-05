@@ -7645,7 +7645,7 @@ button, input, select, textarea { font-family: inherit; }
    Profile, Settings and Sign out -- the entries the sidebar's Account group
    used to hold. A phone (768px and below) has the header avatar's menu for
    the same entries, so the bar is hidden there. */
-.portal-account-bar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: -16px 0 12px; position: relative; z-index: 20; }
+.portal-account-bar { display: flex; justify-content: flex-end; align-items: center; gap: 8px; position: relative; z-index: 20; }
 .portal-account-bell-btn {
   position: relative;
   display: inline-flex;
@@ -8099,18 +8099,11 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .inv-stats--plain .at-stat-value { margin-top: 2px; line-height: 1.1; }
 
 /* ---- Design library: a tighter top of page --------------------------------
-   The page title rises into the row of the "Hi, <name>" chip (title on the
-   left, chip on the right, "Add a design" under the chip), the tabs and the
-   library card follow closer, and inside a garment's card the header, the
+   The tabs and the library card follow closer, and inside a garment's card the header, the
    part tabs and the rest are spaced by the card's own gap alone. A phone has
    no chip row (the header avatar carries it) and keeps its layout. */
 @media (min-width: 769px) {
-  .portal-main:has(.design-manager-content) { padding-top: 24px; }
-  .portal-main:has(.design-manager-content) > .portal-account-bar { margin: 0 0 -42px; }
   .portal-main:has(.design-manager-content) > .at-page-head { margin-bottom: 16px; }
-  .portal-main:has(.design-manager-content) > .at-page-head .at-page-head-left { padding-right: 220px; }
-  .portal-main:has(.design-manager-content) > .at-page-head .at-page-head-right { padding-top: 52px; }
-  .portal-main:has(.design-manager-content) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
   .portal-main:has(.design-manager-content) .dl-tabs { margin-bottom: 12px !important; }
 }
 .design-manager-content .content-card.dl-page { gap: 16px; }
@@ -8135,9 +8128,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
    steps between the header, the part tabs, the catalogue chips and the
    designs (the chips' own bottom margin no longer doubles the gap). */
 @media (min-width: 769px) {
-  .portal-main:has(.design-manager-content) { padding-top: 20px; }
   .portal-main:has(.design-manager-content) > .at-page-head { margin-bottom: 8px; }
-  .portal-main:has(.design-manager-content) > .at-page-head .at-page-head-right { padding-top: 48px; }
   .portal-main:has(.design-manager-content) > .at-page-head .at-page-head-right .btn-primary { min-height: 36px; padding: 6px 16px !important; font-size: 14px; }
   .portal-main:has(.design-manager-content) .dl-tabs { margin-bottom: 10px !important; }
   .design-manager-content .content-card.dl-page { padding: 20px 24px; }
@@ -8148,20 +8139,15 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .design-manager-content .dl-page > .dcb-panel { margin-bottom: 0 !important; padding: 12px 16px !important; gap: 8px !important; }
 
 /* ---- Orders: a tighter top of page ---------------------------------------
-   As on the Design library: the title rises into the "Hi, <name>" chip's row,
-   the search box and "New order" sit side by side under the chip, and the
-   cards, the WhatsApp notice and the table follow closer. A phone (no chip
+   As on the Design library: the search box and "New order" sit side by side,
+   and the cards, the WhatsApp notice and the table follow closer. A phone (no chip
    row) keeps its layout. */
 @media (min-width: 769px) {
-  .portal-main:has(> .orders-stats) { padding-top: 20px; }
-  .portal-main:has(> .orders-stats) > .portal-account-bar { margin: 0 0 -42px; }
   .portal-main:has(> .orders-stats) > .at-page-head { margin-bottom: 14px; }
-  .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-left { padding-right: 220px; }
   .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-right {
-    flex-direction: row; align-items: center; flex-wrap: wrap; justify-content: flex-end; padding-top: 50px;
+    flex-direction: row; align-items: center; flex-wrap: wrap; justify-content: flex-end;
   }
   .portal-main:has(> .orders-stats) > .at-page-head .at-page-head-right .btn-primary { min-height: 40px; padding: 8px 16px !important; }
-  .portal-main:has(> .orders-stats) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
   .portal-main:has(> .orders-stats) > .orders-stats { gap: var(--space-3); }
   .portal-main:has(> .orders-stats) > .orders-stats .at-stat { padding: 16px 18px; }
   .portal-main:has(> .orders-stats) > .at-toolbar { margin: 12px 0 10px; }
@@ -8184,16 +8170,10 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 }
 
 /* ---- Workshop: the same tighter top as Orders -----------------------------
-   Title in the chip's row, the search under the chip, the Board / List
-   switch and the WhatsApp notice closer. A phone keeps its layout. */
+   The Board / List switch and the WhatsApp notice closer. A phone keeps its layout. */
 @media (min-width: 769px) {
-  .portal-main:has(> .at-toolbar .at-toolbar-right) { padding-top: 20px; }
-  .portal-main:has(> .at-toolbar .at-toolbar-right) > .portal-account-bar { margin: 0 0 -42px; }
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head { margin-bottom: 10px; }
-  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-left { padding-right: 220px; }
-  .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-right { padding-top: 50px; }
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-page-head .at-page-head-right:empty { display: none; padding-top: 0; }
-  .portal-main:has(> .at-toolbar .at-toolbar-right) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .at-toolbar { margin: 4px 0 10px; }
   .portal-main:has(> .at-toolbar .at-toolbar-right) > .msg-failed-banner { margin: 10px 0; padding-top: 10px; padding-bottom: 10px; }
 }
@@ -8261,24 +8241,14 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 }
 
 /* ---- Reports (Profit & Costs, Insights): a tighter top --------------------
-   The REPORTS label and the Profit & Costs | Insights switch move up into the
-   "Hi, <name>" chip's row (the switch just left of the chip), the page title
-   follows close under it, and the first cards closer still. A phone keeps
+   The page title follows close under the Profit & Costs | Insights switch,
+   and the first cards closer still. A phone keeps
    its layout. */
 @media (min-width: 769px) {
-  .portal-main:has(> .reports-switch) { padding-top: 20px; }
-  .portal-main:has(> .reports-switch) > .portal-account-bar { margin: 0 0 -42px; }
-  .portal-main:has(> .reports-switch) > .reports-switch { min-height: 42px; margin-bottom: 12px; padding-right: 220px; }
+  .portal-main:has(> .reports-switch) > .reports-switch { min-height: 42px; margin-bottom: 12px; }
   .portal-main:has(> .reports-switch) > .at-page-head { margin-bottom: 16px; }
-  .portal-main:has(> .reports-switch) .at-page-title { font-size: clamp(28px, 2.6vw, 36px); }
 }
 
-/* The account bar is a full-width row; where a page lets its content rise
-   into that row (Orders, Workshop, Reports, Design library), the bar's empty
-   space sat over that content and swallowed its clicks. Only the chip itself
-   (and its menu) takes clicks; the rest of the row lets them through. */
-.portal-account-bar { pointer-events: none; }
-.portal-account-bar > * { pointer-events: auto; }
 
 /* Reports > Insights figures: every card reads the same -- icon and text on
    the card's centre line, label and figure each on one line (the longer
@@ -8400,9 +8370,6 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .portal-main > .selector-container > .selector-header .selector-title { margin: 0; line-height: 1.1; }
 .portal-main > .selector-container > .selector-header .selector-subtitle { margin: 0; }
 .portal-main > .selector-container > .wz-services--three { margin-top: 10px; }
-@media (min-width: 769px) {
-  .portal-main:has(> .selector-container) > .portal-account-bar { margin: 0 0 -42px; }
-}
 @media (max-width: 768px) {
   .portal-main > .selector-container { gap: 10px; }
   .portal-main > .selector-container > .selector-header .selector-title { font-size: 26px !important; }
@@ -8596,9 +8563,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
    form on the right, both columns end on one line: the left column's last
    card and the form stretch to the taller side (contents stay at the top). */
 @media (min-width: 769px) {
-  .portal-main:has(> .at-account) { padding-top: 24px; }
-  .portal-main:has(> .at-account) > .portal-account-bar { margin: 0 0 -42px; }
-  .portal-main:has(> .at-account) > .at-page-head { margin-bottom: 20px; padding-right: 280px; }
+  .portal-main:has(> .at-account) > .at-page-head { margin-bottom: 20px; }
 }
 .at-account .at-account-card .at-cover {
   height: 104px;
@@ -8715,14 +8680,10 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   .settings-grid--staff .settings-info-rows > .ui-row > span:last-child { text-align: left; }
 }
 
-/* Settings for every role but the owner: a tighter top -- the title rises
-   into the row of the bell and "Hi, <name>" chip, as on the other pages,
-   and the cards follow closer under it. (Phones have no chip row.) The
-   owner's Settings is untouched. */
+/* Settings for every role but the owner: the cards follow closer under the
+   title. */
 @media (min-width: 769px) {
-  .portal-main:has(.settings-grid--staff) { padding-top: 24px; }
-  .portal-main:has(.settings-grid--staff) > .portal-account-bar { margin: 0 0 -42px; }
-  .portal-main:has(.settings-grid--staff) .settings-page-wrapper > .at-page-head { margin-bottom: 0; padding-right: 280px; }
+  .portal-main:has(.settings-grid--staff) .settings-page-wrapper > .at-page-head { margin-bottom: 0; }
   .settings-grid--staff { margin-top: 18px !important; }
 }
 
@@ -8811,15 +8772,6 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
    chip's row keep their own spacing. A phone has no chip row (the header
    carries it) and just starts a little higher. The owner's pages are
    untouched. */
-@media (min-width: 769px) {
-  .portal-main--staff { padding-top: 20px; }
-  .portal-main--staff > .portal-account-bar:has(+ .at-page-head, + .od-page) { margin: 0 0 -42px; }
-  .portal-main--staff > .portal-account-bar + .at-page-head > .at-page-head-left { padding-right: 240px; }
-  .portal-main--staff > .portal-account-bar + .od-page > .od-topbar { padding-right: 240px; min-height: 42px; }
-}
-@media (max-width: 768px) {
-  .portal-main--staff { padding-top: 12px; }
-}
 
 /* Workshop on a phone (640px and below; tablets and computers unchanged):
    the cards start much higher. The title and its line shrink; "Back to
@@ -8977,23 +8929,6 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
    SETTINGS PAGE - REFERENCE DESIGN (Category Cards with Popup Modals)
    ========================================================================== */
 
-/* Portal Main Adjustment for Settings Tab */
-.portal-main:has(.settings-ref-page) {
-  padding: 44px 40px 48px 40px !important;
-  box-sizing: border-box;
-}
-
-/* Keep portal-account-bar aligned in the exact same horizontal row as the Settings heading (desktop/tablet only) */
-@media (min-width: 769px) {
-  .portal-main:has(.settings-ref-page) > .portal-account-bar {
-    margin: 0 0 -54px 0 !important;
-    position: relative;
-    z-index: 25;
-    display: flex;
-    justify-content: flex-end;
-  }
-}
-
 .settings-ref-page {
   max-width: 1240px;
   width: 100%;
@@ -9009,7 +8944,6 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   justify-content: space-between;
   min-height: 52px;
   margin-bottom: 2px;
-  padding-right: 220px; /* leaves room on right for the profile dropdown */
 }
 
 .settings-header-text {
@@ -9254,10 +9188,6 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 
 /* 1. Laptops & Compact Desktops (Screen width <= 1180px) */
 @media (max-width: 1180px) {
-  .portal-main:has(.settings-ref-page) {
-    padding: 20px 28px 28px 28px !important;
-  }
-
   .settings-cats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 18px;
@@ -9293,16 +9223,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 
 /* 3. Small Tablets & Phones (Screen width <= 768px) */
 @media (max-width: 768px) {
-  .portal-main:has(.settings-ref-page) {
-    padding: 16px 16px 24px 16px !important;
-    min-height: auto;
-  }
-
-  /* Black top bar already displays "Settings" and profile button, so hide duplicated in-page header and account bar */
-  .portal-main:has(.settings-ref-page) > .portal-account-bar {
-    display: none !important;
-  }
-
+  /* The black top bar already displays "Settings", so hide the duplicated in-page header. */
   .settings-header-row {
     display: none !important;
   }
@@ -10828,3 +10749,73 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
     display: none !important;
   }
 }
+
+/* ==========================================================================
+   THE TOP OF EVERY WORKSPACE PAGE
+   One row (PageTopBar, Breadcrumbs.jsx): where you are on the left, the bell
+   and account menu on the right. Then the page's title and its actions. Every
+   page starts at the same height, with the same heading; heights follow the
+   content, so a long trail or title wraps instead of breaking the row.
+   ========================================================================== */
+.portal-main { padding: 20px 32px 40px; }
+.at-topbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 16px; margin: 0 0 16px; min-width: 0;
+}
+.at-topbar .at-crumbs { flex: 1 1 200px; margin: 0; }
+.at-topbar .portal-account-bar { flex: 0 0 auto; margin-left: auto; }
+
+.at-page-head { align-items: flex-start; gap: 12px 24px; margin-bottom: 20px; }
+.at-page-title,
+.portal-main h1.page-title,
+.portal-main h1.selector-title,
+.portal-main .od-title,
+.settings-page-title {
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 2.2vw, 30px);
+  font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; overflow-wrap: anywhere;
+}
+/* This one carries its size inline. */
+.portal-main h1.selector-title { font-size: clamp(24px, 2.2vw, 30px) !important; }
+.at-page-sub, .portal-main .page-subtitle, .settings-page-subtitle { font-size: 14px; line-height: 1.5; }
+.at-page-sub { margin-top: 4px; }
+.at-page-meta { margin-top: 4px; }
+
+/* A big screen keeps the content centred, with a little more room at the sides. */
+@media (min-width: 1600px) {
+  .portal-main { padding: 24px 40px 48px; }
+}
+@media (max-width: 1024px) {
+  .portal-main { padding: 16px 24px 32px; }
+}
+/* A phone: the header bar above holds the bell and the account menu. */
+@media (max-width: 768px) {
+  .portal-main { padding: 12px 16px 24px; }
+  .at-topbar { margin-bottom: 10px; }
+  .at-topbar:not(:has(.at-crumbs)) { display: none; }
+  .at-page-head { margin-bottom: 14px; }
+}
+
+/* No trail above the heading (a home page): the bell and account menu sit level
+   with the title, and the heading takes the room beside them. */
+@media (min-width: 769px) {
+  .at-topbar:not(:has(.at-crumbs)) { float: right; margin: 0 0 8px 24px; }
+  .at-topbar:not(:has(.at-crumbs)) ~ :not(.at-page-head) { clear: right; }
+}
+.at-page-greeting {
+  display: block; margin: 2px 0 2px;
+  font-size: clamp(17px, 1.5vw, 20px); font-weight: 700; line-height: 1.3;
+  letter-spacing: -0.01em; color: var(--text-primary);
+}
+
+/* ==========================================================================
+   SCROLLBARS: out of sight until wanted
+   Everything still scrolls, and the space they take is kept, so nothing shifts
+   when one appears. A scrolling area shows a thin bar while the mouse is over
+   it; the page's own at the window's edge (services/pageScrollbar.js), since
+   the mouse is always over the page. Rows that hide theirs keep doing so.
+   ========================================================================== */
+* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.portal-menu, .apt-form { scrollbar-color: transparent transparent; }
+*:not(html, body):hover { scrollbar-color: var(--text-muted) transparent; }
+html.page-scrollbar-on { scrollbar-color: var(--text-muted) transparent; }

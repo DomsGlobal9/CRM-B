@@ -25,9 +25,22 @@ export function Breadcrumbs({ items }) {
   );
 }
 
+/** The row every page opens with: where you are on the left; the bell and the
+ *  account menu (`account`, hidden on a phone, whose header bar has them) on
+ *  the right. Its height follows its content, and it wraps if it runs short.
+ *  A trail of one is only the page's own name, already its heading: not shown. */
+export function PageTopBar({ crumbs, account }) {
+  return (
+    <div className="at-topbar">
+      {crumbs.length > 1 && <Breadcrumbs items={crumbs} />}
+      {account}
+    </div>
+  );
+}
+
 /** The workspace's trail: `base` (home, then the open page) followed by the
- *  crumbs the page below adds with <Crumbs>. */
-export function CrumbsProvider({ base, children }) {
+ *  crumbs the page below adds with <Crumbs>, in the page's top bar. */
+export function CrumbsProvider({ base, account, children }) {
   const [levels, setLevels] = useState({});
   const trail = useMemo(() => ({
     add: (level, items) => setLevels((prev) => ({ ...prev, [level]: items })),
@@ -40,7 +53,7 @@ export function CrumbsProvider({ base, children }) {
   const deeper = Object.keys(levels).map(Number).sort((a, b) => a - b).flatMap((level) => levels[level]);
   return (
     <CrumbsContext.Provider value={trail}>
-      <Breadcrumbs items={[...base, ...deeper]} />
+      <PageTopBar crumbs={[...base, ...deeper]} account={account} />
       {children}
     </CrumbsContext.Provider>
   );

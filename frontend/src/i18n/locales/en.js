@@ -212,7 +212,7 @@ const en = {
     dueThisWeek: "{n} due this week",
     overdueCount: "{n} overdue",
     tierSummary: "{platinum} Platinum · {gold} Gold · {silver} Silver",
-    inWorkroom: "In the workshop",
+    inWorkroom: "Work in progress",
     allOrders: "All orders in progress",
     noOrdersFloor: "No orders yet. Create the first one to see it move through the floor.",
     needsAttention: "Needs attention",
