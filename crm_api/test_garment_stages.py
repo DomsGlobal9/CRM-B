@@ -249,7 +249,7 @@ class PerGarmentStageTests(StateMachineTestBase):
         from domains.orders.tracking import build_token
 
         client = self.api()
-        url = reverse('order-garment-images', args=[self.order.pk])
+        url = reverse('order-upload-garment-image', args=[self.order.pk])
         for view in ('FRONT', 'BACK'):
             res = client.post(url, {'view': view, 'garment_job': str(self.saree.id),
                                     'image': SimpleUploadedFile(f'{view}.jpg', JPEG, content_type='image/jpeg')},

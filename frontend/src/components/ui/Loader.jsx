@@ -52,11 +52,11 @@ export default function Loader({
  * Used where a spinner would collapse the layout and make the page jump when
  * the data lands -- the point is that the box keeps its height.
  */
-export function LoaderRows({ rows = 3, className = '' }) {
+export function LoaderRows({ rows = 3, className = '', label = 'Loading' }) {
   return (
     <div className={`ld-rows ${className}`} role="status" aria-live="polite" aria-busy="true">
       {Array.from({ length: rows }, (_, i) => <span key={i} className="ld-row" />)}
-      <span className="ld-sr">Loading</span>
+      <span className="ld-sr">{label}</span>
     </div>
   );
 }

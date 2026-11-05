@@ -35,7 +35,7 @@ class BookingTestCase(TenantTestCase):
 
     def book(self, **body):
         """POST a booking and put the schema back, as the middleware clears it."""
-        response = self.api.post('/api/appointments/',
+        response = self.api.post('/api/scheduling/appointments/',
                                  {'appointment_type': 'TRIAL', 'scheduled_time': self.when, **body},
                                  format='json')
         connection.set_tenant(self.tenant)

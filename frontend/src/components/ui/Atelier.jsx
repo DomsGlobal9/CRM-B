@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowRight, Search, X as CloseIcon, Upload as UploadIcon, Camera as CameraIcon,
   Lightbulb as LightbulbIcon, CheckCircle2 as CheckIcon,
+  AlertTriangle, ChevronDown, ChevronUp, Inbox,
 } from 'lucide-react';
 import { imageFilesError } from '../../services/validate';
 
@@ -17,7 +18,8 @@ export function IconTile({ icon: Icon, tone = 'neutral', size = 44, iconSize = 2
 
 // `active`: a tappable card that is also the current filter (Orders' New /
 // In progress / Closed) is drawn as selected. Left out, nothing changes.
-export function StatCard({ icon, label, value, sub, tone = 'neutral', onClick, trailing, active }) {
+// `loading`: the card keeps its shape and shows a placeholder for the number.
+export function StatCard({ icon, label, value, sub, tone = 'neutral', onClick, trailing, active, loading = false }) {
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag
@@ -29,7 +31,9 @@ export function StatCard({ icon, label, value, sub, tone = 'neutral', onClick, t
       {icon && <IconTile icon={icon} tone={tone} />}
       <span className="at-stat-body">
         <span className="at-stat-label">{label}</span>
-        <span className="at-stat-value">{value}</span>
+        {loading
+          ? <span className="ld-bone at-stat-bone" role="status" aria-label="Loading" />
+          : <span className="at-stat-value">{value}</span>}
         {sub != null && sub !== '' && <span className="at-stat-sub">{sub}</span>}
       </span>
       {trailing && <span className="at-stat-trailing">{trailing}</span>}
@@ -37,10 +41,12 @@ export function StatCard({ icon, label, value, sub, tone = 'neutral', onClick, t
   );
 }
 
-export function SectionCard({ icon, tone = 'neutral', title, subtitle, action, actionLabel, children, className = '', style }) {
+// `action` + `actionLabel` is the one "View all" link. `actions` takes any
+// controls for that same corner, and `footer` closes the card with a line above.
+export function SectionCard({ icon, tone = 'neutral', title, subtitle, action, actionLabel, actions, footer, children, className = '', style }) {
   return (
     <section className={`at-section ${className}`} style={style}>
-      {(title || action) && (
+      {(title || action || actions) && (
         <header className="at-section-head">
           <div className="at-section-heading">
             {icon && <IconTile icon={icon} tone={tone} size={38} iconSize={18} />}
@@ -54,9 +60,11 @@ export function SectionCard({ icon, tone = 'neutral', title, subtitle, action, a
               {actionLabel || 'View all'} <ArrowRight size={14} />
             </button>
           )}
+          {actions && <div className="at-section-actions">{actions}</div>}
         </header>
       )}
       {children}
+      {footer && <footer className="at-section-foot">{footer}</footer>}
     </section>
   );
 }
@@ -116,11 +124,215 @@ export function SearchBox({ value, onChange, placeholder, style }) {
 export function Segmented({ options, value, onChange, ariaLabel }) {
   return (
     <div className="at-seg" role="group" aria-label={ariaLabel}>
-      {options.map(({ key, label, icon: Icon }) => (
-        <button key={key} type="button" aria-pressed={value === key} onClick={() => onChange(key)}>
+      {options.map(({ key, label, icon: Icon, count, disabled }) => (
+        <button key={key} type="button" aria-pressed={value === key} onClick={() => onChange(key)}
+                disabled={disabled} className={disabled ? 'at-seg-item' : undefined}>
           {Icon && <Icon size={14} />}{label}
+          {count != null && <span className="at-count">{count}</span>}
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Tabs that switch what a page shows. Same look as the .tab-btn row, with the
+ * keyboard behaviour screen readers expect: arrow keys, Home and End move
+ * between tabs and Tab leaves the row. Use Segmented for a small either/or
+ * choice inside a form or toolbar. `panelId` points at the element the tabs
+ * control, when there is one.
+ */
+export function Tabs({ tabs, value, onChange, ariaLabel, panelId, className = '' }) {
+  const onKeyDown = (e) => {
+    const live = tabs.filter((tab) => !tab.disabled);
+    const at = live.findIndex((tab) => tab.key === value);
+    const moves = {
+      ArrowRight: live[(at + 1) % live.length],
+      ArrowLeft: live[(at - 1 + live.length) % live.length],
+      Home: live[0],
+      End: live[live.length - 1],
+    };
+    const next = moves[e.key];
+    if (!next) return;
+    e.preventDefault();
+    onChange(next.key);
+    e.currentTarget.querySelector(`[data-tab="${next.key}"]`)?.focus();
+  };
+  return (
+    <div className={`tabs-header at-tabs ${className}`} role="tablist" aria-label={ariaLabel} onKeyDown={onKeyDown}>
+      {tabs.map(({ key, label, icon: Icon, count, disabled }) => (
+        <button key={key} type="button" role="tab" data-tab={key} aria-selected={value === key} aria-controls={panelId}
+                tabIndex={value === key ? 0 : -1} disabled={disabled}
+                className={`tab-btn at-tab${value === key ? ' active' : ''}`} onClick={() => onChange(key)}>
+          {Icon && <Icon size={14} />}{label}
+          {count != null && <span className="at-count">{count}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Buttons and badges                                                  */
+/* ------------------------------------------------------------------ */
+
+const BUTTON_VARIANTS = {
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  outline: 'btn-secondary', // the secondary button is the outline button
+  danger: 'btn-secondary at-btn-danger',
+  ghost: 'btn-secondary btn-ghost',
+};
+
+/**
+ * The button recipes (.btn-primary and friends) with the loading state written
+ * once. A plain <button className="btn-primary"> stays correct everywhere.
+ * While `loading` it cannot be pressed twice and says it is busy.
+ */
+export function Button({ variant = 'primary', size, loading = false, icon: Icon, disabled, type = 'button', className = '', children, ...rest }) {
+  const classes = [BUTTON_VARIANTS[variant] || BUTTON_VARIANTS.primary, size === 'sm' && 'at-btn-sm', loading && 'at-btn-busy', className]
+    .filter(Boolean).join(' ');
+  return (
+    <button type={type} className={classes} disabled={disabled || loading} aria-busy={loading || undefined} {...rest}>
+      {loading ? <span className="ld-ring at-btn-spinner" aria-hidden="true" /> : Icon && <Icon size={16} />}
+      {children}
+    </button>
+  );
+}
+
+/**
+ * A button that is only an icon. `label` is required: it names the button for
+ * screen readers and is the tooltip for everyone else.
+ * Sizes: sm 32px (the default, for table rows), md 36px, lg 40px. On a touch
+ * screen all of them grow to 44px.
+ */
+export function IconButton({ icon: Icon, label, size = 'sm', danger = false, outline = false, loading = false, iconSize = 16, disabled, type = 'button', className = '', ...rest }) {
+  const classes = ['at-icon-btn at-icon-btn--std', size !== 'sm' && `at-icon-btn--${size}`, danger && 'at-icon-btn--danger', outline && 'at-icon-btn--outline', className]
+    .filter(Boolean).join(' ');
+  return (
+    <button type={type} className={classes} aria-label={label} title={label} disabled={disabled || loading} aria-busy={loading || undefined} {...rest}>
+      {loading ? <span className="ld-ring at-btn-spinner" aria-hidden="true" /> : <Icon size={iconSize} />}
+    </button>
+  );
+}
+
+const BADGE_TONES = ['success', 'warning', 'danger', 'info', 'neutral'];
+
+/**
+ * One status, one badge. A feature keeps its own map from status to tone
+ * (Paid is success, Overdue is danger); the badge only knows the five tones.
+ * A status is never colour alone: the words are always there.
+ */
+export function StatusBadge({ tone = 'neutral', icon: Icon, dot = false, title, className = '', children }) {
+  const safe = BADGE_TONES.includes(tone) ? tone : 'neutral';
+  return (
+    <span className={`ui-badge ui-badge--${safe} at-status at-status--${safe} ${className}`} title={title}>
+      {dot && <span className="at-status-dot" aria-hidden="true" />}
+      {Icon && <Icon aria-hidden="true" />}
+      {children}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Long content and empty states                                       */
+/* ------------------------------------------------------------------ */
+
+/** Calls `measure` with the element whenever its box changes or `watch` does. */
+function useMeasure(ref, measure, watch) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    // An observer reports once when it starts, so this also covers first paint.
+    const observer = new ResizeObserver(() => measure(el));
+    observer.observe(el);
+    return () => observer.disconnect();
+    // `measure` is rebuilt each render; only `watch` should re-subscribe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ref, watch]);
+}
+
+/**
+ * Text cut to `lines`, with the rest still reachable: only when it really is
+ * cut, the full text becomes the tooltip and keyboard focus opens it out.
+ * Screen readers always get all of it. Pass `fullText` when the children are
+ * not plain text. `focusable={false}` inside a row or link that is itself
+ * focusable.
+ */
+export function ClampedText({ children, lines = 1, fullText, focusable = true, as: Tag = 'span', className = '', style }) {
+  const ref = useRef(null);
+  const [cut, setCut] = useState(false);
+  const plain = typeof children === 'string' || typeof children === 'number' ? String(children) : undefined;
+  const whole = fullText ?? plain;
+  useMeasure(ref, (el) => {
+    setCut(el.scrollWidth > el.clientWidth + 1 || el.scrollHeight > el.clientHeight + 1);
+  }, `${whole}|${lines}`);
+  return (
+    <Tag ref={ref} className={`at-clamp ${lines === 1 ? 'at-clamp--one' : 'at-clamp--many'} ${className}`}
+         style={lines === 1 ? style : { '--clamp-lines': lines, ...style }}
+         title={cut ? whole : undefined} tabIndex={cut && focusable ? 0 : undefined}>
+      {children}
+    </Tag>
+  );
+}
+
+/**
+ * "See more" that appears only when there really is more.
+ *
+ * For content, give `maxHeight` (px): taller content is cut there, with a fade.
+ * Content only a little taller (under 24px over) is shown whole, because a
+ * button that reveals one more line is more work than the line.
+ *
+ * For a list, give `items`, `renderItem` and `limit`; `as` sets the list's tag,
+ * `getKey` the item key.
+ */
+export function SeeMore({ children, maxHeight = 160, items, renderItem, getKey, limit = 5, as: Tag = 'div', moreLabel, lessLabel = 'Show less', className = '' }) {
+  const [open, setOpen] = useState(false);
+  const [tall, setTall] = useState(false);
+  const innerRef = useRef(null);
+  const isList = Array.isArray(items);
+  useMeasure(innerRef, (el) => setTall(el.scrollHeight > maxHeight + 24), maxHeight);
+
+  const toggle = (label) => (
+    <button type="button" className="at-link at-seemore-toggle" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      {label} {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+    </button>
+  );
+
+  if (isList) {
+    const shown = open ? items : items.slice(0, limit);
+    return (
+      <>
+        <Tag className={className}>
+          {shown.map((item, i) => <Fragment key={getKey ? getKey(item) : i}>{renderItem(item, i)}</Fragment>)}
+        </Tag>
+        {items.length > limit && toggle(open ? lessLabel : (moreLabel || `See all ${items.length}`))}
+      </>
+    );
+  }
+  const clipped = tall && !open;
+  return (
+    <div className={className}>
+      <div className={`at-seemore-body${clipped ? ' at-seemore-body--clip' : ''}`} style={clipped ? { maxHeight } : undefined}>
+        <div ref={innerRef}>{children}</div>
+      </div>
+      {tall && toggle(open ? lessLabel : (moreLabel || 'See more'))}
+    </div>
+  );
+}
+
+/**
+ * What a list or card shows when it has nothing to show, or (`error`) when it
+ * could not load. Say what is missing in `title`, what to do about it in
+ * `detail`, and put the way forward in `action`.
+ */
+export function EmptyState({ icon, title, detail, action, tone, error = false, compact = false, className = '' }) {
+  return (
+    <div className={`at-empty-state${compact ? ' at-empty-state--compact' : ''} ${className}`} role={error ? 'alert' : undefined}>
+      <IconTile icon={icon || (error ? AlertTriangle : Inbox)} tone={tone || (error ? 'rose' : 'neutral')} />
+      {title && <div className="at-empty-title">{title}</div>}
+      {detail && <div className="at-empty-detail">{detail}</div>}
+      {action && <div className="at-empty-action">{action}</div>}
     </div>
   );
 }
@@ -173,10 +385,12 @@ export function FormModal({ icon: Icon, tone = 'green', title, subtitle, onClose
 }
 
 /** A label, the control, and the small print under it. `icon` puts a tinted
- *  box on the left of the control, the way the forms read. */
-export function Field({ label, required, optional, hint, icon: Icon, children, htmlFor, style, className = '' }) {
+ *  box on the left of the control, the way the forms read. `error` marks the
+ *  control and says what is wrong; give the input aria-invalid as well.
+ *  `disabled` dims the control; the input itself still needs `disabled`. */
+export function Field({ label, required, optional, hint, error, disabled = false, icon: Icon, children, htmlFor, style, className = '' }) {
   return (
-    <div className={`at-field ${className}`} style={style}>
+    <div className={`at-field ${className}${error ? ' at-field--error' : ''}`} style={style}>
       {label && (
         <label className="at-field-label" htmlFor={htmlFor}>
           {label}
@@ -184,13 +398,22 @@ export function Field({ label, required, optional, hint, icon: Icon, children, h
           {optional && <span className="at-field-opt"> (Optional)</span>}
         </label>
       )}
-      <div className={`at-field-control${Icon ? ' at-field-control--icon' : ''}`}>
+      <div className={`at-field-control${Icon ? ' at-field-control--icon' : ''}${disabled ? ' at-field-control--disabled' : ''}`}>
         {Icon && <span className="at-field-icon"><Icon size={17} /></span>}
         {children}
       </div>
+      {error && <div className="at-field-error" role="alert">{error}</div>}
       {hint && <div className="at-field-hint">{hint}</div>}
     </div>
   );
+}
+
+/** The buttons that end a form. On a phone they stack, with the first one in
+ *  the markup at the bottom, so put Cancel first and Save last.
+ *  `align`: end (default), start, or between. */
+export function FormActions({ align = 'end', className = '', children }) {
+  const place = align === 'end' ? '' : ` at-form-actions--${align}`;
+  return <div className={`at-form-actions${place} ${className}`}>{children}</div>;
 }
 
 
