@@ -8,6 +8,7 @@ import { LIMITS, tenDigits, mobileError, emailError, nameError, cleanAmount, amo
 import Loader from '../../components/ui/Loader';
 import { Modal } from './StaffDialogs';
 import { EMPLOYMENT_TYPES, cleaned, errorBox, panel } from './staffShared';
+import { WHATSAPP_URL } from '../../constants/links';
 
 /** Adding or editing a team member: their details, login, pay terms and documents. */
 
@@ -341,7 +342,7 @@ export default function AddStaffForm({ member, terms, onCancel, onSaved, customR
             style={{ textDecoration: 'none' }}
             target="_blank"
             rel="noreferrer"
-            href={`https://wa.me/?text=${encodeURIComponent(
+            href={`${WHATSAPP_URL}/?text=${encodeURIComponent(
               `Hello ${created.name},\nHere are your Atelier login credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`
             )}`}
           >Share on WhatsApp</a>

@@ -7,6 +7,7 @@
    the server already keeps as an international number. */
 import COUNTRY_CODES from '../data/countryCodes';
 import { mobileError, tenDigits } from './validate';
+import { WHATSAPP_URL } from '../constants/links';
 
 export { COUNTRY_CODES };
 export const DEFAULT_COUNTRY = 'IN';
@@ -90,7 +91,7 @@ export function formatInternational(raw) {
   return `+${dial} ${n}`;
 }
 
-export const waLink = (raw) => `https://wa.me/${String(raw || '').replace(/\D/g, '')}`;
+export const waLink = (raw) => `${WHATSAPP_URL}/${String(raw || '').replace(/\D/g, '')}`;
 // Numbers are stored as digits, with the country code when there is one
 // (formatMobile): a dialler needs the + in front of the code.
 export const telLink = (raw) => {

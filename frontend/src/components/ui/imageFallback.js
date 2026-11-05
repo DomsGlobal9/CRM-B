@@ -1,7 +1,6 @@
 /** What a picture falls back to when it has no address, or fails to load. */
 
-export const FALLBACK =
-  'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
+export { FALLBACK_IMAGE_URL as FALLBACK } from '../../constants/links';
 
 const PLACEHOLDER = 'data:image/svg+xml;utf8,'
   + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160">'

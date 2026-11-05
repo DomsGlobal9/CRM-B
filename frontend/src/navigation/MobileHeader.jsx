@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Menu, Bell } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
+import { AVATAR_INITIALS_URL } from '../constants/links';
 
 /**
  * The phone header.
@@ -84,7 +85,7 @@ export function MobileHeader({ title, currentUser, notificationsCount, onOpenNot
                       onClick={() => setAccountOpen((open) => !open)} disabled={!accountItems.length}
                       aria-haspopup="menu" aria-expanded={accountOpen} aria-label={`Account menu for ${name}`}>
                 <img
-                  src={`https://api.dicebear.com/7.x/initials/svg?backgroundColor=e6f1c8&textColor=1f2a06&seed=${encodeURIComponent(currentUser?.first_name || 'User')}`}
+                  src={`${AVATAR_INITIALS_URL}&seed=${encodeURIComponent(currentUser?.first_name || 'User')}`}
                   alt=""
                 />
               </button>

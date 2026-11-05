@@ -7,6 +7,7 @@ import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
 import Loader from '../../components/ui/Loader';
+import { FALLBACK_IMAGE_URL as CARD_IMAGE_FALLBACK } from '../../constants/links';
 
 // The overview's Recently added, Most viewed, Most ordered and Trending strips
 // and its Designers card are hidden for now, not removed: set these to true to
@@ -14,8 +15,6 @@ import Loader from '../../components/ui/Loader';
 const SHOW_DESIGN_STRIPS = false;
 const SHOW_DESIGNER_ROSTER = false;
 
-const CARD_IMAGE_FALLBACK =
-  'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
 function DesignStrip({ title, subtitle, icon, tone, designs, emptyText, metric, action, actionLabel }) {
   const ranked = metric === 'views' || metric === 'orders';

@@ -3,6 +3,7 @@ import { Check, Trash2, KeyRound } from 'lucide-react';
 import { api } from '../../api';
 import { FormModal } from '../../components/ui/Atelier';
 import { errorBox, panel } from './staffShared';
+import { WHATSAPP_URL } from '../../constants/links';
 
 /** The dialog frame used across Staff, and the sign-in details and delete dialogs. */
 
@@ -76,7 +77,7 @@ export function CredentialsDialog({ member, onClose, portalUrl = window.location
                 style={{ textDecoration: 'none' }}
                 target="_blank"
                 rel="noreferrer"
-                href={`https://wa.me/?text=${encodeURIComponent(message)}`}
+                href={`${WHATSAPP_URL}/?text=${encodeURIComponent(message)}`}
               >Share on WhatsApp</a>
             </>
           )}

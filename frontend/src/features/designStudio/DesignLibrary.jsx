@@ -14,10 +14,9 @@ import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
+import { FALLBACK_IMAGE_URL as CARD_IMAGE_FALLBACK } from '../../constants/links';
 
 
-const CARD_IMAGE_FALLBACK =
-  'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
 const STATUS_COLOURS = {
   ACTIVE: { bg: 'var(--success-bg)', fg: 'var(--success-text)' },
