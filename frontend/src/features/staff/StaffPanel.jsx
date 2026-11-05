@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Clock, TrendingUp, Users, ClipboardList, Shield } from 'lucide-react';
 import { boutiqueLoginUrl } from '../../utils/format';
 import { PageHeader, Tabs } from '../../components/ui/Atelier';
-import Attendance from './Attendance';
+import Attendance from './attendance/Attendance';
 import Performance from './Performance';
 import RolePermissions from './RolePermissions';
 import TeamTasks from './TeamTasks';
