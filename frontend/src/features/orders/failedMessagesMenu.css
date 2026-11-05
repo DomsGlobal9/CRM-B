@@ -1,0 +1,82 @@
+/* The WhatsApp alert beside the search bar, and the Orders row it sits in. */
+.msg-failed-menu { position: relative; flex-shrink: 0; }
+.msg-failed-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid color-mix(in srgb, var(--danger-color) 28%, var(--border-color));
+  border-radius: var(--radius-md, 10px);
+  background: var(--danger-bg);
+  color: var(--danger-color);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.msg-failed-btn:hover { border-color: var(--danger-color); }
+.msg-failed-btn:focus-visible { outline: 3px solid var(--accent-border); outline-offset: 2px; }
+.msg-failed-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--danger-color);
+  color: #FFFFFF;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.msg-failed-chev { transition: transform .15s ease; }
+.msg-failed-btn[aria-expanded="true"] .msg-failed-chev { transform: rotate(180deg); }
+.msg-failed-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: min(340px, calc(100vw - 32px));
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-color);
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  text-align: left;
+}
+.msg-failed-panel strong { display: block; font-weight: 600; color: var(--danger-color); }
+.msg-failed-panel p { margin: 3px 0 10px; color: var(--text-secondary); }
+.msg-failed-orders { display: flex; flex-wrap: wrap; gap: 4px 12px; max-height: 180px; overflow-y: auto; }
+.msg-failed-orders .at-link { min-height: 26px; padding: 2px 0; color: var(--danger-color); font-weight: 600; text-decoration: underline; }
+
+/* Orders: the Stitching / Alterations tabs on the same row as search and New order. */
+.portal-main:has(> .orders-stats) > .at-page-head { align-items: center; }
+.portal-main:has(> .orders-stats) > .at-page-head .at-page-meta { margin-top: 0; }
+.portal-main:has(> .orders-stats) > .at-page-head .at-page-head-left { flex: 0 1 auto; }
+.portal-main:has(> .orders-stats) > .at-page-head .at-page-head-right {
+  flex: 1 1 auto;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+}
+.portal-main:has(> .orders-stats) > .at-page-head .at-page-aside { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; }
+.portal-main:has(> .orders-stats) > .at-page-head .at-search { flex: 0 1 260px; width: 260px; min-width: 150px; }
+
+@media (max-width: 640px) {
+  .msg-failed-btn-label { display: none; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-aside { flex: 1 1 100%; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-search { flex: 1 1 auto; width: auto; max-width: none; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-actions { flex: 1 1 100%; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-actions > * { width: 100%; }
+  .portal-main:has(> .orders-stats) > .at-page-head .at-page-actions .btn-primary { width: 100%; justify-content: center; }
+}
+
+/* Workshop: the alert stays on the search bar's row, and the bar gives up the room. */
+.portal-main .workshop-toolbar .workshop-search-wrap:has(.msg-failed-menu) { flex-wrap: nowrap; max-width: 600px; }
+.portal-main .workshop-toolbar .workshop-search-wrap:has(.msg-failed-menu) .at-search { flex: 1 1 auto; width: auto; min-width: 0; max-width: none; }

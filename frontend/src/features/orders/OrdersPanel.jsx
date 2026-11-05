@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, ShoppingCart, User, Zap } from 'lucide-react';
+import { CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, ShoppingCart, User, Zap } from 'lucide-react';
 import React from 'react';
 import { RequestAlterationModal } from '../alterations/OrderAlterations';
 import { PageHeader, SearchBox, Segmented, StatCard } from '../../components/ui/Atelier';
@@ -11,6 +11,7 @@ import { TIERS } from '../customers/customerBook';
 import { tierName } from '../../services/tierNames';
 import { formatDate as fmtDate, inr, orderGarmentNames, orderRef } from '../../services/format';
 import OrderKanban from './OrderKanban';
+import FailedMessagesMenu from './FailedMessagesMenu';
 import { todayIso } from '../../services/dates';
 import { expressLabel, isExpressJob, isExpressOrder } from './express';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -25,6 +26,22 @@ import { useApp } from '../../context/AppContext';
 export default function OrdersPanel({ guideOrders, openAlteration, openSendToWorkshop, openStageReview, orderMatchesFilters, ordersAlterationOrder, ordersFilterTab, ordersGarmentFilter, ordersList, ordersSearch, ordersStageFilter, ordersTierFilter, ordersTypeFilter, ordersView, ordersKind, setOrdersKind, ordersPageSize, setOrdersPageSize, ordersListPage, goToOrdersPage, queuedMessages, rememberAlteration, sendBusy, setOpenGarmentJob, setOpenOrdersRowId, setOrdersAlterationOrder, setOrdersFilterTab, setOrdersGarmentFilter, setOrdersSearch, setOrdersStageFilter, setOrdersTierFilter, setOrdersTypeFilter, setOrdersView, setView }) {
   const { t } = useLanguage();
   const { dashboardTab, currentUser, adminCan, boutiqueSettings, refresh: fetchDashboardAndConfig, setDashboardTab } = useApp();
+  // Each tab names how many of its orders are in the pile on show.
+  const inPile = ordersList.filter(o => orderBucket(o) === ordersFilterTab);
+  const alterations = inPile.filter(o => o.flow === 'alteration').length;
+  const kindTabs = (
+    <div className="orders-kind-tabs">
+      <Segmented ariaLabel={t('ordersPage.orderKind', 'Order type')} value={ordersKind} onChange={setOrdersKind} options={[
+        { key: 'stitching', label: `${t('ordersPage.typeStitching', 'Stitching')} (${inPile.length - alterations})`, icon: Scissors },
+        { key: 'alteration', label: `${t('ordersPage.typeAlteration', 'Alterations')} (${alterations})`, icon: Ruler },
+      ]} />
+    </div>
+  );
+  // Customer messages WhatsApp gave up on. On Workshop, only the orders being made.
+  const failedOrders = [...new Set(queuedMessages.filter(m => m.status === 'FAILED').map(m => m.order))]
+    .map(id => ordersList.find(o => o.id === id))
+    .filter(o => o && (dashboardTab !== 'workshop' || orderBucket(o) === 'workshop'));
+  const failedMenu = <FailedMessagesMenu orders={failedOrders} onOpenOrder={setOpenOrdersRowId} />;
   return (
     <>
       {ordersAlterationOrder && (
@@ -38,7 +55,8 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
       <PageHeader
         title={dashboardTab === 'workshop' ? t('ordersPage.workshopTitle', 'Workshop') : t('ordersPage.title')}
         subtitle={dashboardTab === 'workshop' ? t('ordersPage.workshopSubtitle', 'Every order being made, who has it, and what comes next.') : t('ordersPage.subtitle')}
-        aside={dashboardTab === 'workshop' ? null : <SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />}
+        meta={dashboardTab === 'workshop' ? null : kindTabs}
+        aside={dashboardTab === 'workshop' ? null : <><SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />{failedMenu}</>}
         actions={dashboardTab === 'workshop' ? null : (
           <>
             {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
@@ -59,18 +77,10 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
         const fresh = ofKind.filter(o => orderBucket(o) === 'new').length;
         const making = ofKind.filter(o => orderBucket(o) === 'workshop').length;
         const done = ofKind.filter(o => orderBucket(o) === 'done').length;
-        // Each tab names how many of its orders are in the pile on show.
-        const inPile = ordersList.filter(o => orderBucket(o) === ordersFilterTab);
-        const alterations = inPile.filter(isAlteration).length;
         return (
           <>
             <Crumbs level={1} items={[{ label: ordersKind === 'alteration' ? t('ordersPage.typeAlteration', 'Alterations') : t('ordersPage.typeStitching', 'Stitching') }]} />
-            <div className="orders-kind-tabs" style={{ marginBottom: 'var(--space-4)' }}>
-              <Segmented ariaLabel={t('ordersPage.orderKind', 'Order type')} value={ordersKind} onChange={setOrdersKind} options={[
-                { key: 'stitching', label: `${t('ordersPage.typeStitching', 'Stitching')} (${inPile.length - alterations})`, icon: Scissors },
-                { key: 'alteration', label: `${t('ordersPage.typeAlteration', 'Alterations')} (${alterations})`, icon: Ruler },
-              ]} />
-            </div>
+            {dashboardTab === 'workshop' && <div style={{ marginBottom: 'var(--space-4)' }}>{kindTabs}</div>}
             {dashboardTab === 'orders' && (
               <section className="at-stat-grid orders-stats">
                 {/* The three cards are the New / In progress / Closed switch
@@ -100,6 +110,7 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
                     onChange={setOrdersSearch}
                     placeholder={t('ordersPage.workshopSearchPlaceholder', 'Search by order, customer, status, or worker...')}
                   />
+                  {failedMenu}
                 </div>
               )}
               {/* Narrow by who it is for, what it is, and where it stands;
@@ -137,28 +148,6 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
               </details>
             </div>
           </>
-        );
-      })()}
-
-      {/* Customer messages WhatsApp gave up on: each order is a link to
-          its page, where Retry and Open WhatsApp are. On Workshop,
-          only the orders being made. */}
-      {(() => {
-        const failedOrders = [...new Set(queuedMessages.filter(m => m.status === 'FAILED').map(m => m.order))]
-          .map(id => ordersList.find(o => o.id === id))
-          .filter(o => o && (dashboardTab !== 'workshop' || orderBucket(o) === 'workshop'));
-        if (!failedOrders.length) return null;
-        return (
-          <div className="msg-failed-banner" role="status">
-            <AlertTriangle size={16} aria-hidden="true" />
-            <strong>{failedOrders.length === 1 ? 'A customer message' : 'Customer messages'} could not be sent on WhatsApp.</strong>
-            <span>Open the order to retry or send it yourself:</span>
-            {failedOrders.map(o => (
-              <button key={o.id} type="button" className="at-link" onClick={() => setOpenOrdersRowId(o.id)}>
-                {orderRef(o)}
-              </button>
-            ))}
-          </div>
         );
       })()}
 
