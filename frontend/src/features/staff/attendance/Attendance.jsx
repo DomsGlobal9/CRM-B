@@ -4,7 +4,7 @@ import { Clock, Calendar, CalendarDays, Wallet } from 'lucide-react';
 import { api } from '../../../api';
 import { Crumbs } from '../../../components/ui/Breadcrumbs';
 import { CorrectionForm } from '../CorrectionForm';
-import Payroll from '../Payroll';
+import Payroll from '../payroll/Payroll';
 import MonthlyAttendanceLogs from './MonthlyLogs';
 import MusterGrid from './MusterGrid';
 import MyDay from './MyDay';
