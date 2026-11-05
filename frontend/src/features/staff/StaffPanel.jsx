@@ -894,13 +894,19 @@ const ATTENDANCE_BADGE = {
 };
 const AWAY = new Set(['absent', 'leave', 'off']);
 
+/** Rows per page; the server offers the same (TailorViewSet.TEAM_PAGE_SIZES). */
+const TEAM_PAGE_SIZES = [20, 30, 40, 50];
+
+const localToday = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner, canPay = isOwner, canAttend = isOwner,
                   portalUrl, onlyDesigners = false, onShowAll = null }) {
   // Edit/delete, pay and today's attendance each follow their own handed
   // task (core/admin_access.py); sign-in credentials stay the owner's alone.
   const canAct = canManage || canPay;
-  const [roster, setRoster] = useState([]);
-  const [designers, setDesigners] = useState([]);
   const [terms, setTerms] = useState([]);
   const [attendanceToday, setAttendanceToday] = useState([]);
   const [dayMarksToday, setDayMarksToday] = useState([]);
@@ -925,15 +931,46 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
   const [removing, setRemoving] = useState(null);
   const [credentialsFor, setCredentialsFor] = useState(null);
 
-  const refresh = useCallback(async () => {
+  // The page of the team on show, from the server. The page asked for is kept
+  // with what it was asked under: a new search, card or page size starts at 1.
+  const [pageSize, setPageSize] = useState(TEAM_PAGE_SIZES[0]);
+  const needle = search.trim();
+  const teamKey = `${needle}|${cardFilter || ''}|${pageSize}|${onlyDesigners}|${showDesigners}`;
+  const [pageAt, setPageAt] = useState({ key: teamKey, page: 1 });
+  if (pageAt.key !== teamKey) setPageAt({ key: teamKey, page: 1 });
+  const page = pageAt.key === teamKey ? pageAt.page : 1;
+  // Bumped after a change to the team, to fetch the same page again.
+  const [teamVersion, setTeamVersion] = useState(0);
+  const teamRequest = `${teamKey}|${page}|${teamVersion}`;
+  // What came back, with the request it answers: loading until they match.
+  const [team, setTeam] = useState({ request: '', body: null, error: '' });
+
+  useEffect(() => {
+    if (!canSeeTeam) return undefined;
+    let live = true;
+    // Typing in the search box waits for a pause before asking.
+    const timer = setTimeout(() => {
+      api.getTeamPage({
+        page, page_size: pageSize, search: needle, card: cardFilter, date: localToday(),
+        only_designers: onlyDesigners ? '1' : '', designers: showDesigners ? '' : '0',
+      })
+        .then((body) => { if (live) setTeam({ request: teamRequest, body, error: '' }); })
+        .catch((err) => {
+          if (live) setTeam((prev) => ({ request: teamRequest, body: prev.body, error: err.message || 'Could not load the team.' }));
+        });
+    }, needle ? 250 : 0);
+    return () => { live = false; clearTimeout(timer); };
+  }, [canSeeTeam, teamRequest, page, pageSize, needle, cardFilter, onlyDesigners, showDesigners]);
+  const teamLoading = canSeeTeam && team.request !== teamRequest;
+  const teamBody = team.body;
+
+  // Everything drawn beside the people: their terms, money and today's attendance.
+  const loadDetails = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const d = new Date();
-      const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const [people, designed, profiles, deposited, advanced, present, marked] = await Promise.all([
-        canSeeTeam ? api.getTailors().catch(() => []) : Promise.resolve([]),
-        canSeeTeam && showDesigners ? api.getDesigners().catch(() => []) : Promise.resolve([]),
+      const today = localToday();
+      const [profiles, deposited, advanced, present, marked] = await Promise.all([
         api.getStaffProfiles().catch(() => []),
         canPay ? api.getDeposits().catch(() => []) : Promise.resolve([]),
         canPay ? api.getAdvances({ active: 'true' }).catch(() => []) : Promise.resolve([]),
@@ -942,8 +979,6 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
         // supervisors read them (DayMarkViewSet).
         canAttend ? api.getDayMarks({ since: today, until: today }).catch(() => []) : Promise.resolve([]),
       ]);
-      setRoster(Array.isArray(people) ? people : []);
-      setDesigners(Array.isArray(designed) ? designed : []);
       setTerms(Array.isArray(profiles) ? profiles : []);
       setDeposits(Array.isArray(deposited) ? deposited : []);
       setAdvances(Array.isArray(advanced) ? advanced : []);
@@ -954,13 +989,17 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
     } finally {
       setLoading(false);
     }
-  }, [canSeeTeam, showDesigners, canPay, canAttend]);
+  }, [canPay, canAttend]);
 
+  const refresh = useCallback(() => {
+    setTeamVersion((n) => n + 1);
+    return loadDetails();
+  }, [loadDetails]);
 
   useEffect(() => {
-    const t = setTimeout(refresh, 0);
+    const t = setTimeout(loadDetails, 0);
     return () => clearTimeout(t);
-  }, [refresh]);
+  }, [loadDetails]);
 
   const advancesByStaff = useMemo(() => {
     const map = new Map();
@@ -988,60 +1027,35 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
       || (member.staff ? termsByStaff.get(`staff:${member.staff}`) : undefined)
     : termsByStaff.get(`staff:${member.id}`)), [termsByStaff]);
 
-  /** Owners see the roster; a staff member sees only the row their own terms name. */
+  /** Owners see a page of the team; a staff member sees only the row their own terms name. */
   const rows = useMemo(() => {
-    const source = canSeeTeam
-      ? [
-          ...roster.map((person) => ({ member: person, terms: termsFor(person) })),
-          ...designers.map((d) => {
-            const member = { ...d, role: 'Designer', isDesigner: true };
-            return { member, terms: termsFor(member) };
-          }),
-        ]
-      : terms.map((t) => ({
-          member: t.designer
-            ? { id: t.designer, name: t.staff_name, role: t.staff_role, isDesigner: true }
-            : { id: t.staff, name: t.staff_name, role: t.staff_role },
-          terms: t,
-        }));
-    const needle = search.trim().toLowerCase();
-    const scoped = onlyDesigners
-      ? source.filter(({ member }) => member.isDesigner || member.role === 'Designer') : source;
-    if (!needle) return scoped;
-    return scoped.filter(({ member }) =>
-      `${member.name} ${member.role}`.toLowerCase().includes(needle));
-  }, [canSeeTeam, roster, designers, terms, termsFor, search, onlyDesigners]);
+    if (canSeeTeam) {
+      return (teamBody?.results || []).map((row) => {
+        const member = row.is_designer ? { ...row, role: 'Designer', isDesigner: true } : row;
+        return { member, terms: termsFor(member) };
+      });
+    }
+    return terms.map((t) => ({
+      member: t.designer
+        ? { id: t.designer, name: t.staff_name, role: t.staff_role, isDesigner: true }
+        : { id: t.staff, name: t.staff_name, role: t.staff_role },
+      terms: t,
+    })).filter(({ member }) => !onlyDesigners || member.isDesigner || member.role === 'Designer');
+  }, [canSeeTeam, teamBody, terms, termsFor, onlyDesigners]);
 
-  const withTerms = rows.filter((r) => r.terms).length;
-
- 
-  const roleCounts = useMemo(() => {
-    const counts = {};
-    roster.forEach((p) => { counts[p.role] = (counts[p.role] || 0) + 1; });
-    if (designers.length) counts.Designer = designers.length;
-    return counts;
-  }, [roster, designers]);
-
-  const rosterRoles = useMemo(
-    () => [...new Set(roster.map((p) => p.role).filter(Boolean))],
-    [roster]);
+  const summary = teamBody?.summary || { total: 0, people: 0, designers: 0, busy: 0, available: 0 };
+  const counts = teamBody?.counts || { scoped: 0, busy: 0, available: 0, with_terms: 0 };
+  const withTerms = counts.with_terms;
+  const roleCounts = teamBody?.role_counts || {};
+  const rosterRoles = teamBody?.roles || [];
 
   const analytics = useMemo(() => {
-    const total = roster.length + designers.length;
-    // Busy as the Work-wise view counts it -- open steps held -- so the card
-    // and the list it opens agree; the stored status only for a row the list
-    // endpoint did not count (open_steps null).
-    const busy = roster.filter((p) => (p.open_steps
-      ? p.open_steps.doing + p.open_steps.todo > 0
-      : (p.status || '').toLowerCase() === 'busy')).length;
-    const available = roster.length - busy;
     const presentIds = new Set(attendanceToday.map((s) => String(s.staff)));
     const workingNow = new Set(
       attendanceToday.filter((s) => s.is_open).map((s) => String(s.staff))).size;
-    return { total, available, busy, presentToday: presentIds.size, workingNow };
-  }, [roster, designers, attendanceToday]);
+    return { presentToday: presentIds.size, workingNow };
+  }, [attendanceToday]);
 
-  
   // A card: the list narrowed to what it counts, in the view it is about
   // (Available -> Work-wise, Present -> Attendance-wise); the same card again,
   // or Team size, shows everyone.
@@ -1053,44 +1067,32 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
     if (next === 'present' && canAttend) setStatusView('attendance');
     setTimeout(() => listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   };
-  const cardKeeps = ({ member, terms: t }) => {
-    if (cardFilter === 'available') {
-      if (member.isDesigner) return false;
-      return member.open_steps
-        ? member.open_steps.doing + member.open_steps.todo === 0
-        : (member.status || '').toLowerCase() !== 'busy';
-    }
-    if (cardFilter === 'present') {
-      const a = attendanceOf(member, attendanceToday, dayMarksToday);
-      return Boolean(a && (a.kind === 'present' || a.kind === 'out'));
-    }
-    if (cardFilter === 'pay') return Boolean(t);
-    return true;
-  };
-  const shownRows = cardFilter ? rows.filter(cardKeeps) : rows;
+  // The server has already narrowed the page to what the card counts.
+  const shownRows = rows;
+  const anyone = canSeeTeam ? counts.scoped > 0 : rows.length > 0;
 
   const plural = (role, n) =>
     (n === 1 || /staff$/i.test(role)) ? role : `${role}s`;
 
 
-  if (loading) {
+  if (loading || (canSeeTeam && !teamBody && !team.error)) {
     return <Loader page label="Loading staff…" />;
   }
 
   return (
     <>
-      {loadError && (
-        <div style={errorBox}>{loadError}</div>
+      {(loadError || team.error) && (
+        <div style={errorBox}>{loadError || team.error}</div>
       )}
 
       {canSeeTeam && (() => {
         return (
           <div className="at-stat-grid staff-stats" style={{ marginBottom: 'var(--space-5)' }}>
-            <StatCard icon={Users} tone="green" label="Team size" value={analytics.total}
-                      sub={`${roster.length} people`}
+            <StatCard icon={Users} tone="green" label="Team size" value={summary.total}
+                      sub={`${summary.people} people`}
                       onClick={() => pickCard(null)} active={cardFilter === null} />
-            <StatCard icon={UserCheck} tone="amber" label="Available now" value={analytics.available}
-                      sub={analytics.busy ? `${analytics.busy} busy` : 'nobody busy'}
+            <StatCard icon={UserCheck} tone="amber" label="Available now" value={summary.available}
+                      sub={summary.busy ? `${summary.busy} busy` : 'nobody busy'}
                       onClick={() => pickCard('available')} active={cardFilter === 'available'} />
             {canAttend && (
               <StatCard icon={Clock} tone="blue" label="Present today" value={analytics.presentToday}
@@ -1098,7 +1100,7 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
                         onClick={() => pickCard('present')} active={cardFilter === 'present'} />
             )}
             <StatCard icon={Briefcase} tone="violet" label="Pay details added" value={withTerms}
-                      sub={`${withTerms} of ${roster.length + designers.length}`}
+                      sub={`${withTerms} of ${summary.total}`}
                       onClick={() => pickCard('pay')} active={cardFilter === 'pay'} />
           </div>
         );
@@ -1163,21 +1165,11 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
         </div>
       )}
 
-      {canSeeTeam && rows.length > 0 && (() => {
+      {canSeeTeam && anyone && (() => {
         const view = canAttend ? statusView : 'work';
-        const people = rows.map(({ member }) => member);
-        const working = people.filter((m) => m.open_steps);
-        const busy = working.filter((m) => m.open_steps.doing + m.open_steps.todo > 0).length;
-        const kinds = {};
-        if (canAttend) {
-          people.forEach((m) => {
-            const a = attendanceOf(m, attendanceToday, dayMarksToday);
-            if (a) kinds[a.kind] = (kinds[a.kind] || 0) + 1;
-          });
-        }
-        const counts = view === 'work'
-          ? [['warning', 'Busy', busy], ['success', 'Available', working.length - busy]]
-          : Object.entries(ATTENDANCE_BADGE).map(([k, [tone, label]]) => [tone, label, kinds[k] || 0])
+        const badges = view === 'work'
+          ? [['warning', 'Busy', counts.busy], ['success', 'Available', counts.available]]
+          : Object.entries(ATTENDANCE_BADGE).map(([k, [tone, label]]) => [tone, label, counts[k] || 0])
             .filter(([, , n], i) => n > 0 || i < 3);
         return (
           <div className="staff-status-bar" ref={listRef}>
@@ -1192,13 +1184,13 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
               </div>
             )}
             <div className="staff-status-counts" aria-live="polite">
-              {counts.map(([tone, label, n]) => (
+              {badges.map(([tone, label, n]) => (
                 <span key={label} className={`ui-badge ui-badge--${tone}`}>{label} · {n}</span>
               ))}
             </div>
             {cardFilter && (
               <span className="staff-only-chip staff-card-filter">
-                Showing: {CARD_LABEL[cardFilter]} · {shownRows.length}
+                Showing: {CARD_LABEL[cardFilter]} · {teamBody?.count ?? 0}
                 <button type="button" onClick={() => setCardFilter(null)} aria-label="Show the whole team">
                   Show everyone <X size={13} />
                 </button>
@@ -1208,16 +1200,19 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
         );
       })()}
 
-      {rows.length === 0 ? (
+      {!anyone ? (
         <div className="ui-card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-          {canSeeTeam
+          {canSeeTeam && needle
+            ? 'Nobody matches that search.'
+            : canSeeTeam
             ? 'Nobody on the team yet. Add someone with the button above -- their role, login, pay details and documents are all set up in one go.'
             : 'Your employment details have not been set up yet. Your boutique owner can add them.'}
         </div>
       ) : (
         
         (() => {
-          const showPay = canPay && shownRows.some(({ terms }) => terms && showsPay(terms));
+          // From the whole team, so the column does not come and go between pages.
+          const showPay = canPay && terms.some(showsPay);
           const toggle = (id) => setExpanded((prev) => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id); else next.add(id);
@@ -1230,6 +1225,12 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
         <DataTable
           fit={false}
           rows={shownRows}
+          loading={teamLoading}
+          pager={canSeeTeam && teamBody?.count > 0 ? {
+            page: teamBody.page, pageCount: teamBody.pages, pageSize: teamBody.page_size, sizes: TEAM_PAGE_SIZES,
+            onPage: (n) => setPageAt({ key: teamKey, page: n }), onSize: setPageSize,
+            label: 'Team members per page', total: teamBody.count,
+          } : undefined}
           rowKey={({ member }) => member.id}
           wrapClassName="staff-table-wrap"
           tableClassName="staff-table"

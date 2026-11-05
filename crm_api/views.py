@@ -496,7 +496,7 @@ class TailorViewSet(viewsets.ModelViewSet):
         are recognised by sharing the designer's login.
         """
         queryset = super().get_queryset()
-        if self.action != 'list':
+        if self.action not in ('list', 'team'):
             return queryset
         queryset = self._with_open_steps(queryset)
         if self.request.query_params.get('attendance') == '1':
@@ -525,6 +525,161 @@ class TailorViewSet(viewsets.ModelViewSet):
             return Coalesce(Subquery(rows, output_field=IntegerField()), 0)
 
         return queryset.annotate(open_doing=count(cls.OPEN_DOING), open_todo=count(cls.OPEN_TODO))
+
+    #: Rows per page on Staff > Team; the screen offers the same.
+    TEAM_PAGE_SIZES = (20, 30, 40, 50)
+
+    @action(detail=False, methods=['GET'])
+    def team(self, request):
+        """Staff > Team, a page at a time: the roster, then the designers.
+
+        `page` (from 1) and `page_size` pick the rows. `search` matches a name,
+        role or phone; `only_designers=1` keeps the designers; `designers=0`
+        leaves them out; `card` is the stat card clicked: available, present or
+        pay. `date` is today where the boutique is, as attendance is asked for.
+
+        `summary` is the whole team, whatever the filter, for the cards above
+        the list. `counts` is what the search and designer choice leave, before
+        a card narrows them, for the badges over the list. `results` is the page.
+        """
+        from django.db.models import CharField
+        from django.utils import timezone
+        from django.utils.dateparse import parse_date
+
+        from apps.design_studio.models import Designer
+        from apps.design_studio.serializers import DesignerSerializer
+        from apps.staff.models import DayMark
+        from apps.staff.views import AttendanceSessionViewSet, StaffProfileViewSet, _hide_designers
+        from core.admin_access import holds
+
+        params = request.query_params
+        role = resolve_user_role(request.user)
+        everyone = self.get_queryset().order_by('-rating', 'pk')
+        # A Designer ranks above the Master, and is not shown below them.
+        all_designers = Designer.objects.annotate(design_count=Count('designs')).order_by('name', 'pk')
+        if params.get('designers') == '0' or role == MASTER:
+            all_designers = all_designers.none()
+
+        # The same rows the screen reads terms and attendance from, so a card
+        # never counts what the person looking at it may not see.
+        profiles = StaffProfileViewSet(request=request, action='list', kwargs={}, format_kwarg=None).get_queryset()
+        staff_terms = {pk for pk in profiles.values_list('staff_id', flat=True) if pk}
+        designer_terms = {pk for pk in profiles.values_list('designer_id', flat=True) if pk}
+
+        try:
+            day = parse_date(params.get('date') or '') or timezone.localdate()
+        except ValueError:
+            day = timezone.localdate()
+        reads_attendance = holds(request.user, 'team.attendance') or role in SUPERVISOR_ROLES
+        kinds = {}
+        if reads_attendance:
+            sessions = (AttendanceSessionViewSet(request=request, action='list', kwargs={}, format_kwarg=None)
+                        .get_queryset().filter(date=day).values_list('staff_id', 'check_out'))
+            for staff_id, check_out in sessions:
+                if check_out is None:
+                    kinds[staff_id] = 'present'
+                else:
+                    kinds.setdefault(staff_id, 'out')
+            marks = _hide_designers(request.user, DayMark.objects.filter(date=day)).values_list('staff_id', 'kind')
+            for staff_id, kind in marks:
+                kinds.setdefault(staff_id, 'off' if kind == 'WEEKLY_OFF' else 'leave')
+
+        people = everyone
+        designers = all_designers
+        if params.get('only_designers') == '1':
+            people = people.none()
+        search = (params.get('search') or '').strip()
+        if search:
+            people = people.annotate(_team_search=Concat(
+                'name', Value(' '), 'role', Value(' '), Coalesce('staff_profile__phone', Value('')),
+                output_field=CharField())).filter(_team_search__icontains=search)
+            designers = designers.annotate(_team_search=Concat(
+                'name', Value(' Designer '), 'phone', output_field=CharField())).filter(_team_search__icontains=search)
+
+        def busy_of(rows):
+            return sum(1 for row in rows if row['open_doing'] + row['open_todo'] > 0)
+
+        all_people = list(everyone.values('pk', 'role', 'open_doing', 'open_todo'))
+        scoped_people = list(people.values('pk', 'open_doing', 'open_todo'))
+        scoped_designers = list(designers.values('pk', 'staff_id'))
+        attendance_ids = [row['pk'] for row in scoped_people]
+        attendance_ids += [row['staff_id'] for row in scoped_designers if row['staff_id']]
+        attendance = {'present': 0, 'out': 0, 'absent': 0, 'leave': 0, 'off': 0}
+        if reads_attendance:
+            for staff_id in attendance_ids:
+                attendance[kinds.get(staff_id, 'absent')] += 1
+        role_counts = {}
+        for row in all_people:
+            role_counts[row['role']] = role_counts.get(row['role'], 0) + 1
+        designer_total = all_designers.count()
+        if designer_total:
+            role_counts[DESIGNER] = designer_total
+
+        scoped_busy = busy_of(scoped_people)
+        with_terms = (
+            sum(1 for row in scoped_people if row['pk'] in staff_terms)
+            + sum(1 for row in scoped_designers
+                  if row['pk'] in designer_terms or row['staff_id'] in staff_terms))
+
+        card = params.get('card')
+        if card == 'available':
+            people = people.filter(open_doing=0, open_todo=0)
+            designers = designers.none()
+        elif card == 'present' and reads_attendance:
+            here = [staff_id for staff_id, kind in kinds.items() if kind in ('present', 'out')]
+            people = people.filter(pk__in=here)
+            designers = designers.filter(staff_id__in=here)
+        elif card == 'pay':
+            people = people.filter(pk__in=staff_terms)
+            designers = designers.filter(Q(pk__in=designer_terms) | Q(staff_id__in=staff_terms))
+
+        try:
+            page_size = int(params.get('page_size') or self.TEAM_PAGE_SIZES[0])
+        except ValueError:
+            page_size = self.TEAM_PAGE_SIZES[0]
+        page_size = min(max(page_size, 1), 100)
+        people_count = people.count()
+        matching = people_count + designers.count()
+        pages = max(1, -(-matching // page_size))
+        try:
+            page = int(params.get('page') or 1)
+        except ValueError:
+            page = 1
+        page = min(max(page, 1), pages)
+        start = (page - 1) * page_size
+        # Two tables, one list: the roster first, then the designers carry on.
+        people_rows = list(people[start:start + page_size])
+        designer_start = max(0, start - people_count)
+        designer_rows = list(designers[designer_start:designer_start + page_size - len(people_rows)])
+
+        busy_total = busy_of(all_people)
+        return Response({
+            'count': matching,
+            'page': page,
+            'page_size': page_size,
+            'pages': pages,
+            'summary': {
+                'total': len(all_people) + designer_total,
+                'people': len(all_people),
+                'designers': designer_total,
+                'busy': busy_total,
+                'available': len(all_people) - busy_total,
+            },
+            'counts': {
+                'scoped': len(scoped_people) + len(scoped_designers),
+                'busy': scoped_busy,
+                'available': len(scoped_people) - scoped_busy,
+                'with_terms': with_terms,
+                **attendance,
+            },
+            'roles': sorted({row['role'] for row in all_people if row['role']}),
+            'role_counts': role_counts,
+            'results': [
+                *({**row, 'is_designer': False} for row in self.get_serializer(people_rows, many=True).data),
+                *({**row, 'is_designer': True} for row in DesignerSerializer(
+                    designer_rows, many=True, context=self.get_serializer_context()).data),
+            ],
+        })
 
     def perform_create(self, serializer):
         tailor = serializer.save()
