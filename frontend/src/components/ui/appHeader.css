@@ -157,3 +157,24 @@
   .portal-main .at-topbar .at-crumb-here[aria-current="page"] { font-size: 15px; }
   .app-header.portal-account-bar { display: none; }
 }
+
+/* One row across the top on a computer: logo, collapse button, header. The
+   header starts at the very top and is 58px tall, the logo is centred on the same
+   line, and the button sits on the line between sidebar and page. The sidebar
+   clips what sticks out of it, so the button is fixed to the window; the sidebar
+   sits above the header so the button's right half is not covered. */
+@media (min-width: 1025px) {
+  .portal-main:has(> .at-topbar) { padding-top: 0; }
+  .portal-main > .at-topbar { margin-top: 0; padding: 8px 0; min-height: 58px; }
+  .portal-sidebar { padding-top: 2px; z-index: 25; }
+  .portal-sidebar .portal-sidebar-lockup { margin-bottom: 38px; }
+  .portal-sidebar .portal-nav-toggle {
+    position: fixed;
+    top: 12px;
+    left: 221px;
+    z-index: 26;
+    background: color-mix(in srgb, var(--shell-fg) 8%, var(--shell-bg));
+  }
+  .nav-collapsed .portal-sidebar .portal-nav-toggle { left: 61px; }
+  .nav-collapsed .portal-sidebar { padding-top: 14px; }
+}

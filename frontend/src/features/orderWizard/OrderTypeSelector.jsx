@@ -51,7 +51,10 @@ export default function OrderTypeSelector({ crumbs, wizard, accountBar, fetchNot
       {/* Reuse Sidebar for Portal Continuity */}
       <aside className={`portal-sidebar ${mobileNavOpen ? 'mobile-open' : ''}`}>
         <div className="portal-sidebar-brand">
-          <ShellWordmark />
+          <div className="portal-sidebar-lockup">
+            <ShellWordmark />
+            <span className="portal-sidebar-tagline">Boutique</span>
+          </div>
           <div className="portal-sidebar-mark" aria-hidden="true">S</div>
           <button type="button" className="portal-nav-toggle" onClick={toggleNav}
                   aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
