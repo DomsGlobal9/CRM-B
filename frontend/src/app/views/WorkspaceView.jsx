@@ -358,6 +358,7 @@ export default function WorkspaceView() {
                 whatsappStatus={whatsappStatus}
                 fetchWhatsAppStatus={fetchWhatsAppStatus}
                 onUserUpdated={setCurrentUser}
+                onBoutiqueUpdated={setBoutiqueSettings}
               />
             )}
             </CrumbsProvider>

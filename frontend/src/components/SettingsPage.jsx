@@ -7,6 +7,7 @@ import DailySummarySettings from './DailySummarySettings.jsx';
 import TierNamesSettings from './TierNamesSettings.jsx';
 import { UserAvatar } from './ui/UserAvatar.jsx';
 import MyDetails from '../features/staff/MyDetails.jsx';
+import BoutiqueDetailsCard from './BoutiqueDetailsCard.jsx';
 import {
   Globe, ShieldCheck, CheckCircle2, Building, Link2, User, Clock,
   MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor,
@@ -43,6 +44,7 @@ export const SettingsPage = ({
   whatsappStatus = { connected: false, status: 'disconnected', qrCode: null },
   fetchWhatsAppStatus,
   onUserUpdated,
+  onBoutiqueUpdated,
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const [resetting, setResetting] = useState(false);
@@ -51,6 +53,7 @@ export const SettingsPage = ({
   const [savedBoutiqueSending, setSavedBoutiqueSending] = useState(null);
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState(getColorMode);
+  const [showBoutiqueDetails, setShowBoutiqueDetails] = useState(false);
   const [activeModal, setActiveModal] = useState(null); // 'language' | 'appearance' | 'workspace' | 'whatsapp' | 'invoice' | 'tiers' | 'summary'
 
   // The address a customer or staff member opens, as the My profile page shows it.
@@ -379,6 +382,21 @@ export const SettingsPage = ({
             <h3 className="settings-cat-title">Your shop</h3>
           </div>
           <div className="settings-cat-list">
+            {/* The owner, or a role handed settings.edit: the server refuses
+                everyone else, so the line is not drawn for them. */}
+            {hasTierAccess && onBoutiqueUpdated && (
+              <button
+                type="button"
+                className="settings-cat-item"
+                onClick={() => setShowBoutiqueDetails(true)}
+              >
+                <span className="settings-cat-item-text">
+                  <span>{t('settingsPage.boutiqueDetailsTitle', 'Boutique details')}</span>
+                  <ChevronRight size={14} color="var(--text-secondary)" />
+                </span>
+              </button>
+            )}
+
             <button
               type="button"
               className="settings-cat-item"
@@ -513,6 +531,14 @@ export const SettingsPage = ({
           </div>
         </div>
       </div>
+
+      {showBoutiqueDetails && (
+        <BoutiqueDetailsCard
+          settings={boutiqueSettings}
+          onSaved={onBoutiqueUpdated}
+          onClose={() => setShowBoutiqueDetails(false)}
+        />
+      )}
 
       {/* 4. Interactive Modal Popup for Selected Setting */}
       {activeModal && modalConfig && (
