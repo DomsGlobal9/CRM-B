@@ -11,7 +11,7 @@ import { ChevronDown } from 'lucide-react';
  * so the two read as one menu; Escape or a click outside closes it, and the
  * arrow keys move between its items.
  */
-export function AccountMenu({ avatar, label, currentUser, items = [] }) {
+export function AccountMenu({ avatar, currentUser, items = [] }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const buttonRef = useRef(null);
@@ -54,7 +54,10 @@ export function AccountMenu({ avatar, label, currentUser, items = [] }) {
               onClick={() => setOpen((v) => !v)} disabled={!items.length}
               aria-haspopup="menu" aria-expanded={open} aria-label={`Account menu for ${name}`}>
         <span className="user-avatar-circle">{avatar}</span>
-        <span>{label}</span>
+        <span className="acct-menu-who">
+          <span className="acct-menu-who-name">{name}</span>
+          <span className="acct-menu-who-role">{role}</span>
+        </span>
         <ChevronDown size={16} className="acct-menu-chev" aria-hidden="true" />
       </button>
       {open && (

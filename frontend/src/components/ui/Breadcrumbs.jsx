@@ -25,14 +25,13 @@ export function Breadcrumbs({ items }) {
   );
 }
 
-/** The row every page opens with: where you are on the left; the bell and the
- *  account menu (`account`, hidden on a phone, whose header bar has them) on
- *  the right. Its height follows its content, and it wraps if it runs short.
- *  A trail of one is only the page's own name, already its heading: not shown. */
+/** The header every page opens with: the page's name, with any trail back up,
+ *  on the left; AppHeader (`account`) on the right. Its height follows its
+ *  content, and it wraps if it runs short. */
 export function PageTopBar({ crumbs, account }) {
   return (
-    <div className="at-topbar">
-      {crumbs.length > 1 && <Breadcrumbs items={crumbs} />}
+    <div className={`at-topbar${crumbs.length > 1 ? '' : ' at-topbar--single'}`}>
+      {crumbs.length > 0 && <Breadcrumbs items={crumbs} />}
       {account}
     </div>
   );

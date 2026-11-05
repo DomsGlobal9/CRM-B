@@ -1,0 +1,205 @@
+/* The header on every workspace page (PageTopBar + AppHeader). It uses the theme's
+   tokens, so light, dark and each page's own colours all apply. */
+
+/* The bar runs edge to edge whatever padding the page has. The background is a
+   clipped shadow on a pseudo-element: it adds no sideways scrolling, and the
+   clip stays off the bar itself, so the account menu can still open below it. */
+.portal-main .at-topbar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+  margin: -12px 0 20px;
+  padding: 10px 0 12px;
+  float: none;
+}
+.portal-main .at-topbar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--surface-color);
+  box-shadow: 0 0 0 100vmax var(--surface-color), 0 1px 0 100vmax var(--border-color);
+  clip-path: inset(-100vmax -100vmax -1px -100vmax);
+}
+
+/* Left: the page's name as the title; any trail above it stays small, and clickable. */
+.portal-main .at-topbar .at-crumbs { flex: 0 1 auto; min-width: 0; margin: 0; }
+.portal-main .at-topbar .at-crumb-here[aria-current="page"] {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.portal-main .at-topbar .at-crumb-link { font-size: 13px; }
+
+/* Right */
+.app-header.portal-account-bar {
+  flex: 1 1 320px;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 10px;
+  margin-left: auto;
+}
+.app-header-search {
+  position: relative;
+  flex: 0 1 300px;
+  min-width: 170px;
+}
+.app-header-search svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.app-header-search input {
+  width: 100%;
+  height: 40px;
+  padding: 0 14px 0 38px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background: var(--surface-inset);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13.5px;
+}
+.app-header-search input:focus {
+  outline: none;
+  border-color: var(--border-focus, var(--border-strong));
+  background: var(--surface-color);
+}
+.app-header-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary-color);
+  color: var(--primary-foreground, #020202);
+  cursor: pointer;
+  transition: background-color .15s ease;
+}
+.app-header-plus:hover { background: var(--primary-hover, var(--primary-color)); }
+
+.app-header-icons { display: inline-flex; align-items: center; gap: 2px; }
+/* The plain icons of the header: no fill and no border until hovered. */
+.app-header .app-header-icon,
+.app-header .portal-account-bell-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+}
+.app-header .app-header-icon:hover,
+.app-header .portal-account-bell-btn:hover:not(:disabled) {
+  border: none;
+  box-shadow: none;
+  background: var(--surface-inset);
+  color: var(--text-primary);
+}
+.app-header .app-header-icon:focus-visible,
+.app-header-plus:focus-visible,
+.app-header-setup:focus-visible {
+  outline: 3px solid var(--accent-border);
+  outline-offset: 2px;
+}
+
+.app-header-rule { flex-shrink: 0; width: 1px; height: 26px; background: var(--border-color); }
+
+.app-header-setup {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 2px 6px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.app-header-setup:hover { background: var(--surface-inset); }
+.app-header-setup-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary-color) 22%, var(--surface-color));
+  color: var(--success-text, var(--text-primary));
+}
+
+/* The account chip: no pill, the name over the role. */
+.app-header .acct-menu-btn {
+  padding: 3px 4px;
+  gap: 10px;
+  border: none;
+  background: none;
+  box-shadow: none;
+  border-radius: 12px;
+}
+.app-header .acct-menu-btn:hover:not(:disabled),
+.app-header .acct-menu-btn[aria-expanded="true"] {
+  border: none;
+  box-shadow: none;
+  background: var(--surface-inset);
+}
+.app-header .user-avatar-circle { width: 36px; height: 36px; }
+.acct-menu-who { display: flex; flex-direction: column; min-width: 0; text-align: left; line-height: 1.25; }
+.acct-menu-who-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.acct-menu-who-role { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; font-weight: 500; color: var(--text-secondary); }
+
+/* Narrower screens: first the name, then what the account menu also offers. */
+@media (max-width: 1100px) {
+  .acct-menu-who { display: none; }
+  .app-header .acct-menu-btn { gap: 4px; }
+  .app-header-search { flex-basis: 220px; }
+}
+@media (max-width: 960px) {
+  .app-header .app-header-icon--foldable { display: none; }
+}
+
+/* A phone: the dark header bar above already has the title, bell, theme and
+   account menu, so this row keeps the trail (when there is one), search and New order. */
+@media (max-width: 768px) {
+  .portal-main .at-topbar { margin: -12px 0 12px; padding: 8px 0 10px; }
+  .portal-main .at-topbar--single .at-crumbs { display: none; }
+  .portal-main .at-topbar .at-crumbs { flex: 1 1 100%; }
+  .portal-main .at-topbar .at-crumb-here[aria-current="page"] { font-size: 15px; }
+  .app-header.portal-account-bar { display: flex; flex: 1 1 100%; flex-wrap: nowrap; }
+  .app-header > :not(.app-header-search):not(.app-header-plus) { display: none; }
+  .app-header-search { flex: 1 1 auto; min-width: 0; }
+  /* A role with neither has nothing to draw here. */
+  .portal-main .at-topbar--single:not(:has(.app-header-search, .app-header-plus)) { display: none; }
+}

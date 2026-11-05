@@ -4,7 +4,8 @@ import { hasPageTour } from '../components/ui/tourPages';
 import { api } from '../services/api';
 import { AccountMenu } from '../components/ui/AccountMenu';
 import { UserAvatar } from '../components/ui/UserAvatar';
-import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { AppHeader } from '../components/ui/AppHeader';
+import { orderBucket } from '../features/orders/stages';
 import { Segmented } from '../components/ui/Atelier';
 import { canSeeTab } from './nav';
 
@@ -14,7 +15,7 @@ import { canSeeTab } from './nav';
  * & Costs and Insights) and its hints, the Reports switch, the Getting started
  * steps, and the menu the guided tour walks through.
  */
-export default function useWorkspaceShell({ setView, setDashboardTab, currentUser, t, currentUserName, navSections, navTabs, dashboardTab, showBell, onboardingDismissed, setSelectedDirectoryCustomer, dashboardData, tailors, fabrics, ordersList, ordersLoaded, loading, setTourOpen, tourOpen, setPageTour, pageTour, notifications, setShowNotificationsDrawer, markingNotificationsRead, setMarkingNotificationsRead, markNotificationsRead, handleLogout, setCustomerAddMode, setEditingCustomer, bookTotal, adminCan, isOwnerUser }) {
+export default function useWorkspaceShell({ setView, setDashboardTab, currentUser, t, navSections, navTabs, dashboardTab, showBell, onboardingDismissed, setSelectedDirectoryCustomer, dashboardData, tailors, fabrics, ordersList, ordersLoaded, loading, setTourOpen, tourOpen, setPageTour, pageTour, notifications, setShowNotificationsDrawer, markingNotificationsRead, setMarkingNotificationsRead, markNotificationsRead, handleLogout, setCustomerAddMode, setEditingCustomer, bookTotal, adminCan, isOwnerUser, setOrdersSearch, setOrdersFilterTab }) {
   // The phone header's avatar menu: the Account entries this user's sidebar
   // shows, then Sign out. `go` is how that screen switches tab.
   const headerAccountItems = (go) => [
@@ -23,17 +24,45 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
     })),
     // One guide entry: this page's own guide, or on the Dashboard (which has
     // none of its own) the Dashboard tour.
-    { key: 'page-tour', label: t('nav.pageGuide', 'Guide for this page'), icon: Compass,
-      onClick: () => (hasPageTour(dashboardTab, currentUser?.role) ? setPageTour(dashboardTab) : setTourOpen(true)) },
+    { key: 'page-tour', label: t('nav.pageGuide', 'Guide for this page'), icon: Compass, onClick: () => openPageGuide() },
     { key: 'logout', label: t('nav.logout'), icon: LogOut, danger: true, onClick: () => handleLogout() },
   ];
 
   // The same account entries on a computer or tablet: the "Hi, <name>" chip at
   // the top of every page opens them (the sidebar no longer lists them). A
   // phone has MobileHeader's avatar menu instead, so the bar is hidden there.
+  // The header's search is the Dashboard's order search: the Orders page shows
+  // one pile at a time, so it opens the pile of the first match.
+  const searchOrders = async (go, text) => {
+    const list = ordersLoaded ? ordersList : await api.getOrders().catch(() => []);
+    const needle = text.toLowerCase();
+    const hit = list.find((o) => [o.customer_name, o.order_id, o.customer_phone]
+      .some((field) => (field || '').toLowerCase().includes(needle)));
+    setOrdersSearch(text);
+    setOrdersFilterTab(hit ? orderBucket(hit) : null);
+    go('orders');
+  };
+  const openPageGuide = () => (hasPageTour(dashboardTab, currentUser?.role) ? setPageTour(dashboardTab) : setTourOpen(true));
+
   const accountBar = (go) => (
-    <div className="portal-account-bar">
-      {showBell && (
+    <AppHeader
+      search={navTabs.includes('orders')
+        ? { placeholder: t('dashboard.searchOrders', 'Search orders…'), onSubmit: (text) => searchOrders(go, text) }
+        : null}
+      newOrder={isOwnerUser || adminCan('orders.create')
+        ? { label: t('dashboard.newOrder', 'New order'), onClick: () => setView('order-selector') }
+        : null}
+      help={{ label: t('nav.pageGuide', 'Guide for this page'), onClick: openPageGuide }}
+      settings={navTabs.includes('settings') ? { label: t('nav.settings'), onClick: () => go('settings') } : null}
+      setup={showOnboarding && navTabs.includes('overview')
+        ? {
+          done: onboardingSteps.filter((step) => step.done).length,
+          total: onboardingSteps.length,
+          label: `Getting started: ${onboardingSteps.filter((step) => step.done).length} of ${onboardingSteps.length} done`,
+          onClick: () => go('overview'),
+        }
+        : null}
+      bell={showBell && (
       <button
         type="button"
         className="portal-account-bell-btn"
@@ -58,11 +87,8 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
         )}
       </button>
       )}
-      <ThemeToggle className="portal-account-theme-btn" />
-      <AccountMenu avatar={<UserAvatar user={currentUser} />}
-                   label={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
-                   currentUser={currentUser} items={headerAccountItems(go)} />
-    </div>
+      account={<AccountMenu avatar={<UserAvatar user={currentUser} />} currentUser={currentUser} items={headerAccountItems(go)} />}
+    />
   );
 
   // Reports: Profit & Costs and Insights under one sidebar item. Each is still
