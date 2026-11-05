@@ -28,7 +28,7 @@ export default function ReversalPrompt({ activeReviewOrder, reversalBusy, revers
           const reset = at === -1 ? [] : stages.slice(at + 1).filter(s => s.status !== 'NOT_STARTED');
           return reset.length > 0 && (
             <div role="alert" style={{ display: 'flex', gap: '8px', padding: '10px 12px', marginBottom: '12px', borderRadius: '10px',
-                                       background: 'var(--warning-bg)', color: 'var(--warning-color)', fontSize: '13px' }}>
+                                       background: 'var(--warning-bg)', color: 'var(--warning-text)', fontSize: '13px' }}>
               <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
               <span>
                 <strong>Later work will be reset.</strong>{' '}

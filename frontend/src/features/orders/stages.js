@@ -41,79 +41,87 @@ export const sinceLabel = (iso) => {
   return hours < 1 ? 'just now' : hours < 24 ? `${hours} h` : `${Math.floor(hours / 24)} d`;
 };
 
+// The steps of an order, in workflow order, named in color-tokens.css.
+const stage = (n) => ({
+  rowBg: `var(--stage-${n}-row)`, bg: `var(--stage-${n}-fill)`,
+  border: `var(--stage-${n}-border)`, text: `var(--stage-${n}-text)`,
+});
+const ALTERATION = { rowBg: 'var(--warning-50)', bg: 'var(--warning-100)', border: 'var(--warning-300)', text: 'var(--warning-700)' };
+const CANCELLED = { rowBg: 'var(--neutral-50)', bg: 'var(--neutral-200)', border: 'var(--neutral-400)', text: 'var(--neutral-700)' };
+
 export const STEP_COLORS = {
   // 1. Order taken (Pill 1: #E3EED4)
-  created:     { rowBg: '#F4F8EE', bg: '#E3EED4', border: '#B1BAA5', text: '#132216' },
-  order_taken: { rowBg: '#F4F8EE', bg: '#E3EED4', border: '#B1BAA5', text: '#132216' },
-  new:         { rowBg: '#F4F8EE', bg: '#E3EED4', border: '#B1BAA5', text: '#132216' },
-  not_sent:    { rowBg: '#F4F8EE', bg: '#E3EED4', border: '#B1BAA5', text: '#132216' },
+  created:     stage(1),
+  order_taken: stage(1),
+  new:         stage(1),
+  not_sent:    stage(1),
 
   // 2. Design
-  design:          { rowBg: '#EEF5E7', bg: '#D1E0C8', border: '#A3AE9C', text: '#132216' },
-  pattern_cutting: { rowBg: '#EEF5E7', bg: '#D1E0C8', border: '#A3AE9C', text: '#132216' },
+  design:          stage(2),
+  pattern_cutting: stage(2),
 
   // 3. Paper cutting
-  paper_cutting: { rowBg: '#E8F1DF', bg: '#C0D1BC', border: '#96A393', text: '#132216' },
+  paper_cutting: stage(3),
 
   // 4. Maggam design (Pill 2: #AEC3B0)
-  maggam_work:   { rowBg: '#E2EDD7', bg: '#AEC3B0', border: '#889889', text: '#132216' },
-  maggam_design: { rowBg: '#E2EDD7', bg: '#AEC3B0', border: '#889889', text: '#132216' },
-  maggam:        { rowBg: '#E2EDD7', bg: '#AEC3B0', border: '#889889', text: '#132216' },
-  embroidery:    { rowBg: '#E2EDD7', bg: '#AEC3B0', border: '#889889', text: '#132216' },
+  maggam_work:   stage(4),
+  maggam_design: stage(4),
+  maggam:        stage(4),
+  embroidery:    stage(4),
 
   // 5. Maggam handwork
-  maggam_handwork: { rowBg: '#DCE9D0', bg: '#98B29B', border: '#768B79', text: '#132216' },
+  maggam_handwork: stage(5),
 
   // 6. Maggam verification
-  maggam_verification: { rowBg: '#D6E5C8', bg: '#81A186', border: '#657E69', text: '#132216' },
+  maggam_verification: stage(6),
 
   // 7. Fabric cutting (Pill 3: #6B9071)
-  fabric_cutting: { rowBg: '#D0E1C1', bg: '#6B9071', border: '#537058', text: '#132216' },
-  cutting:        { rowBg: '#D0E1C1', bg: '#6B9071', border: '#537058', text: '#132216' },
+  fabric_cutting: stage(7),
+  cutting:        stage(7),
 
   // 8. Stitching
-  stitching:             { rowBg: '#CADDBC', bg: '#5A7C5D', border: '#466148', text: '#FFFFFF' },
-  stitching_in_progress: { rowBg: '#CADDBC', bg: '#5A7C5D', border: '#466148', text: '#FFFFFF' },
+  stitching:             stage(8),
+  stitching_in_progress: stage(8),
 
   // 9. Hemming & finishing
-  finishing:         { rowBg: '#C4D9B7', bg: '#486948', border: '#385238', text: '#FFFFFF' },
-  hemming:           { rowBg: '#C4D9B7', bg: '#486948', border: '#385238', text: '#FFFFFF' },
-  hemming_finishing: { rowBg: '#C4D9B7', bg: '#486948', border: '#385238', text: '#FFFFFF' },
+  finishing:         stage(9),
+  hemming:           stage(9),
+  hemming_finishing: stage(9),
 
   // 10. Pressing (Pill 4: #375534)
-  pressing:           { rowBg: '#BED5B1', bg: '#375534', border: '#2B4229', text: '#FFFFFF' },
-  ironing:            { rowBg: '#BED5B1', bg: '#375534', border: '#2B4229', text: '#FFFFFF' },
-  packaging:          { rowBg: '#BED5B1', bg: '#375534', border: '#2B4229', text: '#FFFFFF' },
-  pressing_packaging: { rowBg: '#BED5B1', bg: '#375534', border: '#2B4229', text: '#FFFFFF' },
+  pressing:           stage(10),
+  ironing:            stage(10),
+  packaging:          stage(10),
+  pressing_packaging: stage(10),
 
   // 11. Master quality check
-  master_quality_check: { rowBg: '#B8D1AC', bg: '#2A472C', border: '#203723', text: '#FFFFFF' },
-  quality_check:        { rowBg: '#B8D1AC', bg: '#2A472C', border: '#203723', text: '#FFFFFF' },
-  qc:                   { rowBg: '#B8D1AC', bg: '#2A472C', border: '#203723', text: '#FFFFFF' },
+  master_quality_check: stage(11),
+  quality_check:        stage(11),
+  qc:                   stage(11),
 
   // 12. Trial booking
-  trial_scheduled: { rowBg: '#B2CDA6', bg: '#1C3825', border: '#162C1D', text: '#FFFFFF' },
-  trial_booking:   { rowBg: '#B2CDA6', bg: '#1C3825', border: '#162C1D', text: '#FFFFFF' },
+  trial_scheduled: stage(12),
+  trial_booking:   stage(12),
 
   // 13. Trial (Pill 5: #0F2A1D)
-  trial_completed: { rowBg: '#ACC9A1', bg: '#0F2A1D', border: '#0C2117', text: '#FFFFFF' },
-  trial:           { rowBg: '#ACC9A1', bg: '#0F2A1D', border: '#0C2117', text: '#FFFFFF' },
+  trial_completed: stage(13),
+  trial:           stage(13),
 
   // 14. Delivery prep
-  ready_for_delivery: { rowBg: '#D0D9B8', bg: '#535A3A', border: '#41462D', text: '#FFFFFF' },
-  delivery_prep:      { rowBg: '#D0D9B8', bg: '#535A3A', border: '#41462D', text: '#FFFFFF' },
+  ready_for_delivery: stage(14),
+  delivery_prep:      stage(14),
 
   // 15. Payment
-  payment: { rowBg: '#DFDDC4', bg: '#7C774B', border: '#615D3A', text: '#FFFFFF' },
+  payment: stage(15),
 
   // 16. Delivery (Sand: #978A56)
-  delivery:  { rowBg: '#EEE8D2', bg: '#978A56', border: '#766C43', text: '#132216' },
-  delivered: { rowBg: '#EEE8D2', bg: '#978A56', border: '#766C43', text: '#132216' },
+  delivery:  stage(16),
+  delivered: stage(16),
 
   // Alteration & Status
-  alteration:      { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' },
-  alteration_work: { rowBg: '#ffedd5', bg: '#fed7aa', border: '#f97316', text: '#c2410c' },
-  cancelled:       { rowBg: '#e2e8f0', bg: '#cbd5e1', border: '#64748b', text: '#475569' },
+  alteration:      ALTERATION,
+  alteration_work: ALTERATION,
+  cancelled:       CANCELLED,
 };
 
 export const getStageBadgeStyle = (stageKey, stageName = '') => {

@@ -77,7 +77,7 @@ export default function ReportsTab() {
         <Stat label={t('inventoryPage.tableReserved', 'Reserved')} value={qty(stock.reserved_stock)} />
         <Stat label={t('inventoryPage.tableAvailable', 'Available')} value={qty(stock.available_stock)} />
         <Stat label={t('inventoryPage.atReorderLevel', 'At reorder level')} value={stock.at_or_below_reorder_level}
-              tone={stock.at_or_below_reorder_level ? 'var(--warning-color)' : undefined} />
+              tone={stock.at_or_below_reorder_level ? 'var(--warning-text)' : undefined} />
         <Stat label={t('inventoryPage.outOfStock', 'Out of stock')} value={stock.out_of_stock}
               tone={stock.out_of_stock ? 'var(--danger-color)' : undefined} />
       </div>
@@ -120,7 +120,7 @@ export default function ReportsTab() {
               <div key={row.item_id} style={{ display: 'flex', justifyContent: 'space-between', gap: '10px',
                                               padding: '8px 0', borderTop: '1px solid var(--border-color)' }}>
                 <span style={{ fontSize: '13px' }}>{row.name}</span>
-                <span style={{ fontSize: '13px', color: Number(row.available_stock) <= 0 ? 'var(--danger-color)' : 'var(--warning-color)' }}>
+                <span style={{ fontSize: '13px', color: Number(row.available_stock) <= 0 ? 'var(--danger-color)' : 'var(--warning-text)' }}>
                   {qty(row.available_stock)} left · needs {qty(row.reorder_level)}
                 </span>
               </div>
@@ -137,7 +137,7 @@ export default function ReportsTab() {
                 <span style={{ fontSize: '13px', fontVariantNumeric: 'tabular-nums' }}>
                   {money(row.total_cost)}
                   {Number(row.waste_cost) > 0 && (
-                    <span style={{ color: 'var(--warning-color)', marginLeft: '8px', fontSize: '11.5px' }}>
+                    <span style={{ color: 'var(--warning-text)', marginLeft: '8px', fontSize: '11.5px' }}>
                       {money(row.waste_cost)} wasted
                     </span>
                   )}

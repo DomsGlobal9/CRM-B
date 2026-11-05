@@ -1,0 +1,84 @@
+/* =====================================================================
+   The colour system: named shades, 50 to 900, for each theme.
+
+   Primary   lime #B9D53C in Scaleezy, forest #16352A in Atelier. 500 is always
+             the brand colour. Lighter steps are backgrounds; 600 is lime's hover.
+   Neutral   the warm greys each theme already uses: text, borders, backgrounds.
+   Success, warning, danger, info: status only, never decoration.
+             100 tint, 500 fill, 700 text.
+   Accent    Atelier's brass; its 700 is the link. In Scaleezy, the primary scale.
+
+   One name, one job, in every theme: 50 is the quietest step and 900 the
+   strongest against that theme's background. So in the dark themes the scale
+   runs dark to light, and neutral-900 is readable text everywhere.
+
+   Text on these colours (checked by `npm run check:colors`):
+     Lime      dark text on 50-700, white on 800-900. White on lime fails, 1.66:1.
+     Forest    white on 400-900, dark text on 50-200.
+     Status    white on 500 in light themes, neutral-50 on 500 in dark themes.
+               700 is the text colour on a 100 tint.
+
+   Stage     stage-1 to stage-16: the steps of an order, in workflow order, one
+             set in every theme. Each has a row tint, a fill, a border and text.
+   ===================================================================== */
+
+/* ---- Scaleezy, light ---- */
+:root {
+  --primary-50: #F7FAE6; --primary-100: #E6F1C8; --primary-200: #DCEB9E; --primary-300: #CDE272; --primary-400: #C3DB55; --primary-500: #B9D53C; --primary-600: #A2BC2A; --primary-700: #7E9033; --primary-800: #5C6C13; --primary-900: #333D0C;
+  --neutral-50: #F7F5F1; --neutral-100: #F0EEE9; --neutral-200: #ECE9E2; --neutral-300: #DDD9D1; --neutral-400: #CBC6BC; --neutral-500: #9F9B92; --neutral-600: #75716B; --neutral-700: #5A5459; --neutral-800: #353135; --neutral-900: #141214;
+  --success-50: #F4F9F6; --success-100: #E8F2EC; --success-200: #B9D4C4; --success-300: #8CB79C; --success-400: #5F9A75; --success-500: #2E7D4F; --success-600: #246841; --success-700: #1A5433; --success-800: #114126; --success-900: #082F19;
+  --warning-50: #FDF9F0; --warning-100: #F9F0DF; --warning-200: #DDCBAE; --warning-300: #C2A77D; --warning-400: #A8834D; --warning-500: #8F6014; --warning-600: #784F0D; --warning-700: #613F07; --warning-800: #4C3002; --warning-900: #372100;
+  --danger-50: #FBF3F2; --danger-100: #F9E9E7; --danger-200: #EBBEB8; --danger-300: #DB948A; --danger-400: #C8695D; --danger-500: #B23A2E; --danger-600: #962F24; --danger-700: #7B241B; --danger-800: #611912; --danger-900: #480F0A;
+  --info-50: var(--neutral-50); --info-100: var(--neutral-200); --info-200: var(--neutral-300); --info-300: var(--neutral-400); --info-400: var(--neutral-600); --info-500: var(--neutral-700); --info-600: var(--neutral-800); --info-700: var(--neutral-800); --info-800: var(--neutral-900); --info-900: var(--neutral-900);
+  --accent-50: var(--primary-50); --accent-100: var(--primary-100); --accent-200: var(--primary-200); --accent-300: var(--primary-300); --accent-400: var(--primary-400); --accent-500: var(--primary-500); --accent-600: var(--primary-600); --accent-700: var(--primary-700); --accent-800: var(--primary-800); --accent-900: var(--primary-900);
+  --white: #FFFFFF;
+  --stage-1-row: #F4F8EE; --stage-1-fill: #E3EED4; --stage-1-border: #B1BAA5; --stage-1-text: #132216;
+  --stage-2-row: #EEF5E7; --stage-2-fill: #D1E0C8; --stage-2-border: #A3AE9C; --stage-2-text: #132216;
+  --stage-3-row: #E8F1DF; --stage-3-fill: #C0D1BC; --stage-3-border: #96A393; --stage-3-text: #132216;
+  --stage-4-row: #E2EDD7; --stage-4-fill: #AEC3B0; --stage-4-border: #889889; --stage-4-text: #132216;
+  --stage-5-row: #DCE9D0; --stage-5-fill: #98B29B; --stage-5-border: #768B79; --stage-5-text: #132216;
+  --stage-6-row: #D6E5C8; --stage-6-fill: #81A186; --stage-6-border: #657E69; --stage-6-text: #132216;
+  --stage-7-row: #D0E1C1; --stage-7-fill: #6B9071; --stage-7-border: #537058; --stage-7-text: #132216;
+  --stage-8-row: #CADDBC; --stage-8-fill: #5A7C5D; --stage-8-border: #466148; --stage-8-text: #FFFFFF;
+  --stage-9-row: #C4D9B7; --stage-9-fill: #486948; --stage-9-border: #385238; --stage-9-text: #FFFFFF;
+  --stage-10-row: #BED5B1; --stage-10-fill: #375534; --stage-10-border: #2B4229; --stage-10-text: #FFFFFF;
+  --stage-11-row: #B8D1AC; --stage-11-fill: #2A472C; --stage-11-border: #203723; --stage-11-text: #FFFFFF;
+  --stage-12-row: #B2CDA6; --stage-12-fill: #1C3825; --stage-12-border: #162C1D; --stage-12-text: #FFFFFF;
+  --stage-13-row: #ACC9A1; --stage-13-fill: #0F2A1D; --stage-13-border: #0C2117; --stage-13-text: #FFFFFF;
+  --stage-14-row: #D0D9B8; --stage-14-fill: #535A3A; --stage-14-border: #41462D; --stage-14-text: #FFFFFF;
+  --stage-15-row: #DFDDC4; --stage-15-fill: #7C774B; --stage-15-border: #615D3A; --stage-15-text: #FFFFFF;
+  --stage-16-row: #EEE8D2; --stage-16-fill: #978A56; --stage-16-border: #766C43; --stage-16-text: #132216;
+}
+
+/* ---- Scaleezy, dark ---- */
+html[data-theme="scaleezy-dark"] {
+  --primary-50: #141A0A; --primary-100: #1E2610; --primary-200: #3F4D1E; --primary-300: #64782A; --primary-400: #8DA634; --primary-500: #B9D53C; --primary-600: #CDE272; --primary-700: #CFE36A; --primary-800: #DCEB9E; --primary-900: #F0F6D8;
+  --neutral-50: #0B0B0B; --neutral-100: #161616; --neutral-200: #1B1B1B; --neutral-300: #222222; --neutral-400: #2A2A2A; --neutral-500: #3A3A3A; --neutral-600: #858585; --neutral-700: #ADADAD; --neutral-800: #CECDCB; --neutral-900: #F0EEE9;
+  --success-50: #101D15; --success-100: #15261C; --success-200: #284A33; --success-300: #3E7049; --success-400: #5A985D; --success-500: #7BC26F; --success-600: #94CF89; --success-700: #ACDBA3; --success-800: #C3E8BC; --success-900: #DBF4D6;
+  --warning-50: #201B0E; --warning-100: #2A2312; --warning-200: #524423; --warning-300: #7E6734; --warning-400: #AE8D47; --warning-500: #E0B45A; --warning-600: #E6C179; --warning-700: #EDCF96; --warning-800: #F3DCB1; --warning-900: #F9E9CC;
+  --danger-50: #211010; --danger-100: #2C1616; --danger-200: #58302F; --danger-300: #874C4B; --danger-400: #BA6A68; --danger-500: #F08A86; --danger-600: #F5A19D; --danger-700: #FAB8B3; --danger-800: #FDCECB; --danger-900: #FFE4E2;
+  --info-50: var(--neutral-200); --info-100: var(--neutral-300); --info-200: var(--neutral-400); --info-300: var(--neutral-500); --info-400: var(--neutral-600); --info-500: var(--neutral-700); --info-600: var(--neutral-800); --info-700: var(--neutral-800); --info-800: var(--neutral-900); --info-900: var(--neutral-900);
+  --accent-50: var(--primary-50); --accent-100: var(--primary-100); --accent-200: var(--primary-200); --accent-300: var(--primary-300); --accent-400: var(--primary-400); --accent-500: var(--primary-500); --accent-600: var(--primary-600); --accent-700: var(--primary-700); --accent-800: var(--primary-800); --accent-900: var(--primary-900);
+}
+
+/* ---- Atelier, light ---- */
+html[data-theme="atelier"] {
+  --primary-50: #EEF4F1; --primary-100: #DCE9E2; --primary-200: #B8D0C4; --primary-300: #7FA392; --primary-400: #1F4A3A; --primary-500: #16352A; --primary-600: #102820; --primary-700: #0C1E18; --primary-800: #081510; --primary-900: #040C09;
+  --neutral-50: #FAF7F1; --neutral-100: #F3F0E9; --neutral-200: #F1EDE4; --neutral-300: #E5E1D7; --neutral-400: #D4CFC2; --neutral-500: #9B9E93; --neutral-600: #676F68; --neutral-700: #545E58; --neutral-800: #373E39; --neutral-900: #1B201E;
+  --success-50: #F3F9F6; --success-100: #E6F3EC; --success-200: #B6D5C4; --success-300: #86B79C; --success-400: #569A74; --success-500: #1C7D4D; --success-600: #14683F; --success-700: #0D5432; --success-800: #064125; --success-900: #022F19;
+  --warning-50: #FEF8ED; --warning-100: #FBEFD9; --warning-200: #E1CCA9; --warning-300: #C9A87A; --warning-400: #B1854C; --warning-500: #9A6212; --warning-600: #80500B; --warning-700: #674006; --warning-800: #502F02; --warning-900: #392000;
+  --danger-50: #FDF5F4; --danger-100: #FBEAE9; --danger-200: #EDBCB8; --danger-300: #DC8E88; --danger-400: #C76058; --danger-500: #B02A24; --danger-600: #95221C; --danger-700: #7C1A15; --danger-800: #63120E; --danger-900: #4B0B08;
+  --info-50: #F4F8FD; --info-100: #E8F0FB; --info-200: #B6CBE9; --info-300: #84A7D6; --info-400: #5483C3; --info-500: #1F5FAE; --info-600: #195094; --info-700: #13417B; --info-800: #0D3362; --info-900: #08264B;
+  --accent-50: #F7EFE1; --accent-100: #F0E4CF; --accent-200: #EAD9BD; --accent-300: #D5BD98; --accent-400: #C0A173; --accent-500: #AC854E; --accent-600: #986A26; --accent-700: #77531D; --accent-800: #583C14; --accent-900: #3A270B;
+}
+
+/* ---- Atelier, dark ---- */
+html[data-theme="atelier-dark"] {
+  --primary-50: #12241B; --primary-100: #1F3A2C; --primary-200: #2B533E; --primary-300: #376D52; --primary-400: #438866; --primary-500: #4FA47B; --primary-600: #6DBB95; --primary-700: #7EC6A2; --primary-800: #8FD1B0; --primary-900: #CFEBDD;
+  --neutral-50: #131614; --neutral-100: #1B1F1C; --neutral-200: #20251F; --neutral-300: #262B27; --neutral-400: #2F3531; --neutral-500: #3D443F; --neutral-600: #858C87; --neutral-700: #B3B8B3; --neutral-800: #D3CFC8; --neutral-900: #EDE9E0;
+  --success-50: #112118; --success-100: #152A1F; --success-200: #294D3A; --success-300: #3F7256; --success-400: #569A75; --success-500: #6FC494; --success-600: #8BD0A7; --success-700: #A5DCBA; --success-800: #BEE7CD; --success-900: #D7F3E1;
+  --warning-50: #201B0E; --warning-100: #2A2312; --warning-200: #514322; --warning-300: #7C6532; --warning-400: #AB8A44; --warning-500: #DCB056; --warning-600: #E3BE76; --warning-700: #EBCD94; --warning-800: #F2DBB0; --warning-900: #F9E9CC;
+  --danger-50: #211010; --danger-100: #2C1616; --danger-200: #57302F; --danger-300: #874C4B; --danger-400: #BA6B67; --danger-500: #EF8B85; --danger-600: #F5A29B; --danger-700: #F9B8B2; --danger-800: #FDCEC9; --danger-900: #FFE4E1;
+  --info-50: #101C2D; --info-100: #15243A; --info-200: #2D4363; --info-300: #476590; --info-400: #628ABF; --info-500: #7FB0F0; --info-600: #97BFF4; --info-700: #AFCFF8; --info-800: #C7DEFC; --info-900: #DFEDFF;
+  --accent-50: #1C180F; --accent-100: #2A2417; --accent-200: #413720; --accent-300: #5A4A2A; --accent-400: #786239; --accent-500: #977B49; --accent-600: #B79559; --accent-700: #D9B06A; --accent-800: #E7CC9D; --accent-900: #F5E8CF;
+}

@@ -197,7 +197,7 @@ function DesignerRoster({ portalUrl }) {
                 {d.design_count} design{d.design_count === 1 ? '' : 's'}
               </span>
               {d.has_login ? (
-                <span style={{ fontSize: '11px', color: 'var(--success-color)', marginLeft: 'auto' }}>Has a login</span>
+                <span style={{ fontSize: '11px', color: 'var(--success-text)', marginLeft: 'auto' }}>Has a login</span>
               ) : (
                 <span className="dd-grant" style={{ display: 'flex', gap: '6px', marginLeft: 'auto', flex: '1 1 auto', maxWidth: '360px' }}>
                   <input

@@ -60,7 +60,7 @@ export default function OrderConfirmedScreen({ fromLabel, confirmedOrder, custom
             (COERCE_DECIMAL_TO_STRING is unset), and String.toLocaleString
             does no grouping, so it printed ₹51502.50 rather than
             ₹51,502.50. parseFloat fixes the second half. */}
-        <span className="meta-info-val" style={{ color: confirmedOrder.payment_status === 'Paid' ? 'var(--success-color)' : 'var(--text-primary)' }}>
+        <span className="meta-info-val" style={{ color: confirmedOrder.payment_status === 'Paid' ? 'var(--success-text)' : 'var(--text-primary)' }}>
           {confirmedOrder.payment_status} • {formatMoney(confirmedOrder.amount_paid)}
           {confirmedOrder.payment_status !== 'Paid' && (
             <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>

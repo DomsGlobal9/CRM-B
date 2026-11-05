@@ -6,8 +6,10 @@ import { authenticateInternalApi } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-// GET /whatsapp/status?sessionId=...
-router.get('/status', (req: Request, res: Response) => {
+// GET /whatsapp/status?sessionId=... (Protected by internal API secret)
+// The answer carries the pairing QR: anyone who can scan it links their own
+// phone to that boutique's WhatsApp. Asking also starts the session.
+router.get('/status', authenticateInternalApi, (req: Request, res: Response) => {
   const sessionId = (req.query.sessionId as string) || 'default';
   const statusInfo = getWhatsAppStatus(sessionId);
   res.json({

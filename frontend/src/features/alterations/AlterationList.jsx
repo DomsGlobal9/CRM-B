@@ -17,9 +17,9 @@ import { formatDate as fmtDate, formatMoney } from '../../services/format';
  */
 
 const STATUS_TONE = {
-  RECEIVED: '#6b7280', INSPECTION: '#3b82f6', PENDING_APPROVAL: '#f59e0b',
-  APPROVED: '#8b5cf6', ASSIGNED: '#0ea5e9', IN_PROGRESS: '#f59e0b',
-  QC: '#a855f7', READY_FOR_PICKUP: 'var(--success-color)', COMPLETED: 'var(--success-color)',
+  RECEIVED: '#6b7280', INSPECTION: 'var(--info-500)', PENDING_APPROVAL: '#f59e0b',
+  APPROVED: 'var(--info-500)', ASSIGNED: 'var(--info-500)', IN_PROGRESS: '#f59e0b',
+  QC: 'var(--info-500)', READY_FOR_PICKUP: 'var(--success-text)', COMPLETED: 'var(--success-text)',
   CANCELLED: 'var(--danger-color)',
 };
 
@@ -72,11 +72,11 @@ export default function AlterationList({ title, params, onOpenAlteration, refres
                 <strong style={{ fontSize: '14px' }}>{row.alteration_number}</strong>
                 <span style={{
                   fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px',
-                  color: tone, background: `${tone}1f`, border: `1px solid ${tone}55`,
+                  color: tone, background: `color-mix(in srgb, ${tone} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${tone} 33%, transparent)`,
                 }}>
                   {row.status_display || row.status}
                 </span>
-                <span style={{ color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : 'var(--success-color)', fontSize: '12px' }}>
+                <span style={{ color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : 'var(--success-text)', fontSize: '12px' }}>
                   {row.alteration_type === 'PAID_CLIENT_REQUEST' ? 'Paid' : 'Free'}
                 </span>
                 {Number(row.outstanding_balance) > 0 && (

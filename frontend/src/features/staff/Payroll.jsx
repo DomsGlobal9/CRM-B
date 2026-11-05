@@ -97,7 +97,7 @@ function Modal({ title, onClose, children, width = '520px' }) {
 
 function StatusPill({ status }) {
   const tone = status === 'PAID'
-    ? { bg: 'rgba(47,74,122,0.15)', fg: '#2f4a7a', label: 'Paid', Icon: CheckCircle2 }
+    ? { bg: 'color-mix(in srgb, var(--info-500) 15%, transparent)', fg: 'var(--info-700)', label: 'Paid', Icon: CheckCircle2 }
     : status === 'APPROVED'
       ? { bg: 'rgba(46,180,120,0.15)', fg: '#1e8a5c', label: 'Approved', Icon: Lock }
       : { bg: 'rgba(140,140,140,0.15)', fg: 'var(--text-secondary)', label: 'Draft', Icon: null };
@@ -453,7 +453,7 @@ function RecordDetail({ record, week, onPaid, onRecalculate }) {
         {record.status === 'PAID' && record.payout && (
           <div style={{ marginTop: '12px', paddingTop: '12px', fontSize: '13px',
                         borderTop: '1px solid var(--border-color, rgba(255,255,255,0.08))',
-                        color: '#2f4a7a' }}>
+                        color: 'var(--info-700)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
               <CheckCircle2 size={14} /> Payment recorded
             </div>
@@ -865,7 +865,7 @@ export default function Payroll({ week, onWeekChange, onChanged }) {
                     </div>
                   )}
                   {r.status === 'PAID' && r.payout && (
-                    <div style={{ fontSize: '12px', color: '#2f4a7a', marginTop: '8px',
+                    <div style={{ fontSize: '12px', color: 'var(--info-700)', marginTop: '8px',
                                   display: 'flex', alignItems: 'center', gap: '5px' }}>
                       <CheckCircle2 size={13} />
                       Paid {money(r.payout.amount)} · {r.payout.method_display}

@@ -10,7 +10,7 @@ export const StyleProfileCard = ({ customer }) => {
     [t('customersPage.size', 'Size'), dna.size, Ruler], [t('customersPage.visitPattern', 'Visit pattern'), dna.visit_pattern, CalendarDays],
   ].filter(([, v]) => v);
   const riskColor = dna.risk_level === 'danger' ? 'var(--danger-color)'
-    : dna.risk_level === 'warning' ? 'var(--warning-color)' : 'var(--success-color)';
+    : dna.risk_level === 'warning' ? 'var(--warning-text)' : 'var(--success-text)';
   const hasAny = rows.length || dna.risk_status || dna.next_action;
   return (
     <SectionCard icon={Sparkles} tone="amber"

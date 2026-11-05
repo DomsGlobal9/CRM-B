@@ -14,20 +14,20 @@ import Loader from '../../components/ui/Loader';
 
 const STATUS_TONE = {
   RECEIVED: '#6b7280',
-  INSPECTION: '#3b82f6',
+  INSPECTION: 'var(--info-500)',
   PENDING_APPROVAL: '#f59e0b',
-  APPROVED: '#8b5cf6',
-  ASSIGNED: '#0ea5e9',
+  APPROVED: 'var(--info-500)',
+  ASSIGNED: 'var(--info-500)',
   IN_PROGRESS: '#f59e0b',
-  QC: '#a855f7',
-  CUSTOMER_REVIEW: '#a855f7',
-  PRESSING: '#0ea5e9',
-  PACKAGING: '#8b5cf6',
+  QC: 'var(--info-500)',
+  CUSTOMER_REVIEW: 'var(--info-500)',
+  PRESSING: 'var(--info-500)',
+  PACKAGING: 'var(--info-500)',
   READY_FOR_PICKUP: '#10b981',
   COMPLETED: '#10b981',
   CANCELLED: '#ef4444',
-  READY_FOR_PICKUP: 'var(--success-color)',
-  COMPLETED: 'var(--success-color)',
+  READY_FOR_PICKUP: 'var(--success-text)',
+  COMPLETED: 'var(--success-text)',
   CANCELLED: 'var(--danger-color)',
 };
 
@@ -108,7 +108,7 @@ function Pill({ status, label }) {
   return (
     <span style={{
       fontSize: '11px', fontWeight: 700, padding: '3px 10px', borderRadius: '999px',
-      color: tone, background: `${tone}1f`, border: `1px solid ${tone}55`,
+      color: tone, background: `color-mix(in srgb, ${tone} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${tone} 33%, transparent)`,
       whiteSpace: 'nowrap',
     }}>
       {label || status}
@@ -188,7 +188,7 @@ function StatusTrack({ status, small = false }) {
         return (
           <span key={step} style={{
             fontSize: '10px', fontWeight: 600, padding: '4px 8px', borderRadius: '6px',
-            color: here ? '#fff' : done ? 'var(--success-color)' : 'var(--text-muted)',
+            color: here ? '#fff' : done ? 'var(--success-text)' : 'var(--text-muted)',
             background: here ? (STATUS_TONE[step] || '#6b7280') : done ? 'rgba(16,185,129,0.12)' : 'transparent',
             border: `1px solid ${here ? 'transparent' : done ? 'rgba(16,185,129,0.3)' : 'var(--border-color)'}`,
           }}>
@@ -325,7 +325,7 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
         <span style={{
           fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '999px',
           background: isPaid ? 'rgba(245,158,11,0.14)' : 'rgba(16,185,129,0.14)',
-          color: isPaid ? '#f59e0b' : 'var(--success-color)',
+          color: isPaid ? '#f59e0b' : 'var(--success-text)',
         }}>
           {alteration.alteration_type_display}
         </span>
@@ -333,8 +333,8 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
           <span title={isSmall ? 'A small issue: a short flow, back sooner.' : 'A big issue: the full flow, step by step.'}
                 style={{
                   fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '999px',
-                  background: isSmall ? 'rgba(14,165,233,0.14)' : 'rgba(139,92,246,0.14)',
-                  color: isSmall ? '#0ea5e9' : '#8b5cf6',
+                  background: 'color-mix(in srgb, var(--info-500) 14%, transparent)',
+                  color: 'var(--info-500)',
                 }}>
             {alteration.issue_scale_display} issue
           </span>
@@ -446,8 +446,8 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
           >
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
               <Stat label="Charge" value={money(alteration.charge_amount)} />
-              <Stat label="Paid" value={money(alteration.amount_paid)} tone="var(--success-color)" />
-              <Stat label="Outstanding" value={money(outstanding)} tone={outstanding > 0 ? 'var(--danger-color)' : 'var(--success-color)'} />
+              <Stat label="Paid" value={money(alteration.amount_paid)} tone="var(--success-text)" />
+              <Stat label="Outstanding" value={money(outstanding)} tone={outstanding > 0 ? 'var(--danger-color)' : 'var(--success-text)'} />
             </div>
             {alteration.payments?.length ? (
               <table style={{ width: '100%', fontSize: '12.5px', borderCollapse: 'collapse' }}>
@@ -871,7 +871,7 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
 
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <Stat label="In progress" value={totals.open} />
-        <Stat label="Ready for pickup" value={totals.awaitingPickup} tone="var(--success-color)" />
+        <Stat label="Ready for pickup" value={totals.awaitingPickup} tone="var(--success-text)" />
         <Stat label="Outstanding" value={money(totals.owed)} tone={totals.owed > 0 ? '#f59e0b' : undefined} />
       </div>
 

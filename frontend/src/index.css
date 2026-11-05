@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
 @import './themes.css';
+@import './color-tokens.css';
 
 :root {
   /* ---- Scaleezy: lime on Cloud Dancer, a deep-olive shell ---------------
@@ -8,39 +9,41 @@
      500 #B9D53C · 400 #C3DB55 · 300 #CDE272 · 200 #DCEB9E · 100 #E6F1C8 · 50 #F7FAE6
      The shell sits deep in the scale so the lime actions stay the brightest
      thing on screen.                                                        */
-  --bg-color: #F0EEE9;          /* Cloud Dancer: the page ground            */
-  --surface-color: #FFFFFF;     /* cards, surfaces                          */
-  --surface-2: #F7F5F1;         /* raised / alternating rows                */
-  --surface-inset: #ECE9E2;     /* wells, quiet fills, skeletons            */
+  --bg-color: var(--neutral-100);          /* Cloud Dancer: the page ground            */
+  --surface-color: var(--white);     /* cards, surfaces                          */
+  --surface-2: var(--neutral-50);         /* raised / alternating rows                */
+  --surface-inset: var(--neutral-200);     /* wells, quiet fills, skeletons            */
 
   /* ---- Text: warm ink and one grey ---------------------------------- */
-  --text-primary: #141214;
-  --text-secondary: #5A5459;
-  --text-muted: #5A5459;
-  --text-on-dark: #F0EEE9;
+  --text-primary: var(--neutral-900);
+  --text-secondary: var(--neutral-700);
+  --text-muted: var(--neutral-700);
+  --text-on-dark: var(--neutral-100);
 
   /* ---- Brand: lime for the primary action, active state and focus ------ */
-  --primary-color: #B9D53C;     /* near-black text on it (11:1)             */
+  --primary-color: var(--primary-500);     /* near-black text on it (11:1)             */
   --primary-foreground: #020202;
-  --primary-hover: #A2BC2A;     /* one step deeper                          */
+  --primary-hover: var(--primary-600);     /* one step deeper                          */
   --brand-dark: #131114;
-  --brand-dark-foreground: #F0EEE9;
-  --brand-link: #5C6C13;        /* inline links on light surfaces; raw lime */
-  --accent-text: #5C6C13;       /* on white is never readable               */
-  --accent-color: #E6F1C8;      /* the soft lime fill                       */
+  --brand-dark-foreground: var(--neutral-100);
+  --brand-link: var(--accent-800);        /* inline links on light surfaces; raw lime */
+  --accent-text: var(--accent-800);       /* on white is never readable               */
+  --accent-color: var(--accent-100);      /* the soft lime fill                       */
   --accent-border: rgba(185, 213, 60, 0.45);
-  --ring: #B9D53C;
+  --ring: var(--primary-700);
 
   /* ---- Borders, from Cloud Dancer ------------------------------------ */
-  --border-color: #DDD9D1;
-  --border-strong: #CBC6BC;     /* inputs, unchecked switch                 */
-  --border-focus: #141214;      /* ink border, lime ring                    */
+  --border-color: var(--neutral-300);
+  --border-strong: var(--neutral-400);     /* inputs, unchecked switch                 */
+  --border-focus: var(--neutral-900);      /* ink border, lime ring                    */
 
   /* ---- Semantic: status chips only, never accents -------------------- */
-  --success-color: #2E7D4F;  --success-bg: #E8F2EC;
-  --warning-color: #8F6014;  --warning-bg: #F9F0DF;
-  --danger-color:  #B23A2E;  --danger-bg:  #F9E9E7;
-  --info-color:    #5A5459;  --info-bg:    #ECE9E2;
+  --success-color: var(--success-500);  --success-bg: var(--success-100);
+  --warning-color: var(--warning-500);  --warning-bg: var(--warning-100);
+  --danger-color:  var(--danger-500);  --danger-bg:  var(--danger-100);
+  /* Status as text: darker where the fill fails AA on its tint or the page. */
+  --success-text: var(--success-700);  --warning-text: var(--warning-500);
+  --info-color:    var(--info-500);  --info-bg:    var(--info-100);
 
   /* ---- Type scale (one ladder for the whole product) ----------------- */
   --text-2xs: 11px;   /* eyebrows, chips              */
@@ -76,17 +79,17 @@
 
   /* ---- Theme-facing tokens the recipes read; each pack overrides these -- */
   --shell-bg: #0C0F00;          /* near-black lime: sidebar, top bars, entry */
-  --shell-fg: #F0EEE9;          /* Cloud Dancer on the shell                */
-  --shell-logo: #B9D53C;        /* the wordmark in lime                     */
-  --shell-active-bg: #F0EEE9;   /* the current page: a Cloud Dancer pill    */
-  --shell-active-fg: #141214;   /*   with ink text, like the active tab     */
-  --shell-accent: #B9D53C;      /* the bar beside it, and phone nav accents */
+  --shell-fg: var(--neutral-100);          /* Cloud Dancer on the shell                */
+  --shell-logo: var(--primary-500);        /* the wordmark in lime                     */
+  --shell-active-bg: var(--neutral-100);   /* the current page: a Cloud Dancer pill    */
+  --shell-active-fg: var(--neutral-900);   /*   with ink text, like the active tab     */
+  --shell-accent: var(--primary-500);      /* the bar beside it, and phone nav accents */
   --shell-muted: #9FCBA8;       /* group labels: soft green on the shell    */
-  --selected-bg: #141214;       /* the current step: ink, never the CTA     */
-  --selected-fg: #FFFFFF;
-  --secondary-hover-bg: #E6F1C8;      /* outline button on hover: soft fill */
-  --secondary-hover-fg: #5C6C13;
-  --secondary-hover-border: #B9D53C;
+  --selected-bg: var(--neutral-900);       /* the current step: ink, never the CTA     */
+  --selected-fg: var(--white);
+  --secondary-hover-bg: var(--primary-100);      /* outline button on hover: soft fill */
+  --secondary-hover-fg: var(--primary-800);
+  --secondary-hover-border: var(--primary-500);
   --overlay: rgba(20, 18, 20, 0.7);
 
   /* DM Sans for everything, display included. */
@@ -236,7 +239,7 @@ header.app-header {
 .step-item.completed .step-indicator {
   background-color: var(--success-bg);
   border-color: var(--success-color);
-  color: var(--success-color);
+  color: var(--success-text);
 }
 .step-item.completed .step-label {
   color: var(--text-primary);
@@ -525,7 +528,7 @@ textarea.form-input {
 }
 
 .tips-list li svg {
-  color: var(--success-color);
+  color: var(--success-text);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -899,7 +902,7 @@ textarea.form-input {
 
 .tailor-status-tag.available {
   background-color: var(--success-bg);
-  color: var(--success-color);
+  color: var(--success-text);
 }
 
 .tailor-status-tag.busy {
@@ -949,7 +952,7 @@ textarea.form-input {
 }
 
 .price-display.total {
-  color: var(--success-color);
+  color: var(--success-text);
   font-size: 20px;
   font-weight: 700;
 }
@@ -1045,7 +1048,7 @@ textarea.form-input {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--success-color);
+  color: var(--success-text);
   font-size: 40px;
 }
 
@@ -1140,7 +1143,7 @@ textarea.form-input {
 .timeline-node.completed .timeline-node-circle {
   background-color: var(--success-bg);
   border-color: var(--success-color);
-  color: var(--success-color);
+  color: var(--success-text);
 }
 
 .timeline-node.active .timeline-node-circle {
@@ -1373,8 +1376,8 @@ table.data-table tbody tr:hover {
 }
 
 .status-badge.confirmed {
-  background-color: #e8f4fd;
-  color: #0b57d0;
+  background-color: var(--info-100);
+  color: var(--info-700);
 }
 
 .status-badge.stylist_review {
@@ -1383,13 +1386,13 @@ table.data-table tbody tr:hover {
 }
 
 .status-badge.design_creation {
-  background-color: #f3e5f5;
-  color: #7b1fa2;
+  background-color: var(--info-100);
+  color: var(--info-700);
 }
 
 .status-badge.quality_check {
-  background-color: #e1f5fe;
-  color: #0288d1;
+  background-color: var(--info-100);
+  color: var(--info-700);
 }
 
 .status-badge.packed_shipped {
@@ -2446,7 +2449,7 @@ table.data-table tbody tr:hover {
 
 .order-row-badge.confirmed {
   background-color: #e8f5e9;
-  color: var(--success-color);
+  color: var(--success-text);
 }
 
 .order-row-badge.in_progress {
@@ -2535,12 +2538,12 @@ table.data-table tbody tr:hover {
 }
 
 .progress-step-state-tag.completed {
-  color: var(--success-color);
+  color: var(--success-text);
 }
 
 .progress-step-state-tag.current {
   background-color: #e8f5e9;
-  color: var(--success-color);
+  color: var(--success-text);
   font-weight: 600;
 }
 
@@ -2722,7 +2725,7 @@ table.data-table tbody tr:hover {
 }
 
 .selector-feature-item svg {
-  color: var(--success-color);
+  color: var(--success-text);
   flex-shrink: 0;
 }
 
@@ -2798,7 +2801,7 @@ table.data-table tbody tr:hover {
 .flow-step-node.completed .flow-step-icon-circle {
   background-color: var(--success-bg);
   border-color: var(--success-color);
-  color: var(--success-color);
+  color: var(--success-text);
 }
 
 .flow-step-node-title {
@@ -4240,8 +4243,8 @@ table.data-table tbody tr:hover {
   font-size: var(--text-2xs); font-weight: var(--weight-semibold);
   padding: 2px 8px; border-radius: 999px; line-height: 1.6;
 }
-.ui-badge--success { background: var(--success-bg); color: var(--success-color); }
-.ui-badge--warning { background: var(--warning-bg); color: var(--warning-color); }
+.ui-badge--success { background: var(--success-bg); color: var(--success-text); }
+.ui-badge--warning { background: var(--warning-bg); color: var(--warning-text); }
 .ui-badge--danger  { background: var(--danger-bg);  color: var(--danger-color); }
 .ui-badge--info    { background: var(--info-bg);    color: var(--info-color); }
 .ui-badge--neutral { background: var(--surface-inset); color: var(--text-secondary); }
@@ -4328,7 +4331,7 @@ table.data-table tbody tr:hover {
 .at-stage-brief .garment-instructions { margin-top: var(--space-1); }
 @media (max-width: 600px) { .at-stage-brief .garment-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .garment-instructions { padding: var(--space-3) var(--space-4); background: var(--warning-bg); border: 1px solid var(--warning-color); border-radius: var(--radius-md); display: flex; flex-direction: column; gap: var(--space-1); }
-.garment-instructions .garment-section-title { color: var(--warning-color); }
+.garment-instructions .garment-section-title { color: var(--warning-text); }
 .garment-instructions-text { font-size: var(--text-sm); color: var(--text-primary); white-space: pre-wrap; }
 .stage-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--surface-2); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
 .stage-meta-value { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); margin-top: 2px; }
@@ -4341,8 +4344,8 @@ table.data-table tbody tr:hover {
 :root {
   --tone-green-bg: #eef6f1;  --tone-green-tile: #d5eadd;  --tone-green-fg: #1c7d4d;  --tone-green-line: #d3e6da;
   --tone-amber-bg: #fbf4e6;  --tone-amber-tile: #f4e3c1;  --tone-amber-fg: #9a6212;  --tone-amber-line: #eddcb9;
-  --tone-violet-bg: #f3f0fb; --tone-violet-tile: #e2dbf5; --tone-violet-fg: #5b3fb0; --tone-violet-line: #ddd5f1;
-  --tone-blue-bg: #ebf2fb;   --tone-blue-tile: #d3e2f6;   --tone-blue-fg: #1f5fae;   --tone-blue-line: #d0dff2;
+  --tone-violet-bg: var(--info-50); --tone-violet-tile: var(--info-100); --tone-violet-fg: var(--info-700); --tone-violet-line: var(--info-200);
+  --tone-blue-bg: var(--info-50);   --tone-blue-tile: var(--info-100);   --tone-blue-fg: var(--info-700);   --tone-blue-line: var(--info-200);
   --tone-rose-bg: #fbeded;   --tone-rose-tile: #f4d3d3;   --tone-rose-fg: #b02a24;   --tone-rose-line: #efd0d0;
   --tone-neutral-bg: var(--surface-color); --tone-neutral-tile: var(--surface-inset); --tone-neutral-fg: var(--text-secondary); --tone-neutral-line: var(--border-color);
 }
@@ -5103,8 +5106,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 
 /* Badges and status chips. */
 .ui-badge { font-size: 12px; font-weight: 500; padding: 2px 10px; border: 1px solid var(--border-color); border-radius: 999px; background: var(--surface-inset); color: var(--text-secondary); line-height: 1.6; }
-.ui-badge--success { border-color: color-mix(in srgb, var(--success-color) 25%, transparent); background: color-mix(in srgb, var(--success-color) 10%, transparent); color: var(--success-color); }
-.ui-badge--warning { border-color: color-mix(in srgb, var(--warning-color) 30%, transparent); background: color-mix(in srgb, var(--warning-color) 12%, transparent); color: var(--warning-color); }
+.ui-badge--success { border-color: color-mix(in srgb, var(--success-color) 25%, transparent); background: color-mix(in srgb, var(--success-color) 10%, transparent); color: var(--success-text); }
+.ui-badge--warning { border-color: color-mix(in srgb, var(--warning-color) 30%, transparent); background: color-mix(in srgb, var(--warning-color) 12%, transparent); color: var(--warning-text); }
 .ui-badge--danger { border-color: color-mix(in srgb, var(--danger-color) 25%, transparent); background: color-mix(in srgb, var(--danger-color) 10%, transparent); color: var(--danger-color); }
 .ui-badge--info, .ui-badge--neutral { border-color: var(--border-color); background: var(--surface-inset); color: var(--text-secondary); }
 
@@ -5224,7 +5227,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .od-quote { margin: 0; max-width: 34ch; font-family: var(--font-serif); font-style: italic; font-size: 17px; line-height: 1.45; color: var(--text-secondary); text-align: right; }
 /* The status pill: a select dressed as the badge it changes. */
 .od-status { position: relative; display: inline-flex; align-items: center; height: 34px; border-radius: 999px; background: var(--accent-color); color: var(--brand-link); border: 1px solid transparent; }
-.od-status--success { background: var(--success-bg); color: var(--success-color); }
+.od-status--success { background: var(--success-bg); color: var(--success-text); }
 .od-status--neutral { background: var(--surface-inset); color: var(--text-secondary); }
 .od-status--info { background: var(--info-bg); color: var(--info-color); }
 .od-status select { appearance: none; -webkit-appearance: none; border: 0; background: none; margin: 0; padding: 0 30px 0 32px; height: 100%; font: inherit; font-size: 13px; font-weight: 600; color: inherit; cursor: pointer; }
@@ -5281,10 +5284,10 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .oj-task--done { color: var(--text-secondary); }
 .oj-task--current { background: var(--accent-color); border-color: var(--accent-border); font-weight: 600; }
 .oj-mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; font-size: 15px; line-height: 1; color: var(--text-secondary); }
-.oj-task--done .oj-mark, .oj-garment--done > .oj-garment-head .oj-mark { color: var(--success-color); }
+.oj-task--done .oj-mark, .oj-garment--done > .oj-garment-head .oj-mark { color: var(--success-text); }
 .oj-task--current .oj-mark { color: var(--primary-color); }
 .oj-task-name { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; overflow-wrap: anywhere; }
-.oj-mic { color: #2563eb; flex-shrink: 0; }
+.oj-mic { color: var(--info-500); flex-shrink: 0; }
 .oj-task-state { font-size: 12.5px; color: var(--text-secondary); white-space: nowrap; }
 .oj-task-now { grid-column: 2 / -1; font-size: 12px; color: var(--accent-text); }
 .oj-garment { border: 1px solid var(--border-color); border-radius: var(--radius-lg); background: var(--surface-color); overflow: hidden; }
@@ -5316,7 +5319,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .od-stage--first .od-stage-row::before, .od-stage--last .od-stage-row::after { visibility: hidden; }
 .od-stage--done .od-stage-row::before, .od-stage--done .od-stage-row::after, .od-stage--live .od-stage-row::before { background: var(--success-color); }
 .od-node { position: relative; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border: 1.5px solid var(--border-strong); background: var(--surface-color); color: var(--text-secondary); }
-.od-stage--done .od-node { background: var(--success-bg); border-color: var(--success-color); color: var(--success-color); }
+.od-stage--done .od-node { background: var(--success-bg); border-color: var(--success-color); color: var(--success-text); }
 .od-node-check { position: absolute; top: -5px; right: -5px; width: 16px; height: 16px; border-radius: 50%; background: var(--success-color); color: #fff; display: inline-flex; align-items: center; justify-content: center; border: 2px solid var(--surface-color); }
 .od-stage--live .od-node { width: 46px; height: 46px; border: 2px solid var(--primary-color); background: var(--primary-color); color: var(--primary-foreground); box-shadow: 0 0 0 6px color-mix(in srgb, var(--primary-color) 22%, transparent); }
 .od-stage-name { font-size: 12.5px; font-weight: 500; color: var(--text-secondary); margin-top: 10px; line-height: 1.25; overflow-wrap: anywhere; }
@@ -5380,7 +5383,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .tt-person-id { min-width: 0; flex: 1 1 240px; }
 .tt-person-name { font-size: 16px; font-weight: 600; color: var(--text-primary); }
 .tt-person-sub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); margin-top: 3px; }
-.tt-rating { display: inline-flex; align-items: center; gap: 3px; color: var(--warning-color); font-weight: 600; }
+.tt-rating { display: inline-flex; align-items: center; gap: 3px; color: var(--warning-text); font-weight: 600; }
 .tt-person-day { text-align: right; display: flex; flex-direction: column; gap: 2px; margin-left: auto; }
 .tt-day-hours { font-size: 18px; font-weight: 600; color: var(--text-primary); }
 .tt-table-wrap { border: 0; border-top: 1px solid var(--border-color); border-radius: 0; }
@@ -5597,7 +5600,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .od-garment-steps { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; }
 .od-garment-step { border: none; background: none; padding: 2px 0; font: inherit; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; min-height: 28px; }
 .od-garment-step:hover { color: var(--text-primary); text-decoration: underline; }
-.od-garment-step--done { color: var(--success-color); }
+.od-garment-step--done { color: var(--success-text); }
 .od-garment-step--live { color: var(--accent-text); font-weight: 600; }
 /* The quiet note at the foot of the main column. */
 .od-tip { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid var(--accent-border); border-radius: var(--radius-lg); background: var(--accent-color); }
@@ -5620,7 +5623,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .at-stage-strip-arrow { color: var(--text-muted); }
 .at-table .at-stage-strip .ui-badge { white-space: nowrap; }
 /* The green note that replaces "Send to workshop" once it has gone. */
-.at-sent-note { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 10px 16px; border-radius: var(--radius-md); background: var(--success-bg); color: var(--success-color); font-weight: var(--weight-semibold); font-size: 15px; }
+.at-sent-note { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 10px 16px; border-radius: var(--radius-md); background: var(--success-bg); color: var(--success-text); font-weight: var(--weight-semibold); font-size: 15px; }
 .od-send-btn { min-height: 44px; padding: 8px 18px; font-size: 14px; }
 @media (max-width: 640px) {
   .at-stage-strip { flex-direction: column; align-items: flex-start; gap: 2px; }
@@ -7524,7 +7527,7 @@ button, input, select, textarea { font-family: inherit; }
 .wz-type-wrap .wz-dchoice-desc { font-size: 12.5px; color: var(--text-secondary); line-height: 1.45; }
 .wz-type-wrap .wz-dchoice-status { margin-top: auto; padding-top: 6px; font-size: 12.5px; font-weight: 600; color: var(--brand-link); }
 .wz-type-wrap .wz-dchoice--on { border: 2px solid var(--primary-color); padding: 15px; background: var(--accent-color); }
-.wz-type-wrap .wz-dchoice-status--on { color: var(--success-color); }
+.wz-type-wrap .wz-dchoice-status--on { color: var(--success-text); }
 
 /* "Who will design it?" -- a box inside the Design panel, not a card in a card. */
 .wz-type-wrap .wz-designer {
@@ -8297,7 +8300,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .tier-names-form { display: flex; flex-direction: column; gap: 12px; }
 .tier-names-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 12px; margin: 0; }
 .tier-names-default { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-secondary); }
-.tier-names-msg { font-size: var(--text-sm); color: var(--success-color); }
+.tier-names-msg { font-size: var(--text-sm); color: var(--success-text); }
 .tier-names-msg--error { color: var(--danger-color); }
 .tier-names-foot { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
 .tier-names-foot button { display: inline-flex; align-items: center; gap: 6px; }
@@ -8415,8 +8418,8 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .invoice-modal-foot { flex-wrap: wrap; align-items: center; }
 .invoice-send-note { flex: 1 1 220px; min-width: 0; margin-right: auto; font-size: 13px; line-height: 1.4; color: var(--text-secondary); }
 .invoice-send-note a { color: var(--brand-link); font-weight: 600; text-decoration: underline; }
-.invoice-send-note--sent { color: var(--success-color); font-weight: 600; }
-.invoice-send-note--retrying, .invoice-send-note--manual, .invoice-send-note--pending { color: var(--warning-color); }
+.invoice-send-note--sent { color: var(--success-text); font-weight: 600; }
+.invoice-send-note--retrying, .invoice-send-note--manual, .invoice-send-note--pending { color: var(--warning-text); }
 .invoice-send-note--failed, .invoice-send-note--error { color: var(--danger-color); }
 .invoice-send-btn { display: inline-flex; align-items: center; gap: 8px; }
 @media (max-width: 560px) {
@@ -8670,8 +8673,8 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .my-pw-pair { align-items: start; }
 .my-pw-form .at-field-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .my-pw-hint { display: inline-flex; align-items: center; gap: 4px; color: var(--text-secondary); }
-.my-pw-hint--ok { color: var(--success-color); font-weight: 600; }
-.my-pw-hint--bad { color: var(--warning-color); }
+.my-pw-hint--ok { color: var(--success-text); font-weight: 600; }
+.my-pw-hint--bad { color: var(--warning-text); }
 @media (max-width: 560px) {
   .my-pw-pair { grid-template-columns: minmax(0, 1fr); }
 }
@@ -8879,7 +8882,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .staff-status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
 .staff-status-sub { flex: 1 1 100%; font-size: var(--text-xs, 12px); line-height: 1.35; color: var(--text-muted); overflow-wrap: anywhere; }
 .staff-status-flag { color: var(--danger-color); font-weight: 600; }
-.staff-status-free { color: var(--success-color); font-weight: 600; }
+.staff-status-free { color: var(--success-text); font-weight: 600; }
 .staff-status-tag { font-size: 11px; }
 @media (max-width: 600px) {
   .staff-status-bar > .at-seg { width: 100%; }
@@ -9199,7 +9202,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   height: 40px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--success-bg) 90%, var(--accent-color));
-  color: var(--success-color, #166534);
+  color: var(--success-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9865,7 +9868,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 }
 
 .dss-status-badge--on {
-  color: var(--success-color, #166534);
+  color: var(--success-text);
   background: color-mix(in srgb, var(--success-bg) 85%, transparent);
   border: 1px solid color-mix(in srgb, var(--success-color) 25%, transparent);
 }
@@ -10541,7 +10544,7 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   }
 
   .wizard-sidebar .stepper-step--completed .stepper-subtitle {
-    color: var(--success-color, #166534) !important;
+    color: var(--success-text) !important;
     font-weight: 500 !important;
   }
 

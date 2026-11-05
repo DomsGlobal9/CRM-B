@@ -133,7 +133,7 @@ function Modal({ title, onClose, children, width = '580px' }) {
 
 function StatusPill({ status }) {
   const tone = status === 'ACKNOWLEDGED'
-    ? { bg: 'rgba(47,74,122,0.15)', fg: '#2f4a7a', label: 'Acknowledged' }
+    ? { bg: 'color-mix(in srgb, var(--info-500) 15%, transparent)', fg: 'var(--info-700)', label: 'Acknowledged' }
     : status === 'FINAL'
       ? { bg: 'rgba(46,180,120,0.15)', fg: '#1e8a5c', label: 'Finalised' }
       : { bg: 'rgba(140,140,140,0.15)', fg: 'var(--text-secondary)', label: 'Draft' };

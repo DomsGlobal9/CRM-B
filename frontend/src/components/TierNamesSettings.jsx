@@ -8,7 +8,7 @@ import { api } from '../services/api.js';
 const TIERS = ['Silver', 'Gold', 'Platinum'];
 const MAX = 30;
 // The tier dot colours (TIER_COLORS in App.jsx), so the preview matches the badges.
-const DOT = { Silver: '#94a3b8', Gold: '#f59e0b', Platinum: '#8b5cf6' };
+const DOT = { Silver: '#94a3b8', Gold: '#f59e0b', Platinum: 'var(--primary-color)' };
 
 export default function TierNamesSettings({ iconChip, tierNames, onSaved, hideHeader = false }) {
   const [names, setNames] = useState(() => Object.fromEntries(TIERS.map((tier) => [tier, tierNames?.[tier] || ''])));
@@ -91,7 +91,7 @@ export default function TierNamesSettings({ iconChip, tierNames, onSaved, hideHe
 
           {duplicate && <div role="alert" className="tier-names-msg tier-names-msg--error" style={{ marginTop: '12px', fontSize: '12px', color: 'var(--danger-color)' }}>Each tier needs a different name.</div>}
           {error && <div role="alert" className="tier-names-msg tier-names-msg--error" style={{ marginTop: '12px', fontSize: '12px', color: 'var(--danger-color)' }}>{error}</div>}
-          {saved && !error && <div className="tier-names-msg" style={{ marginTop: '12px', fontSize: '12px', color: 'var(--success-color)' }}>Saved. The new names show everywhere a tier appears.</div>}
+          {saved && !error && <div className="tier-names-msg" style={{ marginTop: '12px', fontSize: '12px', color: 'var(--success-text)' }}>Saved. The new names show everywhere a tier appears.</div>}
 
           <div className="tier-names-foot" style={{ marginTop: '18px', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexWrap: 'wrap' }}>
             <button type="button" className="btn-secondary" disabled={saving}

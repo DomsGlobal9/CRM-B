@@ -1,8 +1,16 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
-import { config } from './config.js';
+import { config, productionSecretProblem } from './config.js';
 import whatsappRouter from './routes/whatsapp.js';
 import { initWhatsApp, closeAllWhatsAppSessions } from './whatsapp.js';
+
+// An exit, not a throw: the uncaughtException handler below would swallow one
+// and leave an unprotected service running. Before anything listens or connects.
+const secretProblem = productionSecretProblem();
+if (secretProblem) {
+  console.error(`[whatsapp_service] Refusing to start: ${secretProblem}`);
+  process.exit(1);
+}
 
 const app = express();
 const PORT = config.PORT;

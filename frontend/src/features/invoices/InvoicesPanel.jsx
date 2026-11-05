@@ -154,7 +154,7 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, paymentErr
                     the advance -- only the input lives here. */}
                 <td data-label={t('invoicesPage.totalPaid', 'Total Paid')}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--success-color)', fontWeight: 600, height: '32px',
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: 'var(--success-text)', fontWeight: 600, height: '32px',
                                 border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0 0 0 8px', background: 'var(--surface-color)', flex: '0 1 120px', minWidth: '90px' }}>
                     <span>₹</span>
                     <input
@@ -191,12 +191,12 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, paymentErr
                         }
                       }}
                       onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur(); }}
-                      style={{ width: '100%', minWidth: 0, minHeight: 0, height: '30px', padding: '0 6px', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--success-color)', border: 'none', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
+                      style={{ width: '100%', minWidth: 0, minHeight: 0, height: '30px', padding: '0 6px', fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--success-text)', border: 'none', borderRadius: 'var(--radius-sm)', background: 'transparent' }}
                     />
                   </div>
                     <span className="at-num" style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}
                           title={Number(order.advance_paid) > 0 ? t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) }) : undefined}>
-                      <strong style={{ color: pct >= 100 ? 'var(--success-color)' : 'var(--text-primary)' }}>{pct}%</strong>
+                      <strong style={{ color: pct >= 100 ? 'var(--success-text)' : 'var(--text-primary)' }}>{pct}%</strong>
                       {Number(order.advance_paid) > 0 && (
                         <span style={{ color: 'var(--text-muted)' }}> · {t('invoicesPage.ofWhichAdvance', '{amount} advance', { amount: formatMoney(order.advance_paid) })}</span>
                       )}

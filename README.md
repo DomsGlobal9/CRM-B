@@ -232,6 +232,15 @@ afterwards does not undo.
     ```
     Rotating it invalidates tracking links already sent to customers. That is
     intended, and it is the point of rotating it.
+  * `INTERNAL_API_SECRET` is **required on the WhatsApp service in production**,
+    and must be the same value on the Django service. The WhatsApp service
+    refuses to start when `NODE_ENV=production` or `RENDER` is set and this is
+    unset or still the development default written in the source. It is all that
+    protects the pairing QR and message sending, so set it on both services
+    before deploying that check. Rotate them together. Generate one with:
+    ```bash
+    python -c "import secrets; print(secrets.token_urlsafe(48))"
+    ```
   * **Database: `DB_NAME`, `DB_USER`, `DB_PASSWORD` and `DB_HOST` are all
     required.** The service refuses to start when any of them is missing, and
     that is deliberate — for the same reason `DJANGO_SECRET_KEY` above is. They

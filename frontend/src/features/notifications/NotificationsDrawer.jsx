@@ -73,7 +73,7 @@ export default function NotificationsDrawer({ notifications, setShowNotification
             }}>
               <span style={{ alignSelf: 'flex-start', fontSize: '10px', fontWeight: 700, letterSpacing: '0.04em',
                              textTransform: 'uppercase', padding: '2px 8px', borderRadius: '999px',
-                             color: kind.color, background: `${kind.color}1a` }}>
+                             color: kind.color, background: `color-mix(in srgb, ${kind.color} 10%, transparent)` }}>
                 {kind.label}
               </span>
               <div className="notif-card-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

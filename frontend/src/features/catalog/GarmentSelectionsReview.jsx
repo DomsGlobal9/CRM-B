@@ -69,7 +69,7 @@ function DesignGrid({ rows, onView }) {
                 {linkText(r.href)}
               </span>
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11.5px', fontWeight: 600,
-                             color: 'var(--brand-link, #2563eb)' }}>
+                             color: 'var(--brand-link)' }}>
                 Open link <ExternalLink size={11} />
               </span>
             </a>
@@ -99,7 +99,7 @@ function DesignGrid({ rows, onView }) {
             {r.href && r.image_url !== r.href && (
               <a href={r.href} target="_blank" rel="noopener noreferrer" title={r.href}
                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '2px', maxWidth: '100%',
-                          fontSize: '11.5px', fontWeight: 600, color: 'var(--brand-link, #2563eb)', textDecoration: 'none' }}>
+                          fontSize: '11.5px', fontWeight: 600, color: 'var(--brand-link)', textDecoration: 'none' }}>
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{linkText(r.href)}</span>
                 <ExternalLink size={11} style={{ flexShrink: 0 }} />
               </a>

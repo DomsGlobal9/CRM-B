@@ -39,7 +39,7 @@ export function MaterialsChecklist({ orderId, role, onActivity, handed = false }
 
   return (
     <div style={{ marginTop: '8px' }}>
-      <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: remaining ? '#b45309' : 'var(--success-color)' }}>
+      <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: remaining ? '#b45309' : 'var(--success-text)' }}>
         {remaining ? `⚠ ${remaining} of ${plan.lines.length} still to gather` : `✓ All ${plan.lines.length} materials gathered`}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

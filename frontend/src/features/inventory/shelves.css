@@ -21,7 +21,7 @@
 .sh-or { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
 .sh-empty { padding: 18px; border-radius: var(--radius-md); background: var(--surface-inset); color: var(--text-secondary); font-size: 14px; text-align: center; }
 .sh-error { padding: 9px 12px; border-radius: var(--radius-md); background: var(--danger-bg); color: var(--danger-color); font-size: 13px; }
-.sh-ok { display: flex; align-items: center; gap: 6px; padding: 9px 12px; border-radius: var(--radius-md); background: var(--success-bg); color: var(--success-color); font-size: 13px; font-weight: 600; }
+.sh-ok { display: flex; align-items: center; gap: 6px; padding: 9px 12px; border-radius: var(--radius-md); background: var(--success-bg); color: var(--success-text); font-size: 13px; font-weight: 600; }
 
 .sh-scan { display: flex; flex-direction: column; gap: 6px; }
 .sh-scan-row { display: flex; gap: 8px; align-items: center; }
@@ -39,7 +39,7 @@
   border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-primary); overflow-wrap: anywhere; }
 .sh-chip--shelf { border-color: color-mix(in srgb, var(--success-color) 35%, var(--border-color)); background: color-mix(in srgb, var(--success-color) 7%, var(--surface-color)); }
 .sh-chip--loose { background: var(--surface-inset); color: var(--text-secondary); }
-.sh-chip--warn { border-color: color-mix(in srgb, var(--warning-color, #d97706) 40%, var(--border-color)); color: var(--warning-color, #b45309); }
+.sh-chip--warn { border-color: color-mix(in srgb, var(--warning-color, #d97706) 40%, var(--border-color)); color: var(--warning-text); }
 .sh-where { display: flex; flex-direction: column; gap: 6px; }
 .sh-where-loc { font-size: 13px; color: var(--text-secondary); }
 
@@ -107,7 +107,7 @@
 .sp-place-name { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; font-size: 13px; }
 .sp-place-name > * { overflow-wrap: anywhere; }
 .sp-place-name small { color: var(--text-muted); font-size: 11.5px; }
-.sp-all { flex-shrink: 0; font-size: 12.5px; color: var(--success-color); font-weight: 600; }
+.sp-all { flex-shrink: 0; font-size: 12.5px; color: var(--success-text); font-weight: 600; }
 .sp-qty { width: 96px; flex-shrink: 0; min-height: 34px; text-align: center; }
 .sp-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .sp-recent { cursor: pointer; font: inherit; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }

@@ -387,7 +387,7 @@ select.sa-narrow { width: 120px; }
 .sa-code--wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Status glyphs (a tick, a cross) and before/after diffs only -- never
    headings, numbers or body copy; status words belong in a Pill. */
-.sa-text-ok { color: var(--success-color); }
+.sa-text-ok { color: var(--success-text); }
 .sa-text-off { color: var(--danger-color); }
 
 /* --- Boutique drill-in: table list beside the data pane ---------------- */

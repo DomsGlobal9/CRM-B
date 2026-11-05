@@ -152,7 +152,7 @@ export default function CatalogBrowser({ isOwner, onStock, version }) {
                   </div>
                 </div>
                 {item.stocked_item_id ? (
-                  <span style={{ fontSize: '11.5px', color: 'var(--success-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '11.5px', color: 'var(--success-text)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <Check size={13} /> {t('inventoryPage.inYourInventory', 'In your inventory')}
                   </span>
                 ) : !item.is_stockable ? (

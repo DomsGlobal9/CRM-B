@@ -458,7 +458,7 @@ function AddStaffForm({ member, terms, onCancel, onSaved, customRoles = [], port
           <button
             type="button"
             className="btn-secondary"
-            style={copied === 'done' ? { color: 'var(--success-color)', borderColor: 'var(--success-color)' } : undefined}
+            style={copied === 'done' ? { color: 'var(--success-text)', borderColor: 'var(--success-color)' } : undefined}
             onClick={async () => {
               const text = `Atelier Staff Login Credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${created.email}\nPassword: ${created.bootstrap_password}`;
               try {
@@ -755,7 +755,7 @@ function CredentialsDialog({ member, onClose, portalUrl = window.location.origin
               <button
                 type="button"
                 className="btn-secondary"
-                style={copied === 'done' ? { color: 'var(--success-color)', borderColor: 'var(--success-color)' } : undefined}
+                style={copied === 'done' ? { color: 'var(--success-text)', borderColor: 'var(--success-color)' } : undefined}
                 onClick={async () => {
                   const text = `Atelier Staff Login Credentials:\nPortal: ${portalUrl}${roleLine}\nEmail: ${email}\nPassword: ${issued.bootstrap_password}`;
                   try {
@@ -1479,7 +1479,7 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
                         </div>
                       </div>
                       {d.fully_recovered && (
-                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-color)', marginTop: '8px' }}>
+                        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success-text)', marginTop: '8px' }}>
                           Security deposit fully recovered.
                         </div>
                       )}

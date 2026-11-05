@@ -10,13 +10,13 @@ const KINDS = [
   { key: 'birthday', label: 'Birthday', color: '#e11d48', test: /^birthday (today|in )/i },
   { key: 'sent_back', label: 'Sent back', color: '#dc2626', test: /^sent back/i },
   { key: 'check', label: 'To check', color: '#d97706', test: /^verify |quality check|^qc record/i },
-  { key: 'new_work', label: 'New work', color: '#2563eb',
+  { key: 'new_work', label: 'New work', color: 'var(--info-500)',
     test: /^new (assignment|stitching task|alteration assigned)|^task created|^ready for /i },
-  { key: 'voice', label: 'Voice note', color: '#7c3aed', test: /^voice note/i },
+  { key: 'voice', label: 'Voice note', color: 'var(--info-600)', test: /^voice note/i },
   { key: 'done', label: 'Ready / done', color: '#16a34a', test: /ready|completed|approved/i },
   { key: 'alteration', label: 'Alteration', color: '#db2777', test: /^alteration/i },
-  { key: 'appointment', label: 'Appointment', color: '#0d9488', test: /^appointment/i },
-  { key: 'order', label: 'Order', color: '#4f46e5', test: /order/i },
+  { key: 'appointment', label: 'Appointment', color: 'var(--info-800)', test: /^appointment/i },
+  { key: 'order', label: 'Order', color: 'var(--info-500)', test: /order/i },
 ];
 
 const OTHER = { key: 'update', label: 'Update', color: '#64748b' };

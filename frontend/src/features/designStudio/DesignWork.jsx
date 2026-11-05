@@ -322,7 +322,7 @@ function AssignmentCard({ assignment, isSupervisor, canHandOver = false, designs
       {assignment.review_note && assignment.status === 'CHANGES_REQUESTED' && (
         <p style={{
           fontSize: '12px', marginTop: '10px', padding: '8px 10px', borderRadius: 'var(--radius-md)',
-          background: 'var(--warning-bg)', color: 'var(--warning-color)',
+          background: 'var(--warning-bg)', color: 'var(--warning-text)',
         }}>
           <AlertCircle size={12} style={{ verticalAlign: '-2px' }} /> {assignment.review_note}
         </p>

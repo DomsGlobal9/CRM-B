@@ -36,11 +36,11 @@ const MOVEMENTS = [
 ];
 
 const MOVEMENT_TONE = {
-  PURCHASE: 'var(--success-color)', STOCK_IN: 'var(--success-color)', RETURN: 'var(--success-color)',
-  ISSUE: 'var(--warning-color)', CONSUMPTION: 'var(--warning-color)',
+  PURCHASE: 'var(--success-text)', STOCK_IN: 'var(--success-text)', RETURN: 'var(--success-text)',
+  ISSUE: 'var(--warning-text)', CONSUMPTION: 'var(--warning-text)',
   RESERVATION: 'var(--info-color)', RELEASE: 'var(--info-color)',
   DAMAGE: 'var(--danger-color)', SCRAP: 'var(--danger-color)',
-  ADJUSTMENT: '#7a4fb0', TRANSFER: 'var(--text-muted)',
+  ADJUSTMENT: 'var(--info-500)', TRANSFER: 'var(--text-muted)',
 };
 
 const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -475,7 +475,7 @@ function ItemsTab({
       ) : (
         <div className="inv-grid" style={{ marginTop: '20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
           {shown.map((item) => {
-            const availableColor = Number(item.available_stock) <= 0 ? 'var(--danger-color)' : item.needs_reorder ? 'var(--warning-color)' : 'var(--text-muted)';
+            const availableColor = Number(item.available_stock) <= 0 ? 'var(--danger-color)' : item.needs_reorder ? 'var(--warning-text)' : 'var(--text-muted)';
             const pill = {
               position: 'absolute', top: 10, padding: '4px 10px', borderRadius: 6, fontSize: '10px', fontWeight: 700,
               letterSpacing: '0.06em', textTransform: 'uppercase', background: '#1a1a1a', color: '#fff', maxWidth: '55%',
@@ -510,7 +510,7 @@ function ItemsTab({
                   <div className="inv-card-name" style={{ fontWeight: 700, fontSize: '15px', display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {item.name}
                     {item.needs_reorder && (
-                      <span title="At or below reorder level" style={{ display: 'inline-flex', color: 'var(--warning-color)', flexShrink: 0 }}>
+                      <span title="At or below reorder level" style={{ display: 'inline-flex', color: 'var(--warning-text)', flexShrink: 0 }}>
                         <AlertTriangle size={13} />
                       </span>
                     )}

@@ -657,7 +657,7 @@ export const SettingsPage = ({
                     <div style={{ padding: '20px', background: 'var(--success-bg)', border: '1px solid color-mix(in srgb, var(--success-color) 40%, transparent)', borderRadius: 'var(--radius-lg)' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                         <CheckCircle2 size={20} color="var(--success-color)" />
-                        <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--success-color)' }}>
+                        <span style={{ fontWeight: 700, fontSize: '15px', color: 'var(--success-text)' }}>
                           {sendingOff
                             ? t('settingsPage.connectedNotSendingTitle', 'WhatsApp Connected, Sending Off')
                             : t('settingsPage.connectedTitle', 'WhatsApp Connected & Active')}
@@ -669,7 +669,7 @@ export const SettingsPage = ({
                           : t('settingsPage.connectedDesc', 'Automated customer order receipts, stage progress updates, and delivery alerts are actively delivering.')}
                       </div>
                       <div style={{ marginTop: '18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '14px', borderTop: '1px solid color-mix(in srgb, var(--success-color) 25%, transparent)' }}>
-                        <span className="ui-badge" style={{ background: 'var(--surface-color)', color: 'var(--success-color)', border: '1px solid color-mix(in srgb, var(--success-color) 30%, transparent)', fontWeight: 600 }}>
+                        <span className="ui-badge" style={{ background: 'var(--surface-color)', color: 'var(--success-text)', border: '1px solid color-mix(in srgb, var(--success-color) 30%, transparent)', fontWeight: 600 }}>
                           {sendingOff
                             ? t('settingsPage.connectedNotSendingBadge', 'Connected, Not Sending')
                             : t('settingsPage.connectedBadge', 'Active & Connected')}
@@ -715,14 +715,14 @@ export const SettingsPage = ({
                           alt="WhatsApp Link QR Code"
                           style={{ width: '170px', height: '170px', objectFit: 'contain', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', padding: '6px', background: '#ffffff' }}
                         />
-                        <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--success-color)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--success-text)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <RotateCw size={14} className="spin" /> {t('settingsPage.waitingQrScan', 'Waiting for QR scan...')}
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div style={{ padding: '28px 24px', border: '1px dashed var(--border-strong)', borderRadius: 'var(--radius-lg)', background: 'var(--surface-inset)', textAlign: 'center' }}>
-                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--success-bg)', color: 'var(--success-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--success-bg)', color: 'var(--success-text)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
                         <MessageSquare size={20} />
                       </div>
                       <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)', marginBottom: '6px' }}>

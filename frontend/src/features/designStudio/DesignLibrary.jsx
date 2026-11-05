@@ -19,8 +19,8 @@ const CARD_IMAGE_FALLBACK =
   'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
 const STATUS_COLOURS = {
-  ACTIVE: { bg: 'var(--success-bg)', fg: 'var(--success-color)' },
-  PENDING: { bg: 'var(--warning-bg)', fg: 'var(--warning-color)' },
+  ACTIVE: { bg: 'var(--success-bg)', fg: 'var(--success-text)' },
+  PENDING: { bg: 'var(--warning-bg)', fg: 'var(--warning-text)' },
   DRAFT: { bg: 'var(--surface-inset)', fg: 'var(--text-secondary)' },
   ARCHIVED: { bg: 'var(--surface-inset)', fg: 'var(--text-secondary)' },
 };
@@ -563,7 +563,7 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
                     detail's Delete covers -- delete it (asks first). */}
                 <div className="dl-card-actions">
                 {design.inventory_item_id ? (
-                  <span className="dl-card-meta" style={{ fontSize: '11.5px', color: 'var(--success-color)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="dl-card-meta" style={{ fontSize: '11.5px', color: 'var(--success-text)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <Check size={13} /> In your inventory
                   </span>
                 ) : canStock ? (

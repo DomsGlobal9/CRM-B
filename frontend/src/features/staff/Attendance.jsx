@@ -267,7 +267,7 @@ function MyDay({ onChanged }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <span style={{ width: '9px', height: '9px', borderRadius: '50%',
-                             background: '#2ec4b6', display: 'inline-block' }} />
+                             background: 'var(--success-color)', display: 'inline-block' }} />
               <span style={{ fontSize: '18px', fontWeight: 600 }}>You&rsquo;re checked in</span>
             </div>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
@@ -281,7 +281,7 @@ function MyDay({ onChanged }) {
               if (!canAdd && !locNote) return null;
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
-                  <span style={{ fontSize: '12.5px', color: 'var(--warning-color)', flex: '1 1 240px', minWidth: 0 }}>
+                  <span style={{ fontSize: '12.5px', color: 'var(--warning-text)', flex: '1 1 240px', minWidth: 0 }}>
                     {locNote || 'Your check-in has no location yet.'}
                   </span>
                   {canAdd && (
@@ -1134,12 +1134,12 @@ function MonthlyAttendanceLogs({ reloadKey }) {
                   borderRadius: '20px',
                   fontSize: '12.5px',
                   fontWeight: 600,
-                  background: '#f3e8ff',
-                  color: '#7e22ce',
-                  border: '1px solid #e9d5ff',
+                  background: 'var(--info-100)',
+                  color: 'var(--info-700)',
+                  border: '1px solid var(--info-200)',
                 }}
               >
-                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#a855f7' }} />
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--info-500)' }} />
                 WFH: {wfhCount}
               </span>
             )}
@@ -1187,9 +1187,9 @@ function MonthlyAttendanceLogs({ reloadKey }) {
                 filteredLogs.map((row, idx) => {
                   const isPres = row.status === 'Present';
                   const isWfh = row.status === 'WFH';
-                  const chipBg = isPres ? '#ecfdf5' : isWfh ? '#f3e8ff' : '#fef2f2';
-                  const chipColor = isPres ? '#047857' : isWfh ? '#7e22ce' : '#b91c1c';
-                  const chipBorder = isPres ? '#a7f3d0' : isWfh ? '#e9d5ff' : '#fecaca';
+                  const chipBg = isPres ? '#ecfdf5' : isWfh ? 'var(--info-100)' : '#fef2f2';
+                  const chipColor = isPres ? '#047857' : isWfh ? 'var(--info-700)' : '#b91c1c';
+                  const chipBorder = isPres ? '#a7f3d0' : isWfh ? 'var(--info-200)' : '#fecaca';
 
                   return (
                     <tr
@@ -1221,7 +1221,7 @@ function MonthlyAttendanceLogs({ reloadKey }) {
                               width: '5px',
                               height: '5px',
                               borderRadius: '50%',
-                              background: isPres ? '#10b981' : isWfh ? '#a855f7' : '#ef4444',
+                              background: isPres ? '#10b981' : isWfh ? 'var(--info-500)' : '#ef4444',
                             }}
                           />
                           {row.status}
@@ -1318,8 +1318,8 @@ export default function Attendance({ isOwner, canSeeTeam, showPayroll = false })
                 padding: '10px 18px',
                 fontSize: '14px',
                 fontWeight: activeTab === key ? 600 : 500,
-                color: activeTab === key ? 'var(--accent, #2ec4b6)' : 'var(--text-secondary)',
-                borderBottom: activeTab === key ? '2px solid var(--accent, #2ec4b6)' : '2px solid transparent',
+                color: activeTab === key ? 'var(--accent-text)' : 'var(--text-secondary)',
+                borderBottom: activeTab === key ? '2px solid var(--primary-color)' : '2px solid transparent',
                 background: 'none',
                 borderLeft: 'none',
                 borderRight: 'none',
@@ -1352,8 +1352,8 @@ export default function Attendance({ isOwner, canSeeTeam, showPayroll = false })
                         aria-pressed={period === value}
                         style={{
                           padding: '6px 14px', fontSize: '13px', border: 'none', cursor: 'pointer',
-                          background: period === value ? 'var(--accent, #2ec4b6)' : 'transparent',
-                          color: period === value ? '#fff' : 'var(--text-secondary)',
+                          background: period === value ? 'var(--primary-color)' : 'transparent',
+                          color: period === value ? 'var(--primary-foreground)' : 'var(--text-secondary)',
                           fontWeight: period === value ? 600 : 400,
                         }}>
                   {label}

@@ -71,8 +71,8 @@ export default class ErrorBoundary extends Component {
 }
 
 const BUTTON = {
-  padding: '9px 16px', borderRadius: 8, border: '1px solid #1f6feb',
-  background: '#1f6feb', color: '#fff', fontSize: 14, cursor: 'pointer',
+  padding: '9px 16px', borderRadius: 8, border: '1px solid var(--primary-color, #B9D53C)',
+  background: 'var(--primary-color, #B9D53C)', color: 'var(--primary-foreground, #020202)', fontSize: 14, cursor: 'pointer',
 };
 
 const QUIET = { ...BUTTON, background: '#fff', color: '#1f2328', borderColor: '#d0d7de' };
