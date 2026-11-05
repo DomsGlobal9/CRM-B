@@ -1,4 +1,4 @@
-import { CheckCircle2, ChevronRight, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, Shirt, ShoppingBag, ShoppingCart, User, Zap } from 'lucide-react';
+import { CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, Shirt, ShoppingBag, ShoppingCart, User, Zap } from 'lucide-react';
 import React from 'react';
 import { RequestAlterationModal } from '../alterations/OrderAlterations';
 import { PageHeader, SearchBar, Segmented, StatCard, Tabs } from '../../components/ui/Atelier';
@@ -307,10 +307,9 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
                 rowStatusName = order.order_status || '';
               }
               const rowStyle = getStageBadgeStyle(rowStatusKey, rowStatusName);
-              // The phone card's tile and top-corner badge; the desktop table has neither.
+              // The phone card's tile; the desktop table has none.
               const rowExpress = (job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled;
               const CardIcon = rowExpress ? Zap : job ? Shirt : ShoppingBag;
-              const viewRow = () => { if (bucket === 'workshop') setDashboardTab('workshop'); setOpenGarmentJob(job?.id || null); setOpenOrdersRowId(order.id); };
 
               return (
               <React.Fragment key={job ? `${order.id}-${job.id}` : order.id}>
@@ -328,12 +327,6 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
                       <span className="order-id-ref">{orderRef(order)}{job ? `-${n}` : ''}</span>
                       {(job ? isExpressJob(job) : isExpressOrder(order)) && !isDelivered && !isCancelled && (
                         <span className="gh-express-tag" title={expressLabel(order)}><Zap size={11} /> EXPRESS</span>
-                      )}
-                      {!rowExpress && rowStatusName && (
-                        <span className="order-card-only ui-badge order-card-status"
-                              style={{ backgroundColor: rowStyle.bg, borderColor: rowStyle.border, color: rowStyle.text }}>
-                          {rowStatusKey === 'new' ? t('ordersPage.notSentYet', 'Not sent yet') : rowStatusName}
-                        </span>
                       )}
                     </div>
                     {job && (
@@ -429,13 +422,10 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
                         the row's buttons fit beside "Send to workshop". */}
                     <button type="button" className="btn-secondary at-btn-sm at-btn-icon-view"
                             title="View order" aria-label={`View order ${orderRef(order)}${job ? `-${n}` : ''}`}
-                            onClick={viewRow}>
+                            onClick={() => { if (bucket === 'workshop') setDashboardTab('workshop'); setOpenGarmentJob(job?.id || null); setOpenOrdersRowId(order.id); }}>
                       <Eye size={16} />
                     </button>
                   </div>
-                  <button type="button" className="order-card-only order-card-chevron" tabIndex={-1} aria-hidden="true" onClick={viewRow}>
-                    <ChevronRight size={20} />
-                  </button>
                 </td>
               </tr>
               </React.Fragment>

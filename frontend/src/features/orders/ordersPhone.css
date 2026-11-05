@@ -88,72 +88,77 @@
 /* The phone card's own parts stay out of every larger screen. */
 .order-card-only { display: none; }
 
-/* Orders and Workshop list on a phone: each order a card. A lime edge; the tile,
-   number, customer and badge on top; Promised by and Where it stands side by side;
-   the buttons across the bottom; a chevron at the side that opens the order. */
+/* Orders and Workshop list on a phone: each order a short card of two lines.
+   First: tile, number, garment and customer, then Express, the days and the eye.
+   Second: promised date | stage | who has it. An action button, when the order
+   has one, takes a line of its own. */
 @media (max-width: 768px) {
   .portal-main .orders-book > tbody > tr {
-    position: relative; display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 0;
-    padding: 14px 34px 14px 18px !important; border-radius: 16px; overflow: hidden;
+    position: relative; display: grid !important; grid-template-columns: auto auto minmax(0, 1fr); gap: 8px 0; align-items: center;
+    padding: 10px 10px 10px 14px !important; border-radius: 14px; overflow: hidden;
     background: var(--surface-color) !important; box-shadow: var(--shadow-card) !important;
     border: 1px solid var(--border-color) !important;
   }
-  .portal-main .orders-book > tbody > tr::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 5px; background: var(--primary-color); }
+  .portal-main .orders-book > tbody > tr::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 4px; background: var(--primary-color); }
   .portal-main .orders-book > tbody > tr > td { min-width: 0; background: transparent !important; }
 
-  /* Top: tile, number and customer, with the badge in the corner. */
-  .portal-main .orders-book > tbody > tr > td.order-id-cell { grid-column: 1 / -1; padding-bottom: 12px !important; border-bottom: 1px solid var(--border-color); }
-  .portal-main .orders-book .order-id-content { display: grid !important; grid-template-columns: 48px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; align-items: center; width: 100%; }
-  .portal-main .orders-book .order-id-content > * { grid-column: 2 / -1; min-width: 0; }
+  /* First line; the right side is kept clear for the eye. */
+  .portal-main .orders-book > tbody > tr > td.order-id-cell { grid-column: 1 / -1; padding: 0 52px 8px 0 !important; border-bottom: 1px solid var(--border-color); }
+  .portal-main .orders-book .order-id-content { display: grid !important; grid-template-columns: 40px auto minmax(0, 1fr) auto; column-gap: 8px; row-gap: 2px; align-items: center; width: 100%; }
+  .portal-main .orders-book .order-id-content > * { min-width: 0; }
   .portal-main .orders-book .order-id-header { display: contents !important; }
-  .portal-main .orders-book .order-id-ref { grid-column: 2; grid-row: 1; font-size: 18px; font-weight: 700; line-height: 1.25; }
-  .portal-main .orders-book .order-id-cell .gh-express-tag,
-  .portal-main .orders-book .order-card-status { grid-column: 3; grid-row: 1; justify-self: end; margin: 0; white-space: nowrap; }
-  .portal-main .orders-book .order-card-status { display: inline-flex; }
   .portal-main .orders-book .order-card-tile {
-    display: inline-flex; align-items: center; justify-content: center; grid-column: 1; grid-row: 1 / span 3; align-self: start;
-    width: 48px; height: 48px; border-radius: 12px; background: color-mix(in srgb, var(--primary-color) 18%, var(--surface-color)); color: var(--text-primary);
+    display: inline-flex; align-items: center; justify-content: center; grid-column: 1; grid-row: 1 / span 2;
+    width: 40px; height: 40px; border-radius: 10px; background: color-mix(in srgb, var(--primary-color) 18%, var(--surface-color)); color: var(--text-primary);
   }
-  .portal-main .orders-book .order-id-cell .at-phone-line { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 14px; overflow-wrap: anywhere; }
-  .portal-main .orders-book .order-id-cell .at-step-days,
-  .portal-main .orders-book .order-id-garment { justify-self: start; }
+  .portal-main .orders-book .order-card-tile svg { width: 20px; height: 20px; }
+  .portal-main .orders-book .order-id-ref { grid-column: 2; grid-row: 1; font-size: 15px; font-weight: 700; line-height: 1.25; white-space: nowrap; }
+  .portal-main .orders-book .order-id-garment { grid-column: 3; grid-row: 1; font-size: 12px; line-height: 1.25; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
+  .portal-main .orders-book .order-id-cell .gh-express-tag { grid-column: 4; grid-row: 1; justify-self: end; margin: 0; white-space: nowrap; }
+  .portal-main .orders-book .order-id-cell .at-step-days { grid-column: 4; grid-row: 1; justify-self: end; margin: 0; white-space: nowrap; }
+  .portal-main .orders-book .order-id-content:has(.gh-express-tag) .at-step-days { grid-row: 2; }
+  .portal-main .orders-book .order-id-cell .at-phone-line { grid-column: 2 / 4; grid-row: 2; display: block; margin: 0; font-size: 12.5px; line-height: 1.3; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
+  .portal-main .orders-book .order-id-cell .at-phone-line svg { margin-right: 3px; vertical-align: -1px; }
+  .portal-main .orders-book .order-id-content:not(:has(.gh-express-tag)) .at-phone-line { grid-column: 2 / -1; }
 
-  /* Promised by | Where it stands. */
-  .portal-main .orders-book > tbody > tr > td:nth-child(4), .portal-main .orders-book > tbody > tr > td:nth-child(5) {
-    position: relative; display: block !important; grid-column: auto; padding: 0 8px 0 24px !important; border-top: 0; font-weight: 600; font-size: 14px; text-align: left !important;
+  /* Second line: the icons and the badge say what each one is, so their
+     labels step aside. */
+  .portal-main .orders-book > tbody > tr > td:nth-child(4)::before, .portal-main .orders-book > tbody > tr > td:nth-child(5)::before, .portal-main .orders-book > tbody > tr > td.at-assignee-cell::before { display: none !important; }
+  .portal-main .orders-book > tbody > tr > td:nth-child(4), .portal-main .orders-book > tbody > tr > td:nth-child(5), .portal-main .orders-book > tbody > tr > td.at-assignee-cell {
+    display: block !important; grid-column: auto; margin: 0; border-top: 0; font-size: 12.5px; font-weight: 600; text-align: left !important;
   }
-  .portal-main .orders-book > tbody > tr > td:nth-child(5) { margin: 0; padding-left: 36px !important; border-left: 1px solid var(--border-color); }
-  .portal-main .orders-book > tbody > tr > td:nth-child(4)::before, .portal-main .orders-book > tbody > tr > td:nth-child(5)::before {
-    display: block; margin: 0 0 4px !important; font-size: 13px; font-weight: 500; color: var(--text-secondary); text-transform: none; letter-spacing: 0;
-  }
-  .portal-main .orders-book > tbody > tr > td:nth-child(4)::after, .portal-main .orders-book > tbody > tr > td:nth-child(5)::after {
-    content: ''; position: absolute; top: 1px; left: 0; width: 17px; height: 17px; background: var(--text-primary);
+  .portal-main .orders-book > tbody > tr > td:nth-child(4) { position: relative; padding: 0 6px 0 19px !important; white-space: nowrap !important; --order-card-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v4M16 2v4'/%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M3 10h18'/%3E%3C/svg%3E"); }
+  .portal-main .orders-book > tbody > tr > td:nth-child(4)::after {
+    content: ''; position: absolute; top: 50%; left: 0; width: 15px; height: 15px; transform: translateY(-50%); background: var(--text-primary);
     -webkit-mask: var(--order-card-icon) center / contain no-repeat; mask: var(--order-card-icon) center / contain no-repeat;
   }
-  .portal-main .orders-book > tbody > tr > td:nth-child(4) { --order-card-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v4M16 2v4'/%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M3 10h18'/%3E%3C/svg%3E"); }
-  .portal-main .orders-book > tbody > tr > td:nth-child(5) { --order-card-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E"); }
-  .portal-main .orders-book > tbody > tr > td:nth-child(5)::after { left: 12px; }
+  .portal-main .orders-book > tbody > tr > td:nth-child(5) { padding: 0 6px !important; border-left: 1px solid var(--border-color); }
   .portal-main .orders-book > tbody > tr > td:nth-child(5) .at-stage-strip { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start; margin: 0; padding: 0; background: none; }
+  .portal-main .orders-book > tbody > tr > td:nth-child(5) .ui-badge { padding: 2px 7px; border-radius: 10px; font-size: 11px; line-height: 1.3; }
+  .portal-main .orders-book > tbody > tr > td.at-assignee-cell { padding: 0 0 0 6px !important; border-left: 1px solid var(--border-color); }
+  .portal-main .orders-book > tbody > tr > td.at-assignee-cell .at-assignee { display: block; font-size: 12px; font-weight: 500; white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
+  .portal-main .orders-book > tbody > tr > td.at-assignee-cell .at-assignee svg { margin-right: 3px; vertical-align: -2px; }
 
-  /* Who has it, when someone does. */
-  .portal-main .orders-book > tbody > tr > td.at-assignee-cell { grid-column: 1 / -1; }
+  .portal-main .orders-book > tbody > tr > td.at-assignee-cell:has(> .at-assignee-none) { display: none !important; }
 
-  /* The buttons, then the chevron at the card's side. */
+  /* No one to show: the stage has the rest of the line. A late order needs that
+     room for its extra badge, so who has it moves to a line of its own. */
+  .portal-main .orders-book > tbody > tr:not(:has(> td > .at-assignee)) > td:nth-child(5),
+  .portal-main .orders-book > tbody > tr:has(> td:nth-child(5) .ui-badge--danger) > td:nth-child(5) { grid-column: 2 / -1; }
+  .portal-main .orders-book > tbody > tr:has(> td:nth-child(5) .ui-badge--danger) > td.at-assignee-cell { grid-column: 1 / -1; padding-left: 0 !important; border-left: 0; }
+
+  /* The eye in the top corner of every card; an action button below. */
   .portal-main .orders-book > tbody > tr > td:last-child { grid-column: 1 / -1; white-space: normal !important; }
-  .portal-main .orders-book > tbody > tr > td:last-child > div { display: flex; flex-wrap: nowrap; gap: 8px; justify-content: stretch !important; }
-  .portal-main .orders-book > tbody > tr > td:last-child > div > button { flex: 1 1 auto !important; min-width: 0; width: auto; height: 42px; min-height: 42px; gap: 6px; padding: 0 10px !important; border-radius: 10px; font-size: 13px; font-weight: 600; justify-content: center; white-space: nowrap !important; }
-  .app-container .portal-main .orders-book .at-btn-icon-view { flex: 0 1 auto !important; width: auto; min-width: 0; height: 42px; min-height: 42px; }
-  .app-container .portal-main .orders-book .at-btn-icon-view:only-child { flex: 1 1 auto !important; }
-  .portal-main .orders-book .at-btn-icon-view::after { content: attr(title); }
-  .portal-main .orders-book .order-card-chevron {
-    position: absolute; top: 50%; right: 4px; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center;
-    width: 28px; min-width: 0; height: 44px; min-height: 0; padding: 0; border: 0; background: none; color: var(--text-primary); cursor: pointer;
-  }
+  .portal-main .orders-book > tbody > tr > td:last-child:has(.at-btn-icon-view:only-child) { display: contents !important; }
+  .portal-main .orders-book > tbody > tr > td:last-child > div { display: flex; flex-wrap: nowrap; gap: 8px; }
+  .portal-main .orders-book > tbody > tr > td:last-child:has(.at-btn-icon-view:only-child) > div { display: contents; }
+  .portal-main .orders-book > tbody > tr > td:last-child > div > button { flex: 1 1 auto !important; min-width: 0; width: auto; height: 40px; min-height: 40px; gap: 6px; padding: 0 10px !important; border-radius: 10px; font-size: 13px; font-weight: 600; justify-content: center; white-space: nowrap !important; }
+  .app-container .portal-main .orders-book .at-btn-icon-view { position: absolute; top: 8px; right: 10px; flex: none !important; width: 44px; min-width: 0; height: 44px; min-height: 44px; padding: 0 !important; }
+  .app-container .portal-main .orders-book .at-btn-icon-view::after { content: none; }
 }
 
-/* The narrowest phones: the two buttons do not fit side by side. */
+/* The narrowest phones: who has it takes a line of its own. */
 @media (max-width: 359px) {
-  .portal-main .orders-book > tbody > tr > td:last-child > div { flex-wrap: wrap; }
-  .portal-main .orders-book > tbody > tr > td:last-child > div > button { flex: 1 1 100% !important; }
-  .app-container .portal-main .orders-book .at-btn-icon-view { flex: 1 1 100% !important; }
+  .portal-main .orders-book > tbody > tr > td:nth-child(5) { grid-column: 2 / -1; }
+  .portal-main .orders-book > tbody > tr > td.at-assignee-cell { grid-column: 1 / -1; padding-left: 0 !important; border-left: 0; }
 }
