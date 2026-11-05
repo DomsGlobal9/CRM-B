@@ -525,7 +525,7 @@ function ItemsTab({
                   </div>
                   {onMove && <button type="button" className="inv-card-btn" onClick={() => onMove(item)} style={{
                     marginTop: 10, width: '100%', padding: '11px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                    background: '#1a1a1a', color: '#fff', fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                    background: 'var(--primary-color)', color: 'var(--primary-foreground)', fontSize: '12px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                   }}>
                     <ArrowDownCircle size={14} />{t('inventoryPage.move', 'Move')}

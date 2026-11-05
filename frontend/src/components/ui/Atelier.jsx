@@ -9,6 +9,18 @@ import { imageFilesError } from '../../services/validate';
 import { CrumbsContext } from './crumbs';
 
 
+/** The logo on the sidebar and phone header. Both files are drawn and the theme
+ *  shows one (index.css): the "-dark" file has ink letters, for a light sidebar. */
+export function ShellWordmark({ small = false }) {
+  const size = small ? ' portal-wordmark--sm' : '';
+  return (
+    <>
+      <img className={`portal-wordmark portal-wordmark--on-light${size}`} src="/scaleezy-wordmark-dark.webp" alt="Scaleezy" />
+      <img className={`portal-wordmark portal-wordmark--on-dark${size}`} src="/scaleezy-wordmark.webp" alt="Scaleezy" />
+    </>
+  );
+}
+
 export function IconTile({ icon: Icon, tone = 'neutral', size = 44, iconSize = 20, className = '' }) {
   return (
     <span className={`at-tile at-tile--${tone} ${className}`} style={{ width: size, height: size }}>

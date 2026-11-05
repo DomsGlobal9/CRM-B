@@ -4,13 +4,13 @@
 @import './page-layout.css';
 
 :root {
-  /* ---- Scaleezy: lime on Cloud Dancer, a deep-olive shell ---------------
+  /* ---- Scaleezy: lime on a clean light ground, with a white sidebar ------
      The lime scale, darkest to lightest, all derived from #B9D53C:
      950 #232B08 · 900 #333D0C · 800 #5C6C13 · 700 #7E9033 · 600 #A2BC2A
      500 #B9D53C · 400 #C3DB55 · 300 #CDE272 · 200 #DCEB9E · 100 #E6F1C8 · 50 #F7FAE6
-     The shell sits deep in the scale so the lime actions stay the brightest
-     thing on screen.                                                        */
-  --bg-color: var(--neutral-100);          /* Cloud Dancer: the page ground            */
+     The shell matches the cards and top bar, so the whole light theme is light;
+     the current page is the one lime pill in it.                            */
+  --bg-color: var(--neutral-100);          /* the page ground                          */
   --surface-color: var(--white);     /* cards, surfaces                          */
   --surface-2: var(--neutral-50);         /* raised / alternating rows                */
   --surface-inset: var(--neutral-200);     /* wells, quiet fills, skeletons            */
@@ -43,7 +43,7 @@
   --warning-color: var(--warning-500);  --warning-bg: var(--warning-100);
   --danger-color:  var(--danger-500);  --danger-bg:  var(--danger-100);
   /* Status as text: darker where the fill fails AA on its tint or the page. */
-  --success-text: var(--success-700);  --warning-text: var(--warning-500);
+  --success-text: var(--success-700);  --warning-text: var(--warning-700);
   --info-color:    var(--info-500);  --info-bg:    var(--info-100);
 
   /* ---- Type scale (one ladder for the whole product) ----------------- */
@@ -90,6 +90,23 @@
   --cell-x: var(--space-4);
   --cell-head-y: var(--space-3);
   --cell-y: 14px;
+  /* How much of a stage's light row tint shows. All of it on a light page; a
+     faint wash in the dark themes, whose light text it would otherwise swallow. */
+  --stage-row-mix: 100%;
+
+  /* Names some screens already ask for that never existed, so they fell through
+     to a fixed light colour in every theme (white tiles in dark mode, a stray
+     emerald on the customer form). Each now means its token in the current theme. */
+  --surface: var(--surface-color);
+  --surface-1: var(--surface-color);
+  --modal-bg: var(--surface-color);
+  --bg-secondary: var(--surface-2);
+  --text-tertiary: var(--text-secondary);
+  --text-on-primary: var(--primary-foreground);
+  --brand-primary: var(--brand-link);
+  --brand-surface: var(--accent-color);
+  --brand-border: var(--accent-border);
+  --weight-regular: 400;
   --state-disabled-opacity: .5;
 
   /* ---- Radii & elevation: 10px base, one flat card shadow ------------ */
@@ -104,13 +121,14 @@
   --shadow-lg: 0 10px 15px -3px rgba(20, 18, 20, 0.12), 0 4px 6px -4px rgba(20, 18, 20, 0.10);
 
   /* ---- Theme-facing tokens the recipes read; each pack overrides these -- */
-  --shell-bg: #0C0F00;          /* near-black lime: sidebar, top bars, entry */
-  --shell-fg: var(--neutral-100);          /* Cloud Dancer on the shell                */
-  --shell-logo: var(--primary-500);        /* the wordmark in lime                     */
-  --shell-active-bg: var(--neutral-100);   /* the current page: a Cloud Dancer pill    */
-  --shell-active-fg: var(--neutral-900);   /*   with ink text, like the active tab     */
-  --shell-accent: var(--primary-500);      /* the bar beside it, and phone nav accents */
-  --shell-muted: #9FCBA8;       /* group labels: soft green on the shell    */
+  --shell-bg: var(--white);                /* sidebar, phone header and bottom bar     */
+  --shell-fg: var(--neutral-900);          /* ink on the shell                         */
+  --shell-logo: var(--neutral-900);        /* the wordmark                             */
+  --shell-active-bg: var(--primary-500);   /* the current page: a lime pill            */
+  --shell-active-fg: var(--neutral-900);   /*   with ink text                          */
+  --shell-accent: var(--primary-800);      /* small bars and phone tab text: raw lime is
+                                              unreadable as text on white              */
+  --shell-muted: var(--neutral-700);       /* group labels                             */
   --selected-bg: var(--neutral-900);       /* the current step: ink, never the CTA     */
   --selected-fg: var(--white);
   --secondary-hover-bg: var(--primary-100);      /* outline button on hover: soft fill */
@@ -390,7 +408,7 @@ label.form-label {
 }
 
 label.form-label span.required {
-  color: #ba1a1a;
+  color: var(--danger-color);
   margin-left: 2px;
 }
 
@@ -4969,7 +4987,7 @@ tr.gh-express { animation: none; background: color-mix(in srgb, var(--danger-bg)
 .gh-express-tag {
   display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; vertical-align: middle;
   padding: 3px 9px; border-radius: 999px; white-space: nowrap;
-  background: var(--danger-color); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  background: var(--danger-color); color: var(--surface-color); font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
   animation: gh-bob-y 1.2s ease-in-out infinite; transform-origin: center;
 }
 /* The tag bobs in place rather than around a centre point like the callouts. */
@@ -11180,6 +11198,12 @@ th[aria-sort="ascending"] .at-sort svg, th[aria-sort="descending"] .at-sort svg 
 .bill-paid-pct--full { color: var(--success-text); }
 .bill-paid-advance { color: var(--text-muted); }
 .bill-paid-bar { max-width: 220px; margin-top: 6px; }
+
+/* The logo: its "ezy" is white in one file and ink in the other, so each theme
+   shows the one that reads on its sidebar. Only ever hides, so the collapsed
+   sidebar's own rule still wins. */
+html[data-theme$="-dark"] .portal-wordmark--on-light { display: none; }
+html:not([data-theme$="-dark"]) .portal-wordmark--on-dark { display: none; }
 
 /* Pager: total records */
 .at-pager-left { display: inline-flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }

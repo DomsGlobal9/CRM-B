@@ -43,7 +43,7 @@ export const sinceLabel = (iso) => {
 
 // The steps of an order, in workflow order, named in color-tokens.css.
 const stage = (n) => ({
-  rowBg: `var(--stage-${n}-row)`, bg: `var(--stage-${n}-fill)`,
+  rowBg: `color-mix(in srgb, var(--stage-${n}-row) var(--stage-row-mix), var(--surface-color))`, bg: `var(--stage-${n}-fill)`,
   border: `var(--stage-${n}-border)`, text: `var(--stage-${n}-text)`,
 });
 const ALTERATION = { rowBg: 'var(--warning-50)', bg: 'var(--warning-100)', border: 'var(--warning-300)', text: 'var(--warning-700)' };
