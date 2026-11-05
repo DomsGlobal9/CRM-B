@@ -5,13 +5,15 @@ import { PageHeader } from './ui/Atelier.jsx';
 import { InvoiceTemplateSelector } from './invoice/InvoiceTemplateSelector.jsx';
 import DailySummarySettings from './DailySummarySettings.jsx';
 import TierNamesSettings from './TierNamesSettings.jsx';
+import { UserAvatar } from './ui/UserAvatar.jsx';
 import {
   Globe, ShieldCheck, CheckCircle2, Building, Link2, User, Clock,
   MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor,
-  Store, FileText, Crown, X, Copy, Check, ChevronRight, AlertCircle, Smartphone
+  Store, FileText, Crown, X, Copy, Check, ChevronRight, AlertCircle, Smartphone, Camera
 } from 'lucide-react';
 import { getColorMode, setColorMode } from '../theme.js';
 import { api } from '../services/api.js';
+import { imageFilesError } from '../services/validate.js';
 
 const iconChip = {
   width: '40px', height: '40px', borderRadius: 'var(--radius-md)', flexShrink: 0,
@@ -39,6 +41,7 @@ export const SettingsPage = ({
   onTierNamesSaved,
   whatsappStatus = { connected: false, status: 'disconnected', qrCode: null },
   fetchWhatsAppStatus,
+  onUserUpdated,
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const [resetting, setResetting] = useState(false);
@@ -48,6 +51,40 @@ export const SettingsPage = ({
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState(getColorMode);
   const [activeModal, setActiveModal] = useState(null); // 'language' | 'appearance' | 'workspace' | 'whatsapp' | 'invoice' | 'tiers' | 'summary'
+
+  // The address a customer or staff member opens, as the My profile page shows it.
+  const webAddress = currentUser?.shop_slug
+    ? `${window.location.origin}/${currentUser.shop_slug}`
+    : (localStorage.getItem('tenant_id') || '--');
+  const [copiedField, setCopiedField] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
+
+  const copyField = async (key, text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(key);
+      setTimeout(() => setCopiedField(''), 2000);
+    } catch {
+      /* clipboard write failed */
+    }
+  };
+
+  // The signed-in person's own photo, saved the way the My profile page saves it.
+  const handlePhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const bad = imageFilesError([file]);
+    if (bad) { alert(bad); return; }
+    setPhotoBusy(true);
+    try {
+      onUserUpdated(await api.updateMyPhoto(file));
+    } catch (err) {
+      alert(err.message || 'Could not update your photo.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
 
   const handleCopyUrl = async () => {
     try {
@@ -188,8 +225,17 @@ export const SettingsPage = ({
         {/* Left Green Block */}
         <div className="settings-profile-left">
           <div className="settings-profile-header">
-            <div className="settings-profile-avatar">
-              <Store size={22} color="var(--brand-link, #166534)" />
+            <div className="settings-profile-photo">
+              <div className="settings-profile-photo-ring">
+                <UserAvatar user={currentUser} size={72} />
+              </div>
+              {onUserUpdated && (
+                <label className="settings-profile-camera" title="Change photo">
+                  {photoBusy ? <RotateCw size={14} className="spin" /> : <Camera size={14} />}
+                  <input type="file" accept="image/*" capture="environment" hidden aria-label="Change photo"
+                         disabled={photoBusy} onChange={handlePhoto} />
+                </label>
+              )}
             </div>
             <div className="settings-profile-info">
               <span className="settings-profile-name">
@@ -229,9 +275,28 @@ export const SettingsPage = ({
         {/* Right Details Block */}
         <div className="settings-profile-right">
           <div className="settings-profile-details-grid">
+            <div className="settings-profile-field settings-profile-field--wide">
+              <span className="settings-profile-field-label">{t('accountPage.tenantDomain', 'Boutique web address')}</span>
+              <span className="settings-profile-field-value">
+                <span>{webAddress}</span>
+                {webAddress !== '--' && (
+                  <button type="button" className="settings-profile-copy" onClick={() => copyField('address', webAddress)} aria-label="Copy boutique web address">
+                    {copiedField === 'address' ? <Check size={14} color="var(--success-color)" /> : <Copy size={14} />}
+                  </button>
+                )}
+              </span>
+            </div>
+
             <div className="settings-profile-field">
               <span className="settings-profile-field-label">Login email</span>
-              <span className="settings-profile-field-value">{currentUser?.email || 'owner@scaleezy.com'}</span>
+              <span className="settings-profile-field-value">
+                <span>{currentUser?.email || 'owner@scaleezy.com'}</span>
+                {currentUser?.email && (
+                  <button type="button" className="settings-profile-copy" onClick={() => copyField('email', currentUser.email)} aria-label="Copy email">
+                    {copiedField === 'email' ? <Check size={14} color="var(--success-color)" /> : <Copy size={14} />}
+                  </button>
+                )}
+              </span>
             </div>
 
             <div className="settings-profile-field">
