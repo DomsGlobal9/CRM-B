@@ -160,7 +160,7 @@ export default function WorkspaceView() {
                   <ShellWordmark />
                   <span className="portal-sidebar-tagline">Boutique</span>
                 </div>
-                <div className="portal-sidebar-mark" aria-hidden="true">S</div>
+                <img className="portal-sidebar-mark" src="/icon-512.png" alt="" />
                 <button type="button" className="portal-nav-toggle" onClick={toggleNav}
                         aria-label={navCollapsed ? 'Expand navigation' : 'Collapse navigation'}
                         aria-expanded={!navCollapsed}

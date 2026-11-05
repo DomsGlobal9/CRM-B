@@ -176,5 +176,10 @@
     background: color-mix(in srgb, var(--shell-fg) 8%, var(--shell-bg));
   }
   .nav-collapsed .portal-sidebar .portal-nav-toggle { left: 61px; }
-  .nav-collapsed .portal-sidebar { padding-top: 14px; }
+  /* Closed: the app icon in the same row, and each menu item a square, so the
+     highlight is a rounded square with its icon in the middle. */
+  .nav-collapsed .portal-sidebar { padding-top: 9px; }
+  .nav-collapsed .portal-sidebar-mark { width: 40px; height: 40px; max-width: none; }
+  .portal-layout.nav-collapsed .portal-menu { padding: 0; }
+  .portal-layout.nav-collapsed .portal-menu-item { width: 44px; height: 44px; min-height: 44px; padding: 0; margin-left: auto; margin-right: auto; border-radius: 12px; justify-content: center; gap: 0; }
 }
