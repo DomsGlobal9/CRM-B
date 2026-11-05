@@ -13,6 +13,7 @@ import CardGlance from './CardGlance';
 import JobScreen from './JobScreen';
 import { FINISHED, ago, approvedBy, assignedToMe, garmentLabel, humanise, inWorkshop, isOpenOrder, sentBackCount, stageActivities, stageRef, statusLabel, submittedAt } from './workHelpers';
 import './work.css';
+import { workOpenedKey } from '../../constants/storageKeys';
 
 // The "Customer messages not sent" box at the top of My work: hidden, not
 // removed -- set to true to bring it back.
@@ -48,7 +49,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   // assignment stands out from the jobs already on my list. Opened jobs are
   // remembered on this device per person; a job handed back to me counts again.
   // shortcut: remembered per device, not per account -- move to the server if staff share or switch phones.
-  const openedStore = `wk-opened:${currentUser?.id ?? ''}`;
+  const openedStore = workOpenedKey(currentUser?.id ?? '');
   const [opened, setOpened] = useState(() => {
     try { return new Set(JSON.parse(localStorage.getItem(openedStore) || '[]')); } catch { return new Set(); }
   });

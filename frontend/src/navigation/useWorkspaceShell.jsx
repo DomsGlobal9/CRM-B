@@ -7,6 +7,7 @@ import { UserAvatar } from '../components/ui/UserAvatar';
 import { AppHeader } from './AppHeader';
 import { Tabs } from '../components/ui/Atelier';
 import { canSeeTab } from './nav';
+import { REPORTS_TAB_KEY } from '../constants/storageKeys';
 
 /**
  * What the workspace's frame shows around the pages: the account menu and the
@@ -84,11 +85,11 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
 
   useEffect(() => {
     if (dashboardTab !== 'finance' && dashboardTab !== 'analytics') return;
-    try { localStorage.setItem('reports_tab', dashboardTab); } catch { /* per-device convenience only */ }
+    try { localStorage.setItem(REPORTS_TAB_KEY, dashboardTab); } catch { /* per-device convenience only */ }
   }, [dashboardTab]);
 
   const reportsTab = REPORT_TABS.includes(dashboardTab) ? dashboardTab : (() => {
-    try { return localStorage.getItem('reports_tab') || 'finance'; } catch { return 'finance'; }
+    try { return localStorage.getItem(REPORTS_TAB_KEY) || 'finance'; } catch { return 'finance'; }
   })();
 
   // The sidebar: no Account group (it is the menu at the top of the page), and

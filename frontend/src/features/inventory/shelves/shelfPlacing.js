@@ -1,17 +1,17 @@
 /* The non-visual half of ShelfPlace.jsx: turning the chosen places into
    put-away lines, putting the stock on them, and the recent-places memory. */
 import { api } from '../../../api';
+import { RECENT_PLACES_KEY } from '../../../constants/storageKeys';
 
-const RECENT_KEY = 'inventory-recent-places';
 const RECENT_MAX = 4;
 
 export const recentIds = () => {
-  try { return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]').filter(Boolean); } catch { return []; }
+  try { return JSON.parse(localStorage.getItem(RECENT_PLACES_KEY) || '[]').filter(Boolean); } catch { return []; }
 };
 const rememberRecent = (ids) => {
   try {
     const next = [...ids, ...recentIds().filter((id) => !ids.includes(id))].slice(0, RECENT_MAX);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+    localStorage.setItem(RECENT_PLACES_KEY, JSON.stringify(next));
   } catch { /* private mode */ }
 };
 

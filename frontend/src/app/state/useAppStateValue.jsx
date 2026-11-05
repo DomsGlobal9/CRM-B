@@ -5,7 +5,7 @@ import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { canSeeTab, visibleNav } from '../../navigation/nav';
 import useAuthForms from '../../features/auth/useAuthForms';
-import { DEFAULT_CUSTOMER_DATA, EMPTY_ALTERATION, EMPTY_OUTSIDE, SELF_DESIGNER, WIZARD_DRAFT_KEY, WIZARD_STEPS } from '../../features/orderWizard/wizard';
+import { DEFAULT_CUSTOMER_DATA, EMPTY_ALTERATION, EMPTY_OUTSIDE, SELF_DESIGNER, WIZARD_STEPS } from '../../features/orderWizard/wizard';
 import { plusDaysIso } from '../../utils/dates';
 import { syncFollowers } from '../../features/orderWizard/garmentCopies';
 import { markTourSeen, tourSeen } from '../../features/tour/tourState';
@@ -26,6 +26,7 @@ import useOrdersPage from '../../features/orders/useOrdersPage';
 import useCustomerBook from '../../features/customers/useCustomerBook';
 import useSession from '../../features/auth/useSession';
 import useWorkspaceShell from '../../navigation/useWorkspaceShell';
+import { NAV_COLLAPSED_KEY, TENANT_ID_KEY, TOKEN_KEY, WIZARD_DRAFT_KEY, onboardingDismissedKey } from '../../constants/storageKeys';
 
 /**
  * Everything the app holds while it runs, in one place: the signed-in user and
@@ -45,10 +46,10 @@ export default function useAppStateValue() {
   const [requestedTab, setDashboardTab] = useState('overview'); 
   const lastTabRef = useRef('overview');
   const [navCollapsed, setNavCollapsed] = useState(() => {
-    try { return localStorage.getItem('nav_collapsed') === '1'; } catch { return false; }
+    try { return localStorage.getItem(NAV_COLLAPSED_KEY) === '1'; } catch { return false; }
   });
   const toggleNav = () => setNavCollapsed((c) => {
-    try { localStorage.setItem('nav_collapsed', c ? '0' : '1'); } catch { /* per-device convenience only */ }
+    try { localStorage.setItem(NAV_COLLAPSED_KEY, c ? '0' : '1'); } catch { /* per-device convenience only */ }
     return !c;
   });
   const [currentUser, setCurrentUser] = useState(null);
@@ -113,7 +114,7 @@ export default function useAppStateValue() {
 
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     try {
-      return localStorage.getItem(`onboarding_dismissed_${localStorage.getItem('tenant_id') || ''}`) === '1';
+      return localStorage.getItem(onboardingDismissedKey(localStorage.getItem(TENANT_ID_KEY) || '')) === '1';
     } catch { return false; }
   });
   const [logoutBusy, setLogoutBusy] = useState(false);
@@ -213,7 +214,7 @@ export default function useAppStateValue() {
   const [paymentError, setPaymentError] = useState(null);
 
   const loadGarmentTemplates = useCallback(async () => {
-    if (!localStorage.getItem('token')) return;
+    if (!localStorage.getItem(TOKEN_KEY)) return;
     setGarmentTemplatesError(null);
     try {
       const data = await api.getGarmentTemplates();

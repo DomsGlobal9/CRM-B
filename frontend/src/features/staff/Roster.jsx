@@ -9,6 +9,7 @@ import AddStaffForm from './AddStaffForm';
 import AdvanceForm from './AdvanceForm';
 import { CredentialsDialog, DeleteMemberDialog, Modal } from './StaffDialogs';
 import { employmentLabel, errorBox, money, showsPay } from './staffShared';
+import { STAFF_STATUS_VIEW_KEY } from '../../constants/storageKeys';
 
 /** Staff > Team: the stat cards, the search, and the paged list of the team. */
 
@@ -18,12 +19,11 @@ import { employmentLabel, errorBox, money, showsPay } from './staffShared';
    by the roster list itself). Attendance-wise: Present / Checked out / Absent
    today, or the owner's Leave / Weekly off mark. Each view also flags what
    needs a hand: someone away with work waiting, someone in with none. */
-const STATUS_VIEW_KEY = 'staff-team-status-view';
 // Staff > Team's "By role" box (5 Tailors, 4 Masters...). Hidden for now, not
 // removed: set to true to bring it back.
 const SHOW_ROLE_MIX = false;
 const readStatusView = () => {
-  try { return localStorage.getItem(STATUS_VIEW_KEY) === 'attendance' ? 'attendance' : 'work'; } catch { return 'work'; }
+  try { return localStorage.getItem(STAFF_STATUS_VIEW_KEY) === 'attendance' ? 'attendance' : 'work'; } catch { return 'work'; }
 };
 const clockTime = (iso) => (iso ? new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '');
 const hoursText = (minutes) => {
@@ -84,7 +84,7 @@ export default function Roster({ isOwner, canSeeTeam, showDesigners = true, canM
   const [statusView, setStatusViewState] = useState(readStatusView);
   const setStatusView = (next) => {
     setStatusViewState(next);
-    try { localStorage.setItem(STATUS_VIEW_KEY, next); } catch { /* private mode: this visit only */ }
+    try { localStorage.setItem(STAFF_STATUS_VIEW_KEY, next); } catch { /* private mode: this visit only */ }
   };
   const [deposits, setDeposits] = useState([]);
   const [advances, setAdvances] = useState([]);

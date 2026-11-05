@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isProductionStaff } from '../../constants/roles';
 import { api } from '../../api';
-import { WIZARD_DRAFT_KEY } from '../orderWizard/wizard';
+import { STAFF_SETUP_PREFIX, TENANT_ID_KEY, WIZARD_DRAFT_KEY } from '../../constants/storageKeys';
 
 /**
  * Signing in and out: the saved session checked when the page opens (and an
@@ -21,8 +21,8 @@ export default function useSession({ setView, setDashboardTab, setCurrentUser, c
 
   const setupKey = (user) => {
     let tenant = '';
-    try { tenant = localStorage.getItem('tenant_id') || ''; } catch { /* private mode */ }
-    return `scaleezy_staff_setup:${tenant}:${user?.id || user?.email || 'user'}`;
+    try { tenant = localStorage.getItem(TENANT_ID_KEY) || ''; } catch { /* private mode */ }
+    return `${STAFF_SETUP_PREFIX}:${tenant}:${user?.id || user?.email || 'user'}`;
   };
 
   const storeSetup = (user, step) => {

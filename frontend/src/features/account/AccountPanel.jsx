@@ -8,6 +8,7 @@ import MyDetails from '../staff/MyDetails';
 import { ShopPin } from '../settings/ShopPin';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import { TENANT_ID_KEY } from '../../constants/storageKeys';
 
 /**
  * My account: the signed-in person's photo and details and, for the owner
@@ -22,7 +23,7 @@ export default function AccountPanel({ boutiqueAutosave, boutiqueFormError, bout
   // page, not the schema name (which is internal).
   const tenant = currentUser?.shop_slug
     ? `${window.location.origin}/${currentUser.shop_slug}`
-    : (localStorage.getItem('tenant_id') || '--');
+    : (localStorage.getItem(TENANT_ID_KEY) || '--');
   const copyText = (text) => navigator.clipboard?.writeText(text);
   return (
   <>

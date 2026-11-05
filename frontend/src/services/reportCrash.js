@@ -11,6 +11,7 @@
  */
 
 import { BASE_URL } from '../api/config';
+import { TENANT_ID_KEY } from '../constants/storageKeys';
 
 /** Matches core.exceptions and crm_api.client_errors, which cap again server-side. */
 const LIMITS = { name: 200, message: 2000, stack: 4000, route: 300 };
@@ -40,7 +41,7 @@ export function reportCrash(error, info) {
     alreadySent.add(key);
 
     const headers = { 'Content-Type': 'application/json' };
-    const tenantId = localStorage.getItem('tenant_id');
+    const tenantId = localStorage.getItem(TENANT_ID_KEY);
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
     fetch(`${BASE_URL}/client-errors/`, {

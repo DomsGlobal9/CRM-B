@@ -7,17 +7,13 @@
  * localStorage so the choice survives reloads, and applied before React
  * renders so the first paint is already in the right theme.
  */
+import { THEME_CHOICE_KEY, THEME_MODE_KEY, THEME_SYSTEM_KEY } from '../constants/storageKeys';
+
 export const DESIGN_SYSTEMS = [
   { key: 'scaleezy', label: 'Scaleezy', hint: 'Lime on a clean light ground, with a white sidebar.' },
   { key: 'atelier', label: 'Atelier', hint: 'Warm paper, forest green and brass.' },
 ];
 export const COLOR_MODES = ['light', 'dark', 'system'];
-
-const KEY_SYSTEM = 'design_system';
-const KEY_MODE = 'color_mode';
-// The person's own pick on this device (Settings → Appearance); wins over the
-// boutique default the platform set.
-const KEY_CHOICE = 'color_mode_choice';
 
 const read = (key, allowed, fallback) => {
   try {
@@ -29,8 +25,8 @@ const read = (key, allowed, fallback) => {
 };
 
 export const getThemePrefs = () => ({
-  system: read(KEY_SYSTEM, DESIGN_SYSTEMS.map((d) => d.key), 'scaleezy'),
-  mode: read(KEY_CHOICE, COLOR_MODES, null) || read(KEY_MODE, COLOR_MODES, 'light'),
+  system: read(THEME_SYSTEM_KEY, DESIGN_SYSTEMS.map((d) => d.key), 'scaleezy'),
+  mode: read(THEME_CHOICE_KEY, COLOR_MODES, null) || read(THEME_MODE_KEY, COLOR_MODES, 'light'),
 });
 
 /** Light, dark or 'system' (follow the device): the mode in force right now. */
@@ -40,7 +36,7 @@ export const getColorMode = () => getThemePrefs().mode;
 export function setColorMode(mode) {
   if (!COLOR_MODES.includes(mode)) return applyTheme();
   try {
-    localStorage.setItem(KEY_CHOICE, mode);
+    localStorage.setItem(THEME_CHOICE_KEY, mode);
   } catch {
     // Private mode: the choice lasts for this page only.
   }
@@ -66,8 +62,8 @@ export function applyTheme() {
 export function setThemePrefs(next) {
   const prefs = { ...getThemePrefs(), ...next };
   try {
-    localStorage.setItem(KEY_SYSTEM, prefs.system);
-    localStorage.setItem(KEY_MODE, prefs.mode);
+    localStorage.setItem(THEME_SYSTEM_KEY, prefs.system);
+    localStorage.setItem(THEME_MODE_KEY, prefs.mode);
   } catch {
     // Private mode: the choice lasts for this page only.
   }

@@ -104,6 +104,3 @@ export const DEFAULT_CUSTOMER_DATA = {
   }
 };
 
-// The order being written in this tab, so a reload reopens it where it was saved.
-// sessionStorage: one tab only, gone when the tab closes; a reload keeps it.
-export const WIZARD_DRAFT_KEY = 'order-wizard-draft';

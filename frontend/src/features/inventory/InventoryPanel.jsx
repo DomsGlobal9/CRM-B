@@ -21,6 +21,7 @@ import ItemsTab from './ItemsTab';
 import MovementModal from './MovementModal';
 import { SupplierFormModal, SuppliersTab } from './Suppliers';
 import { panel, qty, money } from './inventoryShared';
+import { SHELVES_LOCATION_KEY, SHELVES_VIEW_KEY } from '../../constants/storageKeys';
 
 const MOVEMENT_TONE = {
   PURCHASE: 'var(--success-text)', STOCK_IN: 'var(--success-text)', RETURN: 'var(--success-text)',
@@ -200,8 +201,8 @@ export default function InventoryPanel({ currentUser, restockItem = null, onRest
         <NotShelvedReminder version={items} onOpen={(location) => {
           // Opens Racks & shelves straight on Put away for that location.
           try {
-            localStorage.setItem('inventory-shelves-view', 'putaway');
-            localStorage.setItem('inventory-shelves-location', String(location.id));
+            localStorage.setItem(SHELVES_VIEW_KEY, 'putaway');
+            localStorage.setItem(SHELVES_LOCATION_KEY, String(location.id));
           } catch { /* private mode */ }
           setTab('shelves');
         }} />

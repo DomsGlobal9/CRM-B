@@ -11,6 +11,7 @@ import { APPOINTMENT_TYPE_LABELS } from '../appointments/appointments';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import './dashboard.css';
+import { TENANT_ID_KEY, onboardingDismissedKey } from '../../constants/storageKeys';
 
 const compactInr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { notation: 'compact', maximumFractionDigits: 1 })}`;
 
@@ -334,7 +335,7 @@ export default function OverviewPanel({ appointments, blankAppointmentForm, curr
               onClick={() => {
                 setOnboardingDismissed(true);
                 try {
-                  localStorage.setItem(`onboarding_dismissed_${localStorage.getItem('tenant_id') || ''}`, '1');
+                  localStorage.setItem(onboardingDismissedKey(localStorage.getItem(TENANT_ID_KEY) || ''), '1');
                 } catch { /* per-device convenience only */ }
               }}
             >

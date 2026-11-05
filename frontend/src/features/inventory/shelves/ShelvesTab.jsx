@@ -17,10 +17,7 @@ import PutAway from './PutAway';
 import RackSetup from './RackSetup';
 import WhereIsIt from './WhereIsIt';
 import './shelves.css';
-
-const VIEW_KEY = 'inventory-shelves-view';
-
-const LOCATION_KEY = 'inventory-shelves-location';
+import { SHELVES_LOCATION_KEY, SHELVES_VIEW_KEY } from '../../../constants/storageKeys';
 
 const remember = (key, value) => { try { localStorage.setItem(key, value); } catch { /* private mode */ } };
 
@@ -28,7 +25,7 @@ const recall = (key) => { try { return localStorage.getItem(key) || ''; } catch 
 
 export default function ShelvesTab({ canMove = false, canManage = false }) {
   const [locations, setLocations] = useState(null);
-  const [locationId, setLocationId] = useState(recall(LOCATION_KEY));
+  const [locationId, setLocationId] = useState(recall(SHELVES_LOCATION_KEY));
   const [tree, setTree] = useState(null);
   const [error, setError] = useState('');
   const [openIssues, setOpenIssues] = useState(0);
@@ -40,9 +37,9 @@ export default function ShelvesTab({ canMove = false, canManage = false }) {
     { key: 'problems', label: 'Problems', icon: AlertTriangle },
     canManage && { key: 'setup', label: 'Set up racks', icon: Layers },
   ].filter(Boolean), [canMove, canManage]);
-  const [viewPick, setViewPick] = useState(recall(VIEW_KEY));
+  const [viewPick, setViewPick] = useState(recall(SHELVES_VIEW_KEY));
   const view = views.some((v) => v.key === viewPick) ? viewPick : 'where';
-  const setView = (key) => { setViewPick(key); remember(VIEW_KEY, key); };
+  const setView = (key) => { setViewPick(key); remember(SHELVES_VIEW_KEY, key); };
 
   useEffect(() => {
     api.getStockLocations({ active: 'true' })
@@ -75,7 +72,7 @@ export default function ShelvesTab({ canMove = false, canManage = false }) {
             <span className="sh-location-label">Location</span>
             <MapPin size={15} aria-hidden="true" className="sh-location-icon" />
             <select className="form-control" value={location.id} aria-label="Location"
-                    onChange={(e) => { setLocationId(e.target.value); remember(LOCATION_KEY, e.target.value); setTree(null); }}>
+                    onChange={(e) => { setLocationId(e.target.value); remember(SHELVES_LOCATION_KEY, e.target.value); setTree(null); }}>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
           </label>

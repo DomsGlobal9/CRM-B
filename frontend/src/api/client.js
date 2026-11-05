@@ -5,6 +5,7 @@
  */
 
 import { BASE_URL } from './config';
+import { LANGUAGE_KEY, TENANT_ID_KEY, TOKEN_KEY } from '../constants/storageKeys';
 
 /**
  * Collapse identical concurrent mutations into one network request.
@@ -116,10 +117,10 @@ const handleSessionEnded = async () => {
   // the server directly whether this token still stands, and end the session
   // only on its confirmed no. A network failure keeps the session: offline is
   // not signed out.
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
     try {
-      const tenantId = localStorage.getItem('tenant_id');
+      const tenantId = localStorage.getItem(TENANT_ID_KEY);
       const res = await guardedFetch(`${BASE_URL}/auth/me/`, {
         headers: {
           'Authorization': `Token ${token}`,
@@ -138,8 +139,8 @@ const handleSessionEnded = async () => {
   // Confirmed dead (or never had a token). Reloading rather than routing: the
   // token is gone, so every screen behind it is invalid, and a reload is the
   // one operation that cannot leave a fragment of the previous session behind.
-  localStorage.removeItem('token');
-  localStorage.removeItem('tenant_id');
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TENANT_ID_KEY);
   window.location.reload();
 };
 
@@ -148,15 +149,15 @@ export const getHeaders = (isMultipart = false) => {
   if (!isMultipart) {
     headers['Content-Type'] = 'application/json';
   }
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
     headers['Authorization'] = `Token ${token}`;
   }
-  const tenantId = localStorage.getItem('tenant_id');
+  const tenantId = localStorage.getItem(TENANT_ID_KEY);
   if (tenantId) {
     headers['X-Tenant-ID'] = tenantId;
   }
-  const lang = localStorage.getItem('app_language') || 'en';
+  const lang = localStorage.getItem(LANGUAGE_KEY) || 'en';
   headers['Accept-Language'] = lang;
   return headers;
 };

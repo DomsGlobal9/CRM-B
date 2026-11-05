@@ -4,6 +4,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { UserAvatar } from '../../components/ui/UserAvatar.jsx';
 import { api } from '../../api';
 import { imageFilesError } from '../../utils/validate.js';
+import { TENANT_ID_KEY } from '../../constants/storageKeys';
 
 /** The banner at the top of Settings: who is signed in, their photo, and the boutique. */
 export default function ProfileBanner({ currentUser, boutiqueSettings, onUserUpdated, mode, copied, handleCopyUrl, setActiveModal }) {
@@ -11,7 +12,7 @@ export default function ProfileBanner({ currentUser, boutiqueSettings, onUserUpd
   // The address a customer or staff member opens, as the My profile page shows it.
   const webAddress = currentUser?.shop_slug
     ? `${window.location.origin}/${currentUser.shop_slug}`
-    : (localStorage.getItem('tenant_id') || '--');
+    : (localStorage.getItem(TENANT_ID_KEY) || '--');
   const [copiedField, setCopiedField] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
 
