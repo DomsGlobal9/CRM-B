@@ -1,7 +1,7 @@
 import { CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, ShoppingCart, User, Zap } from 'lucide-react';
 import React from 'react';
 import { RequestAlterationModal } from '../alterations/OrderAlterations';
-import { PageHeader, SearchBox, Segmented, StatCard } from '../../components/ui/Atelier';
+import { PageHeader, SearchBox, Segmented, StatCard, Tabs } from '../../components/ui/Atelier';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
 import { Pager } from '../../components/ui/Pager';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
@@ -31,9 +31,9 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
   const alterations = inPile.filter(o => o.flow === 'alteration').length;
   const kindTabs = (
     <div className="orders-kind-tabs">
-      <Segmented ariaLabel={t('ordersPage.orderKind', 'Order type')} value={ordersKind} onChange={setOrdersKind} options={[
-        { key: 'stitching', label: `${t('ordersPage.typeStitching', 'Stitching')} (${inPile.length - alterations})`, icon: Scissors },
-        { key: 'alteration', label: `${t('ordersPage.typeAlteration', 'Alterations')} (${alterations})`, icon: Ruler },
+      <Tabs ariaLabel={t('ordersPage.orderKind', 'Order type')} value={ordersKind} onChange={setOrdersKind} tabs={[
+        { key: 'stitching', label: t('ordersPage.typeStitching', 'Stitching'), icon: Scissors, count: inPile.length - alterations },
+        { key: 'alteration', label: t('ordersPage.typeAlteration', 'Alterations'), icon: Ruler, count: alterations },
       ]} />
     </div>
   );

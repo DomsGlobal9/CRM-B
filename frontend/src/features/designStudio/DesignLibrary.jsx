@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Award, Check, ChevronRight, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
+import { Award, Check, ChevronRight, ClipboardList, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
@@ -8,7 +8,7 @@ import GarmentPartTabs from './GarmentPartTabs';
 import { libraryDesignParts } from './libraryParts';
 import DesignCatalogueBrowser from './DesignCatalogueBrowser';
 import ItemFormModal from '../inventory/ItemFormModal';
-import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
+import { IconTile, SectionCard, StatCard, Tabs } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
 import { LIMITS, cleanAmount } from '../../services/validate';
 import Loader from '../../components/ui/Loader';
@@ -291,7 +291,7 @@ function DesignDetail({ design, onClose, onEdit, onDelete, onReviewed, canReview
 
 const SHOW_DESIGN_FILTERS = false;
 
-export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false, canStock = false, onOpenRequests = null, onOpenDesigners = null }) {
+export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded, refreshToken, canReview = false, canStock = false, requests = null, requestsLabel = '', requestsWaiting = 0, tab = 'categories', onTabChange = null, onOpenDesigners = null }) {
   const [stocking, setStocking] = useState(null);   
   const [categories, setCategories] = useState([]);
   const [total, setTotal] = useState(0);
@@ -410,7 +410,14 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
     // Every card opens something: the garments the designs are filed under,
     // the designers' requests, a new design (where a collection is made), the
     // unfiled designs, the review queue.
-    const toCategories = () => document.querySelector('.dl-cats-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // Without the requests (a role they are not shown to) there are no tabs, just the categories.
+    const activeTab = requests ? tab : 'categories';
+    const showTab = (key) => {
+      onTabChange?.(key);
+      document.querySelector('.dl-lib-tabs, .dl-cats-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    const toCategories = () => showTab('categories');
+    const toRequests = () => showTab('requests');
     return (
       <div className="at-stack dl-page">
         {/* Just the label and the number on each card (no line under it). */}
@@ -420,7 +427,7 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
           {/* From the Overview tab, merged in here: the active designers and
               collections (the category count is the list of categories below). */}
           <StatCard icon={Users} tone="amber" label="Designers" value={(Array.isArray(designers) ? designers : designers?.results || []).length}
-                    onClick={onOpenDesigners || onOpenRequests || toCategories} />
+                    onClick={onOpenDesigners || (requests ? toRequests : toCategories)} />
           <StatCard icon={Award} tone="violet" label="Collections" value={(Array.isArray(collections) ? collections : collections?.results || []).length}
                     onClick={() => setUploading(true)} />
           <StatCard icon={ImageIcon} tone="violet" label="Uncategorised" value={uncategorised?.count ?? 0}
@@ -431,6 +438,21 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
           )}
         </div>
 
+        {requests && (
+          <Tabs className="dl-lib-tabs" ariaLabel="Design library sections" panelId="dl-tab-panel"
+                value={activeTab} onChange={onTabChange}
+                tabs={[
+                  { key: 'categories', label: 'Design Categories', icon: LayoutGrid },
+                  { key: 'requests', label: requestsLabel, icon: ClipboardList, count: requestsWaiting > 0 ? requestsWaiting : null },
+                ]} />
+        )}
+
+        <div id="dl-tab-panel" className="at-stack" role={requests ? 'tabpanel' : undefined}>
+        {/* Stays mounted while hidden: it is what counts the designs waiting for
+            the tab's number. */}
+        {requests && <div hidden={activeTab !== 'requests'}>{requests}</div>}
+
+        {activeTab === 'categories' && (
         <SectionCard
           className="dl-cats-card"
           icon={LayoutGrid} tone="green" title="Design Categories"
@@ -456,6 +478,8 @@ export default function DesignLibrary({ onEditDesign, onDeleteDesign, onUploaded
             ))}
           </div>
         </SectionCard>
+        )}
+        </div>
 
         {uploading && (
           <DesignUpload

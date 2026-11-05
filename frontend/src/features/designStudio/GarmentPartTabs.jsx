@@ -67,14 +67,10 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
 
   return (
     <>
-      {/* Every part in view at once: the tabs wrap onto a second line inside
-          their grey track rather than one row scrolled sideways, so no part
-          hides off the edge of a phone -- the app's .tabs-header wraps the same
-          way. The open part is the raised pill the theme gives an active tab
-          (index.css, .at-part-tabs .tab-btn.active). "Next" sits beside the
-          track on a wide screen and on its own line, right-aligned, on a
-          phone. Scoped to this component's own class, so the shared
-          .tabs-header rules are untouched. */}
+      {/* The one tab design (.at-tabs / .at-tab in index.css). Every part stays
+          in view at once: the tabs wrap onto a second line rather than one row
+          scrolled sideways, so no part hides off the edge of a phone. "Next" sits
+          beside them on a wide screen and on its own line on a phone. */}
       <style>{`
         .at-part-tabs {
           display: flex;
@@ -85,55 +81,25 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           margin-bottom: 16px;
         }
         .at-part-tabs-scroll {
-          display: flex;
-          flex: 0 1 auto;
+          flex: 1 1 auto;
           min-width: 0;
-          max-width: 100%;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 4px;
-          padding: 4px;
-          background: var(--tab-track, var(--surface-inset, #f4f4f5));
-          border: 1px solid var(--border-color, #e4e4e7);
-          border-radius: 10px;
         }
-        .at-part-tabs .tab-btn {
+        .at-part-tabs .tab-next {
           flex: 0 0 auto;
           max-width: 100%;
           min-height: 34px;
-          white-space: nowrap;
-          padding: 7px 14px;
-          font-size: 13px;
-          font-weight: 500;
-          line-height: 1.3;
-          border-radius: 7px;
-          border: 1px solid transparent;
-          background: transparent;
-          color: var(--text-secondary, #64748b);
-          transition: background-color 0.15s ease, color 0.15s ease;
-          cursor: pointer;
-        }
-        .at-part-tabs .tab-btn.active {
-          background: var(--surface-color, #ffffff);
-          color: var(--text-primary, #0f172a);
-          font-weight: 600;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-        }
-        .at-part-tabs .tab-btn:hover:not(.active) {
-          background: rgba(0, 0, 0, 0.05);
-          color: var(--text-primary, #0f172a);
-        }
-        .at-part-tabs .tab-btn:focus-visible {
-          outline: 2px solid var(--primary-color, #18181b);
-          outline-offset: 2px;
-        }
-        .at-part-tabs .tab-next {
           margin-left: auto;
           padding: 7px 4px 7px 12px;
+          font-size: 13px;
           font-weight: 600;
-          color: var(--text-primary, #0f172a);
+          line-height: 1.3;
+          white-space: nowrap;
+          border: 1px solid transparent;
+          background: transparent;
+          color: var(--text-primary);
+          cursor: pointer;
         }
-        .at-part-tabs .tab-next:hover:not(.active) {
+        .at-part-tabs .tab-next:hover {
           background: transparent;
           text-decoration: underline;
         }
@@ -144,23 +110,17 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           gap: 6px;
           padding: 7px 18px;
           border-radius: 8px;
-          background: var(--primary-color, #18181b);
-          color: var(--primary-foreground, #ffffff);
-          box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+          background: var(--primary-color);
+          color: var(--primary-foreground);
+          box-shadow: var(--shadow-card);
         }
-        .at-part-tabs .tab-next.tab-done:hover:not(.active) {
-          background: var(--primary-color, #18181b);
+        .at-part-tabs .tab-next.tab-done:hover {
+          background: var(--primary-color);
           text-decoration: none;
           filter: brightness(0.95);
         }
         @media (max-width: 560px) {
           .at-part-tabs-scroll { flex-basis: 100%; }
-          .at-part-tabs .tab-btn {
-            padding: 6px 12px;
-            font-size: 12.5px;
-            white-space: normal; /* a long part name wraps inside its tab */
-            text-align: left;
-          }
           .at-part-tabs .tab-next {
             flex-basis: 100%;
             justify-content: flex-end; /* buttons are flex boxes app-wide */
@@ -169,8 +129,8 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
           .at-part-tabs .tab-next.tab-done { justify-content: center; min-height: 40px; }
         }
       `}</style>
-      <div className="at-part-tabs" role="tablist">
-        <div className="at-part-tabs-scroll" ref={strip} onWheel={onWheel}>
+      <div className="at-part-tabs">
+        <div className="at-tabs at-part-tabs-scroll" role="tablist" ref={strip} onWheel={onWheel}>
         {/* allLabel null means there is no view behind these tabs other than
             the parts themselves, so the strip is parts alone. */}
         {tabs.map((part) => (
@@ -179,7 +139,7 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
             type="button"
             role="tab"
             aria-selected={active === part.key}
-            className={`tab-btn ${active === part.key ? 'active' : ''}`}
+            className={`at-tab${active === part.key ? ' at-tab--active' : ''}`}
             onClick={() => onChange(part.key)}
           >
             {part.label}
@@ -198,7 +158,7 @@ export function PartTabStrip({ parts = [], active, onChange, allLabel = 'All Des
             onClick={() => {
               onChange(next.key);
               // The new tab may sit behind the fade: bring it into view.
-              requestAnimationFrame(() => strip.current?.querySelector('[aria-current="true"], .active')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }));
+              requestAnimationFrame(() => strip.current?.querySelector('.at-tab--active')?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }));
             }}
           >
             {nextAsDone ? <><Check size={15} strokeWidth={2.5} /> Done</> : <>Next: {next.label} →</>}

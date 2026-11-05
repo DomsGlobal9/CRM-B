@@ -105,6 +105,49 @@ class AssignmentTests(AssignmentTestCase):
         self.assertEqual(assignment.brief, "Heavy zari on the border.")
         self.assertEqual(assignment.assigned_by_id, self.owner.id)
 
+    def test_a_request_keeps_its_voice_notes_stamped_by_the_server(self):
+        response = self._assign(self.lehenga_job, self.meera, voice_notes=[
+            {'url': 'https://example.test/one.webm', 'by': 'Someone else', 'at': '2000-01-01'},
+            {'url': 'https://example.test/two.webm'},
+        ])
+        self.assertEqual(response.status_code, 201, response.data)
+
+        assignment = DesignAssignment.objects.get(garment_job=self.lehenga_job)
+        self.assertEqual(assignment.brief_voice_note, 'https://example.test/one.webm')
+        self.assertEqual([n['url'] for n in assignment.brief_voice_notes],
+                         ['https://example.test/one.webm', 'https://example.test/two.webm'])
+        self.assertEqual(assignment.brief_voice_notes[0]['by'], self.owner.username)
+        self.assertNotEqual(assignment.brief_voice_notes[0]['at'], '2000-01-01')
+
+        queue = self.meera_client.get(reverse('design-assignment-detail', args=[assignment.id]))
+        self.assertEqual(queue.status_code, 200, queue.data)
+        self.assertEqual(len(queue.data['brief_voice_notes']), 2)
+
+    def test_a_voice_note_must_be_a_real_link(self):
+        response = self._assign(self.lehenga_job, self.meera, voice_notes=[{'url': 'javascript:alert(1)'}])
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(DesignAssignment.objects.filter(garment_job=self.lehenga_job).exists())
+
+    def test_a_request_needs_no_voice_note(self):
+        response = self._assign(self.lehenga_job, self.meera, brief="Words only.")
+        self.assertEqual(response.status_code, 201, response.data)
+        assignment = DesignAssignment.objects.get(garment_job=self.lehenga_job)
+        self.assertEqual(assignment.brief_voice_note, '')
+        self.assertEqual(assignment.brief_voice_notes, [])
+
+    def test_reassigning_replaces_voice_notes_only_when_new_ones_come(self):
+        self._assign(self.lehenga_job, self.meera, voice_notes=[{'url': 'https://example.test/old.webm'}])
+        assignment = DesignAssignment.objects.get(garment_job=self.lehenga_job)
+
+        self._assign(self.lehenga_job, self.kavya)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.brief_voice_note, 'https://example.test/old.webm')
+
+        self._assign(self.lehenga_job, self.meera, voice_notes=[{'url': 'https://example.test/new.webm'}])
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.brief_voice_note, 'https://example.test/new.webm')
+        self.assertEqual([n['url'] for n in assignment.brief_voice_notes], ['https://example.test/new.webm'])
+
     def test_a_master_cannot_assign_design_work_to_a_designer(self):
         # Designer sits above Master (core.roles), and a design assignment's
         # assignee is always a Designer -- so a Master assigning one is

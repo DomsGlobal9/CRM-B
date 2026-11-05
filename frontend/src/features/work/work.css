@@ -139,8 +139,7 @@
   padding: 1px 8px; border-radius: 999px; margin-right: 6px; vertical-align: 1px;
   color: var(--wk-kind); background: color-mix(in srgb, var(--wk-kind) 12%, transparent); }
 /* My work's status tabs. */
-.wk-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-4, 16px); }
-.wk-tabs .tab-btn { display: inline-flex; align-items: center; gap: 6px; }
+.wk-tabs { margin-bottom: var(--space-4, 16px); }
 
 
 /* The check screen (Approve / Send back): the two buttons side by side and

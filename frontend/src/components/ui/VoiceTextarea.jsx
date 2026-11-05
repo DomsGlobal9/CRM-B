@@ -186,7 +186,7 @@ export function VoiceClipPreview({ blob, url, onRemove }) {
   const src = objectUrl || url;
   if (!src) return null;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: '0 1 360px', minWidth: 0 }}>
       <VoiceNotePlayer src={src} style={{ flex: '1 1 200px' }} />
       {onRemove && (
         <button type="button" onClick={onRemove}
@@ -209,7 +209,7 @@ const RECORDER_KEYFRAMES = `
 // one `sent` -- each is listed with its own Delete (onDelete(index)), and Send
 // adds the new one (onSend(blob)) rather than replacing what is there.
 export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label = 'Record voice note', onRecordingChange, startToken = 0,
-  notes = null, max = MAX_VOICE_NOTES }) {
+  notes = null, max = MAX_VOICE_NOTES, sendLabel = 'Send', onPendingChange }) {
   const list = Array.isArray(notes) ? notes : null;
   const full = Boolean(list) && list.length >= max;
   const [phase, setPhase] = useState('idle');   
@@ -224,6 +224,7 @@ export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label 
     try { mediaRef.current?.stop(); } catch { /* not recording */ }
   }, []);
   useEffect(() => { onRecordingChange?.(phase === 'recording'); }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { onPendingChange?.(phase !== 'idle'); }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stop = () => {
     clearInterval(timerRef.current);
@@ -386,7 +387,7 @@ export function VoiceRecorder({ sent, onSend, onDelete, disabled = false, label 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <VoiceClipPreview blob={blob} />
           <button type="button" className="btn-primary" style={small} disabled={phase === 'sending'} onClick={send}>
-            <Send size={13} /> {phase === 'sending' ? 'Sending…' : 'Send'}
+            <Send size={13} /> {phase === 'sending' ? 'Sending…' : sendLabel}
           </button>
           <button type="button" className="btn-secondary" style={small} disabled={phase === 'sending'} onClick={discard}>
             <Trash2 size={13} /> Delete

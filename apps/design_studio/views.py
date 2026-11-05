@@ -20,6 +20,7 @@ from apps.activities.models import UniversalActivity
 from core.admin_access import holds
 from core.roles import DESIGNER, OWNER, can_assign, resolve_user_role
 from core.validators import (
+    validate_voice_notes,
     MAX_NOTE, validate_image_upload, validate_image_uploads, validate_text,
 )
 from crm_api.models import Customer, Order
@@ -1162,6 +1163,14 @@ class DesignAssignmentViewSet(viewsets.ModelViewSet):
             return Response({'detail': f'A {role} cannot assign design work to a Designer.'},
                             status=status.HTTP_403_FORBIDDEN)
 
+        # The brief spoken as well as typed, up to ten clips, stamped here with who
+        # sent them; brief_voice_note stays the first, as on an order's own request.
+        from domains.orders.services import OrderService
+        voice_notes = validate_voice_notes(
+            request.data.get('voice_notes'), label='Voice note',
+            sender=OrderService._voice_sender(request.user))
+        first_voice_note = voice_notes[0]['url'] if voice_notes else ''
+
         existing = DesignAssignment.objects.filter(garment_job=job).first()
         if role == DESIGNER and not handed:
             # Handing on your OWN work. Taking a garment another designer is
@@ -1182,6 +1191,10 @@ class DesignAssignmentViewSet(viewsets.ModelViewSet):
             existing.designer = designer
             existing.brief = serializer.validated_data.get('brief', existing.brief)
             existing.due_date = serializer.validated_data.get('due_date', existing.due_date)
+            # Sent with this request: they replace the old. Not sent: the old stay.
+            if voice_notes:
+                existing.brief_voice_notes = voice_notes
+                existing.brief_voice_note = first_voice_note
             existing.status = DesignAssignment.Status.ASSIGNED
             existing.design = None
             existing.submission_note = ''
@@ -1196,7 +1209,8 @@ class DesignAssignmentViewSet(viewsets.ModelViewSet):
             return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
 
         assignment = serializer.save(
-            assigned_by=request.user if request.user.is_authenticated else None)
+            assigned_by=request.user if request.user.is_authenticated else None,
+            brief_voice_note=first_voice_note, brief_voice_notes=voice_notes)
         _log(request, assignment, "DESIGN_ASSIGNED",
              f"Design work assigned: {job.template.name}",
              f"{job.template.name} on {job.order.reference} assigned to {designer.name}.",

@@ -26,7 +26,7 @@
 .portal-main:has(> .insights-stats) > .reports-switch { display: contents; }
 .portal-main:has(> .insights-stats) > .reports-switch > .reports-switch-label { order: -1; margin-bottom: 6px; }
 .portal-main:has(> .insights-stats) > .at-page-head { order: 0; margin-bottom: 14px; }
-.portal-main:has(> .insights-stats) > .reports-switch > .at-seg { order: 1; align-self: flex-start; margin-bottom: 18px; }
+.portal-main:has(> .insights-stats) > .reports-switch > .at-tabs { order: 1; align-self: stretch; margin-bottom: 18px; }
 .portal-main:has(> .insights-stats) > .insights-stats { order: 2; }
 .portal-main:has(> .insights-stats) > .insights-grid { order: 3; }
 
@@ -154,17 +154,6 @@ html[data-theme$="-dark"] .portal-main:has(> .insights-stats) {
   --ins-down-bg: rgba(240, 138, 126, .14);
   background: #0E0F0E;
   color: var(--text-primary);
-}
-html[data-theme$="-dark"] .portal-main:has(> .insights-stats) > .reports-switch > .at-seg {
-  background: #161816;
-  border-color: var(--border-strong);
-  border-radius: 999px;
-  padding: 3px;
-}
-html[data-theme$="-dark"] .portal-main:has(> .insights-stats) > .reports-switch > .at-seg button { border-radius: 999px; color: var(--text-secondary); background: none; box-shadow: none; }
-html[data-theme$="-dark"] .portal-main:has(> .insights-stats) > .reports-switch > .at-seg button[aria-pressed="true"] {
-  background: linear-gradient(90deg, #EFEBD6, #8F8B5E);
-  color: #15170F;
 }
 html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .insights-stats .at-stat {
   background: linear-gradient(180deg, #131513 35%, #1C2A17 100%);
