@@ -6,8 +6,11 @@ const ORDER_BOOK_DATA = ['orders', 'queuedMessages'];
 const MY_WORK_DATA = ['orders', 'tailors', 'queuedMessages'];
 export const DATA_FOR_TAB = {
   // The figures and the workroom tiles (both GET /dashboard/), the appointments,
-  // the tier line, and the owner's bell (the bell is on this page only).
-  overview: ['dashboard', 'appointments', 'customerStats', 'notifications'],
+  // the owner's bell (the bell is on this page only), the customer messages that
+  // could not be sent, and the orders for what only they can say (orders by day,
+  // deliveries today, pieces to check). Each loads on its own, so the page draws
+  // from GET /dashboard/ first and those counts fill in after.
+  overview: ['dashboard', 'appointments', 'customerStats', 'notifications', 'queuedMessages', 'orders'],
   orders: ORDER_BOOK_DATA,
   workshop: ORDER_BOOK_DATA,
   work: MY_WORK_DATA,

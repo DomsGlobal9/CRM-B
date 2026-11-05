@@ -30,6 +30,8 @@ const financeRequest = async (path, { method = 'GET', body } = {}, params) => {
 export const financeApi = {
 getProfitLoss: (params) => financeRequest('profit-loss/', {}, params),
 
+  getFinanceTrend: (params) => financeRequest('trend/', {}, params),
+
   getExpenses: (params) => financeRequest('expenses/', {}, params),
 
   // FormData when a receipt is attached, plain JSON otherwise -- the helper

@@ -183,8 +183,7 @@ export default function WorkspaceView() {
           {/* Every role but the owner gets a tighter top (portal-main--staff). */}
           <main className={`portal-main${!currentUser?.role || currentUser.role === 'Owner' ? '' : ' portal-main--staff'}`}
                 key={`${dashboardTab}:${sectionVisit}`}>
-            {accountBar((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}
-            <CrumbsProvider base={crumbBase}>
+            <CrumbsProvider base={crumbBase} account={accountBar((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}>
             {(dashboardTab === 'work' || dashboardTab === 'done' || dashboardTab === 'check') && (
               <>
                 <PageHeader
@@ -212,7 +211,7 @@ export default function WorkspaceView() {
               </>
             )}
 
-            {dashboardTab === 'overview' && <OverviewPanel appointments={appointments} blankAppointmentForm={blankAppointmentForm} bookTiers={bookTiers} currentUserName={currentUserName} dashboardData={dashboardData} guideOrders={guideOrders} justRegistered={justRegistered} loading={loading} onboardingSteps={onboardingSteps} openAppointment={openAppointment} ordersList={ordersList} setAppointmentForm={setAppointmentForm} setEditingAppointment={setEditingAppointment} setInvoiceFilter={setInvoiceFilter} setOnboardingDismissed={setOnboardingDismissed} setOrdersFilterTab={setOrdersFilterTab} setOrdersStageFilter={setOrdersStageFilter} setShowAppointmentModal={setShowAppointmentModal} setTaskGuide={setTaskGuide} setView={setView} showOnboarding={showOnboarding} />}
+            {dashboardTab === 'overview' && <OverviewPanel appointments={appointments} blankAppointmentForm={blankAppointmentForm} currentUserName={currentUserName} dashboardData={dashboardData} guideOrders={guideOrders} justRegistered={justRegistered} loading={loading} onboardingSteps={onboardingSteps} openAppointment={openAppointment} ordersList={ordersList} queuedMessages={queuedMessages} setAppointmentForm={setAppointmentForm} setEditingAppointment={setEditingAppointment} setInvoiceFilter={setInvoiceFilter} setOnboardingDismissed={setOnboardingDismissed} setOrdersFilterTab={setOrdersFilterTab} setOrdersSearch={setOrdersSearch} setOrdersStageFilter={setOrdersStageFilter} setShowAppointmentModal={setShowAppointmentModal} setTaskGuide={setTaskGuide} setView={setView} showOnboarding={showOnboarding} />}
 
             {/* INVENTORY TAB */}
             {dashboardTab === 'inventory' && (
