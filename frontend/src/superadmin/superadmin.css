@@ -1,7 +1,7 @@
 /* The platform console's own layer, on top of the workspace design system.
  *
  * The console looks exactly like the boutique workspace because it IS the
- * workspace design system: main.jsx imports src/index.css (which brings
+ * workspace design system: main.jsx imports src/styles/index.css (which brings
  * themes.css), so every token, every .at-* / .ui-* / .btn-* / .portal-* recipe
  * and the global input, focus and type rules come from there. The console is
  * pinned to Scaleezy light -- plain :root, no data-theme -- so a boutique's

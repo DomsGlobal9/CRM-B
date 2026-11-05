@@ -1,0 +1,248 @@
+/* ==========================================================================
+   MOBILE TOUCH-TARGET FLOOR
+
+   The controls in this app are sized almost entirely by inline `padding` and
+   `font-size` written at the call site -- `padding: 6px 10px; font-size: 12px`
+   appears on hundreds of buttons and selects. That is fine with a mouse and
+   wrong with a thumb: measured on the orders registry it produces 28-32px
+   controls sitting a few pixels apart, which is where mis-taps come from.
+
+   Fixing it at the call sites would mean editing every one of those inline
+   styles and would drift back the moment somebody copies a neighbouring row.
+   Setting a floor here is the fix that holds: no inline style declares
+   `min-height`, so an ordinary rule wins without `!important` and composes
+   with whatever padding the call site chose.
+
+   `font-size` does need `!important`, and only on text-entry fields: iOS
+   Safari zooms the whole page when a focused input is under 16px, which throws
+   the layout off and leaves the user pinching back out on every field.
+
+   Three conditions, not just a width. A phone turned sideways is 844x390: the
+   width breakpoints all miss it and the app hands a landscape phone the full
+   desktop layout, 20px selects and all -- same fingers, no floor. The short-
+   viewport arm catches that, and the coarse-pointer arm catches tablets and
+   anything else driven by touch at a width a mouse would also use.
+   ========================================================================== */
+@media (max-width: 768px),
+       (max-height: 500px) and (max-width: 950px),
+       (pointer: coarse) and (max-width: 1024px) {
+  .app-container .btn-primary,
+  .app-container .btn-secondary,
+  .app-container .whatsapp-btn,
+  .app-container .portal-menu-item,
+  .app-container .view-all-link,
+  .app-container input.form-control,
+  .app-container select.form-control,
+  .app-container select,
+  .app-container .input-wrapper input,
+  .app-container .input-wrapper select,
+  .app-container .form-input,
+  .app-container input[type='text'],
+  .app-container input[type='email'],
+  .app-container input[type='tel'],
+  .app-container input[type='number'],
+  .app-container input[type='password'],
+  .app-container input[type='search'],
+  .app-container input[type='date'] {
+    min-height: 44px;
+  }
+
+  /* A 13px checkbox is a browser default, not a decision. Scaling the box
+     keeps the native control (and its keyboard behaviour) and just makes it
+     hittable; the extra padding gives the row some slop around it. */
+  .app-container input[type='checkbox'],
+  .app-container input[type='radio'] {
+    width: 22px;
+    height: 22px;
+    margin: 6px;
+    flex-shrink: 0;
+  }
+
+  /* The tab strips and filter pills (Inventory's seven module tabs, the
+     Customers type filter) are class-less buttons styled entirely inline at
+     `padding: 8px 16px`, which lands at 33.5px. 40 rather than 44 here: this
+     selector also catches the small inline chips inside dense rows, and 44
+     would visibly loosen those without making them easier to hit. Anything
+     that is really a button carries .btn-* and gets 44 above. */
+  .app-container button {
+    min-height: 40px;
+  }
+
+  /* Icon-only buttons -- modal closes, the copy-to-clipboard glyphs -- have no
+     text to give them width, so they came out ~20px wide however tall the rule
+     above made them. `:has(> svg:only-child)` is exactly "a button whose whole
+     content is one icon", so this reaches them all rather than one at a time. */
+  .app-container button:has(> svg:only-child) {
+    min-width: 40px;
+    justify-content: center;
+  }
+
+  /* Links and pills that are laid out as text still need a thumb-sized box. */
+  .app-container .view-all-link,
+  .app-container .whatsapp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-container input.form-control,
+  .app-container select.form-control,
+  .app-container textarea.form-control,
+  .app-container .input-wrapper input,
+  .app-container .input-wrapper select,
+  .app-container .input-wrapper textarea,
+  .app-container .search-bar-container .search-input,
+  .app-container input[type='text'],
+  .app-container input[type='email'],
+  .app-container input[type='tel'],
+  .app-container input[type='number'],
+  .app-container input[type='password'],
+  .app-container input[type='search'],
+  .app-container input[type='date'],
+  .app-container textarea,
+  .app-container .form-input {
+    font-size: 16px !important;
+  }
+}
+
+/* ==================================================================
+   Design-system primitives (refresh). Namespaced `ui-` so they compose with
+   the existing classes without collisions. These encode the information
+   hierarchy the redesign is built on: what to read first, in what order.
+   ========================================================================= */
+
+/* Eyebrow: the quiet label above a value/section -- read AFTER the value. */
+.ui-eyebrow {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  line-height: var(--leading-tight);
+}
+
+/* Section heading: the "what am I looking at" for a block of cards. */
+.ui-section-title {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  line-height: var(--leading-tight);
+  margin: 0;
+}
+.ui-section-sub { font-size: var(--text-sm); color: var(--text-muted); margin: 2px 0 0; }
+
+/* Card: one consistent surface everywhere. */
+.ui-card {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+}
+.ui-card--tap { cursor: pointer; transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease; }
+.ui-card--tap:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); transform: translateY(-1px); }
+
+/* Stat: eyebrow + value + sub, the atom of every metric row. */
+.ui-stat-value { font-size: var(--text-2xl); font-weight: var(--weight-bold); color: var(--text-primary); line-height: var(--leading-tight); font-variant-numeric: tabular-nums; }
+.ui-stat-value--hero { font-size: var(--text-3xl); }
+.ui-stat-sub { font-size: var(--text-xs); color: var(--text-secondary); margin-top: 2px; }
+
+/* Badge / pill: recognisable status at a glance. */
+.ui-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--text-2xs); font-weight: var(--weight-semibold);
+  padding: 2px 8px; border-radius: 999px; line-height: 1.6;
+}
+.ui-badge--success { background: var(--success-bg); color: var(--success-text); }
+.ui-badge--warning { background: var(--warning-bg); color: var(--warning-text); }
+.ui-badge--danger  { background: var(--danger-bg);  color: var(--danger-color); }
+.ui-badge--info    { background: var(--info-bg);    color: var(--info-color); }
+.ui-badge--neutral { background: var(--surface-inset); color: var(--text-secondary); }
+
+/* A row that lists items inside a card, tappable, with a warm hover well. */
+.ui-row {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+}
+.ui-row--tap { cursor: pointer; transition: background .12s ease; }
+.ui-row--tap:hover { background: var(--surface-inset); }
+
+/* Dashboard KPI band: hero revenue + three supporting stats, responsive. */
+.dashboard-kpi-band { grid-template-columns: minmax(240px, 1.5fr) repeat(3, minmax(150px, 1fr)); }
+@media (max-width: 1000px) { .dashboard-kpi-band { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px)  { .dashboard-kpi-band { grid-template-columns: 1fr; } }
+
+/* Orders board: one column per workflow stage, scrolls sideways on every
+   screen because fifteen columns never fit. Cards are .ui-card. */
+.kanban-board {
+  display: flex; gap: var(--space-3); align-items: flex-start;
+  overflow-x: auto; padding: var(--space-1) var(--space-1) var(--space-4);
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+}
+.kanban-column {
+  flex: 0 0 272px; max-width: 272px; scroll-snap-align: start;
+  background: var(--surface-2); border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg); display: flex; flex-direction: column;
+  max-height: calc(100vh - 260px); min-height: 160px;
+}
+.kanban-column--over { border-color: var(--accent-text, #b07c40); background: var(--accent-color, var(--surface-inset)); }
+.kanban-column-head {
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border-bottom: 1px solid var(--border-color); position: sticky; top: 0;
+  background: inherit; border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.kanban-column-meta {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  font-size: var(--text-xs); color: var(--text-secondary); margin-top: 2px;
+}
+.kanban-cards { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2); overflow-y: auto; }
+.kanban-empty { text-align: center; color: var(--text-muted); font-size: var(--text-sm); padding: var(--space-4) 0; }
+.kanban-card { padding: var(--space-3); display: flex; flex-direction: column; gap: 4px; cursor: grab; }
+.kanban-card:active { cursor: grabbing; }
+.kanban-card--busy { opacity: .55; pointer-events: none; }
+.kanban-card-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.kanban-card-ref { font-family: var(--font-serif); font-weight: var(--weight-bold); font-size: var(--text-md); color: var(--text-primary); }
+.kanban-card-customer { font-weight: var(--weight-semibold); font-size: var(--text-sm); color: var(--text-primary); }
+.kanban-card-line { font-size: var(--text-xs); color: var(--text-secondary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.kanban-card-flags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+@media (max-width: 767px) {
+  .kanban-column { flex-basis: 84vw; max-width: 84vw; max-height: none; }
+  .kanban-board { scroll-snap-type: x mandatory; }
+}
+
+/* Garment brief: what to make, read top-down -- dress, then its sections,
+   then each answer as a label over a value. Shared by the wizard review and
+   the production stage panel. */
+.garment-brief { display: flex; flex-direction: column; gap: var(--space-3); }
+.garment-brief-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.garment-card { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); background: var(--surface-color); }
+.garment-card-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-color); }
+.garment-card-name { font-family: var(--font-serif); font-size: var(--text-md); font-weight: var(--weight-semibold); color: var(--text-primary); }
+.garment-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.garment-section-title { color: var(--accent-text, #b07c40); }
+.garment-section-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-2) var(--space-4); }
+.garment-detail { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.garment-detail-label { font-size: var(--text-xs); color: var(--text-secondary); line-height: var(--leading-tight); }
+.garment-detail-value { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); overflow-wrap: anywhere; }
+/* The production-stage brief: every answered field as its own tile -- label
+   over value on a soft ground -- in an even grid, with a rule after each
+   section title. A spec a tailor scans down, not a loose scatter of pairs.
+   Scoped so the wizard's review, which renders the same component, keeps
+   its lighter form. */
+.at-stage-brief .garment-card { padding: var(--space-4) var(--space-5); gap: var(--space-4); }
+.at-stage-brief .garment-card-name { font-size: var(--text-lg); }
+.at-stage-brief .garment-section { gap: var(--space-3); }
+.at-stage-brief .garment-section-title { display: flex; align-items: center; gap: var(--space-3); }
+.at-stage-brief .garment-section-title::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+.at-stage-brief .garment-section-grid { grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: var(--space-2); }
+.at-stage-brief .garment-detail { padding: 8px 12px; background: var(--surface-inset); border-radius: var(--radius-md); gap: 3px; }
+.at-stage-brief .garment-detail-label { font-size: var(--text-2xs); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+.at-stage-brief .garment-detail-value { font-size: var(--text-sm); }
+.at-stage-brief .garment-instructions { margin-top: var(--space-1); }
+@media (max-width: 600px) { .at-stage-brief .garment-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.garment-instructions { padding: var(--space-3) var(--space-4); background: var(--warning-bg); border: 1px solid var(--warning-color); border-radius: var(--radius-md); display: flex; flex-direction: column; gap: var(--space-1); }
+.garment-instructions .garment-section-title { color: var(--warning-text); }
+.garment-instructions-text { font-size: var(--text-sm); color: var(--text-primary); white-space: pre-wrap; }
+.stage-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--surface-2); border: 1px solid var(--border-color); border-radius: var(--radius-md); }
+.stage-meta-value { font-size: var(--text-sm); font-weight: var(--weight-semibold); color: var(--text-primary); margin-top: 2px; }

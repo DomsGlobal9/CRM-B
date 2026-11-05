@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client'
 // console shares an origin -- and so localStorage -- with the boutique
 // workspace, and theme.js reads the last boutique's design system and colour
 // mode from there. The platform console is always Scaleezy light.
-import '../index.css'
+import '../styles/index.css'
 import SuperAdmin from './SuperAdmin.jsx'
 
 createRoot(document.getElementById('root')).render(

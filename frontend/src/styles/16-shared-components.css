@@ -1,0 +1,225 @@
+/* ==========================================================================
+   THE TOP OF EVERY WORKSPACE PAGE
+   One row (PageTopBar, Breadcrumbs.jsx): where you are on the left, the bell
+   and account menu on the right. Then the page's title and its actions. Every
+   page starts at the same height, with the same heading; heights follow the
+   content, so a long trail or title wraps instead of breaking the row.
+   ========================================================================== */
+.portal-main { padding: 20px 32px 40px; }
+.at-topbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px 16px; margin: 0 0 16px; min-width: 0;
+}
+.at-topbar .at-crumbs { flex: 1 1 200px; margin: 0; }
+.at-topbar .portal-account-bar { flex: 0 0 auto; margin-left: auto; }
+
+.at-page-head { align-items: flex-start; gap: 12px 24px; margin-bottom: 20px; }
+.at-page-title,
+.portal-main h1.page-title,
+.portal-main h1.selector-title,
+.portal-main .od-title,
+.settings-page-title {
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 2.2vw, 30px);
+  font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; overflow-wrap: anywhere;
+}
+/* This one carries its size inline. */
+.portal-main h1.selector-title { font-size: clamp(24px, 2.2vw, 30px) !important; }
+.at-page-sub, .portal-main .page-subtitle, .settings-page-subtitle { font-size: 14px; line-height: 1.5; }
+.at-page-sub { margin-top: 4px; }
+.at-page-meta { margin-top: 4px; }
+
+/* A big screen keeps the content centred, with a little more room at the sides. */
+@media (min-width: 1600px) {
+  .portal-main { padding: 24px 40px 48px; }
+}
+@media (max-width: 1024px) {
+  .portal-main { padding: 16px 24px 32px; }
+}
+/* A phone: the header bar above holds the bell and the account menu. */
+@media (max-width: 768px) {
+  .portal-main { padding: 12px 16px 24px; }
+  .at-topbar { margin-bottom: 10px; }
+  .at-topbar:not(:has(.at-crumbs)) { display: none; }
+  .at-page-head { margin-bottom: 14px; }
+}
+
+/* No trail above the heading (a home page): the bell and account menu sit level
+   with the title, and the heading takes the room beside them. */
+@media (min-width: 769px) {
+  .at-topbar:not(:has(.at-crumbs)) { float: right; margin: 0 0 8px 24px; }
+  .at-topbar:not(:has(.at-crumbs)) ~ :not(.at-page-head) { clear: right; }
+}
+.at-page-greeting {
+  display: block; margin: 2px 0 2px;
+  font-size: clamp(17px, 1.5vw, 20px); font-weight: 700; line-height: 1.3;
+  letter-spacing: -0.01em; color: var(--text-primary);
+}
+
+/* ==========================================================================
+   SCROLLBARS: none anywhere, including the sidebar
+   Everything still scrolls (wheel, trackpad, touch, keyboard); only the bar
+   itself is gone. !important so the rules for single areas cannot bring one back.
+   ========================================================================== */
+html, body, * { scrollbar-width: none !important; }
+html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+
+/* ==========================================================================
+   Shared components: Atelier.jsx, DataTable.jsx and Pager.jsx.
+   New class names only, so nothing already on a page changes. Built on the
+   recipes above (.btn-*, .ui-badge, .tab-btn, .at-seg, .at-field, .at-table).
+   No !important: this block is last in the file, so it wins by position.
+   ========================================================================== */
+
+/* Buttons */
+.at-btn-spinner { width: 14px; height: 14px; border-width: 2px; border-color: currentColor; border-top-color: transparent; }
+.at-btn-busy:disabled { cursor: progress; }
+.at-icon-btn--std svg { flex-shrink: 0; }
+.at-icon-btn--std:disabled { opacity: var(--state-disabled-opacity); cursor: not-allowed; }
+.at-icon-btn--std[aria-busy="true"]:disabled { cursor: progress; }
+.at-icon-btn--md { width: var(--control-sm); height: var(--control-sm); min-height: var(--control-sm); }
+.at-icon-btn--lg { width: var(--control-md); height: var(--control-md); min-height: var(--control-md); }
+.at-icon-btn--outline { background: var(--surface-color); border-color: var(--border-strong); color: var(--text-primary); }
+/* A finger needs more room than a mouse pointer. */
+@media (pointer: coarse) {
+  .at-icon-btn--std { width: var(--control-lg); height: var(--control-lg); min-height: var(--control-lg); }
+}
+
+/* Cards */
+.at-section-actions { display: flex; align-items: center; gap: var(--layout-control-gap); flex-wrap: wrap; }
+.at-section-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--layout-control-gap); flex-wrap: wrap; margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--border-color); }
+.at-stat-bone { width: 60%; height: 28px; margin-top: var(--space-1); }
+
+/* Status badge: the 700 step on the 100 step of its own family, the exact pair
+   check-colors.mjs proves passes AA in all four themes. A see-through tint would
+   take on the page behind it and fall short. Info also gets its own colour here.
+   A bare .ui-badge keeps its old colours, because pages and the platform console
+   already use it. */
+.at-status { max-width: 100%; white-space: nowrap; }
+.at-status--success { background: var(--success-100); color: var(--success-700); }
+.at-status--warning { background: var(--warning-100); color: var(--warning-700); }
+.at-status--danger { background: var(--danger-100); color: var(--danger-700); }
+.at-status svg { width: 12px; height: 12px; flex-shrink: 0; }
+.at-status--info { border-color: color-mix(in srgb, var(--info-color) 25%, transparent); background: var(--info-100); color: var(--info-700); }
+.at-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+/* Tabs and segmented controls */
+/* The one tab design, on every page: Atelier's Tabs draws it. */
+.at-tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); max-width: 100%; border-bottom: 1px solid var(--border-color); }
+.at-tab { display: flex; align-items: center; gap: 6px; padding: 10px 14px; margin-bottom: -1px; font-size: var(--text-base); font-weight: var(--weight-medium); color: var(--text-secondary); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.at-tab--active { font-weight: var(--weight-semibold); color: var(--text-primary); border-bottom-color: var(--primary-color); }
+.at-tab:disabled, .at-seg-item:disabled { opacity: var(--state-disabled-opacity); cursor: not-allowed; }
+.at-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--text-primary) 10%, transparent); color: var(--text-primary); font-size: var(--text-2xs); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums; line-height: 1; }
+
+/* Form fields and actions */
+.at-field--error .at-field-control { border-color: var(--danger-color); }
+.at-field--error .at-field-control:focus-within { border-color: var(--danger-color); box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger-color) 30%, transparent); }
+.at-field-error { font-size: var(--type-caption); font-weight: 500; color: var(--danger-color); }
+.at-form-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--layout-control-gap); flex-wrap: wrap; padding-top: var(--layout-form-gap); }
+.at-form-actions--start { justify-content: flex-start; }
+.at-form-actions--between { justify-content: space-between; }
+@media (max-width: 640px) {
+  .at-form-actions { flex-direction: column-reverse; align-items: stretch; }
+  .at-form-actions > * { width: 100%; }
+}
+
+/* Long text */
+.at-clamp { display: block; min-width: 0; max-width: 100%; overflow: hidden; }
+.at-clamp--one { white-space: nowrap; text-overflow: ellipsis; }
+.at-clamp--many { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: var(--clamp-lines, 2); line-clamp: var(--clamp-lines, 2); overflow-wrap: anywhere; }
+/* The tooltip needs a mouse, so keyboard focus opens the text out instead. */
+.at-clamp[tabindex]:focus-visible { display: block; overflow: visible; white-space: normal; overflow-wrap: anywhere; -webkit-line-clamp: unset; line-clamp: unset; }
+.at-seemore-body { overflow: hidden; min-width: 0; }
+.at-seemore-body--clip { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent); }
+.at-seemore-toggle { margin-top: var(--space-2); }
+
+/* Empty, error and first-load states */
+.at-empty-state { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); min-width: 0; padding: var(--space-8) var(--space-4); text-align: center; color: var(--text-secondary); }
+.at-empty-state--compact { padding: var(--space-4); }
+.at-empty-title { font-size: var(--type-card-title); font-weight: var(--weight-semibold); color: var(--text-primary); overflow-wrap: anywhere; }
+.at-empty-detail { max-width: 48ch; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.at-empty-action { display: flex; justify-content: center; gap: var(--layout-control-gap); flex-wrap: wrap; margin-top: var(--space-2); }
+
+/* Data table */
+.at-table-block { display: flex; flex-direction: column; min-width: 0; }
+.at-table-bar { display: none; align-items: center; gap: var(--space-3); flex-wrap: wrap; padding-bottom: var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); }
+.at-table-bar label { display: inline-flex; align-items: center; gap: var(--layout-control-gap); }
+.at-table-bar select { width: auto; min-height: var(--control-sm); padding: 4px 30px 4px 12px; }
+.at-sort { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.at-sort:hover { color: var(--text-primary); }
+.at-sort svg { flex-shrink: 0; opacity: .55; }
+th[aria-sort="ascending"] .at-sort, th[aria-sort="descending"] .at-sort { color: var(--text-primary); }
+th[aria-sort="ascending"] .at-sort svg, th[aria-sort="descending"] .at-sort svg { opacity: 1; }
+.at-table .at-cell--right { text-align: right; }
+.at-table .at-cell--center { text-align: center; }
+.at-table .at-cell--num { font-variant-numeric: tabular-nums; }
+.at-table .at-cell--check { width: 44px; text-align: center; }
+.at-table .at-cell--check input { display: block; margin: 0 auto; }
+.at-table .at-cell--actions { text-align: right; white-space: nowrap; }
+/* Actions stay in view when a wide table scrolls sideways. A sticky cell drops
+   its collapsed border, so the row line is drawn again with a shadow. */
+.at-table:not(.at-table--fit) .at-cell--actions { position: sticky; right: 0; background: var(--surface-color); box-shadow: inset 0 -1px 0 var(--border-color); }
+.at-table:not(.at-table--fit) th.at-cell--actions { background: var(--surface-2); }
+.at-table:not(.at-table--fit) tbody tr:last-child .at-cell--actions { box-shadow: none; }
+.at-table-actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: var(--space-1); }
+.at-table-clamp { max-width: 280px; }
+.at-table--busy { opacity: .6; transition: opacity .15s ease; }
+.at-row--tap { cursor: pointer; }
+.at-row--tap:focus-visible { outline-offset: -2px; }
+.at-table tbody .at-row--selected td { background: var(--accent-color); }
+.at-table tbody tr.at-row--status:hover td { background: transparent; }
+@media (max-width: 1024px) {
+  /* Stacked rows have no header row, so sorting and select-all move above them. */
+  .at-table-block--fit .at-table-bar { display: flex; }
+  .at-table--fit .at-cell--check { width: 100%; }
+  .at-table--fit .at-cell--check input { margin: 0; }
+}
+
+.at-table--fixed { table-layout: fixed; }
+
+/* An alert that says something failed. */
+.at-note--danger { background: var(--danger-100); border-color: var(--danger-color); }
+.at-note--danger .at-note-icon { color: var(--danger-700); }
+.at-note--danger .at-note-text { margin-top: 0; color: var(--danger-700); }
+
+/* Bills & Payments (features/invoices/InvoicesPanel.jsx) */
+.bill-alert { margin-bottom: var(--space-4); }
+.bill-cell-id { font-weight: var(--weight-bold); white-space: nowrap; }
+.bill-cell-clip { overflow: hidden; }
+.bill-client { font-weight: var(--weight-medium); }
+.at-table .bill-cell-date { color: var(--text-secondary); white-space: nowrap; }
+.bill-cell-money { font-weight: var(--weight-semibold); white-space: nowrap; }
+.at-table .bill-cell-balance { color: var(--text-secondary); }
+.bill-balance--due { color: var(--danger-color); }
+.bill-cell-action { white-space: nowrap; }
+.bill-paid { display: flex; align-items: center; gap: var(--layout-control-gap); }
+.bill-paid-box { display: inline-flex; align-items: center; gap: 2px; flex: 0 1 120px; min-width: 90px; height: var(--control-xs); padding: 0 0 0 var(--space-2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--surface-color); color: var(--success-text); font-weight: var(--weight-semibold); }
+.bill-paid-box input.bill-paid-input, .bill-paid-box input.bill-paid-input:focus { width: 100%; min-width: 0; min-height: 0; height: 30px; padding: 0 6px; border: none; border-radius: var(--radius-sm); background: transparent; color: var(--success-text); font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+.bill-paid-note { min-width: 0; overflow: hidden; font-size: var(--text-xs); color: var(--text-secondary); white-space: nowrap; text-overflow: ellipsis; }
+.bill-paid-pct { color: var(--text-primary); }
+.bill-paid-pct--full { color: var(--success-text); }
+.bill-paid-advance { color: var(--text-muted); }
+.bill-paid-bar { max-width: 220px; margin-top: 6px; }
+
+/* The logo: its "ezy" is white in one file and ink in the other, so each theme
+   shows the one that reads on its sidebar. Only ever hides, so the collapsed
+   sidebar's own rule still wins. */
+html[data-theme$="-dark"] .portal-wordmark--on-light { display: none; }
+html:not([data-theme$="-dark"]) .portal-wordmark--on-dark { display: none; }
+
+/* A small list inside a card: no headings or frame, rows split by a line. */
+.at-table-wrap--lines { border: 0; border-radius: 0; background: none; }
+.at-table--lines { min-width: 0; }
+.at-table--lines td { padding: var(--space-2) var(--space-2) var(--space-2) 0; border-top: 1px solid var(--border-color); border-bottom: 0; }
+.at-table--lines tbody tr:hover td { background: transparent; }
+
+/* A row that opens up: when the table scrolls sideways its contents stay the width
+   of the screen, so the buttons in it are in view. */
+.at-table-wrap--details { container-type: inline-size; }
+.at-table td.at-row-detail-cell { padding: 0; background: var(--surface-2); }
+.at-row-detail { position: sticky; left: 0; width: 100cqw; box-sizing: border-box; padding: var(--cell-y) var(--cell-x); }
+
+/* Pager: total records */
+.at-pager-left { display: inline-flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.at-pager-total { font-size: var(--text-sm); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .at-pager-left { justify-content: center; } }

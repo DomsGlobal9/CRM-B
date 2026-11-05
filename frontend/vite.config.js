@@ -80,7 +80,7 @@ export default defineConfig({
       // Two entries, two bundles, on purpose. The platform console is opened
       // by a handful of people; folding it into app.html would put its
       // screens in the download every boutique makes. It is built on the
-      // workspace design system -- it imports src/index.css and the shared UI
+      // workspace design system -- it imports src/styles/index.css and the shared UI
       // components (components/ui: Atelier, Loader, RowMenu) -- but the
       // dependency only runs that way: nothing in the app imports the
       // console, so its code stays out of the app bundle. What the two

@@ -13,7 +13,7 @@ import {
   MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor,
   Store, FileText, Crown, X, Copy, Check, ChevronRight, AlertCircle, Smartphone, Camera, KeyRound, Pencil
 } from 'lucide-react';
-import { getColorMode, setColorMode, subscribeTheme } from '../../theme.js';
+import { getColorMode, setColorMode, subscribeTheme } from '../../styles/theme.js';
 import { api } from '../../api';
 import { imageFilesError } from '../../utils/validate.js';
 

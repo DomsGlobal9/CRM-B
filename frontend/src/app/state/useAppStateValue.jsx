@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { portalSlugFromPath } from '../../navigation/portalSlug';
-import { applyTenantTheme } from '../../theme';
+import { applyTenantTheme } from '../../styles/theme';
 import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { canSeeTab, visibleNav } from '../../navigation/nav';

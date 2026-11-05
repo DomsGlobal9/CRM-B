@@ -1,0 +1,311 @@
+/* ==========================================
+   AUTHENTICATION SCREENS (Image 2 & 3)
+   ========================================== */
+.auth-page {
+  background-color: #faf9f6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  /* Top padding reserves the band the absolutely-positioned "Back to Home"
+     pill occupies (top:30px, ~40px tall). Without it the centred logo rises
+     under the pill on any viewport short enough to matter -- which is every
+     phone. */
+  padding: 88px 16px 40px;
+}
+
+.auth-logo {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.auth-logo-sub {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.auth-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: clamp(20px, 6vw, 40px);
+  width: 100%;
+  max-width: 520px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.auth-title {
+  font-family: var(--font-serif);
+  font-size: 32px;
+  font-weight: 400;
+  text-align: center;
+}
+
+.auth-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: -16px;
+  margin-bottom: 8px;
+}
+
+.auth-card-footer {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.auth-card-footer a {
+  color: var(--text-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.auth-remember-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.remember-me-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.forgot-password-link {
+  color: var(--text-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.divider-container {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.divider-container::before,
+.divider-container::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.divider-container:not(:empty)::before {
+  margin-right: .5em;
+}
+
+.divider-container:not(:empty)::after {
+  margin-left: .5em;
+}
+
+.social-auth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.social-btn {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.social-btn:hover {
+  background-color: #fafbfc;
+}
+
+.social-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.social-icons-row {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.social-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background-color: #fff;
+  transition: all 0.2s;
+}
+
+.social-icon-circle:hover {
+  border-color: var(--text-primary);
+  background-color: #fafbfc;
+}
+
+.password-strength-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.password-strength-text {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.password-strength-text span {
+  font-weight: 600;
+}
+
+.password-strength-bar {
+  height: 4px;
+  background-color: #f1f3f5;
+  border-radius: 2px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.password-strength-fill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+  width: 0%;
+}
+
+.password-strength-fill.weak {
+  width: 33%;
+  background-color: #ba1a1a;
+}
+
+.password-strength-fill.medium {
+  width: 66%;
+  background-color: #f57c00;
+}
+
+.password-strength-fill.strong {
+  width: 100%;
+  background-color: var(--success-color);
+}
+
+.auth-badge-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  width: 100%;
+  max-width: 900px;
+  margin-top: 60px;
+}
+
+.auth-badge-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.auth-badge-icon {
+  color: var(--text-secondary);
+}
+
+.auth-badge-card h4 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.auth-badge-card p {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.auth-steps-tracker {
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+  margin-bottom: 40px;
+  width: 100%;
+  max-width: 600px;
+  position: relative;
+}
+
+.auth-step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.auth-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: #fff;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.auth-step-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.auth-step-item.active .auth-step-num {
+  background-color: #231e1c;
+  color: #fff;
+  border-color: #231e1c;
+}
+
+.auth-step-item.active .auth-step-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}

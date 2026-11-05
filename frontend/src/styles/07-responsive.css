@@ -1,0 +1,1177 @@
+/* ==========================================
+   MOBILE & RESPONSIVENESS OVERRIDES
+   ========================================== */
+.responsive-customer-card {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+}
+
+.customer-detail-banner-card {
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.customer-detail-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.customer-detail-header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.responsive-style-dna-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 32px;
+}
+
+.responsive-profile-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 32px;
+}
+
+/* Mobile Header Top Navigation & Hamburger Menu Drawer */
+.mobile-portal-header {
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+
+.mobile-hamburger-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-hamburger-btn:hover {
+  background-color: rgba(0,0,0,0.05);
+}
+
+.mobile-portal-overlay {
+  display: none;
+}
+
+.portal-sidebar-header-desktop {
+  display: block;
+}
+
+@media (max-width: 1024px) {
+  .mobile-portal-header {
+    display: flex;
+  }
+
+  .portal-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .portal-sidebar-header-desktop {
+    display: none;
+  }
+
+  .desktop-inbox-alert-btn {
+    display: none;
+  }
+
+  .mobile-portal-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+  }
+
+  .portal-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 1001;
+    padding: 24px 0;
+    border-right: 1px solid var(--border-color);
+    box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+    transform: translateX(-100%);
+    transition: transform 0.28s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .portal-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .portal-sidebar-logo-sub, 
+  .portal-sidebar-footer, 
+  .portal-sidebar-help {
+    display: block !important;
+  }
+  
+  .portal-menu {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 16px 16px;
+    margin-top: 0;
+  }
+  
+  .portal-menu-item {
+    padding: 10px 16px;
+    font-size: 13px;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .portal-main {
+    padding: 20px 16px;
+  }
+
+  /* Grid updates */
+  .quick-action-button-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .dashboard-row-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .responsive-customer-card {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .responsive-style-dna-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .responsive-profile-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .customer-detail-card > div {
+    border-left: none !important;
+    padding-left: 0 !important;
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+  }
+
+  .customer-detail-card > div:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .portal-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+  
+  .portal-header-right {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .selector-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .wizard-step-body {
+    /* `minmax(0, 1fr)`, not `1fr`: a grid item's default `min-width: auto`
+       lets a wide child (the Design Studio's grid, the fabric picker) push the
+       track past the container, which is exactly what happened -- a 392px
+       track inside a 390px viewport. minmax(0,...) lets the track shrink and
+       hands the overflow decision back to the child. */
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 20px !important;
+  }
+
+  .appointments-section-panel, 
+  .inspiration-gallery-panel {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.assignment-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.assignment-card-sub-info {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.assignment-card-blueprint-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 600px) {
+  .quick-action-button-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Comprehensive Mobile & Tablet Responsiveness Overrides */
+@media (max-width: 768px) {
+  /* Public Landing Page Navbar & Navigation */
+  .landing-navbar {
+    padding: 16px 20px !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+  .landing-nav-links {
+    gap: 16px 20px !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 8px 0 !important;
+  }
+  .landing-nav-actions {
+    width: 100% !important;
+    justify-content: center !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+  }
+
+  /* Hero Banner Responsiveness */
+  .landing-hero {
+    padding: 60px 20px !important;
+    text-align: center !important;
+    align-items: center !important;
+  }
+  .landing-hero h1 {
+    font-size: 36px !important;
+    max-width: 100% !important;
+  }
+  .landing-hero p.hero-subtitle {
+    font-size: 15px !important;
+    max-width: 100% !important;
+  }
+  .hero-cta-group {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 12px !important;
+    align-items: center !important;
+  }
+  .hero-cta-group button,
+  .hero-cta-group a {
+    width: 100% !important;
+    text-align: center !important;
+  }
+
+  /* Grid Layouts & Sections */
+  .features-grid,
+  .features-split-section,
+  .dashboard-stats-grid,
+  .lookbook-grid,
+  .lookbooks-masonry,
+  .express-timeline-grid,
+  .boutiques-directory-grid,
+  .ops-analytics-grid,
+  .pillars-grid,
+  .pricing-tier-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Tables & Lists */
+  .comparison-table-container,
+  .permissions-matrix-container,
+  .table-responsive {
+    overflow-x: auto !important;
+    display: block !important;
+    width: 100% !important;
+  }
+  
+  /* Portal Responsive Header */
+  .portal-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .portal-header-right {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  /* Internal Pages Customer Details */
+  .customer-detail-banner-card {
+    flex-direction: column !important;
+    text-align: center !important;
+    align-items: center !important;
+    gap: 16px !important;
+  }
+  .customer-detail-header-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .customer-detail-header-actions {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* Onboarding Visual Steps Timeline */
+  .flow-steps-visual {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+  .flow-step-arrow {
+    display: none !important;
+  }
+
+  /* Assignments Card Responsiveness */
+  .assignment-card-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+  .assignment-card-sub-info {
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .assignment-card-blueprint-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 4px !important;
+  }
+}
+
+/* Comprehensive Mobile & Tablet Responsiveness across all roles & features */
+@media (max-width: 768px) {
+  /* ---- Inline two-column grids -------------------------------------------
+     Much of this app lays out pairs of fields with an inline
+     `gridTemplateColumns: '1fr 1fr'`. An inline declaration outranks any
+     stylesheet rule, so no media query could reach them and they stayed
+     two-up at 375px, overflowing every card they sat in. The elements now
+     carry .mobile-stack-grid and an author !important beats the inline style. */
+  .mobile-stack-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .analytics-two-col,
+  .account-settings-container,
+  .customer-detail-card,
+  .responsive-customer-card {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* The last cell of a customer card carries an inline `grid-column: span 3`.
+     Collapsing the container to a single track is not enough on its own: an
+     item spanning three columns makes the grid generate two IMPLICIT columns
+     to span into, so the card kept three auto-sized tracks and overflowed no
+     matter what grid-template-columns said. Re-anchoring every cell to the
+     explicit grid is what actually removes them. */
+  .responsive-customer-card > * {
+    grid-column: 1 / -1 !important;
+  }
+
+  /* Directory rows put the customer's contact details in a nowrap flex; the
+     email and address ran past the card edge at 375px. */
+  .customer-detail-banner-card {
+    flex-wrap: wrap !important;
+  }
+
+  /* Signup's 5-step tracker and badge row: both fixed multi-column at 375px. */
+  .auth-badge-info-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .auth-steps-tracker {
+    gap: 10px !important;
+  }
+
+  /* Modals had no height bound, so a tall one ran off the bottom of the screen
+     with its Save/Cancel footer unreachable and nothing to scroll. */
+  .search-modal-card {
+    max-height: 88vh !important;
+    overflow-y: auto !important;
+    padding: 20px !important;
+  }
+
+  /* Purchase-order line editor: item / qty / price / remove in four fixed
+     tracks. The item select takes its own row, the rest share the next. */
+  .po-line-row {
+    grid-template-columns: 1fr 1fr auto !important;
+    align-items: end !important;
+  }
+  .po-line-row > * { min-width: 0; }
+  .po-line-row > select { grid-column: 1 / -1; }
+
+  /* Touch targets. These controls are all icon-sized on a phone; 44px is the
+     smallest reliably tappable box. Padding stays visual, the box grows. */
+  .close-btn,
+  .icon-btn-touch {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Portal Header & User Profile Bar */
+  .portal-header-left h1 {
+    font-size: 22px !important;
+  }
+  .portal-header-left p {
+    font-size: 12px !important;
+  }
+  
+  /* Quick action buttons & tab bars */
+  .quick-action-button-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* Form Grids & Double Field Inputs */
+  .form-grid, 
+  .form-row,
+  .modal-body-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Tailors / Staff & Design Cards */
+  .tailor-card,
+  .design-card,
+  .inventory-card {
+    width: 100% !important;
+  }
+
+  /* Modal Dialogs */
+  .modal-overlay,
+  .modal-container {
+    padding: 12px !important;
+  }
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    margin: 10px !important;
+  }
+
+  /* Screen Headers & CTAs */
+  .portal-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+
+  .portal-header-left {
+    width: 100% !important;
+  }
+
+  .portal-header-right {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* `flex: 1 1 auto` used to be listed against bare `.btn-primary` /
+     `.btn-secondary` here, so every button in the app that happened to be a
+     flex item stretched on mobile -- including icon-only close buttons, which
+     grew to 127px and crowded their own dialog title. The stretching is only
+     wanted for the buttons in the portal header bar, so that is where it now
+     lives; centring the label is safe everywhere. */
+  .portal-header-right button,
+  .portal-header-right a,
+  .portal-header-right .btn-primary,
+  .portal-header-right .btn-secondary {
+    flex: 1 1 auto;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Action bars & Filter buttons */
+  .filter-bar,
+  .action-buttons-group,
+  .hero-cta-group {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .filter-bar select,
+  .filter-bar input,
+  .filter-bar button {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Tables horizontal scroll container */
+  .responsive-table-wrapper,
+  table {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+
+  /* Dashboard Stats Grid */
+  .stats-summary-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Smaller mobile screens (320px - 480px) */
+  .landing-hero h1 {
+    font-size: 26px !important;
+  }
+  .landing-nav-links {
+    font-size: 12px !important;
+    gap: 8px 10px !important;
+  }
+  .portal-menu {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 4px !important;
+  }
+  .portal-menu-item {
+    justify-content: flex-start !important;
+    text-align: left !important;
+    width: 100% !important;
+    padding: 10px 16px !important;
+  }
+  /* Modal Dialogs */
+  .modal-overlay,
+  .modal-container {
+    padding: 12px !important;
+  }
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
+    margin: 10px !important;
+  }
+
+  /* Screen Headers & CTAs */
+  .portal-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+
+  .portal-header-left {
+    width: 100% !important;
+  }
+
+  .portal-header-right {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* `flex: 1 1 auto` used to be listed against bare `.btn-primary` /
+     `.btn-secondary` here, so every button in the app that happened to be a
+     flex item stretched on mobile -- including icon-only close buttons, which
+     grew to 127px and crowded their own dialog title. The stretching is only
+     wanted for the buttons in the portal header bar, so that is where it now
+     lives; centring the label is safe everywhere. */
+  .portal-header-right button,
+  .portal-header-right a,
+  .portal-header-right .btn-primary,
+  .portal-header-right .btn-secondary {
+    flex: 1 1 auto;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Action bars & Filter buttons */
+  .filter-bar,
+  .action-buttons-group,
+  .hero-cta-group {
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .filter-bar select,
+  .filter-bar input,
+  .filter-bar button {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Tables horizontal scroll container */
+  .responsive-table-wrapper,
+  table {
+    display: block !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* Wizard & Order Creation Mobile Responsiveness & Overflow Fixes */
+.stepper-count { display: none; }
+
+@media (max-width: 640px) {
+  /* "What are we making?" at 36px wraps to three lines on a phone. */
+  .wizard-outer-wrapper h1.page-title { font-size: var(--text-xl); }
+  .wizard-outer-wrapper .page-subtitle { font-size: var(--text-sm); }
+}
+
+.wizard-outer-wrapper {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
+}
+
+.stepper-progress-bar {
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 0;
+  max-width: 100%;
+}
+
+.stepper-progress-bar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .wizard-header-container {
+    padding: 12px 16px !important;
+  }
+
+  .stepper-progress-bar {
+    display: flex !important;
+    justify-content: flex-start !important;
+    gap: 16px !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+  }
+
+  .stepper-progress-bar > div {
+    /* Fixed width, not just a minimum: the container is `white-space: nowrap`,
+       so a label wider than its slot -- "Complete & Create Order" -- ran over
+       the neighbouring step's label instead of wrapping. Re-enabling wrapping
+       inside a slot of known width is what keeps all six readable. */
+    width: 100px !important;
+    min-width: 100px !important;
+    flex-shrink: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+
+  .stepper-progress-bar > div:nth-child(even) {
+    display: none !important; /* Hide connecting line divs on mobile to prevent overflow */
+  }
+
+  /* Three of seven steps fit; the strip scrolls (App.jsx keeps the current
+     one in view), so say where in it the order is. */
+  .stepper-count {
+    display: block;
+    text-align: center;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    padding-bottom: 4px;
+  }
+
+  .wizard-outer-wrapper .main-content {
+    padding: 16px 12px 100px !important;
+    /* The wizard body is `1fr 360px` on desktop -- the form and its summary
+       sidebar. At 375px that reserves 360px for the sidebar alone, pushing the
+       form itself off-screen. */
+    /* `minmax(0, 1fr)`, not `1fr`: a grid item's default `min-width: auto`
+       lets a wide child (the Design Studio's grid, the fabric picker) push the
+       track past the container, which is exactly what happened -- a 392px
+       track inside a 390px viewport. minmax(0,...) lets the track shrink and
+       hands the overflow decision back to the child. */
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 20px !important;
+  }
+
+  /* The three-button row that closes step 6. Laid out as a nowrap flex row it
+     pushes the primary CTA past the right edge, where it is clipped -- the one
+     button the whole wizard exists to reach. */
+  .step6-action-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .step6-action-row > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+  .step6-action-row button {
+    width: 100% !important;
+  }
+
+  .delivery-details-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .form-grid-2,
+  .form-grid-3,
+  .form-grid-4 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .footer-actions-bar {
+    padding: 14px 16px !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+  }
+
+  .footer-right-actions {
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+    gap: 8px !important;
+  }
+
+  .footer-right-actions button,
+  .footer-left-actions button {
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .wizard-outer-wrapper .main-content {
+    padding: 12px 8px 110px !important;
+  }
+  .footer-actions-bar {
+    padding: 12px !important;
+  }
+}
+
+/* ---------------------------------------------------- */
+/* Dedicated Mobile SaaS Design System & UI Components  */
+/* ---------------------------------------------------- */
+
+.mobile-app-header {
+  display: none;
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Below 768px the phone layout takes over: MobileHeader supplies the title
+     bar and BottomNavigation supplies the navigation. The hamburger header
+     stays for the 769-1024px tablet range, where there is no bottom nav and
+     the drawer is the only way to reach the menu -- so it is hidden here
+     rather than deleted. The drawer itself is still reachable on a phone
+     through MobileHeader's own hamburger, and still dismissable by tapping
+     .mobile-portal-overlay, which renders across the whole <=1024px range. */
+  .mobile-portal-header {
+    display: none;
+  }
+
+  /* Mobile Header Component */
+  .mobile-app-header {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 998;
+    background: var(--surface-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px 16px;
+  }
+
+  .mobile-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Hamburger + title travel together, so the title does not sit against the
+     screen edge once the button is there. */
+  .mobile-header-brand-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  /* The 44px touch target the other icon buttons get, without the leading
+     inset -- this one is the first thing on the row. */
+  .mobile-header-menu-btn {
+    margin-left: -10px;
+    flex: 0 0 auto;
+  }
+
+  .mobile-header-title {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .icon-btn-touch {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  .relative-btn {
+    position: relative;
+  }
+
+  .mobile-header-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 10px;
+    padding: 1px 5px;
+  }
+
+  .mobile-header-avatar img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+  }
+
+  .mobile-header-search-form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .mobile-header-search-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 13px;
+    background: rgba(0,0,0,0.02);
+  }
+
+  /* Mobile Bottom Navigation - Removed as options are available in side navbar */
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+
+  .mobile-bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    flex: 1;
+    height: 100%;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 6px 0;
+  }
+
+  .mobile-bottom-nav-item.active {
+    color: var(--accent-text, #b07c40);
+    font-weight: 600;
+  }
+
+  /* Bottom Sheet Component */
+  .bottom-sheet-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(2px);
+    z-index: 1050;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+  }
+
+  .bottom-sheet-container {
+    width: 100%;
+    max-height: 85vh;
+    background: var(--surface-color);
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    padding: 12px 20px 32px;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.25s ease-out;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .spin-icon {
+    animation: spin 0.8s linear infinite;
+  }
+
+  .bottom-sheet-handle-bar {
+    display: flex;
+    justify-content: center;
+    padding: 6px 0 12px;
+  }
+
+  .bottom-sheet-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+  }
+
+  .bottom-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+
+  .bottom-sheet-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .bottom-sheet-content {
+    overflow-y: auto;
+    max-height: 70vh;
+  }
+
+  /* Responsive Card Component (Mobile Table Alternative) */
+  .responsive-mobile-card {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+  }
+
+  .responsive-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .responsive-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+  }
+
+  .responsive-card-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 2px 0 0;
+  }
+
+  .responsive-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+  }
+
+  .responsive-card-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .detail-label {
+    color: var(--text-muted);
+    font-size: 11px;
+  }
+
+  .detail-value {
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .responsive-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--border-color);
+    padding-top: 10px;
+    gap: 12px;
+  }
+
+  .responsive-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .expand-toggle-btn {
+    background: transparent;
+    border: none;
+    color: var(--accent-text, #b07c40);
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
+
+  .responsive-card-expanded {
+    background: rgba(0,0,0,0.02);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  /* Progressive Accordion Component */
+  .progressive-accordion-card {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .accordion-header-btn {
+    width: 100%;
+    padding: 16px;
+    background: transparent;
+    border: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .accordion-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .accordion-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .accordion-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin: 2px 0 0;
+  }
+
+  .accordion-body-content {
+    padding: 0 16px 16px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 14px;
+  }
+
+  /* Ensure page content clears bottom nav */
+  .portal-main,
+  .wizard-outer-wrapper .main-content {
+    padding-bottom: 84px !important;
+  }
+}
+
+
+

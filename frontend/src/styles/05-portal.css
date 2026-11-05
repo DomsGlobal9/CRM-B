@@ -1,0 +1,587 @@
+/* ==========================================
+   PORTAL LAYOUT & DASHBOARD (Image 4)
+   ========================================== */
+.portal-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+  background-color: #fafbfc;
+}
+
+.portal-sidebar {
+  background-color: var(--surface-color);
+  border-right: 1px solid var(--border-color);
+  padding: 32px 0 24px;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  max-height: 100vh;
+  overflow-y: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.portal-sidebar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.portal-sidebar-logo {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 0 24px;
+  color: var(--text-primary);
+}
+
+.portal-sidebar-logo-sub {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  padding: 2px 24px 32px;
+}
+
+.portal-menu {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px;
+  flex: 1;
+
+  /* The nav SCROLLS; the sidebar around it does not.
+     .portal-sidebar is height: 100vh, so anything taller than the viewport had
+     nowhere to go: the last items simply fell off the bottom of the screen with
+     no way to reach them. Adding the section headings made it visible on short
+     screens, but the list was one entry away from the same fate without them.
+
+     min-height: 0 is the half that actually does the work. A flex item defaults
+     to min-height: auto, which refuses to shrink below its content -- so
+     overflow-y alone changes nothing, the item just grows and pushes past the
+     container. Zeroing the floor is what lets it shrink and therefore scroll.
+
+     overscroll-behavior stops a flick at the end of the nav from scrolling the
+     page behind it, which on a phone reads as the drawer jumping. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* A scrollbar that admits it is there without shouting. The default on Windows
+   and Linux is a wide grey trough that makes a quiet sidebar look unfinished;
+   macOS overlays hide it entirely. This is the same thumb in both. */
+.portal-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.portal-menu::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.14);
+  border-radius: 3px;
+}
+
+.portal-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.portal-menu {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.14) transparent;
+}
+
+/* A quiet label over each run of related items. The sidebar had grown to
+   eleven entries in one flat list, with fabrics sitting apart from inventory
+   and the roster apart from the employment screen that extends it -- so
+   finding anything meant reading all eleven. Grouping is what makes the list
+   scannable; the label is deliberately faint because it is a signpost, not a
+   destination, and must never compete with the item under it. */
+.portal-menu-group {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.55;
+  padding: 14px 16px 4px;
+  user-select: none;
+}
+
+/* The first group needs no gap above it -- the sidebar header already
+   provides one, and a second would read as a missing item. */
+.portal-menu-group:first-child {
+  padding-top: 2px;
+}
+
+/* Account and Logout are not part of any group, so they get a hairline
+   instead of a heading: they are the way OUT of the workspace, not another
+   room in it. */
+.portal-menu-divider {
+  height: 1px;
+  background: var(--border-color, #ece8e1);
+  margin: 12px 16px 4px;
+}
+
+.portal-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.portal-menu-item:hover {
+  background-color: #fafbfc;
+  color: var(--text-primary);
+}
+
+.portal-menu-item.active {
+  background-color: #f5f3ef;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.portal-menu-badge {
+  background-color: #b07c40;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+}
+
+.portal-sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  margin-top: auto;
+}
+
+.portal-sidebar-help {
+  background-color: #fcf6ee;
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.portal-sidebar-help h4,
+.portal-sidebar-help p {
+  margin: 0;
+}
+
+.portal-sidebar-help::before {
+  content: '';
+  position: absolute;
+  bottom: -20px;
+  right: -20px;
+  width: 50px;
+  height: 50px;
+  background-color: #f5e6d3;
+  border-radius: 50%;
+  opacity: 0.5;
+}
+
+.portal-main {
+  padding: 40px;
+  overflow-y: auto;
+  max-width: var(--page-max-width);
+  width: 100%;
+  margin: 0 auto;
+}
+
+.portal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.portal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.portal-header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.user-profile-widget {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.user-avatar-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.user-avatar-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.quick-action-button-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.quick-action-item {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: var(--shadow-sm);
+}
+
+.quick-action-item:hover {
+  transform: translateY(-2px);
+  border-color: var(--text-primary);
+}
+
+.quick-action-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #fdfaf7;
+  border: 1px solid #f5ebd9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #b07c40;
+}
+
+.quick-action-item h4 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.quick-action-item p {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.dashboard-row-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+  margin-bottom: 40px;
+}
+
+.orders-list-panel {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.panel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.view-all-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.view-all-link:hover {
+  color: var(--text-primary);
+}
+
+.order-row-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.order-row-card:hover {
+  border-color: var(--text-primary);
+}
+
+.order-row-thumbnail {
+  width: 60px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background-color: #f1f3f5;
+  border: 1px solid var(--border-color);
+}
+
+.order-row-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.order-row-desc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.order-row-id {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.order-row-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.order-row-fabric {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.order-row-status-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.order-row-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+.order-row-badge.confirmed {
+  background-color: #e8f5e9;
+  color: var(--success-text);
+}
+
+.order-row-badge.in_progress {
+  background-color: #fff8e1;
+  color: #ff8f00;
+}
+
+.order-row-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.order-detail-progress-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.order-progress-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  padding-left: 20px;
+  margin-top: 12px;
+}
+
+.order-progress-steps-list::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 6px;
+  bottom: 10px;
+  width: 2px;
+  background-color: var(--border-color);
+}
+
+.progress-step-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+}
+
+.progress-step-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #fff;
+  border: 2px solid var(--border-color);
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  z-index: 2;
+}
+
+.progress-step-item.active .progress-step-dot {
+  border-color: var(--text-primary);
+  background-color: var(--text-primary);
+}
+
+.progress-step-item.completed .progress-step-dot {
+  border-color: var(--success-color);
+  background-color: var(--success-color);
+}
+
+.progress-step-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.progress-step-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.progress-step-state-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 99px;
+}
+
+.progress-step-state-tag.completed {
+  color: var(--success-text);
+}
+
+.progress-step-state-tag.current {
+  background-color: #e8f5e9;
+  color: var(--success-text);
+  font-weight: 600;
+}
+
+.appointments-section-panel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.appt-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  gap: 16px;
+}
+
+.appt-date-box {
+  background-color: #faf8f5;
+  border: 1px solid #f5ebd9;
+  border-radius: var(--radius-md);
+  width: 54px;
+  height: 54px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.appt-day {
+  font-size: 18px;
+  font-weight: 700;
+  color: #b07c40;
+  line-height: 1;
+}
+
+.appt-month {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.appt-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appt-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.appt-sub {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.appt-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.inspiration-grid-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.inspiration-circle-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid var(--border-color);
+}
+
+.inspiration-circle-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
