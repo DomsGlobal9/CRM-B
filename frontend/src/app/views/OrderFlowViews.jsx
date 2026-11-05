@@ -35,11 +35,11 @@ export default function OrderFlowViews() {
       {view === 'wizard' && (
         // flex, not 100vh: the Back/Next bar follows in the same column, so the
         // wizard takes what is left above it and a short step does not scroll.
-        <div className="wizard-outer-wrapper" style={{ display: 'flex', flexDirection: 'column', width: '100%', flex: '1 0 auto', backgroundColor: 'var(--bg-color)' }}>
+        <div className="wizard-outer-wrapper">
           {/* Brand header & stepper */}
-          <WizardHeader wizard={wizard} currentStep={currentStep} draftSaveState={draftSaveState} garmentJobs={garmentJobs} maxStepReached={maxStepReached} serviceType={serviceType} wizardSteps={wizardSteps} />
+          <WizardHeader wizard={wizard} currentStep={currentStep} draftSaveState={draftSaveState} garmentJobs={garmentJobs} maxStepReached={maxStepReached} serviceType={serviceType} wizardSteps={wizardSteps} ctaBusy={ctaBusy} wizardStepKey={wizardStepKey} />
 
-          <div className="main-content full-width" style={{ padding: '40px 24px', maxWidth: '1280px', margin: '0 auto', width: '100%' }}>
+          <div className="main-content full-width">
             <Breadcrumbs items={[fromCrumb, { label: newOrder, onClick: () => setView('order-selector') }, { label: wizardSteps[currentStep - 1]?.label || newOrder }]} />
             <div className="workspace-panel">
 

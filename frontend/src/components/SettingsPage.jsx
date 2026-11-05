@@ -139,7 +139,7 @@ export const SettingsPage = ({
           title: t('summarySettings.title', 'Daily Summary Notifications'),
           subtitle: t('summarySettings.subtitle', 'Each person gets a summary of their work at 11 PM. Choose recipients and language.'),
           icon: Clock,
-          maxWidth: '860px',
+          maxWidth: '780px',
         };
       default:
         return null;
@@ -150,30 +150,29 @@ export const SettingsPage = ({
 
   return (
     <div className="settings-ref-page">
-      <PageHeader title={t('settingsPage.title', 'Settings')} subtitle={t('settingsPage.subtitle', 'Manage boutique configuration, templates and team preferences')} />
+      {/* 1. Header Row: Title on Left, [A] Hi, Aditi v on Right in same row */}
+      <div className="settings-header-row">
+        <div className="settings-header-text">
+          <h1 className="settings-page-title">{t('settingsPage.title', 'Settings')}</h1>
+          <p className="settings-page-subtitle">{t('settingsPage.subtitle', 'Language, appearance, WhatsApp and the look of your invoices.')}</p>
+        </div>
+      </div>
 
-      {/* 1. Top Profile & Boutique Overview Banner */}
+      {/* 2. Boutique Overview Banner */}
       <div className="settings-profile-banner">
         {/* Left Green Block */}
         <div className="settings-profile-left">
           <div className="settings-profile-header">
             <div className="settings-profile-avatar">
-              <Store size={28} color="var(--brand-link, #166534)" />
+              <Store size={22} color="var(--brand-link, #166534)" />
             </div>
             <div className="settings-profile-info">
               <span className="settings-profile-name">
-                {currentUser?.first_name ? `${currentUser.first_name} ${currentUser.last_name || ''}`.trim() : (currentUser?.email || 'Boutique Owner')}
+                {currentUser?.first_name ? currentUser.first_name + ' ' + (currentUser.last_name || '') : (currentUser?.email || 'Boutique Owner')}
               </span>
               <span className="settings-profile-role">
                 {currentUser?.role || 'Owner'}
               </span>
-              <button
-                type="button"
-                className="settings-profile-link"
-                onClick={() => setActiveModal('workspace')}
-              >
-                Edit profile & details
-              </button>
             </div>
           </div>
 
@@ -239,11 +238,6 @@ export const SettingsPage = ({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* 2. Shop Settings Heading */}
-      <div>
-        <div className="settings-cats-heading">Shop settings</div>
       </div>
 
       {/* 3. Category Cards Grid with Clickable Text Links */}
@@ -428,7 +422,7 @@ export const SettingsPage = ({
             </div>
 
             {/* Modal Body with Perfectly Aligned Content */}
-            <div className="settings-modal-content">
+            <div className={`settings-modal-content${activeModal === 'invoice' ? ' settings-modal-content--invoice' : ''}`}>
               {/* 1. Language Modal: Interactive Language Cards Grid */}
               {activeModal === 'language' && (
                 <div>
@@ -496,15 +490,6 @@ export const SettingsPage = ({
                         </div>
                       );
                     })}
-                  </div>
-
-                  <div style={{ marginTop: '18px', padding: '12px 14px', background: 'var(--surface-inset)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <SunMoon size={16} color="var(--accent-text)" flexShrink={0} />
-                    <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                      {mode === 'system'
-                        ? t('settingsPage.modeDefaultHint', 'Follows the light or dark setting of your device.')
-                        : t('settingsPage.savedNotice', 'Preference is saved on this device.')}
-                    </span>
                   </div>
                 </div>
               )}
