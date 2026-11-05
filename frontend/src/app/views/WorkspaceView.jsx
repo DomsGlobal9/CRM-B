@@ -357,6 +357,8 @@ export default function WorkspaceView() {
                 onTierNamesSaved={(names) => setBoutiqueSettings((prev) => ({ ...(prev || {}), tier_names: names }))}
                 whatsappStatus={whatsappStatus}
                 fetchWhatsAppStatus={fetchWhatsAppStatus}
+                onUserUpdated={setCurrentUser}
+                onBoutiqueUpdated={setBoutiqueSettings}
               />
             )}
             </CrumbsProvider>

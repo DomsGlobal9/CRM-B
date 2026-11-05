@@ -9039,6 +9039,69 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   flex-shrink: 0;
 }
 
+/* The signed-in person's photo, with the button that changes it. */
+.settings-profile-photo {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+}
+
+.settings-profile-photo-ring {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid var(--surface-color);
+  box-shadow: var(--shadow-sm);
+  box-sizing: border-box;
+}
+
+.settings-profile-photo-ring > * {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.settings-profile-camera {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border-radius: 50%;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.settings-profile-edit {
+  background: none;
+  border: none;
+  padding: 2px;
+  margin-left: 6px;
+  cursor: pointer;
+  color: var(--brand-link, #166534);
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.settings-profile-copy {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--brand-link, #166534);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .settings-profile-info {
   display: flex;
   flex-direction: column;
@@ -9120,6 +9183,110 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
   align-items: center;
   gap: 8px;
   overflow-wrap: anywhere;
+}
+
+/* Settings > Boutique details popup: a list, each line with its own Edit. */
+.settings-boutique-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.settings-boutique-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  min-height: 62px;
+  box-sizing: border-box;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 60%, transparent);
+}
+
+.settings-boutique-row:first-child {
+  padding-top: 0;
+}
+
+.settings-boutique-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.settings-boutique-row--editing {
+  display: block;
+}
+
+.settings-boutique-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-boutique-row-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.settings-boutique-row-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-boutique-row-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.settings-boutique-row-value {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.settings-boutique-logo {
+  display: block;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-color);
+}
+
+.settings-boutique-logo--large {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+}
+
+.settings-boutique-edit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 8px);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-boutique-edit:hover {
+  background: var(--surface-inset);
+  border-color: var(--border-strong);
+}
+
+.settings-boutique-error {
+  font-size: 13px;
+  color: var(--danger-color, #dc2626);
 }
 
 /* Category Cards Grid - Natural, well-proportioned card sizing */
