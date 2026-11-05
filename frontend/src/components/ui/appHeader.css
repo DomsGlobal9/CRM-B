@@ -167,7 +167,7 @@
   .portal-main:has(> .at-topbar) { padding-top: 0; }
   .portal-main > .at-topbar { margin-top: 0; padding: 8px 0; min-height: 58px; }
   .portal-sidebar { padding-top: 2px; z-index: 25; }
-  .portal-sidebar .portal-sidebar-lockup { margin-bottom: 38px; }
+  .portal-sidebar .portal-sidebar-lockup { margin-top: -1px; margin-bottom: 36px; }
   .portal-sidebar .portal-nav-toggle {
     position: fixed;
     top: 12px;

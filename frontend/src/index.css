@@ -5511,11 +5511,11 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--primary-color)
 .portal-wordmark { display: block; height: 36px; width: auto; margin: 2px 12px 22px; }
 .portal-wordmark--sm { height: 24px; margin: 0; }
 .portal-wordmark--ink { margin: 0; }
-/* The sidebar's logo, larger (42px is as far as it goes beside the collapse
+/* The sidebar's logo, larger (48px still clears the collapse
    button), with the word under it like an underline. */
 .portal-sidebar-lockup { min-width: 0; margin: 2px 0 20px 4px; }
-.portal-sidebar-lockup .portal-wordmark { height: 42px; max-width: 100%; margin: 0; }
-.portal-sidebar-tagline { display: flex; align-items: center; gap: 7px; margin-top: -6px; padding: 0 12px 0 11px; font-size: 12px; font-weight: 500; letter-spacing: .16em; line-height: 1.2; text-transform: lowercase; color: var(--shell-muted); }
+.portal-sidebar-lockup .portal-wordmark { height: 48px; max-width: 100%; margin: 0; }
+.portal-sidebar-tagline { display: flex; align-items: center; gap: 7px; margin-top: -7px; padding: 0 14px 0 13px; font-size: 12px; font-weight: 500; letter-spacing: .16em; line-height: 1.2; text-transform: lowercase; color: var(--shell-muted); }
 .portal-sidebar-tagline::before, .portal-sidebar-tagline::after { content: ''; flex: 1 1 0; min-width: 8px; height: 1px; background: currentColor; }
 .portal-wordmark--auth { height: 36px; margin: 0 auto 6px; }
 @media (min-width: 1025px) {
