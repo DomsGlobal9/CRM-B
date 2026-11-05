@@ -13,7 +13,7 @@ import {
   MessageSquare, RotateCw, RefreshCw, SunMoon, Sun, Moon, Monitor,
   Store, FileText, Crown, X, Copy, Check, ChevronRight, AlertCircle, Smartphone, Camera, KeyRound, Pencil
 } from 'lucide-react';
-import { getColorMode, setColorMode } from '../theme.js';
+import { getColorMode, setColorMode, subscribeTheme } from '../theme.js';
 import { api } from '../services/api.js';
 import { imageFilesError } from '../services/validate.js';
 
@@ -53,6 +53,8 @@ export const SettingsPage = ({
   const [savedBoutiqueSending, setSavedBoutiqueSending] = useState(null);
   const [copied, setCopied] = useState(false);
   const [mode, setMode] = useState(getColorMode);
+  // The top bar's theme button changes this too, so "Active look" stays true.
+  React.useEffect(() => subscribeTheme(() => setMode(getColorMode())), []);
   const [showBoutiqueDetails, setShowBoutiqueDetails] = useState(false);
   const [activeModal, setActiveModal] = useState(null); // 'language' | 'appearance' | 'workspace' | 'whatsapp' | 'invoice' | 'tiers' | 'summary'
 

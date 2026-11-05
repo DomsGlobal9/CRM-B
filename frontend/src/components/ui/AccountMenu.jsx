@@ -3,7 +3,7 @@ import { ChevronDown } from 'lucide-react';
 
 /**
  * The account menu at the top of every page on a computer or tablet: the
- * "Hi, <name>" chip, which opens My Profile, Settings and Sign out (items:
+ * "Hi, <name>" chip, which opens Settings, this page's guide and Sign out (items:
  * { key, label, icon, onClick, danger } -- the same list the phone header's
  * avatar opens). It takes the place of the sidebar's Account group.
  *

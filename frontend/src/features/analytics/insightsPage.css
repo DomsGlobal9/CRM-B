@@ -1,0 +1,188 @@
+/* Reports > Insights. `.insights-stats` is drawn only by InsightsPanel, so every
+   rule here stays on this page; Profit & Costs, which shares the Reports switch,
+   is untouched. The layout applies in both themes. Light keeps the project's
+   colours; the dark block at the end sets this page's own. */
+
+/* ---- Colours of the marks: the project's own, in light -------------------- */
+.portal-main:has(> .insights-stats) {
+  --ins-platinum: var(--primary-color);
+  --ins-gold: var(--warning-color);
+  --ins-silver: var(--border-strong);
+  --ins-spark-strong: var(--primary-color);
+  --ins-spark-soft: var(--border-strong);
+  --ins-working: var(--primary-color);
+  --ins-free: var(--border-strong);
+  --ins-up: var(--success-text, #166534);
+  --ins-up-bg: color-mix(in srgb, var(--primary-color) 16%, transparent);
+  --ins-down: var(--danger-color, #dc2626);
+  --ins-down-bg: color-mix(in srgb, var(--danger-color, #dc2626) 10%, transparent);
+
+  /* Reports label, heading, then the switch under them. */
+  display: flex;
+  flex-direction: column;
+}
+.portal-main:has(> .insights-stats) > * { min-width: 0; }
+.portal-main:has(> .insights-stats) > .at-topbar { order: -2; float: none; margin-left: 0; align-self: stretch; }
+.portal-main:has(> .insights-stats) > .reports-switch { display: contents; }
+.portal-main:has(> .insights-stats) > .reports-switch > .reports-switch-label { order: -1; margin-bottom: 6px; }
+.portal-main:has(> .insights-stats) > .at-page-head { order: 0; margin-bottom: 14px; }
+.portal-main:has(> .insights-stats) > .reports-switch > .at-seg { order: 1; align-self: flex-start; margin-bottom: 18px; }
+.portal-main:has(> .insights-stats) > .insights-stats { order: 2; }
+.portal-main:has(> .insights-stats) > .insights-grid { order: 3; }
+
+/* ---- The four figures ----------------------------------------------------- */
+.portal-main:has(> .insights-stats) .insights-stats .at-stat {
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: flex-start;
+  overflow: hidden;
+}
+.portal-main:has(> .insights-stats) .insights-stats .at-stat-body { flex: 1 1 0; }
+.portal-main:has(> .insights-stats) .insights-stats .at-stat-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  overflow: visible;
+}
+.portal-main:has(> .insights-stats) .insights-stats .at-stat-trailing {
+  flex: 0 0 100%;
+  margin: 2px 0 0;
+  align-self: stretch;
+}
+/* On a phone the shared card stacks into a column: wrapping there would push
+   the trend line out of the side of the card. */
+@media (max-width: 640px) {
+  .portal-main:has(> .insights-stats) .insights-stats .at-stat { flex-wrap: nowrap; }
+  .portal-main:has(> .insights-stats) .insights-stats .at-stat-body { flex: 0 0 auto; width: 100%; }
+  .portal-main:has(> .insights-stats) .insights-stats .at-stat-value { justify-content: center; }
+  .portal-main:has(> .insights-stats) .insights-stats .at-stat-trailing { flex: 0 0 auto; width: 100%; margin-top: auto; }
+}
+.ins-spark { display: block; width: 100%; height: 52px; overflow: visible; }
+.ins-spark--strong { color: var(--ins-spark-strong); }
+.ins-spark--soft { color: var(--ins-spark-soft); }
+.ins-spark-line { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+
+.ins-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: var(--ins-up);
+  background: var(--ins-up-bg);
+}
+.ins-delta--down { color: var(--ins-down); background: var(--ins-down-bg); }
+
+/* ---- Customer tiers ------------------------------------------------------- */
+.ins-tiers { display: flex; gap: var(--space-6); align-items: center; flex-wrap: wrap; }
+.ins-tiers .at-donut { width: 170px; height: 170px; }
+.ins-tiers .at-donut::after {
+  inset: 30px;
+  box-shadow: inset 0 0 0 9px var(--surface-2), inset 0 0 0 10px var(--border-color);
+}
+.ins-tiers .at-donut-value { font-size: 26px; }
+.ins-tiers .at-donut-sub { font-size: 12.5px; }
+.ins-tiers .at-legend { flex: 1 1 200px; gap: 8px; }
+.ins-legend-row { padding: 5px 10px; border-radius: 10px; border: 1px solid transparent; flex-wrap: wrap; }
+.ins-legend-name { color: var(--text-primary); font-weight: 500; }
+.ins-legend-count { color: var(--text-secondary); }
+.ins-legend-row--top { background: var(--surface-2); border-color: var(--border-color); font-size: 16px; }
+.ins-legend-row--top .at-legend-dot { width: 12px; height: 12px; }
+
+/* ---- Workshop load -------------------------------------------------------- */
+.ins-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.wl-tiles.ins-tiles .at-pipeline-label { padding-bottom: 0; border-bottom: none; }
+.ins-tile { cursor: default; min-height: 112px; position: relative; overflow: hidden; }
+.ins-tile:hover { border-color: var(--border-color); }
+.ins-tile--working {
+  background: color-mix(in srgb, var(--ins-working) 12%, var(--surface-color)) !important;
+  border-color: color-mix(in srgb, var(--ins-working) 45%, var(--border-color)) !important;
+}
+.ins-tile--working:hover { border-color: color-mix(in srgb, var(--ins-working) 45%, var(--border-color)); }
+.ins-tile-mark { position: absolute; top: 12px; right: 12px; color: var(--text-secondary); }
+.ins-tile-sub { font-size: 12.5px; color: var(--text-secondary); }
+.ins-tile-bar { display: block; height: 6px; margin-top: auto; border-radius: 999px; overflow: hidden; background: var(--surface-inset); }
+.ins-tile-bar > i { display: block; height: 100%; border-radius: inherit; }
+.ins-tile-bar--working > i { background: var(--ins-working); }
+.ins-tile-bar--free > i { background: var(--ins-free); }
+
+.ins-capacity { margin-top: var(--space-5); }
+.ins-capacity-label { display: block; margin-bottom: 8px; font-size: 13.5px; font-weight: 500; color: var(--text-primary); }
+.ins-capacity-bar { display: flex; gap: 2px; height: 14px; border-radius: 999px; overflow: hidden; background: var(--surface-inset); }
+.ins-capacity-bar > i { display: block; height: 100%; }
+.ins-capacity-working { background: var(--ins-working); }
+.ins-capacity-free { background: var(--ins-free); }
+.ins-capacity-key { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+.ins-capacity-key > i { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+
+@media (max-width: 480px) {
+  .ins-tiles { grid-template-columns: minmax(0, 1fr); }
+  .ins-tile { min-height: 0; }
+  .ins-tile-bar { margin-top: 4px; }
+  .ins-tiers { justify-content: center; }
+}
+
+/* ---- Dark: the colours of the reference ----------------------------------- */
+html[data-theme$="-dark"] .portal-layout:has(.portal-main > .insights-stats) { background: #0E0F0E; }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) {
+  --bg-color: #0E0F0E;
+  --surface-color: #131513;
+  --surface-2: #1B1E1B;
+  --surface-inset: #252925;
+  --border-color: #2C302C;
+  --border-strong: #454A44;
+  --text-primary: #F3F4EF;
+  --text-secondary: #A9AEA6;
+  --text-muted: #A9AEA6;
+  --ins-lime: #B7F03F;
+  --ins-platinum: #B7F03F;
+  --ins-gold: #A8935F;
+  --ins-silver: #DEDDD6;
+  --ins-spark-strong: #8FCB4E;
+  --ins-spark-soft: #B8AE95;
+  --ins-working: #8FAF80;
+  --ins-free: #DEDDD6;
+  --ins-up: #A9DC6B;
+  --ins-up-bg: rgba(150, 220, 80, .14);
+  --ins-down: #F08A7E;
+  --ins-down-bg: rgba(240, 138, 126, .14);
+  background: #0E0F0E;
+  color: var(--text-primary);
+}
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) > .reports-switch > .at-seg {
+  background: #161816;
+  border-color: var(--border-strong);
+  border-radius: 999px;
+  padding: 3px;
+}
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) > .reports-switch > .at-seg button { border-radius: 999px; color: var(--text-secondary); background: none; box-shadow: none; }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) > .reports-switch > .at-seg button[aria-pressed="true"] {
+  background: linear-gradient(90deg, #EFEBD6, #8F8B5E);
+  color: #15170F;
+}
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .insights-stats .at-stat {
+  background: linear-gradient(180deg, #131513 35%, #1C2A17 100%);
+  border-color: #6E9A45;
+  box-shadow: 0 0 14px rgba(143, 203, 78, .16);
+}
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .insights-stats .at-tile { background: rgba(255, 255, 255, .12); color: #E8EAE3; }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .insights-stats .at-stat:first-child .at-tile { background: var(--ins-lime); color: #141A06; }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .insights-stats .at-stat-value { color: var(--text-primary); }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .at-section {
+  background: #131513;
+  border-color: var(--border-color);
+  box-shadow: none;
+}
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .at-section .at-tile { background: #252925; color: #E8EAE3; }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .at-link { color: #A9DC6B; }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .ins-tile { background: #1B1E1B; border-color: var(--border-strong); }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .ins-tile--working { background: #2A382A !important; border-color: #6C8F66 !important; }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .ins-tile--working .ins-tile-mark { color: #E8EAE3; }
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .at-pipeline-label,
+html[data-theme$="-dark"] .portal-main:has(> .insights-stats) .at-pipeline-value { color: var(--text-primary); }

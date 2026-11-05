@@ -87,6 +87,13 @@ export function applyTenantTheme(user) {
 }
 
 let watching = false;
+/** Call `listener` whenever the theme on the page changes; returns the way to stop. */
+export function subscribeTheme(listener) {
+  const observer = new MutationObserver(listener);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  return () => observer.disconnect();
+}
+
 /** Follow the OS while the mode is "system". */
 export function watchSystemMode() {
   const media = darkMedia();

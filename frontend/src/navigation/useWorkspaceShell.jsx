@@ -1,9 +1,10 @@
-import { BarChart2, Bell, Compass, LogOut, Settings, User, Wallet } from 'lucide-react';
+import { BarChart2, Bell, Compass, LogOut, Settings, Wallet } from 'lucide-react';
 import { useEffect } from 'react';
 import { hasPageTour } from '../components/ui/tourPages';
 import { api } from '../services/api';
 import { AccountMenu } from '../components/ui/AccountMenu';
 import { UserAvatar } from '../components/ui/UserAvatar';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { Segmented } from '../components/ui/Atelier';
 import { canSeeTab } from './nav';
 
@@ -17,9 +18,8 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
   // The phone header's avatar menu: the Account entries this user's sidebar
   // shows, then Sign out. `go` is how that screen switches tab.
   const headerAccountItems = (go) => [
-    ...['account', 'settings'].filter((tab) => navTabs.includes(tab)).map((tab) => ({
-      key: tab, label: tab === 'account' ? t('nav.account') : t('nav.settings'),
-      icon: tab === 'account' ? User : Settings, onClick: () => go(tab),
+    ...['settings'].filter((tab) => navTabs.includes(tab)).map((tab) => ({
+      key: tab, label: t('nav.settings'), icon: Settings, onClick: () => go(tab),
     })),
     // One guide entry: this page's own guide, or on the Dashboard (which has
     // none of its own) the Dashboard tour.
@@ -58,6 +58,7 @@ export default function useWorkspaceShell({ setView, setDashboardTab, currentUse
         )}
       </button>
       )}
+      <ThemeToggle className="portal-account-theme-btn" />
       <AccountMenu avatar={<UserAvatar user={currentUser} />}
                    label={t('dashboard.hiUser', `Hi, ${currentUserName}`, { name: currentUserName })}
                    currentUser={currentUser} items={headerAccountItems(go)} />

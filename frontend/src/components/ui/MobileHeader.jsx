@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Menu, Bell } from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
 
 /**
  * The phone header.
@@ -75,6 +76,8 @@ export function MobileHeader({ title, currentUser, notificationsCount, onOpenNot
               )}
             </button>
             )}
+
+            <ThemeToggle className="icon-btn-touch" size={20} />
 
             <div className="mobile-account" ref={wrapRef}>
               <button type="button" ref={avatarRef} className="mobile-header-avatar mobile-account-btn"

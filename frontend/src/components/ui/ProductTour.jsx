@@ -90,7 +90,7 @@ function buildSteps({ user }) {
   }
   steps.push({
     part: 'account', title: 'Your account',
-    text: 'Your profile, the settings, and signing out. You will also find "Guide for this page" here, to see the guide for whichever page you are on again.',
+    text: 'Your settings, and signing out. You will also find "Guide for this page" here, to see the guide for whichever page you are on again.',
     targets: ['.portal-account-bar .acct-menu-btn', '.mobile-app-header .mobile-account-btn'],
   });
   steps.push({
