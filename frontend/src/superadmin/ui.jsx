@@ -16,9 +16,10 @@
  * has no recipe for. lucide-react is still the only UI dependency.
  */
 
+import { SearchBar } from '../components/ui/SearchBar';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Copy, Info, Lock, RotateCw, Search, X,
+  AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Copy, Info, Lock, RotateCw, X,
 } from 'lucide-react';
 
 import {
@@ -497,17 +498,8 @@ export function SearchBox({ value, onChange, placeholder = 'Search…', delay = 
   };
 
   return (
-    <div className="at-search sa-search">
-      <Search size={15} aria-hidden="true" />
-      <input type="search" value={local} placeholder={placeholder} aria-label={label || placeholder}
-        onChange={(e) => change(e.target.value)} />
-      {local && (
-        <button type="button" className="at-icon-btn sa-search-clear" aria-label="Clear"
-          onClick={() => { clearTimeout(timer.current); setLocal(''); onChange(''); }}>
-          <X size={14} />
-        </button>
-      )}
-    </div>
+    <SearchBar value={local} onChange={change} placeholder={placeholder} ariaLabel={label || placeholder}
+      clearLabel="Clear" onClear={() => { clearTimeout(timer.current); setLocal(''); onChange(''); }} />
   );
 }
 

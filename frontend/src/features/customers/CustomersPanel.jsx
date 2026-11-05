@@ -1,5 +1,5 @@
 import { CalendarDays, CheckCircle2, ChevronRight, Crown, Edit2, Eye, Mail, MessageSquare, Phone, Plus, ShoppingBag, Trash2, Upload, Users } from 'lucide-react';
-import { AvatarInitials, PageHeader, SearchBox, StatCard } from '../../components/ui/Atelier';
+import { AvatarInitials, PageHeader, SearchBar, StatCard } from '../../components/ui/Atelier';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
 import { tierName } from '../../services/tierNames';
 import CustomerFilters from './CustomerFilters';
@@ -28,7 +28,7 @@ export default function CustomersPanel({ bookSummary, bookTotal, canAddCustomer,
         subtitle={t('customersPage.subtitle')}
         aside={(
           <>
-            <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder={t('customersPage.searchPlaceholder')} />
+            <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder={t('customersPage.searchPlaceholder')} />
           </>
         )}
         actions={(canAddCustomer || canDeleteCustomer || canImportCustomers) && (

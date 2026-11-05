@@ -1,5 +1,6 @@
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Search, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, X } from 'lucide-react';
 
 import { describePath, useDesignCatalogue } from './designCatalogue';
 import { visibleCategories } from './catalogueVisibility';
@@ -71,16 +72,7 @@ function DesignOptions({ options, selected, onPick }) {
       extra={<span className="dcb-level-count">{options.length} {options.length === 1 ? 'style' : 'styles'}</span>}
     >
       {many && (
-        <label className="dcb-search">
-          <Search size={15} aria-hidden="true" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a style…"
-                 aria-label="Find a design style" />
-          {query && (
-            <button type="button" className="dcb-search-clear" aria-label="Clear search" onClick={() => setQuery('')}>
-              <X size={14} />
-            </button>
-          )}
-        </label>
+        <SearchBar value={query} onChange={setQuery} placeholder="Find a style…" ariaLabel="Find a design style" size="sm" className="dcb-search" />
       )}
       {shown.map((o) => (
         <Chip key={o.key} kind="option" active={selected === o.key} onClick={() => onPick(o.key)}>

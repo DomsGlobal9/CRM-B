@@ -1,7 +1,7 @@
 import { CheckCircle2, Clock, Eye, Filter, LayoutGrid, List, Plus, Ruler, Scissors, ShoppingCart, User, Zap } from 'lucide-react';
 import React from 'react';
 import { RequestAlterationModal } from '../alterations/OrderAlterations';
-import { PageHeader, SearchBox, Segmented, StatCard, Tabs } from '../../components/ui/Atelier';
+import { PageHeader, SearchBar, Segmented, StatCard, Tabs } from '../../components/ui/Atelier';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
 import { Pager } from '../../components/ui/Pager';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
@@ -56,7 +56,7 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
         title={dashboardTab === 'workshop' ? t('ordersPage.workshopTitle', 'Workshop') : t('ordersPage.title')}
         subtitle={dashboardTab === 'workshop' ? t('ordersPage.workshopSubtitle', 'Every order being made, who has it, and what comes next.') : t('ordersPage.subtitle')}
         meta={dashboardTab === 'workshop' ? null : kindTabs}
-        aside={dashboardTab === 'workshop' ? null : <><SearchBox value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />{failedMenu}</>}
+        aside={dashboardTab === 'workshop' ? null : <><SearchBar value={ordersSearch} onChange={setOrdersSearch} placeholder={t('ordersPage.searchPlaceholder')} />{failedMenu}</>}
         actions={dashboardTab === 'workshop' ? null : (
           <>
             {(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.create')) && (
@@ -105,7 +105,7 @@ export default function OrdersPanel({ guideOrders, openAlteration, openSendToWor
               )}
               {dashboardTab === 'workshop' && (
                 <div className="at-toolbar-right workshop-search-wrap">
-                  <SearchBox
+                  <SearchBar
                     value={ordersSearch}
                     onChange={setOrdersSearch}
                     placeholder={t('ordersPage.workshopSearchPlaceholder', 'Search by order, customer, status, or worker...')}

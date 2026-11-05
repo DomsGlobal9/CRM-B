@@ -3,8 +3,9 @@
    is, how many, how far the workroom has got, and whether it has reached the
    shelf. A run ends in stock by itself when its last step is signed off
    (apps/inventory/finished_goods.py), so "In stock" here is that. */
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, Factory, Search, UserRound } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Factory, UserRound } from 'lucide-react';
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
 import Loader from '../../components/ui/Loader';
@@ -74,11 +75,7 @@ export default function InHouseTab() {
         ))}
       </div>
 
-      <label className="ih-search">
-        <Search size={18} />
-        <input className="form-control" value={search} onChange={(e) => setSearch(e.target.value)}
-               placeholder="Search by garment or run number…" aria-label="Search in-house garments" />
-      </label>
+      <SearchBar value={search} onChange={setSearch} placeholder="Search by garment or run number…" ariaLabel="Search in-house garments" style={{ maxWidth: 'none' }} />
 
       {error && (
         <div className="ih-empty ih-empty--error">

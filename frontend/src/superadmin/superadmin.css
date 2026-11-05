@@ -480,10 +480,6 @@ select.sa-narrow { width: 120px; }
 
 /* --- Search box clear button (SearchBox) ------------------------------ */
 
-.sa-search input { padding-right: 40px; }
-.sa-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
-.sa-search .sa-search-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); }
-.sa-search .sa-search-clear svg { position: static; transform: none; }
 
 /* --- One-time sign-in link (OneTimeLink) ------------------------------ */
 

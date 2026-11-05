@@ -1,5 +1,6 @@
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Award, Check, ChevronRight, ClipboardList, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, Search, ShoppingBag, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
+import { Award, Check, ChevronRight, ClipboardList, Clock, Edit2, Eye, Image as ImageIcon, LayoutGrid, Package, Plus, ShoppingBag, SlidersHorizontal, Trash2, Users, X } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { resolveMediaUrl } from '../../services/media';
@@ -67,11 +68,7 @@ function Filters({ value, onChange, designers, collections, parts = [] }) {
     }}>
       <label className="dl-filter-search" style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
         Search
-        <span style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <Search size={13} style={{ position: 'absolute', left: '8px', color: 'var(--text-muted)' }} />
-          <input className="form-control" style={{ padding: '6px 8px 6px 26px', fontSize: '12px' }}
-                 value={value.search || ''} onChange={set('search')} placeholder="Design name" />
-        </span>
+        <SearchBar value={value.search || ''} onChange={(search) => onChange({ ...value, search })} placeholder="Design name" size="sm" style={{ flex: 'none', maxWidth: 'none' }} />
       </label>
       <button type="button" className="btn-secondary dl-filter-toggle" aria-expanded={open}
               onClick={() => setOpen((o) => !o)}>

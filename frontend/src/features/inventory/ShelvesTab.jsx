@@ -6,10 +6,11 @@
    QR (camera or a USB / Bluetooth scanner typing into the box) or a typed
    address ("c2 1"). Who sees which view follows the inventory work the owner
    handed the role (move: stock or transfer; set up: items). */
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
+import { Search,
   AlertTriangle, ArrowDown, ArrowRight, ArrowUp, Camera, CheckCircle2, ClipboardCheck, Eye, Layers,
-  MapPin, Minus, Move, PackagePlus, Pencil, Plus, Printer, Search, Trash2, X,
+  MapPin, Minus, Move, PackagePlus, Pencil, Plus, Printer, Trash2, X,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { api } from '../../services/api';
@@ -250,11 +251,7 @@ function WhereIsIt({ location }) {
   return (
     <div className="sh-panel">
       <form className="sh-scan-row" onSubmit={search}>
-        <label className="sh-search">
-          <Search size={15} aria-hidden="true" />
-          <input className="form-control" value={q} onChange={(e) => setQ(e.target.value)}
-                 placeholder="Type a name, code or colour — e.g. red silk" aria-label="Search an item" />
-        </label>
+        <SearchBar value={q} onChange={setQ} placeholder="Type a name, code or colour — e.g. red silk" ariaLabel="Search an item" style={{ flex: '1 1 auto', maxWidth: 'none' }} />
         <button type="submit" className="btn-primary" disabled={busy || !q.trim()}>{busy ? 'Looking…' : 'Find'}</button>
       </form>
       <div className="sh-or">or see what is on a shelf</div>
@@ -519,10 +516,7 @@ function CountShelf({ location, leaves, onDone }) {
             </div>
           ))}
           <form className="sh-scan-row" onSubmit={search}>
-            <label className="sh-search">
-              <Search size={15} aria-hidden="true" />
-              <input className="form-control" value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="Add an item found here — name or code" aria-label="Add an item" />
-            </label>
+            <SearchBar value={adding} onChange={setAdding} placeholder="Add an item found here — name or code" ariaLabel="Add an item" style={{ flex: '1 1 auto', maxWidth: 'none' }} />
             <button type="submit" className="btn-secondary" disabled={!adding.trim()}>Find</button>
           </form>
           {found.length > 0 && (

@@ -1,7 +1,8 @@
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, ArrowLeft, CheckCircle2, ClipboardList, History, IndianRupee,
-  Package, RotateCw, Scissors, Search, User, X,
+  Package, RotateCw, Scissors, User, X,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMoney } from '../../services/format';
@@ -892,10 +893,7 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
           <option value="FREE_BOUTIQUE_FAULT">Free / boutique fault</option>
           <option value="PAID_CLIENT_REQUEST">Paid / customer request</option>
         </select>
-        <div className="search-bar-container" style={{ maxWidth: '280px', margin: 0, flex: '1 1 200px' }}>
-          <Search className="search-icon" size={16} />
-          <input className="search-input" placeholder="Number, customer, order…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
+        <SearchBar value={search} onChange={setSearch} placeholder="Number, customer, order…" style={{ maxWidth: '280px', flex: '1 1 200px' }} />
       </div>
 
       {loading && rows.length === 0 ? (

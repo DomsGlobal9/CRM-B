@@ -8,7 +8,7 @@ import { Check,
 import { boutiqueLoginUrl } from '../../services/format';
 import { api } from '../../services/api';
 import {
-  AvatarInitials, PageHeader, SearchBox, StatCard, FormModal, Field, Dropzone, InfoNote, FormSection, IconTile, CameraButton, Tabs,
+  AvatarInitials, PageHeader, SearchBar, StatCard, FormModal, Field, Dropzone, InfoNote, FormSection, IconTile, CameraButton, Tabs,
 } from '../../components/ui/Atelier';
 import { ASSIGNABLE_ROLES, DOCUMENT_KINDS } from '../../constants/roles';
 import Attendance from './Attendance';
@@ -1143,7 +1143,7 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
           display: 'flex', gap: 'var(--space-3)', alignItems: 'center',
           flexWrap: 'wrap', marginBottom: 'var(--space-4)',
         }}>
-          <SearchBox value={search} onChange={setSearch} placeholder="Search team by name, role or phone…" />
+          <SearchBar value={search} onChange={setSearch} placeholder="Search team by name, role or phone…" />
           {onlyDesigners && (
             <span className="staff-only-chip">
               Showing designers only

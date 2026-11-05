@@ -8559,13 +8559,6 @@ tr.gh-express.at-row-stuck > td:first-child { box-shadow: inset 3px 0 0 var(--da
 .dcb-chip--option.dcb-chip--on { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground); }
 
 .dcb-search { position: relative; display: inline-flex; align-items: center; flex: 0 1 220px; min-width: 160px; }
-.dcb-search > svg { position: absolute; left: 11px; color: var(--text-muted); pointer-events: none; }
-.dcb-search input {
-  width: 100%; min-height: 34px; padding: 6px 30px 6px 33px; border-radius: 10px; border: 1px solid var(--border-color);
-  background: var(--surface-color); color: var(--text-primary); font: inherit; font-size: 13px;
-}
-.dcb-search input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 25%, transparent); }
-.dcb-search-clear { position: absolute; right: 6px; display: inline-flex; padding: 3px; border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: pointer; }
 .dcb-more { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 5px 10px; border: 0; border-radius: 10px;
   background: none; color: var(--brand-link); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .dcb-more:hover { background: var(--accent-color); }

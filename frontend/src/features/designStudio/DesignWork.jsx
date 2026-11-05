@@ -7,7 +7,7 @@ import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { AvatarInitials, Field, FormModal, SearchBox, SectionCard, StatusBadge } from '../../components/ui/Atelier';
+import { AvatarInitials, Field, FormModal, SearchBar, SectionCard, StatusBadge } from '../../components/ui/Atelier';
 import { LIMITS, todayIso } from '../../services/validate';
 import { VoiceNotePlayer, VoiceRecorder } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
@@ -483,7 +483,7 @@ export default function DesignWork({ currentUser, refreshToken = 0, onWaiting })
                        </StatusBadge>
                      )}>
           <div className="at-toolbar" style={{ margin: '0 0 var(--space-3)' }}>
-            <SearchBox value={search} onChange={setSearch} placeholder="Search by garment, designer or customer…" style={{ maxWidth: '420px' }} />
+            <SearchBar value={search} onChange={setSearch} placeholder="Search by garment, designer or customer…" style={{ maxWidth: '420px' }} />
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
               {openFilter}
               <span className="at-row-sub">{shown.length} of {assignments.length}</span>

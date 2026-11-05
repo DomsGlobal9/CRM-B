@@ -1,0 +1,33 @@
+/* SearchBar: what index.css's .at-search does not already set. */
+/* .at-search grows along its row; in a parent that stacks, that would be its height. */
+.at-search { max-height: fit-content; }
+.at-search input { padding-right: 34px; }
+/* The bar has its own clear button, so the browser's is not drawn as well. */
+.at-search input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+.at-search .at-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.at-search .at-search-clear:hover { background: var(--surface-inset); color: var(--text-primary); }
+.at-search .at-search-clear:focus-visible { outline: 2px solid var(--accent-border); outline-offset: 1px; }
+.at-search .at-search-clear svg { position: static; transform: none; color: inherit; pointer-events: none; }
+
+/* Compact: pickers and filter rows. */
+.at-search.at-search--sm input { height: 34px; min-height: 34px; padding: 6px 30px 6px 30px; font-size: 13px; }
+.at-search.at-search--sm > svg { left: 10px; }
+.at-search.at-search--sm .at-search-clear { right: 5px; width: 22px; height: 22px; }

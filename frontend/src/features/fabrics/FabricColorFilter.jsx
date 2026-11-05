@@ -1,5 +1,6 @@
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useMemo } from 'react';
-import { Palette, Search, X } from 'lucide-react';
+import { Palette } from 'lucide-react';
 
 import { isHexQuery } from './colour';
 
@@ -75,26 +76,7 @@ export default function FabricColorFilter({ fabrics = [], value = '', onChange }
           />
         </label>
 
-        <span style={{ position: 'relative', display: 'flex', alignItems: 'center',
-                       flex: '1 1 220px', maxWidth: '320px' }}>
-          <Search size={13} style={{ position: 'absolute', left: '10px', color: 'var(--text-muted)' }} />
-          <input
-            className="form-control"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="Type a colour, e.g. maroon — or use the wheel"
-            style={{ padding: '7px 30px 7px 30px', fontSize: '12.5px', borderRadius: '10px' }}
-          />
-          {value && (
-            <button type="button" title="Show all colours" onClick={() => onChange('')}
-                    style={{ position: 'absolute', right: '6px', width: '20px', height: '20px',
-                             borderRadius: '50%', border: 'none', cursor: 'pointer',
-                             background: 'var(--surface-inset, #f3f4f6)', color: 'var(--text-secondary)',
-                             display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-              <X size={12} />
-            </button>
-          )}
-        </span>
+        <SearchBar value={value} onChange={onChange} placeholder="Type a colour, e.g. maroon — or use the wheel" clearLabel="Show all colours" size="sm" style={{ flex: '1 1 220px', maxWidth: '320px' }} />
       </div>
 
       {/* The boutique's colours as one dropdown. An option cannot be painted,

@@ -1,5 +1,6 @@
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, Layers, MapPin, Package, Pencil, Plus, Scissors, Search, ShoppingCart, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownCircle, BarChart3, BookOpen, ClipboardList, Eye, Factory, History, Layers, MapPin, Package, Pencil, Plus, Scissors, ShoppingCart, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { orderRef } from '../../services/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -425,16 +426,7 @@ function ItemsTab({
         })}
       </div>
       <div style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div className="search-input-wrapper" style={{ margin: 0, flex: '1 1 220px' }}>
-          <Search size={18} />
-          <input
-            type="text"
-            className="form-control"
-            placeholder={t('inventoryPage.searchPlaceholder', 'Search items…')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchBar value={search} onChange={setSearch} placeholder={t('inventoryPage.searchPlaceholder', 'Search items…')} style={{ flex: '1 1 220px', maxWidth: 'none' }} />
         <select className="form-control" style={{ maxWidth: '200px' }} value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="">{t('inventoryPage.allCategories', 'All categories')}</option>
           {groupCategories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}

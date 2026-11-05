@@ -1,5 +1,6 @@
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, ChevronRight, Package, Plus, Search } from 'lucide-react';
+import { Check, ChevronRight, Package, Plus } from 'lucide-react';
 
 import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -70,16 +71,7 @@ export default function CatalogBrowser({ isOwner, onStock, version }) {
             Materials library crumb before it goes back to every section. */}
         <Crumbs level={2} items={openSection ? [{ label: openSection.full_name }]
           : search.trim() ? [{ label: `“${search.trim()}”` }] : []} />
-        <div style={{ position: 'relative', flex: '1 1 260px' }}>
-          <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input
-            className="form-control"
-            style={{ paddingLeft: '30px', fontSize: '13px' }}
-            placeholder={`Search all ${total} catalogue materials…`}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchBar value={search} onChange={setSearch} placeholder={`Search all ${total} catalogue materials…`} size="sm" style={{ flex: '1 1 260px', maxWidth: 'none' }} />
         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--text-secondary)' }}>
           <input type="checkbox" checked={stockableOnly} onChange={(e) => setStockableOnly(e.target.checked)} />
           {t('inventoryPage.onlyStockable', 'Only what can be stocked')}

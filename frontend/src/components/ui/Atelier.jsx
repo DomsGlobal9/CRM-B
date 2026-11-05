@@ -1,7 +1,7 @@
 import { Fragment, useContext, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ArrowRight, Search, X as CloseIcon, Upload as UploadIcon, Camera as CameraIcon,
+  ArrowRight, X as CloseIcon, Upload as UploadIcon, Camera as CameraIcon,
   Lightbulb as LightbulbIcon, CheckCircle2 as CheckIcon,
   AlertTriangle, ChevronDown, ChevronUp, Inbox,
 } from 'lucide-react';
@@ -125,14 +125,7 @@ export function ProgressBar({ pct, tone = 'green' }) {
   );
 }
 
-export function SearchBox({ value, onChange, placeholder, style }) {
-  return (
-    <label className="at-search" style={style}>
-      <Search size={15} />
-      <input type="search" value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
-    </label>
-  );
-}
+export { SearchBar } from './SearchBar';
 
 export function Segmented({ options, value, onChange, ariaLabel }) {
   return (

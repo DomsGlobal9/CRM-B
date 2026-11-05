@@ -1,5 +1,6 @@
+import { SearchBar } from '../../components/ui/SearchBar';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CheckCircle2, ChevronDown, Contact, FileSpreadsheet, Ruler, Search, Trash2, Upload, User, X } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, Contact, FileSpreadsheet, Ruler, Trash2, Upload, User, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { LIMITS, cleanEmail, cleanName, displayMobile, emailError, imageFilesError, nameError } from '../../services/validate';
 import { resolveMediaUrl } from '../../services/media';
@@ -848,29 +849,7 @@ export function CustomerForm({ customer = null, onBack, onSaved }) {
         </div>
 
         {/* Quick Search Bar */}
-        <div className="input-wrapper" style={{ marginBottom: 16, position: 'relative' }}>
-          <Search className="input-icon-left" size={16} style={{ color: 'var(--text-tertiary, #9ca3af)', left: 12 }} />
-          <input
-            type="text"
-            className="form-control"
-            style={{ paddingLeft: 38, fontSize: '13.5px', height: '38px', borderRadius: '8px' }}
-            placeholder="🔍 Search any measurement (e.g. Bicep, Crotch, Lehenga, Armhole)..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              style={{
-                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 0, cursor: 'pointer', fontSize: '12px', color: 'var(--text-secondary)'
-              }}
-            >
-              Clear
-            </button>
-          )}
-        </div>
+        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search any measurement (e.g. Bicep, Crotch, Lehenga, Armhole)..." style={{ marginBottom: 16, maxWidth: 'none' }} />
 
         {/* Render Search Results OR Zone Tabs */}
         {searchQuery.trim() ? (

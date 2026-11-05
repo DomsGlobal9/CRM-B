@@ -1,5 +1,6 @@
+import { SearchBar } from './SearchBar';
 import { useMemo, useState } from 'react';
-import { Check, Plus, Search, Shirt } from 'lucide-react';
+import { Check, Plus, Shirt } from 'lucide-react';
 
 /** The order the garments are listed in, by key -- the way a counter thinks of
  *  them, a saree beside its blouse and petticoat. A garment in none of these
@@ -70,11 +71,7 @@ export default function DressesDropdown({
       )}
 
       {garmentTemplates.length > 8 && (
-        <div className="input-wrapper dd-picker-search">
-          <Search size={15} className="input-icon-left" aria-hidden="true" />
-          <input type="search" className="form-control" value={query} placeholder="Search garments"
-                 aria-label="Search garments" onChange={(e) => setQuery(e.target.value)} />
-        </div>
+        <SearchBar value={query} onChange={setQuery} placeholder="Search garments" className="dd-picker-search" />
       )}
 
       <div className="dd-picker-grid" role="group" aria-label={title}>

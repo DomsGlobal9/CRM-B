@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Banknote, FileText, Receipt, Wallet } from 'lucide-react';
 import { formatDate as fmtDate, formatMoney, orderRef } from '../../services/format';
-import { AvatarInitials, Button, Chips, ClampedText, InfoNote, PageHeader, ProgressBar, SearchBox, StatCard, StatusBadge } from '../../components/ui/Atelier';
+import { AvatarInitials, Button, Chips, ClampedText, InfoNote, PageHeader, ProgressBar, SearchBar, StatCard, StatusBadge } from '../../components/ui/Atelier';
 import { LIMITS, amountError, cleanAmount } from '../../services/validate';
 import { api } from '../../services/api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
@@ -207,7 +207,7 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, paymentErr
         { key: 'Pending', label: t('invoicesPage.pending', 'Pending'), count: pendingCount },
       ]} />
       <div className="at-toolbar-right">
-        <SearchBox value={invoiceSearch} onChange={setInvoiceSearch}
+        <SearchBar value={invoiceSearch} onChange={setInvoiceSearch}
                    placeholder={t('invoicesPage.searchPlaceholder', 'Search Invoice ID or Client...')} />
       </div>
     </div>

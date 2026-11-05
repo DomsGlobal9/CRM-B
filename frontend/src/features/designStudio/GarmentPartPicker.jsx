@@ -1,5 +1,6 @@
+import { SearchBar } from '../../components/ui/SearchBar';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Search, Upload, X } from 'lucide-react';
+import { Camera, Check, ChevronLeft, ChevronRight, Eye, Globe, ImageOff, Link as LinkIcon, Upload, X } from 'lucide-react';
 import { AddPhotoButton } from '../../components/ui/Atelier';
 
 import { api } from '../../services/api';
@@ -948,17 +949,7 @@ export default function GarmentPartPicker({ garmentKey, garmentName, selection =
           that has no catalogue, so those look exactly as they did. */}
       {!loading && !ownOnly && !isFabric && !accessoriesOnly && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '12px' }}>
-          <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '380px' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search design (e.g. Ruffle, Pattu, Velvet)..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ paddingLeft: '32px', height: '34px', fontSize: '12.5px', borderRadius: '7px' }}
-            />
-          </div>
+          <SearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search design (e.g. Ruffle, Pattu, Velvet)..." size="sm" style={{ flex: '1 1 240px', maxWidth: '380px' }} />
           {searchTerm && (
             <button type="button" className="btn-secondary" style={{ height: '34px', padding: '0 12px', fontSize: '12px' }} onClick={() => setSearchTerm('')}>
               Clear

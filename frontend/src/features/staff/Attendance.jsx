@@ -1,4 +1,5 @@
 
+import { SearchBar } from '../../components/ui/SearchBar';
 import { Tabs } from '../../components/ui/Atelier';
 import { useState, useEffect, useCallback } from 'react';
 import { Clock, LogIn, LogOut, Pencil, Plus, X, Calendar, CalendarDays, Wallet, ArrowRight, MapPin } from 'lucide-react';
@@ -1064,46 +1065,7 @@ function MonthlyAttendanceLogs({ reloadKey }) {
               />
             </div>
 
-            <div style={{ position: 'relative', width: '220px', marginTop: '14px' }}>
-              <input
-                type="text"
-                placeholder="Search logs..."
-                value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '7px 12px 7px 32px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--border-color)',
-                  fontSize: '13px',
-                  background: 'var(--surface-2, #F8F7F4)',
-                  color: 'var(--text-primary)',
-                  outline: 'none',
-                }}
-              />
-              <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '12px', pointerEvents: 'none' }}>
-                🔍
-              </span>
-              {filterText && (
-                <button
-                  type="button"
-                  onClick={() => setFilterText('')}
-                  style={{
-                    position: 'absolute',
-                    right: '8px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    fontSize: '12px',
-                  }}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
+            <SearchBar value={filterText} onChange={setFilterText} placeholder="Search logs..." size="sm" style={{ flex: '0 0 220px', width: '220px', marginTop: '14px' }} />
           </div>
 
           {/* Right Side: Summary Chips */}
