@@ -12,6 +12,7 @@ import { currentLocationDetailed, locationProblem } from '../../services/locatio
 import { CorrectionForm } from './CorrectionForm';
 import { nowForInput, timesError } from './attendanceTimes';
 import Payroll from './Payroll';
+import './attendancePhone.css';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -460,7 +461,7 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
 
   return (
     <>
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
+      <div className="att-floor-tiles" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
         {ranged ? (
           <>
             {tile('Working now', working)}
@@ -479,7 +480,7 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
       </div>
 
       {isOwner && (
-        <button type="button" className="btn-secondary" onClick={onRecord}
+        <button type="button" className="btn-secondary att-record-btn" onClick={onRecord}
                 style={{ marginBottom: '14px', display: 'inline-flex',
                          alignItems: 'center', gap: '6px' }}>
           <Plus size={14} /> Record attendance
@@ -496,7 +497,7 @@ function TodayOnTheFloor({ isOwner, roster, sessions, onCorrect, onRecord, loadi
         // One row per person: a table reads down a column (who is late, who has
         // the fewest hours) in a way a wall of cards does not.
         <div className="at-table-wrap">
-          <table className="at-table at-table--fit at-table--center">
+          <table className="at-table at-table--fit at-table--center att-floor-table">
             <thead>
               <tr>
                 <th>Team member</th>
