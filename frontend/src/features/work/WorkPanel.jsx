@@ -8,6 +8,7 @@ import { resolveMediaUrl } from '../../services/media';
 import { maySignOff, submitsForSignOff } from '../orders/signOff';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { Tabs } from '../../components/ui/Atelier';
+import { Pager } from '../../components/ui/Pager';
 import CustomerMessageQueue from '../orders/CustomerMessageQueue';
 import CardGlance from './CardGlance';
 import JobScreen from './JobScreen';
@@ -27,6 +28,8 @@ const SHOW_FAILED_MESSAGES = false;
 
 // My work shows this many cards first, and this many more per "Show more".
 const PAGE = 5;
+// Done and To check go page by page.
+const LIST_PAGE_SIZES = [10, 20, 50];
 
 export default function WorkPanel({ view, orders = [], currentUser, workflowConfig = [], tailors, fabricTaxonomy, onChanged,
                                     customerMessages = [], onMarkMessageSent, onRetryMessage }) {
@@ -44,6 +47,9 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
   // How many cards My work shows, remembered for the tab and step it was
   // widened on: another tab or step starts again from the first PAGE.
   const [shown, setShown] = useState({ key: '', n: PAGE });
+  // Done and To check: each keeps its own page; the page size is shared.
+  const [listPages, setListPages] = useState({});
+  const [listSize, setListSize] = useState(LIST_PAGE_SIZES[0]);
   const canFilterSteps = view === 'open' && ['Master', 'Designer'].includes(currentUser?.role);
   // Work handed to me that I have not opened yet is marked NEW, so a fresh
   // assignment stands out from the jobs already on my list. Opened jobs are
@@ -213,6 +219,23 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
     </button>
   );
 
+  // One page of the Done or To check list, and the bar under it. A list that
+  // shrinks (a job checked) never strands the page past its new end.
+  const paged = (list) => {
+    const pageCount = Math.max(1, Math.ceil(list.length / listSize));
+    const page = Math.min(listPages[view] || 1, pageCount);
+    return {
+      rows: list.slice((page - 1) * listSize, page * listSize),
+      pager: (
+        <Pager page={page} pageCount={pageCount} pageSize={listSize} sizes={LIST_PAGE_SIZES} total={list.length}
+               label={t('workPage.perPage', 'Per page')}
+               totalLabel={({ from, to, total }) => t('ordersPage.showing', 'Showing {from}–{to} of {total}', { from, to, total })}
+               onPage={(n) => { setListPages((prev) => ({ ...prev, [view]: n })); window.scrollTo({ top: 0 }); }}
+               onSize={(n) => { setListSize(n); setListPages({}); }} />
+      ),
+    };
+  };
+
   let body;
   if (view === 'open') {
     // Work just handed to me leads the list, latest assignment first: the
@@ -364,9 +387,10 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
       );
     }
   } else if (view === 'done') {
+    const { rows, pager } = paged(items);
     body = items.length === 0
       ? <div className="wk-empty">{t('workPage.emptyDone', 'Nothing finished yet.')}</div>
-      : items.map((it) => {
+      : <>{rows.map((it) => {
         const back = sentBackCount(it.order, it.stage);
         const who = approvedBy(it.order, it.stage);
         return card(it, {
@@ -376,11 +400,12 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           meta: <>{it.at && <span>{formatDate(it.at)}</span>}{back > 0 && <span>· {back === 1 ? t('workPage.sentBackOnce', 'sent back once') : t('workPage.sentBackTimes', 'sent back {n} times', { n: back })}</span>}</>,
           body: <Thumbs urls={it.stage.attachments} />,
         });
-      });
+      })}{pager}</>;
   } else {
+    const { rows, pager } = paged(items);
     body = items.length === 0
       ? <div className="wk-empty">{t('workPage.emptyCheck', 'Nothing waiting for a check.')}</div>
-      : items.map((it) => card(it, {
+      : <>{rows.map((it) => card(it, {
         chip: !it.stage.verification_seen_at && !seen.has(`${it.order.id}:${it.stage.id}`)
           && <span className="wk-dot" aria-label={t('workPage.new', 'new')} />,
         meta: <>
@@ -388,7 +413,7 @@ export default function WorkPanel({ view, orders = [], currentUser, workflowConf
           <span>· {t('workPage.waitingAgo', 'waiting {n}', { n: ago(it.at, t) })}</span>
         </>,
         body: <Thumbs urls={it.stage.attachments} />,
-      }));
+      }))}{pager}</>;
   }
 
   // A Master has no order page to reach: the Workshop orders' customer

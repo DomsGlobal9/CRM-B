@@ -4,6 +4,8 @@
 /* One card below another at every size, each as wide as the page. */
 .wk, .wk-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; }
 .wk > .wk-card, .wk-group > .wk-card { min-width: 0; max-width: 760px; justify-self: center; margin-bottom: 0; }
+/* Done and To check: the pager lines up with the cards above it. */
+.wk > .at-pager { width: 100%; max-width: 760px; justify-self: center; }
 .wk .ui-badge { font-size: var(--text-base); }
 .wk-group { margin-bottom: var(--space-5); }
 .wk-group-title { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-base); font-weight: 600; text-transform: uppercase;
