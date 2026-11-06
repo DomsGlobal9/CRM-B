@@ -23,6 +23,7 @@ import {
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
 import RowMenu from '../../components/ui/RowMenu';
+import './staffPhone.css';
 
 const panel = {
   background: 'var(--surface-color)',
@@ -1139,7 +1140,7 @@ function Roster({ isOwner, canSeeTeam, showDesigners = true, canManage = isOwner
       })()}
 
       {canSeeTeam && (
-        <div style={{
+        <div className="staff-team-bar" style={{
           display: 'flex', gap: 'var(--space-3)', alignItems: 'center',
           flexWrap: 'wrap', marginBottom: 'var(--space-4)',
         }}>
