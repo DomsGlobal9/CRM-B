@@ -1,6 +1,7 @@
 import { Printer, RefreshCw, Send, X } from 'lucide-react';
 import { InvoiceRenderer, normalizeInvoiceData } from './InvoiceTemplates';
 import { useApp } from '../../context/AppContext';
+import './invoicePhone.css';
 
 /**
  * The printable invoice for one order, opened from Invoices or after an order

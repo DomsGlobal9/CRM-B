@@ -148,7 +148,7 @@ export const ClassicInvoiceTemplate = ({ data }) => {
       boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+      <div className="inv-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {data.boutiqueLogo && (
             <img
@@ -177,7 +177,7 @@ export const ClassicInvoiceTemplate = ({ data }) => {
       </div>
 
       {/* Billed To & Metadata */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px', fontFamily: 'sans-serif' }}>
+      <div className="inv-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px', fontFamily: 'sans-serif' }}>
         <div>
           <span style={{ fontSize: '11px', fontWeight: 800, color: '#1c1917', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '6px' }}>
             BILLED TO:
@@ -194,7 +194,7 @@ export const ClassicInvoiceTemplate = ({ data }) => {
       </div>
 
       {/* Item Table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px', fontFamily: 'sans-serif' }}>
+      <table className="inv-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px', fontFamily: 'sans-serif' }}>
         <thead>
           <tr style={{ borderTop: '1px solid #27272a', borderBottom: '1px solid #27272a', fontSize: '11px', fontWeight: 700, color: '#1c1917' }}>
             <th style={{ padding: '12px 8px', textAlign: 'left' }}>Item</th>
@@ -230,8 +230,8 @@ export const ClassicInvoiceTemplate = ({ data }) => {
       </table>
 
       {/* Price Breakdown & Balance Block */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '40px', fontFamily: 'sans-serif' }}>
-        <div style={{ width: '260px', backgroundColor: '#f4f4f5', padding: '16px 20px', borderRadius: '8px', border: '1px solid #e4e4e7' }}>
+      <div className="inv-summary" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '40px', fontFamily: 'sans-serif' }}>
+        <div className="inv-totals" style={{ width: '260px', backgroundColor: '#f4f4f5', padding: '16px 20px', borderRadius: '8px', border: '1px solid #e4e4e7' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: '12px', color: '#52525b' }}>
             <span>Subtotal</span>
             <span style={{ fontWeight: 600 }}>{formatMoney(data.subtotal)}</span>
@@ -264,14 +264,14 @@ export const ClassicInvoiceTemplate = ({ data }) => {
       </div>
 
       {/* Thank You Signoff */}
-      <div style={{ marginBottom: '40px' }}>
+      <div className="inv-thanks" style={{ marginBottom: '40px' }}>
         <h3 style={{ fontSize: '24px', fontWeight: 400, color: '#1c1917', margin: 0, fontFamily: "Georgia, 'Playfair Display', serif" }}>
           Thank you!
         </h3>
       </div>
 
       {/* Footer */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #e4e4e7', paddingTop: '20px', fontSize: '11px', color: '#52525b', fontFamily: 'sans-serif' }}>
+      <div className="inv-foot" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #e4e4e7', paddingTop: '20px', fontSize: '11px', color: '#52525b', fontFamily: 'sans-serif' }}>
         <div>
           <span style={{ fontWeight: 800, color: '#1c1917', textTransform: 'uppercase', display: 'block', marginBottom: '4px', letterSpacing: '0.5px' }}>
             PAYMENT INFORMATION
@@ -315,19 +315,19 @@ export const ModernInvoiceTemplate = ({ data }) => {
       boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
     }}>
       {/* Top Left Soft Rose Pill Decor */}
-      <div style={{ position: 'absolute', top: '24px', left: '24px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div className="inv-decor" style={{ position: 'absolute', top: '24px', left: '24px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
         <div style={{ width: '64px', height: '12px', backgroundColor: '#fbcfe8', borderRadius: '10px' }}></div>
         <div style={{ width: '64px', height: '12px', backgroundColor: '#fbcfe8', borderRadius: '10px' }}></div>
         <div style={{ width: '64px', height: '12px', backgroundColor: '#fbcfe8', borderRadius: '10px' }}></div>
       </div>
 
       {/* Header Info */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '40px', marginBottom: '32px' }}>
-        <div>
+      <div className="inv-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '40px', marginBottom: '32px' }}>
+        <div className="inv-head-left">
           <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#1e293b', margin: '0 0 16px 0', letterSpacing: '-0.5px' }}>
             Invoice
           </h1>
-          <div>
+          <div className="inv-customer">
             <span style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>
               CUSTOMER DETAILS:
             </span>
@@ -335,13 +335,13 @@ export const ModernInvoiceTemplate = ({ data }) => {
             {data.customerMobile && <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>📞 {formatMobile(data.customerMobile)}</span>}
             {data.customerEmail && <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>✉️ {data.customerEmail}</span>}
             {data.customerAddress && <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '2px' }}>📍 {data.customerAddress}</span>}
-            <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed #e2e8f0' }}>
+            <div className="inv-meta-line" style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed #e2e8f0' }}>
               <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>Date: {fmtDate(data.orderDate)}</span>
               <span style={{ display: 'block', fontSize: '11px', color: '#64748b' }}>Invoice Nº: {data.orderId}</span>
             </div>
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
+        <div className="inv-boutique" style={{ textAlign: 'right' }}>
           {data.boutiqueLogo && (
             <img
               src={data.boutiqueLogo}
@@ -359,7 +359,7 @@ export const ModernInvoiceTemplate = ({ data }) => {
       </div>
 
       {/* Table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px' }}>
+      <table className="inv-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '32px' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #cbd5e1', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: '#475569' }}>
             <th style={{ padding: '10px 4px', textAlign: 'left', fontWeight: 700 }}>DESCRIPTION</th>
@@ -391,7 +391,7 @@ export const ModernInvoiceTemplate = ({ data }) => {
       </table>
 
       {/* Payment & Total Breakdown Section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: '#f8fafc', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', marginBottom: '32px' }}>
+      <div className="inv-summary" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', backgroundColor: '#f8fafc', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', marginBottom: '32px' }}>
         <div>
           <span style={{ fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '1px', display: 'block', marginBottom: '4px' }}>
             BOUTIQUE &amp; PAYMENT DETAILS
@@ -400,7 +400,7 @@ export const ModernInvoiceTemplate = ({ data }) => {
           <span style={{ fontSize: '12px', color: '#64748b', display: 'block' }}>Owner: <strong style={{ color: '#0f172a' }}>{data.ownerName}</strong></span>
           {data.boutiquePhone && <span style={{ fontSize: '12px', color: '#64748b', display: 'block' }}>Contact: {formatMobile(data.boutiquePhone)}</span>}
         </div>
-        <div style={{ width: '250px' }}>
+        <div className="inv-totals" style={{ width: '250px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', padding: '3px 0' }}>
             <span>Subtotal</span>
             <span>{formatMoney(data.subtotal)}</span>
@@ -449,7 +449,7 @@ export const ElegantInvoiceTemplate = ({ data }) => {
       boxShadow: '0 2px 10px rgba(0,0,0,0.06)'
     }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div className="inv-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
         <div style={{ position: 'relative' }}>
           <div style={{
             position: 'absolute',
@@ -474,7 +474,7 @@ export const ElegantInvoiceTemplate = ({ data }) => {
             Invoice
           </h1>
         </div>
-        <div style={{ textAlign: 'right' }}>
+        <div className="inv-boutique" style={{ textAlign: 'right' }}>
           {data.boutiqueLogo && (
             <img
               src={data.boutiqueLogo}
@@ -489,7 +489,7 @@ export const ElegantInvoiceTemplate = ({ data }) => {
       </div>
 
       {/* Invoice To & Metadata */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
+      <div className="inv-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
         <div>
           <span style={{ fontSize: '12px', color: '#574c43', display: 'block', marginBottom: '2px' }}>Invoice to:</span>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#1c1917', margin: '0 0 4px 0', textTransform: 'uppercase' }}>
@@ -508,7 +508,7 @@ export const ElegantInvoiceTemplate = ({ data }) => {
       </div>
 
       {/* Shaded Beige Table */}
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
+      <table className="inv-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '24px' }}>
         <thead>
           <tr style={{ backgroundColor: '#c4b5a5', color: '#ffffff', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px' }}>
             <th style={{ padding: '10px 8px', textAlign: 'center', width: '40px' }}>NO</th>
@@ -548,8 +548,8 @@ export const ElegantInvoiceTemplate = ({ data }) => {
       </table>
 
       {/* Shaded Right Block Summary */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
-        <div style={{ maxWidth: '280px' }}>
+      <div className="inv-summary" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
+        <div className="inv-details" style={{ maxWidth: '280px' }}>
           <span style={{ fontSize: '13px', fontWeight: 600, color: '#1c1917', display: 'block', marginBottom: '4px' }}>
             ATELIER DETAILS
           </span>
@@ -563,7 +563,7 @@ export const ElegantInvoiceTemplate = ({ data }) => {
           </div>
         </div>
 
-        <div style={{ width: '250px' }}>
+        <div className="inv-totals" style={{ width: '250px' }}>
           <div style={{ backgroundColor: '#e8ddd3', padding: '8px 12px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 700, color: '#574c43', marginBottom: '2px' }}>
             <span>SUB TOTAL</span>
             <span>{formatMoney(data.subtotal)}</span>
