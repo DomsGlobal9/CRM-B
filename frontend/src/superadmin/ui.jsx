@@ -10,7 +10,7 @@
  *
  * The look is the boutique workspace's own design system, not a copy of it:
  * these components render the workspace components (src/components/ui) and
- * the workspace classes in src/index.css, and the workspace components a
+ * the workspace classes in src/styles/index.css, and the workspace components a
  * screen needs directly are re-exported from here, so a screen imports
  * everything from '../ui'. superadmin.css adds only the layouts the workspace
  * has no recipe for. lucide-react is still the only UI dependency.
@@ -28,7 +28,7 @@ import {
 } from '../components/ui/Atelier.jsx';
 import Loader, { LoaderRows } from '../components/ui/Loader.jsx';
 import RowMenu from '../components/ui/RowMenu.jsx';
-import { LIMITS } from '../services/validate';
+import { LIMITS } from '../utils/validate';
 
 // The workspace components screens use directly. Importing them from here
 // keeps one import line per screen and one place to see what the console uses.

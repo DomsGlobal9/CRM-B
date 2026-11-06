@@ -6,7 +6,7 @@
 import { SearchBar } from '../../components/ui/SearchBar';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, Factory, UserRound } from 'lucide-react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
 import Loader from '../../components/ui/Loader';
 

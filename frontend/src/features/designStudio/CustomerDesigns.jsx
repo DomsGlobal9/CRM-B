@@ -3,7 +3,7 @@ import {
   Eraser, ImageOff, PenTool, Pencil, Redo2, Save, Shirt, Trash2, Type, Undo2, Upload, User, X,
 } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
 import { Dropzone, Field, FormModal } from '../../components/ui/Atelier';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
@@ -19,7 +19,7 @@ import {
   cleanEmail,
   emailError,
   imageFilesError
-} from '../../services/validate';
+} from '../../utils/validate';
 
 /**
  * A customer's own designs, captured in the studio.

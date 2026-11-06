@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 import { consoleApi } from '../api';
-import { LIMITS } from '../../services/validate';
+import { LIMITS } from '../../utils/validate';
 import {
   Async, Chips, Confirm, Empty, Field, KeyValue, Note, PageHeader, Pager, Pill, SearchBox, Select,
   Stat, StatGrid, Toolbar, count, moment, since, useApi, useToast,

@@ -2,15 +2,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, CheckCircle2, ClipboardList, Clock, Star } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { fmtDate, orderRef, orderGarmentNames } from '../../services/format';
+import { api } from '../../api';
+import { fmtDate, orderRef, orderGarmentNames } from '../../utils/format';
 import { AvatarInitials, StatCard } from '../../components/ui/Atelier';
+import { DataTable } from '../../components/ui/DataTable';
 import Loader from '../../components/ui/Loader';
+import { todayIso } from '../../utils/validate';
 
-const todayIso = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
 const localDay = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
@@ -205,38 +203,42 @@ export default function TeamTasks({ currentUser, canSeeTeam }) {
             </header>
 
             {rows.length > 0 && (
-              <div className="at-table-wrap tt-table-wrap">
-                <table className="at-table tt-table">
-                  <thead>
-                    <tr>
-                      <th>Step</th><th>Order</th><th>Garment</th><th>State</th><th>Started</th><th>Finished</th><th>Time spent</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map(({ key, order, stage }) => {
-                      const [tone, label] = STATE[stage.status] || ['neutral', stage.status];
-                      const performedByOther = stage.performed_by && String(stage.performed_by) !== String(person.id);
-                      return (
-                        <tr key={key}>
-                          <td>
-                            <div className="tt-step">{stage.stage_name}</div>
-                            {performedByOther && <div className="od-hint">done by {stage.performed_by_name}</div>}
-                          </td>
-                          <td>
-                            <div className="tt-step">{orderRef(order)}</div>
-                            <div className="od-hint">{order.customer_name}</div>
-                          </td>
-                          <td>{orderGarmentNames(order).join(', ') || order.customer_garment_type || '—'}</td>
-                          <td><span className={`ui-badge ui-badge--${tone}`}>{label}</span></td>
-                          <td>{stage.started_at ? `${fmtDate(stage.started_at)} ${clock(stage.started_at)}` : '—'}</td>
-                          <td>{stage.completed_at ? `${fmtDate(stage.completed_at)} ${clock(stage.completed_at)}` : '—'}</td>
-                          <td>{stage.duration_seconds ? hoursText(stage.duration_seconds / 60) : '—'}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <DataTable
+                fit={false}
+                rows={rows}
+                rowKey="key"
+                wrapClassName="tt-table-wrap"
+                tableClassName="tt-table"
+                columns={[
+                  { key: 'step', header: 'Step', label: false, render: ({ stage }) => {
+                    const performedByOther = stage.performed_by && String(stage.performed_by) !== String(person.id);
+                    return (
+                      <>
+                        <div className="tt-step">{stage.stage_name}</div>
+                        {performedByOther && <div className="od-hint">done by {stage.performed_by_name}</div>}
+                      </>
+                    );
+                  } },
+                  { key: 'order', header: 'Order', label: false, render: ({ order }) => (
+                    <>
+                      <div className="tt-step">{orderRef(order)}</div>
+                      <div className="od-hint">{order.customer_name}</div>
+                    </>
+                  ) },
+                  { key: 'garment', header: 'Garment', label: false,
+                    render: ({ order }) => orderGarmentNames(order).join(', ') || order.customer_garment_type || '—' },
+                  { key: 'state', header: 'State', label: false, render: ({ stage }) => {
+                    const [tone, label] = STATE[stage.status] || ['neutral', stage.status];
+                    return <span className={`ui-badge ui-badge--${tone}`}>{label}</span>;
+                  } },
+                  { key: 'started', header: 'Started', label: false,
+                    render: ({ stage }) => (stage.started_at ? `${fmtDate(stage.started_at)} ${clock(stage.started_at)}` : '—') },
+                  { key: 'finished', header: 'Finished', label: false,
+                    render: ({ stage }) => (stage.completed_at ? `${fmtDate(stage.completed_at)} ${clock(stage.completed_at)}` : '—') },
+                  { key: 'time', header: 'Time spent', label: false,
+                    render: ({ stage }) => (stage.duration_seconds ? hoursText(stage.duration_seconds / 60) : '—') },
+                ]}
+              />
             )}
           </section>
         );

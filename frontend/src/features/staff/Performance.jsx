@@ -1,19 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlertCircle, Check, Lock, Star, X } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
-import { LIMITS, todayIso } from '../../services/validate';
+import { LIMITS, todayIso } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
 import { Crumbs } from '../../components/ui/Breadcrumbs';
 import './performance.css';
-
-const panel = {
-  background: 'var(--surface-color)',
-  boxShadow: 'var(--shadow-sm)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-lg)',
-};
+import { panel } from './payroll/payrollHelpers';
+import { todayISO } from './attendance/attendanceHelpers';
 
 const RATINGS = [
   [1, 'Needs significant improvement'],
@@ -63,7 +58,6 @@ const SUFFIX = {
   average_delay_hours: 'h', approval_rate: '%',
 };
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
 const daysAgoISO = (n) =>
   new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 const dayText = (iso) =>

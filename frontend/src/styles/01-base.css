@@ -1,0 +1,1069 @@
+
+:root {
+  /* ---- Scaleezy: lime on a clean light ground, with a white sidebar ------
+     The lime scale, darkest to lightest, all derived from #B9D53C:
+     950 #232B08 · 900 #333D0C · 800 #5C6C13 · 700 #7E9033 · 600 #A2BC2A
+     500 #B9D53C · 400 #C3DB55 · 300 #CDE272 · 200 #DCEB9E · 100 #E6F1C8 · 50 #F7FAE6
+     The shell matches the cards and top bar, so the whole light theme is light;
+     the current page is the one lime pill in it.                            */
+  --bg-color: var(--neutral-100);          /* the page ground                          */
+  --surface-color: var(--white);     /* cards, surfaces                          */
+  --surface-2: var(--neutral-50);         /* raised / alternating rows                */
+  --surface-inset: var(--neutral-200);     /* wells, quiet fills, skeletons            */
+
+  /* ---- Text: warm ink and one grey ---------------------------------- */
+  --text-primary: var(--neutral-900);
+  --text-secondary: var(--neutral-700);
+  --text-muted: var(--neutral-700);
+  --text-on-dark: var(--neutral-100);
+
+  /* ---- Brand: lime for the primary action, active state and focus ------ */
+  --primary-color: var(--primary-500);     /* near-black text on it (11:1)             */
+  --primary-foreground: #020202;
+  --primary-hover: var(--primary-600);     /* one step deeper                          */
+  --brand-dark: #131114;
+  --brand-dark-foreground: var(--neutral-100);
+  --brand-link: var(--accent-800);        /* inline links on light surfaces; raw lime */
+  --accent-text: var(--accent-800);       /* on white is never readable               */
+  --accent-color: var(--accent-100);      /* the soft lime fill                       */
+  --accent-border: rgba(185, 213, 60, 0.45);
+  --ring: var(--primary-700);
+
+  /* ---- Borders, from Cloud Dancer ------------------------------------ */
+  --border-color: var(--neutral-300);
+  --border-strong: var(--neutral-400);     /* inputs, unchecked switch                 */
+  --border-focus: var(--neutral-900);      /* ink border, lime ring                    */
+
+  /* ---- Semantic: status chips only, never accents -------------------- */
+  --success-color: var(--success-500);  --success-bg: var(--success-100);
+  --warning-color: var(--warning-500);  --warning-bg: var(--warning-100);
+  --danger-color:  var(--danger-500);  --danger-bg:  var(--danger-100);
+  /* Status as text: darker where the fill fails AA on its tint or the page. */
+  --success-text: var(--success-700);  --warning-text: var(--warning-700);
+  --info-color:    var(--info-500);  --info-bg:    var(--info-100);
+
+  /* ---- Type scale (one ladder for the whole product) ----------------- */
+  --text-2xs: 11px;   /* eyebrows, chips              */
+  --text-xs: 12px;    /* captions, meta              */
+  --text-sm: 13px;    /* dense body                  */
+  --text-base: 14px;  /* default body                */
+  --text-md: 16px;    /* card titles                 */
+  --text-lg: 18px;    /* section titles              */
+  --text-xl: 22px;    /* sub-hero, small stat        */
+  --text-2xl: 28px;   /* stat values                 */
+  --text-3xl: 34px;   /* page hero, headline stat    */
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --tracking-eyebrow: 0.08em;
+
+  /* ---- Spacing scale ------------------------------------------------- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+
+  /* ---- Roles: what each size is for. All four themes share these, because a
+     theme changes colour, radius, shadow and font, never the size of a control.
+     Breakpoints stay plain numbers (media queries cannot read variables):
+     480, 640, 768, 1024, 1280.                                                 */
+  /* Controls. xs: icon buttons in a row. sm: compact buttons, tabs, chips.
+     md: buttons. lg: inputs. touch: the big buttons on worker phones.          */
+  --control-xs: 32px; --control-sm: 36px; --control-md: 40px; --control-lg: 44px; --control-touch: 52px;
+  --type-page-title: clamp(30px, 3.4vw, 40px);
+  --type-section-title: var(--text-lg);
+  --type-card-title: var(--text-md);
+  --type-body: var(--text-base);
+  --type-table-head: var(--text-xs);
+  --type-table-data: var(--text-sm);
+  --type-label: var(--text-xs);
+  --type-caption: var(--text-xs);
+  --layout-page-gap: var(--space-6);
+  --layout-section-gap: var(--space-5);
+  --layout-card-pad: var(--space-5);
+  --layout-form-gap: var(--space-4);
+  --layout-control-gap: var(--space-2);
+  --cell-x: var(--space-4);
+  --cell-head-y: var(--space-3);
+  --cell-y: 14px;
+  /* How much of a stage's light row tint shows. All of it on a light page; a
+     faint wash in the dark themes, whose light text it would otherwise swallow. */
+  --stage-row-mix: 100%;
+
+  /* Names some screens already ask for that never existed, so they fell through
+     to a fixed light colour in every theme (white tiles in dark mode, a stray
+     emerald on the customer form). Each now means its token in the current theme. */
+  --surface: var(--surface-color);
+  --surface-1: var(--surface-color);
+  --modal-bg: var(--surface-color);
+  --bg-secondary: var(--surface-2);
+  --text-tertiary: var(--text-secondary);
+  --text-on-primary: var(--primary-foreground);
+  --brand-primary: var(--brand-link);
+  --brand-surface: var(--accent-color);
+  --brand-border: var(--accent-border);
+  --weight-regular: 400;
+  --state-disabled-opacity: .5;
+
+  /* ---- Radii & elevation: 10px base, one flat card shadow ------------ */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+  --shadow-card: 0 1px 2px rgba(20, 18, 20, 0.05);
+  --shadow-sm: 0 1px 2px rgba(20, 18, 20, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(20, 18, 20, 0.10), 0 2px 4px -2px rgba(20, 18, 20, 0.10);
+  --shadow-lg: 0 10px 15px -3px rgba(20, 18, 20, 0.12), 0 4px 6px -4px rgba(20, 18, 20, 0.10);
+
+  /* ---- Theme-facing tokens the recipes read; each pack overrides these -- */
+  --shell-bg: var(--white);                /* sidebar, phone header and bottom bar     */
+  --shell-fg: var(--neutral-900);          /* ink on the shell                         */
+  --shell-logo: var(--neutral-900);        /* the wordmark                             */
+  --shell-active-bg: var(--primary-500);   /* the current page: a lime pill            */
+  --shell-active-fg: var(--neutral-900);   /*   with ink text                          */
+  --shell-accent: var(--primary-800);      /* small bars and phone tab text: raw lime is
+                                              unreadable as text on white              */
+  --shell-muted: var(--neutral-700);       /* group labels                             */
+  --selected-bg: var(--neutral-900);       /* the current step: ink, never the CTA     */
+  --selected-fg: var(--white);
+  --secondary-hover-bg: var(--primary-100);      /* outline button on hover: soft fill */
+  --secondary-hover-fg: var(--primary-800);
+  --secondary-hover-border: var(--primary-500);
+  --overlay: rgba(20, 18, 20, 0.7);
+
+  /* One font per job. --font-sans is everything people read: body text, tables,
+     forms, buttons, menus, labels. Inter, because its numbers honour tabular-nums
+     (money columns line up; DM Sans ignores it) and its lowercase is taller at
+     small sizes. --font-serif is the heading font, whatever the name says: every
+     title already reads it. --font-mono is for codes, where 0 and O must differ.
+     Inter and DM Sans have no Indian scripts or Arabic, so --font-scripts catches
+     those letters instead of leaving them to each device. app.html loads them
+     with unicode-range, so a browser fetches one only when its letters appear. */
+  --font-scripts: 'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Tamil', 'Noto Sans Kannada', 'Noto Sans Malayalam', 'Noto Sans Gujarati', 'Noto Sans Arabic';
+  --font-sans: 'Inter', var(--font-scripts), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: 'DM Sans', var(--font-scripts), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Base Layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+header.app-header {
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 16px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.brand-logo {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.help-link {
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.help-link:hover {
+  color: var(--text-primary);
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+}
+
+/* Steps Tracker */
+.steps-tracker-container {
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 24px 40px;
+  display: flex;
+  justify-content: center;
+}
+
+.steps-tracker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1000px;
+  position: relative;
+}
+
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+}
+
+.step-indicator {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #f1f3f5;
+  border: 2px solid var(--border-color);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.step-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-bottom: 2px;
+}
+
+.step-status {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Active Step */
+.step-item.active .step-indicator {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  color: var(--surface-color);
+}
+.step-item.active .step-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Completed Step */
+.step-item.completed .step-indicator {
+  background-color: var(--success-bg);
+  border-color: var(--success-color);
+  color: var(--success-text);
+}
+.step-item.completed .step-label {
+  color: var(--text-primary);
+}
+
+/* Line connectors */
+.step-connector {
+  position: absolute;
+  top: 16px;
+  left: 0;
+  height: 2px;
+  background-color: var(--border-color);
+  width: 100%;
+  z-index: 1;
+}
+
+.step-connector-progress {
+  height: 100%;
+  background-color: var(--success-color);
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+/* Main Layout Grid */
+.main-content {
+  flex: 1;
+  padding: 40px;
+  max-width: 1360px;
+  width: 100%;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 40px;
+}
+
+.main-content.full-width {
+  grid-template-columns: 1fr;
+}
+
+.workspace-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Typography */
+.page-title-group {
+  margin-bottom: 8px;
+}
+
+h1.page-title {
+  font-family: var(--font-serif);
+  font-size: 36px;
+  font-weight: 400;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.page-subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Cards & Content Panels */
+.content-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Forms Grid */
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group.full-width {
+  grid-column: span 2;
+}
+
+label.form-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+label.form-label span.required {
+  color: var(--danger-color);
+  margin-left: 2px;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon-left {
+  position: absolute;
+  left: 12px;
+  color: var(--text-secondary);
+}
+
+.input-wrapper input,
+.input-wrapper select,
+.input-wrapper textarea,
+input.form-control,
+select.form-control,
+textarea.form-control {
+  width: 100%;
+  padding: 12px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-primary);
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.input-wrapper input {
+  padding-left: 36px;
+}
+
+.input-wrapper input:focus,
+.input-wrapper select:focus,
+.input-wrapper textarea:focus,
+input.form-control:focus,
+select.form-control:focus,
+textarea.form-control:focus {
+  border-color: var(--border-focus);
+}
+
+textarea.form-control {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* `.form-input` is what the Design Studio's assignment forms use (designer,
+   due date, brief, review notes) and it was never defined, so those seven
+   controls rendered as bare browser widgets -- 25px tall on a phone. Same
+   shape as `.form-control`; sharing the rule rather than the class name
+   because the call sites are in a separate feature folder. */
+.form-input {
+  width: 100%;
+  padding: 12px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--text-primary);
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.form-input:focus {
+  border-color: var(--border-focus);
+}
+
+textarea.form-input {
+  min-height: 72px;
+  resize: vertical;
+}
+
+/* Profile Photo Upload Widget */
+.profile-upload-widget {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  padding: 16px;
+  background-color: #fdfdfd;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.photo-preview-placeholder {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  background-color: #f1f3f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border-color);
+}
+
+.photo-preview-placeholder img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-upload-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.upload-btn-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.upload-btn-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Right Sidebar panels */
+.sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebar-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sidebar-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tips-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tips-list li {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.tips-list li svg {
+  color: var(--success-text);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.instruction-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.instruction-step {
+  display: flex;
+  gap: 12px;
+}
+
+.step-num-badge {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: #f1f3f5;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.instruction-step-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.instruction-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.instruction-step-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Drag & Drop Upload Zone */
+.drag-drop-zone {
+  border: 2px dashed var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 40px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  background-color: #fafbfc;
+  transition: all 0.2s ease;
+}
+
+.drag-drop-zone:hover {
+  border-color: var(--text-primary);
+  background-color: #f1f3f5;
+}
+
+.drag-drop-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 20px;
+}
+
+.drag-drop-text {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.drag-drop-text span {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.drag-drop-subtext {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.drag-drop-btn {
+  background-color: var(--primary-color);
+  color: var(--surface-color);
+  border: none;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.drag-drop-btn:hover {
+  background-color: var(--primary-hover);
+}
+
+/* Image Reference Grid */
+.uploaded-references-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section-subtitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.references-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px;
+}
+
+.reference-image-card {
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  position: relative;
+}
+
+.reference-image-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.reference-image-card .remove-image-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: rgba(26, 28, 28, 0.8);
+  border: none;
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* Banner Notes */
+.accent-banner {
+  background-color: var(--accent-color);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+.accent-banner svg {
+  color: var(--accent-text);
+}
+
+/* Fabric/Selection Tabs */
+.tabs-header {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+  padding: 16px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tab-btn.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--text-primary);
+}
+
+/* Fabric Cards Grid */
+.fabrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+  margin-top: 16px;
+}
+
+.fabric-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.fabric-card.selected {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--text-primary);
+}
+
+.fabric-image-container {
+  aspect-ratio: 1;
+  background-color: #f1f3f5;
+  overflow: hidden;
+  position: relative;
+}
+
+.fabric-image-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.fabric-card:hover .fabric-image-container img {
+  transform: scale(1.05);
+}
+
+.fabric-details {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fabric-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fabric-price {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.fabric-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+}
+
+/* Filter controls */
+.filter-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.color-dot-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.color-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.color-dot.active {
+  transform: scale(1.2);
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 2px var(--surface-color), 0 0 0 3px var(--text-primary);
+}
+
+/* Tailors Grid & Select */
+.tailors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tailor-row {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tailor-row:hover {
+  background-color: #fcfcfc;
+  border-color: var(--text-primary);
+}
+
+.tailor-row.selected {
+  border-color: var(--text-primary);
+  background-color: #fafbfc;
+  box-shadow: 0 0 0 1px var(--text-primary);
+}
+
+.tailor-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tailor-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tailor-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tailor-status-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 99px;
+  font-weight: 500;
+}
+
+.tailor-status-tag.available {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+}
+
+.tailor-status-tag.busy {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.tailor-spec {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tailor-rating {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.tailor-rating svg {
+  color: #ffb300;
+  fill: #ffb300;
+}
+
+/* Summary Details Row */
+.summary-item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.summary-item-row.total {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+  margin-top: 8px;
+}
+
+.price-display {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.price-display.total {
+  color: var(--success-text);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Bottom Bar actions */
+.footer-actions-bar {
+  background-color: var(--surface-color);
+  border-top: 1px solid var(--border-color);
+  padding: 24px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+.footer-left-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.footer-right-actions {
+  display: flex;
+  gap: 16px;
+}
+
+.btn-secondary {
+  border: 1px solid var(--border-color);
+  background-color: var(--surface-color);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 24px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #f8f9fa;
+  border-color: var(--text-primary);
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--surface-color);
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 28px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}

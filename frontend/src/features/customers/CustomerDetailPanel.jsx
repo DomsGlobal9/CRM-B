@@ -1,10 +1,10 @@
 import { ArrowRight, CalendarDays, ChevronRight, Copy, Edit2, Heart, History, Image as ImageIcon, Mail, MapPin, Phone, Ruler, Scissors, Shirt, ShoppingBag, Sparkles, Trash2, Upload } from 'lucide-react';
-import { formatMeasurementLabel, formatMeasurementValue, getVisibleMeasurementFields } from '../../services/measurements';
+import { formatMeasurementLabel, formatMeasurementValue, getVisibleMeasurementFields } from '../catalog/measurements';
 import { AvatarInitials, CameraButton, FormModal, IconTile, SectionCard } from '../../components/ui/Atelier';
 import { resolveMediaUrl } from '../../services/media';
 import { TierBadge } from './TierBadge';
 import { customerTier } from './customerBook';
-import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMobile, inr, orderGarmentLabel, orderRef } from '../../services/format';
+import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMobile, inr, orderGarmentLabel, orderRef } from '../../utils/format';
 import Loader from '../../components/ui/Loader';
 import { StageTimeline } from '../orders/StageTimeline';
 import { STEP_LABEL, STEP_STATE } from '../orders/stages';
@@ -13,6 +13,7 @@ import { StyleProfileCard } from './StyleProfileCard';
 import CustomerReferrals from './CustomerReferrals';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import { userIsOwner } from '../../constants/roles';
 import './customerProfilePhone.css';
 
 /**
@@ -23,7 +24,7 @@ export default function CustomerDetailPanel({ alterationOrder, approvingDesignId
   const { t } = useLanguage();
   const { currentUser, adminCan, setDashboardTab } = useApp();
   const c = selectedDirectoryCustomer;
-  const isOwner = !currentUser?.role || currentUser.role === 'Owner';
+  const isOwner = userIsOwner(currentUser);
   const parts = c.measurements?.additional_measurements?.stitch_parts || [];
   const visible = c.measurements ? getVisibleMeasurementFields(parts) : [];
   const FIELDS = [['bust', 'Bust'], ['waist', 'Waist'], ['hips', 'Hips'], ['shoulder', 'Shoulder'],

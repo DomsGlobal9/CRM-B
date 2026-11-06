@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Checks src/color-tokens.css: every family has all ten shades in every theme,
+ * Checks src/styles/color-tokens.css: every family has all ten shades in every theme,
  * each scale runs in order, and every text-on-background pair the system allows
  * reaches WCAG AA (4.5:1). Fails the command if anything does not.
  *
@@ -11,7 +11,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const CSS = resolve(dirname(fileURLToPath(import.meta.url)), '../src/color-tokens.css');
+const CSS = resolve(dirname(fileURLToPath(import.meta.url)), '../src/styles/color-tokens.css');
 const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900];
 const FAMILIES = ['primary', 'neutral', 'success', 'warning', 'danger', 'info', 'accent'];
 const AA = 4.5;

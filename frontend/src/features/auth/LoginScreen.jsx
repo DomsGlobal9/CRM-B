@@ -1,5 +1,5 @@
 import { ArrowLeft, Eye, EyeOff, Lock, Mail } from 'lucide-react';
-import AuthShowcase from '../../components/auth/AuthShowcase';
+import AuthShowcase from './AuthShowcase';
 
 /**
  * Sign in to the boutique this address belongs to (/<shop slug>), or to the

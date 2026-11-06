@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { SUPERVISOR_ROLES } from '../../constants/roles';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import Loader from '../../components/ui/Loader';
 import { AddPhotoButton } from '../../components/ui/Atelier';
-import { imageFilesError } from '../../services/validate';
+import { imageFilesError } from '../../utils/validate';
 
 export function MaterialsChecklist({ orderId, role, onActivity, handed = false }) {
   const [plan, setPlan] = useState(null);

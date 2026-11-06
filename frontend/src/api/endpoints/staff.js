@@ -49,6 +49,17 @@ export const staffApi = {
     return res.json();
   },
 
+  // Staff > Team, a page at a time, with the team's totals (TailorViewSet.team).
+  async getTeamPage(params = {}) {
+    const url = new URL(`${BASE_URL}/tailors/team/`);
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== '' && v !== null && v !== undefined) url.searchParams.set(k, v);
+    });
+    const res = await guardedFetch(url.toString(), { headers: getHeaders() });
+    if (!res.ok) await failWith(res, 'Could not load the team');
+    return res.json();
+  },
+
   // Fabrics CRUD
   // Photos go up before the fabric exists, so this returns URLs the form then
   // saves with the rest of the record.

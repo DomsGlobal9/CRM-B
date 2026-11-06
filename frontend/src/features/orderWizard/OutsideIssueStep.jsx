@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
-import { LIMITS, cleanAmount } from '../../services/validate';
+import { LIMITS, cleanAmount } from '../../utils/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
 /**

@@ -1,21 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, MapPin, Plus, Trash2 } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import { api } from '../../api';
+import { LIMITS, cleanAmount, amountError } from '../../utils/validate';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { Field, Modal, SelectField } from './ItemFormModal';
+import { Field, Modal, SelectField } from './inventoryForm';
 import Loader from '../../components/ui/Loader';
+import { DataTable } from '../../components/ui/DataTable';
+import { panel, qty } from './inventoryShared';
 
-
-const panel = {
-  background: 'var(--surface-color)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-lg)',
-  boxShadow: 'var(--shadow-sm)',
-};
-
-const qty = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
 
 export default function LocationsTab({ items, isOwner, onMoved }) {
   const { t } = useLanguage();
@@ -114,41 +107,43 @@ export default function LocationsTab({ items, isOwner, onMoved }) {
       )}
 
       {selected && (
-        <div style={{ ...panel, marginTop: '18px', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border-color)', fontSize: '13px', fontWeight: 600 }}>
+        <div style={{ marginTop: '18px' }}>
+          <div style={{ paddingBottom: '10px', fontSize: '13px', fontWeight: 600 }}>
             {selected.name}
             <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '8px' }}>
               {held.length} {t('inventoryPage.tableItem', 'material')}
             </span>
           </div>
           {held.length === 0 ? (
-            <div style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+            <div style={{ ...panel, padding: '28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
               {t('inventoryPage.nothingHere', 'Nothing is here at the moment.')}
             </div>
           ) : (
-            <div className="responsive-table-wrapper">
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    <th style={{ padding: '12px' }}>{t('inventoryPage.tableMaterial', 'Material')}</th>
-                    <th style={{ padding: '12px', textAlign: 'right' }}>{t('inventoryPage.tableQuantity', 'Quantity')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {held.map((row) => (
-                    <tr key={row.id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '10px 12px' }}>
-                        <div style={{ fontWeight: 500 }}>{row.item_name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{row.item_code}</div>
-                      </td>
-                      <td style={{ padding: '10px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                        {qty(row.quantity)} <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{row.unit_display}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              fit={false}
+              wrapClassName="responsive-table-wrapper"
+              tableStyle={{ minWidth: 0 }}
+              rows={held}
+              columns={[
+                {
+                  key: 'material', header: t('inventoryPage.tableMaterial', 'Material'),
+                  render: (row) => (
+                    <>
+                      <div style={{ fontWeight: 500 }}>{row.item_name}</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{row.item_code}</div>
+                    </>
+                  ),
+                },
+                {
+                  key: 'quantity', header: t('inventoryPage.tableQuantity', 'Quantity'), numeric: true,
+                  render: (row) => (
+                    <>
+                      {qty(row.quantity)} <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{row.unit_display}</span>
+                    </>
+                  ),
+                },
+              ]}
+            />
           )}
         </div>
       )}

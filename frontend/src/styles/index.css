@@ -1,0 +1,23 @@
+/* The workspace stylesheet, in order. Later rules override earlier ones, so the
+   order of this list is part of the design: do not reorder it without checking
+   every page. Superadmin loads this file too. */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+@import './themes.css';
+@import './color-tokens.css';
+@import './page-layout.css';
+@import './01-base.css'; /* Tokens, base layout, forms, cards and the bottom action bar. */
+@import './02-order-confirmation-dashboard.css'; /* The order confirmation screen and the older dashboard styles. */
+@import './03-landing.css'; /* The public landing page. */
+@import './04-auth.css'; /* Sign-in and sign-up screens. */
+@import './05-portal.css'; /* The workspace layout, sidebar and early page styles. */
+@import './06-order-selector.css'; /* The order type selector. */
+@import './07-responsive.css'; /* Mobile and tablet overrides, the phone header and bottom bar. */
+@import './08-touch-and-primitives.css'; /* The touch-target floor and the ui- primitives. */
+@import './09-atelier.css'; /* The shared design layer: page heads, tables, dialogs, forms and recipes. */
+@import './10-order-page.css'; /* The order page, the loader, appointments and other page styles. */
+@import './11-phone-pages.css'; /* Page-by-page phone layouts and phone polish. */
+@import './12-new-order.css'; /* The new order redesign and the order wizard review step. */
+@import './13-page-refinements.css'; /* Alerts, garment steps, account menu, Design library, tighter page tops. */
+@import './14-settings.css'; /* The Settings page and its popups. */
+@import './15-wizard-layout.css'; /* The order wizard sidebar and stepper at each screen size. */
+@import './16-shared-components.css'; /* The page top row, scrollbars, and shared components: Atelier, DataTable, Pager. */

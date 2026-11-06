@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Volume2, Send, Trash2 } from 'lucide-react';
 import { MAX_VOICE_NOTES } from './voiceNotes';
+import { LANGUAGE_KEY } from '../../constants/storageKeys';
 
 
 const recognitionClass = () => (typeof window !== 'undefined'
@@ -17,7 +18,7 @@ const SPEECH_LANG = {
 
 function speechLang() {
   let code = 'en';
-  try { code = localStorage.getItem('app_language') || 'en'; } catch { /* private mode */ }
+  try { code = localStorage.getItem(LANGUAGE_KEY) || 'en'; } catch { /* private mode */ }
   return SPEECH_LANG[code] || 'en-IN';
 }
 

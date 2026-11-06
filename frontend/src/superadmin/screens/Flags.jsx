@@ -20,7 +20,7 @@ import { useCallback, useState } from 'react';
 import { Flag, Plus, Trash2, X } from 'lucide-react';
 
 import { consoleApi } from '../api';
-import { LIMITS } from '../../services/validate';
+import { LIMITS } from '../../utils/validate';
 import {
   Async, Card, Confirm, Empty, Field, PageHeader, Pill, Select, Table,
   day, moment, useApi, useToast,

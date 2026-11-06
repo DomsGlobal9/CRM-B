@@ -7,7 +7,7 @@
    staff already using the app never see it. */
 import { useState } from 'react';
 import { ArrowRight, Eye, EyeOff, KeyRound, UserRound } from 'lucide-react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import './firstSetup.css';
 
 const MIN = 8;

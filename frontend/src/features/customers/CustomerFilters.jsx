@@ -8,7 +8,7 @@ import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import {
   EMPTY_CUSTOMER_FILTERS, ORDER_OPTIONS, SORT_OPTIONS, activeFilterCount,
 } from './filterRules';
-import { tierName } from '../../services/tierNames';
+import { tierName } from './tierNames';
 
 function Select({ label, value, onChange, options, allLabel }) {
   const on = value !== '';

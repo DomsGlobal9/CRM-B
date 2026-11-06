@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { Eye, RefreshCw, Sparkles } from 'lucide-react';
 
 import { AddPhotoButton } from '../../components/ui/Atelier';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
-import { Lightbox } from './GarmentPartPicker';
+import { Lightbox } from '../../components/ui/Lightbox';
 
 /**
  * The garment the wizard put together, drawn on a model.

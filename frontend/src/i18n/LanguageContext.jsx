@@ -10,22 +10,22 @@ import ta from './locales/ta.js';
 import kn from './locales/kn.js';
 import es from './locales/es.js';
 import de from './locales/de.js';
+import { LANGUAGE_KEY } from '../constants/storageKeys';
 
 
 const dictionaries = { en, hi, te, mr, ar, gu, ml, ta, kn, es, de };
-const STORAGE_KEY = 'app_language';
 
 const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
   const [language, setLanguageState] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) || 'en';
+    return localStorage.getItem(LANGUAGE_KEY) || 'en';
   });
 
   const setLanguage = (lang) => {
     if (dictionaries[lang]) {
       setLanguageState(lang);
-      localStorage.setItem(STORAGE_KEY, lang);
+      localStorage.setItem(LANGUAGE_KEY, lang);
     }
   };
 

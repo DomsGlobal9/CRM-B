@@ -1,17 +1,18 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { api } from '../../services/api';
-import { isVisible, validateSpec, withDefaults } from '../../services/templates';
-import { DEFAULT_CUSTOMER_DATA, GARMENT_PRICES } from '../orders/wizard';
-import { findMatchingTemplate, getGarmentPairConfig } from '../../components/ui/GarmentPairingModal';
+import { api } from '../../api';
+import { isVisible, validateSpec, withDefaults } from '../catalog/templates';
+import { DEFAULT_CUSTOMER_DATA, GARMENT_PRICES } from './wizard';
+import { findMatchingTemplate, getGarmentPairConfig } from './GarmentPairingModal';
 import { purchaseError } from '../catalog/materials';
 import { AvatarInitials } from '../../components/ui/Atelier';
-import { formatMobile, inr } from '../../services/format';
+import { formatMobile, inr } from '../../utils/format';
 import { TierBadge } from '../customers/TierBadge';
 import { customerTier } from '../customers/customerBook';
-import { followerOf } from '../../services/garmentCopies';
-import { MEASURE_KEYS, sheetGet, sheetSet } from '../../services/measurements';
-import { amountError, emailError, isPastDate, mobileError, nameError } from '../../services/validate';
+import { followerOf } from './garmentCopies';
+import { MEASURE_KEYS, sheetGet, sheetSet } from '../catalog/measurements';
+import { amountError, emailError, isPastDate, mobileError, nameError } from '../../utils/validate';
 import { fabricMatchesColour } from '../fabrics/colour';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * The order wizard's own state and logic: the garments being added and paired,
@@ -26,7 +27,7 @@ export default function useOrderWizard({ setView, currentUser, t, currentStep, m
   // garments are on the order, so the list does not stay open under them.
   const addMoreGarmentsRef = useRef(null);
 
-  const selfDesignerLabel = currentUser?.role && currentUser.role !== 'Owner' ? 'Me' : 'Me (owner)';
+  const selfDesignerLabel = !userIsOwner(currentUser) ? 'Me' : 'Me (owner)';
 
   const [activePairingGarment, setActivePairingGarment] = useState(null);
 

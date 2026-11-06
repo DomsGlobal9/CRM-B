@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, Check, CalendarClock, ChevronRight, ClipboardCheck, ClipboardList, Clock, MessageSquareWarning, PackageCheck, Plus, RotateCw, Ruler, Scissors, ShieldCheck, Shirt, Truck, TrendingUp, Users, Wallet } from 'lucide-react';
-import { HeaderClock } from '../../components/ui/HeaderClock';
+import { HeaderClock } from './HeaderClock';
 import { GuidedHighlight } from '../../components/ui/GuidedHighlight';
-import { hasTask } from '../../components/ui/tourTasks';
-import { api } from '../../services/api';
-import { formatDate as fmtDate, inr } from '../../services/format';
+import { hasTask } from '../tour/tourTasks';
+import { api } from '../../api';
+import { formatDate as fmtDate, inr } from '../../utils/format';
 import { orderBucket, stageNow } from '../orders/stages';
-import { isoDay, plusDaysIso, todayIso } from '../../services/dates';
-import { APPOINTMENT_TYPE_LABELS } from '../../constants/appointments';
+import { isoDay, plusDaysIso, todayIso } from '../../utils/dates';
+import { APPOINTMENT_TYPE_LABELS } from '../appointments/appointments';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import './dashboard.css';
+import { TENANT_ID_KEY, onboardingDismissedKey } from '../../constants/storageKeys';
 
 const compactInr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { notation: 'compact', maximumFractionDigits: 1 })}`;
 
@@ -334,7 +335,7 @@ export default function OverviewPanel({ appointments, blankAppointmentForm, curr
               onClick={() => {
                 setOnboardingDismissed(true);
                 try {
-                  localStorage.setItem(`onboarding_dismissed_${localStorage.getItem('tenant_id') || ''}`, '1');
+                  localStorage.setItem(onboardingDismissedKey(localStorage.getItem(TENANT_ID_KEY) || ''), '1');
                 } catch { /* per-device convenience only */ }
               }}
             >

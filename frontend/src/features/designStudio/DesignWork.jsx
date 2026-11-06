@@ -1,17 +1,18 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   AlertCircle, Calendar, Check, ChevronRight, ClipboardList, Clock, FileText, RotateCcw, Send, Shirt, User,
 } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { orderRef } from '../../services/format';
+import { api } from '../../api';
+import { orderRef } from '../../utils/format';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { AvatarInitials, Field, FormModal, SearchBar, SectionCard, StatusBadge } from '../../components/ui/Atelier';
-import { LIMITS, todayIso } from '../../services/validate';
+import { DataTable } from '../../components/ui/DataTable';
+import { LIMITS, todayIso } from '../../utils/validate';
 import { VoiceNotePlayer, VoiceRecorder } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
-import { EXTRA_MEASUREMENTS, extraMeasurements } from '../../services/templates';
+import { EXTRA_MEASUREMENTS, extraMeasurements } from '../catalog/templates';
 import Loader from '../../components/ui/Loader';
 
 const STATUS_STYLE = {
@@ -456,6 +457,11 @@ export default function DesignWork({ currentUser, refreshToken = 0, onWaiting })
         .some((v) => (v || '').toLowerCase().includes(needle)))
     : assignments;
 
+  // The first design waiting for review opens by itself, so its Approve button
+  // is on screen; '' means someone closed it.
+  const firstWaitingId = shown.find((a) => a.status === 'SUBMITTED')?.id;
+  const isOpen = (a) => openRow === a.id || (openRow === null && firstWaitingId === a.id);
+
   const openFilter = (
     <label className="at-check-pill">
       <Clock size={14} style={{ color: 'var(--text-secondary)' }} />
@@ -489,93 +495,60 @@ export default function DesignWork({ currentUser, refreshToken = 0, onWaiting })
               <span className="at-row-sub">{shown.length} of {assignments.length}</span>
             </span>
           </div>
-          {shown.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-6)' }}>
-              <ClipboardList size={28} style={{ color: 'var(--text-secondary)' }} />
-              <p style={{ marginTop: '10px', color: 'var(--text-secondary)' }}>
-                {assignments.length === 0
-                  ? t('designWorkPage.noWorkSupervisor', 'No design work outstanding. Assign a garment above to get started.')
-                  : 'Nothing matches that search.'}
-              </p>
-            </div>
-          ) : (
-            <div className="at-table-wrap dw-table-wrap">
-              <table className="at-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Garment</th>
-                    <th>Designer</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th>Notes</th>
-                    <th aria-label="Open" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {shown.map((assignment) => {
-                    // The first design waiting for review opens by itself, so its
-                    // Approve button is on screen; '' means someone closed it.
-                    const firstWaiting = openRow === null
-                      && shown.find((a) => a.status === 'SUBMITTED')?.id === assignment.id;
-                    const isOpen = openRow === assignment.id || firstWaiting;
-                    const design = assignment.design_detail;
-                    const toggle = () => setOpenRow(isOpen ? '' : assignment.id);
-                    return (
-                      <React.Fragment key={assignment.id}>
-                        <tr onClick={toggle} style={{ cursor: 'pointer' }}
-                            aria-expanded={isOpen}>
-                          <td style={{ fontWeight: 700 }}>{assignment.order_reference || assignment.order_id || assignment.order_ref}</td>
-                          <td>
-                            <span className="at-cell-person">
-                              <span className="at-thumb at-tile--amber">
-                                {design?.image_url ? <img src={resolveMediaUrl(design.image_url)} alt="" /> : <Shirt size={18} />}
-                              </span>
-                              <span style={{ minWidth: 0 }}>
-                                <span className="at-row-title" style={{ display: 'block' }}>{assignment.garment_name}</span>
-                                {assignment.customer_name && <span className="at-row-sub">Customer: {assignment.customer_name}</span>}
-                              </span>
-                            </span>
-                          </td>
-                          <td>
-                            <span className="at-cell-person">
-                              <AvatarInitials name={assignment.designer_name} size={32} />
-                              <span>{assignment.designer_name}</span>
-                            </span>
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                              <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
-                              {assignment.due_date ? formatDate(assignment.due_date) : '—'}
-                            </span>
-                          </td>
-                          <td><StatusPill status={assignment.status} /></td>
-                          <td style={{ color: 'var(--text-secondary)', maxWidth: '260px' }}>
-                            <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {assignment.brief || assignment.submission_note || (assignment.brief_voice_note ? 'Voice note' : '—')}
-                            </span>
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <ChevronRight size={16} style={{ color: 'var(--text-muted)', transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
-                          </td>
-                        </tr>
-                        {isOpen && (
-                          <tr>
-                            <td colSpan={7} className="dw-row-detail-cell" style={{ background: 'var(--surface-2)' }}>
-                              <div className="dw-row-detail">
-                                <AssignmentCard assignment={assignment} isSupervisor designs={myDesigns}
-                                                onChanged={load} onError={setError} embedded />
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            fit={false}
+            rows={shown}
+            rowKey="id"
+            caption="Assigned design work"
+            onRowClick={(assignment) => setOpenRow(isOpen(assignment) ? '' : assignment.id)}
+            rowProps={(assignment) => ({ 'aria-expanded': isOpen(assignment) })}
+            rowDetail={(assignment) => isOpen(assignment) && (
+              <AssignmentCard assignment={assignment} isSupervisor designs={myDesigns}
+                              onChanged={load} onError={setError} embedded />
+            )}
+            empty={{
+              icon: ClipboardList,
+              title: assignments.length === 0
+                ? t('designWorkPage.noWorkSupervisor', 'No design work outstanding. Assign a garment above to get started.')
+                : 'Nothing matches that search.',
+            }}
+            columns={[
+              { key: 'order', header: '#', cellProps: () => ({ style: { fontWeight: 700 } }),
+                render: (a) => a.order_reference || a.order_id || a.order_ref },
+              { key: 'garment', header: 'Garment', render: (a) => (
+                <span className="at-cell-person">
+                  <span className="at-thumb at-tile--amber">
+                    {a.design_detail?.image_url ? <img src={resolveMediaUrl(a.design_detail.image_url)} alt="" /> : <Shirt size={18} />}
+                  </span>
+                  <span style={{ minWidth: 0 }}>
+                    <span className="at-row-title" style={{ display: 'block' }}>{a.garment_name}</span>
+                    {a.customer_name && <span className="at-row-sub">Customer: {a.customer_name}</span>}
+                  </span>
+                </span>
+              ) },
+              { key: 'designer', header: 'Designer', render: (a) => (
+                <span className="at-cell-person">
+                  <AvatarInitials name={a.designer_name} size={32} />
+                  <span>{a.designer_name}</span>
+                </span>
+              ) },
+              { key: 'due', header: 'Due Date', cellProps: () => ({ style: { whiteSpace: 'nowrap' } }), render: (a) => (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Calendar size={14} style={{ color: 'var(--text-secondary)' }} />
+                  {a.due_date ? formatDate(a.due_date) : '—'}
+                </span>
+              ) },
+              { key: 'status', header: 'Status', render: (a) => <StatusPill status={a.status} /> },
+              { key: 'notes', header: 'Notes', cellProps: () => ({ style: { color: 'var(--text-secondary)', maxWidth: '260px' } }), render: (a) => (
+                <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {a.brief || a.submission_note || (a.brief_voice_note ? 'Voice note' : '—')}
+                </span>
+              ) },
+              { key: 'open', header: <span className="ld-sr">Open</span>, label: false, align: 'right', render: (a) => (
+                <ChevronRight size={16} style={{ color: 'var(--text-muted)', transform: isOpen(a) ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
+              ) },
+            ]}
+          />
         </SectionCard>
       ) : (
         <SectionCard className="dl-requests" icon={ClipboardList} tone="green"

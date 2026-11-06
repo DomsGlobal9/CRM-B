@@ -7,9 +7,10 @@
  */
 import { useState } from 'react';
 import { IndianRupee } from 'lucide-react';
-import { api } from '../../services/api';
-import { cleanAmount, LIMITS } from '../../services/validate';
+import { api } from '../../api';
+import { cleanAmount, LIMITS } from '../../utils/validate';
 import { IconTile } from '../../components/ui/Atelier';
+import { inrPaise as inr } from '../../utils/format';
 
 const PARTS = [
   ['base_price', 'Price'],
@@ -23,7 +24,6 @@ const num = (v) => {
   const n = parseFloat(v);
   return Number.isFinite(n) ? n : 0;
 };
-const inr = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 
 const fromOrder = (order) => ({
   garments: (order.garment_jobs || []).map((job) => ({

@@ -2,12 +2,14 @@ import { Building2, Camera, Copy, Globe, Mail, MapPin, Phone, Save, Settings, Sh
 import { SetupProfileBanner } from '../staff/StaffFirstSetup';
 import { Dropzone, Field, IconTile, InfoNote, PageHeader, SectionCard } from '../../components/ui/Atelier';
 import { UserAvatar } from '../../components/ui/UserAvatar';
-import { LIMITS, cleanEmail, imageFilesError } from '../../services/validate';
-import { api } from '../../services/api';
+import { LIMITS, cleanEmail, imageFilesError } from '../../utils/validate';
+import { api } from '../../api';
 import MyDetails from '../staff/MyDetails';
-import { ShopPin } from '../../components/ShopPin';
+import { ShopPin } from '../settings/ShopPin';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
+import { TENANT_ID_KEY } from '../../constants/storageKeys';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * My account: the signed-in person's photo and details and, for the owner
@@ -17,12 +19,12 @@ import { useApp } from '../../context/AppContext';
 export default function AccountPanel({ boutiqueAutosave, boutiqueFormError, boutiqueFormRef, finishStaffSetup, logoFile, pickLogo, saveBoutiqueForm, setBoutiqueSettings, setCurrentUser, setLogoFile, setSettingsSaving, settingsSaving, staffSetup }) {
   const { t } = useLanguage();
   const { currentUser, adminCan, boutiqueSettings } = useApp();
-  const isOwner = !currentUser?.role || currentUser.role === 'Owner';
+  const isOwner = userIsOwner(currentUser);
   // The address a customer or staff member opens: the shop's own
   // page, not the schema name (which is internal).
   const tenant = currentUser?.shop_slug
     ? `${window.location.origin}/${currentUser.shop_slug}`
-    : (localStorage.getItem('tenant_id') || '--');
+    : (localStorage.getItem(TENANT_ID_KEY) || '--');
   const copyText = (text) => navigator.clipboard?.writeText(text);
   return (
   <>

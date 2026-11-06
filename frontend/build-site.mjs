@@ -21,7 +21,7 @@ const OUT = join(root, 'dist')
 const ORIGIN = 'https://boutique.scaleezy.com'
 
 // The demo form posts here. VITE_API_URL is the same variable the React app
-// reads (src/services/api.js), so there is one source of truth for where the
+// reads (src/api/index.js), so there is one source of truth for where the
 // API lives rather than two that can drift apart.
 //
 // It carries an /api suffix; the leading slash below drops it, because the

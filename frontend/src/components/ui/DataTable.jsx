@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import { ClampedText, EmptyState } from './Atelier';
 import { LoaderRows } from './Loader';
@@ -40,7 +40,10 @@ const cellClass = (column, extra = '') => [
  *
  * columns: { key, header, render(row, i), align: 'center' | 'right', numeric,
  *            sortable, sortValue(row), clamp: lines, maxWidth, width, label,
- *            className, cellClassName }
+ *            className, cellClassName, cellProps(row, i), headerProps }
+ *   A false entry is skipped, so `isOwner && { ... }` hides a column.
+ *   `cellProps` adds attributes to one cell: a title, a style, a colSpan;
+ *   `headerProps` does the same for the column's heading.
  *   `label` names a column on the stacked phone layout when `header` is not
  *   plain text; `false` leaves it unnamed there. `clamp` cuts long text with
  *   <ClampedText> at `maxWidth`. `className` is for the header and the cells,
@@ -50,11 +53,19 @@ const cellClass = (column, extra = '') => [
  * selected / onSelect:  an array of row keys and onSelect(nextKeys)
  * onRowClick(row):      the row opens on click and on Enter; controls inside
  *                       the row keep their own clicks
- * actions(row):         the last column, kept in view when the table scrolls
+ * actions(row):         the last column, kept in view when the table scrolls;
+ *                       actionsHeader names it on screen (hidden text otherwise)
+ * rowDetail(row):        a full-width row under this one when it returns content,
+ *                       for rows that open up; it stays in view when the table
+ *                       scrolls sideways
+ * rowProps(row, i):      extra attributes for the row, such as aria-expanded
  * pager:                props for <Pager>, drawn under the table
  * loading:              placeholder rows on first load; existing rows dim on a refresh
  * error, errorAction:   replaces the rows with an error state
  * empty:                { title, detail, action, icon } or any node, for no rows
+ * tableStyle:           style on the <table> itself, such as a smaller minWidth
+ * lines:                a small list inside a card (a summary, the payments on a
+ *                       bill): no headings, no frame, rows split by a line
  * fit:                  stack rows into cards below 1024px (default). Pass false
  *                       for a wide table that should scroll sideways instead.
  * labels:               reworded or translated text: { sortBy, ascending,
@@ -66,20 +77,22 @@ const cellClass = (column, extra = '') => [
  */
 export function DataTable({
   columns, rows = [], rowKey = 'id', caption, sort, onSort,
-  selected, onSelect, onRowClick, rowClassName, actions,
-  pager, loading = false, loadingRows = 5, error, errorAction, empty,
-  fit = true, labels = {}, className = '', wrapClassName = '', tableClassName = '', children,
+  selected, onSelect, onRowClick, rowClassName, actions, actionsHeader, rowDetail, rowProps,
+  tableStyle, lines = false, pager, loading = false, loadingRows = 5, error, errorAction, empty,
+  fit: fitProp = true, labels = {}, className = '', wrapClassName = '', tableClassName = '', children,
 }) {
   const text = {
     sortBy: 'Sort by', ascending: 'Ascending', descending: 'Descending', selectAll: 'Select all',
     selectRow: () => 'Select row', actions: 'Actions', loading: 'Loading', noRows: 'Nothing to show yet.',
     ...labels,
   };
+  const fit = fitProp && !lines;
+  const cols = columns ? columns.filter(Boolean) : null;
   const selectable = Boolean(onSelect);
   const chosen = selected || [];
   const ids = rows.map((row) => keyOf(row, rowKey));
-  const sortable = (columns || []).filter((c) => c.sortable && onSort);
-  const span = (columns?.length || 0) + (selectable ? 1 : 0) + (actions ? 1 : 0);
+  const sortable = (cols || []).filter((c) => c.sortable && onSort);
+  const span = (cols?.length || 0) + (selectable ? 1 : 0) + (actions ? 1 : 0);
 
   const nextSort = (key) => ({ key, dir: sort?.key === key && sort.dir === 'asc' ? 'desc' : 'asc' });
   const toggleRow = (id) => onSelect(chosen.includes(id) ? chosen.filter((x) => x !== id) : [...chosen, id]);
@@ -99,7 +112,7 @@ export function DataTable({
   }
 
   const tableClasses = [
-    'at-table', fit && 'at-table--fit', loading && rows.length > 0 && 'at-table--busy', tableClassName,
+    'at-table', fit && 'at-table--fit', lines && 'at-table--lines', loading && rows.length > 0 && 'at-table--busy', tableClassName,
   ].filter(Boolean).join(' ');
 
   const openRow = (row) => (e) => {
@@ -111,7 +124,7 @@ export function DataTable({
   return (
     <div className={`at-table-block${fit ? ' at-table-block--fit' : ''} ${className}`}>
       {/* Stacked rows have no header row, so its controls move up here. */}
-      {fit && columns && (sortable.length > 0 || (selectable && rows.length > 0)) && (
+      {fit && cols && (sortable.length > 0 || (selectable && rows.length > 0)) && (
         <div className="at-table-bar">
           {selectable && (
             <label>
@@ -137,19 +150,19 @@ export function DataTable({
           )}
         </div>
       )}
-      <div className={`at-table-wrap ${wrapClassName}`}>
-        <table className={tableClasses} aria-busy={loading || undefined}>
+      <div className={`at-table-wrap${rowDetail ? ' at-table-wrap--details' : ''}${lines ? ' at-table-wrap--lines' : ''} ${wrapClassName}`}>
+        <table className={tableClasses} style={tableStyle} aria-busy={loading || undefined}>
           {caption && <caption className="ld-sr">{caption}</caption>}
-          {columns ? (
+          {cols ? (
             <>
-              <thead>
+              {!lines && <thead>
                 <tr>
                   {selectable && (
                     <th scope="col" className="at-cell--check">
                       <SelectAll ids={ids} selected={chosen} onSelect={onSelect} label={text.selectAll} />
                     </th>
                   )}
-                  {columns.map((column) => {
+                  {cols.map((column) => {
                     const canSort = column.sortable && onSort;
                     const active = sort?.key === column.key;
                     let ariaSort;
@@ -157,7 +170,7 @@ export function DataTable({
                     const Arrow = !active ? ChevronsUpDown : sort.dir === 'desc' ? ChevronDown : ChevronUp;
                     return (
                       <th key={column.key} scope="col" className={cellClass(column)} aria-sort={ariaSort}
-                          style={column.width ? { width: column.width } : undefined}>
+                          style={column.width ? { width: column.width } : undefined} {...column.headerProps}>
                         {canSort ? (
                           <button type="button" className="at-sort" onClick={() => onSort(nextSort(column.key))}>
                             {column.header}<Arrow size={13} aria-hidden="true" />
@@ -166,9 +179,13 @@ export function DataTable({
                       </th>
                     );
                   })}
-                  {actions && <th scope="col" className="at-cell--actions"><span className="ld-sr">{text.actions}</span></th>}
+                  {actions && (
+                    <th scope="col" className="at-cell--actions">
+                      {actionsHeader ?? <span className="ld-sr">{text.actions}</span>}
+                    </th>
+                  )}
                 </tr>
-              </thead>
+              </thead>}
               <tbody>
                 {status || rows.map((row, i) => {
                   const id = ids[i];
@@ -176,34 +193,45 @@ export function DataTable({
                   const rowClasses = [
                     onRowClick && 'at-row--tap', isChosen && 'at-row--selected', rowClassName?.(row, i),
                   ].filter(Boolean).join(' ') || undefined;
+                  const detail = rowDetail?.(row, i);
                   return (
-                    <tr key={id} className={rowClasses}
-                        onClick={onRowClick ? openRow(row) : undefined}
-                        onKeyDown={onRowClick ? openRow(row) : undefined}
-                        tabIndex={onRowClick ? 0 : undefined}>
-                      {selectable && (
-                        <td className="at-cell--check">
-                          <input type="checkbox" aria-label={text.selectRow(row)} checked={isChosen} onChange={() => toggleRow(id)} />
-                        </td>
-                      )}
-                      {columns.map((column) => {
-                        const value = column.render ? column.render(row, i) : row[column.key];
-                        const label = column.label === false ? undefined
-                          : column.label || (typeof column.header === 'string' ? column.header : undefined);
-                        return (
-                          <td key={column.key} className={cellClass(column, column.cellClassName)} data-label={label}>
-                            {column.clamp ? (
-                              <ClampedText lines={column.clamp} focusable={!onRowClick}
-                                           className={column.maxWidth ? undefined : 'at-table-clamp'}
-                                           style={column.maxWidth ? { maxWidth: column.maxWidth } : undefined}>
-                                {value}
-                              </ClampedText>
-                            ) : (value ?? '—')}
+                    <Fragment key={id}>
+                      <tr {...rowProps?.(row, i)} className={rowClasses}
+                          onClick={onRowClick ? openRow(row) : undefined}
+                          onKeyDown={onRowClick ? openRow(row) : undefined}
+                          tabIndex={onRowClick ? 0 : undefined}>
+                        {selectable && (
+                          <td className="at-cell--check">
+                            <input type="checkbox" aria-label={text.selectRow(row)} checked={isChosen} onChange={() => toggleRow(id)} />
                           </td>
-                        );
-                      })}
-                      {actions && <td className="at-cell--actions"><TableActions>{actions(row, i)}</TableActions></td>}
-                    </tr>
+                        )}
+                        {cols.map((column) => {
+                          const value = column.render ? column.render(row, i) : row[column.key];
+                          const label = column.label === false ? undefined
+                            : column.label || (typeof column.header === 'string' ? column.header : undefined);
+                          return (
+                            <td key={column.key} className={cellClass(column, column.cellClassName)} data-label={label}
+                                {...column.cellProps?.(row, i)}>
+                              {column.clamp ? (
+                                <ClampedText lines={column.clamp} focusable={!onRowClick}
+                                             className={column.maxWidth ? undefined : 'at-table-clamp'}
+                                             style={column.maxWidth ? { maxWidth: column.maxWidth } : undefined}>
+                                  {value}
+                                </ClampedText>
+                              ) : (value ?? '—')}
+                            </td>
+                          );
+                        })}
+                        {actions && <td className="at-cell--actions"><TableActions>{actions(row, i)}</TableActions></td>}
+                      </tr>
+                      {detail && (
+                        <tr className="at-row--detail">
+                          <td colSpan={span} className="at-row-detail-cell">
+                            <div className="at-row-detail">{detail}</div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>

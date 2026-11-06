@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { api } from '../../services/api';
-import { cleanMobile, cleanName, isPastDate, mobileError, nameError } from '../../services/validate';
+import { api } from '../../api';
+import { cleanMobile, cleanName, isPastDate, mobileError, nameError } from '../../utils/validate';
 
 /**
  * The appointment form's own state and actions: saving a booking or a change,

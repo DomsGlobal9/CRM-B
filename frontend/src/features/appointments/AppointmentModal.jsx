@@ -1,9 +1,9 @@
 import { X } from 'lucide-react';
-import { LIMITS, cleanMobile, cleanName } from '../../services/validate';
+import { LIMITS, cleanMobile, cleanName } from '../../utils/validate';
 import CustomerPicker from '../customers/CustomerPicker';
-import { APPOINTMENT_STATUS_LABELS, APPOINTMENT_TYPE_LABELS } from '../../constants/appointments';
-import { todayIso } from '../../services/dates';
-import { formatDateTime as fmtDateTime } from '../../services/format';
+import { APPOINTMENT_STATUS_LABELS, APPOINTMENT_TYPE_LABELS } from './appointments';
+import { todayIso } from '../../utils/dates';
+import { formatDateTime as fmtDateTime } from '../../utils/format';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
 /**

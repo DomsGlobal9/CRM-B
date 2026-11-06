@@ -2,10 +2,12 @@ import { useMemo, useState } from 'react';
 import { ExternalLink, Eye, Image as ImageIcon, Layers, Link as LinkIcon, Scissors, Sparkles } from 'lucide-react';
 
 import { resolveMediaUrl } from '../../services/media';
-import { inventoryImage } from '../../services/inventoryImages';
-import { Lightbox } from '../designStudio/GarmentPartPicker';
-import { ALL_ACCESSORY_OPTIONS } from '../designStudio/accessories';
+import { inventoryImage } from '../inventory/inventoryImages';
+import { Lightbox } from '../../components/ui/Lightbox';
+import { ALL_ACCESSORY_OPTIONS } from './accessories';
 import { PartTabStrip } from '../designStudio/GarmentPartTabs';
+import { unitShort } from '../fabrics/taxonomy';
+import { FALLBACK_IMAGE_URL as FALLBACK } from '../../constants/links';
 
 /**
  * Everything chosen for an order, dress by dress, before it is placed.
@@ -25,13 +27,6 @@ import { PartTabStrip } from '../designStudio/GarmentPartTabs';
 const formatKey = (key) => (key || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 
 const ACCESSORY_LABELS = Object.fromEntries(ALL_ACCESSORY_OPTIONS.map((o) => [o.key, o.label]));
-
-// "m" for cloth, "pcs" for anything counted; the ledger's own unit otherwise.
-const unitShort = (f) => (
-  !f?.unit || f.unit === 'METER' ? 'm' : f.unit === 'PIECE' ? 'pcs' : String(f.unit).toLowerCase());
-
-const FALLBACK =
-  'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
 /** A reference's web page, when it has one: the link the customer gave, or
  *  the page a design kept from a web search came from. */

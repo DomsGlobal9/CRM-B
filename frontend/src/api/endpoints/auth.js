@@ -1,5 +1,6 @@
 import { BASE_URL } from '../config';
 import { guardedFetch, getHeaders, describeApiError, clearSessionCheck } from '../client';
+import { TENANT_ID_KEY, TOKEN_KEY } from '../../constants/storageKeys';
 
 /** Signing in and out, the session, password reset, and asking for a boutique. */
 export const authApi = {
@@ -25,10 +26,10 @@ export const authApi = {
     // Store token and tenant_id
     if (data.token) {
       clearSessionCheck();
-      localStorage.setItem('token', data.token);
+      localStorage.setItem(TOKEN_KEY, data.token);
     }
     if (data.tenant_id) {
-      localStorage.setItem('tenant_id', data.tenant_id);
+      localStorage.setItem(TENANT_ID_KEY, data.tenant_id);
     }
     return data;
   },
@@ -66,10 +67,10 @@ export const authApi = {
     
     if (data.token) {
       clearSessionCheck();
-      localStorage.setItem('token', data.token);
+      localStorage.setItem(TOKEN_KEY, data.token);
     }
     if (data.tenant_id) {
-      localStorage.setItem('tenant_id', data.tenant_id);
+      localStorage.setItem(TENANT_ID_KEY, data.tenant_id);
     }
     return data;
   },
@@ -125,12 +126,12 @@ export const authApi = {
     } catch (e) {
       console.error("Logout error on server", e);
     }
-    localStorage.removeItem('token');
-    localStorage.removeItem('tenant_id');
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(TENANT_ID_KEY);
   },
 
   async getMe() {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return null;
     
     const res = await guardedFetch(`${BASE_URL}/auth/me/`, {
@@ -143,14 +144,14 @@ export const authApi = {
       // perfectly valid -- and because this runs on every page load, a bad
       // thirty seconds on the server logged the whole shop out.
       if (res.status === 401 || res.status === 403) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('tenant_id');
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(TENANT_ID_KEY);
       }
       return null;
     }
     const data = await res.json();
     if (data.tenant_id) {
-      localStorage.setItem('tenant_id', data.tenant_id);
+      localStorage.setItem(TENANT_ID_KEY, data.tenant_id);
     }
     return data;
   },
@@ -200,7 +201,7 @@ export const authApi = {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || describeApiError(res, data));
-    if (data.token) localStorage.setItem('token', data.token);
+    if (data.token) localStorage.setItem(TOKEN_KEY, data.token);
     return data;
   },
 };

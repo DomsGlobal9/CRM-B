@@ -1,19 +1,19 @@
 import { AlertTriangle, Calendar, Check, CheckCircle2, Clock, Eye, FileText, History, Layers, MessageSquare, PackageCheck, Play, RefreshCw, Scissors, Shirt, Trash2, User, X } from 'lucide-react';
 import React from 'react';
-import { SUPERVISOR_ROLES, isProductionStaff } from '../../constants/roles';
-import { maySignOff, submitsForSignOff, submittedByMaster } from '../../services/signOff';
-import { formatDate as fmtDate, formatDateTime as fmtDateTime, inr, orderGarmentLabel, orderRef } from '../../services/format';
-import { api } from '../../services/api';
+import { SUPERVISOR_ROLES, isProductionStaff, userIsOwner } from '../../constants/roles';
+import { maySignOff, submitsForSignOff, submittedByMaster } from './signOff';
+import { formatDate as fmtDate, formatDateTime as fmtDateTime, inr, orderGarmentLabel, orderRef } from '../../utils/format';
+import { api } from '../../api';
 import { STEP_LABEL, STEP_STATE, STEP_TONE } from './stages';
 import { Dropzone, Field, FormModal, FormSection, InfoNote, PhotoTile } from '../../components/ui/Atelier';
-import { LIMITS, imageFilesError } from '../../services/validate';
+import { LIMITS, imageFilesError } from '../../utils/validate';
 import OrderGarmentBrief from '../catalog/OrderGarmentBrief';
 import { SpeakButton, VoiceNotePlayer, VoiceRecorder } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
 import GarmentSelectionsReview from '../catalog/GarmentSelectionsReview';
 import { CuttingUsage } from './CuttingUsage';
 import { DeliveryCard } from './DeliveryCard';
-import StageParts from '../work/StageParts';
+import StageParts from './StageParts';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 
@@ -35,10 +35,10 @@ export default function StageReviewModal({ activeReviewOrder, activeReviewStage,
             setActiveReviewOrder(null);
             setSelectedStageObj(null);
           };
-          const isSupervisor = !currentUser.role || currentUser.role === 'Owner'
+          const isSupervisor = userIsOwner(currentUser)
             || SUPERVISOR_ROLES.includes(currentUser.role);
           // Whose work this is decides whether Done completes it or sends it
-          // for checking (services/signOff.js; the server holds the same rule).
+          // for checking (features/orders/signOff.js; the server holds the same rule).
           // A supervisor's Done is recorded for the stage's assignee, below.
           const stageRoles = (boutiqueSettings?.workflow_config || []).find((s) => s.key === stage?.stage_key)?.roles || [];
           const workerRole = isSupervisor && stage?.assigned_to ? stage.assigned_to_role : currentUser.role;
@@ -444,7 +444,7 @@ export default function StageReviewModal({ activeReviewOrder, activeReviewStage,
                 </FormSection>
               )}
 
-              {/* Split between several people (features/work/StageParts.jsx):
+              {/* Split between several people (features/orders/StageParts.jsx):
                   who has which part, sending one part back, or the way to split. */}
               {stage && isSupervisor && (
                 <StageParts order={activeReviewOrder} stage={stage} workflowConfig={boutiqueSettings?.workflow_config || []}

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ImageOff } from 'lucide-react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
 import Loader from '../../components/ui/Loader';
+import { FALLBACK_IMAGE_URL as FALLBACK } from '../../constants/links';
 
 /**
  * A garment's parts as tabs, and the photographs filed under the active one.
@@ -28,8 +29,6 @@ import Loader from '../../components/ui/Loader';
  * `active` is null for the caller's own view, which is the last tab.
  */
 
-const FALLBACK =
-  'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
 /** The tab strip on its own.
  *

@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CUSTOMER_PAGE_SIZES, NO_TIERS } from './customerBook';
 import { EMPTY_CUSTOMER_FILTERS } from './filterRules';
 import { useDebouncedValue } from './useCustomerLookup';
-import { api } from '../../services/api';
-import { imageFilesError } from '../../services/validate';
+import { api } from '../../api';
+import { imageFilesError } from '../../utils/validate';
 
 /**
  * The Customers and Leads pages' own state: the directory's search, filters

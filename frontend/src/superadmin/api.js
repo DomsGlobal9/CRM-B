@@ -1,7 +1,7 @@
 /**
  * The platform console's API client.
  *
- * Deliberately not src/services/api.js, and the difference is not stylistic.
+ * Deliberately not src/api/index.js, and the difference is not stylistic.
  * That client attaches an `X-Tenant-ID` header from localStorage and reads the
  * `token` key; this console must send neither. A stale tenant header is ignored
  * by the server (the middleware pins /api/superadmin/ to the public schema), but

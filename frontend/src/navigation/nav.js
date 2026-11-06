@@ -1,5 +1,5 @@
 import { Store, ShoppingBag, Scissors, Contact, Target, Palette, Package, Users, ListTodo, Wallet, Receipt, BarChart2, ClipboardList, ShieldCheck, CheckCircle2, Clock, User, Settings } from 'lucide-react';
-import { SUPERVISOR_ROLES } from '../constants/roles';
+import { SUPERVISOR_ROLES, roleIsOwner } from '../constants/roles';
 
 export const NAV_MODULE = {
   overview: null,
@@ -38,7 +38,7 @@ export const canSeeTab = (user, tab) => {
 export const navSectionsFor = (user, t) => {
   const role = user?.role;
   const sections =
-    (!role || role === 'Owner') ? [
+    roleIsOwner(role) ? [
       { key: 'daily', label: t('nav.groups.daily', 'Overview'), items: [
         { tab: 'overview', icon: Store, label: t('nav.dashboard'), phone: true },
         { tab: 'orders', icon: ShoppingBag, label: t('nav.manageOrders'), phone: true, phoneLabel: t('nav.orders', 'Orders') },
@@ -113,7 +113,7 @@ export const navSectionsFor = (user, t) => {
   ].filter((item) => handed.has(item.section) && !own.has(item.tab));
   if (adminItems.length) sections.unshift({ key: 'admin', label: t('nav.groups.admin', 'Admin'), items: adminItems });
 
-  const roomy = !role || role === 'Owner' || SUPERVISOR_ROLES.includes(role);
+  const roomy = roleIsOwner(role) || SUPERVISOR_ROLES.includes(role);
   return [...sections, { key: 'session', divider: true, label: t('nav.groups.account', 'Account'), items: [
     { tab: 'account', icon: User, label: t('nav.account'), phone: !roomy },
     { tab: 'settings', icon: Settings, label: t('nav.settings') },

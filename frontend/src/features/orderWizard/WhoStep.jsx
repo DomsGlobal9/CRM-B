@@ -2,9 +2,9 @@ import { Check, Lock, Scissors, Shirt, Trash2 } from 'lucide-react';
 import { AvatarInitials } from '../../components/ui/Atelier';
 import { TierBadge } from '../customers/TierBadge';
 import { customerTier } from '../customers/customerBook';
-import { formatMobile } from '../../services/format';
-import { LIMITS, cleanEmail, cleanMobile, cleanName } from '../../services/validate';
-import { tierName } from '../../services/tierNames';
+import { formatMobile } from '../../utils/format';
+import { LIMITS, cleanEmail, cleanMobile, cleanName } from '../../utils/validate';
+import { tierName } from '../customers/tierNames';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 
 /**

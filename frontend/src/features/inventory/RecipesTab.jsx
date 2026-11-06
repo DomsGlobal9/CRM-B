@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Calculator, Pencil, Plus, Trash2, X } from 'lucide-react';
 
-import { api } from '../../services/api';
-import { LIMITS, cleanAmount, amountError } from '../../services/validate';
-import { inventoryImage } from '../../services/inventoryImages';
+import { api } from '../../api';
+import { LIMITS, cleanAmount, amountError } from '../../utils/validate';
+import { inventoryImage } from './inventoryImages';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
-import { Field, Modal } from './ItemFormModal';
+import { Field, Modal } from './inventoryForm';
+import { DataTable } from '../../components/ui/DataTable';
+import { panel, qty } from './inventoryShared';
 
 /**
  * The boutique's cookbook: what goes into each garment they make.
@@ -17,15 +19,6 @@ import { Field, Modal } from './ItemFormModal';
  * from the earlier line-by-line editor; those are kept and shown, and
  * "Try it" still evaluates them, but the sheet asks for none of it.
  */
-
-const panel = {
-  background: 'var(--surface-color)',
-  border: '1px solid var(--border-color)',
-  borderRadius: 'var(--radius-lg)',
-  boxShadow: 'var(--shadow-sm)',
-};
-
-const qty = (n) => Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 });
 
 // What a material is for, read off what it is: the recipe never asks.
 const ROLE_BY_CATEGORY = {
@@ -157,33 +150,38 @@ export default function RecipesTab({ items, isOwner }) {
                   {t('inventoryPage.noLines', 'Nothing in this recipe yet.')}
                 </div>
               ) : (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                  <tbody>
-                    {selected.lines.map((line) => {
-                      const item = byId[line.inventory_item];
-                      return (
-                        <tr key={line.id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                          <td style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {line.is_customer_supplied
-                              ? <span style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--surface-inset)', display: 'inline-block', flexShrink: 0 }} />
-                              : <img src={inventoryImage(item || { category: 'OTHER', name: line.material_name })} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
-                            <span>
-                              {line.material_name || line.description}
-                              <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginLeft: '6px' }}>
-                                {line.is_customer_supplied ? t('inventoryPage.customerBrings', 'customer brings it') : line.role_display}
-                                {line.is_optional ? ` · ${t('inventoryPage.optional', 'optional')}` : ''}
-                              </span>
+                <DataTable
+                  lines
+                  rows={selected.lines}
+                  columns={[
+                    {
+                      key: 'material', cellProps: () => ({ style: { padding: '10px 14px' } }),
+                      render: (line) => (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          {line.is_customer_supplied
+                            ? <span style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--surface-inset)', display: 'inline-block', flexShrink: 0 }} />
+                            : <img src={inventoryImage(byId[line.inventory_item] || { category: 'OTHER', name: line.material_name })} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
+                          <span>
+                            {line.material_name || line.description}
+                            <span style={{ color: 'var(--text-muted)', fontSize: '11px', marginLeft: '6px' }}>
+                              {line.is_customer_supplied ? t('inventoryPage.customerBrings', 'customer brings it') : line.role_display}
+                              {line.is_optional ? ` · ${t('inventoryPage.optional', 'optional')}` : ''}
                             </span>
-                          </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
-                            {line.quantity_formula ? <code style={{ fontSize: '12px' }}>{line.quantity_formula}</code> : qty(line.quantity)} {line.unit_display}
-                            {Number(line.waste_percent) > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}> +{qty(line.waste_percent)}%</span>}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          </span>
+                        </div>
+                      ),
+                    },
+                    {
+                      key: 'quantity', numeric: true, cellProps: () => ({ style: { padding: '10px 14px', whiteSpace: 'nowrap' } }),
+                      render: (line) => (
+                        <>
+                          {line.quantity_formula ? <code style={{ fontSize: '12px' }}>{line.quantity_formula}</code> : qty(line.quantity)} {line.unit_display}
+                          {Number(line.waste_percent) > 0 && <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}> +{qty(line.waste_percent)}%</span>}
+                        </>
+                      ),
+                    },
+                  ]}
+                />
               )}
             </div>
           )}
@@ -342,17 +340,20 @@ function TryRecipeModal({ bom, onClose }) {
         <textarea className="form-control" rows={4} value={raw} onChange={(e) => setRaw(e.target.value)} />
       </div>
       {error && <div style={{ color: 'var(--danger-color)', fontSize: '13px', marginTop: '8px' }}>{error}</div>}
-      {result && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', marginTop: '12px' }}>
-          <tbody>
-            {(result.requirements || []).map((r) => (
-              <tr key={r.line_id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                <td style={{ padding: '8px 4px' }}>{r.material}</td>
-                <td style={{ padding: '8px 4px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{qty(r.required_quantity)} {r.unit}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {result?.requirements?.length > 0 && (
+        <DataTable
+          lines
+          tableStyle={{ marginTop: '12px' }}
+          rows={result.requirements}
+          rowKey="line_id"
+          columns={[
+            { key: 'material', cellProps: () => ({ style: { padding: '8px 4px' } }), render: (r) => r.material },
+            {
+              key: 'required', numeric: true, cellProps: () => ({ style: { padding: '8px 4px' } }),
+              render: (r) => <>{qty(r.required_quantity)} {r.unit}</>,
+            },
+          ]}
+        />
       )}
       <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '14px' }}>
         <button type="button" className="btn-secondary" onClick={onClose}>{t('common.close', 'Close')}</button>

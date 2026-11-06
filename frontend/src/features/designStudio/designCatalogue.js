@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { api } from '../../services/api';
+import { api } from '../../api';
 
 /** The design catalogue tree for one garment, fetched once per garment for
  *  the life of the page -- it is boutique-wide configuration, not screen data.

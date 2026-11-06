@@ -3,8 +3,8 @@ import {
   Calendar, CheckCircle2, ClipboardList, Hand, IndianRupee, Package, PackageCheck, PenTool, Ruler, Scissors,
   Shirt, ShieldCheck, Sparkles, Truck, User, Zap,
 } from 'lucide-react';
-import { api } from '../../services/api';
-import { formatDate, orderRef } from '../../services/format';
+import { api } from '../../api';
+import { formatDate, orderRef } from '../../utils/format';
 import { IconTile } from '../../components/ui/Atelier';
 import { expressLabel, isExpressOrder } from './express';
 

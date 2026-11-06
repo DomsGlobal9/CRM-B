@@ -1,4 +1,4 @@
-import AuthShowcase from '../../components/auth/AuthShowcase';
+import AuthShowcase from './AuthShowcase';
 
 /**
  * Choose a new password, reached only from the emailed reset link (?reset=).

@@ -1,0 +1,384 @@
+/* Order Confirmation Screen */
+.order-confirmed-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 800px;
+  margin: 40px auto;
+  width: 100%;
+  padding: 0 20px;
+  gap: 32px;
+}
+
+.success-badge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+}
+
+.success-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: var(--success-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--success-text);
+  font-size: 40px;
+}
+
+.success-title {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 32px;
+}
+
+.order-id-badge {
+  background-color: #f1f3f5;
+  border: 1px solid var(--border-color);
+  padding: 6px 16px;
+  border-radius: 99px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.order-meta-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  text-align: center;
+  width: 100%;
+  padding: 16px 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.meta-info-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-info-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.meta-info-val {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.timeline-tracker {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  position: relative;
+  padding: 20px 0;
+}
+
+.timeline-line {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--border-color);
+  z-index: 1;
+}
+
+.timeline-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+  flex: 1;
+}
+
+.timeline-node-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #fff;
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.timeline-node.completed .timeline-node-circle {
+  background-color: var(--success-bg);
+  border-color: var(--success-color);
+  color: var(--success-text);
+}
+
+.timeline-node.active .timeline-node-circle {
+  background-color: #fff;
+  border-color: var(--info-color);
+  color: var(--info-color);
+  box-shadow: 0 0 0 3px rgba(0, 96, 172, 0.1);
+}
+
+.timeline-node-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.timeline-node-desc {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 0 10px;
+}
+
+.whatsapp-action-card {
+  background-color: #e8f5e9;
+  border: 1px solid #c8e6c9;
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.whatsapp-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.whatsapp-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1b5e20;
+}
+
+.whatsapp-desc {
+  font-size: 13px;
+  color: #2e7d32;
+}
+
+.whatsapp-btn {
+  background-color: #25d366;
+  /* Ink, not white: white on WhatsApp green is 2:1 and unreadable outdoors. */
+  color: #0f1a12;
+  border: none;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* Dashboard Styles */
+.dashboard-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  width: 100%;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.stat-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+}
+
+.dashboard-table-card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  width: 300px;
+}
+
+/* input.form-control: the theme's later `.form-control { padding: 8px 14px }`
+   otherwise wins on specificity and puts the text under the icon. */
+.search-input-wrapper input,
+.search-input-wrapper input.form-control {
+  padding-left: 38px;
+}
+
+.search-input-wrapper svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+/* `.search-bar-container` / `.search-icon` / `.search-input` were used in the
+   orders and customers registries but never defined anywhere, so the icon sat
+   inline in front of an unstyled browser input and the two shared one row.
+   On a phone that left a 143px-wide input with the magnifier printed over it. */
+.search-bar-container {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.search-bar-container .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.search-bar-container .search-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 14px 10px 38px;
+  font-size: 16px; /* < 16px makes iOS Safari zoom the page on focus */
+  color: var(--text-primary);
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.search-bar-container .search-input:focus {
+  outline: none;
+  border-color: var(--accent-text, #b07c40);
+}
+
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.data-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 2px solid var(--border-color);
+}
+
+table.data-table td {
+  padding: 16px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+table.data-table tbody tr:hover {
+  background-color: #fafbfc;
+}
+
+.customer-name-cell {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 99px;
+  display: inline-block;
+}
+
+.status-badge.confirmed {
+  background-color: var(--info-100);
+  color: var(--info-700);
+}
+
+.status-badge.stylist_review {
+  background-color: #fef7e0;
+  color: #b06000;
+}
+
+.status-badge.design_creation {
+  background-color: var(--info-100);
+  color: var(--info-700);
+}
+
+.status-badge.quality_check {
+  background-color: var(--info-100);
+  color: var(--info-700);
+}
+
+.status-badge.packed_shipped {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.footer-links a:hover {
+  color: var(--text-primary);
+}

@@ -1,7 +1,7 @@
 import { ArrowLeft, Check, ShieldCheck } from 'lucide-react';
-import AuthShowcase from '../../components/auth/AuthShowcase';
-import { LIMITS, cleanEmail, cleanName, tenDigits } from '../../services/validate';
-import { legalLink } from '../../components/auth/legalLink';
+import AuthShowcase from './AuthShowcase';
+import { LIMITS, cleanEmail, cleanName, tenDigits } from '../../utils/validate';
+import { legalLink } from './legalLink';
 import { FormModal } from '../../components/ui/Atelier';
 import { PRIVACY_POLICY, TERMS_AND_CONDITIONS } from '../../constants/legal';
 

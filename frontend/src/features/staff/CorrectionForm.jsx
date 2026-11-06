@@ -1,8 +1,8 @@
 
 import { useState } from 'react';
 
-import { api } from '../../services/api';
-import { LIMITS } from '../../services/validate';
+import { api } from '../../api';
+import { LIMITS } from '../../utils/validate';
 import { forInput, nowForInput, timesError } from './attendanceTimes';
 
 // Shared by Attendance and by Payroll, which corrects a draft week's sessions

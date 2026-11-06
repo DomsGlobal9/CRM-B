@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Award, Clock, Eye, Image as ImageIcon, Key, LayoutGrid, ShoppingCart, Upload, UserPlus, Users } from 'lucide-react';
 
-import { boutiqueLoginUrl } from '../../services/format';
-import { api } from '../../services/api';
+import { boutiqueLoginUrl } from '../../utils/format';
+import { api } from '../../api';
 import { resolveMediaUrl } from '../../services/media';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { IconTile, SectionCard, StatCard } from '../../components/ui/Atelier';
 import Loader from '../../components/ui/Loader';
+import { FALLBACK_IMAGE_URL as CARD_IMAGE_FALLBACK } from '../../constants/links';
 
 // The overview's Recently added, Most viewed, Most ordered and Trending strips
 // and its Designers card are hidden for now, not removed: set these to true to
@@ -14,8 +15,6 @@ import Loader from '../../components/ui/Loader';
 const SHOW_DESIGN_STRIPS = false;
 const SHOW_DESIGNER_ROSTER = false;
 
-const CARD_IMAGE_FALLBACK =
-  'https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=400';
 
 function DesignStrip({ title, subtitle, icon, tone, designs, emptyText, metric, action, actionLabel }) {
   const ranked = metric === 'views' || metric === 'orders';

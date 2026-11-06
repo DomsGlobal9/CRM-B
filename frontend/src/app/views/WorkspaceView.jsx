@@ -1,24 +1,26 @@
 import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Sparkles, X } from 'lucide-react';
 import { Suspense, lazy } from 'react';
-import { MobileHeader } from '../../components/ui/MobileHeader';
-import { api } from '../../services/api';
+import { MobileHeader } from '../../navigation/MobileHeader';
+import { api } from '../../api';
 import { PortalMenu } from '../../navigation/PortalMenu';
 import { FormModal, PageHeader, ShellWordmark } from '../../components/ui/Atelier';
 import { ScreenLoading } from '../../components/ui/ScreenLoading';
-import { SUPERVISOR_ROLES } from '../../constants/roles';
+import { SUPERVISOR_ROLES, userIsOwner } from '../../constants/roles';
 import OverviewPanel from '../../features/dashboard/OverviewPanel';
 import DesignsPanel from '../../features/designStudio/DesignsPanel';
-import { AddCustomerChooser, CustomerForm, DeleteAllCustomersDialog } from '../../features/customers/AddCustomer';
+import { AddCustomerChooser } from '../../features/customers/AddCustomerChooser';
+import { CustomerForm } from '../../features/customers/CustomerForm';
+import { DeleteAllCustomersDialog } from '../../features/customers/DeleteAllCustomersDialog';
 import { StyleProfileCard } from '../../features/customers/StyleProfileCard';
-import SettingsPage from '../../components/SettingsPage.jsx';
+import SettingsPage from '../../features/settings/SettingsPage.jsx';
 import AppointmentModal from '../../features/appointments/AppointmentModal';
 import DesignFormModal from '../../features/designStudio/DesignFormModal';
-import { BottomNavigation } from '../../components/ui/BottomNavigation';
-import ProductTour from '../../components/ui/ProductTour';
-import { markTourSeen } from '../../components/ui/tourState';
+import { BottomNavigation } from '../../navigation/BottomNavigation';
+import ProductTour from '../../features/tour/ProductTour';
+import { markTourSeen } from '../../features/tour/tourState';
 import { useAppState } from '../state/appState';
 import { Crumbs, CrumbsProvider } from '../../components/ui/Breadcrumbs';
-import { orderRef } from '../../services/format';
+import { orderRef } from '../../utils/format';
 
 const WorkPanel = lazy(() => import('../../features/work/WorkPanel'));
 const DailyUpdates = lazy(() => import('../../features/todo/DailyUpdates'));
@@ -184,7 +186,7 @@ export default function WorkspaceView() {
 
           {/* Main Content Area */}
           {/* Every role but the owner gets a tighter top (portal-main--staff). */}
-          <main className={`portal-main${!currentUser?.role || currentUser.role === 'Owner' ? '' : ' portal-main--staff'}`}
+          <main className={`portal-main${userIsOwner(currentUser) ? '' : ' portal-main--staff'}`}
                 key={`${dashboardTab}:${sectionVisit}`}>
             <CrumbsProvider base={crumbBase} account={accountBar((tab) => { setDashboardTab(tab); setSelectedDirectoryCustomer(null); setEditingCustomer(null); setOpenOrdersRowId(null); setSelectedDashboardOrder(null); setSectionVisit(n => n + 1); setMobileNavOpen(false); })}>
             {(dashboardTab === 'work' || dashboardTab === 'done' || dashboardTab === 'check') && (
@@ -204,7 +206,7 @@ export default function WorkspaceView() {
               <>
                 <PageHeader
                   title={t('nav.todo', 'To-do')}
-                  subtitle={!currentUser?.role || currentUser.role === 'Owner' || SUPERVISOR_ROLES.includes(currentUser.role)
+                  subtitle={userIsOwner(currentUser) || SUPERVISOR_ROLES.includes(currentUser.role)
                     ? 'Daily updates from your team'
                     : 'Your daily updates for the month'}
                 />

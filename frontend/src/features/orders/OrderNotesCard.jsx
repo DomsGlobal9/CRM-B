@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { FileText } from 'lucide-react';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import useAutosave from '../../hooks/useAutosave';
 import { IconTile } from '../../components/ui/Atelier';
 import { VoiceRecorder, VoiceNotePlayer } from '../../components/ui/VoiceTextarea';

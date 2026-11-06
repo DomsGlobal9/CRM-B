@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ASSIGN_ONLY_TO } from '../../constants/roles';
-import { api } from '../../services/api';
+import { api } from '../../api';
 
 /**
  * Assigning a stage and taking one back: who may be given a stage, the

@@ -1,6 +1,6 @@
 import { Check, CheckCircle2, FileText, MessageSquare, Scissors } from 'lucide-react';
-import { formatDate as fmtDate, formatMoney, orderRef } from '../../services/format';
-import { waLink } from '../../services/phone';
+import { formatDate as fmtDate, formatMoney, orderRef } from '../../utils/format';
+import { waLink } from '../../utils/phone';
 import { orderBucket } from './stages';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';

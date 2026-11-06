@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { portalSlugFromPath } from '../../navigation/portalSlug';
-import { applyTenantTheme } from '../../theme';
-import { api } from '../../services/api';
+import { applyTenantTheme } from '../../styles/theme';
+import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { canSeeTab, visibleNav } from '../../navigation/nav';
 import useAuthForms from '../../features/auth/useAuthForms';
-import { DEFAULT_CUSTOMER_DATA, EMPTY_ALTERATION, EMPTY_OUTSIDE, SELF_DESIGNER, WIZARD_DRAFT_KEY, WIZARD_STEPS } from '../../features/orders/wizard';
-import { plusDaysIso } from '../../services/dates';
-import { syncFollowers } from '../../services/garmentCopies';
-import { markTourSeen, tourSeen } from '../../components/ui/tourState';
-import { setTierNames } from '../../services/tierNames';
+import { DEFAULT_CUSTOMER_DATA, EMPTY_ALTERATION, EMPTY_OUTSIDE, SELF_DESIGNER, WIZARD_STEPS } from '../../features/orderWizard/wizard';
+import { plusDaysIso } from '../../utils/dates';
+import { syncFollowers } from '../../features/orderWizard/garmentCopies';
+import { markTourSeen, tourSeen } from '../../features/tour/tourState';
+import { setTierNames } from '../../features/customers/tierNames';
 import { useFabricTaxonomy } from '../../features/fabrics/taxonomy';
-import useWorkspaceData from '../../context/useWorkspaceData';
+import useWorkspaceData from './useWorkspaceData';
 import useOrderDraft from '../../features/orderWizard/useOrderDraft';
-import { cleanEmail, displayMobile, emailError, imageFilesError, phoneError } from '../../services/validate';
+import { cleanEmail, displayMobile, emailError, imageFilesError, phoneError } from '../../utils/validate';
 import { useCustomerLookup } from '../../features/customers/useCustomerLookup';
 import useAutosave from '../../hooks/useAutosave';
-import { maySignOff } from '../../services/signOff';
+import { maySignOff } from '../../features/orders/signOff';
 import { NO_TIERS } from '../../features/customers/customerBook';
 import useOrderWizard from '../../features/orderWizard/useOrderWizard';
 import useDesignManager from '../../features/designStudio/useDesignManager';
@@ -26,6 +26,8 @@ import useOrdersPage from '../../features/orders/useOrdersPage';
 import useCustomerBook from '../../features/customers/useCustomerBook';
 import useSession from '../../features/auth/useSession';
 import useWorkspaceShell from '../../navigation/useWorkspaceShell';
+import { NAV_COLLAPSED_KEY, TENANT_ID_KEY, TOKEN_KEY, WIZARD_DRAFT_KEY, onboardingDismissedKey } from '../../constants/storageKeys';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * Everything the app holds while it runs, in one place: the signed-in user and
@@ -45,10 +47,10 @@ export default function useAppStateValue() {
   const [requestedTab, setDashboardTab] = useState('overview'); 
   const lastTabRef = useRef('overview');
   const [navCollapsed, setNavCollapsed] = useState(() => {
-    try { return localStorage.getItem('nav_collapsed') === '1'; } catch { return false; }
+    try { return localStorage.getItem(NAV_COLLAPSED_KEY) === '1'; } catch { return false; }
   });
   const toggleNav = () => setNavCollapsed((c) => {
-    try { localStorage.setItem('nav_collapsed', c ? '0' : '1'); } catch { /* per-device convenience only */ }
+    try { localStorage.setItem(NAV_COLLAPSED_KEY, c ? '0' : '1'); } catch { /* per-device convenience only */ }
     return !c;
   });
   const [currentUser, setCurrentUser] = useState(null);
@@ -105,7 +107,7 @@ export default function useAppStateValue() {
   // The bell (inbox alerts) shows on the owner's Dashboard page only -- not
   // on any other page, and not for any other role. Read by the top bar, the
   // phone header and the tablet header alike.
-  const showBell = (!currentUser?.role || currentUser.role === 'Owner') && view === 'dashboard' && dashboardTab === 'overview';
+  const showBell = userIsOwner(currentUser) && view === 'dashboard' && dashboardTab === 'overview';
 
   // The sign-in screens' form state (features/auth/useAuthForms.js).
   const auth = useAuthForms();
@@ -113,7 +115,7 @@ export default function useAppStateValue() {
 
   const [onboardingDismissed, setOnboardingDismissed] = useState(() => {
     try {
-      return localStorage.getItem(`onboarding_dismissed_${localStorage.getItem('tenant_id') || ''}`) === '1';
+      return localStorage.getItem(onboardingDismissedKey(localStorage.getItem(TENANT_ID_KEY) || '')) === '1';
     } catch { return false; }
   });
   const [logoutBusy, setLogoutBusy] = useState(false);
@@ -213,7 +215,7 @@ export default function useAppStateValue() {
   const [paymentError, setPaymentError] = useState(null);
 
   const loadGarmentTemplates = useCallback(async () => {
-    if (!localStorage.getItem('token')) return;
+    if (!localStorage.getItem(TOKEN_KEY)) return;
     setGarmentTemplatesError(null);
     try {
       const data = await api.getGarmentTemplates();
@@ -366,7 +368,7 @@ export default function useAppStateValue() {
   const [showNotificationsDrawer, setShowNotificationsDrawer] = useState(false);
   const [markingNotificationsRead, setMarkingNotificationsRead] = useState(false);
 
-  // The workspace's data, one request each (context/useWorkspaceData.jsx).
+  // The workspace's data, one request each (app/state/useWorkspaceData.jsx).
   const workspaceData = useWorkspaceData({ view, currentUser, dashboardTab, onboardingDismissed, setSelectedDashboardOrder, setDashboardData, setTailors, setDesignerStaff, setAppointments, showAppointmentModal, setFabrics, setCustomerStats, setOrdersList, setOrdersLoaded, setQueuedMessages, setDirectoryVersion, setLoading, setWhatsappStatus, setBoutiqueSettings, activeReviewStage, setLoadErrors, setNotifications });
   const { fetchNotifications, markNotificationsRead, pendingLoads, fetchDashboardAndConfig, fetchWhatsAppStatus } = workspaceData;
 
@@ -752,7 +754,7 @@ export default function useAppStateValue() {
   /** Whether the owner handed this user `task` as Admin (core/admin_access.py).
    *  Declared before the area hooks below: they are handed both. */
   const adminCan = (task) => (currentUser?.admin_tasks || []).includes(task);
-  const isOwnerUser = !currentUser?.role || currentUser.role === 'Owner';
+  const isOwnerUser = userIsOwner(currentUser);
 
   // Open an order from an alteration (below the data loader, which it reloads).
   const openAlteration = (id) => {

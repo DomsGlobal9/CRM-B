@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, Banknote, FileText, Receipt, Wallet } from 'lucide-react';
-import { formatDate as fmtDate, formatMoney, orderRef } from '../../services/format';
+import { formatDate as fmtDate, formatMoney, orderRef } from '../../utils/format';
 import { AvatarInitials, Button, Chips, ClampedText, InfoNote, PageHeader, ProgressBar, SearchBar, StatCard, StatusBadge } from '../../components/ui/Atelier';
-import { LIMITS, amountError, cleanAmount } from '../../services/validate';
-import { api } from '../../services/api';
+import { LIMITS, amountError, cleanAmount } from '../../utils/validate';
+import { api } from '../../api';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import { DataTable } from '../../components/ui/DataTable';
+import { userIsOwner } from '../../constants/roles';
 
 /** Rows per page; the server offers the same (OrderViewSet.INVOICE_PAGE_SIZES). */
 const INVOICE_PAGE_SIZES = [20, 30, 40, 50];
@@ -108,7 +109,7 @@ export default function InvoicesPanel({ invoiceFilter, invoiceSearch, paymentErr
                   inputMode="decimal"
                   defaultValue={parseFloat(order.amount_paid || 0)}
                   disabled={savingPaymentId === order.id
-                    || !(!currentUser?.role || currentUser.role === 'Owner' || adminCan('orders.edit'))}
+                    || !(userIsOwner(currentUser) || adminCan('orders.edit'))}
                   aria-label={`Amount paid for invoice ${orderRef(order)}`}
                   onChange={(e) => { e.target.value = cleanAmount(e.target.value); }}
                   onBlur={async (e) => {

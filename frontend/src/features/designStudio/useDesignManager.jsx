@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { amountError } from '../../services/validate';
-import { api } from '../../services/api';
+import { amountError } from '../../utils/validate';
+import { api } from '../../api';
+import { DEFAULT_DESIGN_IMAGE_URL } from '../../constants/links';
 
 /**
  * The Designs page's own state: the add or edit form and its photo, saving and
@@ -58,7 +59,7 @@ export default function useDesignManager({ fetchDashboardAndConfig }) {
       }
       if (!payload.image_url) {
         
-        payload.image_url = 'https://images.unsplash.com/photo-1610030469668-93535c17b6b3?w=400';
+        payload.image_url = DEFAULT_DESIGN_IMAGE_URL;
       }
       if (editingDesign) {
         await api.updateBoutiqueDesign(editingDesign.id, payload);

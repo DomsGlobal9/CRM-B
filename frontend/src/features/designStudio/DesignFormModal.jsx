@@ -1,6 +1,6 @@
 import { FileText, IndianRupee, Link as LinkIcon, Save, Shirt, Sparkles, Tag, Type, Upload } from 'lucide-react';
 import { CameraButton, Field, FormModal, InfoNote } from '../../components/ui/Atelier';
-import { LIMITS, cleanAmount, imageFilesError } from '../../services/validate';
+import { LIMITS, cleanAmount, imageFilesError } from '../../utils/validate';
 import DesignCataloguePicker from './DesignCataloguePicker';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 

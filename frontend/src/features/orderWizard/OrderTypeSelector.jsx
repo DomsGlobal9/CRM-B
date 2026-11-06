@@ -1,14 +1,15 @@
 import { Factory, PanelLeftClose, PanelLeftOpen, Ruler, Scissors } from 'lucide-react';
-import { MobileHeader } from '../../components/ui/MobileHeader';
-import { api } from '../../services/api';
+import { MobileHeader } from '../../navigation/MobileHeader';
+import { api } from '../../api';
 import { PortalMenu } from '../../navigation/PortalMenu';
 import { IconTile, ShellWordmark } from '../../components/ui/Atelier';
-import { WIZARD_STEPS } from '../orders/wizard';
-import { formatDateTime as fmtDateTime } from '../../services/format';
+import { WIZARD_STEPS } from './wizard';
+import { formatDateTime as fmtDateTime } from '../../utils/format';
 import BoutiqueProductionDialog from '../production/BoutiqueProduction';
 import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import { PageTopBar } from '../../components/ui/Breadcrumbs';
+import { userIsOwner } from '../../constants/roles';
 
 /**
  * Before the wizard: what kind of order this is (stitching, an alteration, or
@@ -99,7 +100,7 @@ export default function OrderTypeSelector({ crumbs, wizard, accountBar, fetchNot
               <span className="wz-service-title">{t('entry.serviceAlteration', 'Alteration')}</span>
               <span className="wz-service-desc">{t('entry.serviceAlterationDesc', 'Fix or adjust a garment \u2014 one we made, or one stitched elsewhere.')}</span>
             </button>
-            {(!currentUser?.role || currentUser.role === 'Owner') && (
+            {userIsOwner(currentUser) && (
               <button type="button" className="wz-service" onClick={() => setStartingBoutiqueRun(true)}>
                 <IconTile icon={Factory} tone="violet" size={48} iconSize={22} />
                 <span className="wz-service-title">{t('entry.serviceInHouse', 'In-house')}</span>

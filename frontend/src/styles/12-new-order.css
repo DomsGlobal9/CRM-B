@@ -1,0 +1,591 @@
+/* ---- New order redesign (MOM, 2026-10-24) ------------------------------ */
+
+/* Three doors: Stitching, Alteration, In-house. */
+.wz-services--three { max-width: calc(var(--page-form-width) - 20px); margin-inline: auto; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.wz-services--three .wz-service { min-height: 190px; }
+/* In the page's flex column the auto side margins shrink-wrap the grid to one
+   row of cards; a full width (still capped at 980px) lets them wrap. Three
+   across, or one under the other -- never two and a lone third. */
+.wz-services--three { width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 720px) {
+  .wz-services--three { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 16px; }
+  .wz-services--three .wz-service { min-height: 0; }
+}
+/* A phone: each door is a row -- the icon beside its title and description. */
+@media (max-width: 560px) {
+  .wz-services--three .wz-service { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 4px; align-items: start; padding: 16px; }
+  .wz-services--three .wz-service > :first-child { grid-row: span 2; }
+  .wz-services--three .wz-service-title { font-size: 18px; }
+  .wz-services--three .wz-service-desc { font-size: 13px; }
+}
+
+/* Steps with no right column read better at a comfortable line length. */
+.wizard-outer-wrapper .main-content.wz-main--narrow { max-width: 980px !important; }
+
+/* Customer step: name and number side by side. */
+.wz-who-grid { gap: 16px; }
+.wz-who-grid .form-group { margin-bottom: 0; }
+
+/* Alteration: whose garment is it -- two cards side by side, the chosen one
+   lime with a tick, the other plainly a second option to click. */
+.wz-whose-field { display: flex; flex-direction: column; gap: 8px; }
+.wz-whose-field .form-label { margin: 0; }
+.wz-whose { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.wz-whose-opt { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 14px 16px; border: 1.5px solid var(--border-color); border-radius: var(--radius-md, 12px); background: var(--surface-color); font: inherit; text-align: left; color: var(--text-primary); cursor: pointer; transition: border-color .15s ease, background .15s ease, box-shadow .15s ease; }
+.wz-whose-opt:hover:not(.wz-whose-opt--on), .wz-whose-opt:focus-visible { border-color: var(--primary-color); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 22%, transparent); outline: none; }
+.wz-whose-opt--on { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 14%, var(--surface-color)); cursor: default; }
+.wz-whose-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-2, #f1efe9); color: var(--text-secondary); }
+.wz-whose-opt--on .wz-whose-icon { background: var(--primary-color); color: var(--primary-foreground, #1a1a1a); }
+.wz-whose-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.wz-whose-title { font-size: 15px; font-weight: 600; }
+.wz-whose-sub { font-size: 12.5px; line-height: 1.35; color: var(--text-secondary); }
+.wz-whose-mark { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--border-strong, var(--border-color)); }
+.wz-whose-opt--on .wz-whose-mark { border-color: var(--primary-color); background: var(--primary-color); color: var(--primary-foreground, #1a1a1a); }
+/* Phones: still side by side, the titles and icons alone, so the choice costs
+   one short row rather than two tall cards. */
+@media (max-width: 640px) {
+  .wz-whose { gap: 8px; }
+  .wz-whose-opt { gap: 8px; padding: 10px; }
+  .wz-whose-icon { width: 32px; height: 32px; border-radius: 8px; }
+  .wz-whose-icon svg { width: 17px; height: 17px; }
+  .wz-whose-title { font-size: 13.5px; line-height: 1.25; }
+  .wz-whose-sub, .wz-whose-mark { display: none; }
+}
+/* Outside garment steps: the request and adjustments side by side, the
+   charge, paid-now and notes in a row of three, and the photo once chosen. */
+.wz-who-row--even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.wz-who-row--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.wz-out-photo { display: flex; align-items: center; gap: 14px; }
+.wz-out-photo img { width: 84px; height: 104px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-color); flex-shrink: 0; }
+.wz-out-photo-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; }
+.wz-out-photo-name { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .wz-who-row--even, .wz-who-row--three { grid-template-columns: minmax(0, 1fr); }
+}
+.wizard-outer-wrapper .main-content.full-width:has(.wz-who-wrap) .at-drop--compact { min-height: 0; }
+/* The customer step keeps no room at the bottom for a bottom nav: in the
+   wizard the Back/Next bar follows in the flow, so that room only scrolled. */
+.wizard-outer-wrapper .main-content.full-width:has(.wz-who-wrap) { padding-bottom: 16px !important; }
+/* Short laptop screens: less air around the customer step so it fits. */
+@media (min-width: 641px) and (max-height: 820px) {
+  .wizard-header-container { padding-top: 10px !important; padding-bottom: 10px !important; }
+  .wizard-header-container > div:first-child { margin-bottom: 6px !important; }
+  .wizard-outer-wrapper ~ .footer-actions-bar { padding-top: 14px; padding-bottom: 14px; }
+  .wizard-outer-wrapper .main-content.full-width { padding-top: 20px !important; padding-bottom: 20px !important; }
+  .wz-who-wrap { gap: 12px; }
+  .wz-who-wrap h1.page-title { font-size: 30px; }
+  .wz-card.wz-who { gap: 14px; padding: 20px 24px; }
+  .wz-whose-opt { padding: 10px 14px; }
+}
+
+/* Alteration: whose garment is it (older segmented style, kept for any other use). */
+.wz-seg { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 18px; border-radius: 999px; background: var(--surface-inset, #f1efe9); border: 1px solid var(--border-color); }
+.wz-seg-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; padding: 8px 16px; border: 0; border-radius: 999px; background: transparent; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+.wz-seg-btn:hover { color: var(--text-primary); }
+.wz-seg-btn--on { background: var(--surface-color); color: var(--text-primary); box-shadow: var(--shadow-card, 0 1px 3px rgba(0,0,0,.08)); cursor: default; }
+
+/* Garment picker: tick several, add once. */
+.dd-picker { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px 18px; margin-bottom: 20px; }
+.dd-picker--compact { border: 0; padding: 0; margin: 0; background: transparent; }
+.dd-picker-head { margin-bottom: 12px; }
+.dd-picker-title { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 700; font-size: 14.5px; color: var(--text-primary); }
+.dd-picker-sub { font-size: 12.5px; color: var(--text-secondary); margin-top: 4px; }
+.dd-picker-search { margin-bottom: 12px; max-width: 320px; }
+.dd-picker-search .form-control { padding-left: 34px; }
+.dd-picker-search .input-icon-left { left: 11px; color: var(--text-secondary); }
+.dd-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+.dd-chip { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 10px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-color); font: inherit; font-size: 13px; color: var(--text-primary); text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.dd-chip:hover:not(:disabled) { border-color: var(--primary-color); }
+.dd-chip:disabled { cursor: default; }
+.dd-chip--on { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 14%, var(--surface-color)); color: var(--text-primary); font-weight: 600; }
+.dd-chip--on .dd-chip-name { color: var(--text-primary); }
+.dd-chip:disabled.dd-chip--on { opacity: .65; }
+.dd-chip-box { flex-shrink: 0; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--border-color); display: inline-flex; align-items: center; justify-content: center; color: var(--primary-foreground, #fff); }
+.dd-chip--on .dd-chip-box { background: var(--primary-color); border-color: var(--primary-color); color: var(--primary-foreground, #fff); }
+.dd-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-picker-foot { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+.dd-picker-error { font-size: 12.5px; color: var(--danger-color); margin-top: 8px; display: flex; align-items: center; gap: 10px; }
+
+/* Measurements: a dense grid of inch boxes, notes across the full width. */
+.tf-measure-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px 16px; }
+.tf-measure-grid .form-group { margin-bottom: 0; }
+.tf-measure-grid .form-label { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tf-measure-grid .tf-span-all { grid-column: 1 / -1; }
+.tf-unit-input { position: relative; }
+.tf-unit-input .form-control { padding-right: 34px; font-variant-numeric: tabular-nums; }
+.tf-unit { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--text-secondary); pointer-events: none; }
+/* "Split into parts" (features/orders/StageParts.jsx). */
+.sp { display: flex; flex-direction: column; gap: 10px; margin: 0 0 14px; padding: 14px; border: 1px solid var(--border-color);
+  border-radius: 14px; background: var(--surface-2, var(--surface-color)); }
+.sp--closed { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 10px 14px; }
+.sp-head { display: flex; flex-direction: column; gap: 2px; }
+.sp-title { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.sp-sub { font-size: 12.5px; color: var(--text-secondary); }
+.sp-open { display: inline-flex; align-items: center; gap: 6px; }
+.sp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sp-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: 1px dashed var(--border-color); border-radius: 999px;
+  background: var(--surface-color); font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+.sp-chip:disabled { opacity: .5; cursor: default; }
+.sp-rows { display: flex; flex-direction: column; gap: 8px; }
+.sp-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 36px; gap: 8px; align-items: center; }
+.sp-row .form-control, .sp-item-select { min-height: 38px; height: 38px; font-size: 14px; }
+.sp-remove { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 38px; border: 1px solid var(--border-color);
+  border-radius: 10px; background: var(--surface-color); color: var(--text-secondary); cursor: pointer; }
+.sp-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.sp-actions-end { display: inline-flex; gap: 8px; margin-left: auto; }
+.sp-list { display: flex; flex-direction: column; gap: 8px; }
+.sp-item { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 8px 10px; border-radius: 10px; background: var(--surface-color); }
+.sp-item-name { font-weight: 700; font-size: 14px; min-width: 70px; }
+.sp-item-who { font-size: 13.5px; color: var(--text-secondary); }
+.sp-item .sp-item-select { width: auto; flex: 0 1 220px; min-width: 150px; max-width: 100%; }
+.sp-item-note { flex-basis: 100%; font-size: 12.5px; color: var(--danger-color, #b42318); }
+.sp-thumbs { display: inline-flex; gap: 4px; }
+.sp-thumbs img { width: 34px; height: 34px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-color); }
+.sp-back { margin-left: auto; padding: 4px 10px; border: 1px solid var(--border-color); border-radius: 999px; background: transparent;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--danger-color, #b42318); cursor: pointer; }
+.sp-back-box { flex-basis: 100%; display: flex; flex-direction: column; gap: 6px; }
+.sp-note { font-size: 12.5px; color: var(--text-secondary); }
+.sp-error { font-size: 13px; color: var(--danger-color, #b42318); }
+@media (max-width: 520px) {
+  .sp-row { grid-template-columns: minmax(0, 1fr) 36px; }
+  .sp-row select { grid-column: 1 / 2; }
+  .sp-row .form-control { font-size: 16px; }
+  .sp-item .sp-item-select { flex: 1 1 100%; min-width: 0; }
+}
+/* "+ Add" beside Work On (TemplateForm.jsx AddChoice). */
+.tf-add-choice { display: inline-flex; align-items: center; padding: 3px 12px; border: 1px dashed var(--border-color); border-radius: 999px;
+  background: transparent; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--text-primary); cursor: pointer; }
+.tf-add-choice:hover { border-color: var(--accent-border, var(--text-secondary)); background: var(--surface-2, transparent); }
+.tf-add-choice-box { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.tf-add-choice-box .form-control { width: 170px; min-height: 34px; height: 34px; padding: 4px 10px; font-size: 13.5px; }
+.tf-add-choice-go { min-height: 34px; padding: 0 14px; }
+.tf-add-choice-cancel { width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; font-size: 18px; line-height: 1;
+  color: var(--text-secondary); cursor: pointer; }
+.tf-add-choice-error { flex-basis: 100%; font-size: 12px; color: var(--danger-color, #b42318); }
+@media (max-width: 520px) { .tf-add-choice-box .form-control { width: 100%; font-size: 16px; } .tf-add-choice-box { width: 100%; } }
+/* "Add other measurement" (features/catalog/ExtraMeasurements.jsx): rows
+   sized like the measurement boxes above them, filed as chips after Done. */
+.xm { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 16px; width: 100%; }
+.xm-filed { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.xm-chip { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 40px; padding: 4px 6px 4px 14px;
+  border: 1px solid var(--border-color); border-radius: 999px; background: var(--surface-2, var(--surface-color)); font-size: 14px; }
+.xm-chip-name { font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.xm-chip-value { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.xm-chip-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; flex-shrink: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.xm-chip-btn:hover { background: var(--surface-color); color: var(--text-primary); }
+.xm-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.xm-row { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 150px) auto; gap: 10px 14px; align-items: end; justify-content: start; }
+.xm-row .form-group { margin-bottom: 0; min-width: 0; }
+.xm-row .form-label { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xm-row .form-control { min-height: 40px; height: 40px; font-size: 14px; }
+.xm-row .xm-name .form-control { padding: 6px 12px; }
+.xm-row .xm-value .form-control { padding: 6px 34px 6px 12px; }
+.xm-actions { display: flex; align-items: center; gap: 8px; }
+.xm-done { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; white-space: nowrap; }
+.xm-remove { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: 1px solid var(--border-color);
+  border-radius: var(--radius-md, 10px); background: var(--surface-color); color: var(--text-secondary); cursor: pointer; }
+.xm-remove:hover { color: var(--danger-color, #b42318); border-color: currentColor; }
+.xm-error { font-size: 13px; color: var(--danger-color, #b42318); }
+.xm-add { display: inline-flex; align-items: center; gap: 8px; }
+@media (max-width: 520px) {
+  .xm-row { grid-template-columns: minmax(0, 1fr) auto; width: 100%; }
+  .xm-row .xm-name { grid-column: 1 / -1; }
+  .xm-row .form-control { font-size: 16px; } /* 16px stops iOS zooming into the box */
+  .xm-add { width: 100%; justify-content: center; }
+}
+.wz-measure-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border-color); }
+.wz-measure-title { font-family: var(--font-serif); font-size: 18px; font-weight: 600; color: var(--text-primary); }
+.wz-measure-loaded { font-size: 12px; color: #047857; background: #ecfdf5; padding: 3px 10px; border-radius: 999px; border: 1px solid #a7f3d0; font-weight: 500; white-space: nowrap; }
+@media (max-width: 640px) {
+  .tf-measure-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .dd-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wz-seg { display: flex; }
+  .wz-seg-btn { flex: 1; justify-content: center; padding: 8px 8px; font-size: 12.5px; }
+  .wz-measure-head { flex-wrap: wrap; }
+}
+
+/* Measurements step: compact boxes, and a layout that fits any screen. The
+   inch boxes are a size smaller; the notes start two lines tall (still
+   resizable); the tailor's voice recorder sits in a strip under its text
+   rather than squeezing it from the side. */
+.wz-measure-card .tf-measure-grid .form-control:not(textarea) { min-height: 40px; height: 40px; padding: 6px 34px 6px 12px; font-size: 14px; }
+.wz-measure-card textarea.form-control { min-height: 64px; height: 64px; padding: 10px 12px; font-size: 14px; }
+.wz-measure-notes .at-field-control { flex-wrap: wrap; min-height: 0; }
+/* The two note boxes stop at a readable width on a wide screen; narrower
+   screens are under the cap, so there they still fill the card. */
+.wz-measure-card textarea.form-control,
+.wz-measure-notes .at-field-control { width: 100%; max-width: 720px; }
+/* The cards follow the boxes: as wide as a 720px box and its padding, so a
+   wide screen has no empty band beside the notes. Below that width they
+   fill the page as before. */
+.wz-measure-card.content-card, .wz-measure-notes.content-card { width: 100%; max-width: 784px; box-sizing: border-box; }
+/* Centred on the page, and the step's title rides in the same column so it
+   lines up with the cards (only the title directly above a measure card). */
+.wz-measure-card.content-card, .wz-measure-notes.content-card,
+.page-title-group:has(+ .wz-measure-card) { margin-left: auto; margin-right: auto; }
+.page-title-group:has(+ .wz-measure-card) { width: 100%; max-width: 784px; box-sizing: border-box; }
+
+/* ==========================================================================
+   Order Wizard: Review Step Tight, Compact & Balanced Layout
+   (Tablet, Laptop, Desktop, Big Screen)
+   ========================================================================== */
+
+.wz-review-layout {
+  width: 100%;
+  max-width: 1140px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-sizing: border-box;
+}
+
+.wz-review-layout .page-title-group {
+  margin-bottom: 2px;
+  max-width: 100%;
+}
+.wz-review-layout h1.page-title {
+  font-size: 28px;
+  margin-bottom: 4px;
+}
+.wz-review-layout .page-subtitle {
+  font-size: 13.5px;
+}
+
+/* 2-Column Balanced Symmetrical Grid on Laptop, Desktop, Big Screen */
+.wz-review-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.wz-review-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Garments card in left column: sized naturally by its managed texts and tiles, zero bottom void */
+.wz-review-col--main .wz-review-card--main {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+}
+
+.wz-review-col--main .wz-review-card--main .garment-card {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+}
+
+.wz-review-card--last {
+  flex-shrink: 0 !important;
+}
+
+/* Card Styling: Elegant, clean, zero unwanted margins */
+.wz-review-layout .wz-review-card {
+  margin: 0 !important;
+  padding: 16px 18px !important;
+  gap: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  border-radius: 12px !important;
+}
+
+/* Garment Tile Grid: Managed text and tiles with balanced padding, legible labels, no bottom space */
+.wz-review-card .garment-card {
+  padding: 14px 16px !important;
+  gap: 14px !important;
+  border-radius: 10px !important;
+  box-sizing: border-box !important;
+}
+.wz-review-card .garment-card-head {
+  padding-bottom: 8px !important;
+  flex-wrap: wrap;
+  row-gap: 6px;
+  align-items: center;
+}
+.wz-review-card .garment-card-name {
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wz-review-card .garment-section {
+  gap: 8px !important;
+}
+.wz-review-card .garment-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px !important;
+  font-weight: 700;
+  letter-spacing: .07em;
+  margin-bottom: 2px !important;
+  color: var(--accent-text, #96642d);
+}
+.wz-review-card .garment-section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+.wz-review-card .garment-section-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px 10px !important;
+  align-items: stretch;
+}
+.wz-review-card .garment-detail {
+  padding: 9px 12px !important;
+  gap: 3px !important;
+  background: var(--surface-inset, #f7f7f5);
+  border: 1px solid var(--border-color);
+  border-radius: 7px !important;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 0 !important;
+  box-sizing: border-box;
+}
+.wz-review-card .garment-detail-label {
+  font-size: 10.5px !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted, var(--text-secondary));
+  line-height: 1.25 !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  word-break: break-word;
+}
+.wz-review-card .garment-detail-value {
+  font-size: 13.5px !important;
+  line-height: 1.3 !important;
+  font-weight: 600 !important;
+  color: var(--text-primary);
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
+.wz-review-card--main > .ui-badge {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 10px !important;
+  margin-bottom: 10px !important;
+  border-radius: var(--radius-md, 8px);
+  font-size: var(--text-xs, 12px);
+  font-weight: 500;
+  text-align: left;
+}
+
+/* Customer Card inside Right Column: Neat and compact */
+.wz-review-card--customer {
+  flex-shrink: 0 !important;
+}
+
+/* "See it on a model" inside Right Column: Compact, elegant preview studio */
+.wz-review-layout .wz-review-preview {
+  margin: 0 !important;
+  width: 100% !important;
+}
+
+.wz-review-layout .wz-review-preview .sidebar-card {
+  position: static !important;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 16px !important;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.wz-review-layout .wz-review-preview fieldset {
+  padding: 8px 10px !important;
+  margin: 0 0 10px !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+}
+
+.wz-review-layout .wz-review-preview img {
+  max-height: 260px;
+  object-fit: cover;
+}
+
+/* Desktop Screens (1367px - 1799px) */
+@media (min-width: 1367px) {
+  .wz-review-layout {
+    max-width: 1240px;
+    gap: 16px;
+  }
+  .wz-review-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+  }
+  .wz-review-col {
+    gap: 16px;
+  }
+}
+
+/* Big Screen (>= 1800px) */
+@media (min-width: 1800px) {
+  .wz-review-layout {
+    max-width: 1360px;
+    gap: 18px;
+  }
+  .wz-review-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px;
+  }
+  .wz-review-col {
+    gap: 18px;
+  }
+}
+
+/* Tablet & Mobile Screens (<= 1024px) */
+@media (max-width: 1024px) {
+  .wz-review-layout {
+    max-width: 800px;
+    gap: 12px;
+  }
+  .wz-review-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .wz-review-col {
+    display: contents;
+  }
+  .wz-review-card--customer {
+    order: 1;
+  }
+  .wz-review-card--main {
+    order: 2;
+  }
+  .wz-review-card--photos {
+    order: 3;
+  }
+  .wz-review-preview {
+    order: 4;
+  }
+  .wz-review-card--last {
+    order: 5;
+  }
+  .wz-review-extra {
+    order: 6;
+  }
+}
+
+/* Money Step */
+.wz-money-card.content-card,
+.page-title-group:has(~ .wz-money-card),
+.wz-error:has(~ .wz-money-card) {
+  width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; box-sizing: border-box;
+}
+.wz-money-card.content-card { padding: 24px 28px; gap: 16px; }
+.wz-money-card .wz-money { max-width: none; }
+.wz-money-card .form-control:not(textarea) { min-height: 40px; height: 40px; }
+@media (max-width: 900px) {
+  .wz-money-card.content-card { padding: 20px; }
+}
+@media (max-width: 640px) {
+  .wz-money-card.content-card { padding: 16px; gap: 14px; }
+  .wz-money-card .wz-money-row { gap: 10px; }
+  .wz-money-card .wz-money-label { min-width: 0; overflow-wrap: anywhere; }
+  .wz-money-card .wz-money-input { flex-shrink: 0; }
+  .wz-money-card .wz-money-input .form-control { width: 116px; font-size: 16px; } /* 16px: no iOS zoom */
+  .wz-money-card .form-group { max-width: none !important; }
+  .wz-money-card #wz-ready { font-size: 16px; }
+}
+@media (max-width: 640px) {
+  .wz-review-card.content-card { padding: 14px !important; }
+  .wz-review-card .garment-card { padding: 12px; }
+  .wz-review-card .garment-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+}
+/* Tiles: two across on a phone, closer together; one across on the
+   narrowest screens, so no value is squeezed to a word per line. */
+@media (max-width: 640px) {
+  .wz-review-card .garment-section-grid { gap: 8px; }
+  .wz-review-card .garment-detail { padding: 8px 10px; }
+  .wz-review-card .garment-card-name { font-size: var(--text-md, 16px); }
+}
+@media (max-width: 360px) {
+  .wz-review-card .garment-section-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.wz-measure-notes .at-field-control > .voice-textarea { flex: 1 1 100%; }
+.wz-measure-notes .at-field-control > .voice-textarea > textarea { min-height: 64px; height: 64px; padding: 10px 12px; font-size: 14px; }
+.wz-measure-notes .at-field-control > .voice-recorder {
+  flex: 1 1 100%; margin-top: 0 !important; padding: 8px 10px;
+  border-top: 1px solid var(--border-color); background: var(--surface-2);
+}
+@media (max-width: 900px) {
+  .wz-measure-card.content-card, .wz-measure-notes.content-card { padding: 20px; gap: 16px; }
+}
+@media (max-width: 640px) {
+  .wz-measure-card.content-card, .wz-measure-notes.content-card { padding: 16px; gap: 14px; }
+  .wz-measure-head { gap: 10px; margin-bottom: 12px; padding-bottom: 12px; }
+  .wz-measure-head .wz-measure-loaded { order: 3; flex-basis: 100%; white-space: normal; border-radius: var(--radius-md); }
+  .wz-measure-card .tf-measure-grid .form-control:not(textarea) { font-size: 16px; } /* 16px stops iOS zooming into the box */
+  .wz-measure-card textarea.form-control,
+  .wz-measure-notes .at-field-control > .voice-textarea > textarea { font-size: 16px; }
+}
+
+/* Customers page: summary, sort and filters toolbar */
+.cf-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; width: 100%; }
+.cf-top-leading { display: flex; align-items: center; flex: 0 1 auto; }
+.cf-showing { display: inline-flex; align-items: center; font-size: 13.5px; font-weight: 500; color: var(--text-secondary); text-align: left; margin: 0; }
+.cf-top-end { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.cf-inline { display: inline-flex; align-items: center; gap: 8px; margin: 0; }
+.cf-inline .cf-select { width: auto !important; min-width: 160px; }
+
+/* Expanded filters grid */
+.cf-filters-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 1120px) {
+  .cf-filters-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .cf-filters-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (max-width: 640px) {
+  .cf-top { gap: 10px; }
+  .cf-top-leading { width: 100%; }
+  .cf-top-end { margin-left: 0; width: 100%; justify-content: flex-start; }
+  .cf-inline { flex: 1 1 auto; }
+  .cf-inline .cf-select { flex: 1; min-width: 130px; }
+}
+
+@media (max-width: 480px) {
+  .cf-filters-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+/* An order begun from the customer's own page keeps their name and number. */
+#wz-name[readonly], #wz-mobile[readonly] { background: var(--surface-inset, #f3f1ec); color: var(--text-secondary); cursor: not-allowed; }

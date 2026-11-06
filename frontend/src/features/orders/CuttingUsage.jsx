@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { api } from '../../services/api';
+import { api } from '../../api';
 import Loader from '../../components/ui/Loader';
-import { LIMITS, cleanAmount } from '../../services/validate';
+import { LIMITS, cleanAmount } from '../../utils/validate';
 
 export function CuttingUsage({ orderId }) {
   const [plan, setPlan] = useState(null);

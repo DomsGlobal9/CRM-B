@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { isProductionStaff } from '../../constants/roles';
-import { api } from '../../services/api';
-import { WIZARD_DRAFT_KEY } from '../orders/wizard';
+import { isProductionStaff, userIsOwner } from '../../constants/roles';
+import { api } from '../../api';
+import { STAFF_SETUP_PREFIX, TENANT_ID_KEY, WIZARD_DRAFT_KEY } from '../../constants/storageKeys';
 
 /**
  * Signing in and out: the saved session checked when the page opens (and an
@@ -21,8 +21,8 @@ export default function useSession({ setView, setDashboardTab, setCurrentUser, c
 
   const setupKey = (user) => {
     let tenant = '';
-    try { tenant = localStorage.getItem('tenant_id') || ''; } catch { /* private mode */ }
-    return `scaleezy_staff_setup:${tenant}:${user?.id || user?.email || 'user'}`;
+    try { tenant = localStorage.getItem(TENANT_ID_KEY) || ''; } catch { /* private mode */ }
+    return `${STAFF_SETUP_PREFIX}:${tenant}:${user?.id || user?.email || 'user'}`;
   };
 
   const storeSetup = (user, step) => {
@@ -160,7 +160,7 @@ export default function useSession({ setView, setDashboardTab, setCurrentUser, c
       // A newly added staff member's first sign-in here: the skippable setup,
       // with the password they signed in with as the one being replaced.
       setStaffSetup(null);
-      if (res.first_sign_in && res.user?.role && res.user.role !== 'Owner') {
+      if (res.first_sign_in && !userIsOwner(res.user)) {
         setSetupCurrent(loginPassword);
         storeSetup(res.user, 'password');
         setStaffSetup('password');

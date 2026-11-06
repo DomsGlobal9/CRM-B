@@ -1,7 +1,7 @@
 /**
  * Tell the server this browser crashed.
  *
- * Deliberately not routed through services/api.js. That module retries, unpacks
+ * Deliberately not routed through api/index.js. That module retries, unpacks
  * DRF error shapes, and signs the user out on a confirmed 401 -- all correct for
  * a request the user is waiting on, and all wrong here. A crash reporter that
  * can log someone out because reporting failed is worse than no crash reporter.
@@ -11,6 +11,7 @@
  */
 
 import { BASE_URL } from '../api/config';
+import { TENANT_ID_KEY } from '../constants/storageKeys';
 
 /** Matches core.exceptions and crm_api.client_errors, which cap again server-side. */
 const LIMITS = { name: 200, message: 2000, stack: 4000, route: 300 };
@@ -40,7 +41,7 @@ export function reportCrash(error, info) {
     alreadySent.add(key);
 
     const headers = { 'Content-Type': 'application/json' };
-    const tenantId = localStorage.getItem('tenant_id');
+    const tenantId = localStorage.getItem(TENANT_ID_KEY);
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
 
     fetch(`${BASE_URL}/client-errors/`, {

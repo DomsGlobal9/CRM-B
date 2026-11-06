@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { api } from '../../services/api';
-import { getSection, isVisible, pruneHidden } from '../../services/templates';
+import { api } from '../../api';
+import { getSection, isVisible, pruneHidden } from './templates';
 import VoiceTextarea, { VoiceRecorder } from '../../components/ui/VoiceTextarea';
 import { voiceNoteList } from '../../components/ui/voiceNotes';
-import { cleanAmount } from '../../services/validate';
-import { OTHER_PREFIX, OTHER_MAX_LENGTH, MULTI_TYPED, isTypedOther, typedOtherText } from '../../services/templates';
+import { cleanAmount } from '../../utils/validate';
+import { OTHER_PREFIX, OTHER_MAX_LENGTH, MULTI_TYPED, isTypedOther, typedOtherText } from './templates';
 
 import { CameraButton } from '../../components/ui/Atelier';
 import { UNITS, purchaseError } from './materials';

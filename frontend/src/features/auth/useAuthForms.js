@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { api } from '../../services/api';
-import { emailError, mobileError, nameError } from '../../services/validate';
+import { api } from '../../api';
+import { emailError, mobileError, nameError } from '../../utils/validate';
+import { TENANT_ID_KEY, TOKEN_KEY } from '../../constants/storageKeys';
 
 /**
  * The sign-in screens' own state: what is typed into login, find your
@@ -100,8 +101,8 @@ export default function useAuthForms() {
     setAuthError(null);
     try {
       await api.confirmPasswordReset(resetToken, resetPassword);
-      localStorage.removeItem('token');
-      localStorage.removeItem('tenant_id');
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(TENANT_ID_KEY);
       setResetDone(true);
       setResetPassword('');
       setResetConfirm('');

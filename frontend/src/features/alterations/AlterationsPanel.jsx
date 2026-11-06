@@ -4,13 +4,14 @@ import {
   AlertTriangle, ArrowLeft, CheckCircle2, ClipboardList, History, IndianRupee,
   Package, RotateCw, Scissors, User, X,
 } from 'lucide-react';
-import { api } from '../../services/api';
-import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMoney } from '../../services/format';
+import { api } from '../../api';
+import { formatDate as fmtDate, formatDateTime as fmtDateTime, formatMoney } from '../../utils/format';
 import { formatAdjustments, parseAdjustments } from './adjustments';
 import AdjustmentsTable from './AdjustmentsTable';
 import VoiceTextarea from '../../components/ui/VoiceTextarea';
-import { LIMITS, cleanAmount, amountError } from '../../services/validate';
+import { LIMITS, cleanAmount, amountError } from '../../utils/validate';
 import Loader from '../../components/ui/Loader';
+import { DataTable } from '../../components/ui/DataTable';
 
 
 const STATUS_TONE = {
@@ -102,6 +103,8 @@ const panel = {
 };
 
 const money = (value) => formatMoney(Number(value || 0));
+
+const mutedCell = () => ({ style: { color: 'var(--text-muted)' } });
 
 
 function Pill({ status, label }) {
@@ -451,19 +454,17 @@ function AlterationDetail({ alterationId, currentUser, tailors, onBack, onChange
               <Stat label="Outstanding" value={money(outstanding)} tone={outstanding > 0 ? 'var(--danger-color)' : 'var(--success-text)'} />
             </div>
             {alteration.payments?.length ? (
-              <table style={{ width: '100%', fontSize: '12.5px', borderCollapse: 'collapse' }}>
-                <tbody>
-                  {alteration.payments.map((payment) => (
-                    <tr key={payment.id} style={{ borderTop: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '6px 0', fontWeight: 600 }}>{money(payment.amount)}</td>
-                      <td style={{ padding: '6px 0', color: 'var(--text-muted)' }}>{payment.payment_method_display}</td>
-                      <td style={{ padding: '6px 0', color: 'var(--text-muted)' }}>{payment.transaction_reference || '—'}</td>
-                      <td style={{ padding: '6px 0', color: 'var(--text-muted)' }}>{fmtDate(payment.received_at)}</td>
-                      <td style={{ padding: '6px 0', color: 'var(--text-muted)' }}>{payment.received_by_name}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <DataTable
+                lines
+                rows={alteration.payments}
+                columns={[
+                  { key: 'amount', cellProps: () => ({ style: { fontWeight: 600 } }), render: (payment) => money(payment.amount) },
+                  { key: 'method', cellProps: mutedCell, render: (payment) => payment.payment_method_display },
+                  { key: 'reference', cellProps: mutedCell, render: (payment) => payment.transaction_reference || '—' },
+                  { key: 'received', cellProps: mutedCell, render: (payment) => fmtDate(payment.received_at) },
+                  { key: 'by', cellProps: mutedCell, render: (payment) => payment.received_by_name },
+                ]}
+              />
             ) : <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No payments recorded.</div>}
           </Section>
         )}
@@ -907,46 +908,38 @@ export default function AlterationsPanel({ currentUser, initialAlterationId = nu
           </div>
         </div>
       ) : (
-        <div style={{ ...panel, overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', minWidth: '900px' }}>
-            <thead>
-              <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {['Alteration', 'Customer', 'Order', 'Garment', 'Type', 'Status', 'Tailor', 'Charge', 'Outstanding', 'Received'].map((heading) => (
-                  <th key={heading} style={{ padding: '12px 14px', fontWeight: 600 }}>{heading}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={() => setSelectedId(row.id)}
-                  style={{ borderTop: '1px solid var(--border-color)', cursor: 'pointer' }}
-                >
-                  <td style={{ padding: '12px 14px', fontWeight: 600 }}>{row.alteration_number}</td>
-                  <td style={{ padding: '12px 14px' }}>{row.customer?.name}</td>
-                  <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>
-                    {row.original_order?.order_id || (
-                      <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px',
-                                     color: '#986a26', background: 'rgba(152,106,38,0.12)' }}>Outside</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>{row.garment_name || row.garment_job?.template_name || row.garment_note || '—'}</td>
-                  <td style={{ padding: '12px 14px', color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? '#f59e0b' : '#10b981' }}>
-                    {row.alteration_type === 'PAID_CLIENT_REQUEST' ? 'Paid' : 'Free'}
-                  </td>
-                  <td style={{ padding: '12px 14px' }}><Pill status={row.status} label={row.status_display} /></td>
-                  <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>{row.assigned_to_name || '—'}</td>
-                  <td style={{ padding: '12px 14px' }}>{money(row.charge_amount)}</td>
-                  <td style={{ padding: '12px 14px', color: Number(row.outstanding_balance) > 0 ? 'var(--danger-color)' : 'var(--text-muted)' }}>
-                    {money(row.outstanding_balance)}
-                  </td>
-                  <td style={{ padding: '12px 14px', color: 'var(--text-muted)' }}>{fmtDate(row.received_at)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <DataTable
+          fit={false}
+          tableStyle={{ minWidth: '900px' }}
+          rows={rows}
+          onRowClick={(row) => setSelectedId(row.id)}
+          columns={[
+            { key: 'alteration', header: 'Alteration', cellProps: () => ({ style: { fontWeight: 600 } }), render: (row) => row.alteration_number },
+            { key: 'customer', header: 'Customer', render: (row) => row.customer?.name },
+            {
+              key: 'order', header: 'Order', cellProps: mutedCell,
+              render: (row) => row.original_order?.order_id || (
+                <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 8px', borderRadius: '999px',
+                               color: 'var(--warning-text)', background: 'var(--warning-bg)' }}>Outside</span>
+              ),
+            },
+            { key: 'garment', header: 'Garment', render: (row) => row.garment_name || row.garment_job?.template_name || row.garment_note || '—' },
+            {
+              key: 'type', header: 'Type',
+              cellProps: (row) => ({ style: { color: row.alteration_type === 'PAID_CLIENT_REQUEST' ? 'var(--warning-text)' : 'var(--success-text)' } }),
+              render: (row) => (row.alteration_type === 'PAID_CLIENT_REQUEST' ? 'Paid' : 'Free'),
+            },
+            { key: 'status', header: 'Status', render: (row) => <Pill status={row.status} label={row.status_display} /> },
+            { key: 'tailor', header: 'Tailor', cellProps: mutedCell, render: (row) => row.assigned_to_name || '—' },
+            { key: 'charge', header: 'Charge', numeric: true, render: (row) => money(row.charge_amount) },
+            {
+              key: 'outstanding', header: 'Outstanding', numeric: true,
+              cellProps: (row) => ({ style: { color: Number(row.outstanding_balance) > 0 ? 'var(--danger-color)' : 'var(--text-muted)' } }),
+              render: (row) => money(row.outstanding_balance),
+            },
+            { key: 'received', header: 'Received', cellProps: mutedCell, render: (row) => fmtDate(row.received_at) },
+          ]}
+        />
       )}
     </div>
   );

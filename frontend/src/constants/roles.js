@@ -1,4 +1,11 @@
 /**
+ * Is this the boutique's owner? An account with no role is the owner's own, so
+ * no role counts. Only for showing and hiding: the server enforces the real rule.
+ */
+export const roleIsOwner = (role) => !role || role === 'Owner';
+export const userIsOwner = (user) => roleIsOwner(user?.role);
+
+/**
  * The boutique's roles, in one place.
  *
  * Mirrors crm_api.models.Tailor.ROLE_CHOICES and core.modules.PRODUCTION_ROLES,

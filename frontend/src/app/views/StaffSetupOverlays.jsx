@@ -1,5 +1,5 @@
 import { SetupPasswordStep } from '../../features/staff/StaffFirstSetup';
-import ProductTour from '../../components/ui/ProductTour';
+import ProductTour from '../../features/tour/ProductTour';
 import { useAppState } from '../state/appState';
 
 /**

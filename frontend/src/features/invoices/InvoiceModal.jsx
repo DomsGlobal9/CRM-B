@@ -1,5 +1,5 @@
 import { Printer, RefreshCw, Send, X } from 'lucide-react';
-import { InvoiceRenderer, normalizeInvoiceData } from '../../components/invoice/InvoiceTemplates';
+import { InvoiceRenderer, normalizeInvoiceData } from './InvoiceTemplates';
 import { useApp } from '../../context/AppContext';
 
 /**

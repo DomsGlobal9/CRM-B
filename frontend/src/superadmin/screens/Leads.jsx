@@ -21,7 +21,7 @@ import { Check, Copy, KeyRound, Lock, Mail, UserPlus } from 'lucide-react';
 
 import { consoleApi } from '../api';
 import { go } from '../router';
-import { LIMITS } from '../../services/validate';
+import { LIMITS } from '../../utils/validate';
 import {
   Async, Empty, Modal, Note, PageHeader, Pill, Select, day, moment, useApi, useToast,
 } from '../ui';

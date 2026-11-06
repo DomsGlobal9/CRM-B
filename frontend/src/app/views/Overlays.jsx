@@ -2,12 +2,12 @@ import { Suspense, lazy } from 'react';
 import InvoiceModal from '../../features/invoices/InvoiceModal';
 import NotificationsDrawer from '../../features/notifications/NotificationsDrawer';
 import StageReviewModal from '../../features/orders/StageReviewModal';
-import { NetworkActivityBar } from '../../components/ui/NetworkActivityBar';
+import { NetworkActivityBar } from './NetworkActivityBar';
 import ReversalPrompt from '../../features/orders/ReversalPrompt';
-import GarmentPairingModal from '../../components/ui/GarmentPairingModal';
+import GarmentPairingModal from '../../features/orderWizard/GarmentPairingModal';
 import { useAppState } from '../state/appState';
 
-const ReviewLightbox = lazy(() => import('../../features/designStudio/GarmentPartPicker').then(m => ({ default: m.Lightbox })));
+const ReviewLightbox = lazy(() => import('../../components/ui/Lightbox').then(m => ({ default: m.Lightbox })));
 
 /**
  * Above every screen: the invoice, the bell's alerts, a stage under review and

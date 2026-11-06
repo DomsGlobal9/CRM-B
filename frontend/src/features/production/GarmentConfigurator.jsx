@@ -13,7 +13,7 @@ import { Layers, Package, PenTool, Ruler, Shirt } from 'lucide-react';
 import Loader from '../../components/ui/Loader';
 import TemplateForm from '../catalog/TemplateForm';
 import GarmentPurchases from '../catalog/GarmentPurchases';
-import { getSection } from '../../services/templates';
+import { getSection } from '../catalog/templates';
 import { useFabricTaxonomy } from '../fabrics/taxonomy';
 
 const GarmentPartPicker = lazy(() => import('../designStudio/GarmentPartPicker'));
