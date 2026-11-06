@@ -10,6 +10,7 @@ import { useLanguage } from '../../i18n/LanguageContext.jsx';
 import { useApp } from '../../context/AppContext';
 import { PageTopBar } from '../../components/ui/Breadcrumbs';
 import { userIsOwner } from '../../constants/roles';
+import './orderDraftsPhone.css';
 
 /**
  * Before the wizard: what kind of order this is (stitching, an alteration, or
@@ -114,7 +115,7 @@ export default function OrderTypeSelector({ crumbs, wizard, accountBar, fetchNot
               away. Shows enough to tell two apart -- who it is for, what is
               on it, how far it got and when it was last touched. */}
           {resumableDrafts.length > 0 && (
-            <div className="content-card" style={{ marginTop: '24px' }}>
+            <div className="content-card drafts-card" style={{ marginTop: '24px' }}>
               <div style={{ fontWeight: 600, marginBottom: '4px' }}>
                 {resumableDrafts.length === 1
                   ? t('entry.orderInProgressOne', 'You have an order in progress')
@@ -128,26 +129,39 @@ export default function OrderTypeSelector({ crumbs, wizard, accountBar, fetchNot
                   const garments = (draft.payload?.garments || [])
                     .map(g => g.template_key).filter(Boolean);
                   return (
-                    <div key={draft.id} style={{ display: 'flex', alignItems: 'center', gap: '12px',
+                    <div key={draft.id} className="draft-row" style={{ display: 'flex', alignItems: 'center', gap: '12px',
                                                  flexWrap: 'wrap', borderTop: '1px solid var(--border-color)',
                                                  paddingTop: '10px' }}>
-                      <div style={{ flex: '1 1 260px' }}>
+                      <div className="draft-info" style={{ flex: '1 1 260px' }}>
                         <div style={{ fontWeight: 600 }}>
                           {draft.customer_name || (garments.length ? garments.join(', ') : t('entry.unnamedCustomer', 'Unnamed customer'))}
                         </div>
-                        <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
-                          {draft.customer_name
-                            ? (garments.length ? garments.join(', ') : t('wizard.noGarmentChosen', 'No garment yet'))
-                            : t('entry.customerNotYet', 'Customer not added yet')}
-                          {' · '}{(() => { const total = WIZARD_STEPS[draft.payload?.service === 'design' ? 'design' : 'stitch'].length; return t('entry.stepXofY', 'Step {step} of {total}', { step: Math.min(draft.current_step, total), total }); })()}
-                          {' · '}{t('entry.lastSaved', 'saved')} {fmtDateTime(draft.updated_at)}
+                        <div className="draft-meta" style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                          <span className="draft-meta-what">
+                            {draft.customer_name
+                              ? (garments.length ? garments.join(', ') : t('wizard.noGarmentChosen', 'No garment yet'))
+                              : t('entry.customerNotYet', 'Customer not added yet')}
+                          </span>
+                          <span className="draft-meta-sep">{' · '}</span>
+                          <span className="draft-meta-step">{(() => {
+                            const total = WIZARD_STEPS[draft.payload?.service === 'design' ? 'design' : 'stitch'].length;
+                            const step = Math.min(draft.current_step, total);
+                            return (
+                              <>
+                                {t('entry.stepXofY', 'Step {step} of {total}', { step, total })}
+                                <span className="draft-progress" aria-hidden="true" style={{ '--draft-done': `${(step / total) * 100}%` }} />
+                              </>
+                            );
+                          })()}</span>
+                          <span className="draft-meta-sep">{' · '}</span>
+                          <span className="draft-meta-saved">{t('entry.lastSaved', 'saved')} {fmtDateTime(draft.updated_at)}</span>
                         </div>
                       </div>
                       <button type="button" className="btn-primary" onClick={() => hydrateWizard(draft)}>
                         {t('entry.resume', 'Resume')}
                       </button>
                       {discardingDraftId === draft.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <div className="draft-confirm" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
                             {t('entry.discardConfirmDesc', 'Discard this order? Nothing has been booked, but everything entered on it will be lost.')}
                           </span>
